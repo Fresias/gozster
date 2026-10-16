@@ -149,6 +149,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         nombre: `[Clon] ${nombreBase}`,
         estado: "ACTIVO",
         comentarios: `Clonado optimísticamente el ${new Date().toLocaleDateString("es-AR")}. Basado en ${planBase?.id ?? "plantilla"}.`,
+        fecha_inicio: nowIso,
+        fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         created_at: nowIso,
         updated_at: nowIso,
       };
