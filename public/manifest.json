@@ -1,0 +1,10 @@
+{
+  "name": "GOZSter — Strength & Coaching",
+  "short_name": "GOZSter",
+  "description": "Plataforma web y mobile (PWA) Offline-First para gestión de entrenamientos y atletas de fuerza.",
+  "start_url": "/athlete",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait"
+}
