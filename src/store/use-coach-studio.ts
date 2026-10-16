@@ -17,6 +17,11 @@ import {
   type HistoricalLoadEntry,
 } from "@/services/coach-mock-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import {
+  calculateBlockVolume,
+  calculateBrzycki1RM,
+  calculateEpley1RM,
+} from "@/lib/strength-metrics";
 
 export type CoachStudioTab = "rutina_actual" | "historial_rutinas";
 
@@ -25,6 +30,47 @@ export interface ToastNotification {
   type: "success" | "info" | "warning";
   title: string;
   message: string;
+}
+
+export interface MetricasRetencion {
+  cantActivas: number;
+  cantSinPlanEntrenamiento: number;
+  cantClientesPerdidosMes: number;
+}
+
+export interface SobrecargaProgresivaResultado {
+  sesion_id: string;
+  fecha: string;
+  volumen_ejercicio_kg: number;
+  peso_max_kg: number;
+  hubo_sobrecarga: boolean;
+}
+
+export interface RecordHistoricoResultado {
+  ejercicio_id: string;
+  peso_max_kg: number;
+  mejor_1rm_epley: number;
+  mejor_1rm_brzycki: number;
+}
+
+export interface AlertaSobrecargaProgresiva {
+  id: string;
+  alumnoId: string;
+  alumnoNombre: string;
+  ejercicioId: string;
+  ejercicioNombre: string;
+  sesionId: string;
+  fecha: string;
+  pesoMaxKg: number;
+  pesoPrevioKg: number | null;
+  deltaPesoKg: number | null;
+  volumenEjercicioKg: number;
+  volumenPrevioKg: number | null;
+  deltaVolumenKg: number | null;
+  mejor1rmEpley: number;
+  mejor1rmBrzycki: number;
+  esNuevoRecord1RM: boolean;
+  tipo: "CARGA" | "VOLUMEN" | "RECORD_1RM" | "AMBOS";
 }
 
 interface CoachStudioState {
@@ -57,13 +103,30 @@ interface CoachStudioState {
     planId: string,
     diasExtra?: number,
   ) => Promise<PlanEntrenamiento | null>;
+  asignarPlanUrgente: (
+    alumnoId: string,
+    nombrePlan?: string,
+  ) => Promise<PlanEntrenamiento>;
 
-  // Getters
+  // Getters & RPCs
   getSelectedAlumno: () => Perfil | null;
   getPlanesAlumno: (alumnoId: string) => PlanEntrenamiento[];
   getPlanesAlumnoCronologico: (alumnoId: string) => PlanEntrenamiento[];
   getRutinaActivaAlumno: (alumnoId: string) => PlanEntrenamiento | null;
   getHistorialCargasAlumno: (alumnoId: string) => HistoricalLoadEntry[];
+
+  obtenerMetricasRetencion: (profesorId?: string | null) => MetricasRetencion;
+  detectarSobrecargaProgresiva: (
+    alumnoId: string,
+    ejercicioId: string,
+  ) => SobrecargaProgresivaResultado[];
+  obtenerRecordsHistoricos: (
+    alumnoId: string,
+    ejercicioId?: string | null,
+  ) => RecordHistoricoResultado[];
+  getAlertasSobrecargaProgresiva: (
+    profesorId?: string | null,
+  ) => AlertaSobrecargaProgresiva[];
 }
 
 export const useCoachStudioStore = create<CoachStudioState>()(
@@ -268,6 +331,331 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       });
 
       return planActualizado;
+    },
+
+    asignarPlanUrgente: async (alumnoId: string, nombrePlan?: string) => {
+      const nowIso = new Date().toISOString();
+      const planId = `plan-urgente-${Date.now()}`;
+      const alumno = get().alumnos.find((a) => a.id === alumnoId);
+      const nombreFinal =
+        nombrePlan ||
+        `Plan de Fuerza & Sobrecarga (${alumno?.nombre_completo.split(" ")[0] ?? "Atleta"})`;
+
+      const nuevoPlan: PlanEntrenamiento = {
+        id: planId,
+        profesor_id: MOCK_PROFESOR_ID,
+        alumno_id: alumnoId,
+        nombre: nombreFinal,
+        estado: "ACTIVO",
+        comentarios: "Plan asignado con urgencia desde el Dashboard de Retención.",
+        fecha_inicio: nowIso,
+        fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const diaId = `dia-urg-${Date.now()}-1`;
+      const nuevoDia: DiaRutina = {
+        id: diaId,
+        plan_id: planId,
+        nombre: "Día 1: Fuerza Básica & Sobrecarga",
+        orden: 1,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const ej1: EjercicioEnRutina = {
+        id: `er-urg-${Date.now()}-1`,
+        dia_id: diaId,
+        ejercicio_id: "e1111111-1111-4111-8111-111111111101", // Sentadilla Trasera
+        orden: 1,
+        series: 3,
+        repeticiones: "8",
+        descanso_segundos: 120,
+        rpe_objetivo: 7.5,
+        notas: "Iniciando con foco en sobrecarga progresiva.",
+        es_superserie: false,
+        grupo_superserie: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const ej2: EjercicioEnRutina = {
+        id: `er-urg-${Date.now()}-2`,
+        dia_id: diaId,
+        ejercicio_id: "e2222222-2222-4222-8222-222222222202", // Press Banca
+        orden: 2,
+        series: 3,
+        repeticiones: "8",
+        descanso_segundos: 120,
+        rpe_objetivo: 7.5,
+        notas: "Pausa en pecho.",
+        es_superserie: false,
+        grupo_superserie: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      set((state) => ({
+        planes: [nuevoPlan, ...state.planes],
+        dias: [...state.dias, nuevoDia],
+        ejerciciosEnRutina: [...state.ejerciciosEnRutina, ej1, ej2],
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: "¡Plan Asignado con Éxito!",
+          message: `Se asignó "${nuevoPlan.nombre}" a ${alumno?.nombre_completo ?? "alumno"}.`,
+        },
+      }));
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `rpc-asignar-plan-${Date.now()}`,
+        action: "RPC_ASIGNAR_PLAN_URGENTE",
+        payload: {
+          alumnoId,
+          planId: nuevoPlan.id,
+          nombre: nuevoPlan.nombre,
+        },
+      });
+
+      return nuevoPlan;
+    },
+
+    obtenerMetricasRetencion: (profesorId?: string | null) => {
+      const { alumnos, planes } = get();
+      const alumnosFiltrados = profesorId
+        ? alumnos.filter((a) => a.profesor_asignado_id === profesorId)
+        : alumnos;
+
+      // cantActivas: rol = 'ALUMNO' y estado_membresia IN ('ACTIVA', 'ACTIVE')
+      const activas = alumnosFiltrados.filter(
+        (a) =>
+          a.rol === "ALUMNO" &&
+          (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE"),
+      );
+
+      // cantSinPlanEntrenamiento: activas sin plan con estado = 'ACTIVO'
+      const sinPlan = activas.filter((a) => {
+        const planActivo = planes.find(
+          (p) => p.alumno_id === a.id && p.estado === "ACTIVO",
+        );
+        return !planActivo;
+      });
+
+      // cantClientesPerdidosMes: rol = 'ALUMNO', estado IN ('INACTIVA', 'BAJA', 'ARCHIVED')
+      // y fecha_baja >= inicio de mes actual (PostgreSQL date_trunc('month', now()))
+      const now = new Date();
+      const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+      const perdidosMes = alumnosFiltrados.filter((a) => {
+        if (a.rol !== "ALUMNO") return false;
+        const isBaja =
+          a.estado_membresia === "INACTIVA" ||
+          a.estado_membresia === "BAJA" ||
+          a.estado_membresia === "ARCHIVED";
+        if (!isBaja) return false;
+        if (!a.fecha_baja) return true;
+        const fechaBaja = new Date(a.fecha_baja);
+        return fechaBaja >= startOfMonth;
+      });
+
+      return {
+        cantActivas: activas.length,
+        cantSinPlanEntrenamiento: sinPlan.length,
+        cantClientesPerdidosMes: perdidosMes.length,
+      };
+    },
+
+    detectarSobrecargaProgresiva: (alumnoId: string, ejercicioId: string) => {
+      const { historialCargas } = get();
+      const alumnoHistorial = historialCargas[alumnoId] ?? [];
+
+      const metricasPorSesion: {
+        sesion_id: string;
+        fecha: string;
+        volumen_ejercicio_kg: number;
+        peso_max_kg: number;
+      }[] = [];
+
+      for (const entry of alumnoHistorial) {
+        const seriesValidas = entry.series.filter(
+          (s) =>
+            s.ejercicio_id === ejercicioId &&
+            s.completada &&
+            s.peso_kg > 0 &&
+            s.reps_hechas > 0,
+        );
+        if (seriesValidas.length > 0) {
+          const volumen = seriesValidas.reduce(
+            (sum, s) => sum + s.peso_kg * s.reps_hechas,
+            0,
+          );
+          const pesoMax = Math.max(...seriesValidas.map((s) => s.peso_kg));
+          metricasPorSesion.push({
+            sesion_id: entry.sesion.id,
+            fecha: entry.sesion.fecha,
+            volumen_ejercicio_kg: Math.round(volumen * 100) / 100,
+            peso_max_kg: Math.round(pesoMax * 100) / 100,
+          });
+        }
+      }
+
+      // Ordenar cronológicamente ascendente para calcular LAG
+      metricasPorSesion.sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+      );
+
+      const resultado: SobrecargaProgresivaResultado[] = [];
+
+      for (let i = 0; i < metricasPorSesion.length; i++) {
+        const actual = metricasPorSesion[i]!;
+        if (i === 0) {
+          resultado.push({
+            ...actual,
+            hubo_sobrecarga: false,
+          });
+        } else {
+          const previo = metricasPorSesion[i - 1]!;
+          const huboSobrecarga =
+            actual.peso_max_kg > previo.peso_max_kg ||
+            actual.volumen_ejercicio_kg > previo.volumen_ejercicio_kg;
+          resultado.push({
+            ...actual,
+            hubo_sobrecarga: huboSobrecarga,
+          });
+        }
+      }
+
+      // Devolver ordenado DESC por fecha como la RPC de Supabase
+      return resultado.sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+      );
+    },
+
+    obtenerRecordsHistoricos: (alumnoId: string, ejercicioId?: string | null) => {
+      const { historialCargas } = get();
+      const alumnoHistorial = historialCargas[alumnoId] ?? [];
+
+      const seriesPorEjercicio: Record<
+        string,
+        { peso_kg: number; reps_hechas: number }[]
+      > = {};
+
+      for (const entry of alumnoHistorial) {
+        for (const serie of entry.series) {
+          if (
+            serie.completada &&
+            serie.peso_kg > 0 &&
+            serie.reps_hechas > 0 &&
+            (!ejercicioId || serie.ejercicio_id === ejercicioId)
+          ) {
+            if (!seriesPorEjercicio[serie.ejercicio_id]) {
+              seriesPorEjercicio[serie.ejercicio_id] = [];
+            }
+            seriesPorEjercicio[serie.ejercicio_id]!.push({
+              peso_kg: serie.peso_kg,
+              reps_hechas: serie.reps_hechas,
+            });
+          }
+        }
+      }
+
+      const records: RecordHistoricoResultado[] = [];
+
+      for (const [ejId, series] of Object.entries(seriesPorEjercicio)) {
+        const pesoMax = Math.max(...series.map((s) => s.peso_kg));
+        const epleyVals = series.map((s) => calculateEpley1RM(s.peso_kg, s.reps_hechas));
+        const brzyckiVals = series.map((s) => calculateBrzycki1RM(s.peso_kg, s.reps_hechas));
+
+        records.push({
+          ejercicio_id: ejId,
+          peso_max_kg: Math.round(pesoMax * 100) / 100,
+          mejor_1rm_epley: Math.round(Math.max(...epleyVals) * 100) / 100,
+          mejor_1rm_brzycki: Math.round(Math.max(...brzyckiVals) * 100) / 100,
+        });
+      }
+
+      return records;
+    },
+
+    getAlertasSobrecargaProgresiva: (profesorId?: string | null) => {
+      const { alumnos, ejercicios } = get();
+      const alumnosFiltrados = profesorId
+        ? alumnos.filter((a) => a.profesor_asignado_id === profesorId)
+        : alumnos;
+
+      const alertas: AlertaSobrecargaProgresiva[] = [];
+
+      for (const alumno of alumnosFiltrados) {
+        for (const ejercicio of ejercicios) {
+          const sobrecargas = get().detectarSobrecargaProgresiva(alumno.id, ejercicio.id);
+          const records = get().obtenerRecordsHistoricos(alumno.id, ejercicio.id);
+          const recordEj = records.find((r) => r.ejercicio_id === ejercicio.id);
+
+          // Recorrer las sobrecargas cronológicas ascendente para hallar previos
+          const sobrecargasAsc = [...sobrecargas].sort(
+            (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+          );
+
+          for (let i = 0; i < sobrecargasAsc.length; i++) {
+            const actual = sobrecargasAsc[i]!;
+            if (!actual.hubo_sobrecarga) continue;
+
+            const previo = i > 0 ? sobrecargasAsc[i - 1]! : null;
+            const deltaPeso = previo ? Math.round((actual.peso_max_kg - previo.peso_max_kg) * 100) / 100 : null;
+            const deltaVolumen = previo ? Math.round((actual.volumen_ejercicio_kg - previo.volumen_ejercicio_kg) * 100) / 100 : null;
+
+            const esRecord = recordEj ? actual.peso_max_kg >= recordEj.peso_max_kg : false;
+
+            const sesionEntry = (get().historialCargas[alumno.id] ?? []).find(
+              (e) => e.sesion.id === actual.sesion_id,
+            );
+            const seriesEj = sesionEntry
+              ? sesionEntry.series.filter((s) => s.ejercicio_id === ejercicio.id && s.completada)
+              : [];
+            const epleyVals = seriesEj.map((s) => calculateEpley1RM(s.peso_kg, s.reps_hechas));
+            const brzyckiVals = seriesEj.map((s) => calculateBrzycki1RM(s.peso_kg, s.reps_hechas));
+
+            const mejor1rmEpley = epleyVals.length > 0 ? Math.round(Math.max(...epleyVals) * 100) / 100 : actual.peso_max_kg;
+            const mejor1rmBrzycki = brzyckiVals.length > 0 ? Math.round(Math.max(...brzyckiVals) * 100) / 100 : actual.peso_max_kg;
+
+            let tipo: "CARGA" | "VOLUMEN" | "RECORD_1RM" | "AMBOS" = "CARGA";
+            if (esRecord) {
+              tipo = "RECORD_1RM";
+            } else if ((deltaPeso ?? 0) > 0 && (deltaVolumen ?? 0) > 0) {
+              tipo = "AMBOS";
+            } else if ((deltaPeso ?? 0) > 0) {
+              tipo = "CARGA";
+            } else {
+              tipo = "VOLUMEN";
+            }
+
+            alertas.push({
+              id: `alerta-${alumno.id}-${ejercicio.id}-${actual.sesion_id}`,
+              alumnoId: alumno.id,
+              alumnoNombre: alumno.nombre_completo,
+              ejercicioId: ejercicio.id,
+              ejercicioNombre: ejercicio.nombre,
+              sesionId: actual.sesion_id,
+              fecha: actual.fecha,
+              pesoMaxKg: actual.peso_max_kg,
+              pesoPrevioKg: previo ? previo.peso_max_kg : null,
+              deltaPesoKg: deltaPeso,
+              volumenEjercicioKg: actual.volumen_ejercicio_kg,
+              volumenPrevioKg: previo ? previo.volumen_ejercicio_kg : null,
+              deltaVolumenKg: deltaVolumen,
+              mejor1rmEpley,
+              mejor1rmBrzycki,
+              esNuevoRecord1RM: esRecord,
+              tipo,
+            });
+          }
+        }
+      }
+
+      // Ordenar alertas más recientes primero (DESC)
+      return alertas.sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+      );
     },
   }),
 );
