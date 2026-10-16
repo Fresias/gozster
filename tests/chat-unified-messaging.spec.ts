@@ -308,6 +308,52 @@ describe('Suite de Pruebas: Mensajería Unificada Staff 1:N y RLS (Issue #17)', 
       expect(canInsertSpoofed).toBe(false);
     });
 
+    it('GIVEN un mensaje con contenido vacío o sólo espacios en blanco WHEN se intenta insertar THEN la validación y CHECK constraint lo rechazan', () => {
+      const emptyContent = canInsertMensaje({
+        currentUserId: alumnoLucasId,
+        currentUserRol: 'ALUMNO',
+        conversacion: conversacionLucas,
+        mensajeInsert: {
+          conversacion_id: conversacionLucas.id,
+          remitente_id: alumnoLucasId,
+          contenido: '   ',
+        },
+        athleteProfesorAsignadoId: coachPrincipalId,
+        coachesAsignados: multiCoachStaffLucas,
+      });
+      expect(emptyContent).toBe(false);
+
+      const nullContent = canInsertMensaje({
+        currentUserId: alumnoLucasId,
+        currentUserRol: 'ALUMNO',
+        conversacion: conversacionLucas,
+        mensajeInsert: {
+          conversacion_id: conversacionLucas.id,
+          remitente_id: alumnoLucasId,
+          contenido: '',
+        },
+        athleteProfesorAsignadoId: coachPrincipalId,
+        coachesAsignados: multiCoachStaffLucas,
+      });
+      expect(nullContent).toBe(false);
+    });
+
+    it('GIVEN un mensaje con conversacion_id inconsistente WHEN se intenta insertar THEN la validación rechaza la inserción', () => {
+      const mismatchedConv = canInsertMensaje({
+        currentUserId: alumnoLucasId,
+        currentUserRol: 'ALUMNO',
+        conversacion: conversacionLucas,
+        mensajeInsert: {
+          conversacion_id: conversacionPedro.id,
+          remitente_id: alumnoLucasId,
+          contenido: 'Mensaje con id cruzado',
+        },
+        athleteProfesorAsignadoId: coachPrincipalId,
+        coachesAsignados: multiCoachStaffLucas,
+      });
+      expect(mismatchedConv).toBe(false);
+    });
+
     it('GIVEN el Coach Principal y asistentes asignados (1:N) WHEN consultan el historial THEN ambos pueden leer todos los mensajes', () => {
       const mensaje: Mensaje = {
         id: 'msg-2',
@@ -489,6 +535,39 @@ describe('Suite de Pruebas: Mensajería Unificada Staff 1:N y RLS (Issue #17)', 
       expect(result.mensajesActualizados[0]?.leido).toBe(true);
       expect(result.mensajesActualizados[1]?.leido).toBe(true);
       expect(result.mensajesActualizados[2]?.leido).toBe(false); // Propio
+    });
+
+    it('retorna 0 actualizados si todos los mensajes ya están leídos o si solo existen mensajes propios', () => {
+      const result = simulateMarcarMensajesLeidos({
+        currentUserId: alumnoLucasId,
+        currentUserRol: 'ALUMNO',
+        conversacion: conversacionLucas,
+        mensajes: [
+          {
+            id: 'msg-already-read',
+            conversacion_id: conversacionLucas.id,
+            remitente_id: coachPrincipalId,
+            contenido: 'Mensaje previo',
+            leido: true,
+            created_at: '2026-10-16T12:00:00Z',
+            updated_at: '2026-10-16T12:00:00Z',
+          },
+          {
+            id: 'msg-own',
+            conversacion_id: conversacionLucas.id,
+            remitente_id: alumnoLucasId,
+            contenido: 'Mi propio mensaje no leído por otros',
+            leido: false,
+            created_at: '2026-10-16T12:01:00Z',
+            updated_at: '2026-10-16T12:01:00Z',
+          },
+        ],
+        athleteProfesorAsignadoId: coachPrincipalId,
+        coachesAsignados: multiCoachStaffLucas,
+      });
+
+      expect(result.countActualizados).toBe(0);
+      expect(result.mensajesActualizados[1]?.leido).toBe(false);
     });
 
     it('lanza excepción si un usuario no autorizado intenta marcar mensajes en una conversación ajena', () => {
