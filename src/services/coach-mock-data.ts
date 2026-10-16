@@ -1,14 +1,65 @@
 import type {
+  Conversacion,
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
+  EntrenadorAlumno,
+  Mensaje,
   Perfil,
   PlanEntrenamiento,
   RegistroSerie,
   RegistroSesion,
 } from "@/types/database.types";
 
-export const MOCK_PROFESOR_ID = "00000000-0000-4000-8000-000000000001";
+export const MOCK_COACH_PRINCIPAL_ID = "00000000-0000-4000-8000-000000000001";
+export const MOCK_COACH_FELIX_ID = "00000000-0000-4000-8000-000000000002";
+export const MOCK_PROFESOR_ID = MOCK_COACH_PRINCIPAL_ID;
+
+export const MOCK_STAFF_COACHES: Perfil[] = [
+  {
+    id: MOCK_COACH_PRINCIPAL_ID,
+    email: "coach.principal@gozster.com",
+    nombre_completo: "Coach Principal",
+    rol: "ENTRENADOR",
+    estado_membresia: "ACTIVE",
+    profesor_asignado_id: null,
+    fecha_baja: null,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-10-16T00:00:00Z",
+  },
+  {
+    id: MOCK_COACH_FELIX_ID,
+    email: "felix.coach@gozster.com",
+    nombre_completo: "Félix",
+    rol: "ENTRENADOR",
+    estado_membresia: "ACTIVE",
+    profesor_asignado_id: null,
+    fecha_baja: null,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-10-16T00:00:00Z",
+  },
+];
+
+export const MOCK_ENTRENADOR_ALUMNOS: EntrenadorAlumno[] = [
+  {
+    id: "ea-lucas-principal",
+    entrenador_id: MOCK_COACH_PRINCIPAL_ID,
+    alumno_id: "a1111111-1111-4111-8111-111111111101",
+    rol_entrenador: "COACH_PRINCIPAL",
+    es_principal: true,
+    created_at: "2026-01-10T12:00:00Z",
+    updated_at: "2026-10-15T15:30:00Z",
+  },
+  {
+    id: "ea-lucas-felix",
+    entrenador_id: MOCK_COACH_FELIX_ID,
+    alumno_id: "a1111111-1111-4111-8111-111111111101",
+    rol_entrenador: "COACH_ASISTENTE",
+    es_principal: false,
+    created_at: "2026-01-10T12:00:00Z",
+    updated_at: "2026-10-15T15:30:00Z",
+  },
+];
 
 export const MOCK_ALUMNOS: Perfil[] = [
   {

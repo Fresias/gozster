@@ -5,6 +5,7 @@ import { useAthleteStore } from "@/store/use-athlete-store";
 import { MembershipPaywall } from "@/components/athlete/membership-paywall";
 import { LiveWorkout } from "@/components/athlete/live-workout";
 import { RestTimer } from "@/components/athlete/rest-timer";
+import { AthleteChat } from "@/components/athlete/athlete-chat";
 
 export default function AthleteAppPage() {
   const { membershipStatus } = useAthleteStore();
@@ -19,6 +20,8 @@ export default function AthleteAppPage() {
           <RestTimer />
         </>
       )}
+      <AthleteChat />
     </>
   );
 }
+
