@@ -260,4 +260,87 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
       offlineQueue.setOnlineStatus(true);
     });
   });
+
+  describe("6. Auditoría QA: Casos límite y robustez ante fallas (Edge Cases)", () => {
+    it("rechaza envíos con strings vacíos o únicamente espacios en blanco", () => {
+      const chatStore = useChatStore.getState();
+      const lucasId = "a1111111-1111-4111-8111-111111111101";
+
+      expect(() => {
+        chatStore.sendMessage({
+          alumnoId: lucasId,
+          remitente: STAFF_COACH_FELIX,
+          contenido: "   ",
+        });
+      }).toThrowError("El mensaje no puede estar vacío");
+
+      expect(() => {
+        chatStore.sendMessage({
+          alumnoId: lucasId,
+          remitente: STAFF_COACH_PRINCIPAL,
+          contenido: "",
+        });
+      }).toThrowError("El mensaje no puede estar vacío");
+    });
+
+    it("maneja de forma segura alumnos desconocidos o IDs nuevos con fallback por defecto", () => {
+      const chatStore = useChatStore.getState();
+      const unknownId = "unknown-uuid-9999-999999999999";
+
+      const conv = chatStore.getConversation(unknownId);
+      expect(conv.alumno_id).toBe(unknownId);
+      expect(conv.alumno_nombre).toBe("Atleta");
+      expect(conv.mensajes).toEqual([]);
+
+      const customConv = chatStore.getConversation(
+        "custom-uuid-8888-888888888888",
+        "Atleta Invitado",
+      );
+      expect(customConv.alumno_nombre).toBe("Atleta Invitado");
+    });
+
+    it("gestiona múltiples ráfagas de mensajes offline preservando el orden cronológico y IDs únicos", () => {
+      const offlineQueue = useOfflineQueueStore.getState();
+      offlineQueue.setOnlineStatus(false);
+
+      const chatStore = useChatStore.getState();
+      const alumnoId = "a2222222-2222-4222-8222-222222222202";
+
+      const msg1 = chatStore.sendMessage({
+        alumnoId,
+        remitente: DEFAULT_ATHLETE_SENDER,
+        contenido: "Offline 1: serie terminada",
+      });
+      const msg2 = chatStore.sendMessage({
+        alumnoId,
+        remitente: DEFAULT_ATHLETE_SENDER,
+        contenido: "Offline 2: agregué 2.5kg",
+      });
+
+      expect(msg1.estado_envio).toBe("pendiente");
+      expect(msg2.estado_envio).toBe("pendiente");
+      expect(msg1.id).not.toBe(msg2.id);
+
+      const pending = useOfflineQueueStore.getState().pendingEvents;
+      expect(pending.length).toBe(2);
+      expect(pending[0]?.payload.contenido).toBe("Offline 1: serie terminada");
+      expect(pending[1]?.payload.contenido).toBe("Offline 2: agregué 2.5kg");
+
+      offlineQueue.setOnlineStatus(true);
+    });
+
+    it("resetea correctamente unreadCount al marcar conversación como leída", () => {
+      const chatStore = useChatStore.getState();
+      const sofiaId = "a2222222-2222-4222-8222-222222222202";
+
+      // Sofía tiene 1 mensaje no leído inicialmente en mock
+      expect(chatStore.conversations[sofiaId]?.unreadCount).toBe(1);
+
+      chatStore.markAsRead(sofiaId);
+
+      const updated = useChatStore.getState().conversations[sofiaId];
+      expect(updated?.unreadCount).toBe(0);
+      expect(updated?.mensajes.every((m) => m.leido)).toBe(true);
+    });
+  });
 });
