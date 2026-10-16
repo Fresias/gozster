@@ -34,7 +34,11 @@ export function calculateBrzycki1RM(peso: number, reps: number): number {
  * Cálculo de volumen total de un bloque:
  * Volumen = Series * Reps * Peso
  */
-export function calculateBlockVolume(series: number, reps: number, peso: number): number {
+export function calculateBlockVolume(
+  series: number,
+  reps: number,
+  peso: number,
+): number {
   if (
     !Number.isFinite(series) ||
     !Number.isFinite(reps) ||
@@ -49,12 +53,13 @@ export function calculateBlockVolume(series: number, reps: number, peso: number)
 }
 
 /**
- * Cálculo de tonelaje total:
+ * Cálculo de tonelaje total semanal / por sesión:
  * Tonelaje = Σ (Series * Reps * Peso)
  */
 export function calculateTotalTonnage(blocks: readonly VolumeBlock[]): number {
   return blocks.reduce(
-    (sum, block) => sum + calculateBlockVolume(block.series, block.reps, block.peso),
-    0
+    (sum, block) =>
+      sum + calculateBlockVolume(block.series, block.reps, block.peso),
+    0,
   );
 }
