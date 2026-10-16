@@ -7,7 +7,14 @@ export type Json =
   | Json[];
 
 export type RolUsuario = 'ENTRENADOR' | 'ALUMNO' | 'ADMIN';
-export type EstadoMembresia = 'ACTIVA' | 'INACTIVA' | 'PENDIENTE' | 'BAJA';
+export type EstadoMembresia =
+  | 'ACTIVA'
+  | 'INACTIVA'
+  | 'PENDIENTE'
+  | 'BAJA'
+  | 'ACTIVE'
+  | 'EXPIRED_PAYMENT_PENDING'
+  | 'ARCHIVED';
 export type EstadoPlan = 'ACTIVO' | 'INACTIVO' | 'BORRADOR';
 
 export interface Database {
@@ -109,6 +116,8 @@ export interface Database {
           nombre: string;
           estado: Database['public']['Enums']['estado_plan'];
           comentarios: string | null;
+          fecha_inicio: string;
+          fecha_fin: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -119,6 +128,8 @@ export interface Database {
           nombre: string;
           estado?: Database['public']['Enums']['estado_plan'];
           comentarios?: string | null;
+          fecha_inicio?: string;
+          fecha_fin?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +140,8 @@ export interface Database {
           nombre?: string;
           estado?: Database['public']['Enums']['estado_plan'];
           comentarios?: string | null;
+          fecha_inicio?: string;
+          fecha_fin?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -349,6 +362,51 @@ export interface Database {
           },
         ];
       };
+      entrenador_alumnos: {
+        Row: {
+          id: string;
+          entrenador_id: string;
+          alumno_id: string;
+          rol_entrenador: string;
+          es_principal: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entrenador_id: string;
+          alumno_id: string;
+          rol_entrenador?: string;
+          es_principal?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entrenador_id?: string;
+          alumno_id?: string;
+          rol_entrenador?: string;
+          es_principal?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'entrenador_alumnos_entrenador_id_fkey';
+            columns: ['entrenador_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'entrenador_alumnos_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -409,6 +467,20 @@ export interface Database {
           peso_max_kg: number;
           hubo_sobrecarga: boolean;
         }[];
+      };
+      clonar_plan_entrenamiento: {
+        Args: {
+          p_plan_id: string;
+          p_nuevo_nombre: string;
+        };
+        Returns: string;
+      };
+      extender_vigencia_plan: {
+        Args: {
+          p_plan_id: string;
+          p_dias_adicionales: number;
+        };
+        Returns: Database['public']['Tables']['planes_entrenamiento']['Row'];
       };
     };
     Enums: {
@@ -511,3 +583,4 @@ export type DiaRutina = Tables<'dias_rutina'>;
 export type EjercicioEnRutina = Tables<'ejercicios_en_rutina'>;
 export type RegistroSesion = Tables<'registro_sesiones'>;
 export type RegistroSerie = Tables<'registro_series'>;
+export type EntrenadorAlumno = Tables<'entrenador_alumnos'>;
