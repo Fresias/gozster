@@ -407,6 +407,77 @@ export interface Database {
           },
         ];
       };
+      conversaciones: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'conversaciones_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: true;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      mensajes: {
+        Row: {
+          id: string;
+          conversacion_id: string;
+          remitente_id: string;
+          contenido: string;
+          leido: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          conversacion_id: string;
+          remitente_id: string;
+          contenido: string;
+          leido?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          conversacion_id?: string;
+          remitente_id?: string;
+          contenido?: string;
+          leido?: boolean;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'mensajes_conversacion_id_fkey';
+            columns: ['conversacion_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversaciones';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'mensajes_remitente_id_fkey';
+            columns: ['remitente_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -584,3 +655,6 @@ export type EjercicioEnRutina = Tables<'ejercicios_en_rutina'>;
 export type RegistroSesion = Tables<'registro_sesiones'>;
 export type RegistroSerie = Tables<'registro_series'>;
 export type EntrenadorAlumno = Tables<'entrenador_alumnos'>;
+export type Conversacion = Tables<'conversaciones'>;
+export type Mensaje = Tables<'mensajes'>;
+
