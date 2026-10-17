@@ -287,3 +287,41 @@ export function generateWhatsAppReactivationUrl(params: {
   }
   return `https://wa.me/?text=${encodedMsg}`;
 }
+
+export type WhatsAppTemplateType = 'cuota' | 'inactividad' | 'record';
+
+/**
+ * Templates de WhatsApp en tono de profesor argentino (Fat-Finger Friendly):
+ * - Cuota: "Hola [Nombre]! Che, cómo andás? Te aviso que se te vence la cuota estos días. Te paso el alias así quedás al día?"
+ * - Inactividad: "Hola crack! Cómo va? Che, vi que hace unos días no te das una vuelta por el gym. Venís bien con los tiempos o querés que ajustemos la rutina?"
+ * - Récord: "Hola [Nombre]! Tremendo el récord que clavaste en [Ejercicio], felicitaciones fiera! A seguir metiéndole 💪"
+ */
+export function generateWhatsAppArgentinoUrl(params: {
+  phone?: string | null;
+  studentName: string;
+  type: WhatsAppTemplateType;
+  exerciseName?: string;
+}): { url: string; message: string } {
+  const cleanPhone = (params.phone || '').replace(/\D/g, '');
+  let message = '';
+
+  switch (params.type) {
+    case 'cuota':
+      message = `Hola ${params.studentName}! Che, cómo andás? Te aviso que se te vence la cuota estos días. Te paso el alias así quedás al día?`;
+      break;
+    case 'inactividad':
+      message = `Hola crack! Cómo va? Che, vi que hace unos días no te das una vuelta por el gym. Venís bien con los tiempos o querés que ajustemos la rutina?`;
+      break;
+    case 'record':
+      message = `Hola ${params.studentName}! Tremendo el récord que clavaste en ${params.exerciseName || 'tu levantamiento'}, felicitaciones fiera! A seguir metiéndole 💪`;
+      break;
+  }
+
+  const encodedMsg = encodeURIComponent(message);
+  const url = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodedMsg}`
+    : `https://wa.me/?text=${encodedMsg}`;
+
+  return { url, message };
+}
+
