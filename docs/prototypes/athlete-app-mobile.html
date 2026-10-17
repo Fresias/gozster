@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=390, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GOZSter Athlete App - Modo Gimnasio (390px)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bg: '#080A0D',
+            surface: '#0E1117',
+            container: '#181C26',
+            containerHigh: '#222736',
+            border: '#262B3A',
+            primary: '#FFB800',
+            primaryFg: '#0A0D14',
+            success: '#1BC47D',
+            destructive: '#F02D4E',
+            info: '#2B87F7',
+            muted: '#8B98AD',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #080A0D;
+      color: #F8FAFC;
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .font-tabular {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="w-[390px] min-h-[844px] max-w-[390px] mx-auto bg-bg flex flex-col justify-between border-x border-border/40 relative shadow-2xl overflow-x-hidden">
+  
+  <!-- Status Bar / Mobile Header -->
+  <header class="sticky top-0 z-30 bg-surface/95 backdrop-blur border-b border-border/80 px-4 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-primary text-primaryFg font-display font-black text-base flex items-center justify-center shadow-md">
+        G
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-display font-extrabold text-sm tracking-tight text-white">GOZSTER</span>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/20 text-primary border border-primary/40 uppercase">PWA</span>
+        </div>
+        <p class="text-[10px] text-muted">Torso Pesado • Día 1</p>
+      </div>
+    </div>
+    
+    <!-- Offline Indicator Pill -->
+    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-container border border-border text-[11px] font-semibold text-emerald-400">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span>Gym Mode (Sync)</span>
+    </div>
+  </header>
+
+  <!-- Main Content: Live Workout -->
+  <main class="flex-1 px-4 py-3 space-y-3 pb-24">
+    
+    <!-- Session Summary Bar -->
+    <div class="grid grid-cols-3 gap-2 bg-container/60 p-2.5 rounded-xl border border-border/60">
+      <div class="text-center">
+        <span class="text-[10px] uppercase font-bold text-muted block">Tiempo</span>
+        <span class="text-sm font-tabular font-bold text-white">34:12</span>
+      </div>
+      <div class="text-center border-x border-border/60">
+        <span class="text-[10px] uppercase font-bold text-muted block">Vol. Efectivo</span>
+        <span class="text-sm font-tabular font-bold text-primary">6.420 <span class="text-[10px]">kg</span></span>
+      </div>
+      <div class="text-center">
+        <span class="text-[10px] uppercase font-bold text-muted block">Series</span>
+        <span class="text-sm font-tabular font-bold text-white">8 <span class="text-[10px] text-muted">/ 18</span></span>
+      </div>
+    </div>
+
+    <!-- Active Exercise Card -->
+    <div class="bg-surface rounded-2xl border border-border/90 p-4 shadow-lg space-y-3">
+      
+      <!-- Exercise Header -->
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-containerHigh text-primary">EJ 1/5</span>
+            <span class="text-xs text-muted">Barra Olímpica (20kg)</span>
+          </div>
+          <h2 class="text-base font-display font-extrabold text-white tracking-tight mt-0.5">
+            Press de Banca Plano
+          </h2>
+          <p class="text-[11px] text-muted mt-0.5">Objetivo: 4 series • RPE 8.5 • Descanso 120s</p>
+        </div>
+
+        <!-- Quick Action Modals -->
+        <div class="flex items-center gap-1">
+          <button class="h-8 px-2 rounded-lg bg-containerHigh text-[11px] font-semibold text-white border border-border flex items-center gap-1 hover:bg-border active:scale-95 transition-transform">
+            <svg class="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            Discos
+          </button>
+          <button class="h-8 px-2 rounded-lg bg-containerHigh text-[11px] font-semibold text-white border border-border flex items-center gap-1 hover:bg-border active:scale-95 transition-transform">
+            <svg class="w-3.5 h-3.5 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Video
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Weight Steppers (Thumb Accessible) -->
+      <div class="flex items-center justify-between gap-1.5 pt-1 border-t border-border/40">
+        <span class="text-[10px] font-bold text-muted uppercase">Incremento Rápido:</span>
+        <div class="flex items-center gap-1">
+          <button class="h-7 px-2 rounded bg-containerHigh border border-border text-[11px] font-mono font-bold text-white active:scale-95">+1kg</button>
+          <button class="h-7 px-2.5 rounded bg-containerHigh border border-primary/40 text-[11px] font-mono font-bold text-primary active:scale-95">+2.5kg</button>
+          <button class="h-7 px-2 rounded bg-containerHigh border border-border text-[11px] font-mono font-bold text-white active:scale-95">+5kg</button>
+          <button class="h-7 px-2 rounded bg-containerHigh border border-border text-[11px] font-mono font-bold text-white active:scale-95">+1rep</button>
+        </div>
+      </div>
+
+      <!-- Sets Table (Ergonomic 48px+ Rows) -->
+      <div class="overflow-hidden rounded-xl border border-border/80 bg-bg">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b border-border bg-container/80 text-[10px] font-bold uppercase tracking-wider text-muted">
+              <th class="py-2 px-2 text-center w-8">#</th>
+              <th class="py-2 px-2 text-center w-12">Tipo</th>
+              <th class="py-2 px-2 text-center">Previo</th>
+              <th class="py-2 px-2 text-center w-16">Kg</th>
+              <th class="py-2 px-2 text-center w-14">Reps</th>
+              <th class="py-2 px-2 text-center w-14">Check</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border/60">
+            <!-- Set 1: Completed Warmup -->
+            <tr class="bg-surface/40">
+              <td class="py-2.5 px-2 text-center font-mono font-bold text-muted">1</td>
+              <td class="py-2.5 px-2 text-center">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-cyan-500/15 text-cyan-300 border border-cyan-500/40">W</span>
+              </td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">70 × 8</td>
+              <td class="py-2.5 px-2 text-center font-tabular font-bold text-white">70</td>
+              <td class="py-2.5 px-2 text-center font-tabular font-bold text-white">8</td>
+              <td class="py-2.5 px-2 text-center">
+                <div class="w-9 h-9 mx-auto rounded-lg bg-success text-primaryFg font-bold flex items-center justify-center shadow">
+                  ✓
+                </div>
+              </td>
+            </tr>
+
+            <!-- Set 2: Completed Normal -->
+            <tr class="bg-surface/40">
+              <td class="py-2.5 px-2 text-center font-mono font-bold text-muted">2</td>
+              <td class="py-2.5 px-2 text-center">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-containerHigh text-white border border-border">N</span>
+              </td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">100 × 6</td>
+              <td class="py-2.5 px-2 text-center font-tabular font-bold text-white">100</td>
+              <td class="py-2.5 px-2 text-center font-tabular font-bold text-white">6</td>
+              <td class="py-2.5 px-2 text-center">
+                <div class="w-9 h-9 mx-auto rounded-lg bg-success text-primaryFg font-bold flex items-center justify-center shadow">
+                  ✓
+                </div>
+              </td>
+            </tr>
+
+            <!-- Set 3: ACTIVE SET (Touch Ergonomics) -->
+            <tr class="bg-primary/5 border-l-4 border-l-primary">
+              <td class="py-2.5 px-2 text-center font-mono font-black text-primary">3</td>
+              <td class="py-2.5 px-2 text-center">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-containerHigh text-white border border-border">N</span>
+              </td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">102.5 × 5</td>
+              <td class="py-2.5 px-1 text-center">
+                <input type="text" inputmode="decimal" value="105.0" class="w-16 h-10 text-center font-tabular font-extrabold text-sm bg-container rounded-lg border-2 border-primary text-white focus:outline-none" />
+              </td>
+              <td class="py-2.5 px-1 text-center">
+                <input type="number" inputmode="numeric" value="5" class="w-12 h-10 text-center font-tabular font-extrabold text-sm bg-container rounded-lg border-2 border-primary text-white focus:outline-none" />
+              </td>
+              <td class="py-2.5 px-2 text-center">
+                <button class="w-11 h-11 mx-auto rounded-xl bg-primary text-primaryFg font-black text-lg flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                  ✓
+                </button>
+              </td>
+            </tr>
+
+            <!-- Set 4: Pending Set -->
+            <tr class="opacity-60">
+              <td class="py-2.5 px-2 text-center font-mono font-bold text-muted">4</td>
+              <td class="py-2.5 px-2 text-center">
+                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-destructive/15 text-destructive border border-destructive/40">F</span>
+              </td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">100 × 5</td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">105.0</td>
+              <td class="py-2.5 px-2 text-center font-tabular text-muted">Fallo</td>
+              <td class="py-2.5 px-2 text-center">
+                <div class="w-9 h-9 mx-auto rounded-lg border-2 border-border/80 flex items-center justify-center text-muted">
+                  ○
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Micro Pain Report Trigger -->
+      <div class="flex items-center justify-between text-[11px] text-muted pt-1">
+        <span>1RM Estimado: <strong class="font-tabular text-primary">122.5 kg</strong> (Brzycki)</span>
+        <button class="text-destructive font-semibold flex items-center gap-1 hover:underline">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          Reportar Molestia
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Rest Timer & Thumb Controls (56px Target) -->
+  <footer class="fixed bottom-0 inset-x-0 w-[390px] mx-auto bg-surface/98 backdrop-blur-md border-t border-border px-4 py-3 z-40 space-y-2 shadow-2xl">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Circular Timer Ring SVG -->
+        <div class="relative w-12 h-12 flex items-center justify-center">
+          <svg class="w-12 h-12 -rotate-90" viewBox="0 0 36 36">
+            <path class="text-container" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            <path class="text-primary" stroke-dasharray="75, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          </svg>
+          <span class="absolute text-xs font-tabular font-extrabold text-primary">01:14</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold text-muted uppercase block">Descanso Activo</span>
+          <span class="text-xs font-semibold text-white">Siguiente: Serie 4 (Fallo)</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button class="h-9 px-2.5 rounded-lg bg-containerHigh text-xs font-mono font-bold text-white border border-border active:scale-95">-30s</button>
+        <button class="h-9 px-2.5 rounded-lg bg-containerHigh text-xs font-mono font-bold text-primary border border-border active:scale-95">+30s</button>
+        <button class="h-9 px-3 rounded-lg bg-container text-xs font-bold text-muted hover:text-white border border-border active:scale-95">Omitir</button>
+      </div>
+    </div>
+
+    <!-- Mega 54px Complete Workout Action -->
+    <button class="w-full h-12 rounded-xl bg-success text-primaryFg font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+      Completar Serie Actual
+    </button>
+  </footer>
+
+</body>
+</html>
