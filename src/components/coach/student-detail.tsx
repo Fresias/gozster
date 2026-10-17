@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CoachStudioTab } from "@/store/use-coach-studio";
+import {
+  calculateStudentHealthScore,
+  generateWhatsAppReactivationUrl,
+} from "@/lib/strength-metrics";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -92,10 +96,25 @@ export function StudentDetail({
     }
   };
 
-  const whatsappMessage = encodeURIComponent(
-    `Hola ${alumno.nombre_completo}, te escribo desde GOZSter Coach Studio para revisar tu plan.`,
-  );
-  const whatsappUrl = `https://wa.me/?text=${whatsappMessage}`;
+  const cuotaScore =
+    alumno.estado_membresia === "ACTIVA"
+      ? 100
+      : alumno.estado_membresia === "PENDIENTE"
+      ? 50
+      : 15;
+  const healthScore = calculateStudentHealthScore({
+    adherencia: rutinaActiva ? 90 : 35,
+    frecuencia: rutinaActiva ? 85 : 40,
+    interaccionChat: 75,
+    estadoCuota: cuotaScore,
+  });
+
+  const whatsappUrl = generateWhatsAppReactivationUrl({
+    phone: alumno.telefono,
+    studentName: alumno.nombre_completo,
+    daysInactive: rutinaActiva ? 4 : 8,
+    routineName: rutinaActiva?.nombre,
+  });
 
   const currentPlanDias = rutinaActiva
     ? dias.filter((d) => d.plan_id === rutinaActiva.id)
@@ -124,9 +143,10 @@ export function StudentDetail({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+            data-testid="whatsapp-direct-btn"
           >
-            <span>WhatsApp Directo</span>
+            <span>💬 WhatsApp 1-Clic</span>
           </a>
         </div>
       </div>
@@ -149,6 +169,12 @@ export function StudentDetail({
                     {alumno.nombre_completo}
                   </h2>
                   {getPaymentBadge(alumno.estado_membresia)}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${healthScore.colorClass}`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    Semáforo de Salud: {healthScore.score}/100 ({healthScore.badgeLabel})
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {alumno.email ?? "Sin email"} • Cliente desde{" "}

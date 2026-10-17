@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
-import { calculateEpley1RM } from "@/lib/strength-metrics";
+import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
+import { supabase } from "@/lib/supabase/client";
 import {
   REAL_ALUMNOS,
   REAL_PLANES,
@@ -21,6 +22,12 @@ export interface LiveWorkoutSet {
   completada: boolean;
   estimated1RM: number;
   completedAt?: string;
+  set_type?: "W" | "N" | "F" | "D" | "WARMUP" | "NORMAL" | "FAILURE" | "DROPSET";
+  pain_reported?: boolean;
+  pain_notes?: string;
+  video_url?: string;
+  last_session_weight_kg?: number;
+  last_session_reps?: number;
 }
 
 export interface LiveWorkoutExercise {
@@ -33,6 +40,10 @@ export interface LiveWorkoutExercise {
   series: LiveWorkoutSet[];
   url_video?: string | null;
   comentario?: string | null;
+  tempo?: string;
+  force_rpe_required?: boolean;
+  es_superserie?: boolean;
+  grupo_superserie?: number | null;
 }
 
 export interface LiveWorkoutSession {
@@ -57,17 +68,39 @@ interface AthleteStoreState {
   membershipStatus: AthleteMembershipStatus;
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
+  rpeValidationError: string | null;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
+  clearRpeValidationError: () => void;
   updateSetField: (
     exerciseId: string,
     setNumber: number,
     field: "peso_kg" | "reps_hechas" | "rpe_real",
     value: number,
   ) => void;
+  updateSetType: (
+    exerciseId: string,
+    setNumber: number,
+    type: "W" | "N" | "F" | "D",
+  ) => void;
+  reportPainForSet: (
+    exerciseId: string,
+    setNumber: number,
+    notes: string,
+  ) => void;
+  attachVideoForSet: (
+    exerciseId: string,
+    setNumber: number,
+    videoUrl: string,
+  ) => void;
+  applyWarmupSetsToExercise: (
+    exerciseId: string,
+    warmupSets: Array<{ peso_kg: number; reps: number; setNumber: number }>,
+  ) => void;
   completeSet: (exerciseId: string, setNumber: number) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
+  syncSessionToSupabase: () => Promise<{ success: boolean; error?: string }>;
 
   // Timer Actions
   startRestTimer: (seconds: number, exerciseName: string, setNumber: number) => void;
@@ -237,6 +270,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
     (set, get) => ({
       membershipStatus: "ACTIVE",
       currentSession: defaultSession,
+      rpeValidationError: null,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -247,6 +281,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      clearRpeValidationError: () => set({ rpeValidationError: null }),
 
       updateSetField: (exerciseId, setNumber, field, value) => {
         set((state) => {
@@ -274,6 +309,89 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
       },
 
+      updateSetType: (exerciseId, setNumber, type) => {
+        set((state) => ({
+          currentSession: {
+            ...state.currentSession,
+            ejercicios: state.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              return {
+                ...ej,
+                series: ej.series.map((s) =>
+                  s.numero_serie === setNumber ? { ...s, set_type: type } : s
+                ),
+              };
+            }),
+          },
+        }));
+      },
+
+      reportPainForSet: (exerciseId, setNumber, notes) => {
+        set((state) => ({
+          currentSession: {
+            ...state.currentSession,
+            ejercicios: state.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              return {
+                ...ej,
+                series: ej.series.map((s) =>
+                  s.numero_serie === setNumber
+                    ? { ...s, pain_reported: true, pain_notes: notes }
+                    : s
+                ),
+              };
+            }),
+          },
+        }));
+      },
+
+      attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
+        set((state) => ({
+          currentSession: {
+            ...state.currentSession,
+            ejercicios: state.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              return {
+                ...ej,
+                series: ej.series.map((s) =>
+                  s.numero_serie === setNumber ? { ...s, video_url: videoUrl } : s
+                ),
+              };
+            }),
+          },
+        }));
+      },
+
+      applyWarmupSetsToExercise: (exerciseId, warmupSets) => {
+        set((state) => ({
+          currentSession: {
+            ...state.currentSession,
+            ejercicios: state.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              // Crear series de calentamiento con set_type = 'W'
+              const wSets: LiveWorkoutSet[] = warmupSets.map((w, idx) => ({
+                numero_serie: idx + 1,
+                peso_kg: w.peso_kg,
+                reps_hechas: w.reps,
+                rpe_real: 6.0,
+                completada: false,
+                estimated1RM: calculateEpley1RM(w.peso_kg, w.reps),
+                set_type: "W",
+              }));
+              // Re-numerar las series existentes
+              const existingSets = ej.series.map((s, idx) => ({
+                ...s,
+                numero_serie: wSets.length + idx + 1,
+              }));
+              return {
+                ...ej,
+                series: [...wSets, ...existingSets],
+              };
+            }),
+          },
+        }));
+      },
+
       completeSet: (exerciseId, setNumber) => {
         const state = get();
         const targetExercise = state.currentSession.ejercicios.find(
@@ -284,6 +402,19 @@ export const useAthleteStore = create<AthleteStoreState>()(
         );
 
         if (!targetExercise || !targetSet) return;
+
+        // Hevy control del coach: coach_force_rpe_enabled
+        if (
+          targetExercise.force_rpe_required &&
+          (!targetSet.rpe_real || targetSet.rpe_real < 6.0 || targetSet.rpe_real > 10.0)
+        ) {
+          set({
+            rpeValidationError: `El Coach exige registrar un RPE válido (6.0 a 10.0) en "${targetExercise.nombre}" antes de completar la serie.`,
+          });
+          return;
+        }
+
+        set({ rpeValidationError: null });
 
         const completedAt = new Date().toISOString();
         const estimated1RM = calculateEpley1RM(
@@ -325,6 +456,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
             pesoKg: targetSet.peso_kg,
             reps: targetSet.reps_hechas,
             rpe: targetSet.rpe_real,
+            setType: targetSet.set_type || "N",
+            painReported: targetSet.pain_reported || false,
+            painNotes: targetSet.pain_notes || null,
+            videoUrl: targetSet.video_url || null,
             estimated1RM,
             completedAt,
           },
@@ -333,6 +468,80 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Iniciar automáticamente temporizador de descanso
         const restDuration = targetExercise.descanso_segundos || 90;
         get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+      },
+
+      syncSessionToSupabase: async () => {
+        const state = get();
+        const session = state.currentSession;
+        const studentId = session.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+
+        // Aplanar todas las series
+        const allSets = session.ejercicios.flatMap((e) =>
+          e.series.map((s) => ({ ...s, exerciseId: e.id }))
+        );
+
+        const totalVol = allSets.reduce((acc, s) => {
+          if (!s.completada) return acc;
+          return acc + s.peso_kg * s.reps_hechas;
+        }, 0);
+
+        const effVol = calculateEffectiveVolume(allSets);
+
+        try {
+          // Guardar registro_sesiones en Supabase
+          const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
+            {
+              id: session.id,
+              alumno_id: studentId,
+              duracion_minutos: 45,
+              volumen_total_kg: totalVol,
+              effective_volume_kg: effVol,
+            },
+            { onConflict: "id" }
+          );
+
+          if (sesErr) {
+            console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
+          }
+
+          // Guardar cada serie en registro_series
+          for (const s of allSets) {
+            if (!s.completada) continue;
+            const mappedType =
+              s.set_type === "W"
+                ? "WARMUP"
+                : s.set_type === "F"
+                ? "FAILURE"
+                : s.set_type === "D"
+                ? "DROPSET"
+                : "NORMAL";
+
+            // Resolver ejercicio_id válido para FK de Supabase
+            const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
+
+            await supabase.from("registro_series").upsert(
+              {
+                sesion_id: session.id,
+                ejercicio_id: resolvedEjId,
+                numero_serie: s.numero_serie,
+                peso_kg: s.peso_kg,
+                reps_hechas: s.reps_hechas,
+                rpe_real: s.rpe_real,
+                completada: true,
+                set_type: mappedType,
+                pain_reported: s.pain_reported || false,
+                pain_notes: s.pain_notes || null,
+                video_url: s.video_url || null,
+              },
+              { onConflict: "sesion_id, ejercicio_id, numero_serie" }
+            );
+          }
+
+          return { success: true };
+        } catch (e: any) {
+          console.error("Error sincronizando sesion con Supabase:", e);
+          return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
+        }
       },
 
       uncompleteSet: (exerciseId, setNumber) => {

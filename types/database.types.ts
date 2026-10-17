@@ -29,6 +29,7 @@ export interface Database {
           estado_membresia: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
+          telefono?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -40,6 +41,7 @@ export interface Database {
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
+          telefono?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -51,6 +53,7 @@ export interface Database {
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
+          telefono?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -210,6 +213,8 @@ export interface Database {
           notas: string | null;
           es_superserie: boolean;
           grupo_superserie: number | null;
+          tempo?: string | null;
+          force_rpe_required?: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -225,6 +230,8 @@ export interface Database {
           notas?: string | null;
           es_superserie?: boolean;
           grupo_superserie?: number | null;
+          tempo?: string;
+          force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -240,6 +247,8 @@ export interface Database {
           notas?: string | null;
           es_superserie?: boolean;
           grupo_superserie?: number | null;
+          tempo?: string;
+          force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -268,6 +277,8 @@ export interface Database {
           fecha: string;
           duracion_minutos: number | null;
           volumen_total_kg: number;
+          effective_volume_kg?: number;
+          athlete_feedback?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -278,6 +289,8 @@ export interface Database {
           fecha?: string;
           duracion_minutos?: number | null;
           volumen_total_kg?: number;
+          effective_volume_kg?: number;
+          athlete_feedback?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -288,6 +301,8 @@ export interface Database {
           fecha?: string;
           duracion_minutos?: number | null;
           volumen_total_kg?: number;
+          effective_volume_kg?: number;
+          athlete_feedback?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -318,6 +333,10 @@ export interface Database {
           reps_hechas: number;
           rpe_real: number | null;
           completada: boolean;
+          set_type?: 'WARMUP' | 'NORMAL' | 'FAILURE' | 'DROPSET';
+          pain_reported?: boolean;
+          pain_notes?: string | null;
+          video_url?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -330,6 +349,10 @@ export interface Database {
           reps_hechas?: number;
           rpe_real?: number | null;
           completada?: boolean;
+          set_type?: 'WARMUP' | 'NORMAL' | 'FAILURE' | 'DROPSET';
+          pain_reported?: boolean;
+          pain_notes?: string | null;
+          video_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -342,6 +365,10 @@ export interface Database {
           reps_hechas?: number;
           rpe_real?: number | null;
           completada?: boolean;
+          set_type?: 'WARMUP' | 'NORMAL' | 'FAILURE' | 'DROPSET';
+          pain_reported?: boolean;
+          pain_notes?: string | null;
+          video_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -475,6 +502,106 @@ export interface Database {
           {
             foreignKeyName: 'mensajes_remitente_id_fkey';
             columns: ['remitente_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      habitos_registros: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          fecha: string;
+          agua_ml: number;
+          pasos: number;
+          sueno_horas: number;
+          habitos_completados: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          fecha?: string;
+          agua_ml?: number;
+          pasos?: number;
+          sueno_horas?: number;
+          habitos_completados?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          fecha?: string;
+          agua_ml?: number;
+          pasos?: number;
+          sueno_horas?: number;
+          habitos_completados?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'habitos_registros_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      nutricion_registros: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          fecha: string;
+          calorias_consumidas: number;
+          calorias_meta: number;
+          proteinas_g: number;
+          proteinas_meta_g: number;
+          carbos_g: number;
+          carbos_meta_g: number;
+          grasas_g: number;
+          grasas_meta_g: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          fecha?: string;
+          calorias_consumidas?: number;
+          calorias_meta?: number;
+          proteinas_g?: number;
+          proteinas_meta_g?: number;
+          carbos_g?: number;
+          carbos_meta_g?: number;
+          grasas_g?: number;
+          grasas_meta_g?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          fecha?: string;
+          calorias_consumidas?: number;
+          calorias_meta?: number;
+          proteinas_g?: number;
+          proteinas_meta_g?: number;
+          carbos_g?: number;
+          carbos_meta_g?: number;
+          grasas_g?: number;
+          grasas_meta_g?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'nutricion_registros_alumno_id_fkey';
+            columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
@@ -676,4 +803,10 @@ export type ConversacionInsert = TablesInsert<'conversaciones'>;
 export type ConversacionUpdate = TablesUpdate<'conversaciones'>;
 export type MensajeInsert = TablesInsert<'mensajes'>;
 export type MensajeUpdate = TablesUpdate<'mensajes'>;
+export type HabitoRegistro = Tables<'habitos_registros'>;
+export type HabitoRegistroInsert = TablesInsert<'habitos_registros'>;
+export type HabitoRegistroUpdate = TablesUpdate<'habitos_registros'>;
+export type NutricionRegistro = Tables<'nutricion_registros'>;
+export type NutricionRegistroInsert = TablesInsert<'nutricion_registros'>;
+export type NutricionRegistroUpdate = TablesUpdate<'nutricion_registros'>;
 
