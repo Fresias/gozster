@@ -436,16 +436,22 @@ export function LiveWorkout() {
 
                       const setType = serie.set_type || "N";
                       const isWarmup = setType === "W" || setType === "WARMUP";
+                      const firstUncompleted = ejercicio.series.find((s) => !s.completada);
+                      const isCurrentActive =
+                        !serie.completada &&
+                        firstUncompleted?.numero_serie === serie.numero_serie;
 
                       return (
                         <div
                           key={serie.numero_serie}
-                          className={`rounded-xl border p-3 transition-colors ${
+                          className={`rounded-2xl border p-3.5 transition-all duration-150 ${
                             serie.completada
-                              ? "border-primary/40 bg-primary/5"
+                              ? "border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20"
+                              : isCurrentActive
+                              ? "border-2 border-primary bg-primary/5 shadow-xs ring-1 ring-primary/20"
                               : isWarmup
                               ? "border-amber-500/30 bg-amber-500/5"
-                              : "border-border bg-card"
+                              : "border-border/80 bg-card"
                           }`}
                           data-testid={`set-row-${ejercicio.id}-${serie.numero_serie}`}
                         >
@@ -754,12 +760,14 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Botón táctil ergonómico grande de acción (Thumb Zone 56px) */}
+                          {/* Botón táctil ergonómico grande de acción (Thumb Zone 48px - 56px) */}
                           <div className="pt-2">
                             {serie.completada ? (
                               <div className="flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2.5">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                                  <span>✓</span>
+                                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white dark:text-slate-950 font-black text-[11px]">
+                                    ✓
+                                  </span>
                                   <span>
                                     Serie {serie.numero_serie} ({setType}): {serie.peso_kg}kg × {serie.reps_hechas} @RPE {serie.rpe_real}
                                   </span>
@@ -776,11 +784,16 @@ export function LiveWorkout() {
                             ) : (
                               <Button
                                 size="touch"
-                                className="w-full bg-primary font-bold tracking-wide text-primary-foreground shadow-m3-2 hover:brightness-105 active:scale-[0.98] touch-manipulation min-h-[56px] text-sm sm:text-base rounded-xl"
+                                className={`w-full font-bold tracking-wide shadow-sm hover:brightness-105 active:scale-[0.98] touch-manipulation min-h-[48px] sm:min-h-[52px] text-sm sm:text-base rounded-xl gap-2 transition-all ${
+                                  isCurrentActive
+                                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/25"
+                                    : "bg-secondary text-secondary-foreground hover:bg-secondary/90 border border-border"
+                                }`}
                                 onClick={() => completeSet(ejercicio.id, serie.numero_serie)}
                                 data-testid={`complete-set-btn-${ejercicio.id}-${serie.numero_serie}`}
                               >
-                                ✓ Marcar Serie Hecha ({ejercicio.descanso_segundos}s Descanso)
+                                <span>✓</span>
+                                <span>Marcar Serie Hecha ({ejercicio.descanso_segundos}s Descanso)</span>
                               </Button>
                             )}
                           </div>
