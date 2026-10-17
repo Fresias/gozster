@@ -98,6 +98,7 @@ describe("Pilar C: Integración en Athlete Store y Rutinas de Entrenamiento", ()
   it("debe permitir cargar la rutina real de un alumno migrado desde Mynter", () => {
     const alumno1 = REAL_ALUMNOS[0];
     expect(alumno1).toBeDefined();
+    if (!alumno1) throw new Error("No hay alumnos en REAL_ALUMNOS");
 
     const loaded = useAthleteStore.getState().loadStudentSession(alumno1.id);
     expect(loaded).toBe(true);
@@ -135,6 +136,6 @@ describe("Pilar C: Integración en Athlete Store y Rutinas de Entrenamiento", ()
     const ejercicio = useAthleteStore
       .getState()
       .currentSession.ejercicios.find((e) => e.id === "ej-sentadilla-1");
-    expect(ejercicio?.series[0].completada).toBe(true);
+    expect(ejercicio?.series[0]?.completada).toBe(true);
   });
 });
