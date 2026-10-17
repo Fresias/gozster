@@ -12,6 +12,8 @@ import { StudentCard } from "@/components/coach/student-card";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
+import { CriticalAlertsInbox } from "@/components/coach/critical-alerts-inbox";
+import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 
@@ -95,6 +97,7 @@ export function CoachStudioView({
   >("ALL");
   const [activeSection, setActiveSection] = React.useState<"atletas" | "sobrecarga">("atletas");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [isBuilderOpen, setIsBuilderOpen] = React.useState(false);
 
   // Retention metrics from RPC
   const metricas = obtenerMetricasRetencion();
@@ -216,7 +219,16 @@ export function CoachStudioView({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => setIsBuilderOpen(true)}
+                className="text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
+                data-testid="open-routine-builder-btn"
+              >
+                🛠️ Constructor de Rutinas
+              </Button>
               <Link
                 href="/studio/dashboard"
                 className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
@@ -225,6 +237,9 @@ export function CoachStudioView({
               </Link>
             </div>
           </div>
+
+          {/* Bandeja de Alertas Críticas (Dolor Articular y Form Check Biomecánico) */}
+          <CriticalAlertsInbox onSelectAlumno={(id) => selectAlumno(id)} />
 
           {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion) */}
           <RetentionKpiCards
@@ -429,6 +444,16 @@ export function CoachStudioView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={(id) => selectAlumno(id)}
+      />
+
+      {/* Constructor Visual de Rutinas Drag & Drop + Superseries */}
+      <RoutineBuilderModal
+        isOpen={isBuilderOpen}
+        onClose={() => setIsBuilderOpen(false)}
+        catalogoEjercicios={ejercicios}
+        alumnoId={selectedAlumnoId || undefined}
+        alumnoNombre={selectedAlumno?.nombre_completo || "Plantilla Maestra"}
+        onRoutineSaved={() => loadLiveSupabaseData()}
       />
 
       {/* Lateral Panel / Modal: Historical Loads & RPE */}
