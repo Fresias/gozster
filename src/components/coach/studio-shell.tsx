@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
             </Link>
-            <div className="lg:hidden">
+            <div className="flex items-center gap-2 lg:hidden">
+              <WorkspaceModeToggle />
               <ThemeToggle />
             </div>
           </div>
@@ -159,6 +161,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <WorkspaceModeToggle />
             <ThemeToggle showLabel />
           </div>
         </header>

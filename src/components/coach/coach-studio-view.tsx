@@ -19,6 +19,13 @@ import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
 import { calculateStudentHealthScore } from "@/lib/strength-metrics";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import {
+  DEMO_ALUMNOS,
+  DEMO_PLANES,
+  getDemoAlumnoAlerts,
+} from "@/services/coach-demo-dataset";
+import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
@@ -30,15 +37,20 @@ export function CoachStudioView({
   initialDataset?: LiveSupabaseDataset | null;
 } = {}) {
   const store = useCoachStudioStore();
+  const { mode, setMode } = useWorkspaceModeStore();
+  const isTestMode = mode === "TESTEO";
 
-  const alumnos =
+  const liveAlumnos =
     initialDataset && initialDataset.alumnos.length > 0
       ? initialDataset.alumnos
       : store.alumnos;
-  const planes =
+  const livePlanes =
     initialDataset && initialDataset.planes.length > 0
       ? initialDataset.planes
       : store.planes;
+
+  const alumnos = isTestMode ? DEMO_ALUMNOS : liveAlumnos;
+  const planes = isTestMode ? DEMO_PLANES : livePlanes;
   const dias =
     initialDataset && initialDataset.dias.length > 0
       ? initialDataset.dias
@@ -53,7 +65,8 @@ export function CoachStudioView({
       : store.ejercicios;
 
   const isLiveDatabase =
-    store.isLiveDatabase || Boolean(initialDataset && initialDataset.alumnos.length > 0);
+    !isTestMode &&
+    (store.isLiveDatabase || Boolean(initialDataset && initialDataset.alumnos.length > 0));
 
   const {
     selectedAlumnoId,
@@ -148,8 +161,20 @@ export function CoachStudioView({
       .toUpperCase();
   };
 
-  // Retention metrics from RPC
-  const metricas = obtenerMetricasRetencion();
+  // Retention metrics (calculadas en vivo o para dataset demo)
+  const metricas = isTestMode
+    ? {
+        cantActivas: alumnos.filter(
+          (a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE",
+        ).length,
+        cantSinPlanEntrenamiento: alumnos.filter(
+          (a) => !planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO"),
+        ).length,
+        cantClientesPerdidosMes: alumnos.filter(
+          (a) => a.estado_membresia === "INACTIVA",
+        ).length,
+      }
+    : obtenerMetricasRetencion();
 
   // Students requiring routine
   const alumnosSinPlan = alumnos.filter((a) => {
@@ -186,8 +211,13 @@ export function CoachStudioView({
     currentPage * itemsPerPage,
   );
 
-  const selectedAlumno = getSelectedAlumno();
-  const activePlan = selectedAlumno ? getRutinaActivaAlumno(selectedAlumno.id) : null;
+  const selectedAlumno = selectedAlumnoId
+    ? alumnos.find((a) => a.id === selectedAlumnoId) ?? getSelectedAlumno()
+    : null;
+  const activePlan = selectedAlumno
+    ? planes.find((p) => p.alumno_id === selectedAlumno.id && p.estado === "ACTIVO") ??
+      getRutinaActivaAlumno(selectedAlumno.id)
+    : null;
   const historialPlanes = selectedAlumno ? getPlanesAlumnoCronologico(selectedAlumno.id) : [];
   const historialCargas = selectedAlumno ? getHistorialCargasAlumno(selectedAlumno.id) : [];
 
@@ -349,7 +379,15 @@ export function CoachStudioView({
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">
                   Coach Studio
                 </h1>
-                {isLiveDatabase ? (
+                {isTestMode ? (
+                  <span
+                    data-testid="badge-modo-testeo"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    🧪 Modo Testeo ({alumnos.length} atletas demo)
+                  </span>
+                ) : isLiveDatabase ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     Supabase Live ({alumnos.length} alumnos)
@@ -366,6 +404,7 @@ export function CoachStudioView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <WorkspaceModeToggle />
               <Link
                 href="/studio/dashboard"
                 className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity gap-2 shadow-xs active:scale-95"
@@ -388,6 +427,42 @@ export function CoachStudioView({
               </Link>
             </div>
           </div>
+
+          {/* Banner de Modo Testeo Activo (Demo Conceptual) */}
+          {isTestMode && (
+            <div
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-foreground"
+              data-testid="test-mode-banner"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 text-base shrink-0">
+                  🧪
+                </span>
+                <div>
+                  <p className="text-xs font-bold leading-tight flex items-center gap-2">
+                    <span>MODO TESTEO ACTIVO — Demostración Conceptual INDEC</span>
+                    <span className="rounded bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                      10 Atletas Ficticios
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Exhibiendo todos los semáforos M3 (Cuota, Score Salud, Vigencia, Actividad) y alertas simultáneas para pruebas táctiles.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setMode("PRODUCCION")}
+                  className="text-xs font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                  data-testid="btn-exit-test-mode"
+                >
+                  Volver a Producción ⚡
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Bandeja de Alertas Críticas Compacta (Exclusiva Dolor Articular con Quick Swap) */}
           <CriticalAlertsInbox
@@ -600,14 +675,44 @@ export function CoachStudioView({
                         </tr>
                       ) : (
                         paginatedAlumnos.map((alumno) => {
-                          const planActivo = getRutinaActivaAlumno(alumno.id);
+                          const planActivo = isTestMode
+                            ? planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null
+                            : getRutinaActivaAlumno(alumno.id);
                           const historial = getHistorialCargasAlumno(alumno.id);
 
                           // Cálculo de Cuota (Semáforo M3 Puro: 🟢 Verde, 🟡 Amarillo, 🔴 Rojo)
-                          const isAlDia =
+                          let isAlDia =
                             alumno.estado_membresia === "ACTIVA" ||
                             alumno.estado_membresia === "ACTIVE";
-                          const isPendiente = alumno.estado_membresia === "PENDIENTE";
+                          let isPendiente = alumno.estado_membresia === "PENDIENTE";
+                          let cuotaTooltip = isAlDia
+                            ? "Cuota al día"
+                            : isPendiente
+                            ? "Vence en ≤ 3 días (Pago Pendiente)"
+                            : "Cuota vencida / Inactiva";
+
+                          if (alumno.fecha_vencimiento_cuota) {
+                            const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
+                            const diffDays = Math.ceil(
+                              (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+                            );
+                            if (diffDays > 3) {
+                              isAlDia = true;
+                              isPendiente = false;
+                              cuotaTooltip = `Cuota al día (vence en ${diffDays} días)`;
+                            } else if (diffDays >= 0) {
+                              isAlDia = false;
+                              isPendiente = true;
+                              cuotaTooltip =
+                                diffDays === 0
+                                  ? "Vence hoy (Pago Pendiente)"
+                                  : `Vence en ${diffDays} día${diffDays > 1 ? "s" : ""} (Pago Pendiente)`;
+                            } else {
+                              isAlDia = false;
+                              isPendiente = false;
+                              cuotaTooltip = `Cuota vencida hace ${Math.abs(diffDays)} días`;
+                            }
+                          }
 
                           const cuotaDotColor = isAlDia
                             ? "bg-emerald-500 border border-emerald-600/30"
@@ -615,21 +720,35 @@ export function CoachStudioView({
                             ? "bg-amber-500 border border-amber-600/30"
                             : "bg-rose-500 border border-rose-600/30";
 
-                          const cuotaTooltip = isAlDia
-                            ? "Cuota al día"
-                            : isPendiente
-                            ? "Vence en ≤ 3 días (Pago Pendiente)"
-                            : "Cuota vencida / Inactiva";
+                          // Cálculo Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ])
+                          let shScore: number;
+                          if (isTestMode) {
+                            const nl = alumno.nombre_completo.toLowerCase();
+                            if (nl.includes("mateo")) shScore = 96;
+                            else if (nl.includes("esteban")) shScore = 91;
+                            else if (nl.includes("lucas")) shScore = 88;
+                            else if (nl.includes("valentina")) shScore = 82;
+                            else if (nl.includes("celeste")) shScore = 76;
+                            else if (nl.includes("camila")) shScore = 71;
+                            else if (nl.includes("facundo")) shScore = 64;
+                            else if (nl.includes("martina")) shScore = 58;
+                            else if (nl.includes("sofia")) shScore = 48;
+                            else if (nl.includes("bautista")) shScore = 35;
+                            else shScore = 80;
+                          } else {
+                            const cuotaScore = isAlDia ? 100 : isPendiente ? 50 : 15;
+                            const planScore = planActivo ? 90 : 35;
+                            shScore = Math.round(
+                              calculateStudentHealthScore({
+                                adherencia: planScore,
+                                frecuencia: planActivo ? 85 : 40,
+                                interaccionChat: 75,
+                                estadoCuota: cuotaScore,
+                              }).score,
+                            );
+                          }
 
-                          // Cálculo Score Salud [SH]
-                          const cuotaScore = isAlDia ? 100 : isPendiente ? 50 : 15;
-                          const planScore = planActivo ? 90 : 35;
-                          const healthScore = calculateStudentHealthScore({
-                            adherencia: planScore,
-                            frecuencia: planActivo ? 85 : 40,
-                            interaccionChat: 75,
-                            estadoCuota: cuotaScore,
-                          });
+                          const healthScore = { score: shScore };
 
                           const shColorClass =
                             healthScore.score >= 80
@@ -668,7 +787,25 @@ export function CoachStudioView({
                           let recenciaDotColor = "bg-rose-500";
                           let recenciaTooltip = "Inactivo (> 14 días)";
 
-                          if (planActivo) {
+                          if (alumno.ultimo_entreno_at) {
+                            const diffDays = Math.floor(
+                              (Date.now() - new Date(alumno.ultimo_entreno_at).getTime()) /
+                                (1000 * 60 * 60 * 24),
+                            );
+                            if (diffDays < 7) {
+                              recenciaDotColor = "bg-emerald-500";
+                              recenciaTooltip =
+                                diffDays === 0
+                                  ? "Último entreno: hoy (< 7 días)"
+                                  : `Último entreno: < 7 días (${diffDays}d)`;
+                            } else if (diffDays <= 14) {
+                              recenciaDotColor = "bg-amber-500";
+                              recenciaTooltip = `Último entreno: 7-14 días (${diffDays}d)`;
+                            } else {
+                              recenciaDotColor = "bg-rose-500";
+                              recenciaTooltip = `Inactivo (> 14 días, ${diffDays}d)`;
+                            }
+                          } else if (planActivo) {
                             if (historial.length > 0) {
                               recenciaDotColor = "bg-emerald-500";
                               recenciaTooltip = "Último entreno: < 7 días";
@@ -682,7 +819,9 @@ export function CoachStudioView({
                           }
 
                           // Badges de alerta por atleta
-                          const badges = getAlumnoAlerts(alumno, planActivo, historial);
+                          const badges = isTestMode
+                            ? getDemoAlumnoAlerts(alumno.nombre_completo)
+                            : getAlumnoAlerts(alumno, planActivo, historial);
 
                           const isCompact = tableDensity === "compact";
                           // Clases de altura de fila que preservan la referencia de 34px y acomodan ergonomía táctil
@@ -896,7 +1035,7 @@ export function CoachStudioView({
                     Nota: Semáforos Material Design 3 con codificación tonal sin texto redundante. Touch targets ≥ 48px según estándar ergonómico.
                   </span>
                   <span className="font-semibold text-foreground">
-                    Fuente: GOZSter Studio / Registro Supabase Live
+                    Fuente: GOZSter Studio / {isTestMode ? "Modo Testeo (Dataset Demo INDEC M3)" : "Registro Supabase Live"}
                   </span>
                 </div>
               </div>
@@ -909,7 +1048,9 @@ export function CoachStudioView({
                   </div>
                 ) : (
                   paginatedAlumnos.map((alumno) => {
-                    const planActivo = getRutinaActivaAlumno(alumno.id);
+                    const planActivo = isTestMode
+                      ? planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null
+                      : getRutinaActivaAlumno(alumno.id);
                     return (
                       <StudentCard
                         key={alumno.id}
