@@ -86,6 +86,7 @@ interface CoachStudioState {
   activeTab: CoachStudioTab;
   isHistoricalLoadsOpen: boolean;
   isChatOpen: boolean;
+  isRoutineBuilderOpen: boolean;
   toast: ToastNotification | null;
 
   currentPage: number;
@@ -101,6 +102,7 @@ interface CoachStudioState {
   setHistoricalLoadsOpen: (open: boolean) => void;
   setChatOpen: (open: boolean) => void;
   setCurrentPage: (page: number) => void;
+  setRoutineBuilderOpen: (open: boolean) => void;
   dismissToast: () => void;
 
   clonarUltimaRutina: (alumnoId: string) => Promise<PlanEntrenamiento | null>;
@@ -147,6 +149,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     activeTab: "rutina_actual",
     isHistoricalLoadsOpen: false,
     isChatOpen: false,
+    isRoutineBuilderOpen: false,
     toast: null,
 
     currentPage: 1,
@@ -189,6 +192,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     setChatOpen: (isChatOpen) => set({ isChatOpen }),
 
     setCurrentPage: (currentPage) => set({ currentPage }),
+
+    setRoutineBuilderOpen: (isRoutineBuilderOpen) => set({ isRoutineBuilderOpen }),
 
     dismissToast: () => set({ toast: null }),
 
