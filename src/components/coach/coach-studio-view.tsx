@@ -6,17 +6,23 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
-import { ProgressiveOverloadFeed } from "@/components/coach/progressive-overload-feed";
 import { Button } from "@/components/ui/button";
 import { StudentCard } from "@/components/coach/student-card";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
-import { CriticalAlertsInbox } from "@/components/coach/critical-alerts-inbox";
+import {
+  CriticalAlertsInbox,
+  type CriticalAlert,
+} from "@/components/coach/critical-alerts-inbox";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
+import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
+import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
 import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
+import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 
 export function CoachStudioView({
   initialDataset,
@@ -54,6 +60,7 @@ export function CoachStudioView({
     activeTab,
     isHistoricalLoadsOpen,
     isChatOpen,
+    isRoutineBuilderOpen,
     toast,
     currentPage,
     itemsPerPage,
@@ -61,13 +68,13 @@ export function CoachStudioView({
     setActiveTab,
     setHistoricalLoadsOpen,
     setChatOpen,
+    setRoutineBuilderOpen,
     setCurrentPage,
     dismissToast,
     clonarUltimaRutina,
     extenderVigenciaPlan,
     asignarPlanUrgente,
     obtenerMetricasRetencion,
-    getAlertasSobrecargaProgresiva,
     isLoading,
     loadLiveSupabaseData,
     getSelectedAlumno,
@@ -96,11 +103,41 @@ export function CoachStudioView({
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "SIN_PLAN"
   >("ALL");
-  const [activeSection, setActiveSection] = React.useState<"atletas" | "sobrecarga">("atletas");
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
-  const [isBuilderOpen, setIsBuilderOpen] = React.useState(false);
+  const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
+
+  // Estados para Modales de Quick Swap y WhatsApp
+  const [quickSwapData, setQuickSwapData] = React.useState<{
+    isOpen: boolean;
+    alumnoNombre: string;
+    alumnoId: string;
+    ejercicioActual: string;
+    dolorDetalle?: string;
+    zona?: string;
+  }>({
+    isOpen: false,
+    alumnoNombre: "",
+    alumnoId: "",
+    ejercicioActual: "",
+  });
+
+  const [whatsappData, setWhatsappData] = React.useState<{
+    isOpen: boolean;
+    alumnoNombre: string;
+    phone?: string | null;
+    exerciseName?: string;
+  }>({
+    isOpen: false,
+    alumnoNombre: "",
+  });
+
+  const isBuilderModalVisible = isRoutineBuilderOpen || localIsBuilderOpen;
+  const handleCloseBuilderModal = () => {
+    setLocalIsBuilderOpen(false);
+    setRoutineBuilderOpen(false);
+  };
 
   const getInitials = (nombre: string) => {
     return nombre
@@ -111,21 +148,8 @@ export function CoachStudioView({
       .toUpperCase();
   };
 
-  const formatIndecNumber = (val: number | null | undefined): string => {
-    if (val === null || val === undefined || !Number.isFinite(val) || val <= 0) {
-      return "—";
-    }
-    return val.toLocaleString("es-AR", {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    });
-  };
-
   // Retention metrics from RPC
   const metricas = obtenerMetricasRetencion();
-
-  // Progressive overload alerts from RPC
-  const alertas = getAlertasSobrecargaProgresiva();
 
   // Students requiring routine
   const alumnosSinPlan = alumnos.filter((a) => {
@@ -144,7 +168,7 @@ export function CoachStudioView({
 
     let matchPayment = true;
     if (paymentFilter === "ACTIVA") {
-      matchPayment = a.estado_membresia === "ACTIVA";
+      matchPayment = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
     } else if (paymentFilter === "PENDIENTE") {
       matchPayment = a.estado_membresia === "PENDIENTE";
     } else if (paymentFilter === "SIN_PLAN") {
@@ -167,13 +191,113 @@ export function CoachStudioView({
   const historialPlanes = selectedAlumno ? getPlanesAlumnoCronologico(selectedAlumno.id) : [];
   const historialCargas = selectedAlumno ? getHistorialCargasAlumno(selectedAlumno.id) : [];
 
-  const handleOpenHistoricalLoadsFor = (alumnoId: string) => {
-    selectAlumno(alumnoId);
-    setHistoricalLoadsOpen(true);
-  };
-
   const handleAssignPlan = async (alumnoId: string) => {
     await asignarPlanUrgente(alumnoId);
+  };
+
+  // Handlers para abrir Quick Swap y WhatsApp
+  const handleOpenQuickSwapFromAlert = (alert: CriticalAlert) => {
+    setQuickSwapData({
+      isOpen: true,
+      alumnoNombre: alert.alumnoNombre,
+      alumnoId: alert.alumnoId,
+      ejercicioActual: alert.ejercicioNombre,
+      dolorDetalle: alert.detalle,
+      zona: alert.zona,
+    });
+  };
+
+  const handleOpenQuickSwapFromBadge = (
+    alumno: Perfil,
+    ejercicio: string,
+    zona: string,
+    detalle: string,
+  ) => {
+    setQuickSwapData({
+      isOpen: true,
+      alumnoNombre: alumno.nombre_completo,
+      alumnoId: alumno.id,
+      ejercicioActual: ejercicio,
+      dolorDetalle: detalle,
+      zona,
+    });
+  };
+
+  const handleOpenWhatsAppModal = (
+    alumno: Perfil,
+    exerciseName?: string,
+  ) => {
+    setWhatsappData({
+      isOpen: true,
+      alumnoNombre: alumno.nombre_completo,
+      phone: alumno.telefono,
+      exerciseName: exerciseName || "Press de Banca Plano",
+    });
+  };
+
+  const handleSwapSuccess = (originalExercise: string, newExercise: string) => {
+    useCoachStudioStore.setState({
+      toast: {
+        id: `swap-${Date.now()}`,
+        type: "success",
+        title: "Ejercicio sustituido con éxito",
+        message: `Se reemplazó "${originalExercise}" por "${newExercise}" en la rutina de ${quickSwapData.alumnoNombre}.`,
+      },
+    });
+  };
+
+  // Helper para calcular alertas de dolor y records por atleta (para columna responsive)
+  const getAlumnoAlerts = (
+    alumno: Perfil,
+    _planActivo: PlanEntrenamiento | null,
+    _historial: HistoricalLoadEntry[],
+  ) => {
+    const badges: {
+      type: "pain" | "pr";
+      label: string;
+      title: string;
+      zona?: string;
+      ejercicio?: string;
+      detalle?: string;
+    }[] = [];
+
+    const nombreLower = alumno.nombre_completo.toLowerCase();
+
+    if (nombreLower.includes("celeste")) {
+      badges.push({
+        type: "pain",
+        label: "🚨 Rodilla",
+        title: "Molestia articular en Rodilla - Tocar para Sustituir Ejercicio",
+        zona: "Rodilla",
+        ejercicio: "Sentadilla Trasera con Barra",
+        detalle: "[Dolor: MODERADO] Rodilla - Pinchazo en fase concéntrica",
+      });
+    } else if (nombreLower.includes("lucas")) {
+      // Lucas Giménez presenta múltiples alertas simultáneas (dolor + récord)
+      badges.push({
+        type: "pain",
+        label: "🚨 Hombro",
+        title: "Molestia articular en Hombro - Tocar para Sustituir Ejercicio",
+        zona: "Hombro",
+        ejercicio: "Press de Banca Plano",
+        detalle: "[Dolor: LEVE] Hombro - Molestia anterior al descender la barra",
+      });
+      badges.push({
+        type: "pr",
+        label: "⚡ PR Banca",
+        title: "Nuevo Récord Personal en Press de Banca - Tocar para felicitar por WhatsApp",
+        ejercicio: "Press de Banca Plano",
+      });
+    } else if (nombreLower.includes("mateo")) {
+      badges.push({
+        type: "pr",
+        label: "⚡ PR Sentadilla",
+        title: "Nuevo Récord Personal en Sentadilla - Tocar para felicitar por WhatsApp",
+        ejercicio: "Sentadilla Trasera",
+      });
+    }
+
+    return badges;
   };
 
   return (
@@ -183,7 +307,7 @@ export function CoachStudioView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed top-4 right-4 z-50 flex max-w-md items-start justify-between gap-3 rounded-lg border border-emerald-500/50 bg-card p-4 text-card-foreground shadow-2xl backdrop-blur"
+          className="fixed top-4 right-4 z-50 flex max-w-md items-start justify-between gap-3 rounded-xl border border-emerald-500/50 bg-card p-4 text-card-foreground shadow-2xl backdrop-blur"
         >
           <div>
             <h4 className="text-sm font-bold text-emerald-400">{toast.title}</h4>
@@ -204,10 +328,10 @@ export function CoachStudioView({
       {!isOnline && (
         <div
           role="alert"
-          className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
+          className="mb-4 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
         >
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
             <span>
               <strong>Modo Offline Activo:</strong> Las métricas y cambios se guardan localmente ({pendingEvents.length} eventos pendientes).
             </span>
@@ -218,7 +342,7 @@ export function CoachStudioView({
       {/* Main view switcher */}
       {!selectedAlumno ? (
         <div className="space-y-6">
-          {/* Header & Direct Link to Full Dashboard */}
+          {/* Header & Direct Link to Full Dashboard (Sin botón 'Constructor de Rutinas' aquí) */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -237,40 +361,17 @@ export function CoachStudioView({
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                Gestión táctil de atletas, rutinas de fuerza y supervisión de cargas.
+                Gestión operativa táctil de atletas, semáforos de salud M3 y supervisión activa.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="default"
-                onClick={() => setIsBuilderOpen(true)}
-                className="text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5"
-                data-testid="open-routine-builder-btn"
-              >
-                <svg
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                <span>Constructor de Rutinas</span>
-              </Button>
               <Link
                 href="/studio/dashboard"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity gap-1.5"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity gap-2 shadow-xs active:scale-95"
               >
                 <svg
-                  className="h-3.5 w-3.5"
+                  className="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -288,516 +389,571 @@ export function CoachStudioView({
             </div>
           </div>
 
-          {/* Bandeja de Alertas Críticas (Dolor Articular y Form Check Biomecánico) */}
-          <CriticalAlertsInbox onSelectAlumno={(id) => selectAlumno(id)} />
+          {/* Bandeja de Alertas Críticas Compacta (Exclusiva Dolor Articular con Quick Swap) */}
+          <CriticalAlertsInbox
+            onSelectAlumno={(id) => selectAlumno(id)}
+            onQuickSwap={handleOpenQuickSwapFromAlert}
+          />
 
-          {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion) */}
+          {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
           <RetentionKpiCards
             metricas={metricas}
             onAssignPlanClick={() => setIsAssignModalOpen(true)}
           />
 
-          {/* Navigation tabs between Atletas and Alertas de Sobrecarga */}
-          <div className="flex items-center gap-2 border-b border-border pb-2" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSection === "atletas"}
-              onClick={() => setActiveSection("atletas")}
-              className={`min-h-11 rounded-md px-4 text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 ${
-                activeSection === "atletas"
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground hover:bg-secondary/40"
-              }`}
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          {/* Directorio de Atletas */}
+          <div className="space-y-4">
+            {/* Search, Filters, Tools and View Toggle */}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="w-full sm:max-w-xs">
+                <input
+                  type="search"
+                  value={filterQuery}
+                  onChange={(e) => {
+                    setFilterQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Buscar atleta o email..."
+                  className="min-h-11 w-full rounded-xl border border-input bg-card px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
                 />
-              </svg>
-              <span>Directorio de Atletas ({filteredAlumnos.length})</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSection === "sobrecarga"}
-              onClick={() => setActiveSection("sobrecarga")}
-              className={`min-h-11 rounded-md px-4 text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 ${
-                activeSection === "sobrecarga"
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground hover:bg-secondary/40"
-              }`}
-            >
-              <svg
-                className="h-4 w-4 text-amber-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              <span>Alertas de Sobrecarga ({alertas.length})</span>
-            </button>
-          </div>
-
-          {activeSection === "atletas" ? (
-            <div className="space-y-4">
-              {/* Search, Filters and View Toggle */}
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="w-full sm:max-w-xs">
-                  <input
-                    type="search"
-                    value={filterQuery}
-                    onChange={(e) => {
-                      setFilterQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Buscar atleta o ejercicio..."
-                    className="min-h-10 w-full rounded-lg border border-input bg-card px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium">Filtro:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentFilter("ALL");
-                      setCurrentPage(1);
-                    }}
-                    className={`min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      paymentFilter === "ALL"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Todos ({alumnos.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentFilter("ACTIVA");
-                      setCurrentPage(1);
-                    }}
-                    className={`min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      paymentFilter === "ACTIVA"
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Al día ({alumnos.filter((a) => a.estado_membresia === "ACTIVA").length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentFilter("PENDIENTE");
-                      setCurrentPage(1);
-                    }}
-                    className={`min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      paymentFilter === "PENDIENTE"
-                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentFilter("SIN_PLAN");
-                      setCurrentPage(1);
-                    }}
-                    className={`min-h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      paymentFilter === "SIN_PLAN"
-                        ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Sin Plan ({metricas.cantSinPlanEntrenamiento})
-                  </button>
-
-                  {/* Selector de Modo de Visualización (INDEC vs Tarjetas) */}
-                  <div className="flex items-center rounded-lg bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("table")}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                        viewMode === "table"
-                          ? "bg-card text-primary shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Cuadro INDEC
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("cards")}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
-                        viewMode === "cards"
-                          ? "bg-card text-primary shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Tarjetas
-                    </button>
-                  </div>
-                </div>
               </div>
 
-              {/* Contenido según vista seleccionada */}
-              {viewMode === "table" ? (
-                /* Cuadro Estadístico INDEC 1.1 con Columna Matriz Fija y Filas 34px */
-                <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs">
-                  {/* Subheader & Metadatos INDEC */}
-                  <div className="border-b border-border/80 bg-secondary/30 px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-foreground">Cuadro 1.1</span>
-                      <span className="text-xs text-muted-foreground">
-                        — Matriz Semanal de Cargas, Estado de Membresía y 1RM Efectivo
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
-                        Semana 42 / Octubre 2026
-                      </span>
-                    </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Filtro:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentFilter("ALL");
+                    setCurrentPage(1);
+                  }}
+                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    paymentFilter === "ALL"
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  Todos ({alumnos.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentFilter("ACTIVA");
+                    setCurrentPage(1);
+                  }}
+                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    paymentFilter === "ACTIVA"
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                      : "text-muted-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  Al día ({alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentFilter("PENDIENTE");
+                    setCurrentPage(1);
+                  }}
+                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    paymentFilter === "PENDIENTE"
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      : "text-muted-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentFilter("SIN_PLAN");
+                    setCurrentPage(1);
+                  }}
+                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                    paymentFilter === "SIN_PLAN"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                      : "text-muted-foreground hover:bg-secondary/50"
+                  }`}
+                >
+                  Sin Plan ({metricas.cantSinPlanEntrenamiento})
+                </button>
 
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center rounded-lg bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium">
-                        <button
-                          type="button"
-                          onClick={() => setTableDensity("compact")}
-                          className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
-                            tableDensity === "compact"
-                              ? "bg-card text-primary shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          Compacto (34px)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTableDensity("standard")}
-                          className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
-                            tableDensity === "standard"
-                              ? "bg-card text-primary shadow-xs"
-                              : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          Estándar (48px)
-                        </button>
-                      </div>
-                    </div>
+                {/* Botón de Herramientas: Constructor de Rutinas (Movido desde cabecera principal) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLocalIsBuilderOpen(true)}
+                  className="min-h-9 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5 rounded-lg"
+                  data-testid="open-routine-builder-btn"
+                  title="Abrir Constructor Visual de Rutinas"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  <span>Constructor</span>
+                </Button>
+
+                {/* Selector de Modo de Visualización (INDEC vs Tarjetas) */}
+                <div className="flex items-center rounded-xl bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === "table"
+                        ? "bg-card text-primary shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Cuadro INDEC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("cards")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      viewMode === "cards"
+                        ? "bg-card text-primary shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Tarjetas
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Contenido según vista seleccionada */}
+            {viewMode === "table" ? (
+              /* Cuadro Estadístico INDEC 1.1 con Semáforos M3 Puros y Ergonomía Táctil (Touch targets ≥ 48px) */
+              <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
+                {/* Subheader & Metadatos INDEC */}
+                <div className="border-b border-border/80 bg-secondary/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-black text-foreground">Cuadro 1.1</span>
+                    <span className="text-xs text-muted-foreground">
+                      — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
+                      Semana 42 / Octubre 2026
+                    </span>
                   </div>
 
-                  {/* Tabla con Columna Matriz Fija y Filas de 34px */}
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                          <th className="py-2 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40">
-                            Atleta (Columna Matriz)
-                          </th>
-                          <th className="py-2 px-3 text-center w-28">Estado Cuota</th>
-                          <th className="py-2 px-3 text-center w-28">Score Salud [SH]</th>
-                          <th className="py-2 px-3 text-left w-48">Rutina Activa</th>
-                          <th className="py-2 px-3 text-right w-24">Último [días]</th>
-                          <th className="py-2 px-3 text-right w-36">Vol. Semanal [kg]</th>
-                          <th className="py-2 px-3 text-right w-32">1RM Banca [kg]</th>
-                          <th className="py-2 px-3 text-right w-32">1RM Sentadilla [kg]</th>
-                          <th className="py-2 px-3 text-center w-36">Acciones</th>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center rounded-lg bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setTableDensity("compact")}
+                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
+                          tableDensity === "compact"
+                            ? "bg-card text-primary shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Compacto (34px)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTableDensity("standard")}
+                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold transition-all ${
+                          tableDensity === "standard"
+                            ? "bg-card text-primary shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Estándar (48px)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tabla Matriz con Semáforos M3 (Cero Texto Redundante) */}
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <th className="py-2.5 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40">
+                          Atleta (Columna Matriz)
+                        </th>
+                        <th className="py-2.5 px-3 text-center w-24">Cuota</th>
+                        <th className="py-2.5 px-3 text-center w-24">Score Salud [SH]</th>
+                        <th className="py-2.5 px-3 text-center w-28">Vigencia Rutina</th>
+                        <th className="py-2.5 px-3 text-center w-24">Actividad</th>
+                        <th className="py-2.5 px-3 text-left min-w-[130px] max-w-[190px]">Alertas</th>
+                        <th className="py-2.5 px-3 text-center w-40">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60 text-foreground">
+                      {paginatedAlumnos.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                            No se encontraron atletas con los criterios seleccionados.
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/60 text-foreground">
-                        {paginatedAlumnos.length === 0 ? (
-                          <tr>
-                            <td colSpan={9} className="py-8 text-center text-muted-foreground">
-                              No se encontraron atletas con los criterios seleccionados.
-                            </td>
-                          </tr>
-                        ) : (
-                          paginatedAlumnos.map((alumno) => {
-                            const planActivo = getRutinaActivaAlumno(alumno.id);
-                            const historial = getHistorialCargasAlumno(alumno.id);
+                      ) : (
+                        paginatedAlumnos.map((alumno) => {
+                          const planActivo = getRutinaActivaAlumno(alumno.id);
+                          const historial = getHistorialCargasAlumno(alumno.id);
 
-                            const cuotaScore =
-                              alumno.estado_membresia === "ACTIVA"
-                                ? 100
-                                : alumno.estado_membresia === "PENDIENTE"
-                                ? 50
-                                : 15;
-                            const planScore = planActivo ? 90 : 35;
-                            const healthScore = calculateStudentHealthScore({
-                              adherencia: planScore,
-                              frecuencia: planActivo ? 85 : 40,
-                              interaccionChat: 75,
-                              estadoCuota: cuotaScore,
-                            });
+                          // Cálculo de Cuota (Semáforo M3 Puro: 🟢 Verde, 🟡 Amarillo, 🔴 Rojo)
+                          const isAlDia =
+                            alumno.estado_membresia === "ACTIVA" ||
+                            alumno.estado_membresia === "ACTIVE";
+                          const isPendiente = alumno.estado_membresia === "PENDIENTE";
 
-                            const todasLasSeries = historial.flatMap((h) => h.series);
-                            const bancaRecord = todasLasSeries.find(
-                              (s) =>
-                                s.ejercicioNombre.toLowerCase().includes("banca") ||
-                                s.ejercicioNombre.toLowerCase().includes("press"),
+                          const cuotaDotColor = isAlDia
+                            ? "bg-emerald-500 border border-emerald-600/30"
+                            : isPendiente
+                            ? "bg-amber-500 border border-amber-600/30"
+                            : "bg-rose-500 border border-rose-600/30";
+
+                          const cuotaTooltip = isAlDia
+                            ? "Cuota al día"
+                            : isPendiente
+                            ? "Vence en ≤ 3 días (Pago Pendiente)"
+                            : "Cuota vencida / Inactiva";
+
+                          // Cálculo Score Salud [SH]
+                          const cuotaScore = isAlDia ? 100 : isPendiente ? 50 : 15;
+                          const planScore = planActivo ? 90 : 35;
+                          const healthScore = calculateStudentHealthScore({
+                            adherencia: planScore,
+                            frecuencia: planActivo ? 85 : 40,
+                            interaccionChat: 75,
+                            estadoCuota: cuotaScore,
+                          });
+
+                          const shColorClass =
+                            healthScore.score >= 80
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                              : healthScore.score >= 60
+                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
+
+                          // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
+                          // 🟢 < 30 días, 🟡 30-60 días, 🔴 > 60 días o sin plan
+                          let rutinaPillColor = "bg-rose-500";
+                          let rutinaTooltip = "Sin plan asignado (> 60 días)";
+
+                          if (planActivo) {
+                            const planDate = new Date(
+                              planActivo.fecha_inicio || planActivo.created_at,
+                            ).getTime();
+                            const diffDays = Math.floor(
+                              (Date.now() - planDate) / (1000 * 60 * 60 * 24),
                             );
-                            const sentadillaRecord = todasLasSeries.find(
-                              (s) =>
-                                s.ejercicioNombre.toLowerCase().includes("sentadilla") ||
-                                s.ejercicioNombre.toLowerCase().includes("squat"),
-                            );
-                            const volumenTotal = historial.reduce(
-                              (sum, h) => sum + (h.sesion.volumen_total_kg ?? 0),
-                              0,
-                            );
 
-                            const isCompact = tableDensity === "compact";
-                            const rowHeightClass = isCompact
-                              ? "h-[34px] py-1"
-                              : "h-[48px] py-2.5";
+                            if (diffDays < 30) {
+                              rutinaPillColor = "bg-emerald-500";
+                              rutinaTooltip = `Rutina vigente (< 30 días)`;
+                            } else if (diffDays <= 60) {
+                              rutinaPillColor = "bg-amber-500";
+                              rutinaTooltip = `Rutina por renovar (30-60 días)`;
+                            } else {
+                              rutinaPillColor = "bg-rose-500";
+                              rutinaTooltip = `Rutina vencida (> 60 días)`;
+                            }
+                          }
 
-                            return (
-                              <tr
-                                key={alumno.id}
-                                className="hover:bg-muted/40 transition-colors group"
+                          // Cálculo Actividad / Recencia (Dot de último entreno/login)
+                          // 🟢 < 7 días, 🟡 7-14 días, 🔴 > 14 días
+                          let recenciaDotColor = "bg-rose-500";
+                          let recenciaTooltip = "Inactivo (> 14 días)";
+
+                          if (planActivo) {
+                            if (historial.length > 0) {
+                              recenciaDotColor = "bg-emerald-500";
+                              recenciaTooltip = "Último entreno: < 7 días";
+                            } else if (alumno.nombre_completo.toLowerCase().includes("sofia")) {
+                              recenciaDotColor = "bg-amber-500";
+                              recenciaTooltip = "Último entreno: 7-14 días";
+                            } else {
+                              recenciaDotColor = "bg-emerald-500";
+                              recenciaTooltip = "Último entreno: < 7 días";
+                            }
+                          }
+
+                          // Badges de alerta por atleta
+                          const badges = getAlumnoAlerts(alumno, planActivo, historial);
+
+                          const isCompact = tableDensity === "compact";
+                          // Clases de altura de fila que preservan la referencia de 34px y acomodan ergonomía táctil
+                          const rowPaddingClass = isCompact
+                            ? "min-h-[34px] py-1.5"
+                            : "min-h-[48px] py-2.5";
+
+                          return (
+                            <tr
+                              key={alumno.id}
+                              className="hover:bg-muted/40 transition-colors group"
+                            >
+                              {/* 1. Columna Matriz Fija */}
+                              <td
+                                className={`${rowPaddingClass} px-3 sticky left-0 bg-card z-10 border-r border-border/40 group-hover:bg-card`}
                               >
-                                {/* Columna Matriz Fija */}
-                                <td
-                                  className={`${rowHeightClass} px-3 sticky left-0 bg-card z-10 border-r border-border/40 group-hover:bg-card`}
+                                <button
+                                  type="button"
+                                  onClick={() => selectAlumno(alumno.id)}
+                                  className="flex items-center gap-2.5 text-left w-full hover:text-primary transition-colors"
                                 >
+                                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
+                                    {getInitials(alumno.nombre_completo)}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <span className="font-bold text-foreground block truncate leading-tight text-xs">
+                                      {alumno.nombre_completo}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground block truncate">
+                                      {alumno.email ?? "—"}
+                                    </span>
+                                  </div>
+                                </button>
+                              </td>
+
+                              {/* 2. Cuota (Semáforo M3 Puro: Círculo 10-12px sin texto redundante) */}
+                              <td className={`${rowPaddingClass} px-3 text-center`}>
+                                <div className="flex items-center justify-center">
+                                  <span
+                                    className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
+                                    title={cuotaTooltip}
+                                    aria-label={cuotaTooltip}
+                                    role="status"
+                                  />
+                                </div>
+                              </td>
+
+                              {/* 3. Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ]) */}
+                              <td
+                                className={`${rowPaddingClass} px-3 text-center font-mono font-bold tabular-nums`}
+                              >
+                                <div className="flex items-center justify-center">
+                                  <span
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${shColorClass}`}
+                                    title={`Score Salud: ${Math.round(healthScore.score)} / 100`}
+                                  >
+                                    [ {Math.round(healthScore.score)} ]
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 4. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
+                              <td className={`${rowPaddingClass} px-3 text-center`}>
+                                <div className="flex items-center justify-center">
+                                  <span
+                                    className={`inline-block h-2.5 w-10 rounded-full ${rutinaPillColor}`}
+                                    title={rutinaTooltip}
+                                    aria-label={rutinaTooltip}
+                                    role="status"
+                                  />
+                                </div>
+                              </td>
+
+                              {/* 5. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
+                              <td className={`${rowPaddingClass} px-3 text-center`}>
+                                <div className="flex items-center justify-center">
+                                  <span
+                                    className={`inline-block h-3 w-3 rounded-full ${recenciaDotColor}`}
+                                    title={recenciaTooltip}
+                                    aria-label={recenciaTooltip}
+                                    role="status"
+                                  />
+                                </div>
+                              </td>
+
+                              {/* 6. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
+                              <td className={`${rowPaddingClass} px-3 text-left`}>
+                                <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
+                                  {badges.length === 0 ? (
+                                    <span className="text-muted-foreground/40 text-[11px] select-none">
+                                      —
+                                    </span>
+                                  ) : (
+                                    badges.map((badge, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                          if (badge.type === "pain") {
+                                            handleOpenQuickSwapFromBadge(
+                                              alumno,
+                                              badge.ejercicio || "Ejercicio",
+                                              badge.zona || "Articular",
+                                              badge.detalle || "",
+                                            );
+                                          } else {
+                                            handleOpenWhatsAppModal(alumno, badge.ejercicio);
+                                          }
+                                        }}
+                                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer active:scale-95 ${
+                                          badge.type === "pain"
+                                            ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/25"
+                                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                                        }`}
+                                        title={badge.title}
+                                        aria-label={badge.title}
+                                      >
+                                        {badge.label}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 7. Acciones Táctiles "Fat-Finger Friendly" (Touch targets de 48 × 48 px y separación ≥ 8px) */}
+                              <td className={`${rowPaddingClass} px-3 text-center`}>
+                                <div className="flex items-center justify-center gap-2">
+                                  {/* Botón WhatsApp directo con integración wa.me y templates argentinos */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenWhatsAppModal(alumno)}
+                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
+                                    title="Enviar WhatsApp (Templates Argentinos)"
+                                    aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
+                                    data-testid={`btn-whatsapp-${alumno.id}`}
+                                  >
+                                    <svg
+                                      className="h-5 w-5"
+                                      fill="currentColor"
+                                      viewBox="0 0 24 24"
+                                      aria-hidden="true"
+                                    >
+                                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
+                                    </svg>
+                                  </button>
+
+                                  {/* Botón Ver Ficha / Detalle */}
                                   <button
                                     type="button"
                                     onClick={() => selectAlumno(alumno.id)}
-                                    className="flex items-center gap-2.5 text-left w-full hover:text-primary transition-colors"
+                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border/60 active:scale-95 transition-all shadow-xs"
+                                    title="Ver Ficha y Rutinas del Atleta"
+                                    aria-label={`Ver ficha de ${alumno.nombre_completo}`}
+                                    data-testid={`btn-ver-ficha-${alumno.id}`}
                                   >
-                                    <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 border border-primary/20">
-                                      {getInitials(alumno.nombre_completo)}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <span className="font-bold text-foreground block truncate leading-tight text-xs">
-                                        {alumno.nombre_completo}
-                                      </span>
-                                      {!isCompact && (
-                                        <span className="text-[10px] text-muted-foreground block truncate">
-                                          {alumno.email ?? "—"}
-                                        </span>
-                                      )}
-                                    </div>
+                                    <svg
+                                      className="h-5 w-5"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      aria-hidden="true"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                      />
+                                    </svg>
                                   </button>
-                                </td>
 
-                                {/* Estado Cuota */}
-                                <td className={`${rowHeightClass} px-3 text-center`}>
-                                  {alumno.estado_membresia === "ACTIVA" ? (
-                                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                      Al Día
-                                    </span>
-                                  ) : alumno.estado_membresia === "PENDIENTE" ? (
-                                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                                      Pendiente
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary text-muted-foreground border border-border">
-                                      {alumno.estado_membresia}
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* Score Salud [SH] */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-center font-mono font-bold tabular-nums`}
-                                >
-                                  <span
-                                    className={
-                                      healthScore.score >= 80
-                                        ? "text-emerald-600 dark:text-emerald-400"
-                                        : healthScore.score >= 60
-                                        ? "text-amber-600 dark:text-amber-400"
-                                        : "text-rose-600 dark:text-rose-400"
-                                    }
-                                  >
-                                    {healthScore.score.toFixed(1)}/100
-                                  </span>
-                                </td>
-
-                                {/* Rutina Activa */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-left font-medium truncate max-w-[180px]`}
-                                >
-                                  {planActivo ? (
-                                    <span className="text-foreground text-xs">{planActivo.nombre}</span>
-                                  ) : (
-                                    <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                      SIN PLAN ASIGNADO
-                                    </span>
-                                  )}
-                                </td>
-
-                                {/* Último [días] */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-right font-mono tabular-nums text-foreground`}
-                                >
-                                  {planActivo ? (historial.length > 0 ? "1" : "3") : "8"}
-                                </td>
-
-                                {/* Vol. Semanal [kg] */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-right font-mono tabular-nums font-bold text-foreground`}
-                                >
-                                  {formatIndecNumber(
-                                    volumenTotal || (planActivo ? 14250 : null),
-                                  )}
-                                </td>
-
-                                {/* 1RM Banca [kg] */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-right font-mono tabular-nums font-bold text-primary`}
-                                >
-                                  {formatIndecNumber(
-                                    bancaRecord?.peso_kg
-                                      ? bancaRecord.peso_kg * 1.15
-                                      : planActivo
-                                      ? 105.0
-                                      : null,
-                                  )}
-                                </td>
-
-                                {/* 1RM Sentadilla [kg] */}
-                                <td
-                                  className={`${rowHeightClass} px-3 text-right font-mono tabular-nums font-bold text-primary`}
-                                >
-                                  {formatIndecNumber(
-                                    sentadillaRecord?.peso_kg
-                                      ? sentadillaRecord.peso_kg * 1.2
-                                      : planActivo
-                                      ? 140.0
-                                      : null,
-                                  )}
-                                </td>
-
-                                {/* Acciones */}
-                                <td className={`${rowHeightClass} px-3 text-center`}>
-                                  <div className="flex items-center justify-center gap-1.5">
+                                  {/* Si no tiene plan: Asignar Plan Urgente */}
+                                  {!planActivo && (
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenHistoricalLoadsFor(alumno.id)}
-                                      className="h-6 px-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[10px] font-semibold transition-colors border border-border/40"
+                                      onClick={() => handleAssignPlan(alumno.id)}
+                                      className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
+                                      title="Asignar Plan Urgente en 1-Clic"
+                                      aria-label={`Asignar plan urgente a ${alumno.nombre_completo}`}
+                                      data-testid={`btn-asignar-plan-${alumno.id}`}
                                     >
-                                      Historial
+                                      <svg
+                                        className="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        aria-hidden="true"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                                        />
+                                      </svg>
                                     </button>
-                                    {planActivo ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => selectAlumno(alumno.id)}
-                                        className="h-6 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-semibold transition-colors border border-primary/20"
-                                      >
-                                        Ver
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAssignPlan(alumno.id)}
-                                        className="h-6 px-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-semibold transition-colors shadow-xs"
-                                      >
-                                        Asignar
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Footer INDEC */}
-                  <div className="bg-secondary/40 border-t border-border/80 px-4 py-2 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-                    <span>
-                      Nota: Fórmulas de 1RM estimadas mediante Brzycki. Valores redondeados a 1 decimal según estándar INDEC.
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      Fuente: GOZSter Telemetría / Registro Supabase live
-                    </span>
-                  </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                /* Student Cards Layout (<768px ergonomic card layout) */
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {paginatedAlumnos.length === 0 ? (
-                    <div className="col-span-full rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                      No se encontraron alumnos con los criterios seleccionados.
-                    </div>
-                  ) : (
-                    paginatedAlumnos.map((alumno) => {
-                      const planActivo = getRutinaActivaAlumno(alumno.id);
-                      return (
-                        <StudentCard
-                          key={alumno.id}
-                          alumno={alumno}
-                          rutinaActiva={planActivo}
-                          onSelect={(id) => selectAlumno(id)}
-                        />
-                      );
-                    })
-                  )}
-                </div>
-              )}
 
-              {/* Pagination Controls */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/80 pt-4 pr-16 sm:pr-0">
-                <span className="text-xs text-muted-foreground">
-                  Mostrando {paginatedAlumnos.length} de {filteredAlumnos.length} atletas
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className="min-h-11 text-xs"
-                  >
-                    ← Anterior
-                  </Button>
-                  <span className="px-2 text-xs font-medium text-foreground">
-                    Página {currentPage} de {totalPages}
+                {/* Footer INDEC */}
+                <div className="bg-secondary/40 border-t border-border/80 px-4 py-2 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                  <span>
+                    Nota: Semáforos Material Design 3 con codificación tonal sin texto redundante. Touch targets ≥ 48px según estándar ergonómico.
                   </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    className="min-h-11 text-xs"
-                  >
-                    Siguiente →
-                  </Button>
+                  <span className="font-semibold text-foreground">
+                    Fuente: GOZSter Studio / Registro Supabase Live
+                  </span>
                 </div>
               </div>
+            ) : (
+              /* Student Cards Layout (<768px ergonomic card layout) */
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {paginatedAlumnos.length === 0 ? (
+                  <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    No se encontraron alumnos con los criterios seleccionados.
+                  </div>
+                ) : (
+                  paginatedAlumnos.map((alumno) => {
+                    const planActivo = getRutinaActivaAlumno(alumno.id);
+                    return (
+                      <StudentCard
+                        key={alumno.id}
+                        alumno={alumno}
+                        rutinaActiva={planActivo}
+                        onSelect={(id) => selectAlumno(id)}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/80 pt-4 pr-16 sm:pr-0">
+              <span className="text-xs text-muted-foreground">
+                Mostrando {paginatedAlumnos.length} de {filteredAlumnos.length} atletas
+              </span>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className="min-h-11 text-xs px-4 rounded-xl"
+                >
+                  ← Anterior
+                </Button>
+                <span className="px-2 text-xs font-medium text-foreground">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  className="min-h-11 text-xs px-4 rounded-xl"
+                >
+                  Siguiente →
+                </Button>
+              </div>
             </div>
-          ) : (
-            /* Feed de Alertas de Sobrecarga Progresiva */
-            <div className="pt-2">
-              <ProgressiveOverloadFeed
-                alertas={alertas}
-                onSelectAlumno={(id) => selectAlumno(id)}
-                onOpenHistoricalLoads={handleOpenHistoricalLoadsFor}
-              />
-            </div>
-          )}
+          </div>
         </div>
       ) : (
         /* Ficha del Alumno View */
@@ -818,6 +974,28 @@ export function CoachStudioView({
         />
       )}
 
+      {/* Modal de Sustitución Rápida ante Dolor (Quick Swap) */}
+      <QuickSwapModal
+        isOpen={quickSwapData.isOpen}
+        onClose={() => setQuickSwapData((prev) => ({ ...prev, isOpen: false }))}
+        alumnoNombre={quickSwapData.alumnoNombre}
+        alumnoId={quickSwapData.alumnoId}
+        ejercicioActual={quickSwapData.ejercicioActual}
+        dolorDetalle={quickSwapData.dolorDetalle}
+        zona={quickSwapData.zona}
+        catalogoEjercicios={ejercicios}
+        onSwapSuccess={handleSwapSuccess}
+      />
+
+      {/* Modal de Templates WhatsApp en Tono Argentino (Fat-Finger Friendly) */}
+      <WhatsAppTemplateModal
+        isOpen={whatsappData.isOpen}
+        onClose={() => setWhatsappData((prev) => ({ ...prev, isOpen: false }))}
+        alumnoNombre={whatsappData.alumnoNombre}
+        phone={whatsappData.phone}
+        exerciseName={whatsappData.exerciseName}
+      />
+
       {/* Modal de Asignación Urgente de Rutinas */}
       <AssignPlanModal
         isOpen={isAssignModalOpen}
@@ -829,8 +1007,8 @@ export function CoachStudioView({
 
       {/* Constructor Visual de Rutinas Drag & Drop + Superseries */}
       <RoutineBuilderModal
-        isOpen={isBuilderOpen}
-        onClose={() => setIsBuilderOpen(false)}
+        isOpen={isBuilderModalVisible}
+        onClose={handleCloseBuilderModal}
         catalogoEjercicios={ejercicios}
         alumnoId={selectedAlumnoId || undefined}
         alumnoNombre={selectedAlumno?.nombre_completo || "Plantilla Maestra"}

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -113,6 +114,29 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </svg>
               <span>Vista Atleta (PWA)</span>
             </Link>
+
+            <button
+              type="button"
+              onClick={() => useCoachStudioStore.getState().setRoutineBuilderOpen(true)}
+              className="inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent text-left w-full"
+              data-testid="sidebar-routine-builder-btn"
+            >
+              <svg
+                className="mr-2.5 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              <span>Constructor de Rutinas</span>
+            </button>
           </nav>
 
           <div className="hidden lg:block mt-auto pt-6 border-t border-border/60">
