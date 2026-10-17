@@ -2,416 +2,438 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=1600, initial-scale=1.0" />
-  <title>GOZSter Coach Studio - Comparativa MODO DÍA vs MODO NOCHE</title>
+  <meta name="viewport" content="width=1440, initial-scale=1.0" />
+  <title>GOZSter Coach Studio - Comparativa Bimodal (Modo Día Suave vs Modo Noche Pulido)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #E2E8F0;
+      font-family: 'Inter', sans-serif;
+      background-color: #0B0F17;
+      color: #E2E8F0;
     }
     .font-tabular {
       font-family: 'JetBrains Mono', monospace;
       font-variant-numeric: tabular-nums;
     }
+    .table-indec th, .table-indec td {
+      border-bottom-width: 1px;
+    }
   </style>
 </head>
-<body class="p-8 space-y-12 max-w-[1600px] mx-auto">
+<body class="w-[1440px] min-h-[900px] mx-auto bg-[#0B0F17] flex flex-col shadow-2xl overflow-x-hidden">
 
-  <!-- Header de Presentación -->
-  <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 flex items-center justify-between">
-    <div>
-      <div class="flex items-center gap-3">
-        <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold tracking-wide uppercase border border-blue-200">Revisión de Paleta & Suavidad Visual</span>
-        <span class="text-xs text-slate-500 font-medium">Arquitectura de Datos Densos (Normas INDEC 2024)</span>
+  <!-- Master Presentation Bar / Mode Switcher -->
+  <header class="bg-[#111827] border-b border-white/10 px-8 py-3.5 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-blue-600 text-white font-black text-base flex items-center justify-center shadow">
+        G
       </div>
-      <h1 class="text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">GOZSter Coach Studio: Comparativa MODO DÍA vs MODO NOCHE</h1>
-      <p class="text-sm text-slate-600 mt-1">
-        Evolución de una estética tosca e industrial hacia un diseño <strong>amable, refinado y de alta precisión visual</strong>, manteniendo el rigor de datos del INDEC.
-      </p>
-    </div>
-    <div class="flex items-center gap-3 text-xs font-semibold">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
-        ☀️ Modo Día: Fondo Blanco Cálido / Sin Estrés Ocular
-      </span>
-      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-slate-100 border border-slate-700">
-        🌙 Modo Noche: Carbón Suave / Sin Destellos Cegadores
-      </span>
-    </div>
-  </div>
-
-  <!-- SECCIÓN 1: MODO DÍA (FONDO BLANCO / AMABLE / ELEGANTE) -->
-  <div class="space-y-3">
-    <div class="flex items-center justify-between px-2">
-      <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-blue-600"></span>
-        <h2 class="text-base font-bold text-slate-900 tracking-tight">1. MODO DÍA (Light Mode) — Coach Studio Desktop (1440px)</h2>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold text-base tracking-tight text-white font-['Outfit']">GOZSTER</span>
+          <span class="text-[11px] font-bold text-sky-400 bg-sky-950/70 px-2 py-0.5 rounded border border-sky-800/60 uppercase tracking-wider">
+            Refinamiento Bimodal GOZS-23
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400">Dirección de Arte: Modo Día Suave (#F8FAFC) &amp; Modo Noche Pulido (#0F172A)</p>
       </div>
-      <span class="text-xs font-medium text-slate-500">Paleta: Pure Canvas, Slate Suave, Índigo Atlántico y Esmeralda Botánico</span>
     </div>
 
-    <!-- Canvas Modo Día -->
-    <div class="w-[1440px] bg-[#F8FAFC] rounded-2xl border border-slate-200 shadow-xl overflow-hidden text-slate-800">
-      
-      <!-- Topbar Coach Studio Día -->
-      <header class="bg-white border-b border-slate-200/80 px-8 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-lg flex items-center justify-center shadow-sm shadow-blue-500/20">
-            G
+    <!-- Mode Selector Tabs -->
+    <div class="flex items-center gap-2 bg-slate-900/90 p-1 rounded-xl border border-white/10">
+      <button onclick="setMode('split')" id="btn-split" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white shadow">
+        Comparativa Dividida (Lado a Lado)
+      </button>
+      <button onclick="setMode('day')" id="btn-day" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all">
+        Solo Modo Día (Light)
+      </button>
+      <button onclick="setMode('night')" id="btn-night" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all">
+        Solo Modo Noche (Dark Pulido)
+      </button>
+    </div>
+
+    <!-- Metadatos de Feedback -->
+    <div class="text-right text-[11px] text-slate-400">
+      <div class="font-semibold text-white">Feedback Gabriel: Anti-Fatiga</div>
+      <div class="text-[10px] text-emerald-400 font-tabular">WCAG AAA en métricas • Normas INDEC Nº 8</div>
+    </div>
+  </header>
+
+  <!-- Container for Comparisons -->
+  <main class="flex-1 p-6 space-y-6">
+
+    <!-- SPLIT VIEW CONTAINER (Lado a Lado) -->
+    <div id="view-split" class="grid grid-cols-2 gap-6">
+
+      <!-- ============================================================== -->
+      <!-- COLUMNA IZQUIERDA: MODO DÍA SUAVE (LIGHT MODE / STUDIO CALM)  -->
+      <!-- ============================================================== -->
+      <section class="rounded-2xl border border-slate-200 bg-[#F8FAFC] text-[#0F172A] shadow-xl overflow-hidden flex flex-col">
+        <!-- Sub-header de la columna -->
+        <div class="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-blue-600"></span>
+            <h2 class="font-bold text-sm font-['Outfit'] text-slate-900 tracking-tight">MODO DÍA SUAVE</h2>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">#F8FAFC / #FFFFFF</span>
           </div>
-          <div>
-            <div class="flex items-center gap-2.5">
-              <span class="font-extrabold text-lg tracking-tight text-slate-900">GOZSter <span class="text-blue-600 font-semibold">Studio</span></span>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">Desktop Pro</span>
+          <span class="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+            Acento: Azul Atlántico #2563EB
+          </span>
+        </div>
+
+        <div class="p-5 space-y-5 flex-1">
+          <!-- Top KPI Strip Modo Día -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Atletas Activas</div>
+              <div class="text-xl font-tabular font-bold text-emerald-600 mt-0.5">11 <span class="text-[10px] text-slate-400 font-normal">/ 13</span></div>
+              <div class="text-[10px] text-slate-400 mt-1">Cuotas al día</div>
             </div>
-            <p class="text-xs text-slate-500 font-medium">Panel Ejecutivo de Rendimiento y Roster de Alumnos</p>
-          </div>
-        </div>
-
-        <!-- KPI Strip Día (Amable y Suave) -->
-        <div class="flex items-center gap-3">
-          <div class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-500">Alumnos Activos:</span>
-            <span class="text-sm font-tabular font-bold text-emerald-600">11</span>
-          </div>
-          <div class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-500">Sin Rutina:</span>
-            <span class="text-sm font-tabular font-bold text-rose-500">2</span>
-          </div>
-          <div class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-500">Deserción Mes:</span>
-            <span class="text-sm font-tabular font-bold text-slate-700">0%</span>
-          </div>
-          <button class="h-10 px-4 rounded-xl bg-blue-600 text-white font-semibold text-xs tracking-wide hover:bg-blue-700 transition-colors shadow-sm shadow-blue-500/20 flex items-center gap-2 ml-2">
-            <span>+ Asignar Rutina Urgente</span>
-          </button>
-        </div>
-      </header>
-
-      <!-- Subheader & Controles INDEC Día -->
-      <div class="bg-white/70 border-b border-slate-200/60 px-8 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-bold text-slate-900">Cuadro 1.1</span>
-          <span class="text-xs text-slate-500">— Matriz Semanal de Cargas, Estado de Membresía y 1RM Efectivo</span>
-          <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">Semana 42 / Octubre 2026</span>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <input type="text" placeholder="Buscar por atleta o ejercicio..." class="h-8 w-64 bg-slate-50 border border-slate-200 rounded-lg px-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-sans" />
-          <div class="flex items-center rounded-lg bg-slate-100 border border-slate-200 p-0.5 text-xs font-medium">
-            <button class="px-3 py-1 rounded-md bg-white text-blue-700 font-semibold shadow-xs">Compacto (34px)</button>
-            <button class="px-3 py-1 rounded-md text-slate-600 hover:text-slate-900">Estándar</button>
-          </div>
-          <button class="h-8 px-3 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs flex items-center gap-1.5">
-            Exportar CSV
-          </button>
-        </div>
-      </div>
-
-      <!-- Tabla Estadística INDEC Modo Día -->
-      <div class="p-6">
-        <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <th class="py-3 px-4 text-left w-64">Atleta (Columna Matriz)</th>
-                <th class="py-3 px-3 text-center w-28">Estado Cuota</th>
-                <th class="py-3 px-3 text-center w-28">Score Salud [SH]</th>
-                <th class="py-3 px-3 text-left w-52">Rutina Activa</th>
-                <th class="py-3 px-3 text-right w-24">Último [días]</th>
-                <th class="py-3 px-3 text-right w-36">Vol. Semanal [kg]</th>
-                <th class="py-3 px-3 text-right w-32">1RM Banca [kg]</th>
-                <th class="py-3 px-3 text-right w-32">1RM Sentadilla [kg]</th>
-                <th class="py-3 px-3 text-center w-36">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 text-slate-700">
-              <tr class="hover:bg-slate-50/60 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 font-bold text-xs flex items-center justify-center border border-blue-100">LG</div>
-                    <div>
-                      <span class="font-bold text-slate-900 block">Lucas González</span>
-                      <span class="text-[10px] text-slate-400">lucas.gonzalez@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-emerald-600">
-                  94/100
-                </td>
-                <td class="py-2.5 px-3 text-left font-medium text-slate-800">Torso / Pierna Pesado</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-800 font-medium">1</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-slate-900">18.450,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-blue-600">125,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-blue-600">160,0</td>
-                <td class="py-2.5 px-3 text-center">
-                  <div class="flex items-center justify-center gap-1.5">
-                    <button class="h-7 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] transition-colors">Historial</button>
-                    <button class="h-7 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium text-[11px] transition-colors">WhatsApp</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr class="hover:bg-slate-50/60 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 font-bold text-xs flex items-center justify-center border border-amber-100">MR</div>
-                    <div>
-                      <span class="font-bold text-slate-900 block">Martín Rossi</span>
-                      <span class="text-[10px] text-slate-400">mrossi@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">Pendiente</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-amber-600">
-                  68/100
-                </td>
-                <td class="py-2.5 px-3 text-left font-medium text-slate-800">Hipertrofia Bloque 2</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-800 font-medium">3</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-slate-900">12.100,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-blue-600">97,5</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-blue-600">130,0</td>
-                <td class="py-2.5 px-3 text-center">
-                  <div class="flex items-center justify-center gap-1.5">
-                    <button class="h-7 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] transition-colors">Historial</button>
-                    <button class="h-7 px-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium text-[11px] transition-colors">Cobrar</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr class="bg-rose-50/40 hover:bg-rose-50/70 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 font-bold text-xs flex items-center justify-center border border-rose-200">SB</div>
-                    <div>
-                      <span class="font-bold text-slate-900 block">Sofia Benítez</span>
-                      <span class="text-[10px] text-slate-400">sofia.b@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-rose-600">
-                  32/100
-                </td>
-                <td class="py-2.5 px-3 text-left">
-                  <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">SIN PLAN ASIGNADO</span>
-                </td>
-                <td class="py-2.5 px-3 text-right font-tabular text-rose-600 font-bold">8</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-400">—</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-400">—</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-400">—</td>
-                <td class="py-2.5 px-3 text-center">
-                  <button class="h-7 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] shadow-xs">Asignar Plan</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Footer INDEC Día -->
-          <div class="bg-slate-50/80 border-t border-slate-200 px-6 py-2.5 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Nota: Fórmulas de 1RM estimadas mediante Brzycki. Valores redondeados a 1 decimal según estándar INDEC.</span>
-            <span class="font-semibold text-slate-700">Mostrando 3 de 13 atletas activos</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SECCIÓN 2: MODO NOCHE REFINADO (SIN TOSQUEDAD / SUAVE Y MODERNO) -->
-  <div class="space-y-3">
-    <div class="flex items-center justify-between px-2">
-      <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-sky-400"></span>
-        <h2 class="text-base font-bold text-slate-900 tracking-tight">2. MODO NOCHE (Dark Mode Refinado) — Coach Studio Desktop (1440px)</h2>
-      </div>
-      <span class="text-xs font-medium text-slate-500">Paleta: Deep Slate #0F172A, Superficies #1E293B, Acento Cian Suave #38BDF8</span>
-    </div>
-
-    <!-- Canvas Modo Noche -->
-    <div class="w-[1440px] bg-[#0F172A] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden text-slate-200">
-      
-      <!-- Topbar Coach Studio Noche -->
-      <header class="bg-[#1E293B] border-b border-slate-800 px-8 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-sky-500 text-slate-950 font-black text-lg flex items-center justify-center shadow-sm shadow-sky-500/20">
-            G
-          </div>
-          <div>
-            <div class="flex items-center gap-2.5">
-              <span class="font-extrabold text-lg tracking-tight text-white">GOZSter <span class="text-sky-400 font-semibold">Studio</span></span>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700/50">Desktop Pro</span>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sin Plan Asignado</div>
+              <div class="text-xl font-tabular font-bold text-rose-500 mt-0.5">2 <span class="text-[10px] text-rose-400 font-normal">URGENTES</span></div>
+              <div class="text-[10px] text-rose-500 mt-1 font-semibold">Requiere acción</div>
             </div>
-            <p class="text-xs text-slate-400 font-medium">Panel Ejecutivo de Rendimiento y Roster de Alumnos</p>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Churn Rate Mes</div>
+              <div class="text-xl font-tabular font-bold text-blue-600 mt-0.5">0.0%</div>
+              <div class="text-[10px] text-slate-400 mt-1">Retención 100%</div>
+            </div>
+          </div>
+
+          <!-- Matriz INDEC Modo Día -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Cuadro 1.1 • Roster de Atletas (Normas INDEC)</span>
+                <span class="text-[10px] text-slate-500 block">Semana 42 • Fondo blanco puro y líneas sutiles</span>
+              </div>
+              <button class="h-7 px-2.5 rounded-lg bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition">
+                + Asignar Plan
+              </button>
+            </div>
+
+            <table class="w-full text-xs table-indec">
+              <thead>
+                <tr class="bg-slate-100/70 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                  <th class="py-2 px-3 text-left">Atleta</th>
+                  <th class="py-2 px-2 text-center">Estado</th>
+                  <th class="py-2 px-2 text-center">Salud</th>
+                  <th class="py-2 px-3 text-left">Plan Vigente</th>
+                  <th class="py-2 px-2 text-right">Vol [kg]</th>
+                  <th class="py-2 px-2 text-right">1RM [kg]</th>
+                  <th class="py-2 px-2 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <!-- Fila 1: Lucas González -->
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-slate-900">Lucas González</div>
+                    <div class="text-[10px] text-slate-400">Powerlifting Pro</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-emerald-600 text-[11px]">96/100</td>
+                  <td class="py-2.5 px-3 font-medium text-slate-700">Fuerza Máxima S4</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-slate-900">18.450</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-blue-600">125,0</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold border border-slate-200">Ver</button>
+                  </td>
+                </tr>
+
+                <!-- Fila 2: Martín Rossi (Pendiente) -->
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-slate-900">Martín Rossi</div>
+                    <div class="text-[10px] text-slate-400">Hipertrofia</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Pendiente</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-amber-600 text-[11px]">68/100</td>
+                  <td class="py-2.5 px-3 font-medium text-slate-700">Bloque 2 Vol.</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-slate-900">12.100</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-blue-600">97,5*</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-semibold border border-amber-200">Cobrar</button>
+                  </td>
+                </tr>
+
+                <!-- Fila 3: Sofia Benítez (Sin Plan) -->
+                <tr class="bg-rose-50/40 hover:bg-rose-50/70 transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-slate-900">Sofia Benítez</div>
+                    <div class="text-[10px] text-slate-400">Fuerza Base</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Al Día</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-rose-500 text-[11px]">32/100</td>
+                  <td class="py-2.5 px-3">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">SIN PLAN</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-right font-tabular text-slate-400">—</td>
+                  <td class="py-2.5 px-2 text-right font-tabular text-slate-400">...</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2.5 rounded bg-blue-600 text-white font-bold text-[10px] shadow hover:bg-blue-700">Asignar</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Notas INDEC Modo Día -->
+            <div class="px-4 py-2 bg-slate-50/60 border-t border-slate-200 text-[10px] text-slate-500 flex items-center justify-between">
+              <span>Simbología: <code>...</code> No disp.; <code>—</code> Cero; <code>*</code> Est. Brzycki</span>
+              <span>Fuente: Telemetría GOZSter Supabase</span>
+            </div>
+          </div>
+
+          <!-- Módulo Telemetría y Carga Modo Día -->
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+              <span>Tonelaje Semanal Acumulado (Hipertrofia vs Fuerza)</span>
+              <span class="font-tabular text-blue-600">142.500 kg total</span>
+            </div>
+            <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex">
+              <div class="bg-blue-600 h-full" style="width: 65%" title="Series Efectivas"></div>
+              <div class="bg-emerald-500 h-full" style="width: 25%" title="Calentamiento"></div>
+              <div class="bg-amber-400 h-full" style="width: 10%" title="Series Accesorias"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-600"></span> Efectivo (65%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Calentamiento (25%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Accesorio (10%)</span>
+            </div>
           </div>
         </div>
 
-        <!-- KPI Strip Noche -->
-        <div class="flex items-center gap-3">
-          <div class="px-4 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-400">Alumnos Activos:</span>
-            <span class="text-sm font-tabular font-bold text-emerald-400">11</span>
+        <!-- Palette Swatch Footer Modo Día -->
+        <div class="bg-white border-t border-slate-200 p-3 flex items-center justify-between text-[11px]">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-slate-700">Tokens Día:</span>
+            <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 font-mono text-[10px]">#F8FAFC</span>
+            <span class="px-2 py-0.5 rounded bg-white border border-slate-300 font-mono text-[10px]">#FFFFFF</span>
+            <span class="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[10px]">#2563EB</span>
           </div>
-          <div class="px-4 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-400">Sin Rutina:</span>
-            <span class="text-sm font-tabular font-bold text-rose-400">2</span>
-          </div>
-          <div class="px-4 py-2 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center gap-3 shadow-xs">
-            <span class="text-xs font-semibold text-slate-400">Deserción Mes:</span>
-            <span class="text-sm font-tabular font-bold text-slate-300">0%</span>
-          </div>
-          <button class="h-10 px-4 rounded-xl bg-sky-500 text-slate-950 font-semibold text-xs tracking-wide hover:bg-sky-400 transition-colors shadow-sm shadow-sky-500/20 flex items-center gap-2 ml-2">
-            <span>+ Asignar Rutina Urgente</span>
-          </button>
+          <span class="font-bold text-emerald-600">WCAG 18.2:1 (AAA)</span>
         </div>
-      </header>
+      </section>
 
-      <!-- Subheader & Controles INDEC Noche -->
-      <div class="bg-[#1E293B]/60 border-b border-slate-800 px-8 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <span class="text-xs font-bold text-slate-100">Cuadro 1.1</span>
-          <span class="text-xs text-slate-400">— Matriz Semanal de Cargas, Estado de Membresía y 1RM Efectivo</span>
-          <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60 font-medium">Semana 42 / Octubre 2026</span>
+      <!-- ============================================================== -->
+      <!-- COLUMNA DERECHA: MODO NOCHE PULIDO (REFINED DARK / ATHLETIC)   -->
+      <!-- ============================================================== -->
+      <section class="rounded-2xl border border-white/10 bg-[#0F172A] text-[#F8FAFC] shadow-xl overflow-hidden flex flex-col">
+        <!-- Sub-header de la columna -->
+        <div class="bg-[#1E293B] border-b border-white/10 px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-sky-400"></span>
+            <h2 class="font-bold text-sm font-['Outfit'] text-white tracking-tight">MODO NOCHE PULIDO (SUAVIZADO)</h2>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-white/10">#0F172A / #1E293B</span>
+          </div>
+          <span class="text-[11px] font-semibold text-sky-300 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/80">
+            Acento: Cian Suave #38BDF8
+          </span>
         </div>
 
-        <div class="flex items-center gap-3">
-          <input type="text" placeholder="Buscar por atleta o ejercicio..." class="h-8 w-64 bg-slate-900 border border-slate-700 rounded-lg px-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 font-sans" />
-          <div class="flex items-center rounded-lg bg-slate-900 border border-slate-700 p-0.5 text-xs font-medium">
-            <button class="px-3 py-1 rounded-md bg-slate-800 text-sky-400 font-semibold shadow-xs">Compacto (34px)</button>
-            <button class="px-3 py-1 rounded-md text-slate-400 hover:text-white">Estándar</button>
+        <div class="p-5 space-y-5 flex-1">
+          <!-- Top KPI Strip Modo Noche -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-[#1E293B] p-3 rounded-xl border border-white/10 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atletas Activas</div>
+              <div class="text-xl font-tabular font-bold text-emerald-400 mt-0.5">11 <span class="text-[10px] text-slate-500 font-normal">/ 13</span></div>
+              <div class="text-[10px] text-slate-400 mt-1">Cuotas al día</div>
+            </div>
+            <div class="bg-[#1E293B] p-3 rounded-xl border border-white/10 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sin Plan Asignado</div>
+              <div class="text-xl font-tabular font-bold text-rose-400 mt-0.5">2 <span class="text-[10px] text-rose-500 font-normal">URGENTES</span></div>
+              <div class="text-[10px] text-rose-400 mt-1 font-semibold">Requiere acción</div>
+            </div>
+            <div class="bg-[#1E293B] p-3 rounded-xl border border-white/10 shadow-sm">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Churn Rate Mes</div>
+              <div class="text-xl font-tabular font-bold text-sky-400 mt-0.5">0.0%</div>
+              <div class="text-[10px] text-slate-400 mt-1">Retención 100%</div>
+            </div>
           </div>
-          <button class="h-8 px-3 rounded-lg bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 hover:bg-slate-700 shadow-xs flex items-center gap-1.5">
-            Exportar CSV
-          </button>
+
+          <!-- Matriz INDEC Modo Noche -->
+          <div class="bg-[#1E293B] rounded-xl border border-white/10 shadow-sm overflow-hidden">
+            <div class="px-4 py-2.5 bg-[#172033] border-b border-white/10 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-white uppercase tracking-wider">Cuadro 1.1 • Roster de Atletas (Normas INDEC)</span>
+                <span class="text-[10px] text-slate-400 block">Semana 42 • Fondo pizarra descansado sin negro abisal</span>
+              </div>
+              <button class="h-7 px-2.5 rounded-lg bg-sky-400 text-slate-950 text-[11px] font-bold hover:bg-sky-300 transition shadow">
+                + Asignar Plan
+              </button>
+            </div>
+
+            <table class="w-full text-xs table-indec">
+              <thead>
+                <tr class="bg-slate-900/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                  <th class="py-2 px-3 text-left">Atleta</th>
+                  <th class="py-2 px-2 text-center">Estado</th>
+                  <th class="py-2 px-2 text-center">Salud</th>
+                  <th class="py-2 px-3 text-left">Plan Vigente</th>
+                  <th class="py-2 px-2 text-right">Vol [kg]</th>
+                  <th class="py-2 px-2 text-right">1RM [kg]</th>
+                  <th class="py-2 px-2 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                <!-- Fila 1: Lucas González -->
+                <tr class="hover:bg-white/[0.03] transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-white">Lucas González</div>
+                    <div class="text-[10px] text-slate-400">Powerlifting Pro</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">Al Día</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-emerald-400 text-[11px]">96/100</td>
+                  <td class="py-2.5 px-3 font-medium text-slate-300">Fuerza Máxima S4</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-white">18.450</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-sky-400">125,0</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold border border-white/10">Ver</button>
+                  </td>
+                </tr>
+
+                <!-- Fila 2: Martín Rossi (Pendiente) -->
+                <tr class="hover:bg-white/[0.03] transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-white">Martín Rossi</div>
+                    <div class="text-[10px] text-slate-400">Hipertrofia</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/40">Pendiente</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-amber-300 text-[11px]">68/100</td>
+                  <td class="py-2.5 px-3 font-medium text-slate-300">Bloque 2 Vol.</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-white">12.100</td>
+                  <td class="py-2.5 px-2 text-right font-tabular font-bold text-sky-400">97,5*</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2 rounded bg-amber-950/40 hover:bg-amber-900/50 text-amber-300 text-[10px] font-semibold border border-amber-800/60">Cobrar</button>
+                  </td>
+                </tr>
+
+                <!-- Fila 3: Sofia Benítez (Sin Plan) -->
+                <tr class="bg-rose-950/20 hover:bg-rose-950/30 transition-colors">
+                  <td class="py-2.5 px-3">
+                    <div class="font-bold text-white">Sofia Benítez</div>
+                    <div class="text-[10px] text-slate-400">Fuerza Base</div>
+                  </td>
+                  <td class="py-2.5 px-2 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/40">Al Día</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-center font-tabular font-bold text-rose-400 text-[11px]">32/100</td>
+                  <td class="py-2.5 px-3">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/50">SIN PLAN</span>
+                  </td>
+                  <td class="py-2.5 px-2 text-right font-tabular text-slate-500">—</td>
+                  <td class="py-2.5 px-2 text-right font-tabular text-slate-500">...</td>
+                  <td class="py-2.5 px-2 text-center">
+                    <button class="h-6 px-2.5 rounded bg-sky-400 text-slate-950 font-bold text-[10px] shadow hover:bg-sky-300">Asignar</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Notas INDEC Modo Noche -->
+            <div class="px-4 py-2 bg-[#172033]/60 border-t border-white/10 text-[10px] text-slate-400 flex items-center justify-between">
+              <span>Simbología: <code>...</code> No disp.; <code>—</code> Cero; <code>*</code> Est. Brzycki</span>
+              <span>Fuente: Telemetría GOZSter Supabase</span>
+            </div>
+          </div>
+
+          <!-- Módulo Telemetría y Carga Modo Noche -->
+          <div class="bg-[#1E293B] p-4 rounded-xl border border-white/10 shadow-sm space-y-2">
+            <div class="flex items-center justify-between text-xs font-bold text-white">
+              <span>Tonelaje Semanal Acumulado (Hipertrofia vs Fuerza)</span>
+              <span class="font-tabular text-sky-400">142.500 kg total</span>
+            </div>
+            <div class="h-3 w-full bg-slate-900/80 rounded-full overflow-hidden flex border border-white/5">
+              <div class="bg-sky-400 h-full" style="width: 65%" title="Series Efectivas"></div>
+              <div class="bg-emerald-400 h-full" style="width: 25%" title="Calentamiento"></div>
+              <div class="bg-amber-400 h-full" style="width: 10%" title="Series Accesorias"></div>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Efectivo (65%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Calentamiento (25%)</span>
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Accesorio (10%)</span>
+            </div>
+          </div>
         </div>
+
+        <!-- Palette Swatch Footer Modo Noche -->
+        <div class="bg-[#1E293B] border-t border-white/10 p-3 flex items-center justify-between text-[11px]">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-slate-300">Tokens Noche:</span>
+            <span class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 font-mono text-[10px] text-slate-300">#0F172A</span>
+            <span class="px-2 py-0.5 rounded bg-slate-800 border border-white/10 font-mono text-[10px] text-slate-300">#1E293B</span>
+            <span class="px-2 py-0.5 rounded bg-sky-400 text-slate-950 font-mono text-[10px] font-bold">#38BDF8</span>
+          </div>
+          <span class="font-bold text-sky-400">WCAG 12.2:1 (AAA)</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- COMPARISON MATRIX & FEEDBACK SUMMARY (FOOTER STRIP) -->
+    <div class="bg-slate-900/90 rounded-2xl border border-white/10 p-4 text-xs text-slate-300 flex items-center justify-between">
+      <div class="space-y-1">
+        <div class="font-bold text-white text-sm">Resumen Ejecutivo de la Transformación Bimodal:</div>
+        <p class="text-slate-400 text-[11px]">
+          1. <strong>Modo Día Suave:</strong> Fondo off-white cálido (#F8FAFC), tarjetas blanco puro (#FFFFFF), acento Azul Atlántico (#2563EB) y tipografía grafito (#0F172A). Cero brillo enceguecedor.<br>
+          2. <strong>Modo Noche Pulido:</strong> Se sustituye el negro tosco (#080A0D) por carbón grafito (#0F172A) y tarjetas pizarra (#1E293B), sustituyendo el amarillo bruto por cian suave (#38BDF8).
+        </p>
       </div>
-
-      <!-- Tabla Estadística INDEC Modo Noche -->
-      <div class="p-6">
-        <div class="overflow-hidden rounded-xl border border-slate-800 bg-[#1E293B]/40 shadow-sm">
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="bg-slate-800/80 border-b border-slate-700/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                <th class="py-3 px-4 text-left w-64">Atleta (Columna Matriz)</th>
-                <th class="py-3 px-3 text-center w-28">Estado Cuota</th>
-                <th class="py-3 px-3 text-center w-28">Score Salud [SH]</th>
-                <th class="py-3 px-3 text-left w-52">Rutina Activa</th>
-                <th class="py-3 px-3 text-right w-24">Último [días]</th>
-                <th class="py-3 px-3 text-right w-36">Vol. Semanal [kg]</th>
-                <th class="py-3 px-3 text-right w-32">1RM Banca [kg]</th>
-                <th class="py-3 px-3 text-right w-32">1RM Sentadilla [kg]</th>
-                <th class="py-3 px-3 text-center w-36">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
-              <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-sky-950/60 text-sky-400 font-bold text-xs flex items-center justify-center border border-sky-800/50">LG</div>
-                    <div>
-                      <span class="font-bold text-slate-100 block">Lucas González</span>
-                      <span class="text-[10px] text-slate-400">lucas.gonzalez@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">Al Día</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-emerald-400">
-                  94/100
-                </td>
-                <td class="py-2.5 px-3 text-left font-medium text-slate-200">Torso / Pierna Pesado</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-200 font-medium">1</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-slate-100">18.450,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-sky-400">125,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-sky-400">160,0</td>
-                <td class="py-2.5 px-3 text-center">
-                  <div class="flex items-center justify-center gap-1.5">
-                    <button class="h-7 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-[11px] transition-colors border border-slate-700">Historial</button>
-                    <button class="h-7 px-2.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-400 font-medium text-[11px] transition-colors border border-emerald-800/50">WhatsApp</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr class="hover:bg-slate-800/30 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-amber-950/60 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-800/50">MR</div>
-                    <div>
-                      <span class="font-bold text-slate-100 block">Martín Rossi</span>
-                      <span class="text-[10px] text-slate-400">mrossi@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-950/60 text-amber-400 border border-amber-800/60">Pendiente</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-amber-400">
-                  68/100
-                </td>
-                <td class="py-2.5 px-3 text-left font-medium text-slate-200">Hipertrofia Bloque 2</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-200 font-medium">3</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-slate-100">12.100,0</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-sky-400">97,5</td>
-                <td class="py-2.5 px-3 text-right font-tabular font-bold text-sky-400">130,0</td>
-                <td class="py-2.5 px-3 text-center">
-                  <div class="flex items-center justify-center gap-1.5">
-                    <button class="h-7 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-[11px] transition-colors border border-slate-700">Historial</button>
-                    <button class="h-7 px-2.5 rounded-lg bg-amber-950/50 hover:bg-amber-900/60 text-amber-400 font-medium text-[11px] transition-colors border border-amber-800/50">Cobrar</button>
-                  </div>
-                </td>
-              </tr>
-
-              <tr class="bg-rose-950/20 hover:bg-rose-950/30 transition-colors">
-                <td class="py-2.5 px-4">
-                  <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-rose-950/70 text-rose-400 font-bold text-xs flex items-center justify-center border border-rose-800/60">SB</div>
-                    <div>
-                      <span class="font-bold text-slate-100 block">Sofia Benítez</span>
-                      <span class="text-[10px] text-slate-400">sofia.b@email.com</span>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2.5 px-3 text-center">
-                  <span class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">Al Día</span>
-                </td>
-                <td class="py-2.5 px-3 text-center font-tabular font-bold text-rose-400">
-                  32/100
-                </td>
-                <td class="py-2.5 px-3 text-left">
-                  <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/70">SIN PLAN ASIGNADO</span>
-                </td>
-                <td class="py-2.5 px-3 text-right font-tabular text-rose-400 font-bold">8</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-500">—</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-500">—</td>
-                <td class="py-2.5 px-3 text-right font-tabular text-slate-500">—</td>
-                <td class="py-2.5 px-3 text-center">
-                  <button class="h-7 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-[11px] shadow-xs">Asignar Plan</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- Footer INDEC Noche -->
-          <div class="bg-slate-800/50 border-t border-slate-800 px-6 py-2.5 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Nota: Fórmulas de 1RM estimadas mediante Brzycki. Valores redondeados a 1 decimal según estándar INDEC.</span>
-            <span class="font-semibold text-slate-300">Mostrando 3 de 13 atletas activos</span>
-          </div>
-        </div>
+      <div class="text-right space-y-1">
+        <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 text-[11px]">
+          ✓ Aprobado para Entrega GOZS-23
+        </span>
+        <div class="text-[10px] text-slate-400 font-tabular">Resolución nativa: 1440 × 900 px</div>
       </div>
     </div>
-  </div>
+  </main>
 
+  <script>
+    function setMode(mode) {
+      const splitView = document.getElementById('view-split');
+      const btnSplit = document.getElementById('btn-split');
+      const btnDay = document.getElementById('btn-day');
+      const btnNight = document.getElementById('btn-night');
+
+      const colDay = splitView.children[0];
+      const colNight = splitView.children[1];
+
+      // Reset button styles
+      [btnSplit, btnDay, btnNight].forEach(b => {
+        b.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all";
+      });
+
+      if (mode === 'split') {
+        btnSplit.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white shadow";
+        splitView.className = "grid grid-cols-2 gap-6";
+        colDay.style.display = 'flex';
+        colNight.style.display = 'flex';
+      } else if (mode === 'day') {
+        btnDay.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white shadow";
+        splitView.className = "grid grid-cols-1 gap-6 max-w-[1000px] mx-auto";
+        colDay.style.display = 'flex';
+        colNight.style.display = 'none';
+      } else if (mode === 'night') {
+        btnNight.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-blue-600 text-white shadow";
+        splitView.className = "grid grid-cols-1 gap-6 max-w-[1000px] mx-auto";
+        colDay.style.display = 'none';
+        colNight.style.display = 'flex';
+      }
+    }
+  </script>
 </body>
 </html>

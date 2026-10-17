@@ -57,39 +57,54 @@ La auditoría del frontend previo (`src/app/page.tsx`, `src/app/globals.css`, `s
 
 ---
 
-## 4. Nueva Dirección de Arte: Paleta Cromática de Alto Rendimiento
+## 4. Nueva Dirección de Arte: Arquitectura Cromática Bimodal
 
-La nueva paleta de GOZSter abandona los tonos púrpura gamer y los azules genéricos de SaaS. Adopta una arquitectura tonal basada en materiales biomecánicos y metales industriales:
+Tras el feedback de usuario de la Épica GOZS-18, la dirección de arte evoluciona de un esquema monomodal rígido a una **arquitectura cromática bimodal armónica**. Se corrige el diagnóstico de "tosquedad" del modo oscuro previo (que resultaba excesivamente duro y fatigante por el contraste abrupto de `#080A0D` con amarillos saturados) y se introduce un **Modo Día** sofisticado y de descanso visual para entrenadores.
+
+### 4.1 Principios del Sistema Bimodal
+
+1. **Modo Día Suave (Light Mode / Studio Calm):**
+   - **Propósito:** Diseñado para entrenadores que pasan horas frente a monitores de escritorio planificando semanas de entrenamiento, así como para atletas entrenando en exteriores o gimnasios con iluminación natural.
+   - **Superficies:** Fondo off-white cálido (`#F8FAFC`), tarjetas en blanco puro (`#FFFFFF`) y bordes nítidos ultra-suaves (`#E2E8F0`). Elimina el blanco "hospital" que fatiga la vista.
+   - **Tipografía:** Grafito profundo (`#0F172A` / Slate 900), evitando el negro puro (`#000000`) para una lectura tipográfica editorial y descansada.
+   - **Acento:** Azul Atlántico (`#2563EB` / Blue 600), que evoca precisión técnica, sobriedad y profesionalismo deportivo.
+
+2. **Modo Noche Pulido (Refined Dark Mode / Athletic Night):**
+   - **Propósito:** Optimizado para la Athlete App en sótanos y sesiones nocturnas, y para coaches en salas de baja luminosidad.
+   - **Superficies:** Sustituye el negro abisal (`#080A0D`) por un carbón grafito azulado elegante (`#0F172A` / Slate 900) y tarjetas elevadas en azul pizarra (`#1E293B` / Slate 800) con bordes translúcidos de baja tensión (`rgba(255, 255, 255, 0.08)`).
+   - **Tipografía:** Tiza suave (`#F8FAFC`) con soporte en gris frío (`#94A3B8`).
+   - **Acento:** Cian Suave (`#38BDF8` / Sky 400), técnico, aerodinámico y con excelente ratio de contraste (8.2:1) sin la estridencia visual del amarillo forjado anterior.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        GOZSTER PALETA CROMÁTICA                        │
-├────────────────────────────────┬─────────────────┬─────────────────────┤
-│ Color Semántico                │ HSL Token       │ Hex Ref / Rol       │
-├────────────────────────────────┼─────────────────┼─────────────────────┤
-│ Obsidian Black (Background)    │ 224 25% 4%      │ #080A0D (Fondo)     │
-│ Cast Iron Dark (Surface Low)   │ 224 22% 7%      │ #0E1117 (Tarjetas)  │
-│ Plate Steel (Surface High)     │ 224 18% 11%     │ #161A24 (Contenedor)│
-│ Elevated Steel (Surface High+) │ 224 16% 16%     │ #222736 (Popovers)  │
-│ Border Steel                   │ 224 14% 20%     │ #2B3245 (Líneas)    │
-├────────────────────────────────┼─────────────────┼─────────────────────┤
-│ Forged Gold / Amber (Primary)  │ 42 100% 50%     │ #FFB800 (Foco/Timer)│
-│ Primary Foreground             │ 224 30% 6%      │ #0A0D14 (Contraste) │
-│ Hypertrophy Green (Success)    │ 152 76% 46%     │ #1BC47D (Completado)│
-│ Fatigue Red (Destructive/Pain) │ 354 85% 56%     │ #F02D4E (Fallo/Dolor│
-│ Tension Blue (Info / RPE)      │ 210 90% 56%     │ #2B87F7 (Técnica)   │
-├────────────────────────────────┼─────────────────┼─────────────────────┤
-│ Chalk White (Foreground 100%)  │ 210 40% 98%     │ #F8FAFC (Lectura)   │
-│ Light Steel (Foreground 80%)   │ 215 25% 82%     │ #CBD5E1 (Secundario)│
-│ Muted Steel (Foreground 60%)   │ 215 16% 62%     │ #8B98AD (Metadatos) │
-└────────────────────────────────┴─────────────────┴─────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        GOZSTER MATRIZ CROMÁTICA BIMODAL                                │
+├──────────────────────┬──────────────────────┬──────────────────────┬───────────────────┤
+│ Token Semántico      │ MODO DÍA SUAVE (Hex) │ MODO NOCHE PULIDO(Hex│ Función y Rol     │
+├──────────────────────┼──────────────────────┼──────────────────────┼───────────────────┤
+│ --background         │ #F8FAFC (Slate 50)   │ #0F172A (Slate 900)  │ Lienzo base       │
+│ --card / --surface   │ #FFFFFF (Pure White) │ #1E293B (Slate 800)  │ Tarjetas/módulos  │
+│ --surface-container  │ #F1F5F9 (Slate 100)  │ #243247 (Slate 750)  │ Bloques internos  │
+│ --surface-elevated   │ #FFFFFF + Shadow     │ #334155 (Slate 700)  │ Popovers/modales  │
+│ --border             │ #E2E8F0 (Slate 200)  │ rgba(255,255,255,0.08│ Separadores finos │
+│ --foreground         │ #0F172A (Slate 900)  │ #F8FAFC (Slate 50)   │ Lectura principal │
+│ --muted-foreground   │ #64748B (Slate 500)  │ #94A3B8 (Slate 400)  │ Etiquetas y notas │
+├──────────────────────┼──────────────────────┼──────────────────────┼───────────────────┤
+│ --primary            │ #2563EB (Azul Atl.)  │ #38BDF8 (Cian Suave) │ Foco, CTA, Timer  │
+│ --primary-foreground │ #FFFFFF (Pure White) │ #0F172A (Slate 900)  │ Texto sobre CTA   │
+│ --success (Series)   │ #10B981 (Esmeralda)  │ #34D399 (Esmeralda L)│ Series OK / Cuota │
+│ --warning (Alertas)  │ #F59E0B (Ámbar)      │ #FBBF24 (Ámbar L)    │ Pagos pendientes  │
+│ --destructive (Fallo)│ #EF4444 (Rosa/Rojo)  │ #F87171 (Rojo Suave) │ Dolor / Sin plan  │
+│ --info (Técnica/RPE) │ #3B82F6 (Azul Vivo)  │ #60A5FA (Azul Claro) │ Videos y notas    │
+└──────────────────────┴──────────────────────┴──────────────────────┴───────────────────┘
 ```
 
-### Justificación Funcional de los Colores
-- **Forged Gold / Amber (`#FFB800`):** Máxima visibilidad cromática en la retina humana bajo fatiga periférica. Utilizado en el temporizador activo, el botón de acción principal y los estados de foco.
-- **Hypertrophy Green (`#1BC47D`):** Confirmación visual instantánea de series logradas. Al pulsar "check", la serie vira a este tono para una recompensa dopaminérgica limpia.
-- **Fatigue Red (`#F02D4E`):** Alertas de dolor articular, fallos técnicos y estados vencidos de membresía. No se usa para decoración.
-- **Obsidian Black (`#080A0D`):** Fondo optimizado para pantallas OLED que ahorra batería en el celular del alumno y elimina el brillo enceguecedor en sótanos oscuros.
+### 4.2 Justificación Funcional de los Colores Bimodales
+
+- **Azul Atlántico (`#2563EB`) & Cian Suave (`#38BDF8`):** Representan el rigor analítico del software de ingeniería y biomecánica deportiva. En modo claro, el azul 600 aporta presencia y peso institucional sin fatiga; en modo oscuro, el cian 400 brilla con sutileza matemática y nitidez extrema sin quemar la pupila.
+- **Esmeralda (`#10B981` / `#34D399`):** Validación dopaminérgica instantánea de series logradas y estado de atleta al día. A diferencia de un verde lima flúo, la esmeralda equilibra calidez y vigor atlético.
+- **Ámbar Cálido (`#F59E0B` / `#FBBF24`):** Diseñado para alertar sin provocar pánico: cuotas en vencimiento próximo, 1RM provisorio y advertencias de volumen.
+- **Rosa / Rojo Suave (`#EF4444` / `#F87171`):** Indicador quirúrgico para dolor articular, fallos técnicos y alumnos sin plan de entrenamiento. Elimina el rojo chillón agresivo previo.
+- **Superficies Slate (`#0F172A`, `#1E293B`, `#F8FAFC`, `#FFFFFF`):** Base de temperatura de color neutra-fría que previene la sensación de "software sucio" o amarillento.
 
 ---
 
