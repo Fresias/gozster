@@ -151,13 +151,13 @@ export function ProgressiveOverloadFeed({
               <Card
                 key={alerta.id}
                 data-testid={`alert-card-${alerta.id}`}
-                className="w-full max-w-full overflow-hidden border-border/80 bg-card/95 shadow-sm transition-all hover:border-primary/50"
+                className="w-full max-w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-m3-1 transition-all duration-200 hover:border-primary/50 hover:shadow-m3-2"
               >
-                <CardHeader className="p-4 sm:p-5 pb-3">
+                <CardHeader className="p-5 pb-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <div
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary/80 border border-border/60 text-sm font-black text-foreground shadow-sm"
                         aria-hidden="true"
                       >
                         {getInitials(alerta.alumnoNombre)}
@@ -166,11 +166,11 @@ export function ProgressiveOverloadFeed({
                         <button
                           type="button"
                           onClick={() => onSelectAlumno(alerta.alumnoId)}
-                          className="truncate text-left text-sm font-bold text-foreground hover:text-primary transition-colors focus:outline-none"
+                          className="truncate text-left text-sm font-bold text-foreground hover:text-primary transition-colors focus:outline-none cursor-pointer"
                         >
                           {alerta.alumnoNombre}
                         </button>
-                        <p className="text-xs font-medium text-primary">
+                        <p className="text-xs font-semibold text-primary">
                           {alerta.ejercicioNombre}
                         </p>
                       </div>
@@ -186,23 +186,23 @@ export function ProgressiveOverloadFeed({
                       {alerta.deltaVolumenKg && alerta.deltaVolumenKg > 0 && (
                         <Badge variant="secondary">+{alerta.deltaVolumenKg} kg Volumen</Badge>
                       )}
-                      <span className="text-[11px] text-muted-foreground ml-1">
+                      <span className="text-[11px] text-muted-foreground ml-1 font-mono">
                         {fechaStr}
                       </span>
                     </div>
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-4 sm:p-5 pt-0 space-y-3">
+                <CardContent className="p-5 pt-0 space-y-3.5">
                   {/* Comparativa Metrics Box */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 rounded-lg border border-border/60 bg-background/50 p-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 rounded-xl border border-border/60 bg-secondary/30 p-3.5 text-xs">
                     {/* Carga Máxima */}
                     <div>
-                      <span className="text-[11px] font-semibold text-muted-foreground block">
+                      <span className="text-[10px] font-bold text-muted-foreground block uppercase tracking-wider">
                         Carga Máxima
                       </span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <span className="text-sm font-bold text-foreground">
+                      <div className="flex items-baseline gap-1.5 mt-1 font-mono tabular-nums">
+                        <span className="text-base font-black text-foreground">
                           {alerta.pesoMaxKg} kg
                         </span>
                         {alerta.pesoPrevioKg !== null && (
@@ -215,11 +215,11 @@ export function ProgressiveOverloadFeed({
 
                     {/* Volumen del Ejercicio */}
                     <div>
-                      <span className="text-[11px] font-semibold text-muted-foreground block">
+                      <span className="text-[10px] font-bold text-muted-foreground block uppercase tracking-wider">
                         Volumen del Ejercicio
                       </span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <span className="text-sm font-bold text-foreground">
+                      <div className="flex items-baseline gap-1.5 mt-1 font-mono tabular-nums">
+                        <span className="text-base font-black text-foreground">
                           {alerta.volumenEjercicioKg.toLocaleString()} kg
                         </span>
                         {alerta.volumenPrevioKg !== null && (
@@ -232,11 +232,11 @@ export function ProgressiveOverloadFeed({
 
                     {/* 1RM Estimado */}
                     <div>
-                      <span className="text-[11px] font-semibold text-muted-foreground block">
+                      <span className="text-[10px] font-bold text-muted-foreground block uppercase tracking-wider">
                         1RM Estimado (Epley / Brzycki)
                       </span>
-                      <div className="flex items-baseline gap-1.5 mt-0.5">
-                        <span className="text-sm font-bold text-amber-400">
+                      <div className="flex items-baseline gap-1.5 mt-1 font-mono tabular-nums">
+                        <span className="text-base font-black text-amber-400">
                           {alerta.mejor1rmEpley} kg
                         </span>
                         <span className="text-[11px] text-muted-foreground">
@@ -247,13 +247,13 @@ export function ProgressiveOverloadFeed({
                   </div>
 
                   {/* Actions buttons */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2.5 pt-1">
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="default"
                       onClick={() => onOpenHistoricalLoads(alerta.alumnoId)}
-                      className="min-h-11 text-xs"
+                      className="min-h-12 text-xs font-bold rounded-xl"
                     >
                       📊 Ver Cargas Históricas
                     </Button>
@@ -261,7 +261,7 @@ export function ProgressiveOverloadFeed({
                       href={getWhatsAppCongratsUrl(alerta)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-md font-medium text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 active:scale-95 transition-all"
+                      className="inline-flex min-h-12 items-center justify-center rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
                     >
                       💬 Felicitar por WhatsApp
                     </a>

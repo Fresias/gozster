@@ -5,23 +5,39 @@
 @layer base {
   :root,
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 6.5%;
-    --card-foreground: 0 0% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 142.1 70.6% 45.3%;
+    /* Base Material 3 Surface Containers & Deep Onyx Palette */
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --surface: 222 47% 6%;
+    --surface-container-low: 222 45% 8.5%;
+    --surface-container: 222 40% 11%;
+    --surface-container-high: 222 34% 15%;
+    --surface-container-highest: 222 30% 20%;
+
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 98%;
+
+    /* Material 3 High-Contrast Athletic Emerald / Mint Primary */
+    --primary: 158 64% 48%;
+    --primary-foreground: 164 86% 8%;
+
+    --secondary: 222 34% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 28% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 222 28% 18%;
+    --accent-foreground: 210 40% 98%;
+
+    /* UI/UX Pro Max Warning & Danger Accents */
+    --destructive: 350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 26% 18%;
+    --input: 220 26% 18%;
+    --ring: 158 64% 48%;
     --radius: 0.75rem;
   }
 
@@ -30,7 +46,28 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased selection:bg-primary/25 selection:text-primary;
     -webkit-tap-highlight-color: transparent;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom scrollbar for dark mode */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.25);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
   }
 }
+
