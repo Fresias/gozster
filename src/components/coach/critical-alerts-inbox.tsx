@@ -4,6 +4,8 @@ import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 
 export interface CriticalAlert {
   id: string;
@@ -32,6 +34,7 @@ export function CriticalAlertsInbox({
   onSelectAlumno,
   onQuickSwap,
 }: CriticalAlertsInboxProps) {
+  const { mode } = useWorkspaceModeStore();
   const [alerts, setAlerts] = React.useState<CriticalAlert[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(true);
@@ -128,8 +131,13 @@ export function CriticalAlertsInbox({
   }, []);
 
   React.useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
+    if (mode === "TESTEO") {
+      setAlerts(DEMO_CRITICAL_ALERTS);
+      setIsLoading(false);
+    } else {
+      fetchAlerts();
+    }
+  }, [mode, fetchAlerts]);
 
   // Filtrar estrictamente DOLOR y no resueltas
   const activeAlerts = alerts.filter((a) => !a.resolved && a.type === "DOLOR");
