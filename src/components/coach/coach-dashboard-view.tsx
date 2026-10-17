@@ -30,7 +30,12 @@ export function CoachDashboardView() {
     asignarPlanUrgente,
     getSelectedAlumno,
     getHistorialCargasAlumno,
+    loadLiveSupabaseData,
   } = useCoachStudioStore();
+
+  React.useEffect(() => {
+    loadLiveSupabaseData();
+  }, [loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);

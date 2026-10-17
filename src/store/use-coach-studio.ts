@@ -150,7 +150,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     toast: null,
 
     currentPage: 1,
-    itemsPerPage: 4,
+    itemsPerPage: 15,
 
     isLoading: false,
     isLiveDatabase: false,
