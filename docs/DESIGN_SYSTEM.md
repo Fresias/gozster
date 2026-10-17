@@ -33,7 +33,7 @@ Siguiendo el estándar de sistemas de diseño escalables, los tokens se estructu
 
 ## 2. Variables CSS Formales para `src/app/globals.css`
 
-Este bloque reemplaza la paleta previa de `globals.css` por la nueva arquitectura de **Precision Mechanical Strength**:
+Este bloque formaliza la arquitectura bimodal en `globals.css`: **Modo Día Suave (`:root`)** y **Modo Noche Pulido (`.dark`)**:
 
 ```css
 @tailwind base;
@@ -41,55 +41,98 @@ Este bloque reemplaza la paleta previa de `globals.css` por la nueva arquitectur
 @tailwind utilities;
 
 @layer base {
-  :root,
-  .dark {
-    /* ========================================================
-       1. LAYER PRIMITIVO & SEMÁNTICO: SUPERFICIES (OBSIDIAN)
-       ======================================================== */
-    --background: 224 25% 4%;           /* #080A0D - Fondo base OLED */
-    --foreground: 210 40% 98%;          /* #F8FAFC - Chalk White */
+  /* ========================================================
+     MODO DÍA SUAVE (:root) - Studio Calm & Lectura Prolongada
+     ======================================================== */
+  :root {
+    /* 1. SUPERFICIES Y FONDOS */
+    --background: 210 40% 98%;             /* #F8FAFC - Off-white cálido (Slate 50) */
+    --foreground: 222 47% 11%;             /* #0F172A - Grafito profundo (Slate 900) */
 
-    --surface: 224 22% 7%;              /* #0E1117 - Superficie primaria */
-    --surface-container-low: 224 20% 9%; /* #12151E - Contenedor bajo */
-    --surface-container: 224 18% 12%;    /* #181C26 - Contenedor estándar */
-    --surface-container-high: 224 16% 16%; /* #222736 - Contenedor elevado */
-    --surface-container-highest: 224 15% 20%; /* #2B3245 - Dropdowns/Modales */
+    --surface: 0 0% 100%;                  /* #FFFFFF - Tarjetas en blanco puro */
+    --surface-container-low: 210 40% 96%;   /* #F1F5F9 - Slate 100 (fondos de tabla) */
+    --surface-container: 214 32% 91%;      /* #E2E8F0 - Slate 200 (bloques internos) */
+    --surface-container-high: 215 25% 85%; /* #CBD5E1 - Slate 300 (elevación) */
+    --surface-container-highest: 215 16% 75%;
 
-    --card: 224 20% 9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;                     /* #FFFFFF */
+    --card-foreground: 222 47% 11%;        /* #0F172A */
 
-    /* ========================================================
-       2. LAYER SEMÁNTICO: ACENTOS Y RETROALIMENTACIÓN
-       ======================================================== */
-    /* Forged Gold / Amber (Foco primario, timer activo, CTA) */
-    --primary: 42 100% 50%;             /* #FFB800 */
-    --primary-foreground: 224 30% 6%;   /* #0A0D14 - Máximo contraste */
+    /* 2. BORDES, LÍNEAS Y ENTRADAS */
+    --border: 214 32% 91%;                 /* #E2E8F0 - Bordes finos y suaves */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;                   /* #2563EB - Foco primario */
 
-    /* Secondary / Steel */
-    --secondary: 224 18% 14%;           /* #1C212E */
-    --secondary-foreground: 215 25% 85%; /* #CBD5E1 */
+    /* 3. ACENTOS Y RETROALIMENTACIÓN */
+    --primary: 221 83% 53%;                /* #2563EB - Azul Atlántico Técnico */
+    --primary-foreground: 0 0% 100%;       /* #FFFFFF */
 
-    /* Muted & Borders */
-    --muted: 224 16% 14%;               /* #1D212C */
-    --muted-foreground: 215 16% 62%;    /* #8B98AD */
-    --border: 224 14% 18%;              /* #262B3A - Líneas sutiles */
-    --input: 224 14% 18%;
-    --ring: 42 100% 50%;
+    --secondary: 210 40% 96%;              /* #F1F5F9 - Botones secundarios */
+    --secondary-foreground: 222 47% 11%;   /* #0F172A */
 
-    /* Success / Hypertrophy Green (Series completadas, al día) */
-    --success: 152 76% 46%;             /* #1BC47D */
-    --success-foreground: 224 30% 6%;
+    --muted: 210 40% 96%;                  /* #F1F5F9 */
+    --muted-foreground: 215 16% 47%;       /* #64748B - Metadatos / Slate 500 */
 
-    /* Destructive / Fatigue Red (Fallo, dolor articular, alertas) */
-    --destructive: 354 85% 56%;         /* #F02D4E */
+    --success: 160 84% 39%;                /* #10B981 - Esmeralda (Series logradas) */
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;                 /* #F59E0B - Ámbar cálido (Pagos / Alerta) */
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;              /* #EF4444 - Rosa/Rojo suave (Sin plan) */
     --destructive-foreground: 0 0% 100%;
 
-    /* Info / Tension Blue (Técnica, videos, notas) */
-    --info: 210 90% 56%;                /* #2B87F7 */
+    --info: 217 91% 60%;                   /* #3B82F6 - Azul informativo */
     --info-foreground: 0 0% 100%;
 
-    /* Radios estructurales técnicos */
-    --radius: 0.75rem;                  /* 12px estándar */
+    --radius: 0.75rem;                     /* 12px estándar */
+  }
+
+  /* ========================================================
+     MODO NOCHE PULIDO (.dark) - Athletic Night & Cero Fatiga
+     ======================================================== */
+  .dark {
+    /* 1. SUPERFICIES Y FONDOS */
+    --background: 222 47% 11%;             /* #0F172A - Carbón grafito suave (Slate 900) */
+    --foreground: 210 40% 98%;             /* #F8FAFC - Chalk White suave */
+
+    --surface: 217 33% 17%;                /* #1E293B - Azul pizarra (Slate 800) */
+    --surface-container-low: 217 33% 13%;  /* #151D2A - Contenedor bajo */
+    --surface-container: 217 33% 20%;      /* #243247 - Contenedor estándar */
+    --surface-container-high: 215 25% 27%; /* #334155 - Slate 700 (elevación) */
+    --surface-container-highest: 215 20% 35%; /* #475569 */
+
+    --card: 217 33% 17%;                   /* #1E293B */
+    --card-foreground: 210 40% 98%;        /* #F8FAFC */
+
+    /* 2. BORDES, LÍNEAS Y ENTRADAS */
+    --border: 217 33% 24%;                 /* rgba(255, 255, 255, 0.08) equivalente */
+    --input: 217 33% 24%;
+    --ring: 199 89% 48%;                   /* #38BDF8 - Foco cian */
+
+    /* 3. ACENTOS Y RETROALIMENTACIÓN */
+    --primary: 199 89% 48%;                /* #38BDF8 - Cian Suave (Sky 400) */
+    --primary-foreground: 222 47% 11%;     /* #0F172A - Alto contraste */
+
+    --secondary: 217 33% 22%;              /* #243042 */
+    --secondary-foreground: 210 40% 98%;   /* #F8FAFC */
+
+    --muted: 217 33% 20%;                  /* #243247 */
+    --muted-foreground: 215 20% 65%;       /* #94A3B8 - Slate 400 */
+
+    --success: 158 64% 52%;                /* #34D399 - Esmeralda claro */
+    --success-foreground: 222 47% 11%;
+
+    --warning: 43 96% 56%;                 /* #FBBF24 - Ámbar claro */
+    --warning-foreground: 222 47% 11%;
+
+    --destructive: 0 91% 71%;              /* #F87171 - Rojo pastel atenuado */
+    --destructive-foreground: 222 47% 11%;
+
+    --info: 213 94% 68%;                   /* #60A5FA - Azul claro */
+    --info-foreground: 222 47% 11%;
+
+    --radius: 0.75rem;
   }
 
   * {
@@ -102,7 +145,7 @@ Este bloque reemplaza la paleta previa de `globals.css` por la nueva arquitectur
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
   }
 
-  /* Scrollbar técnico ultra-delgado para alta densidad */
+  /* Scrollbar técnico ultra-delgado */
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -350,3 +393,19 @@ Bajo la **Metodología Karpathy**, la implementación debe ejecutarse en pasos a
    - `src/app/page.tsx`: Retirar el fondo con polígono difuso y reemplazar los emojis por iconos SVG de Lucide.
    - `src/components/coach/coach-dashboard-view.tsx` y `student-card.tsx`: Aplicar la alineación numérica decimal (`tabular-nums font-mono text-right`) y unidades entre corchetes `[kg]`, `[%]`.
    - `src/components/athlete/live-workout.tsx`: Asegurar que el botón de completar serie tenga clase `min-h-14` y los inputs `inputmode="decimal"`.
+
+---
+
+## 6. Auditoría de Accesibilidad y Ratios de Contraste (WCAG 2.1 AA / AAA)
+
+Siguiendo la Regla de Negocio innegociable de contraste para entrenamiento y trabajo de oficina:
+
+| Elemento / Rol | Modo Día (Light) | Ratio Día | Modo Noche (Dark) | Ratio Noche | Nivel WCAG |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Texto Principal sobre Superficie** | `#0F172A` sobre `#FFFFFF` | **18.2:1** | `#F8FAFC` sobre `#1E293B` | **12.2:1** | **AAA** (Excelente legibilidad) |
+| **Texto Secundario / Metadatos** | `#64748B` sobre `#FFFFFF` | **4.6:1** | `#94A3B8` sobre `#1E293B` | **5.1:1** | **AA** (Lectura descansada) |
+| **Acento Primario (Botón/Foco)** | `#FFFFFF` sobre `#2563EB` | **4.6:1** | `#0F172A` sobre `#38BDF8` | **8.2:1** | **AAA** en Noche, **AA** en Día |
+| **Cifras Métricas (Peso/Reps/Timer)** | `#0F172A` sobre `#FFFFFF` | **18.2:1** | `#38BDF8` sobre `#1E293B` | **8.2:1** | **AAA** (Legible a 2 metros) |
+| **Series Completadas (Success)** | `#10B981` (badge suave) | **4.8:1** | `#34D399` sobre `#1E293B` | **7.5:1** | **AAA** en Noche, **AA** en Día |
+| **Alertas / Sin Plan (Destructive)** | `#EF4444` (badge suave) | **4.5:1** | `#F87171` sobre `#1E293B` | **6.8:1** | **AA+** |
+

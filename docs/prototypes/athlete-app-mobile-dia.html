@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=390, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GOZSter Athlete App - Modo Día Suave (390px)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .font-tabular {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="w-[390px] h-[844px] max-w-[390px] mx-auto bg-[#F8FAFC] flex flex-col justify-between border-x border-slate-200 relative shadow-2xl overflow-hidden">
+  
+  <!-- Status Bar / Mobile Header -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-xs">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg bg-blue-600 text-white font-extrabold text-base flex items-center justify-center shadow-xs font-['Outfit']">
+        G
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-extrabold text-sm tracking-tight text-slate-900 font-['Outfit']">GOZSTER</span>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">PWA</span>
+        </div>
+        <p class="text-[10px] text-slate-500">Torso Pesado • Día 1</p>
+      </div>
+    </div>
+    
+    <!-- Offline Indicator Pill -->
+    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-bold text-emerald-700">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+      <span>Gym Mode (Sync)</span>
+    </div>
+  </header>
+
+  <!-- Main Content: Live Workout -->
+  <main class="flex-1 px-4 py-3 space-y-3 overflow-y-auto">
+    
+    <!-- Session Summary Bar -->
+    <div class="grid grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+      <div class="text-center">
+        <span class="text-[10px] uppercase font-bold text-slate-500 block">Tiempo</span>
+        <span class="text-sm font-tabular font-bold text-slate-900">34:12</span>
+      </div>
+      <div class="text-center border-x border-slate-100">
+        <span class="text-[10px] uppercase font-bold text-slate-500 block">Vol. Efectivo</span>
+        <span class="text-sm font-tabular font-bold text-blue-600">6.420 <span class="text-[10px] font-normal">kg</span></span>
+      </div>
+      <div class="text-center">
+        <span class="text-[10px] uppercase font-bold text-slate-500 block">Series</span>
+        <span class="text-sm font-tabular font-bold text-slate-900">8 <span class="text-[10px] text-slate-400">/ 18</span></span>
+      </div>
+    </div>
+
+    <!-- Active Exercise Card -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+      
+      <!-- Exercise Header -->
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Ejercicio 1 de 4</span>
+          <h2 class="font-extrabold text-base text-slate-900 font-['Outfit']">Press de Banca Plano</h2>
+          <p class="text-[11px] text-slate-500">4 series • Descanso: 2:00 min</p>
+        </div>
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+          Pecho / Tríceps
+        </span>
+      </div>
+
+      <!-- Sets Table -->
+      <div class="space-y-1.5">
+        <div class="grid grid-cols-12 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+          <span class="col-span-2">Serie</span>
+          <span class="col-span-3 text-right">Anterior</span>
+          <span class="col-span-3 text-right">Peso [kg]</span>
+          <span class="col-span-2 text-right">Reps</span>
+          <span class="col-span-2 text-center">Check</span>
+        </div>
+
+        <!-- Set 1: Completed Warmup -->
+        <div class="grid grid-cols-12 items-center bg-slate-50 rounded-lg p-2 border border-slate-200">
+          <div class="col-span-2 flex items-center gap-1">
+            <span class="text-xs font-bold text-slate-500">1</span>
+            <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-slate-200 text-slate-700">W</span>
+          </div>
+          <div class="col-span-3 text-right text-[11px] text-slate-400 font-tabular">60 × 10</div>
+          <div class="col-span-3 text-right text-xs font-bold font-tabular text-slate-900">60.0</div>
+          <div class="col-span-2 text-right text-xs font-bold font-tabular text-slate-900">10</div>
+          <div class="col-span-2 flex justify-center">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              ✓
+            </div>
+          </div>
+        </div>
+
+        <!-- Set 2: Completed Normal -->
+        <div class="grid grid-cols-12 items-center bg-slate-50 rounded-lg p-2 border border-slate-200">
+          <div class="col-span-2 flex items-center gap-1">
+            <span class="text-xs font-bold text-slate-500">2</span>
+            <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-blue-100 text-blue-700">N</span>
+          </div>
+          <div class="col-span-3 text-right text-[11px] text-slate-400 font-tabular">100 × 6</div>
+          <div class="col-span-3 text-right text-xs font-bold font-tabular text-slate-900">100.0</div>
+          <div class="col-span-2 text-right text-xs font-bold font-tabular text-slate-900">6</div>
+          <div class="col-span-2 flex justify-center">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              ✓
+            </div>
+          </div>
+        </div>
+
+        <!-- Set 3: ACTIVE SET -->
+        <div class="bg-blue-50/50 rounded-xl p-3 border-2 border-blue-600 shadow-sm space-y-2.5">
+          <div class="grid grid-cols-12 items-center">
+            <div class="col-span-2 flex items-center gap-1">
+              <span class="text-sm font-extrabold text-blue-700">3</span>
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600 text-white">ACTIVA</span>
+            </div>
+            <div class="col-span-3 text-right text-[11px] text-slate-500 font-tabular">105 × 5</div>
+            <div class="col-span-3 text-right text-base font-extrabold font-tabular text-blue-700">105.0</div>
+            <div class="col-span-2 text-right text-base font-extrabold font-tabular text-blue-700">5</div>
+            <div class="col-span-2 flex justify-center">
+              <button class="w-12 h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-lg flex items-center justify-center shadow-md active:scale-95 transition">
+                ✓
+              </button>
+            </div>
+          </div>
+
+          <!-- Micro-steppers -->
+          <div class="flex items-center justify-between pt-1 border-t border-blue-200">
+            <span class="text-[10px] font-bold text-slate-600 uppercase">Ajuste Peso:</span>
+            <div class="flex items-center gap-1.5">
+              <button class="h-7 px-2.5 rounded-lg bg-white text-slate-700 border border-slate-300 text-xs font-bold shadow-xs hover:bg-slate-100">+1 kg</button>
+              <button class="h-7 px-2.5 rounded-lg bg-white text-slate-700 border border-slate-300 text-xs font-bold shadow-xs hover:bg-slate-100">+2.5 kg</button>
+              <button class="h-7 px-2.5 rounded-lg bg-white text-slate-700 border border-slate-300 text-xs font-bold shadow-xs hover:bg-slate-100">+5 kg</button>
+            </div>
+          </div>
+
+          <!-- RPE Selector -->
+          <div class="pt-1 border-t border-blue-200 space-y-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-bold text-slate-700">RPE (Esfuerzo):</span>
+              <span class="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-tabular">8.5 • 1 rep en reserva</span>
+            </div>
+            <div class="grid grid-cols-5 gap-1.5 text-xs font-bold">
+              <button class="h-8 rounded-lg bg-white border border-slate-200 text-slate-600">7.0</button>
+              <button class="h-8 rounded-lg bg-white border border-slate-200 text-slate-600">8.0</button>
+              <button class="h-8 rounded-lg bg-blue-600 text-white shadow-xs">8.5</button>
+              <button class="h-8 rounded-lg bg-white border border-slate-200 text-slate-600">9.0</button>
+              <button class="h-8 rounded-lg bg-white border border-slate-200 text-slate-600">10</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Set 4: Pending -->
+        <div class="grid grid-cols-12 items-center bg-slate-50/60 rounded-lg p-2 border border-slate-200 opacity-60">
+          <div class="col-span-2 flex items-center gap-1">
+            <span class="text-xs font-bold text-slate-400">4</span>
+            <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-slate-100 text-slate-500">N</span>
+          </div>
+          <div class="col-span-3 text-right text-[11px] text-slate-400 font-tabular">105 × 4</div>
+          <div class="col-span-3 text-right text-xs font-bold font-tabular text-slate-500">105.0</div>
+          <div class="col-span-2 text-right text-xs font-bold font-tabular text-slate-500">4</div>
+          <div class="col-span-2 flex justify-center">
+            <div class="w-8 h-8 rounded-lg border border-slate-300 bg-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Floating Rest Timer Footer Bar -->
+  <footer class="bg-white border-t border-slate-200 p-3.5 shadow-lg flex items-center justify-between sticky bottom-0 z-30">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold text-sm">
+        ⏱
+      </div>
+      <div>
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Descanso Activo</span>
+        <span class="text-xl font-tabular font-extrabold text-blue-700 leading-none">01:45</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold border border-slate-200 transition">
+        +30s
+      </button>
+      <button class="h-10 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow transition">
+        Saltar
+      </button>
+    </div>
+  </footer>
+
+</body>
+</html>
