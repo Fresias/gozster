@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
@@ -21,7 +22,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   }, [setOnlineStatus]);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col border-x border-border/80 bg-background shadow-2xl">
+    <div className="mx-auto flex min-h-dvh max-w-md flex-col border-x border-border/80 bg-background text-foreground shadow-2xl transition-colors duration-150">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border/80 bg-card/95 px-4 py-3 backdrop-blur-md transition-colors">
         <Link
           href="/"
@@ -35,28 +36,32 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
           </span>
         </Link>
 
-        <div
-          role="status"
-          aria-live="polite"
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-            isOnline
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : "border-amber-500/40 bg-amber-500/15 text-amber-300 animate-pulse"
-          }`}
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              isOnline ? "bg-emerald-400" : "bg-amber-400"
+        <div className="flex items-center gap-2">
+          <div
+            role="status"
+            aria-live="polite"
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+              isOnline
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300 animate-pulse"
             }`}
-          />
-          <span className="font-semibold text-[11px]">
-            {isOnline ? "Online" : "Modo Avión"}
-            {pendingEvents.length > 0 && (
-              <span className="ml-1 font-mono tabular-nums">
-                • Cola: {pendingEvents.length}
-              </span>
-            )}
-          </span>
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                isOnline ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"
+              }`}
+            />
+            <span className="font-semibold text-[11px]">
+              {isOnline ? "Online" : "Modo Avión"}
+              {pendingEvents.length > 0 && (
+                <span className="ml-1 font-mono tabular-nums">
+                  • {pendingEvents.length}
+                </span>
+              )}
+            </span>
+          </div>
+
+          <ThemeToggle />
         </div>
       </header>
 

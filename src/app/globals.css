@@ -3,43 +3,71 @@
 @tailwind utilities;
 
 @layer base {
-  :root,
-  .dark {
-    /* Base Material 3 Surface Containers & Deep Onyx Palette */
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+/* MODO DÍA (Light Mode / Fondo Blanco Cálido) */
+:root {
+  --background: 210 20% 98%;          /* #F8FAFC Warm Canvas */
+  --foreground: 222 47% 11%;          /* #0F172A Deep Slate Grafito */
+  --card: 0 0% 100%;                  /* #FFFFFF Pure White */
+  --card-foreground: 222 47% 11%;
+  --surface: 0 0% 100%;
+  --surface-container-low: 210 20% 96%;/* #F1F5F9 */
+  --surface-container: 214 32% 91%;   /* #E2E8F0 */
+  --surface-container-high: 215 25% 82%;
+  --surface-container-highest: 215 20% 75%;
+  --primary: 221 83% 53%;             /* #2563EB Azul Atlántico */
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;    /* #64748B */
+  --accent: 210 20% 96%;
+  --accent-foreground: 222 47% 11%;
+  --border: 214 32% 91%;              /* #E2E8F0 */
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;
+  --radius: 0.875rem;
 
-    --surface: 222 47% 6%;
-    --surface-container-low: 222 45% 8.5%;
-    --surface-container: 222 40% 11%;
-    --surface-container-high: 222 34% 15%;
-    --surface-container-highest: 222 30% 20%;
+  /* Semántica deportiva suave */
+  --success: 160 84% 39%;             /* #10B981 Esmeralda */
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;              /* #F59E0B Ámbar */
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;           /* #EF4444 Rosa Coral */
+  --destructive-foreground: 0 0% 100%;
+}
 
-    --card: 222 40% 11%;
-    --card-foreground: 210 40% 98%;
+/* MODO NOCHE REFINADO (Dark Mode Pulido y Suave) */
+.dark {
+  --background: 222 47% 11%;          /* #0F172A Deep Charcoal */
+  --foreground: 210 40% 98%;          /* #F8FAFC Tiza Suave */
+  --card: 217 33% 17%;                /* #1E293B */
+  --card-foreground: 210 40% 98%;
+  --surface: 217 33% 17%;
+  --surface-container-low: 222 47% 14%;
+  --surface-container: 217 33% 20%;
+  --surface-container-high: 217 33% 24%;
+  --surface-container-highest: 217 33% 28%;
+  --primary: 199 89% 48%;             /* #38BDF8 Sky Atlántico Suave */
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 33% 20%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 20%;
+  --muted-foreground: 215 20% 65%;    /* #94A3B8 */
+  --accent: 217 33% 20%;
+  --accent-foreground: 210 40% 98%;
+  --border: 217 33% 22%;
+  --input: 217 33% 22%;
+  --ring: 199 89% 48%;
+  --radius: 0.875rem;
 
-    /* Material 3 High-Contrast Athletic Emerald / Mint Primary */
-    --primary: 158 64% 48%;
-    --primary-foreground: 164 86% 8%;
-
-    --secondary: 222 34% 15%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 222 28% 16%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 222 28% 18%;
-    --accent-foreground: 210 40% 98%;
-
-    /* UI/UX Pro Max Warning & Danger Accents */
-    --destructive: 350 89% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 26% 18%;
-    --input: 220 26% 18%;
-    --ring: 158 64% 48%;
-    --radius: 0.75rem;
-  }
+  /* Semántica deportiva noche */
+  --success: 158 64% 52%;             /* #34D399 Menta */
+  --success-foreground: 222 47% 11%;
+  --warning: 45 93% 47%;              /* #FBBF24 Dorado */
+  --warning-foreground: 222 47% 11%;
+  --destructive: 0 72% 51%;           /* #EF4444 */
+  --destructive-foreground: 0 0% 100%;
+}
 
   * {
     @apply border-border;

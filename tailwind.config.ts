@@ -45,6 +45,14 @@ const config: Config = {
           "container-high": "hsl(var(--surface-container-high))",
           "container-highest": "hsl(var(--surface-container-highest))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
       },
       borderRadius: {
         sm: "calc(var(--radius) - 4px)",

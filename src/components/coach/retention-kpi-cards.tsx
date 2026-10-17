@@ -22,7 +22,7 @@ export function RetentionKpiCards({
       }`}
     >
       {/* KPI 1: cantActivas */}
-      <Card className="flex flex-col justify-between border-border/80 bg-card shadow-m3-1 hover:border-emerald-500/50 hover:shadow-m3-2 transition-all">
+      <Card className="flex flex-col justify-between border-border/80 bg-card shadow-xs hover:border-emerald-500/40 hover:shadow-sm transition-all duration-150">
         <CardHeader className="p-5 pb-2">
           <div className="flex items-center justify-between">
             <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -32,7 +32,7 @@ export function RetentionKpiCards({
           </div>
           <CardTitle
             data-testid="kpi-cant-activas"
-            className="text-4xl font-black tracking-tight text-emerald-400 font-mono tabular-nums mt-1"
+            className="text-4xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-1"
           >
             {metricas.cantActivas}
           </CardTitle>
@@ -46,10 +46,10 @@ export function RetentionKpiCards({
 
       {/* KPI 2: cantSinPlanEntrenamiento */}
       <Card
-        className={`flex flex-col justify-between border shadow-m3-1 transition-all ${
+        className={`flex flex-col justify-between border shadow-xs transition-all duration-150 ${
           metricas.cantSinPlanEntrenamiento > 0
-            ? "border-amber-500/50 bg-amber-500/10 hover:border-amber-400 hover:shadow-m3-2"
-            : "border-border/80 bg-card hover:border-primary/50"
+            ? "border-amber-500/40 bg-amber-500/5 hover:border-amber-400 hover:shadow-sm"
+            : "border-border/80 bg-card hover:border-primary/40"
         }`}
       >
         <CardHeader className="p-5 pb-2">
@@ -62,14 +62,32 @@ export function RetentionKpiCards({
                 metricas.cantSinPlanEntrenamiento > 0 ? "warning" : "outline"
               }
             >
-              {metricas.cantSinPlanEntrenamiento > 0
-                ? "⚠️ Urgente"
-                : "Planificación al 100%"}
+              {metricas.cantSinPlanEntrenamiento > 0 ? (
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  Urgente
+                </span>
+              ) : (
+                "Planificación al 100%"
+              )}
             </Badge>
           </div>
           <CardTitle
             data-testid="kpi-cant-sin-plan"
-            className="text-4xl font-black tracking-tight text-amber-400 font-mono tabular-nums mt-1"
+            className="text-4xl font-black tracking-tight text-amber-500 dark:text-amber-400 font-mono tabular-nums mt-1"
           >
             {metricas.cantSinPlanEntrenamiento}
           </CardTitle>
@@ -84,17 +102,31 @@ export function RetentionKpiCards({
               variant="default"
               size="default"
               onClick={onAssignPlanClick}
-              className="w-full min-h-12 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-black shadow-sm active:scale-[0.98] transition-all rounded-xl"
+              className="w-full min-h-12 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xs active:scale-[0.98] transition-all rounded-xl gap-2"
               aria-label="Asignar rutina a alumnos sin plan"
             >
-              ⚡ Asignar Plan Urgente
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              <span>Asignar Plan Urgente</span>
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {/* KPI 3: cantClientesPerdidosMes */}
-      <Card className="flex flex-col justify-between border-border/80 bg-card shadow-m3-1 hover:border-rose-500/50 hover:shadow-m3-2 transition-all sm:col-span-2 lg:col-span-1">
+      <Card className="flex flex-col justify-between border-border/80 bg-card shadow-xs hover:border-rose-500/40 hover:shadow-sm transition-all duration-150 sm:col-span-2 lg:col-span-1">
         <CardHeader className="p-5 pb-2">
           <div className="flex items-center justify-between">
             <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -114,7 +146,7 @@ export function RetentionKpiCards({
           </div>
           <CardTitle
             data-testid="kpi-cant-perdidos-mes"
-            className="text-4xl font-black tracking-tight text-rose-400 font-mono tabular-nums mt-1"
+            className="text-4xl font-black tracking-tight text-rose-500 dark:text-rose-400 font-mono tabular-nums mt-1"
           >
             {metricas.cantClientesPerdidosMes}
           </CardTitle>
