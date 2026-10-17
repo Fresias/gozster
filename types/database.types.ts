@@ -30,6 +30,8 @@ export interface Database {
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
           telefono?: string | null;
+          fecha_vencimiento_cuota?: string | null;
+          ultimo_entreno_at?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -42,6 +44,8 @@ export interface Database {
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           telefono?: string | null;
+          fecha_vencimiento_cuota?: string | null;
+          ultimo_entreno_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -54,6 +58,8 @@ export interface Database {
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           telefono?: string | null;
+          fecha_vencimiento_cuota?: string | null;
+          ultimo_entreno_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -608,6 +614,153 @@ export interface Database {
           },
         ];
       };
+      alertas_entrenador: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          profesor_id: string;
+          ejercicio_id: string | null;
+          serie_id: string | null;
+          tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
+          severidad: 'BAJA' | 'MEDIA' | 'ALTA';
+          titulo: string;
+          detalle: string | null;
+          estado: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          accion_tomada: string | null;
+          resuelto_por: string | null;
+          resuelto_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          profesor_id: string;
+          ejercicio_id?: string | null;
+          serie_id?: string | null;
+          tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          titulo: string;
+          detalle?: string | null;
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          accion_tomada?: string | null;
+          resuelto_por?: string | null;
+          resuelto_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          profesor_id?: string;
+          ejercicio_id?: string | null;
+          serie_id?: string | null;
+          tipo_alerta?: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          titulo?: string;
+          detalle?: string | null;
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          accion_tomada?: string | null;
+          resuelto_por?: string | null;
+          resuelto_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alertas_entrenador_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alertas_entrenador_profesor_id_fkey';
+            columns: ['profesor_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alertas_entrenador_ejercicio_id_fkey';
+            columns: ['ejercicio_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alertas_entrenador_serie_id_fkey';
+            columns: ['serie_id'];
+            isOneToOne: false;
+            referencedRelation: 'registro_series';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alertas_entrenador_resuelto_por_fkey';
+            columns: ['resuelto_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      alumno_historial_dolor: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          severidad: 'LEVE' | 'MODERADO' | 'AGUDO';
+          notas_alumno: string | null;
+          notas_profesor: string | null;
+          estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
+          fecha_reporte: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
+          notas_alumno?: string | null;
+          notas_profesor?: string | null;
+          estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
+          fecha_reporte?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          ejercicio_id?: string;
+          zona_articular?: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
+          notas_alumno?: string | null;
+          notas_profesor?: string | null;
+          estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
+          fecha_reporte?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_historial_dolor_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alumno_historial_dolor_ejercicio_id_fkey';
+            columns: ['ejercicio_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -694,6 +847,15 @@ export interface Database {
           p_conversacion_id: string;
         };
         Returns: number;
+      };
+      quick_swap_ejercicio: {
+        Args: {
+          p_ejercicio_en_rutina_id: string;
+          p_nuevo_ejercicio_id: string;
+          p_alerta_id?: string | null;
+          p_motivo?: string | null;
+        };
+        Returns: Database['public']['Tables']['ejercicios_en_rutina']['Row'];
       };
     };
     Enums: {
@@ -809,4 +971,11 @@ export type HabitoRegistroUpdate = TablesUpdate<'habitos_registros'>;
 export type NutricionRegistro = Tables<'nutricion_registros'>;
 export type NutricionRegistroInsert = TablesInsert<'nutricion_registros'>;
 export type NutricionRegistroUpdate = TablesUpdate<'nutricion_registros'>;
+export type AlertaEntrenador = Tables<'alertas_entrenador'>;
+export type AlertaEntrenadorInsert = TablesInsert<'alertas_entrenador'>;
+export type AlertaEntrenadorUpdate = TablesUpdate<'alertas_entrenador'>;
+export type AlumnoHistorialDolor = Tables<'alumno_historial_dolor'>;
+export type AlumnoHistorialDolorInsert = TablesInsert<'alumno_historial_dolor'>;
+export type AlumnoHistorialDolorUpdate = TablesUpdate<'alumno_historial_dolor'>;
+
 
