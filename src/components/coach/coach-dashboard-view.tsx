@@ -12,11 +12,26 @@ import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawe
 import { ChatFab } from "@/components/coach/chat-fab";
 import { Button } from "@/components/ui/button";
 
-export function CoachDashboardView() {
+import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+
+export function CoachDashboardView({
+  initialDataset,
+}: {
+  initialDataset?: LiveSupabaseDataset | null;
+} = {}) {
   const router = useRouter();
+  const store = useCoachStudioStore();
+
+  const alumnos =
+    initialDataset && initialDataset.alumnos.length > 0
+      ? initialDataset.alumnos
+      : store.alumnos;
+  const planes =
+    initialDataset && initialDataset.planes.length > 0
+      ? initialDataset.planes
+      : store.planes;
+
   const {
-    alumnos,
-    planes,
     toast,
     isHistoricalLoadsOpen,
     isChatOpen,
@@ -31,11 +46,22 @@ export function CoachDashboardView() {
     getSelectedAlumno,
     getHistorialCargasAlumno,
     loadLiveSupabaseData,
-  } = useCoachStudioStore();
+  } = store;
 
   React.useEffect(() => {
-    loadLiveSupabaseData();
-  }, [loadLiveSupabaseData]);
+    if (initialDataset && initialDataset.alumnos.length > 0) {
+      useCoachStudioStore.setState({
+        alumnos: initialDataset.alumnos,
+        planes: initialDataset.planes,
+        dias: initialDataset.dias,
+        ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
+        ejercicios: initialDataset.ejercicios,
+        isLiveDatabase: true,
+      });
+    } else {
+      loadLiveSupabaseData();
+    }
+  }, [initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
