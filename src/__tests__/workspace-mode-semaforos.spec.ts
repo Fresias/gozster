@@ -130,8 +130,7 @@ describe("Sprint Demo INDEC: Conmutador Modo Producción vs Testeo y Semáforos 
       expect(amarillos.length).toBeGreaterThanOrEqual(2); // 30-60 días
       expect(rojos.length).toBeGreaterThanOrEqual(2); // > 60 días o sin plan
       expect(sinPlan.length).toBe(1); // Bautista Benítez sin plan
-
-      expect(sinPlan[0].nombre).toContain("Bautista");
+      expect(sinPlan[0]?.nombre).toContain("Bautista");
       expect(rojos.some((r) => r.nombre.includes("Sofía"))).toBe(true); // 70 días
       expect(rojos.some((r) => r.nombre.includes("Martina"))).toBe(true); // 65 días
       expect(amarillos.some((r) => r.nombre.includes("Facundo"))).toBe(true); // 42 días
@@ -205,27 +204,27 @@ describe("Sprint Demo INDEC: Conmutador Modo Producción vs Testeo y Semáforos 
       // Celeste Gerardi: dolor articular puro
       const celesteAlerts = getDemoAlumnoAlerts("Celeste Gerardi");
       expect(celesteAlerts.length).toBe(1);
-      expect(celesteAlerts[0].type).toBe("pain");
-      expect(celesteAlerts[0].zona).toBe("Rodilla");
+      expect(celesteAlerts[0]?.type).toBe("pain");
+      expect(celesteAlerts[0]?.zona).toBe("Rodilla");
 
       // Facundo Medina: dolor lumbar
       const facundoAlerts = getDemoAlumnoAlerts("Facundo Medina");
       expect(facundoAlerts.length).toBe(1);
-      expect(facundoAlerts[0].zona).toBe("Lumbar");
+      expect(facundoAlerts[0]?.zona).toBe("Lumbar");
 
       // Camila Navarro: dolor de codo
       const camilaAlerts = getDemoAlumnoAlerts("Camila Navarro");
       expect(camilaAlerts.length).toBe(1);
-      expect(camilaAlerts[0].zona).toBe("Codo");
+      expect(camilaAlerts[0]?.zona).toBe("Codo");
 
       // Mateo Rossi & Valentina Quiroga: PRs puros
       const mateoAlerts = getDemoAlumnoAlerts("Mateo Rossi");
       expect(mateoAlerts.length).toBe(1);
-      expect(mateoAlerts[0].type).toBe("pr");
+      expect(mateoAlerts[0]?.type).toBe("pr");
 
       const valentinaAlerts = getDemoAlumnoAlerts("Valentina Quiroga");
       expect(valentinaAlerts.length).toBe(1);
-      expect(valentinaAlerts[0].type).toBe("pr");
+      expect(valentinaAlerts[0]?.type).toBe("pr");
 
       // Atletas sin alertas
       expect(getDemoAlumnoAlerts("Esteban Papic").length).toBe(0);
