@@ -266,38 +266,38 @@ export function LiveWorkout() {
             )}
 
             {/* Métricas en vivo de la sesión con Hevy Double Volume */}
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-[11px] font-medium text-muted-foreground">Series Hechas</p>
-                <p className="text-lg font-bold text-foreground">
-                  {completedSetsCount} / {totalSets}
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Series Hechas</p>
+                <p className="text-xl font-black font-mono tabular-nums text-foreground mt-0.5">
+                  {completedSetsCount} <span className="text-sm font-normal text-muted-foreground">/ {totalSets}</span>
                 </p>
               </div>
 
               {/* Hevy Double Volume */}
-              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
-                <p className="text-[11px] font-semibold text-primary">
-                  Volumen Efectivo (Hevy)
+              <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-m3-1">
+                <p className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                  Vol. Efectivo (Hevy)
                 </p>
-                <p className="text-lg font-black text-primary font-mono">
-                  {effectiveVolumeKg.toLocaleString()} kg
+                <p className="text-xl font-black text-primary font-mono tabular-nums mt-0.5">
+                  {effectiveVolumeKg.toLocaleString()} <span className="text-xs font-semibold">kg</span>
                 </p>
-                <span className="text-[9px] text-muted-foreground block">
+                <span className="text-[9px] text-muted-foreground block mt-0.5">
                   Excluye calentamiento (W)
                 </span>
               </div>
 
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-[11px] font-medium text-muted-foreground">Volumen Bruto</p>
-                <p className="text-lg font-bold text-foreground/80 font-mono">
-                  {totalVolumeKg.toLocaleString()} kg
+              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Volumen Bruto</p>
+                <p className="text-xl font-black text-foreground/90 font-mono tabular-nums mt-0.5">
+                  {totalVolumeKg.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">kg</span>
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border bg-card p-3">
-                <p className="text-[11px] font-medium text-muted-foreground">Cola Offline</p>
-                <p className="text-lg font-bold text-foreground">
-                  {pendingEvents.length} pendientes
+              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Cola Offline</p>
+                <p className="text-xl font-black text-foreground font-mono tabular-nums mt-0.5">
+                  {pendingEvents.length} <span className="text-xs font-semibold text-muted-foreground">pendientes</span>
                 </p>
               </div>
             </div>
@@ -567,13 +567,13 @@ export function LiveWorkout() {
                             </div>
                           )}
 
-                          {/* Controles de Carga: Peso, Reps, RPE con botones táctiles grandes */}
-                          <div className="grid grid-cols-3 gap-2 py-1">
+                          {/* Controles de Carga: Peso, Reps, RPE con botones táctiles grandes (Thumb Zone) */}
+                          <div className="grid grid-cols-3 gap-2.5 py-1">
                             {/* Peso (kg) */}
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <label
                                 htmlFor={`peso-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-medium text-muted-foreground block"
+                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
                               >
                                 Peso (kg)
                               </label>
@@ -593,10 +593,10 @@ export function LiveWorkout() {
                                     )
                                   }
                                   disabled={serie.completada}
-                                  className="w-full rounded-md border border-input bg-background px-2 py-2 text-center text-sm font-semibold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />
                               </div>
-                              <div className="flex gap-1 pt-0.5">
+                              <div className="flex gap-1.5 pt-0.5">
                                 <button
                                   type="button"
                                   disabled={serie.completada || serie.peso_kg <= 2.5}
@@ -608,7 +608,7 @@ export function LiveWorkout() {
                                       Math.max(0, serie.peso_kg - 2.5),
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   -2.5
                                 </button>
@@ -623,7 +623,7 @@ export function LiveWorkout() {
                                       serie.peso_kg + 2.5,
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   +2.5
                                 </button>
@@ -631,10 +631,10 @@ export function LiveWorkout() {
                             </div>
 
                             {/* Repeticiones */}
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <label
                                 htmlFor={`reps-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-medium text-muted-foreground block"
+                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
                               >
                                 Reps
                               </label>
@@ -654,10 +654,10 @@ export function LiveWorkout() {
                                     )
                                   }
                                   disabled={serie.completada}
-                                  className="w-full rounded-md border border-input bg-background px-2 py-2 text-center text-sm font-semibold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />
                               </div>
-                              <div className="flex gap-1 pt-0.5">
+                              <div className="flex gap-1.5 pt-0.5">
                                 <button
                                   type="button"
                                   disabled={serie.completada || serie.reps_hechas <= 1}
@@ -669,7 +669,7 @@ export function LiveWorkout() {
                                       Math.max(0, serie.reps_hechas - 1),
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   -1
                                 </button>
@@ -684,7 +684,7 @@ export function LiveWorkout() {
                                       serie.reps_hechas + 1,
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   +1
                                 </button>
@@ -692,10 +692,10 @@ export function LiveWorkout() {
                             </div>
 
                             {/* RPE */}
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               <label
                                 htmlFor={`rpe-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-medium text-muted-foreground block"
+                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
                               >
                                 RPE (6-10)
                               </label>
@@ -716,10 +716,10 @@ export function LiveWorkout() {
                                     )
                                   }
                                   disabled={serie.completada}
-                                  className="w-full rounded-md border border-input bg-background px-2 py-2 text-center text-sm font-semibold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary"
+                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />
                               </div>
-                              <div className="flex gap-1 pt-0.5">
+                              <div className="flex gap-1.5 pt-0.5">
                                 <button
                                   type="button"
                                   disabled={serie.completada || serie.rpe_real <= 6}
@@ -731,7 +731,7 @@ export function LiveWorkout() {
                                       Math.max(1, serie.rpe_real - 0.5),
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   -0.5
                                 </button>
@@ -746,7 +746,7 @@ export function LiveWorkout() {
                                       Math.min(10, serie.rpe_real + 0.5),
                                     )
                                   }
-                                  className="flex-1 rounded bg-secondary py-1 text-[10px] font-semibold text-secondary-foreground hover:bg-secondary/80 disabled:opacity-30 touch-manipulation"
+                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
                                 >
                                   +0.5
                                 </button>
@@ -754,11 +754,11 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Botón táctil ergonómico grande de acción (56px) */}
+                          {/* Botón táctil ergonómico grande de acción (Thumb Zone 56px) */}
                           <div className="pt-2">
                             {serie.completada ? (
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                              <div className="flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2.5">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                                   <span>✓</span>
                                   <span>
                                     Serie {serie.numero_serie} ({setType}): {serie.peso_kg}kg × {serie.reps_hechas} @RPE {serie.rpe_real}
@@ -767,7 +767,7 @@ export function LiveWorkout() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-[11px] text-muted-foreground hover:text-destructive h-8 px-2"
+                                  className="text-[11px] font-bold text-muted-foreground hover:text-destructive h-8 px-2.5 rounded-lg"
                                   onClick={() => uncompleteSet(ejercicio.id, serie.numero_serie)}
                                 >
                                   Deshacer
@@ -776,7 +776,7 @@ export function LiveWorkout() {
                             ) : (
                               <Button
                                 size="touch"
-                                className="w-full bg-primary font-bold tracking-wide text-primary-foreground shadow-md hover:opacity-90 active:scale-[0.98] touch-manipulation min-h-[56px] text-sm"
+                                className="w-full bg-primary font-bold tracking-wide text-primary-foreground shadow-m3-2 hover:brightness-105 active:scale-[0.98] touch-manipulation min-h-[56px] text-sm sm:text-base rounded-xl"
                                 onClick={() => completeSet(ejercicio.id, serie.numero_serie)}
                                 data-testid={`complete-set-btn-${ejercicio.id}-${serie.numero_serie}`}
                               >

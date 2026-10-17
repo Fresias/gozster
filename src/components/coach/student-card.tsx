@@ -66,31 +66,31 @@ export function StudentCard({
   });
 
   return (
-    <Card className="w-full max-w-full overflow-hidden transition-all hover:border-primary/50 focus-within:ring-2 focus-within:ring-ring">
-      <CardContent className="p-4 sm:p-5">
+    <Card className="w-full max-w-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-m3-1 hover:border-primary/50 hover:shadow-m3-2 transition-all duration-200">
+      <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-bold text-secondary-foreground"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-secondary/80 border border-border/60 text-sm font-black text-foreground shadow-sm"
               aria-hidden="true"
             >
               {getInitials(alumno.nombre_completo)}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="truncate text-base font-semibold text-foreground">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="truncate text-base font-bold text-foreground">
                   {alumno.nombre_completo}
                 </h3>
                 {/* Semáforo de Salud (SH) */}
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${healthScore.colorClass}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${healthScore.colorClass}`}
                   title={`Semáforo de Salud: ${healthScore.score} / 100`}
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
                   SH: {healthScore.score}
                 </span>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground mt-0.5">
                 {alumno.email ?? "Sin email registrado"}
               </p>
             </div>
@@ -98,26 +98,26 @@ export function StudentCard({
           <div className="shrink-0">{getPaymentBadge(alumno.estado_membresia)}</div>
         </div>
 
-        <div className="mt-3 rounded-md bg-secondary/50 p-2.5 text-xs flex items-center justify-between">
-          <div>
+        <div className="mt-4 rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs flex items-center justify-between">
+          <div className="min-w-0 pr-2">
             <span className="font-medium text-muted-foreground">Plan Activo: </span>
-            <span className="font-semibold text-foreground">
+            <span className="font-bold text-foreground truncate inline-block max-w-[180px] align-bottom">
               {rutinaActiva ? rutinaActiva.nombre : "Sin rutina asignada"}
             </span>
           </div>
-          <span className="text-[10px] font-mono text-muted-foreground">
+          <span className="text-[10px] font-mono font-bold text-muted-foreground shrink-0">
             {healthScore.badgeLabel}
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {/* Botón WhatsApp 1-Clic */}
           <a
             href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Contactar a ${alumno.nombre_completo} por WhatsApp`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 active:scale-[0.99]"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-bold text-emerald-400 transition-all hover:bg-emerald-500/20 active:scale-[0.98] cursor-pointer"
             data-testid={`whatsapp-btn-${alumno.id}`}
           >
             <svg
@@ -133,13 +133,14 @@ export function StudentCard({
           <Button
             variant="default"
             size="default"
-            className="w-full text-xs font-semibold"
+            className="w-full min-h-12 text-xs font-bold rounded-xl"
             onClick={() => onSelect(alumno.id)}
           >
-            Ver Alumno
+            Ver Alumno →
           </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
+

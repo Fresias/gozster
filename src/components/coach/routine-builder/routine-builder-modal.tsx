@@ -449,32 +449,38 @@ export function RoutineBuilderModal({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-secondary-foreground font-mono font-bold text-xs">
-                          {index + 1}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-secondary text-secondary-foreground font-mono font-bold text-xs border border-border/60">
+                          #{index + 1}
                         </span>
-                        <h4 className="text-xs font-bold text-foreground">
+                        <h4 className="text-sm font-bold text-foreground">
                           {ej.nombre}
                         </h4>
                         {isSuperset && (
-                          <Badge className="bg-purple-600 text-white text-[10px]">
+                          <Badge className="bg-purple-600 text-white text-[10px] font-bold">
                             {groupLabel}
                           </Badge>
                         )}
                         {ej.force_rpe_required && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-400 text-[10px]">
+                          <Badge variant="outline" className="border-amber-500 text-amber-400 text-[10px] font-bold">
                             RPE Forzado
                           </Badge>
                         )}
+                        {ej.url_video && (
+                          <span className="text-[10px] font-semibold text-primary inline-flex items-center gap-1">
+                            <span>🎬</span> Video OK
+                          </span>
+                        )}
                       </div>
 
-                      {/* Botones de ordenamiento y borrado */}
+                      {/* Botones de ordenamiento y borrado con mayor ergonomía táctil */}
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           disabled={index === 0}
                           onClick={() => handleMoveExercise(index, "UP")}
-                          className="h-6 w-6 rounded bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80"
+                          aria-label={`Subir orden de ${ej.nombre}`}
+                          className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
                         >
                           ▲
                         </button>
@@ -482,24 +488,34 @@ export function RoutineBuilderModal({
                           type="button"
                           disabled={index === currentDay.ejercicios.length - 1}
                           onClick={() => handleMoveExercise(index, "DOWN")}
-                          className="h-6 w-6 rounded bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80"
+                          aria-label={`Bajar orden de ${ej.nombre}`}
+                          className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
                         >
                           ▼
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRemoveExercise(ej.id)}
-                          className="h-6 w-6 rounded bg-destructive/20 text-destructive text-xs hover:bg-destructive/40 font-bold ml-1"
+                          aria-label={`Eliminar ${ej.nombre}`}
+                          className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs hover:bg-destructive/30 font-bold ml-1 flex items-center justify-center transition-colors cursor-pointer border border-destructive/30"
                         >
                           ✕
                         </button>
                       </div>
                     </div>
 
-                    {/* Parámetros de Entrenamiento */}
+                    {/* Banner de Superserie Conectada */}
+                    {isSuperset && (
+                      <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 px-3 py-1.5 text-[11px] font-semibold text-purple-300 flex items-center gap-1.5">
+                        <span>🔗</span>
+                        <span>Bloque de Superserie A{ej.grupo_superserie || 1} • Ejecutar consecutivamente sin descanso previo</span>
+                      </div>
+                    )}
+
+                    {/* Parámetros de Entrenamiento con tipografía tabular */}
                     <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-semibold">
+                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Series:
                         </label>
                         <input
@@ -514,12 +530,12 @@ export function RoutineBuilderModal({
                               parseInt(e.target.value, 10) || 1
                             )
                           }
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-center font-semibold text-foreground"
+                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-semibold">
+                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Repeticiones:
                         </label>
                         <input
@@ -528,12 +544,12 @@ export function RoutineBuilderModal({
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "repeticiones", e.target.value)
                           }
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-center font-semibold text-foreground"
+                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-semibold">
+                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Descanso (s):
                         </label>
                         <input
@@ -548,33 +564,33 @@ export function RoutineBuilderModal({
                               parseInt(e.target.value, 10) || 0
                             )
                           }
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-center font-semibold text-foreground"
+                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-semibold">
+                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           RPE Objetivo:
                         </label>
                         <input
                           type="number"
                           step="0.5"
-                          min="1"
+                          min="6"
                           max="10"
                           value={ej.rpe_objetivo}
                           onChange={(e) =>
                             handleUpdateExercise(
                               ej.id,
                               "rpe_objetivo",
-                              parseFloat(e.target.value) || 7
+                              parseFloat(e.target.value) || 8.0
                             )
                           }
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-center font-semibold text-foreground"
+                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-semibold">
+                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Tempo:
                         </label>
                         <input
@@ -584,7 +600,7 @@ export function RoutineBuilderModal({
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "tempo", e.target.value)
                           }
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-center font-semibold text-foreground"
+                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
@@ -592,13 +608,13 @@ export function RoutineBuilderModal({
                         <button
                           type="button"
                           onClick={() => handleToggleSuperset(ej.id)}
-                          className={`w-full py-1 text-[11px] font-bold rounded border transition-colors ${
+                          className={`w-full min-h-[38px] text-xs font-bold rounded-xl border transition-all active:scale-95 cursor-pointer ${
                             isSuperset
-                              ? "bg-purple-600 text-white border-purple-600"
+                              ? "bg-purple-600 hover:bg-purple-500 text-white border-purple-500 shadow-sm"
                               : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
                           }`}
                         >
-                          {isSuperset ? "✓ Superserie" : "+ Superserie"}
+                          {isSuperset ? "✓ Superserie A" : "+ Superserie"}
                         </button>
                       </div>
                     </div>
