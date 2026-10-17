@@ -38,11 +38,18 @@ export function CoachStudioView() {
     asignarPlanUrgente,
     obtenerMetricasRetencion,
     getAlertasSobrecargaProgresiva,
+    isLoading,
+    isLiveDatabase,
+    loadLiveSupabaseData,
     getSelectedAlumno,
     getPlanesAlumnoCronologico,
     getRutinaActivaAlumno,
     getHistorialCargasAlumno,
   } = useCoachStudioStore();
+
+  React.useEffect(() => {
+    loadLiveSupabaseData();
+  }, [loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [filterQuery, setFilterQuery] = React.useState("");
@@ -152,9 +159,21 @@ export function CoachStudioView() {
           {/* Header & Direct Link to Full Dashboard */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Coach Studio
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  Coach Studio
+                </h1>
+                {isLiveDatabase ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Supabase Live ({alumnos.length} alumnos)
+                  </span>
+                ) : isLoading ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    Sincronizando...
+                  </span>
+                ) : null}
+              </div>
               <p className="text-sm text-muted-foreground">
                 Gestión táctil de atletas, rutinas de fuerza y supervisión de cargas.
               </p>
