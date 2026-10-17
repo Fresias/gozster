@@ -1,4 +1,11 @@
 import { supabase } from "@/lib/supabase/client";
+import {
+  REAL_ALUMNOS,
+  REAL_PLANES,
+  REAL_DIAS,
+  REAL_EJERCICIOS,
+  REAL_EJERCICIOS_RUTINA,
+} from "@/services/real-mynter-data";
 import type {
   DiaRutina,
   Ejercicio,
@@ -15,7 +22,7 @@ export interface LiveSupabaseDataset {
   ejercicios: Ejercicio[];
 }
 
-export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDataset | null> {
+export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDataset> {
   try {
     const [
       alumnosRes,
@@ -31,9 +38,17 @@ export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDatase
       supabase.from("ejercicios").select("*").order("nombre", { ascending: true }),
     ]);
 
-    if (alumnosRes.error) {
-      console.warn("Error cargando alumnos de Supabase:", alumnosRes.error.message);
-      return null;
+    if (alumnosRes.error || !alumnosRes.data || alumnosRes.data.length === 0) {
+      if (alumnosRes.error) {
+        console.warn("Aviso cargando alumnos de Supabase (usando dataset sanitizado Mynter):", alumnosRes.error.message);
+      }
+      return {
+        alumnos: REAL_ALUMNOS,
+        planes: REAL_PLANES,
+        dias: REAL_DIAS,
+        ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
+        ejercicios: REAL_EJERCICIOS,
+      };
     }
 
     return {
@@ -44,7 +59,13 @@ export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDatase
       ejercicios: (ejerciciosRes.data as Ejercicio[]) || [],
     };
   } catch (err: any) {
-    console.warn("Excepción al conectar con Supabase:", err?.message || err);
-    return null;
+    console.warn("Excepción al conectar con Supabase (usando dataset sanitizado Mynter):", err?.message || err);
+    return {
+      alumnos: REAL_ALUMNOS,
+      planes: REAL_PLANES,
+      dias: REAL_DIAS,
+      ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
+      ejercicios: REAL_EJERCICIOS,
+    };
   }
 }

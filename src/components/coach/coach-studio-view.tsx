@@ -13,13 +13,40 @@ import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
 
-export function CoachStudioView() {
+import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+
+export function CoachStudioView({
+  initialDataset,
+}: {
+  initialDataset?: LiveSupabaseDataset | null;
+} = {}) {
+  const store = useCoachStudioStore();
+
+  const alumnos =
+    initialDataset && initialDataset.alumnos.length > 0
+      ? initialDataset.alumnos
+      : store.alumnos;
+  const planes =
+    initialDataset && initialDataset.planes.length > 0
+      ? initialDataset.planes
+      : store.planes;
+  const dias =
+    initialDataset && initialDataset.dias.length > 0
+      ? initialDataset.dias
+      : store.dias;
+  const ejerciciosEnRutina =
+    initialDataset && initialDataset.ejerciciosEnRutina.length > 0
+      ? initialDataset.ejerciciosEnRutina
+      : store.ejerciciosEnRutina;
+  const ejercicios =
+    initialDataset && initialDataset.ejercicios.length > 0
+      ? initialDataset.ejercicios
+      : store.ejercicios;
+
+  const isLiveDatabase =
+    store.isLiveDatabase || Boolean(initialDataset && initialDataset.alumnos.length > 0);
+
   const {
-    alumnos,
-    planes,
-    dias,
-    ejerciciosEnRutina,
-    ejercicios,
     selectedAlumnoId,
     activeTab,
     isHistoricalLoadsOpen,
@@ -39,17 +66,27 @@ export function CoachStudioView() {
     obtenerMetricasRetencion,
     getAlertasSobrecargaProgresiva,
     isLoading,
-    isLiveDatabase,
     loadLiveSupabaseData,
     getSelectedAlumno,
     getPlanesAlumnoCronologico,
     getRutinaActivaAlumno,
     getHistorialCargasAlumno,
-  } = useCoachStudioStore();
+  } = store;
 
   React.useEffect(() => {
-    loadLiveSupabaseData();
-  }, [loadLiveSupabaseData]);
+    if (initialDataset && initialDataset.alumnos.length > 0) {
+      useCoachStudioStore.setState({
+        alumnos: initialDataset.alumnos,
+        planes: initialDataset.planes,
+        dias: initialDataset.dias,
+        ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
+        ejercicios: initialDataset.ejercicios,
+        isLiveDatabase: true,
+      });
+    } else {
+      loadLiveSupabaseData();
+    }
+  }, [initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [filterQuery, setFilterQuery] = React.useState("");
