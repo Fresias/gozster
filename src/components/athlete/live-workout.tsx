@@ -9,9 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { useAthleteStore, type LiveWorkoutExercise } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { calculateBrzycki1RM } from "@/lib/strength-metrics";
+import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 
 export function LiveWorkout() {
   const {
@@ -21,7 +23,10 @@ export function LiveWorkout() {
     uncompleteSet,
     setMembershipStatus,
     resetSessionToDefaults,
+    loadStudentSession,
   } = useAthleteStore();
+
+  const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
 
   const { isOnline, pendingEvents, clearQueue } = useOfflineQueueStore();
   const [syncSuccessMessage, setSyncSuccessMessage] = React.useState<string | null>(
@@ -87,6 +92,40 @@ export function LiveWorkout() {
           </p>
         </div>
 
+        {/* Selector rápido de Alumno Real de Mynter o Rutina Base */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none" data-testid="student-routine-switcher">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
+            Rutina Real:
+          </span>
+          <button
+            type="button"
+            onClick={resetSessionToDefaults}
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${
+              !currentSession.studentId
+                ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            }`}
+            data-testid="select-default-routine"
+          >
+            Fuerza Base (3 Ejercicios)
+          </button>
+          {REAL_ALUMNOS.slice(0, 6).map((al) => (
+            <button
+              key={al.id}
+              type="button"
+              onClick={() => loadStudentSession(al.id)}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                currentSession.studentId === al.id
+                  ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+              data-testid={`select-student-${al.id}`}
+            >
+              {al.nombre_completo.split(" ")[0]} (Mynter)
+            </button>
+          ))}
+        </div>
+
         {/* Métricas en vivo de la sesión */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="rounded-lg border border-border bg-card p-3">
@@ -150,7 +189,18 @@ export function LiveWorkout() {
                     {ejercicio.nombre}
                   </CardTitle>
                 </div>
-                <div className="text-right">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 gap-1 text-[11px] font-semibold text-primary border-primary/30 hover:bg-primary/10 touch-manipulation"
+                    onClick={() => setVideoExercise(ejercicio)}
+                    data-testid={`watch-video-btn-${ejercicio.id}`}
+                    aria-label={`Ver técnica de ${ejercicio.nombre}`}
+                  >
+                    <span>🎬</span>
+                    <span>Técnica</span>
+                  </Button>
                   <span className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-xs font-mono font-medium text-primary">
                     ⏱️ {ejercicio.descanso_segundos}s
                   </span>
@@ -161,11 +211,22 @@ export function LiveWorkout() {
                 <span className="font-medium text-foreground">
                   Objetivo: {ejercicio.series.length} series × {ejercicio.repeticiones_objetivo} reps (RPE ~{ejercicio.rpe_objetivo})
                 </span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">
-                  {ejercicio.musculos_principales.join(", ")}
-                </span>
+                {ejercicio.musculos_principales.length > 0 && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-muted-foreground">
+                      {ejercicio.musculos_principales.join(", ")}
+                    </span>
+                  </>
+                )}
               </CardDescription>
+
+              {ejercicio.comentario && (
+                <div className="pt-2 text-[11px] text-muted-foreground flex items-center gap-1.5 border-t border-border/40 mt-2">
+                  <span>💡</span>
+                  <span className="italic">{ejercicio.comentario}</span>
+                </div>
+              )}
             </CardHeader>
 
             <CardContent className="p-3 sm:p-4 space-y-4">
@@ -451,6 +512,13 @@ export function LiveWorkout() {
           Reiniciar Rutina a Valores por Defecto
         </Button>
       </div>
+
+      {/* Modal / Bottom-Sheet de Demostración de Técnica en Video */}
+      <ExerciseVideoModal
+        exercise={videoExercise}
+        isOpen={Boolean(videoExercise)}
+        onClose={() => setVideoExercise(null)}
+      />
     </div>
   );
 }

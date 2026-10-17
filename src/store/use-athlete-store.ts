@@ -3,6 +3,13 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { calculateEpley1RM } from "@/lib/strength-metrics";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
+import {
+  REAL_ALUMNOS,
+  REAL_PLANES,
+  REAL_DIAS,
+  REAL_EJERCICIOS,
+  REAL_EJERCICIOS_RUTINA,
+} from "@/services/real-mynter-data";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -24,6 +31,8 @@ export interface LiveWorkoutExercise {
   rpe_objetivo: number;
   repeticiones_objetivo: string;
   series: LiveWorkoutSet[];
+  url_video?: string | null;
+  comentario?: string | null;
 }
 
 export interface LiveWorkoutSession {
@@ -31,6 +40,8 @@ export interface LiveWorkoutSession {
   nombre_rutina: string;
   fecha: string;
   ejercicios: LiveWorkoutExercise[];
+  studentName?: string;
+  studentId?: string;
 }
 
 export interface RestTimerState {
@@ -66,7 +77,9 @@ interface AthleteStoreState {
   stopTimer: () => void;
   addTimerSeconds: (seconds: number) => void;
 
-  // Reset / Sync
+  // Session & Routine Loaders
+  setSession: (session: LiveWorkoutSession) => void;
+  loadStudentSession: (studentId?: string, diaId?: string) => boolean;
   resetSessionToDefaults: () => void;
 }
 
@@ -82,6 +95,8 @@ const defaultSession: LiveWorkoutSession = {
       descanso_segundos: 90,
       rpe_objetivo: 8,
       repeticiones_objetivo: "6-8",
+      url_video: "bEv6CCg2BC8",
+      comentario: "Mantener el pecho erguido, peso repartido en todo el pie y descenso controlado abriendo caderas.",
       series: [
         {
           numero_serie: 1,
@@ -124,6 +139,8 @@ const defaultSession: LiveWorkoutSession = {
       descanso_segundos: 90,
       rpe_objetivo: 8,
       repeticiones_objetivo: "8-10",
+      url_video: "rT7DgCr-3pg",
+      comentario: "Retracción escapular activa, agarre firme simétrico y trayectoria diagonal hacia el pecho inferior.",
       series: [
         {
           numero_serie: 1,
@@ -158,6 +175,8 @@ const defaultSession: LiveWorkoutSession = {
       descanso_segundos: 75,
       rpe_objetivo: 7.5,
       repeticiones_objetivo: "10-12",
+      url_video: "SEdqd1n0cvg",
+      comentario: "Empujar la cadera hacia atrás manteniendo las rodillas semi-flexionadas y espalda completamente neutra.",
       series: [
         {
           numero_serie: 1,
@@ -409,6 +428,85 @@ export const useAthleteStore = create<AthleteStoreState>()(
             totalSeconds: state.restTimer.totalSeconds + seconds,
           },
         }));
+      },
+
+      setSession: (session) => {
+        set({ currentSession: session });
+      },
+
+      loadStudentSession: (studentId, diaId) => {
+        const student = studentId
+          ? REAL_ALUMNOS.find((a) => a.id === studentId || a.nombre_completo.toLowerCase().includes(studentId.toLowerCase()))
+          : REAL_ALUMNOS[0];
+
+        if (!student) return false;
+
+        const plan = REAL_PLANES.find((p) => p.alumno_id === student.id && p.estado === "ACTIVO") ||
+          REAL_PLANES.find((p) => p.alumno_id === student.id) ||
+          REAL_PLANES[0];
+
+        if (!plan) return false;
+
+        const dias = REAL_DIAS.filter((d) => d.plan_id === plan.id).sort((a, b) => a.orden - b.orden);
+        if (dias.length === 0) return false;
+
+        const selectedDia = (diaId ? dias.find((d) => d.id === diaId) : undefined) ?? dias[0];
+        if (!selectedDia) return false;
+
+        const ejRutinaList = REAL_EJERCICIOS_RUTINA.filter((er) => er.dia_id === selectedDia.id).sort(
+          (a, b) => a.orden - b.orden,
+        );
+
+        if (ejRutinaList.length === 0) return false;
+
+        const mappedExercises: LiveWorkoutExercise[] = ejRutinaList.map((er, idx) => {
+          const ejMaestro = REAL_EJERCICIOS.find((e) => e.id === er.ejercicio_id);
+          const seriesCount = typeof er.series === "number" && er.series > 0 ? er.series : 3;
+
+          const sets: LiveWorkoutSet[] = Array.from({ length: seriesCount }, (_, sIdx) => ({
+            numero_serie: sIdx + 1,
+            peso_kg: 20,
+            reps_hechas: 10,
+            rpe_real: er.rpe_objetivo || 7.5,
+            completada: false,
+            estimated1RM: calculateEpley1RM(20, 10),
+          }));
+
+          return {
+            id: er.id || `ej-${idx + 1}`,
+            nombre: ejMaestro?.nombre || `Ejercicio #${idx + 1}`,
+            musculos_principales: ejMaestro?.musculos_principales || [],
+            descanso_segundos: er.descanso_segundos || 60,
+            rpe_objetivo: er.rpe_objetivo || 8,
+            repeticiones_objetivo: er.repeticiones || "10-12",
+            series: sets,
+            url_video: ejMaestro?.url_video || null,
+            comentario: ejMaestro?.comentario || er.notas || null,
+          };
+        });
+
+        const newSession: LiveWorkoutSession = {
+          id: `session-${student.id}-${selectedDia.id}`,
+          nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
+          fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
+          ejercicios: mappedExercises,
+          studentName: student.nombre_completo,
+          studentId: student.id,
+        };
+
+        set({
+          currentSession: newSession,
+          restTimer: {
+            isActive: false,
+            isPaused: false,
+            secondsRemaining: 0,
+            totalSeconds: 0,
+            exerciseName: "",
+            setNumber: 0,
+          },
+        });
+
+        return true;
       },
 
       resetSessionToDefaults: () => {
