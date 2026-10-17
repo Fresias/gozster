@@ -17,6 +17,7 @@ import {
   type HistoricalLoadEntry,
 } from "@/services/coach-mock-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -90,6 +91,10 @@ interface CoachStudioState {
   currentPage: number;
   itemsPerPage: number;
 
+  isLoading: boolean;
+  isLiveDatabase: boolean;
+  loadLiveSupabaseData: () => Promise<void>;
+
   // Actions
   selectAlumno: (alumnoId: string | null) => void;
   setActiveTab: (tab: CoachStudioTab) => void;
@@ -146,6 +151,28 @@ export const useCoachStudioStore = create<CoachStudioState>()(
 
     currentPage: 1,
     itemsPerPage: 4,
+
+    isLoading: false,
+    isLiveDatabase: false,
+
+    loadLiveSupabaseData: async () => {
+      set({ isLoading: true });
+      const dataset = await fetchLiveDatasetFromSupabase();
+      if (dataset && dataset.alumnos.length > 0) {
+        set({
+          alumnos: dataset.alumnos,
+          planes: dataset.planes,
+          dias: dataset.dias,
+          ejerciciosEnRutina: dataset.ejerciciosEnRutina,
+          ejercicios: dataset.ejercicios,
+          isLiveDatabase: true,
+          isLoading: false,
+          selectedAlumnoId: null,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+    },
 
     selectAlumno: (alumnoId) =>
       set({
