@@ -1,14 +1,8 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient as createPlainClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, createClient as createBrowser } from "@/lib/supabase/browser";
 
-const DEFAULT_SUPABASE_URL = "https://cutvhrxgrwwfntetdsdo.supabase.co";
-// Clave anon publicable por defecto: previene caídas durante SSG / prerendering en Vercel si aún no se configuró en el dashboard de CI
-const DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_BdrxwuFPjcloqpXvWYAvHw_jw8TJAEH";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-
-// Asegurar compatibilidad en Node.js < 22 o entornos sin WebSocket nativo global
+// Asegurar compatibilidad en Node.js < 22 o entornos sin WebSocket nativo global (SSR / tests)
 if (typeof window === "undefined" && typeof globalThis !== "undefined" && !(globalThis as any).WebSocket) {
   (globalThis as any).WebSocket = class MockWebSocket {
     static readonly CONNECTING = 0;
@@ -27,14 +21,13 @@ if (typeof window === "undefined" && typeof globalThis !== "undefined" && !(glob
   };
 }
 
-export const supabase: SupabaseClient<Database> = createClient<Database>(
-  supabaseUrl,
-  supabaseAnonKey,
-  {
-    auth: {
-      persistSession: typeof window !== "undefined",
-      autoRefreshToken: typeof window !== "undefined",
-    },
-  }
-);
-
+// Compatibilidad: todos los Componentes Cliente siguen importando `supabase` desde aquí.
+// En el navegador usamos el cliente con sesión por cookies (SSR-ready, visible para middleware y
+// Server Components). En Node/SSR/tests devolvemos un cliente plano anónimo para no romper el
+// prerender ni los specs (no hay `document` donde persistir cookies).
+export const supabase: SupabaseClient<Database> =
+  typeof document !== "undefined"
+    ? createBrowser()
+    : createPlainClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });

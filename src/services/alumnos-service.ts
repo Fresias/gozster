@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import {
   REAL_ALUMNOS,
@@ -7,6 +8,7 @@ import {
   REAL_EJERCICIOS_RUTINA,
 } from "@/services/real-mynter-data";
 import type {
+  Database,
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
@@ -22,7 +24,15 @@ export interface LiveSupabaseDataset {
   ejercicios: Ejercicio[];
 }
 
-export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDataset> {
+/**
+ * Carga el dataset en vivo desde Supabase.
+ * Acepta un cliente explícito: desde un Server Component se pasa el cliente de servidor
+ * autenticado (`@/lib/supabase/server`) para que PostgREST reciba el JWT del entrenador y
+ * aplique RLS (solo sus alumnos). En el navegador usa por defecto el cliente con sesión por cookies.
+ */
+export async function fetchLiveDatasetFromSupabase(
+  client: SupabaseClient<Database> = supabase,
+): Promise<LiveSupabaseDataset> {
   try {
     const [
       alumnosRes,
@@ -31,11 +41,11 @@ export async function fetchLiveDatasetFromSupabase(): Promise<LiveSupabaseDatase
       ejRutinaRes,
       ejerciciosRes,
     ] = await Promise.all([
-      supabase.from("perfiles").select("*").eq("rol", "ALUMNO").order("nombre_completo", { ascending: true }),
-      supabase.from("planes_entrenamiento").select("*").order("created_at", { ascending: false }),
-      supabase.from("dias_rutina").select("*").order("orden", { ascending: true }),
-      supabase.from("ejercicios_en_rutina").select("*").order("orden", { ascending: true }),
-      supabase.from("ejercicios").select("*").order("nombre", { ascending: true }),
+      client.from("perfiles").select("*").eq("rol", "ALUMNO").order("nombre_completo", { ascending: true }),
+      client.from("planes_entrenamiento").select("*").order("created_at", { ascending: false }),
+      client.from("dias_rutina").select("*").order("orden", { ascending: true }),
+      client.from("ejercicios_en_rutina").select("*").order("orden", { ascending: true }),
+      client.from("ejercicios").select("*").order("nombre", { ascending: true }),
     ]);
 
     if (alumnosRes.error || !alumnosRes.data || alumnosRes.data.length === 0) {
