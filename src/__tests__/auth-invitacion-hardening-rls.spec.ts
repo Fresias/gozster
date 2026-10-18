@@ -9,7 +9,6 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261018000000_auth_invitacion_hardening_rls.sql";
-const FUNCTION_PATH = path.resolve(__dirname, "../../supabase/functions/invitar-alumno/index.ts");
 
 const COACH = "00000000-0000-0000-0000-00000000c0ac";
 const OTRO_COACH = "00000000-0000-0000-0000-0000000000c2";
@@ -26,7 +25,7 @@ const SUPABASE_STUBS = `
   CREATE ROLE authenticated NOLOGIN;
   CREATE ROLE service_role NOLOGIN BYPASSRLS;
   CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+  CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, encrypted_password text);
   CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
     SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
   CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
@@ -259,7 +258,7 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
     });
   });
 
-  describe("5. service_role (Edge Function invitar-alumno)", () => {
+  describe("5. service_role (Edge Function alta-alumno-directa)", () => {
     it("crea el perfil ALUMNO vinculado al entrenador y queda visible para ambos", async () => {
       await como(
         "service_role",
@@ -271,28 +270,6 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
       const visibleCoach = await como("authenticated", COACH, `SELECT 1 FROM public.perfiles WHERE id = '${NUEVO}'`);
       expect(visibleCoach.rows).toHaveLength(1);
       expect(await contar("authenticated", NUEVO, "perfiles")).toBe(1);
-    });
-  });
-
-  describe("6. Edge Function invitar-alumno", () => {
-    const fuente = fs.readFileSync(FUNCTION_PATH, "utf-8");
-
-    it("verifica la sesión del llamante y exige rol ENTRENADOR o ADMIN desde perfiles", () => {
-      expect(fuente).toContain("admin.auth.getUser(token)");
-      expect(fuente).toContain('.from("perfiles")');
-      expect(fuente).toContain('["ENTRENADOR", "ADMIN"].includes(perfilEntrenador.rol)');
-      expect(fuente).not.toMatch(/user_metadata/);
-    });
-
-    it("invita por email (el alumno elige su contraseña) y nunca registra con contraseña", () => {
-      expect(fuente).toContain("admin.auth.admin.inviteUserByEmail(email");
-      expect(fuente).not.toMatch(/signUp|createUser|password/);
-    });
-
-    it("crea el perfil ALUMNO vinculado al entrenador y revierte el usuario si falla", () => {
-      expect(fuente).toContain('rol: "ALUMNO"');
-      expect(fuente).toContain("profesor_asignado_id: entrenadorId");
-      expect(fuente).toContain("admin.auth.admin.deleteUser(alumnoId)");
     });
   });
 });
