@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GOZSter - Prototipo Interactivo: Alta Directa de Alumnos & Primer Login</title>
+  <!-- Tailwind CSS CDN para prototipo visual descartable -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            // Tokens Bimodal GOZSter
+            dia: {
+              bg: '#F8FAFC',
+              card: '#FFFFFF',
+              border: '#E2E8F0',
+              text: '#0F172A',
+              muted: '#64748B',
+              primary: '#2563EB',
+              primaryFg: '#FFFFFF',
+              success: '#10B981',
+              destructive: '#EF4444',
+            },
+            noche: {
+              bg: '#0F172A',
+              card: '#1E293B',
+              border: '#334155',
+              text: '#F8FAFC',
+              muted: '#94A3B8',
+              primary: '#38BDF8',
+              primaryFg: '#0F172A',
+              success: '#34D399',
+              destructive: '#F87171',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Clases bimodal de GOZSter */
+    :root {
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --muted: #64748B;
+      --primary: #2563EB;
+      --primary-fg: #FFFFFF;
+      --success: #10B981;
+      --destructive: #EF4444;
+      --accent: #FFB800;
+    }
+    .dark {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --border: #334155;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #38BDF8;
+      --primary-fg: #0F172A;
+      --success: #34D399;
+      --destructive: #F87171;
+      --accent: #FFB800;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .font-tabular {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Animaciones suaves */
+    .fade-enter {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-sky-500/20">
+
+  <!-- ========================================== -->
+  <!-- BARRA DE CONTROL GLOBAL DEL PROTOTIPO      -->
+  <!-- ========================================== -->
+  <header class="sticky top-0 z-50 bg-slate-900 border-b border-slate-800 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 font-display font-black text-base flex items-center justify-center">
+        G
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-display font-black text-sm tracking-tight text-white">GOZSTER</span>
+          <span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-bold tracking-wider uppercase border border-sky-500/30">
+            Design Spec #55
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400">Prototipo Interactivo: Alta Directa de Alumnos & Primer Login</p>
+      </div>
+    </div>
+
+    <!-- Controles de Modo y Vista -->
+    <div class="flex items-center gap-2">
+      <!-- Selector de Vista -->
+      <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-xs">
+        <button id="btnViewCoach" onclick="switchView('coach')" class="px-3 py-1.5 rounded-md font-semibold bg-sky-500 text-slate-950 shadow-sm transition-all">
+          Coach Studio (1440px)
+        </button>
+        <button id="btnViewAthlete" onclick="switchView('athlete')" class="px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition-all">
+          Athlete Login (390px)
+        </button>
+      </div>
+
+      <!-- Conmutador Modo Día / Modo Noche -->
+      <button onclick="toggleTheme()" class="min-h-[36px] px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+        <span id="themeIcon">☀️</span>
+        <span id="themeLabel">Modo Día</span>
+      </button>
+    </div>
+  </header>
+
+
+  <!-- ========================================================================= -->
+  <!-- VISTA 1: COACH STUDIO (Desktop 1440px - Alta Directa & Tarjeta Contingencia) -->
+  <!-- ========================================================================= -->
+  <main id="viewCoach" class="flex-1 max-w-[1440px] w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 fade-enter">
+    
+    <!-- Header del Studio -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4" style="border-color: var(--border)">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight" style="color: var(--text)">
+          Coach Studio
+        </h1>
+        <p class="text-xs" style="color: var(--muted)">
+          Panel de Control de Atletas y Monitoreo de Fuerza • Gimnasio Central
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2" style="background-color: var(--card); border-color: var(--border)">
+          <span style="color: var(--muted)">Alumnos Activos:</span>
+          <span class="font-tabular font-bold text-emerald-500">14</span>
+        </div>
+        <div class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2" style="background-color: var(--card); border-color: var(--border)">
+          <span style="color: var(--muted)">Sin Plan Asignado:</span>
+          <span class="font-tabular font-bold text-rose-500">1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN CLAVE DE DISEÑO: ALTA DIRECTA DE ALUMNO (CARD HEROICA Y VISIBLE) -->
+    <section class="rounded-2xl border p-5 sm:p-6 shadow-sm transition-all" style="background-color: var(--card); border-color: var(--border)">
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4 mb-5" style="border-color: var(--border)">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 text-sky-500 text-sm font-bold border border-sky-500/20">
+              ⚡
+            </span>
+            <h2 class="text-base font-bold tracking-tight" style="color: var(--text)">
+              Alta Directa de Alumno
+            </h2>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              Sin Enlaces Expirados
+            </span>
+          </div>
+          <p class="text-xs mt-1" style="color: var(--muted)">
+            Ingresá el email del alumno para crearlo en el acto con credenciales seguras. El sistema le envía el acceso y te entrega la tarjeta de WhatsApp para compartir en 1 toque.
+          </p>
+        </div>
+      </div>
+
+      <!-- FORMULARIO DE ALTA DIRECTA -->
+      <form id="directRegisterForm" onsubmit="handleDirectRegister(event)" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+          
+          <!-- Input Principal: Email (Fat-finger friendly ≥ 48px) -->
+          <div class="md:col-span-5 space-y-1">
+            <label for="coachStudentEmail" class="block text-xs font-bold" style="color: var(--text)">
+              Email del Alumno <span class="text-rose-500">*</span>
+            </label>
+            <div class="relative">
+              <input
+                id="coachStudentEmail"
+                type="email"
+                required
+                placeholder="alumno@ejemplo.com"
+                value="lucas.fuerza@gmail.com"
+                class="min-h-[48px] w-full rounded-xl border px-3.5 text-sm font-medium shadow-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+              />
+            </div>
+            <p class="text-[11px]" style="color: var(--muted)">Campo obligatorio para el acceso a la app.</p>
+          </div>
+
+          <!-- Input Opcional: Nombre Completo -->
+          <div class="md:col-span-4 space-y-1">
+            <label for="coachStudentName" class="block text-xs font-bold" style="color: var(--text)">
+              Nombre y Apellido <span class="font-normal" style="color: var(--muted)">(opcional)</span>
+            </label>
+            <input
+              id="coachStudentName"
+              type="text"
+              placeholder="Ej. Lucas Benítez"
+              value="Lucas Benítez"
+              class="min-h-[48px] w-full rounded-xl border px-3.5 text-sm font-medium shadow-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+              style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+            />
+            <p class="text-[11px]" style="color: var(--muted)">Para personalizar el saludo de WhatsApp.</p>
+          </div>
+
+          <!-- Input Opcional: Teléfono WhatsApp -->
+          <div class="md:col-span-3 space-y-1">
+            <label for="coachStudentPhone" class="block text-xs font-bold" style="color: var(--text)">
+              Teléfono WhatsApp <span class="font-normal" style="color: var(--muted)">(opcional)</span>
+            </label>
+            <input
+              id="coachStudentPhone"
+              type="tel"
+              placeholder="+54 9 11 ..."
+              value="+54 9 11 5544 3322"
+              class="min-h-[48px] w-full rounded-xl border px-3.5 text-sm font-medium shadow-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+              style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+            />
+            <p class="text-[11px]" style="color: var(--muted)">Para abrir el chat directo sin agendar.</p>
+          </div>
+        </div>
+
+        <!-- Botón de Envío -->
+        <div class="flex items-center justify-between pt-2">
+          <div id="coachRegisterStatus" class="text-xs font-medium"></div>
+
+          <button
+            id="btnSubmitRegister"
+            type="submit"
+            class="min-h-[48px] px-6 py-2.5 rounded-xl font-bold text-sm text-slate-950 bg-sky-400 hover:bg-sky-300 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer ml-auto"
+          >
+            <span>Dar de alta alumno</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+
+      <!-- ========================================================= -->
+      <!-- TARJETA DE CONTINGENCIA DE ÉXITO (CREDENTIALS DISPLAY)   -->
+      <!-- ========================================================= -->
+      <div id="contingencyCard" class="hidden mt-6 rounded-xl border p-5 space-y-4 fade-enter" style="background-color: var(--bg); border-color: var(--border)">
+        
+        <!-- Header de Éxito -->
+        <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--border)">
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 text-base font-bold">
+              ✓
+            </span>
+            <div>
+              <h3 class="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                ¡Alumno creado con éxito!
+              </h3>
+              <p class="text-xs" style="color: var(--muted)">
+                Se envió un email a <strong id="cardDisplayEmail" style="color: var(--text)"></strong> con sus credenciales de acceso.
+              </p>
+            </div>
+          </div>
+
+          <span class="text-xs px-2.5 py-1 rounded-md font-mono font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+            HTTP 201 Created
+          </span>
+        </div>
+
+        <!-- Cuadro de Credenciales Generadas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Bloque Usuario -->
+          <div class="rounded-xl border p-3.5 space-y-1" style="background-color: var(--card); border-color: var(--border)">
+            <span class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--muted)">Usuario / Email</span>
+            <div class="flex items-center justify-between gap-2">
+              <span id="cardValEmail" class="font-mono text-sm font-bold truncate" style="color: var(--text)"></span>
+              <button onclick="copySingle('cardValEmail', 'Email')" class="min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-semibold hover:bg-slate-500/10 transition-colors flex items-center gap-1" style="border-color: var(--border); color: var(--text)">
+                📋 Copiar
+              </button>
+            </div>
+          </div>
+
+          <!-- Bloque Contraseña Temporal Criptográfica -->
+          <div class="rounded-xl border p-3.5 space-y-1" style="background-color: var(--card); border-color: var(--border)">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-500">Contraseña Temporal Generada</span>
+            <div class="flex items-center justify-between gap-2">
+              <span id="cardValPass" class="font-mono text-base font-bold tracking-widest text-amber-500"></span>
+              <div class="flex items-center gap-1">
+                <button id="btnTogglePass" onclick="togglePassVisibility()" class="min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-semibold hover:bg-slate-500/10 transition-colors" style="border-color: var(--border); color: var(--text)">
+                  👁️ Ver
+                </button>
+                <button onclick="copySingle('cardValPass', 'Contraseña')" class="min-h-[36px] px-2.5 py-1 rounded-lg border text-xs font-semibold hover:bg-slate-500/10 transition-colors flex items-center gap-1" style="border-color: var(--border); color: var(--text)">
+                  📋 Copiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botonera de Contingencia Táctil (≥ 48px) -->
+        <div class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+          
+          <!-- Botón 1-Toque: Copiar Credenciales Completas -->
+          <button
+            onclick="copyFullCredentials()"
+            class="min-h-[48px] w-full sm:w-auto px-5 py-2.5 rounded-xl border text-xs font-bold hover:bg-slate-500/10 active:scale-95 transition-all flex items-center justify-center gap-2"
+            style="border-color: var(--border); color: var(--text)"
+          >
+            <span id="copyFullIcon">📋</span>
+            <span id="copyFullLabel">Copiar Credenciales Completas</span>
+          </button>
+
+          <!-- Botón 1-Toque: Enviar por WhatsApp con Template Argentino -->
+          <button
+            onclick="openWhatsAppTemplate()"
+            class="min-h-[48px] w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm"
+          >
+            <span>💬</span>
+            <span>Enviar por WhatsApp (Template Coach)</span>
+          </button>
+
+          <!-- Botón Secundario: Dar de Alta Otro -->
+          <button
+            onclick="resetCoachForm()"
+            class="min-h-[48px] w-full sm:w-auto sm:ml-auto px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            + Dar de alta otro alumno
+          </button>
+        </div>
+
+        <!-- Vista Previa del Mensaje de WhatsApp Argentino -->
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
+          <span class="font-bold text-emerald-600 dark:text-emerald-400">Mensaje preparado para WhatsApp:</span>
+          <p id="waPreviewText" class="text-xs text-muted-foreground font-mono leading-relaxed whitespace-pre-line"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLA DE ALUMNOS (ARQUITECTURA INDEC CON EL NUEVO ALUMNO REGISTRADO) -->
+    <section class="rounded-2xl border overflow-hidden shadow-sm" style="background-color: var(--card); border-color: var(--border)">
+      <div class="p-4 border-b flex items-center justify-between" style="border-color: var(--border)">
+        <div>
+          <h3 class="text-sm font-bold" style="color: var(--text)">Roster de Atletas Activos</h3>
+          <p class="text-xs" style="color: var(--muted)">Cuadro 1.1 - Monitoreo de Retención y Asignación de Rutinas</p>
+        </div>
+        <span class="text-xs font-mono" style="color: var(--muted)">Norma INDEC Nº 8</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b text-[11px] font-bold uppercase tracking-wider" style="border-color: var(--border); color: var(--muted); background-color: var(--bg)">
+              <th class="py-2.5 px-4">Atleta</th>
+              <th class="py-2.5 px-4">Email</th>
+              <th class="py-2.5 px-4">Estado Cuenta</th>
+              <th class="py-2.5 px-4 text-right">Primer Login</th>
+              <th class="py-2.5 px-4 text-right">Plan Actual</th>
+              <th class="py-2.5 px-4 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="studentTableBody" class="divide-y font-medium" style="border-color: var(--border)">
+            <tr id="newStudentRow" class="hidden bg-emerald-500/5 border-b" style="border-color: var(--border)">
+              <td class="py-3 px-4 font-bold text-emerald-500 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span id="rowName">Lucas Benítez</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold uppercase">Nuevo</span>
+              </td>
+              <td id="rowEmail" class="py-3 px-4 font-mono">lucas.fuerza@gmail.com</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  Pendiente Clave
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right font-tabular text-amber-500 font-bold">debe_cambiar: true</td>
+              <td class="py-3 px-4 text-right text-rose-500 font-semibold">Sin Plan Asignado</td>
+              <td class="py-3 px-4 text-center">
+                <button onclick="testAthleteLogin()" class="px-2.5 py-1 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 text-xs font-bold transition-colors">
+                  Simular Login →
+                </button>
+              </td>
+            </tr>
+            <tr class="border-b" style="border-color: var(--border)">
+              <td class="py-3 px-4 font-bold" style="color: var(--text)">González, Lucas</td>
+              <td class="py-3 px-4 font-mono" style="color: var(--muted)">lucas.g@gym.com</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                  Activo
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right font-tabular" style="color: var(--muted)">Completado</td>
+              <td class="py-3 px-4 text-right" style="color: var(--text)">Fuerza e Hipertrofia 4D</td>
+              <td class="py-3 px-4 text-center">
+                <span class="text-xs" style="color: var(--muted)">—</span>
+              </td>
+            </tr>
+            <tr class="border-b" style="border-color: var(--border)">
+              <td class="py-3 px-4 font-bold" style="color: var(--text)">Rossi, Martín</td>
+              <td class="py-3 px-4 font-mono" style="color: var(--muted)">m.rossi@power.ar</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                  Activo
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right font-tabular" style="color: var(--muted)">Completado</td>
+              <td class="py-3 px-4 text-right" style="color: var(--text)">Powerlifting Torneo Nov</td>
+              <td class="py-3 px-4 text-center">
+                <span class="text-xs" style="color: var(--muted)">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+
+  <!-- ========================================================================= -->
+  <!-- VISTA 2: ATHLETE APP (Mobile First 390px - Login & Modal Forzado)         -->
+  <!-- ========================================================================= -->
+  <main id="viewAthlete" class="hidden flex-1 flex flex-col items-center justify-center p-4 py-8 fade-enter">
+    
+    <!-- Marco contenedor de smartphone 390px -->
+    <div class="w-full max-w-[390px] rounded-3xl border shadow-2xl p-6 relative overflow-hidden space-y-6" style="background-color: var(--card); border-color: var(--border)">
+      
+      <!-- Barra de estado simulada -->
+      <div class="flex items-center justify-between text-[11px] font-mono pb-2 border-b" style="border-color: var(--border); color: var(--muted)">
+        <span>09:41</span>
+        <span>GOZSter PWA • 100%</span>
+      </div>
+
+      <!-- Header del Atleta -->
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-sky-500/15 text-sky-400 font-display font-black text-2xl flex items-center justify-center border border-sky-500/30 shadow-sm">
+          G
+        </div>
+        <h2 class="text-xl font-black tracking-tight" style="color: var(--text)">
+          Iniciá sesión en GOZSter
+        </h2>
+        <p class="text-xs" style="color: var(--muted)">
+          Accedé a tu plan de entrenamiento de fuerza
+        </p>
+      </div>
+
+      <!-- FORMULARIO DE LOGIN DEL ATLETA -->
+      <form id="athleteLoginForm" onsubmit="handleAthleteLogin(event)" class="space-y-4">
+        <div class="space-y-1.5">
+          <label for="athLoginEmail" class="block text-xs font-bold" style="color: var(--text)">
+            Email
+          </label>
+          <input
+            id="athLoginEmail"
+            type="email"
+            required
+            value="lucas.fuerza@gmail.com"
+            class="min-h-[48px] w-full rounded-xl border px-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+            style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+          />
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="athLoginPass" class="block text-xs font-bold" style="color: var(--text)">
+            Contraseña temporal
+          </label>
+          <input
+            id="athLoginPass"
+            type="text"
+            required
+            value="Gozs-7x9Q#kL2"
+            class="min-h-[48px] w-full rounded-xl border px-3.5 text-sm font-mono font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+            style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="min-h-[50px] w-full rounded-xl font-bold text-sm text-slate-950 bg-sky-400 hover:bg-sky-300 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>Ingresar a entrenar</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        </button>
+      </form>
+
+      <!-- PODA DE ENLACES MUERTOS: TEXTO ASISTIDO EN LUGAR DE ENLACE ROTO A /INVITACION -->
+      <div class="pt-2 text-center border-t" style="border-color: var(--border)">
+        <p class="text-xs" style="color: var(--muted)">
+          ¿Tu entrenador te dio de alta? Ingresá con tu email y la clave temporal que te pasó por WhatsApp o correo.
+        </p>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- MODAL BLOQUEANTE DE PRIMER LOGIN: CAMBIO OBLIGATORIO DE CONTRASEÑA        -->
+      <!-- ========================================================================= -->
+      <div id="firstLoginModal" class="hidden absolute inset-0 z-40 bg-slate-950/85 backdrop-blur-md p-5 flex flex-col justify-center fade-enter">
+        <div class="rounded-2xl border p-5 space-y-4 shadow-2xl relative" style="background-color: var(--card); border-color: var(--border)">
+          
+          <!-- Header del Modal -->
+          <div class="text-center space-y-1">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/15 text-amber-500 text-lg flex items-center justify-center border border-amber-500/30">
+              🔑
+            </div>
+            <h3 class="text-base font-black tracking-tight" style="color: var(--text)">
+              Elegí tu contraseña definitiva
+            </h3>
+            <p class="text-xs" style="color: var(--muted)">
+              Por seguridad, definí una clave personal que solo conozcas vos para entrenar.
+            </p>
+          </div>
+
+          <!-- Formulario de Cambio de Clave -->
+          <form id="changePassForm" onsubmit="handleForcePasswordChange(event)" class="space-y-3.5">
+            
+            <!-- Nueva Contraseña -->
+            <div class="space-y-1">
+              <label for="newPassInput" class="block text-xs font-bold" style="color: var(--text)">
+                Nueva contraseña
+              </label>
+              <div class="relative">
+                <input
+                  id="newPassInput"
+                  type="password"
+                  required
+                  placeholder="Mínimo 8 caracteres"
+                  oninput="validatePasswordStrength()"
+                  class="min-h-[48px] w-full rounded-xl border px-3.5 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+                />
+                <button
+                  type="button"
+                  onclick="toggleInputType('newPassInput', this)"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  👁️
+                </button>
+              </div>
+            </div>
+
+            <!-- Repetir Contraseña -->
+            <div class="space-y-1">
+              <label for="confirmPassInput" class="block text-xs font-bold" style="color: var(--text)">
+                Repetir contraseña
+              </label>
+              <div class="relative">
+                <input
+                  id="confirmPassInput"
+                  type="password"
+                  required
+                  placeholder="Repetí la misma clave"
+                  oninput="validatePasswordStrength()"
+                  class="min-h-[48px] w-full rounded-xl border px-3.5 pr-10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  style="background-color: var(--bg); border-color: var(--border); color: var(--text)"
+                />
+                <button
+                  type="button"
+                  onclick="toggleInputType('confirmPassInput', this)"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  👁️
+                </button>
+              </div>
+            </div>
+
+            <!-- Checklist Interactivo en Tiempo Real -->
+            <div class="rounded-xl border p-3 space-y-1.5 text-xs" style="background-color: var(--bg); border-color: var(--border)">
+              <div id="checkLen" class="flex items-center gap-2 text-slate-500">
+                <span id="iconLen">○</span>
+                <span>Mínimo 8 caracteres</span>
+              </div>
+              <div id="checkMatch" class="flex items-center gap-2 text-slate-500">
+                <span id="iconMatch">○</span>
+                <span>Las dos contraseñas coinciden</span>
+              </div>
+            </div>
+
+            <!-- Botón de Confirmación Bloqueante -->
+            <button
+              id="btnSaveNewPass"
+              type="submit"
+              disabled
+              class="min-h-[50px] w-full rounded-xl font-bold text-sm text-slate-950 bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-sky-300 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Guardar y empezar a entrenar</span>
+            </button>
+          </form>
+
+          <!-- Banner de éxito de transición -->
+          <div id="passSuccessBanner" class="hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-center text-xs text-emerald-400 font-bold fade-enter">
+            ✓ ¡Contraseña guardada! Entrando a tu plan de entrenamiento...
+          </div>
+        </div>
+      </div>
+
+      <!-- PANTALLA ATHLETE READY POST-CAMBIO -->
+      <div id="athleteSuccessScreen" class="hidden absolute inset-0 z-50 bg-slate-950 p-6 flex flex-col items-center justify-center text-center space-y-4 fade-enter">
+        <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl flex items-center justify-center border border-emerald-500/40">
+          ✓
+        </div>
+        <h3 class="text-xl font-black text-white">¡Bienvenido a GOZSter!</h3>
+        <p class="text-xs text-slate-400 max-w-xs">
+          Tu cuenta está 100% activa. Accediendo a tu sesión de fuerza en <code class="text-sky-400">/athlete</code>.
+        </p>
+        <button onclick="resetAthleteLoginDemo()" class="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-slate-900 bg-sky-400">
+          Reiniciar Demo de Login
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+
+  <!-- ========================================== -->
+  <!-- SCRIPT INTERACTIVO DEL PROTOTIPO           -->
+  <!-- ========================================== -->
+  <script>
+    let currentTheme = 'dark';
+    let currentView = 'coach';
+    let generatedTempPass = 'Gozs-7x9Q#kL2';
+
+    // Generador de clave temporal criptográfica legible
+    function generateSecureRandomPass() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+      let pass = 'Gozs-';
+      for (let i = 0; i < 8; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return pass;
+    }
+
+    // Conmutador de Vistas
+    function switchView(view) {
+      currentView = view;
+      const vCoach = document.getElementById('viewCoach');
+      const vAthlete = document.getElementById('viewAthlete');
+      const btnC = document.getElementById('btnViewCoach');
+      const btnA = document.getElementById('btnViewAthlete');
+
+      if (view === 'coach') {
+        vCoach.classList.remove('hidden');
+        vAthlete.classList.add('hidden');
+        btnC.className = "px-3 py-1.5 rounded-md font-semibold bg-sky-500 text-slate-950 shadow-sm transition-all";
+        btnA.className = "px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition-all";
+      } else {
+        vCoach.classList.add('hidden');
+        vAthlete.classList.remove('hidden');
+        btnA.className = "px-3 py-1.5 rounded-md font-semibold bg-sky-500 text-slate-950 shadow-sm transition-all";
+        btnC.className = "px-3 py-1.5 rounded-md font-semibold text-slate-300 hover:text-white transition-all";
+      }
+    }
+
+    // Conmutador de Modo Día / Modo Noche
+    function toggleTheme() {
+      const html = document.documentElement;
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+
+      if (currentTheme === 'dark') {
+        currentTheme = 'light';
+        html.classList.remove('dark');
+        icon.textContent = '🌙';
+        label.textContent = 'Modo Noche';
+      } else {
+        currentTheme = 'dark';
+        html.classList.add('dark');
+        icon.textContent = '☀️';
+        label.textContent = 'Modo Día';
+      }
+    }
+
+    // Submit del Formulario de Alta Directa en Coach Studio
+    function handleDirectRegister(e) {
+      e.preventDefault();
+      const email = document.getElementById('coachStudentEmail').value.trim();
+      const name = document.getElementById('coachStudentName').value.trim() || 'Alumno';
+      const phone = document.getElementById('coachStudentPhone').value.trim();
+      const btn = document.getElementById('btnSubmitRegister');
+
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Creando en Supabase...</span>
+      `;
+
+      // Simular llamada a Edge Function
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = `
+          <span>Dar de alta alumno</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+          </svg>
+        `;
+
+        // Generar clave
+        generatedTempPass = generateSecureRandomPass();
+
+        // Mostrar Tarjeta de Contingencia
+        document.getElementById('cardDisplayEmail').textContent = email;
+        document.getElementById('cardValEmail').textContent = email;
+        document.getElementById('cardValPass').textContent = generatedTempPass;
+
+        // Actualizar Template de WhatsApp
+        const waMsg = `¡Hola ${name}! Ya tenés tu cuenta de GOZSter lista para empezar a entrenar 💪.\n\nAccedé acá: https://gozster.com/login\nUsuario: ${email}\nClave temporal: ${generatedTempPass}\n\nEn tu primer ingreso la app te va a pedir elegir tu contraseña definitiva. ¡Nos vemos en el gym!`;
+        document.getElementById('waPreviewText').textContent = waMsg;
+
+        document.getElementById('contingencyCard').classList.remove('hidden');
+
+        // Agregar fila al Roster
+        document.getElementById('newStudentRow').classList.remove('hidden');
+        document.getElementById('rowName').textContent = name;
+        document.getElementById('rowEmail').textContent = email;
+
+        // Actualizar form de Athlete Login
+        document.getElementById('athLoginEmail').value = email;
+        document.getElementById('athLoginPass').value = generatedTempPass;
+
+        // Scroll suave hacia la tarjeta
+        document.getElementById('contingencyCard').scrollIntoView({ behavior: 'smooth' });
+      }, 700);
+    }
+
+    // Revelar / Ocultar Contraseña en Tarjeta
+    let isPassVisible = true;
+    function togglePassVisibility() {
+      const el = document.getElementById('cardValPass');
+      const btn = document.getElementById('btnTogglePass');
+      if (isPassVisible) {
+        el.textContent = '••••••••••••';
+        btn.textContent = '👁️ Ver';
+        isPassVisible = false;
+      } else {
+        el.textContent = generatedTempPass;
+        btn.textContent = '🙈 Ocultar';
+        isPassVisible = true;
+      }
+    }
+
+    // Copiar campo individual
+    function copySingle(id, label) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert(`✓ ${label} copiado al portapapeles: ${text}`);
+      });
+    }
+
+    // Copiar Credenciales Completas
+    function copyFullCredentials() {
+      const email = document.getElementById('cardValEmail').textContent;
+      const text = `¡Hola! Ya tenés tu cuenta de GOZSter lista para entrenar 💪.\nAcceso: https://gozster.com/login\nUsuario: ${email}\nClave temporal: ${generatedTempPass}\n(En tu primer ingreso elegís tu clave personal)`;
+      navigator.clipboard.writeText(text).then(() => {
+        const icon = document.getElementById('copyFullIcon');
+        const label = document.getElementById('copyFullLabel');
+        icon.textContent = '✓';
+        label.textContent = '¡Credenciales Copiadas!';
+        setTimeout(() => {
+          icon.textContent = '📋';
+          label.textContent = 'Copiar Credenciales Completas';
+        }, 2000);
+      });
+    }
+
+    // Abrir WhatsApp con Template
+    function openWhatsAppTemplate() {
+      const phone = document.getElementById('coachStudentPhone').value.replace(/\D/g, '');
+      const text = document.getElementById('waPreviewText').textContent;
+      const encoded = encodeURIComponent(text);
+      const url = phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+      window.open(url, '_blank');
+    }
+
+    // Resetear form para otro alumno
+    function resetCoachForm() {
+      document.getElementById('directRegisterForm').reset();
+      document.getElementById('contingencyCard').classList.add('hidden');
+    }
+
+    // Salto directo a simular login de atleta
+    function testAthleteLogin() {
+      switchView('athlete');
+    }
+
+    // Submit de Login de Atleta (Simula interceptor debe_cambiar_password)
+    function handleAthleteLogin(e) {
+      e.preventDefault();
+      // Desplegar Modal Forzado de Primer Login
+      document.getElementById('firstLoginModal').classList.remove('hidden');
+    }
+
+    // Toggle Input Password / Text
+    function toggleInputType(id, btn) {
+      const input = document.getElementById(id);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
+    // Validación reactiva de fuerza de contraseña
+    function validatePasswordStrength() {
+      const p1 = document.getElementById('newPassInput').value;
+      const p2 = document.getElementById('confirmPassInput').value;
+      const checkLen = document.getElementById('checkLen');
+      const iconLen = document.getElementById('iconLen');
+      const checkMatch = document.getElementById('checkMatch');
+      const iconMatch = document.getElementById('iconMatch');
+      const btn = document.getElementById('btnSaveNewPass');
+
+      const isLenValid = p1.length >= 8;
+      const isMatchValid = p1.length > 0 && p1 === p2;
+
+      // Estado Longitud
+      if (isLenValid) {
+        checkLen.className = "flex items-center gap-2 text-emerald-500 font-semibold";
+        iconLen.textContent = "✓";
+      } else {
+        checkLen.className = "flex items-center gap-2 text-slate-500";
+        iconLen.textContent = "○";
+      }
+
+      // Estado Coincidencia
+      if (isMatchValid) {
+        checkMatch.className = "flex items-center gap-2 text-emerald-500 font-semibold";
+        iconMatch.textContent = "✓";
+      } else {
+        checkMatch.className = "flex items-center gap-2 text-slate-500";
+        iconMatch.textContent = "○";
+      }
+
+      btn.disabled = !(isLenValid && isMatchValid);
+    }
+
+    // Guardado de Contraseña Definitiva
+    function handleForcePasswordChange(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSaveNewPass');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Guardando contraseña...</span>
+      `;
+
+      setTimeout(() => {
+        document.getElementById('passSuccessBanner').classList.remove('hidden');
+        setTimeout(() => {
+          document.getElementById('firstLoginModal').classList.add('hidden');
+          document.getElementById('athleteSuccessScreen').classList.remove('hidden');
+        }, 900);
+      }, 700);
+    }
+
+    function resetAthleteLoginDemo() {
+      document.getElementById('athleteSuccessScreen').classList.add('hidden');
+      document.getElementById('firstLoginModal').classList.add('hidden');
+      document.getElementById('passSuccessBanner').classList.add('hidden');
+      document.getElementById('changePassForm').reset();
+      validatePasswordStrength();
+    }
+  </script>
+</body>
+</html>

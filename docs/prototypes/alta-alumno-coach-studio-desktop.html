@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1440, initial-scale=1.0" />
+  <title>GOZSter Coach Studio - Alta Directa & Tarjeta de Contingencia (1440px)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #0F172A;
+      color: #F8FAFC;
+      font-family: 'Inter', sans-serif;
+    }
+    .font-tabular {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="w-[1440px] min-h-[920px] bg-[#0F172A] text-[#F8FAFC] flex flex-col mx-auto border-x border-[#334155]/40 shadow-2xl p-6 space-y-6">
+  
+  <!-- Header de Coach Studio -->
+  <header class="flex items-center justify-between border-b border-[#334155] pb-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 font-['Outfit'] font-black text-xl flex items-center justify-center shadow-md">
+        G
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-['Outfit'] font-black text-xl tracking-tight text-white">GOZSTER</span>
+          <span class="text-xs font-bold text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
+            Coach Studio • Desktop Edition
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Panel de Control de Atletas • Alta Directa sin Fricción</p>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="flex items-center gap-3">
+      <div class="px-3.5 py-1.5 rounded-xl bg-[#1E293B] border border-[#334155] flex items-center gap-2">
+        <span class="text-xs text-slate-400">Alumnos Activos:</span>
+        <span class="text-sm font-tabular font-bold text-emerald-400">14</span>
+      </div>
+      <div class="px-3.5 py-1.5 rounded-xl bg-[#1E293B] border border-[#334155] flex items-center gap-2">
+        <span class="text-xs text-slate-400">Pendiente Primer Login:</span>
+        <span class="text-sm font-tabular font-bold text-amber-400">1</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECCIÓN HEROICA: ALTA DIRECTA DE ALUMNO -->
+  <section class="rounded-2xl border border-[#334155] bg-[#1E293B] p-6 shadow-xl space-y-5">
+    <div class="flex items-center justify-between border-b border-[#334155] pb-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400 text-sm font-bold border border-sky-500/30">
+            ⚡
+          </span>
+          <h2 class="text-base font-bold tracking-tight text-white">
+            Alta Directa de Alumno
+          </h2>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            Sin Enlaces Expirados
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Ingresá el email para crearlo en el acto con credenciales seguras. El sistema le envía el acceso y te entrega la tarjeta de WhatsApp para compartir en 1 toque.
+        </p>
+      </div>
+    </div>
+
+    <!-- Formulario de Alta Directa -->
+    <div class="grid grid-cols-12 gap-4">
+      <div class="col-span-5 space-y-1">
+        <label class="block text-xs font-bold text-slate-200">
+          Email del Alumno <span class="text-rose-400">*</span>
+        </label>
+        <input
+          type="email"
+          readonly
+          value="lucas.fuerza@gmail.com"
+          class="min-h-[48px] w-full rounded-xl border border-[#334155] bg-[#0F172A] px-3.5 text-sm font-medium text-white shadow-xs focus:ring-2 focus:ring-sky-400"
+        />
+        <p class="text-[11px] text-slate-400">Campo obligatorio para el acceso a la app.</p>
+      </div>
+
+      <div class="col-span-4 space-y-1">
+        <label class="block text-xs font-bold text-slate-200">
+          Nombre y Apellido <span class="text-slate-500 font-normal">(opcional)</span>
+        </label>
+        <input
+          type="text"
+          readonly
+          value="Lucas Benítez"
+          class="min-h-[48px] w-full rounded-xl border border-[#334155] bg-[#0F172A] px-3.5 text-sm font-medium text-white shadow-xs"
+        />
+        <p class="text-[11px] text-slate-400">Para personalizar el saludo de WhatsApp.</p>
+      </div>
+
+      <div class="col-span-3 space-y-1">
+        <label class="block text-xs font-bold text-slate-200">
+          Teléfono WhatsApp <span class="text-slate-500 font-normal">(opcional)</span>
+        </label>
+        <input
+          type="tel"
+          readonly
+          value="+54 9 11 5544 3322"
+          class="min-h-[48px] w-full rounded-xl border border-[#334155] bg-[#0F172A] px-3.5 text-sm font-medium text-white shadow-xs"
+        />
+        <p class="text-[11px] text-slate-400">Para abrir el chat directo en 1 toque.</p>
+      </div>
+    </div>
+
+    <!-- TARJETA DE CONTINGENCIA DE ÉXITO -->
+    <div class="rounded-xl border border-emerald-500/30 bg-[#0F172A] p-5 space-y-4">
+      
+      <!-- Header Éxito -->
+      <div class="flex items-center justify-between border-b border-[#334155] pb-3">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-base font-bold">
+            ✓
+          </span>
+          <div>
+            <h3 class="text-sm font-bold text-emerald-400">
+              ¡Alumno creado con éxito!
+            </h3>
+            <p class="text-xs text-slate-400">
+              Se envió un email a <strong class="text-white">lucas.fuerza@gmail.com</strong> con sus credenciales de acceso.
+            </p>
+          </div>
+        </div>
+
+        <span class="text-xs px-2.5 py-1 rounded-md font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          HTTP 201 Created
+        </span>
+      </div>
+
+      <!-- Cuadro de Credenciales Generadas -->
+      <div class="grid grid-cols-2 gap-4">
+        <div class="rounded-xl border border-[#334155] bg-[#1E293B] p-3.5 space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Usuario / Email</span>
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-sm font-bold text-white">lucas.fuerza@gmail.com</span>
+            <span class="px-2.5 py-1 rounded-lg border border-[#334155] text-xs font-semibold text-slate-300">
+              📋 Copiar
+            </span>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-[#334155] bg-[#1E293B] p-3.5 space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Contraseña Temporal Generada</span>
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-base font-bold tracking-widest text-amber-400">Gozs-7x9Q#kL2</span>
+            <div class="flex items-center gap-1">
+              <span class="px-2.5 py-1 rounded-lg border border-[#334155] text-xs font-semibold text-slate-300">
+                👁️ Ver
+              </span>
+              <span class="px-2.5 py-1 rounded-lg border border-[#334155] text-xs font-semibold text-slate-300">
+                📋 Copiar
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botonera de Acción de 1-Toque (≥ 48px) -->
+      <div class="flex items-center gap-3 pt-1">
+        <button class="min-h-[48px] px-5 py-2.5 rounded-xl border border-[#334155] text-xs font-bold text-white hover:bg-slate-800 transition-all flex items-center gap-2">
+          <span>📋</span>
+          <span>Copiar Credenciales Completas</span>
+        </button>
+
+        <button class="min-h-[48px] px-5 py-2.5 rounded-xl font-bold text-xs text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition-all flex items-center gap-2 shadow-sm">
+          <span>💬</span>
+          <span>Enviar por WhatsApp (Template Coach)</span>
+        </button>
+
+        <button class="min-h-[48px] ml-auto px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+          + Dar de alta otro alumno
+        </button>
+      </div>
+
+      <!-- Preview del Mensaje de WhatsApp -->
+      <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs space-y-1">
+        <span class="font-bold text-emerald-400">Mensaje preparado para WhatsApp:</span>
+        <p class="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-line">
+¡Hola Lucas! Ya tenés tu cuenta de GOZSter lista para empezar a entrenar 💪.
+Accedé acá: https://gozster.com/login
+Usuario: lucas.fuerza@gmail.com
+Clave temporal: Gozs-7x9Q#kL2
+(En tu primer ingreso la app te va a pedir elegir tu contraseña definitiva. ¡Nos vemos en el gym!)
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROSTER DE ALUMNOS (INDEC) -->
+  <section class="rounded-2xl border border-[#334155] bg-[#1E293B] overflow-hidden shadow-xl">
+    <div class="p-4 border-b border-[#334155] flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-white">Roster de Atletas Activos</h3>
+        <p class="text-xs text-slate-400">Cuadro 1.1 - Monitoreo de Retención y Asignación de Rutinas (Norma INDEC Nº 8)</p>
+      </div>
+    </div>
+
+    <table class="w-full text-left text-xs border-collapse">
+      <thead>
+        <tr class="border-b border-[#334155] text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-[#0F172A]">
+          <th class="py-2.5 px-4">Atleta</th>
+          <th class="py-2.5 px-4">Email</th>
+          <th class="py-2.5 px-4">Estado Cuenta</th>
+          <th class="py-2.5 px-4 text-right">Primer Login</th>
+          <th class="py-2.5 px-4 text-right">Plan Actual</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[#334155] font-medium">
+        <tr class="bg-emerald-500/10">
+          <td class="py-3 px-4 font-bold text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Benítez, Lucas</span>
+            <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold uppercase">Nuevo</span>
+          </td>
+          <td class="py-3 px-4 font-mono text-slate-300">lucas.fuerza@gmail.com</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              Pendiente Clave
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right font-tabular text-amber-400 font-bold">debe_cambiar: true</td>
+          <td class="py-3 px-4 text-right text-rose-400 font-semibold">Sin Plan Asignado</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 font-bold text-white">González, Lucas</td>
+          <td class="py-3 px-4 font-mono text-slate-400">lucas.g@gym.com</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              Activo
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right font-tabular text-slate-400">Completado</td>
+          <td class="py-3 px-4 text-right text-slate-200">Fuerza e Hipertrofia 4D</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</body>
+</html>
