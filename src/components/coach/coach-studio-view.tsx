@@ -6,6 +6,7 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
+import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
 import { StudentCard } from "@/components/coach/student-card";
 import { StudentDetail } from "@/components/coach/student-detail";
@@ -119,6 +120,7 @@ export function CoachStudioView({
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
 
   // Estados para Modales de Quick Swap y WhatsApp
@@ -576,6 +578,32 @@ export function CoachStudioView({
                     />
                   </svg>
                   <span>Constructor</span>
+                </Button>
+
+                {/* Alta de alumno por invitación (Edge Function invitar-alumno) */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsInviteModalOpen(true)}
+                  className="min-h-9 gap-1.5 rounded-lg text-xs font-bold"
+                  data-testid="open-invite-student-btn"
+                  title="Invitar a un nuevo alumno por email"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                    />
+                  </svg>
+                  <span>Invitar alumno</span>
                 </Button>
 
                 {/* Selector de Modo de Visualización (INDEC vs Tarjetas) */}
@@ -1144,6 +1172,13 @@ export function CoachStudioView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={(id) => selectAlumno(id)}
+      />
+
+      {/* Modal "Invitar alumno": alta por email vía Edge Function + recarga de alumnos */}
+      <InviteStudentModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onInvited={() => loadLiveSupabaseData()}
       />
 
       {/* Constructor Visual de Rutinas Drag & Drop + Superseries */}
