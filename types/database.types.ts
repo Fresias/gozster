@@ -29,6 +29,7 @@ export interface Database {
           estado_membresia: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
+          debe_cambiar_password?: boolean;
           telefono?: string | null;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
@@ -43,6 +44,7 @@ export interface Database {
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
+          debe_cambiar_password?: boolean;
           telefono?: string | null;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
@@ -57,6 +59,7 @@ export interface Database {
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
+          debe_cambiar_password?: boolean;
           telefono?: string | null;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
