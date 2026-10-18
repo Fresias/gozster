@@ -544,7 +544,8 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       const modalPath = path.resolve(__dirname, "../components/coach/invite-student-modal.tsx");
       const content = fs.readFileSync(modalPath, "utf-8");
 
-      expect(content).toContain('invoke("invitar-alumno"');
+      // Alta directa (#55): el modal invoca alta-alumno-directa, no el obsoleto invitar-alumno.
+      expect(content).toContain('"alta-alumno-directa"');
       expect(content).toContain("case 400:");
       expect(content).toContain("case 403:");
       expect(content).toContain("case 409:");
