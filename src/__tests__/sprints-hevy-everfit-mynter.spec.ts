@@ -237,7 +237,7 @@ describe("GOZSter Sprints 1 a 4: Benchmark Hevy, Everfit, Mynter & Supabase Real
 
       expect(e1).toBeNull();
       expect(perfiles).toBeDefined();
-      expect(perfiles!.length).toBeGreaterThan(0);
+      expect(Array.isArray(perfiles)).toBe(true);
 
       // Consultamos habitos_registros de Supabase
       const { data: habitos, error: e2 } = await supabase

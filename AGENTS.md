@@ -22,9 +22,9 @@ Verified against `package.json`:
 |------|---------|
 | Install (clean, CI) | `npm ci` |
 | Dev server | `npm run dev` |
-| Production build | `npm run build` |
-| Type-check / lint | `npm run typecheck` |
-| Full test suite | `npm test` |
+| Production build / start | `npm run build` / `npm start` |
+| Type-check / lint | `npm run typecheck` / `npm run lint` |
+| Full test suite / watch | `npm test` / `npm run test:watch` |
 | Single test file | `npx vitest run <path/to/file.test.ts>` |
 | Seed from Mynter backup | `npm run seed:mynter` |
 
