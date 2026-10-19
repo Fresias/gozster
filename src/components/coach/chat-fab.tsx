@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import type { Perfil } from "@/types/database.types";
+import type { EstadoConversacion, Perfil } from "@/types/database.types";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   AVAILABLE_COACH_SENDERS,
   STAFF_COACH_FELIX,
@@ -10,6 +11,7 @@ import {
   useChatStore,
 } from "@/store/use-chat-store";
 import { MOCK_ALUMNOS } from "@/services/coach-mock-data";
+import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 export interface ChatFabProps {
@@ -18,6 +20,8 @@ export interface ChatFabProps {
   onToggle: () => void;
   onSendMessage?: (text: string) => void;
 }
+
+export type ChatFilterType = "TODOS" | "NUEVOS" | "PENDIENTES" | "MOLESTIAS";
 
 export function ChatFab({
   alumno,
@@ -34,10 +38,23 @@ export function ChatFab({
     setActiveCoachSender,
     getConversation,
     sendMessage,
+    transferirConversacion,
+    cambiarEstadoConversacion,
     markAsRead,
   } = useChatStore();
 
   const { isOnline } = useOfflineQueueStore();
+
+  // Estados de filtros y transferencia de responsable
+  const [activeFilter, setActiveFilter] = React.useState<ChatFilterType>("TODOS");
+  const [isTransferOpen, setIsTransferOpen] = React.useState(false);
+  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>(
+    AVAILABLE_COACH_SENDERS[1]?.id || STAFF_COACH_FELIX.id,
+  );
+  const [transferMotivo, setTransferMotivo] = React.useState("");
+  const [isTransferring, setIsTransferring] = React.useState(false);
+  const [transferSuccessMsg, setTransferSuccessMsg] = React.useState<string | null>(null);
+  const [transferErrorMsg, setTransferErrorMsg] = React.useState<string | null>(null);
 
   // Si no se pasó alumno por props, permitimos seleccionar uno localmente o usamos el primero
   const [localAlumnoId, setLocalAlumnoId] = React.useState<string>(
@@ -82,10 +99,88 @@ export function ChatFab({
     setMessage("");
   };
 
+  const handleTransferir = async () => {
+    setIsTransferring(true);
+    setTransferSuccessMsg(null);
+    setTransferErrorMsg(null);
+
+    const targetCoach = AVAILABLE_COACH_SENDERS.find(
+      (c) => c.id === transferTargetCoachId,
+    );
+    const targetNombre = targetCoach?.nombre || "Coach Asignado";
+
+    try {
+      const res = await transferirConversacion({
+        conversacionId: conversation.id,
+        nuevoResponsableId: transferTargetCoachId,
+        motivo: transferMotivo.trim() || undefined,
+        alumnoId: currentAlumnoId,
+      });
+
+      if (!res.success && res.error) {
+        setTransferErrorMsg(res.error);
+      } else {
+        setTransferSuccessMsg(`Conversación transferida a ${targetNombre}`);
+        setTransferMotivo("");
+        setTimeout(() => {
+          setIsTransferOpen(false);
+          setTransferSuccessMsg(null);
+        }, 1800);
+      }
+    } catch (err: any) {
+      setTransferErrorMsg(err?.message || "Error al transferir");
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  const handleCambiarEstado = async (nuevoEstado: EstadoConversacion) => {
+    await cambiarEstadoConversacion(currentAlumnoId, nuevoEstado);
+  };
+
   const unreadTotal = Object.values(conversations).reduce(
     (sum, c) => sum + (c.unreadCount || 0),
     0,
   );
+
+  // Alerta activa de molestia para el alumno actual
+  const activePainAlert = React.useMemo(() => {
+    return DEMO_CRITICAL_ALERTS.find(
+      (a) =>
+        !a.resolved &&
+        (a.alumnoId === currentAlumnoId ||
+          a.alumnoNombre.toLowerCase() ===
+            currentAlumno?.nombre_completo.toLowerCase()),
+    );
+  }, [currentAlumnoId, currentAlumno?.nombre_completo]);
+
+  // Alumnos filtrados para el selector
+  const filteredAlumnos = React.useMemo(() => {
+    return MOCK_ALUMNOS.filter((a) => {
+      if (activeFilter === "TODOS") return true;
+      const conv = conversations[a.id];
+      if (activeFilter === "NUEVOS") {
+        return (conv?.unreadCount || 0) > 0;
+      }
+      if (activeFilter === "PENDIENTES") {
+        return (
+          conv?.estado === "PENDIENTE" ||
+          (conv?.unreadCount || 0) > 0 ||
+          conv?.mensajes.some((m) => m.estado_envio === "pendiente")
+        );
+      }
+      if (activeFilter === "MOLESTIAS") {
+        return DEMO_CRITICAL_ALERTS.some(
+          (alert) =>
+            !alert.resolved &&
+            (alert.alumnoId === a.id ||
+              alert.alumnoNombre.toLowerCase() ===
+                a.nombre_completo.toLowerCase()),
+        );
+      }
+      return true;
+    });
+  }, [conversations, activeFilter]);
 
   return (
     <>
@@ -154,7 +249,7 @@ export function ChatFab({
                   </span>
                 </h3>
                 <p className="text-[11px] text-muted-foreground">
-                  Hilo sincronizado entre Coach Principal, Félix y el alumno
+                  Hilo de equipo sincronizado en tiempo real
                 </p>
               </div>
               <button
@@ -165,6 +260,53 @@ export function ChatFab({
               >
                 ✕
               </button>
+            </div>
+
+            {/* Barra de Filtros: Todos / Nuevos / Pendientes / Molestias */}
+            <div
+              className="flex items-center gap-1 overflow-x-auto pt-1 text-[11px]"
+              data-testid="coach-chat-filter-bar"
+            >
+              <span className="text-muted-foreground font-medium mr-1 text-[10px]">
+                Filtros:
+              </span>
+              {(["TODOS", "NUEVOS", "PENDIENTES", "MOLESTIAS"] as const).map(
+                (filter) => {
+                  const isActive = activeFilter === filter;
+                  let count = 0;
+                  if (filter === "NUEVOS") count = unreadTotal;
+                  if (filter === "PENDIENTES") {
+                    count = Object.values(conversations).filter(
+                      (c) =>
+                        c.estado === "PENDIENTE" ||
+                        (c.unreadCount || 0) > 0 ||
+                        c.mensajes.some((m) => m.estado_envio === "pendiente"),
+                    ).length;
+                  }
+                  if (filter === "MOLESTIAS") {
+                    count = DEMO_CRITICAL_ALERTS.filter((a) => !a.resolved).length;
+                  }
+
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setActiveFilter(filter)}
+                      className={`min-h-7 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all touch-manipulation ${
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
+                      }`}
+                      data-testid={`chat-filter-${filter.toLowerCase()}`}
+                    >
+                      {filter === "TODOS" && "Todos"}
+                      {filter === "NUEVOS" && `Nuevos (${count})`}
+                      {filter === "PENDIENTES" && `Pendientes (${count})`}
+                      {filter === "MOLESTIAS" && `🚨 Molestias (${count})`}
+                    </button>
+                  );
+                },
+              )}
             </div>
 
             {/* Selector de alumno si no hay ninguno seleccionado por props */}
@@ -181,13 +323,133 @@ export function ChatFab({
                   value={currentAlumnoId}
                   onChange={(e) => setLocalAlumnoId(e.target.value)}
                   className="min-h-9 flex-1 rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="coach-chat-student-select"
                 >
-                  {MOCK_ALUMNOS.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nombre_completo} ({a.estado_membresia})
-                    </option>
-                  ))}
+                  {filteredAlumnos.map((a) => {
+                    const conv = conversations[a.id];
+                    const hasUnread = (conv?.unreadCount || 0) > 0;
+                    const hasPain = DEMO_CRITICAL_ALERTS.some(
+                      (alert) =>
+                        !alert.resolved &&
+                        (alert.alumnoId === a.id ||
+                          alert.alumnoNombre.toLowerCase() ===
+                            a.nombre_completo.toLowerCase()),
+                    );
+                    const tag = hasPain
+                      ? "🚨 Molestia"
+                      : hasUnread
+                      ? "🔴 Nuevo"
+                      : a.estado_membresia;
+                    return (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre_completo} ({tag})
+                      </option>
+                    );
+                  })}
                 </select>
+              </div>
+            )}
+
+            {/* Fila de Responsable Asignado y Botón de Transferencia */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50 text-[11px]">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-muted-foreground font-medium">
+                  Responsable:
+                </span>
+                <span
+                  className="rounded bg-primary/10 px-2 py-0.5 font-bold text-primary"
+                  data-testid="chat-responsable-badge"
+                >
+                  {conversation.responsable_nombre || "Coach Principal"}
+                </span>
+                <span
+                  className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground uppercase"
+                  data-testid="chat-estado-badge"
+                >
+                  {conversation.estado || "ABIERTA"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTransferOpen(!isTransferOpen)}
+                className="text-[11px] font-semibold text-primary hover:underline hover:text-primary/80 touch-manipulation min-h-7"
+                data-testid="toggle-transfer-btn"
+              >
+                {isTransferOpen ? "Cerrar" : "Transferir"}
+              </button>
+            </div>
+
+            {/* Panel desplegable de transferencia */}
+            {isTransferOpen && (
+              <div
+                className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs animate-in fade-in-50"
+                data-testid="transfer-panel"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-foreground">
+                    Transferir conversación (RPC)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Actualiza RLS y auditoría
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-medium text-muted-foreground">
+                    Nuevo Responsable:
+                    <select
+                      value={transferTargetCoachId}
+                      onChange={(e) => setTransferTargetCoachId(e.target.value)}
+                      className="mt-1 min-h-8 w-full rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      data-testid="transfer-target-select"
+                    >
+                      {AVAILABLE_COACH_SENDERS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} ({c.rol})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-[10px] font-medium text-muted-foreground">
+                    Motivo de transferencia:
+                    <input
+                      type="text"
+                      value={transferMotivo}
+                      onChange={(e) => setTransferMotivo(e.target.value)}
+                      placeholder="Ej.: Reasignación por especialidad técnica / guardia"
+                      className="mt-1 min-h-8 w-full rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      data-testid="transfer-motivo-input"
+                    />
+                  </label>
+                  <div className="flex items-center justify-between pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="min-h-8 px-3 text-xs font-semibold"
+                      onClick={handleTransferir}
+                      disabled={isTransferring}
+                      data-testid="confirm-transfer-btn"
+                    >
+                      {isTransferring ? "Transfiriendo..." : "Confirmar transferencia"}
+                    </Button>
+                  </div>
+                  {transferSuccessMsg && (
+                    <p
+                      className="text-[10px] text-emerald-400 font-semibold"
+                      data-testid="transfer-success-msg"
+                    >
+                      ✓ {transferSuccessMsg}
+                    </p>
+                  )}
+                  {transferErrorMsg && (
+                    <p
+                      className="text-[10px] text-destructive font-semibold"
+                      data-testid="transfer-error-msg"
+                    >
+                      ✕ {transferErrorMsg}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -218,6 +480,22 @@ export function ChatFab({
             </div>
           </div>
 
+          {/* Banner de Molestia Activa si el atleta la reportó */}
+          {activePainAlert && (
+            <div
+              className="bg-destructive/10 border-b border-destructive/30 px-3 py-1.5 text-[11px] text-destructive flex items-center justify-between"
+              data-testid="chat-pain-alert-banner"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold">🚨 Molestia:</span>
+                <span className="line-clamp-1">{activePainAlert.detalle}</span>
+              </div>
+              <span className="rounded bg-destructive/20 px-1.5 py-0.2 text-[9px] font-extrabold uppercase">
+                {activePainAlert.zona || "Articular"}
+              </span>
+            </div>
+          )}
+
           {/* Banner de estado offline */}
           {!isOnline && (
             <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 text-[11px] text-amber-300 flex items-center justify-between">
@@ -244,13 +522,22 @@ export function ChatFab({
                       className="flex flex-col items-end"
                       data-testid={`staff-message-${msg.id}`}
                     >
-                      {/* Cabecera con autoría explícita (ej. "Félix contestó..." o "Coach Principal contestó...") */}
+                      {/* Cabecera con autoría explícita (ej. "Félix contestó..." o "Coach Principal contestó...") y ID */}
                       <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[11px] font-semibold text-primary">
-                          {msg.remitente_nombre} contestó...
+                        <span
+                          className="text-[11px] font-semibold text-primary"
+                          data-testid={`staff-author-${msg.id}`}
+                        >
+                          {msg.remitente_nombre}
                         </span>
                         <span className="rounded bg-primary/20 px-1 py-0.2 text-[9px] font-bold text-primary uppercase">
                           Staff
+                        </span>
+                        <span
+                          className="text-[9px] text-muted-foreground font-mono"
+                          title={`ID del autor: ${msg.remitente_id}`}
+                        >
+                          ({msg.remitente_id.slice(0, 8)})
                         </span>
                       </div>
 
@@ -269,7 +556,9 @@ export function ChatFab({
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground mr-9">
-                        <span>{msg.hora}</span>
+                        <span data-testid={`msg-timestamp-${msg.id}`}>
+                          {msg.hora}
+                        </span>
                         {msg.estado_envio === "pendiente" && (
                           <span className="text-amber-400 font-semibold">
                             ⏳ Pendiente

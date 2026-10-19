@@ -83,7 +83,7 @@ export function AthleteChat({
     <>
       {/* Botón flotante táctil (FAB) de Chat para el Atleta */}
       <aside
-        aria-label="Acceso a mensajería con tus entrenadores"
+        aria-label="Acceso a mensajería con el equipo GOZS"
         className={`fixed ${fabBottomClass} z-40 transition-all duration-300`}
       >
         <button
@@ -91,7 +91,7 @@ export function AthleteChat({
           onClick={() => setAthleteChatOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-controls="athlete-chat-drawer"
-          aria-label="Abrir chat con tu equipo de entrenadores"
+          aria-label="Abrir chat con el equipo GOZS"
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 select-none touch-manipulation min-h-11 min-w-11"
         >
           <svg
@@ -110,7 +110,7 @@ export function AthleteChat({
           {staffMessagesCount > 0 && (
             <span
               className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white ring-2 ring-background"
-              aria-label={`${staffMessagesCount} respuestas del staff`}
+              aria-label={`${staffMessagesCount} respuestas del equipo GOZS`}
             >
               {staffMessagesCount}
             </span>
@@ -134,13 +134,13 @@ export function AthleteChat({
                 id="athlete-chat-title"
                 className="text-sm font-bold text-foreground flex items-center gap-2"
               >
-                <span>Equipo de Coaches</span>
+                <span>GOZS</span>
                 <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
-                  Staff 1:N
+                  Equipo
                 </span>
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                Coach Principal & Félix asignados a tus rutinas
+                Tu equipo de entrenadores GOZS
               </p>
             </div>
             <button
@@ -168,35 +168,38 @@ export function AthleteChat({
           >
             {messages.length === 0 ? (
               <div className="py-12 text-center text-xs text-muted-foreground">
-                Comunícate directamente con tu equipo de entrenadores.
+                Comunícate directamente con el equipo GOZS.
               </div>
             ) : (
               messages.map((msg) => (
                 <div key={msg.id}>
                   {msg.es_staff ? (
-                    /* Mensaje emitido por un entrenador (Coach Principal o Félix) */
+                    /* Mensaje emitido por el equipo GOZS (Identidad institucional unificada "Somos un equipo") */
                     <div
                       className="flex flex-col items-start"
                       data-testid={`staff-message-bubble-${msg.id}`}
                     >
-                      {/* Atribución explícita del profesor (ej. "Félix contestó..." o "Coach Principal contestó...") */}
+                      {/* Identidad institucional GOZS hacia el alumno (sin firmas individuales ni nombres de profesores) */}
                       <div className="flex items-center gap-1.5 mb-1 ml-9">
-                        <span className="text-[11px] font-bold text-primary">
-                          {msg.remitente_nombre} contestó...
+                        <span
+                          className="text-[11px] font-bold text-primary"
+                          data-testid={`staff-author-${msg.id}`}
+                        >
+                          GOZS
                         </span>
                         <span className="rounded bg-primary/20 px-1.5 py-0.2 text-[9px] font-extrabold text-primary uppercase">
-                          Coach
+                          Equipo
                         </span>
                       </div>
 
                       <div className="flex items-start gap-2 max-w-[90%]">
-                        {/* Avatar identificatorio del profesor */}
+                        {/* Avatar institucional unificado GOZS */}
                         <div
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[11px] font-bold text-primary ring-2 ring-primary/40 select-none"
-                          title={msg.remitente_nombre}
-                          aria-label={`Avatar de ${msg.remitente_nombre}`}
+                          title="GOZS"
+                          aria-label="Avatar del equipo GOZS"
                         >
-                          {msg.remitente_nombre.charAt(0)}
+                          G
                         </div>
 
                         <div className="rounded-2xl rounded-tl-none px-3.5 py-2.5 bg-secondary text-secondary-foreground border border-border shadow-sm">
@@ -270,7 +273,7 @@ export function AthleteChat({
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe a tus entrenadores..."
+              placeholder="Escribe al equipo GOZS..."
               className="min-h-11 flex-1 rounded-lg border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <Button
