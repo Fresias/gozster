@@ -1,0 +1,5 @@
+{
+  "name": "gozster",
+  "runtimes": ["antigravity", "claude-code", "gemini-cli", "opencode"],
+  "gate": "npm test && npm run typecheck && npm run lint && npm run build"
+}

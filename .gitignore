@@ -36,3 +36,6 @@ next-env.d.ts
 # supabase
 supabase/.temp/
 
+# harness (archivos de runtime generados por harness-render; drift detectado por CI)
+.harness/
+
