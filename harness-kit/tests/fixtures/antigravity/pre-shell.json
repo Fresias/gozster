@@ -1,0 +1,18 @@
+{
+  "_provenance": "doc-derived: agy 1.4.2 builtin skills/agy-customizations/docs/hooks.md (toolCall/stepIdx/common fields) + arg names from agy.exe strings; live capture blocked (429 RESOURCE_EXHAUSTED, 2026-10-19). Replace with a live capture.",
+  "toolCall": {
+    "name": "run_command",
+    "args": {
+      "CommandLine": "echo h00",
+      "Cwd": "<WORKSPACE>"
+    }
+  },
+  "stepIdx": 1,
+  "conversationId": "00000000-0000-0000-0000-000000000000",
+  "workspacePaths": [
+    "<WORKSPACE>"
+  ],
+  "transcriptPath": "<HOME>/.gemini/antigravity-cli/transcript.jsonl",
+  "artifactDirectoryPath": "<HOME>/.gemini/antigravity-cli/artifacts",
+  "modelName": "auto"
+}

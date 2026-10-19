@@ -1,0 +1,34 @@
+{
+  "session_id": "d7476bff-f30a-47c6-8c3d-304c3c69be1a",
+  "transcript_path": "<HOME>\\.gemini\\tmp\\gemini\\chats\\session-2026-10-19T21-08-d7476bff.jsonl",
+  "cwd": "<WORKSPACE>",
+  "hook_event_name": "AfterTool",
+  "timestamp": "2026-10-19T21:10:19.508Z",
+  "tool_name": "write_file",
+  "tool_input": {
+    "file_path": "out.txt",
+    "content": "ok"
+  },
+  "tool_response": {
+    "llmContent": "Successfully created and wrote to new file: <WORKSPACE>\\out.txt. Here is the updated code:\nok",
+    "returnDisplay": {
+      "fileDiff": "Index: out.txt\n===================================================================\n--- out.txt\tOriginal\n+++ out.txt\tWritten\n@@ -0,0 +1,1 @@\n+ok\n\\ No newline at end of file\n",
+      "fileName": "out.txt",
+      "filePath": "<WORKSPACE>\\out.txt",
+      "originalContent": "",
+      "newContent": "ok",
+      "diffStat": {
+        "model_added_lines": 1,
+        "model_removed_lines": 0,
+        "model_added_chars": 2,
+        "model_removed_chars": 0,
+        "user_added_lines": 0,
+        "user_removed_lines": 0,
+        "user_added_chars": 0,
+        "user_removed_chars": 0
+      },
+      "isNewFile": true,
+      "isBuildFile": false
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "runtime": "opencode",
+  "verified": { "version": "1.18.28", "date": "2026-10-19", "method": "live" },
+  "hooks": {
+    "config": ".opencode/plugins/<name>.{js,ts}",
+    "mechanism": "plugin en proceso (no hay hooks de shell): export const X = async (ctx) => ({ \"tool.execute.before\", \"tool.execute.after\" })",
+    "ctx_keys": ["client", "project", "worktree", "directory", "experimental_workspace", "serverUrl", "$"],
+    "matcher": "no hay matcher: filtrar por input.tool dentro del plugin",
+    "input": { "tool": "input.tool", "args": "pre: output.args | post: input.args", "result": "output.output" },
+    "pre": {
+      "event": "tool.execute.before",
+      "allow": "return",
+      "deny": "throw new Error(\"<reason>\")",
+      "rewrite": "mutar output.args"
+    },
+    "post": {
+      "event": "tool.execute.after",
+      "inject": "mutar output.output (string) — p. ej. output.output += \"\\n<texto>\"",
+      "inject_verified": true
+    }
+  },
+  "tools": {
+    "shell": { "name": "bash", "command": "command" },
+    "read": { "name": "read", "path": "filePath", "bound": ["offset", "limit"] },
+    "write": [
+      { "name": "write", "path": "filePath", "content": "content" },
+      { "name": "edit", "path": "filePath", "old": "oldString", "new": "newString", "extra": ["replaceAll"] },
+      { "name": "apply_patch", "content": "patchText" }
+    ]
+  },
+  "skills": { "dir": ".opencode/skills/<name>/SKILL.md", "also": [".claude/skills/<name>/SKILL.md", ".agents/skills/<name>/SKILL.md", "~/.agents/skills/<name>/SKILL.md"], "frontmatter_required": ["name", "description"], "shared_agents_dir": true },
+  "subagents": {
+    "dir": ".opencode/agents/<name>.md",
+    "name_from": "nombre de archivo",
+    "frontmatter_required": ["description"],
+    "frontmatter_optional": ["mode", "model", "temperature", "tools", "permission", "prompt"],
+    "subagent_marker": "mode: subagent"
+  },
+  "sources": {
+    "fixtures": "harness-kit/tests/fixtures/opencode/{pre,post}-{shell,read,write}.json (dump {input, output} del plugin)",
+    "inject": "output.output += marcador en tool.execute.after → el modelo reportó H00-MARKER-7731 (opencode run, deepseek-v4.1-flash-free)",
+    "discovery": "`opencode agent list` → h00-agent (subagent); `opencode debug skill` → h00-skill (.opencode/skills), h00-shared (.agents/skills) y skills de .claude/skills de directorios padre",
+    "write_tool_args": "strings de opencode.exe 1.18.28: oldString, newString, replaceAll, patchText",
+    "docs": ["https://opencode.ai/docs/plugins/", "https://opencode.ai/docs/skills/", "https://opencode.ai/docs/agents/"]
+  }
+}
