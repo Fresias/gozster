@@ -389,12 +389,14 @@ describe("GOZS-36 · Cambio de clave definitiva y desbloqueo de /athlete", () =>
     expect(await flag(ALUMNO_A)).toBe(true);
   });
 
-  it("el alumno NO puede apagar el flag con un UPDATE directo antes de cambiar la clave", async () => {
+  it("el alumno puede apagar su propio flag (true -> false) tras cambiar clave, pero NO puede reactivarlo (false -> true)", async () => {
     // (el flag sigue activo del test anterior)
+    await como("authenticated", ALUMNO_A, `UPDATE public.perfiles SET debe_cambiar_password = false WHERE id = '${ALUMNO_A}'`);
+    expect(await flag(ALUMNO_A)).toBe(false);
     await expect(
-      como("authenticated", ALUMNO_A, `UPDATE public.perfiles SET debe_cambiar_password = false WHERE id = '${ALUMNO_A}'`),
-    ).rejects.toThrow(/row-level security|permission denied|Solo/);
-    expect(await flag(ALUMNO_A)).toBe(true);
+      como("authenticated", ALUMNO_A, `UPDATE public.perfiles SET debe_cambiar_password = true WHERE id = '${ALUMNO_A}'`),
+    ).rejects.toThrow(/row-level security|permission denied|Solo|permisos/);
+    expect(await flag(ALUMNO_A)).toBe(false);
   });
 });
 

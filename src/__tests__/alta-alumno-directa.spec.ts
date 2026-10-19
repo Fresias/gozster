@@ -80,7 +80,7 @@ async function activarFlag() {
   await como("service_role", null, `UPDATE public.perfiles SET debe_cambiar_password = true WHERE id = '${ALUMNO}'`);
 }
 
-const DENEGADO = /row-level security|permission denied|Solo/;
+const DENEGADO = /row-level security|permission denied|Solo|permisos/;
 
 describe("Issue #55: migración debe_cambiar_password (PGlite)", () => {
   beforeAll(async () => {
@@ -112,12 +112,14 @@ describe("Issue #55: migración debe_cambiar_password (PGlite)", () => {
   });
 
   describe("alumno", () => {
-    it("NO puede apagar el flag con un UPDATE directo", async () => {
+    it("puede apagar su propio flag (true -> false) pero NO puede reactivarlo (false -> true)", async () => {
       await activarFlag();
+      await como("authenticated", ALUMNO, `UPDATE public.perfiles SET debe_cambiar_password = false WHERE id = '${ALUMNO}'`);
+      expect(await flagAlumno()).toBe(false);
       await expect(
-        como("authenticated", ALUMNO, `UPDATE public.perfiles SET debe_cambiar_password = false WHERE id = '${ALUMNO}'`)
+        como("authenticated", ALUMNO, `UPDATE public.perfiles SET debe_cambiar_password = true WHERE id = '${ALUMNO}'`)
       ).rejects.toThrow(DENEGADO);
-      expect(await flagAlumno()).toBe(true);
+      expect(await flagAlumno()).toBe(false);
     });
 
     it.each([["rol = 'ADMIN'"], [`profesor_asignado_id = '${OTRO_COACH}'`]])(

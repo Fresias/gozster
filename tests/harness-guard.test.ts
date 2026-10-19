@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 const guardPath = path.join(repoRoot, ".claude", "hooks", "guard.sh").replace(/\\/g, "/");
+const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
+const bashEnv =
+  process.platform === "win32" && existsSync(gitBashWin)
+    ? {
+        ...process.env,
+        PATH: `C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\usr\\bin;${process.env.PATH ?? ""}`,
+      }
+    : process.env;
 
 /** Invoke guard.sh with a hook payload on stdin; return exit code and output. */
 function runGuard(
@@ -15,10 +24,11 @@ function runGuard(
   args: string[] = [],
 ): { code: number; stdout: string; stderr: string } {
   try {
-    const stdout = execFileSync("bash", [guardPath, ...args], {
+    const stdout = execFileSync(bashBin, [guardPath, ...args], {
       input: JSON.stringify(payload),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      env: bashEnv,
     });
     return { code: 0, stdout: stdout.trim(), stderr: "" };
   } catch (err) {
