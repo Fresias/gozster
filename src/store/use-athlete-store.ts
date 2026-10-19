@@ -11,6 +11,10 @@ import {
   REAL_EJERCICIOS,
   REAL_EJERCICIOS_RUTINA,
 } from "@/services/real-mynter-data";
+import type {
+  NivelVistaAlumno,
+  AlumnoCuestionarioInicial,
+} from "@/types/database.types";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -69,9 +73,16 @@ interface AthleteStoreState {
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
   rpeValidationError: string | null;
+  nivelVistaAlumno: NivelVistaAlumno;
+  cuestionarioInicial: AlumnoCuestionarioInicial | null;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
+  setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
+  setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
+  saveCuestionarioInicial: (
+    data: Partial<AlumnoCuestionarioInicial>,
+  ) => Promise<{ success: boolean; error?: string }>;
   clearRpeValidationError: () => void;
   updateSetField: (
     exerciseId: string,
@@ -270,6 +281,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
     (set, get) => ({
       membershipStatus: "ACTIVE",
       currentSession: defaultSession,
+      nivelVistaAlumno: "SIMPLE",
+      cuestionarioInicial: null,
       rpeValidationError: null,
       restTimer: {
         isActive: false,
@@ -281,6 +294,80 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      setNivelVistaAlumno: (nivel) => set({ nivelVistaAlumno: nivel }),
+      setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
+      saveCuestionarioInicial: async (data) => {
+        const studentId =
+          get().currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        const nowIso = new Date().toISOString();
+        const prev = get().cuestionarioInicial;
+        const fullRecord: AlumnoCuestionarioInicial = {
+          id: prev?.id || `cuest-${Date.now()}`,
+          alumno_id: studentId,
+          objetivo_principal:
+            data.objetivo_principal !== undefined
+              ? data.objetivo_principal
+              : (prev?.objetivo_principal ?? null),
+          experiencia_previa:
+            data.experiencia_previa !== undefined
+              ? data.experiencia_previa
+              : (prev?.experiencia_previa ?? null),
+          dias_disponibles_semana:
+            data.dias_disponibles_semana !== undefined
+              ? data.dias_disponibles_semana
+              : (prev?.dias_disponibles_semana ?? null),
+          molestias_o_lesiones_previas:
+            data.molestias_o_lesiones_previas !== undefined
+              ? data.molestias_o_lesiones_previas
+              : (prev?.molestias_o_lesiones_previas ?? null),
+          equipamiento_disponible:
+            data.equipamiento_disponible !== undefined
+              ? data.equipamiento_disponible
+              : (prev?.equipamiento_disponible ?? null),
+          respuestas_extra:
+            data.respuestas_extra !== undefined
+              ? data.respuestas_extra
+              : (prev?.respuestas_extra ?? {}),
+          completado_at: prev?.completado_at || nowIso,
+          updated_at: nowIso,
+        };
+
+        set({ cuestionarioInicial: fullRecord });
+
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `cuest-${Date.now()}`,
+          action: "UPSERT_CUESTIONARIO_INICIAL",
+          payload: fullRecord,
+        });
+
+        try {
+          if (supabase) {
+            const { error } = await supabase
+              .from("alumno_cuestionario_inicial")
+              .upsert(
+                {
+                  alumno_id: studentId,
+                  objetivo_principal: fullRecord.objetivo_principal,
+                  experiencia_previa: fullRecord.experiencia_previa,
+                  dias_disponibles_semana: fullRecord.dias_disponibles_semana,
+                  molestias_o_lesiones_previas: fullRecord.molestias_o_lesiones_previas,
+                  equipamiento_disponible: fullRecord.equipamiento_disponible,
+                  respuestas_extra: fullRecord.respuestas_extra,
+                  completado_at: fullRecord.completado_at,
+                  updated_at: fullRecord.updated_at,
+                },
+                { onConflict: "alumno_id" }
+              );
+            if (error) {
+              console.warn("Aviso guardando cuestionario inicial en Supabase:", error.message);
+            }
+          }
+        } catch (err: any) {
+          console.warn("Excepción guardando cuestionario inicial (guardado local offline):", err?.message || err);
+        }
+
+        return { success: true };
+      },
       clearRpeValidationError: () => set({ rpeValidationError: null }),
 
       updateSetField: (exerciseId, setNumber, field, value) => {
@@ -705,6 +792,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         set({
           currentSession: newSession,
+          nivelVistaAlumno: (student.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE",
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -721,6 +809,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       resetSessionToDefaults: () => {
         set({
           currentSession: defaultSession,
+          nivelVistaAlumno: "SIMPLE",
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -739,6 +828,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
         currentSession: state.currentSession,
+        nivelVistaAlumno: state.nivelVistaAlumno,
+        cuestionarioInicial: state.cuestionarioInicial,
       }),
     },
   ),

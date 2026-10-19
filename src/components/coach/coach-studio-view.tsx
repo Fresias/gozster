@@ -98,6 +98,7 @@ export function CoachStudioView({
     getContratacionAlumno,
     registrarRenovacionManual,
     extenderContratacionExcepcional,
+    actualizarNivelVistaAlumno,
   } = store;
 
   React.useEffect(() => {
@@ -1149,6 +1150,7 @@ export function CoachStudioView({
           contratacion={contratacionAlumno}
           onRegistrarRenovacion={registrarRenovacionManual}
           onExtenderExcepcional={extenderContratacionExcepcional}
+          onActualizarNivelVista={actualizarNivelVistaAlumno}
         />
       )}
 

@@ -5,9 +5,11 @@ import type {
   Ejercicio,
   EjercicioEnRutina,
   MedioPago,
+  NivelVistaAlumno,
   Perfil,
   PlanEntrenamiento,
 } from "@/types/database.types";
+import { supabase } from "@/lib/supabase/client";
 import {
   computeAnchoredRenewalDate,
   derivarContratacionDesdePerfil,
@@ -134,6 +136,12 @@ interface CoachStudioState {
     nuevaFechaFin: string;
     motivo: string;
   }) => Promise<Contratacion>;
+
+  // Nivel de Vista del Alumno (SIMPLE vs TECNICA)
+  actualizarNivelVistaAlumno: (
+    alumnoId: string,
+    nivel: NivelVistaAlumno,
+  ) => Promise<boolean>;
 
   // Getters & RPCs
   getSelectedAlumno: () => Perfil | null;
@@ -502,6 +510,51 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       });
 
       return actualizada;
+    },
+
+    actualizarNivelVistaAlumno: async (alumnoId: string, nivel: NivelVistaAlumno) => {
+      const prevAlumnos = get().alumnos;
+      const target = prevAlumnos.find((a) => a.id === alumnoId);
+      if (!target) return false;
+
+      const updatedAlumno: Perfil = {
+        ...target,
+        nivel_vista_alumno: nivel,
+      };
+
+      set({
+        alumnos: prevAlumnos.map((a) => (a.id === alumnoId ? updatedAlumno : a)),
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: "Nivel de vista actualizado",
+          message: `El alumno ${target.nombre_completo.split(" ")[0]} ahora usa ${
+            nivel === "SIMPLE" ? "Vista Simple (Minimalista)" : "Vista Técnica Avanzada"
+          }.`,
+        },
+      });
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `update-view-mode-${Date.now()}`,
+        action: "UPDATE_ALUMNO_NIVEL_VISTA",
+        payload: { alumnoId, nivel },
+      });
+
+      try {
+        if (supabase) {
+          const { error } = await supabase
+            .from("perfiles")
+            .update({ nivel_vista_alumno: nivel })
+            .eq("id", alumnoId);
+          if (error) {
+            console.warn("Aviso actualizando nivel_vista_alumno en Supabase:", error.message);
+          }
+        }
+      } catch (err: any) {
+        console.warn("Excepción actualizando nivel_vista_alumno en Supabase:", err?.message || err);
+      }
+
+      return true;
     },
 
     asignarPlanUrgente: async (alumnoId: string, nombrePlan?: string) => {

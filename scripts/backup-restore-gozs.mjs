@@ -60,6 +60,7 @@ export const TABLAS = [
     },
   },
   { nombre: "alumno_historial_dolor", fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios" } },
+  { nombre: "alumno_cuestionario_inicial", fks: { alumno_id: "perfiles" } },
   { nombre: "contrataciones", fks: { alumno_id: "perfiles" } },
   {
     nombre: "pagos",

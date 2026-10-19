@@ -26,6 +26,7 @@ export type EstadoContratacion =
   | 'PENDIENTE_RENOVACION';
 export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO';
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
+export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 
 export interface Database {
   public: {
@@ -38,6 +39,7 @@ export interface Database {
           rol: Database['public']['Enums']['rol_usuario'];
           estado_membresia: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
@@ -54,6 +56,7 @@ export interface Database {
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -70,6 +73,7 @@ export interface Database {
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -944,6 +948,53 @@ export interface Database {
           },
         ];
       };
+      alumno_cuestionario_inicial: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          objetivo_principal: string | null;
+          experiencia_previa: string | null;
+          dias_disponibles_semana: number | null;
+          molestias_o_lesiones_previas: string | null;
+          equipamiento_disponible: string | null;
+          respuestas_extra: Json;
+          completado_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          objetivo_principal?: string | null;
+          experiencia_previa?: string | null;
+          dias_disponibles_semana?: number | null;
+          molestias_o_lesiones_previas?: string | null;
+          equipamiento_disponible?: string | null;
+          respuestas_extra?: Json;
+          completado_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          objetivo_principal?: string | null;
+          experiencia_previa?: string | null;
+          dias_disponibles_semana?: number | null;
+          molestias_o_lesiones_previas?: string | null;
+          equipamiento_disponible?: string | null;
+          respuestas_extra?: Json;
+          completado_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_cuestionario_inicial_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: true;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       ejercicios_alternativas: {
         Row: {
           id: string;
@@ -1337,4 +1388,6 @@ export type EjercicioAlternativaUpdate = TablesUpdate<'ejercicios_alternativas'>
 export type SustitucionEjercicio = Tables<'sustituciones_ejercicios'>;
 export type SustitucionEjercicioInsert = TablesInsert<'sustituciones_ejercicios'>;
 export type SustitucionEjercicioUpdate = TablesUpdate<'sustituciones_ejercicios'>;
-
+export type AlumnoCuestionarioInicial = Tables<'alumno_cuestionario_inicial'>;
+export type AlumnoCuestionarioInicialInsert = TablesInsert<'alumno_cuestionario_inicial'>;
+export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_inicial'>;

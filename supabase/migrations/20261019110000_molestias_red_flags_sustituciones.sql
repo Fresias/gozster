@@ -479,7 +479,7 @@ BEGIN
     'perfiles', 'ejercicios', 'ejercicios_alternativas', 'entrenador_alumnos', 'planes_entrenamiento', 'dias_rutina',
     'ejercicios_en_rutina', 'registro_sesiones', 'registro_series', 'conversaciones',
     'mensajes', 'habitos_registros', 'nutricion_registros', 'alertas_entrenador',
-    'alumno_historial_dolor', 'contrataciones', 'pagos', 'auditoria_cambios',
+    'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'contrataciones', 'pagos', 'auditoria_cambios',
     'sustituciones_ejercicios'
   ) THEN
     RAISE EXCEPTION 'Tabla no restaurable: %', p_tabla
