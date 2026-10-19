@@ -1,0 +1,12 @@
+{
+  "input": {
+    "tool": "bash",
+    "sessionID": "ses_ea9fdb6a8ffecfyC8M0NtjpGH5",
+    "callID": "call_00_owdms1712w69nzlwhan7eg1w"
+  },
+  "output": {
+    "args": {
+      "command": "echo h00"
+    }
+  }
+}

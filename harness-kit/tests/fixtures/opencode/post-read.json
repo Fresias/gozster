@@ -1,0 +1,28 @@
+{
+  "input": {
+    "tool": "read",
+    "sessionID": "ses_ea9fdb6a8ffecfyC8M0NtjpGH5",
+    "callID": "call_00_hobotlr4z28h81rmx12plgpu",
+    "args": {
+      "filePath": "<WORKSPACE>\\sample.txt"
+    }
+  },
+  "output": {
+    "title": "<WORKSPACE>\\sample.txt",
+    "output": "<path><WORKSPACE>\\sample.txt</path>\n<type>file</type>\n<content>\n1: line1\n2: line2\n\n(End of file - total 2 lines)\n</content>",
+    "metadata": {
+      "preview": "line1\nline2",
+      "truncated": false,
+      "loaded": [],
+      "display": {
+        "type": "file",
+        "path": "<WORKSPACE>\\sample.txt",
+        "text": "line1\nline2",
+        "lineStart": 1,
+        "lineEnd": 2,
+        "totalLines": 2,
+        "truncated": false
+      }
+    }
+  }
+}

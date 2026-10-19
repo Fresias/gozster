@@ -1,0 +1,41 @@
+{
+  "runtime": "claude-code",
+  "verified": { "version": "2.1.286", "date": "2026-10-19", "method": "live" },
+  "hooks": {
+    "config": ".claude/settings.json",
+    "matcher": "regex sobre tool_name (\"*\" = todas)",
+    "cwd": "raíz del proyecto",
+    "input": { "tool": "tool_name", "args": "tool_input", "result": "tool_response" },
+    "pre": {
+      "event": "PreToolUse",
+      "allow": { "stdout": "{}", "exit": 0 },
+      "deny": { "stderr": "<reason>", "exit": 2 }
+    },
+    "post": {
+      "event": "PostToolUse",
+      "inject": { "stdout": { "hookSpecificOutput": { "hookEventName": "PostToolUse", "additionalContext": "<texto>" } }, "exit": 0 },
+      "inject_verified": true
+    }
+  },
+  "tools": {
+    "shell": { "name": "Bash", "command": "command" },
+    "read": { "name": "Read", "path": "file_path", "bound": ["offset", "limit"] },
+    "write": [
+      { "name": "Write", "path": "file_path", "content": "content" },
+      { "name": "Edit", "path": "file_path", "old": "old_string", "new": "new_string" },
+      { "name": "NotebookEdit", "path": "notebook_path" }
+    ]
+  },
+  "skills": { "dir": ".claude/skills/<name>/SKILL.md", "frontmatter_required": ["name", "description"], "shared_agents_dir": false },
+  "subagents": {
+    "dir": ".claude/agents/<name>.md",
+    "frontmatter_required": ["name", "description"],
+    "frontmatter_optional": ["tools", "disallowedTools", "model", "permissionMode", "skills", "hooks", "color"]
+  },
+  "sources": {
+    "fixtures": "harness-kit/tests/fixtures/claude-code/{pre,post}-{shell,read,write}.json",
+    "inject": "PostToolUse con additionalContext → el modelo repitió el marcador H00-MARKER-7731 (claude -p, haiku)",
+    "discovery": "evento system/init de `claude -p --output-format stream-json`: agents incluye h00-agent, skills incluye h00-skill; .agents/skills/ NO se carga",
+    "docs": ["https://code.claude.com/docs/en/hooks", "https://code.claude.com/docs/en/skills", "https://code.claude.com/docs/en/sub-agents"]
+  }
+}
