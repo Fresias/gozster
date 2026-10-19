@@ -12,6 +12,11 @@ import type {
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import {
+  calculateEpley1RM,
+  calculateBrzycki1RM,
+  calculateTotalTonnage,
+} from "@/lib/strength-metrics";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 
@@ -437,6 +442,10 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       store.completeSet(ejId, 1);
       expect(useAthleteStore.getState().rpeValidationError).toBeNull();
       expect(useAthleteStore.getState().currentSession.ejercicios[0]!.series[0]!.completada).toBe(true);
+
+      // Limpiar mutación para no contaminar tests subsiguientes
+      session.ejercicios[0]!.force_rpe_required = false;
+      session.ejercicios[0]!.series[0]!.completada = false;
     });
 
     it("useCoachStudioStore.actualizarNivelVistaAlumno actualiza estado, muestra toast y encola evento", async () => {
@@ -532,4 +541,113 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(coachStudioViewCode).toContain("onActualizarNivelVista={actualizarNivelVistaAlumno}");
     });
   });
+
+  describe("6. Auditoría Estricta QA: Casos Límite, Robustez Offline y Verificación Matemática de Fuerza", () => {
+    it("verificación matemática estricta de 1RM Epley y Brzycki ante cargas reales y submáximas", () => {
+      // Epley: 1RM = Peso * (1 + Reps / 30)
+      const epley100 = calculateEpley1RM(100, 10);
+      expect(epley100).toBeCloseTo(133.3333, 4);
+
+      const epley140 = calculateEpley1RM(140, 5);
+      expect(epley140).toBeCloseTo(163.3333, 4);
+
+      // Brzycki: 1RM = Peso / (1.0278 - 0.0278 * Reps)
+      const brzycki100 = calculateBrzycki1RM(100, 10);
+      expect(brzycki100).toBeCloseTo(133.3689, 4);
+
+      expect(calculateBrzycki1RM(100, 1)).toBeCloseTo(100.0, 4);
+    });
+
+    it("manejo riguroso de casos límite en fórmulas de fuerza (0 reps, peso negativo, NaN, overflow)", () => {
+      expect(calculateEpley1RM(0, 10)).toBe(0);
+      expect(calculateEpley1RM(100, 0)).toBe(0);
+      expect(calculateEpley1RM(-50, 10)).toBe(0);
+      expect(calculateEpley1RM(100, -5)).toBe(0);
+      expect(calculateEpley1RM(Number.NaN, 10)).toBe(0);
+      expect(calculateEpley1RM(100, Number.POSITIVE_INFINITY)).toBe(0);
+
+      expect(calculateBrzycki1RM(0, 10)).toBe(0);
+      expect(calculateBrzycki1RM(100, 0)).toBe(0);
+      expect(calculateBrzycki1RM(-50, 10)).toBe(0);
+      expect(calculateBrzycki1RM(100, -5)).toBe(0);
+      expect(calculateBrzycki1RM(100, 37)).toBe(0);
+      expect(calculateBrzycki1RM(100, 50)).toBe(0);
+    });
+
+    it("cálculo exacto de tonelaje semanal acumulado: sum(Series * Reps * Peso)", () => {
+      const blocks = [
+        { series: 4, reps: 8, peso: 100 },
+        { series: 3, reps: 10, peso: 80 },
+        { series: 5, reps: 5, peso: 120 },
+      ];
+      const tonelajeTotal = calculateTotalTonnage(blocks);
+      expect(tonelajeTotal).toBe(8600);
+    });
+
+    it("en modo SIMPLE, LiveWorkout oculta estrictamente RPE, estimación 1RM y calculadoras avanzadas", () => {
+      const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+      const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+
+      expect(liveWorkoutCode).toContain("!isSimpleView && (");
+      expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
+      expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
+      expect(liveWorkoutCode).toContain("setWarmupModalExercise");
+      expect(liveWorkoutCode).toContain("setPlateModalWeight");
+      expect(liveWorkoutCode).toContain("Vol. Efectivo (Hevy)");
+    });
+
+    it("alumno nuevo inicia con cuestionarioInicial nulo y entrena de inmediato sin bloqueos de onboarding", () => {
+      const store = useAthleteStore.getState();
+      store.resetSessionToDefaults();
+      store.setCuestionarioInicial(null);
+      store.setNivelVistaAlumno("SIMPLE");
+
+      expect(useAthleteStore.getState().cuestionarioInicial).toBeNull();
+      expect(useAthleteStore.getState().nivelVistaAlumno).toBe("SIMPLE");
+
+      const ejId = useAthleteStore.getState().currentSession.ejercicios[0]!.id;
+      store.updateSetField(ejId, 1, "peso_kg", 60);
+      store.updateSetField(ejId, 1, "reps_hechas", 12);
+      store.completeSet(ejId, 1);
+
+      expect(useAthleteStore.getState().rpeValidationError).toBeNull();
+      const serieCompletada = useAthleteStore.getState().currentSession.ejercicios[0]!.series[0]!;
+      expect(serieCompletada.completada).toBe(true);
+      expect(serieCompletada.peso_kg).toBe(60);
+      expect(serieCompletada.reps_hechas).toBe(12);
+    });
+
+    it("soporta llenado parcial del cuestionario y resiliencia offline ante desconexión", async () => {
+      useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
+      const store = useAthleteStore.getState();
+
+      await store.saveCuestionarioInicial({
+        objetivo_principal: "Salud general y postura",
+      });
+
+      const cuestionarioGuardado = useAthleteStore.getState().cuestionarioInicial;
+      expect(cuestionarioGuardado).not.toBeNull();
+      expect(cuestionarioGuardado?.objetivo_principal).toBe("Salud general y postura");
+      expect(cuestionarioGuardado?.experiencia_previa).toBeNull();
+      expect(cuestionarioGuardado?.dias_disponibles_semana).toBeNull();
+
+      const pending = useOfflineQueueStore.getState().pendingEvents;
+      expect(pending.length).toBeGreaterThan(0);
+      const offlineEvent = pending.find((e) => e.action === "UPSERT_CUESTIONARIO_INICIAL");
+      expect(offlineEvent).toBeDefined();
+      expect((offlineEvent?.payload as any)?.objetivo_principal).toBe("Salud general y postura");
+    });
+
+    it("la base de datos rechaza duplicados en alumno_cuestionario_inicial (alumno_id UNIQUE)", async () => {
+      await expect(
+        como(
+          "authenticated",
+          ALUMNO,
+          `INSERT INTO public.alumno_cuestionario_inicial (alumno_id, objetivo_principal)
+           VALUES ('${ALUMNO}', 'Segundo intento duplicado')`
+        )
+      ).rejects.toThrow(/alumno_cuestionario_inicial_alumno_id_key|unique/i);
+    });
+  });
 });
+
