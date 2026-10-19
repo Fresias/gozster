@@ -2,24 +2,41 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useAthleteStore } from "@/store/use-athlete-store";
+import { useChatStore } from "@/store/use-chat-store";
 
-export function MembershipPaywall() {
+/**
+ * Aviso de suscripción vencida — NO bloquea la app (ADR-001).
+ *
+ * El alumno con contratación `VENCIDA` conserva acceso completo a la app
+ * (entrenamiento en vivo, historial y Chat GOZS). Al iniciar la app recibe un
+ * modal prominente informando el vencimiento, y mientras la cuota siga vencida
+ * un banner persistente ofrece un acceso rápido para hablar con el equipo GOZS.
+ */
+export function MembershipExpiredNotice() {
   const { setMembershipStatus } = useAthleteStore();
+  const setAthleteChatOpen = useChatStore((s) => s.setAthleteChatOpen);
+
+  const dialogRef = React.useRef<HTMLDialogElement>(null);
   const [copied, setCopied] = React.useState(false);
 
   const transferAlias = "GOZSTER.FIT";
   const whatsappNumber = "+5491155550199";
   const whatsappMessage = encodeURIComponent(
-    "¡Hola! Te envío el comprobante de transferencia para renovar mi cuota en GOZSter y habilitar mi plan de entrenamiento.",
+    "¡Hola equipo GOZS! Quiero renovar mi cuota y te envío el comprobante de transferencia.",
   );
+
+  // Aviso al inicio de la app: abre el modal una sola vez al montar.
+  React.useEffect(() => {
+    dialogRef.current?.showModal();
+  }, []);
+
+  const closeDialog = () => dialogRef.current?.close();
+
+  const openGozsChat = () => {
+    closeDialog();
+    setAthleteChatOpen(true);
+  };
 
   const handleCopyAlias = async () => {
     try {
@@ -29,59 +46,86 @@ export function MembershipPaywall() {
         setTimeout(() => setCopied(false), 2500);
       }
     } catch {
-      // Fallback
+      // Fallback silencioso: el alias ya está visible en pantalla.
     }
   };
 
   return (
-    <div className="space-y-4 py-2" data-testid="athlete-paywall">
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200">
-        <div className="flex items-center gap-2">
-          <span className="flex h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">
-            Estado de Cuenta: Pago Pendiente
-          </span>
+    <>
+      {/* Banner persistente y NO bloqueante mientras la suscripción esté vencida */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between"
+        data-testid="athlete-expired-banner"
+      >
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 flex h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 animate-pulse" />
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+              Suscripción GOZS vencida
+            </p>
+            <p className="text-xs text-amber-700/90 dark:text-amber-200/90">
+              Seguís teniendo acceso completo. Hablá con el equipo GOZS para
+              regularizar tu cuota.
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-xs text-amber-200/90 font-mono">
-          [EXPIRED_PAYMENT_PENDING]
-        </p>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            size="sm"
+            className="min-h-11 bg-emerald-600 text-white hover:bg-emerald-500 touch-manipulation"
+            onClick={openGozsChat}
+            data-testid="expired-open-chat-banner"
+          >
+            💬 Hablar con GOZS
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-11 touch-manipulation"
+            onClick={() => dialogRef.current?.showModal()}
+            data-testid="expired-open-details"
+          >
+            Ver detalle
+          </Button>
+        </div>
       </div>
 
-      <Card className="border-border">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/20 text-destructive text-2xl font-bold">
-            🔒
-          </div>
-          <CardTitle className="text-xl sm:text-2xl font-bold">
-            Cuota Vencida / Pendiente de Renovación
-          </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground mt-2">
-            Tu acceso a la sesión del día y al registro en vivo está pausado hasta
-            que confirmes la renovación de tu membresía.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-5">
-          <div className="rounded-lg bg-secondary/50 p-4 space-y-2 border border-border">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              Beneficios pausados temporalmente:
-            </h4>
-            <ul className="text-xs text-muted-foreground space-y-1.5 list-disc list-inside">
-              <li>Plan de entrenamiento y rutinas del día guiadas</li>
-              <li>Modo "Entrenamiento en Vivo" con cronómetro de descanso</li>
-              <li>Estimación de 1RM y métricas de fuerza personalizadas</li>
-              <li>Sincronización de sobrecarga progresiva con tu entrenador</li>
-            </ul>
+      {/* Aviso al inicio de la app (modal nativo, descartable — no bloquea la app) */}
+      <dialog
+        ref={dialogRef}
+        className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+        data-testid="athlete-expired-dialog"
+        aria-labelledby="expired-dialog-title"
+      >
+        <div className="space-y-5 p-5 sm:p-6">
+          <div className="space-y-2 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-3xl">
+              ⏳
+            </div>
+            <h2
+              id="expired-dialog-title"
+              className="text-xl font-bold sm:text-2xl"
+            >
+              Tu suscripción GOZS venció
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              No te preocupes: <strong>seguís entrando a la app con normalidad</strong>{" "}
+              (entrenamiento en vivo, historial y chat). Para mantener tu plan al
+              día, comunicate con el equipo de GOZS y coordiná la renovación.
+            </p>
           </div>
 
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-foreground">
-              Instrucciones de Renovación:
-            </h4>
-
+          <div className="space-y-3 rounded-xl border border-border bg-secondary/40 p-4">
+            <h3 className="text-sm font-semibold text-foreground">
+              Renovar es simple:
+            </h3>
             <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
               <div>
-                <p className="text-xs text-muted-foreground">Alias de Transferencia</p>
+                <p className="text-xs text-muted-foreground">
+                  Alias de Transferencia
+                </p>
                 <p className="text-sm font-mono font-bold tracking-wider text-primary">
                   {transferAlias}
                 </p>
@@ -95,48 +139,58 @@ export function MembershipPaywall() {
                 {copied ? "¡Copiado! ✓" : "Copiar Alias"}
               </Button>
             </div>
-
-            <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside pl-1">
-              <li>
-                Transfiere el valor de tu cuota mensual al alias bancario.
-              </li>
-              <li>
-                Envía el comprobante digital al WhatsApp de tu entrenador.
-              </li>
-              <li>
-                Tu entrenador reactivará tu cuenta al instante para entrenar.
-              </li>
+            <ol className="list-inside list-decimal space-y-1.5 pl-1 text-xs text-muted-foreground">
+              <li>Transferí el valor de tu cuota mensual al alias de GOZS.</li>
+              <li>Enviá el comprobante al equipo por el Chat GOZS o WhatsApp.</li>
+              <li>El equipo confirma el pago y tu cuota queda al día.</li>
             </ol>
           </div>
 
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2">
+            <Button
+              className="min-h-14 w-full bg-emerald-600 text-base text-white hover:bg-emerald-500 active:scale-[0.99] touch-manipulation"
+              onClick={openGozsChat}
+              data-testid="expired-open-chat-dialog"
+            >
+              💬 Hablar con el equipo GOZS
+            </Button>
             <a
               href={`https://wa.me/${whatsappNumber.replace("+", "")}?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-6 py-3.5 text-base font-semibold text-white shadow hover:bg-emerald-500 active:scale-[0.99] touch-manipulation"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground hover:bg-secondary/60 touch-manipulation"
             >
-              <span>📲</span>
-              <span>Enviar Comprobante por WhatsApp</span>
+              📲 Enviar comprobante por WhatsApp
             </a>
-
-            <div className="pt-4 border-t border-border">
-              <p className="text-center text-xs text-muted-foreground mb-2">
-                Entorno de Pruebas &amp; Auditoría QA:
-              </p>
-              <Button
-                variant="secondary"
-                size="default"
-                className="w-full text-xs"
-                onClick={() => setMembershipStatus("ACTIVE")}
-                data-testid="simulate-active-btn"
-              >
-                Simular Pago Confirmado (Cambiar a ACTIVE)
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              className="min-h-11 w-full text-sm"
+              onClick={closeDialog}
+              data-testid="expired-dismiss"
+            >
+              Entendido, seguir usando la app
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="border-t border-border pt-3">
+            <p className="mb-2 text-center text-[11px] text-muted-foreground">
+              Entorno de Pruebas &amp; Auditoría QA:
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => {
+                setMembershipStatus("ACTIVE");
+                closeDialog();
+              }}
+              data-testid="simulate-active-btn"
+            >
+              Simular Pago Confirmado (Cambiar a ACTIVE)
+            </Button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }

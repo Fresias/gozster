@@ -1,8 +1,12 @@
 import * as React from "react";
 import type {
+  Contratacion,
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
+  EstadoContratacion,
+  EstadoCuenta,
+  MedioPago,
   Perfil,
   PlanEntrenamiento,
 } from "@/types/database.types";
@@ -14,6 +18,11 @@ import {
   calculateStudentHealthScore,
   generateWhatsAppReactivationUrl,
 } from "@/lib/strength-metrics";
+import {
+  ESTADO_CONTRATACION_LABEL,
+  computeAnchoredRenewalDate,
+  derivarContratacionDesdePerfil,
+} from "@/lib/contrataciones";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -29,6 +38,17 @@ export interface StudentDetailProps {
   onClonarUltimaRutina: (alumnoId: string) => Promise<unknown>;
   onExtenderVigencia: (planId: string) => Promise<unknown>;
   isOffline: boolean;
+  contratacion?: Contratacion | null;
+  onRegistrarRenovacion?: (input: {
+    contratacion: Contratacion;
+    monto: number;
+    medioPago: MedioPago;
+  }) => Promise<unknown>;
+  onExtenderExcepcional?: (input: {
+    contratacion: Contratacion;
+    nuevaFechaFin: string;
+    motivo: string;
+  }) => Promise<unknown>;
 }
 
 export function StudentDetail({
@@ -45,6 +65,9 @@ export function StudentDetail({
   onClonarUltimaRutina,
   onExtenderVigencia,
   isOffline,
+  contratacion: contratacionProp,
+  onRegistrarRenovacion,
+  onExtenderExcepcional,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
@@ -74,6 +97,110 @@ export function StudentDetail({
         return <Badge variant="warning">BORRADOR</Badge>;
       default:
         return <Badge variant="outline">{estado}</Badge>;
+    }
+  };
+
+  const getContratacionBadge = (estado: EstadoContratacion) => {
+    const label = ESTADO_CONTRATACION_LABEL[estado];
+    switch (estado) {
+      case "VIGENTE":
+        return <Badge variant="success">{label}</Badge>;
+      case "POR_VENCER":
+        return <Badge variant="warning">{label}</Badge>;
+      case "VENCIDA":
+        return <Badge variant="destructive">{label}</Badge>;
+      case "EN_PAUSA":
+        return <Badge variant="secondary">{label}</Badge>;
+      case "PENDIENTE_RENOVACION":
+        return <Badge variant="warning">{label}</Badge>;
+      default:
+        return <Badge variant="outline">{estado}</Badge>;
+    }
+  };
+
+  const getCuentaBadge = (estado: EstadoCuenta) => {
+    switch (estado) {
+      case "ACTIVO":
+        return <Badge variant="success">Activo</Badge>;
+      case "SUSPENDIDO":
+        return <Badge variant="warning">Suspendido</Badge>;
+      case "BAJA_ADMINISTRATIVA":
+        return <Badge variant="destructive">Baja administrativa</Badge>;
+      default:
+        return <Badge variant="outline">{estado}</Badge>;
+    }
+  };
+
+  // Contratación (ADR-001): si el padre no la inyecta, se deriva del perfil sin
+  // inventar datos fuera del esquema generado por @backend-eng.
+  const contratacion = React.useMemo(
+    () => contratacionProp ?? derivarContratacionDesdePerfil(alumno),
+    [contratacionProp, alumno],
+  );
+
+  const estadoCuenta: EstadoCuenta =
+    alumno.estado_cuenta ??
+    (alumno.estado_membresia === "BAJA"
+      ? "BAJA_ADMINISTRATIVA"
+      : alumno.estado_membresia === "INACTIVA"
+      ? "SUSPENDIDO"
+      : "ACTIVO");
+
+  // Fecha de corte anclada que resultará de la próxima renovación ("no se corre
+  // la fecha": mantiene el día de vencimiento original).
+  const proximaFechaAnclada = computeAnchoredRenewalDate(
+    contratacion.fecha_fin,
+    contratacion.dia_vencimiento,
+  );
+
+  const [renovMedio, setRenovMedio] = React.useState<MedioPago>("TRANSFERENCIA");
+  const [renovMonto, setRenovMonto] = React.useState("");
+  const [isRenovando, setIsRenovando] = React.useState(false);
+  const [extFecha, setExtFecha] = React.useState("");
+  const [extMotivo, setExtMotivo] = React.useState("");
+  const [isExtendiendoExc, setIsExtendiendoExc] = React.useState(false);
+
+  const formatFecha = (iso: string) => {
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return iso;
+    return parsed.toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  };
+
+  const handleRegistrarRenovacion = async () => {
+    if (!onRegistrarRenovacion) return;
+    setIsRenovando(true);
+    try {
+      const monto = Number.parseFloat(renovMonto);
+      await onRegistrarRenovacion({
+        contratacion,
+        monto: Number.isFinite(monto) ? monto : 0,
+        medioPago: renovMedio,
+      });
+      setRenovMonto("");
+    } finally {
+      setIsRenovando(false);
+    }
+  };
+
+  const handleExtenderExcepcional = async () => {
+    if (!onExtenderExcepcional) return;
+    if (!extFecha || !extMotivo.trim()) return;
+    setIsExtendiendoExc(true);
+    try {
+      await onExtenderExcepcional({
+        contratacion,
+        nuevaFechaFin: extFecha,
+        motivo: extMotivo.trim(),
+      });
+      setExtFecha("");
+      setExtMotivo("");
+    } finally {
+      setIsExtendiendoExc(false);
     }
   };
 
@@ -206,6 +333,176 @@ export function StudentDetail({
                   <path d="m19 9-5 5-4-4-3 3" />
                 </svg>
                 <span>Cargas y RPE Históricos</span>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */}
+      <Card data-testid="contratacion-panel">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold">
+            Estado Comercial y Contratación
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5 p-4 pt-0 sm:p-6 sm:pt-0">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Cuenta
+              </p>
+              <div className="mt-1.5" data-testid="estado-cuenta">
+                {getCuentaBadge(estadoCuenta)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Contratación
+              </p>
+              <div className="mt-1.5" data-testid="estado-contratacion">
+                {getContratacionBadge(contratacion.estado)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Vencimiento
+              </p>
+              <p
+                className="mt-1 text-sm font-bold text-foreground"
+                data-testid="fecha-vencimiento"
+              >
+                {formatFecha(contratacion.fecha_fin)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Día {contratacion.dia_vencimiento} anclado
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Rutina
+              </p>
+              <div className="mt-1.5" data-testid="estado-rutina">
+                {rutinaActiva ? (
+                  getPlanBadge(rutinaActiva.estado)
+                ) : (
+                  <Badge variant="outline">Sin rutina</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Renovación manual (Transferencia / Efectivo) */}
+            <div
+              className="space-y-3 rounded-lg border border-border p-3.5"
+              data-testid="renovacion-manual"
+            >
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  Renovación manual
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  No se corre la fecha: el próximo corte queda el{" "}
+                  <strong className="text-foreground">
+                    {formatFecha(proximaFechaAnclada)}
+                  </strong>{" "}
+                  (día {contratacion.dia_vencimiento}).
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                  Medio de pago
+                  <select
+                    value={renovMedio}
+                    onChange={(e) =>
+                      setRenovMedio(e.target.value as MedioPago)
+                    }
+                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                    data-testid="renovacion-medio"
+                  >
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                  </select>
+                </label>
+                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                  Monto
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={renovMonto}
+                    onChange={(e) => setRenovMonto(e.target.value)}
+                    placeholder="0"
+                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                    data-testid="renovacion-monto"
+                  />
+                </label>
+              </div>
+              <Button
+                size="default"
+                className="min-h-11 w-full text-xs font-semibold"
+                onClick={handleRegistrarRenovacion}
+                disabled={isRenovando || !onRegistrarRenovacion}
+                data-testid="renovacion-confirmar"
+              >
+                {isRenovando
+                  ? "Confirmando…"
+                  : "Confirmar renovación y pago"}
+              </Button>
+            </div>
+
+            {/* Extensión excepcional (motivo obligatorio) */}
+            <div
+              className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3.5"
+              data-testid="extension-excepcional"
+            >
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  Extensión excepcional
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Fuera de ciclo. Requiere motivo obligatorio para auditoría.
+                </p>
+              </div>
+              <label className="block text-[11px] font-semibold text-muted-foreground">
+                Nueva fecha de vencimiento
+                <input
+                  type="date"
+                  value={extFecha}
+                  onChange={(e) => setExtFecha(e.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                  data-testid="extension-fecha"
+                />
+              </label>
+              <label className="block text-[11px] font-semibold text-muted-foreground">
+                Motivo (obligatorio)
+                <textarea
+                  value={extMotivo}
+                  onChange={(e) => setExtMotivo(e.target.value)}
+                  rows={2}
+                  placeholder="Ej.: compensación por lesión / viaje coordinado con el equipo."
+                  className="mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground"
+                  data-testid="extension-motivo"
+                  required
+                />
+              </label>
+              <Button
+                variant="outline"
+                size="default"
+                className="min-h-11 w-full text-xs font-semibold"
+                onClick={handleExtenderExcepcional}
+                disabled={
+                  isExtendiendoExc ||
+                  !onExtenderExcepcional ||
+                  !extFecha ||
+                  !extMotivo.trim()
+                }
+                data-testid="extension-confirmar"
+              >
+                {isExtendiendoExc
+                  ? "Aplicando…"
+                  : "Aplicar extensión excepcional"}
               </Button>
             </div>
           </div>

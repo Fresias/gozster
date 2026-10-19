@@ -16,6 +16,16 @@ export type EstadoMembresia =
   | 'EXPIRED_PAYMENT_PENDING'
   | 'ARCHIVED';
 export type EstadoPlan = 'ACTIVO' | 'INACTIVO' | 'BORRADOR';
+export type EstadoCuenta = 'ACTIVO' | 'BAJA_ADMINISTRATIVA' | 'SUSPENDIDO';
+export type TipoServicio = 'ASESORIA_ONLINE' | 'PRESENCIAL';
+export type EstadoContratacion =
+  | 'VIGENTE'
+  | 'POR_VENCER'
+  | 'VENCIDA'
+  | 'EN_PAUSA'
+  | 'PENDIENTE_RENOVACION';
+export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO';
+export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 
 export interface Database {
   public: {
@@ -27,6 +37,7 @@ export interface Database {
           nombre_completo: string;
           rol: Database['public']['Enums']['rol_usuario'];
           estado_membresia: Database['public']['Enums']['estado_membresia'];
+          estado_cuenta?: EstadoCuenta;
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
@@ -42,6 +53,7 @@ export interface Database {
           nombre_completo: string;
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
+          estado_cuenta?: EstadoCuenta;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -57,6 +69,7 @@ export interface Database {
           nombre_completo?: string;
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
+          estado_cuenta?: EstadoCuenta;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -764,6 +777,161 @@ export interface Database {
           },
         ];
       };
+      contrataciones: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          tipo_servicio: TipoServicio;
+          estado: EstadoContratacion;
+          dia_vencimiento: number;
+          fecha_inicio: string;
+          fecha_fin: string;
+          dias_aviso_previo: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          tipo_servicio?: TipoServicio;
+          estado?: EstadoContratacion;
+          dia_vencimiento: number;
+          fecha_inicio: string;
+          fecha_fin: string;
+          dias_aviso_previo?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          tipo_servicio?: TipoServicio;
+          estado?: EstadoContratacion;
+          dia_vencimiento?: number;
+          fecha_inicio?: string;
+          fecha_fin?: string;
+          dias_aviso_previo?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contrataciones_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      pagos: {
+        Row: {
+          id: string;
+          contratacion_id: string;
+          alumno_id: string;
+          monto: number;
+          medio_pago: MedioPago;
+          estado: EstadoPago;
+          idempotency_key: string;
+          confirmado_por: string | null;
+          confirmado_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contratacion_id: string;
+          alumno_id: string;
+          monto: number;
+          medio_pago: MedioPago;
+          estado?: EstadoPago;
+          idempotency_key: string;
+          confirmado_por?: string | null;
+          confirmado_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contratacion_id?: string;
+          alumno_id?: string;
+          monto?: number;
+          medio_pago?: MedioPago;
+          estado?: EstadoPago;
+          idempotency_key?: string;
+          confirmado_por?: string | null;
+          confirmado_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pagos_contratacion_id_fkey';
+            columns: ['contratacion_id'];
+            isOneToOne: false;
+            referencedRelation: 'contrataciones';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pagos_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pagos_confirmado_por_fkey';
+            columns: ['confirmado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      auditoria_cambios: {
+        Row: {
+          id: string;
+          entidad: string;
+          entidad_id: string;
+          accion: string;
+          motivo: string | null;
+          autorizado_por: string | null;
+          valores_anteriores: Json | null;
+          valores_nuevos: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          entidad: string;
+          entidad_id: string;
+          accion: string;
+          motivo?: string | null;
+          autorizado_por?: string | null;
+          valores_anteriores?: Json | null;
+          valores_nuevos?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          entidad?: string;
+          entidad_id?: string;
+          accion?: string;
+          motivo?: string | null;
+          autorizado_por?: string | null;
+          valores_anteriores?: Json | null;
+          valores_nuevos?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'auditoria_cambios_autorizado_por_fkey';
+            columns: ['autorizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -859,6 +1027,37 @@ export interface Database {
           p_motivo?: string | null;
         };
         Returns: Database['public']['Tables']['ejercicios_en_rutina']['Row'];
+      };
+      evaluar_vencimientos_contrataciones: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          por_vencer: number;
+          vencidas: number;
+        }[];
+      };
+      registrar_y_confirmar_renovacion: {
+        Args: {
+          p_contratacion_id: string;
+          p_monto: number;
+          p_medio_pago: MedioPago;
+          p_idempotency_key: string;
+        };
+        Returns: Database['public']['Tables']['contrataciones']['Row'];
+      };
+      extender_contratacion_excepcional: {
+        Args: {
+          p_contratacion_id: string;
+          p_nueva_fecha_fin: string;
+          p_motivo: string;
+        };
+        Returns: Database['public']['Tables']['contrataciones']['Row'];
+      };
+      restaurar_filas_respaldo: {
+        Args: {
+          p_tabla: string;
+          p_filas: Json;
+        };
+        Returns: number;
       };
     };
     Enums: {
@@ -982,3 +1181,8 @@ export type AlumnoHistorialDolorInsert = TablesInsert<'alumno_historial_dolor'>;
 export type AlumnoHistorialDolorUpdate = TablesUpdate<'alumno_historial_dolor'>;
 
 
+export type Contratacion = Tables<'contrataciones'>;
+export type ContratacionInsert = TablesInsert<'contrataciones'>;
+export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
+export type Pago = Tables<'pagos'>;
+export type AuditoriaCambio = Tables<'auditoria_cambios'>;

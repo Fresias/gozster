@@ -50,7 +50,7 @@ export async function fetchLiveDatasetFromSupabase(
 
     if (alumnosRes.error || !alumnosRes.data || alumnosRes.data.length === 0) {
       if (alumnosRes.error) {
-        console.warn("Aviso cargando alumnos de Supabase (usando dataset sanitizado Mynter):", alumnosRes.error.message);
+        console.warn("Aviso cargando alumnos de Supabase (usando dataset GOZS de respaldo):", alumnosRes.error.message);
       }
       return {
         alumnos: REAL_ALUMNOS,
@@ -69,7 +69,7 @@ export async function fetchLiveDatasetFromSupabase(
       ejercicios: (ejerciciosRes.data as Ejercicio[]) || [],
     };
   } catch (err: any) {
-    console.warn("Excepción al conectar con Supabase (usando dataset sanitizado Mynter):", err?.message || err);
+    console.warn("Excepción al conectar con Supabase (usando dataset GOZS de respaldo):", err?.message || err);
     return {
       alumnos: REAL_ALUMNOS,
       planes: REAL_PLANES,

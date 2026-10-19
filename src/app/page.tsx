@@ -35,7 +35,7 @@ export default function HomePage() {
               100% Offline-First PWA
             </Badge>
             <Badge variant="secondary" className="px-3 py-1 text-xs">
-              Hevy &amp; Mynter Protocol
+              GOZS Performance Protocol
             </Badge>
             <ThemeToggle showLabel />
           </div>
