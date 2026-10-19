@@ -580,14 +580,14 @@ export function CoachStudioView({
                   <span>Constructor</span>
                 </Button>
 
-                {/* Alta de alumno por invitación (Edge Function invitar-alumno) */}
+                {/* Alta directa de alumno (Edge Function alta-alumno-directa) con credenciales al instante */}
                 <Button
                   variant="default"
                   size="sm"
                   onClick={() => setIsInviteModalOpen(true)}
                   className="min-h-9 gap-1.5 rounded-lg text-xs font-bold"
                   data-testid="open-invite-student-btn"
-                  title="Invitar a un nuevo alumno por email"
+                  title="Dar de alta a un nuevo alumno al instante"
                 >
                   <svg
                     className="h-3.5 w-3.5"
@@ -603,7 +603,7 @@ export function CoachStudioView({
                       d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
                     />
                   </svg>
-                  <span>Invitar alumno</span>
+                  <span>Alta de alumno</span>
                 </Button>
 
                 {/* Selector de Modo de Visualización (INDEC vs Tarjetas) */}
@@ -1174,7 +1174,7 @@ export function CoachStudioView({
         onSelectAlumno={(id) => selectAlumno(id)}
       />
 
-      {/* Modal "Invitar alumno": alta por email vía Edge Function + recarga de alumnos */}
+      {/* Modal "Alta de alumno": alta directa + tarjeta de contingencia + recarga de alumnos */}
       <InviteStudentModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}

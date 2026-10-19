@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
@@ -13,15 +12,46 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ForcePasswordChange } from "@/components/auth/force-password-change";
+
+/** Un alumno recién dado de alta debe cambiar su contraseña temporal en el primer login. */
+function debeCambiarPassword(
+  perfilFlag: boolean | null | undefined,
+  metadata: Record<string, unknown> | undefined,
+): boolean {
+  return perfilFlag === true || metadata?.must_change_password === true;
+}
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/studio";
+  // El middleware redirige a /login?forceChange=1 a quien ya tiene sesión pero aún no cambió su clave.
+  const forceChangeParam = searchParams.get("forceChange");
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  // Cuando se activa, se despliega la pantalla bloqueante de cambio de contraseña.
+  const [cambioObligatorio, setCambioObligatorio] = React.useState<{ email: string | null } | null>(
+    null,
+  );
+
+  // Caso "ya logueado pero con contraseña temporal": el middleware mandó a /login?forceChange=1.
+  React.useEffect(() => {
+    if (!forceChangeParam) return;
+    let activo = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (activo && data.user) {
+        setCambioObligatorio({ email: data.user.email ?? null });
+      }
+    })();
+    return () => {
+      activo = false;
+    };
+  }, [forceChangeParam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +74,16 @@ function LoginForm() {
       // Enrutar según rol: un ALUMNO va a su app aunque el destino pedido sea Coach Studio.
       const { data: perfil } = await supabase
         .from("perfiles")
-        .select("rol")
+        .select("rol, debe_cambiar_password")
         .eq("id", data.user.id)
         .maybeSingle();
+
+      // Primer login: si la clave es temporal, bloquear hasta que elija una definitiva.
+      if (debeCambiarPassword(perfil?.debe_cambiar_password, data.user.user_metadata)) {
+        setCambioObligatorio({ email: data.user.email ?? null });
+        setLoading(false);
+        return;
+      }
 
       const destino = perfil?.rol === "ALUMNO" ? "/athlete" : redirectTo;
 
@@ -57,6 +94,16 @@ function LoginForm() {
       setLoading(false);
     }
   };
+
+  if (cambioObligatorio) {
+    return (
+      <ForcePasswordChange
+        email={cambioObligatorio.email}
+        // Con la clave definitiva ya activa, el alumno entra directo a su app.
+        onSuccess={() => window.location.assign("/athlete")}
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -144,10 +191,8 @@ export default function LoginPage() {
         </Card>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          ¿Te invitó tu entrenador?{" "}
-          <Link href="/invitacion" className="font-semibold text-primary hover:underline">
-            Activá tu cuenta
-          </Link>
+          Tu entrenador te da de alta y te comparte tus credenciales. Al ingresar por primera vez vas
+          a elegir tu contraseña definitiva.
         </p>
       </div>
     </main>

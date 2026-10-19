@@ -44,6 +44,20 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request, "/athlete");
   }
 
+  // Primer login con contraseña temporal: bloquear cualquier área protegida hasta
+  // que elija su clave definitiva. Se lee del metadata del JWT (ya validado por getUser),
+  // sin consultas extra; `alta-alumno-directa` lo setea y el cambio de clave lo baja.
+  if (user && (isStudio || isAthlete)) {
+    const metadata = user.user_metadata as Record<string, unknown> | undefined;
+    if (metadata?.must_change_password === true) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      url.searchParams.set("forceChange", "1");
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Coach Studio exige rol ENTRENADOR o ADMIN; un ALUMNO se desvía a su app.
   if (isStudio && user) {
     const { data: perfil } = await supabase
