@@ -177,7 +177,7 @@ describe("Issue #64: respaldo y restauración verificada (scripts/backup-restore
 
   it("exporta todas las tablas con conteo y sha256, y omite las opcionales inexistentes", () => {
     expect(snapshot.formato).toBe("gozs-backup");
-    expect(snapshot.omitidas).toEqual(["sustituciones_ejercicios"]);
+    expect(snapshot.omitidas).toEqual([]);
     expect(snapshot.tablas.perfiles!.total).toBe(2);
     expect(snapshot.tablas.registro_series!.total).toBe(2);
     expect(snapshot.tablas.mensajes!.total).toBe(2);
