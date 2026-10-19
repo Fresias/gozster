@@ -59,7 +59,9 @@ step** before declaring a task done, run the full gate:
 - **Terminal output:** prefer bounded/quiet flags — e.g. `git diff --stat`
   before a full `git diff`.
 
-These rules are enforced by `.claude/hooks/guard.sh` (PreToolUse).
+These rules are enforced by `.claude/hooks/guard.sh`, wired into every runtime:
+Claude Code (`.claude/settings.json`), Gemini CLI (`.gemini/settings.json`) and
+Antigravity (`.agents/hooks.json`).
 
 ## Boundaries
 

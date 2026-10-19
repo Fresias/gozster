@@ -1,0 +1,17 @@
+{
+  "gozster-guard": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "run_command|view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard.sh --runtime antigravity",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
