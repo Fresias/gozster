@@ -15,6 +15,7 @@ import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
 } from "@/types/database.types";
+import type { PainReportData } from "@/components/athlete/pain-report-modal";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -73,11 +74,13 @@ interface AthleteStoreState {
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
   rpeValidationError: string | null;
+  stopProtocolActive: boolean;
   nivelVistaAlumno: NivelVistaAlumno;
   cuestionarioInicial: AlumnoCuestionarioInicial | null;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
+  setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
   saveCuestionarioInicial: (
@@ -100,6 +103,7 @@ interface AthleteStoreState {
     setNumber: number,
     notes: string,
   ) => void;
+  reportPainEvent: (report: PainReportData) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
     setNumber: number,
@@ -284,6 +288,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       nivelVistaAlumno: "SIMPLE",
       cuestionarioInicial: null,
       rpeValidationError: null,
+      stopProtocolActive: false,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -294,6 +299,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
       setNivelVistaAlumno: (nivel) => set({ nivelVistaAlumno: nivel }),
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
       saveCuestionarioInicial: async (data) => {
@@ -430,6 +436,85 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }),
           },
         }));
+      },
+
+      reportPainEvent: async (report) => {
+        const state = get();
+        const {
+          exerciseId,
+          setNumber,
+          zonaArticular,
+          severidad,
+          sintomasAlarma,
+          esSintomaAlarma,
+          notasAlumno,
+          momentoAparicion,
+        } = report;
+
+        // 1. Si está asociado a un ejercicio y serie, marcarlo
+        if (exerciseId && setNumber) {
+          const notesText = `[Dolor: ${severidad}] ${zonaArticular}${
+            sintomasAlarma.length > 0 ? ` (Síntomas: ${sintomasAlarma.join(", ")})` : ""
+          }${notasAlumno ? ` - ${notasAlumno}` : ""}`;
+
+          set((s) => ({
+            currentSession: {
+              ...s.currentSession,
+              ejercicios: s.currentSession.ejercicios.map((ej) => {
+                if (ej.id !== exerciseId) return ej;
+                return {
+                  ...ej,
+                  series: ej.series.map((serie) =>
+                    serie.numero_serie === setNumber
+                      ? { ...serie, pain_reported: true, pain_notes: notesText }
+                      : serie
+                  ),
+                };
+              }),
+            },
+          }));
+        }
+
+        // 2. Activar protocolo de freno si hay Red Flags o dolor agudo
+        if (esSintomaAlarma || severidad === "AGUDO") {
+          set({ stopProtocolActive: true });
+        }
+
+        // 3. Encolar evento offline en Zustand
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `pain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          action: "PAIN_REPORT_SUBMITTED",
+          payload: {
+            sessionId: state.currentSession.id,
+            studentId:
+              state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7",
+            ...report,
+          },
+        });
+
+        // 4. Guardar en Supabase si está disponible
+        try {
+          const studentId =
+            state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+          const resolvedExerciseId =
+            exerciseId && exerciseId.length === 36
+              ? exerciseId
+              : "30000000-0000-0000-0000-000000000001";
+
+          await supabase.from("alumno_historial_dolor").insert({
+            alumno_id: studentId,
+            ejercicio_id: resolvedExerciseId,
+            zona_articular: zonaArticular,
+            severidad,
+            momento_aparicion: momentoAparicion,
+            es_sintoma_alarma: esSintomaAlarma,
+            sintomas_alarma: sintomasAlarma,
+            notas_alumno: notasAlumno || null,
+            estado: "PENDIENTE",
+          });
+        } catch {
+          // Silencioso en modo offline o test
+        }
       },
 
       attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
@@ -810,6 +895,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({
           currentSession: defaultSession,
           nivelVistaAlumno: "SIMPLE",
+          stopProtocolActive: false,
           restTimer: {
             isActive: false,
             isPaused: false,

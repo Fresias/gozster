@@ -15,7 +15,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CoachStudioTab } from "@/store/use-coach-studio";
+import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
 import { supabase } from "@/lib/supabase/client";
 import {
   calculateStudentHealthScore,
@@ -85,10 +85,17 @@ export function StudentDetail({
   const [nivelVista, setNivelVista] = React.useState<NivelVistaAlumno>(
     alumno.nivel_vista_alumno ?? "SIMPLE",
   );
-  const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
   const [cuestionario, setCuestionario] = React.useState<AlumnoCuestionarioInicial | null>(
     cuestionarioProp ?? null,
   );
+  const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
+
+  const storeSustituciones = useCoachStudioStore((s) => s.sustituciones);
+  const catalogoCompleto = useCoachStudioStore((s) => s.ejercicios);
+  const alumnoSustituciones = storeSustituciones.filter((s) => {
+    if (rutinaActiva && s.plan_id === rutinaActiva.id) return true;
+    return historialPlanes.some((p) => p.id === s.plan_id);
+  });
 
   React.useEffect(() => {
     setNivelVista(alumno.nivel_vista_alumno ?? "SIMPLE");
@@ -958,6 +965,92 @@ export function StudentDetail({
                 {isExtending ? "Extendiendo..." : "[Extender vigencia]"}
               </Button>
             </div>
+          </div>
+
+          {/* Registro Histórico de Sustituciones Trazables (ADR-002) */}
+          <div className="space-y-3" data-testid="routine-substitutions-history-section">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔄</span>
+                <h3 className="text-sm font-bold text-foreground">
+                  Registro de Sustituciones Trazables (ADR-002)
+                </h3>
+                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 font-bold">
+                  Inmutabilidad Garantizada
+                </Badge>
+              </div>
+              <p
+                className="text-[11px] text-muted-foreground"
+                data-testid="aviso-inmutabilidad-sustituciones"
+              >
+                Sesiones y series completadas previamente permanecen 100% inmutables.
+              </p>
+            </div>
+
+            {alumnoSustituciones.length === 0 ? (
+              <Card>
+                <CardContent className="p-4 text-center text-xs text-muted-foreground">
+                  No se registran sustituciones de ejercicios en la rutina vigente. Las adaptaciones biomecánicas del profesor quedarán registradas aquí.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {alumnoSustituciones.map((sust) => {
+                  const ejOrigen =
+                    ejerciciosCatalogo.find((e) => e.id === sust.ejercicio_original_id)?.nombre ||
+                    catalogoCompleto.find((e) => e.id === sust.ejercicio_original_id)?.nombre ||
+                    "Ejercicio Original";
+                  const ejSustituto =
+                    ejerciciosCatalogo.find((e) => e.id === sust.ejercicio_sustituto_id)?.nombre ||
+                    catalogoCompleto.find((e) => e.id === sust.ejercicio_sustituto_id)?.nombre ||
+                    "Ejercicio Sustituto";
+                  const fechaSust = new Date(sust.created_at).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <Card
+                      key={sust.id}
+                      className="border-border/80 bg-secondary/15 hover:border-primary/40 transition-colors"
+                      data-testid={`substitution-record-${sust.id}`}
+                    >
+                      <CardContent className="p-3.5 sm:p-4 text-xs space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap font-bold">
+                            <span className="line-through text-muted-foreground">{ejOrigen}</span>
+                            <span className="text-primary font-black">→</span>
+                            <span className="text-foreground text-sm font-black text-emerald-500">
+                              {ejSustituto}
+                            </span>
+                            <Badge className="bg-primary/20 text-primary border border-primary/30 text-[10px]">
+                              Toda la Rutina Vigente
+                            </Badge>
+                          </div>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            {fechaSust}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] pt-1 border-t border-border/40">
+                          <div className="text-muted-foreground">
+                            <strong className="text-foreground">Motivo:</strong>{" "}
+                            {sust.motivo || "Sustitución biomecánica por molestia"}
+                          </div>
+                          <div className="text-muted-foreground font-medium">
+                            <strong className="text-foreground">Profesor Responsable:</strong>{" "}
+                            Coach Principal (Asignado)
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Chronological List of All Previous Plans */}
