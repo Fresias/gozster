@@ -195,6 +195,8 @@ describe('Suite de Pruebas: Mensajería Unificada Staff 1:N y RLS (Issue #17)', 
   const conversacionLucas: Conversacion = {
     id: 'conv-lucas-1111-1111-1111-111111111111',
     alumno_id: alumnoLucasId,
+    responsable_id: null,
+    estado: 'ABIERTA',
     created_at: '2026-10-16T12:00:00Z',
     updated_at: '2026-10-16T12:00:00Z',
   };
@@ -202,6 +204,8 @@ describe('Suite de Pruebas: Mensajería Unificada Staff 1:N y RLS (Issue #17)', 
   const conversacionPedro: Conversacion = {
     id: 'conv-pedro-2222-2222-2222-222222222222',
     alumno_id: alumnoPedroId,
+    responsable_id: null,
+    estado: 'ABIERTA',
     created_at: '2026-10-16T12:00:00Z',
     updated_at: '2026-10-16T12:00:00Z',
   };

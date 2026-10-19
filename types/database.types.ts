@@ -460,18 +460,24 @@ export interface Database {
         Row: {
           id: string;
           alumno_id: string;
+          responsable_id: string | null;
+          estado: 'ABIERTA' | 'PENDIENTE' | 'ATENDIDA';
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           alumno_id: string;
+          responsable_id?: string | null;
+          estado?: 'ABIERTA' | 'PENDIENTE' | 'ATENDIDA';
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           alumno_id?: string;
+          responsable_id?: string | null;
+          estado?: 'ABIERTA' | 'PENDIENTE' | 'ATENDIDA';
           created_at?: string;
           updated_at?: string;
         };
@@ -480,6 +486,13 @@ export interface Database {
             foreignKeyName: 'conversaciones_alumno_id_fkey';
             columns: ['alumno_id'];
             isOneToOne: true;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'conversaciones_responsable_id_fkey';
+            columns: ['responsable_id'];
+            isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
           },
@@ -896,6 +909,7 @@ export interface Database {
           accion: string;
           motivo: string | null;
           autorizado_por: string | null;
+          usuario_id: string | null;
           valores_anteriores: Json | null;
           valores_nuevos: Json | null;
           created_at: string;
@@ -907,6 +921,7 @@ export interface Database {
           accion: string;
           motivo?: string | null;
           autorizado_por?: string | null;
+          usuario_id?: string | null;
           valores_anteriores?: Json | null;
           valores_nuevos?: Json | null;
           created_at?: string;
@@ -918,6 +933,7 @@ export interface Database {
           accion?: string;
           motivo?: string | null;
           autorizado_por?: string | null;
+          usuario_id?: string | null;
           valores_anteriores?: Json | null;
           valores_nuevos?: Json | null;
           created_at?: string;
@@ -926,6 +942,13 @@ export interface Database {
           {
             foreignKeyName: 'auditoria_cambios_autorizado_por_fkey';
             columns: ['autorizado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'auditoria_cambios_usuario_id_fkey';
+            columns: ['usuario_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
@@ -1059,6 +1082,14 @@ export interface Database {
         };
         Returns: number;
       };
+      transferir_conversacion_gozs: {
+        Args: {
+          p_conversacion_id: string;
+          p_nuevo_responsable_id: string;
+          p_motivo?: string | null;
+        };
+        Returns: Database['public']['Tables']['conversaciones']['Row'];
+      };
     };
     Enums: {
       rol_usuario: RolUsuario;
@@ -1186,3 +1217,7 @@ export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
+export type AuditoriaCambioInsert = TablesInsert<'auditoria_cambios'>;
+export type AuditoriaCambioUpdate = TablesUpdate<'auditoria_cambios'>;
+export type EstadoConversacion = 'ABIERTA' | 'PENDIENTE' | 'ATENDIDA';
+
