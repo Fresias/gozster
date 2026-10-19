@@ -54,17 +54,38 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- Permitir si viene del trigger de cambio de contraseña en auth.users
+  IF current_setting('gozster.limpiando_password', true) = 'true' THEN
+    RETURN NEW;
+  END IF;
+
   IF (
     NEW.estado_membresia IS DISTINCT FROM OLD.estado_membresia
     OR NEW.profesor_asignado_id IS DISTINCT FROM OLD.profesor_asignado_id
     OR NEW.fecha_baja IS DISTINCT FROM OLD.fecha_baja
-    OR NEW.debe_cambiar_password IS DISTINCT FROM OLD.debe_cambiar_password
   ) AND NOT (
     OLD.id <> auth.uid()
     AND public.es_entrenador_o_admin()
     AND (OLD.profesor_asignado_id = auth.uid() OR public.es_entrenador_de(OLD.id))
   ) THEN
-    RAISE EXCEPTION 'Solo el entrenador asignado puede modificar membresía, baja, asignación o cambio de contraseña del alumno'
+    RAISE EXCEPTION 'Solo el entrenador asignado puede modificar membresía, baja o asignación del alumno'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NEW.debe_cambiar_password IS DISTINCT FROM OLD.debe_cambiar_password THEN
+    -- El propio usuario apagando la bandera en su perfil tras cambiar clave
+    IF OLD.id = auth.uid() AND OLD.debe_cambiar_password = true AND NEW.debe_cambiar_password = false THEN
+      RETURN NEW;
+    END IF;
+
+    -- Entrenador o admin gestionando al alumno
+    IF OLD.id <> auth.uid()
+       AND public.es_entrenador_o_admin()
+       AND (OLD.profesor_asignado_id = auth.uid() OR public.es_entrenador_de(OLD.id)) THEN
+      RETURN NEW;
+    END IF;
+
+    RAISE EXCEPTION 'No tenés permisos para modificar el estado de cambio de contraseña'
       USING ERRCODE = '42501';
   END IF;
 
@@ -88,6 +109,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+  PERFORM set_config('gozster.limpiando_password', 'true', true);
   UPDATE public.perfiles
   SET debe_cambiar_password = false
   WHERE id = NEW.id
