@@ -212,7 +212,7 @@ export function LiveWorkout() {
               </p>
             </div>
 
-            {/* Selector rápido de Alumno Real de Mynter o Rutina Base */}
+            {/* Selector rápido de Alumno Real GOZS o Rutina Base */}
             <div
               className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none"
               data-testid="student-routine-switcher"
@@ -244,7 +244,7 @@ export function LiveWorkout() {
                   }`}
                   data-testid={`select-student-${al.id}`}
                 >
-                  {al.nombre_completo.split(" ")[0]} (Mynter)
+                  {al.nombre_completo.split(" ")[0]} (GOZS)
                 </button>
               ))}
             </div>

@@ -95,6 +95,9 @@ export function CoachStudioView({
     getPlanesAlumnoCronologico,
     getRutinaActivaAlumno,
     getHistorialCargasAlumno,
+    getContratacionAlumno,
+    registrarRenovacionManual,
+    extenderContratacionExcepcional,
   } = store;
 
   React.useEffect(() => {
@@ -222,6 +225,9 @@ export function CoachStudioView({
     : null;
   const historialPlanes = selectedAlumno ? getPlanesAlumnoCronologico(selectedAlumno.id) : [];
   const historialCargas = selectedAlumno ? getHistorialCargasAlumno(selectedAlumno.id) : [];
+  const contratacionAlumno = selectedAlumno
+    ? getContratacionAlumno(selectedAlumno)
+    : null;
 
   const handleAssignPlan = async (alumnoId: string) => {
     await asignarPlanUrgente(alumnoId);
@@ -1140,6 +1146,9 @@ export function CoachStudioView({
           onClonarUltimaRutina={clonarUltimaRutina}
           onExtenderVigencia={extenderVigenciaPlan}
           isOffline={!isOnline}
+          contratacion={contratacionAlumno}
+          onRegistrarRenovacion={registrarRenovacionManual}
+          onExtenderExcepcional={extenderContratacionExcepcional}
         />
       )}
 

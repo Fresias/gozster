@@ -1,11 +1,17 @@
 import { create } from "zustand";
 import type {
+  Contratacion,
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
+  MedioPago,
   Perfil,
   PlanEntrenamiento,
 } from "@/types/database.types";
+import {
+  computeAnchoredRenewalDate,
+  derivarContratacionDesdePerfil,
+} from "@/lib/contrataciones";
 import {
   MOCK_ALUMNOS,
   MOCK_DIAS,
@@ -81,6 +87,7 @@ interface CoachStudioState {
   ejerciciosEnRutina: EjercicioEnRutina[];
   ejercicios: Ejercicio[];
   historialCargas: Record<string, HistoricalLoadEntry[]>;
+  contrataciones: Contratacion[];
 
   selectedAlumnoId: string | null;
   activeTab: CoachStudioTab;
@@ -115,6 +122,19 @@ interface CoachStudioState {
     nombrePlan?: string,
   ) => Promise<PlanEntrenamiento>;
 
+  // Contrataciones y Pagos (ADR-001)
+  getContratacionAlumno: (alumno: Perfil) => Contratacion;
+  registrarRenovacionManual: (input: {
+    contratacion: Contratacion;
+    monto: number;
+    medioPago: MedioPago;
+  }) => Promise<Contratacion>;
+  extenderContratacionExcepcional: (input: {
+    contratacion: Contratacion;
+    nuevaFechaFin: string;
+    motivo: string;
+  }) => Promise<Contratacion>;
+
   // Getters & RPCs
   getSelectedAlumno: () => Perfil | null;
   getPlanesAlumno: (alumnoId: string) => PlanEntrenamiento[];
@@ -144,6 +164,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
     ejercicios: MOCK_EJERCICIOS,
     historialCargas: MOCK_HISTORIAL_CARGAS,
+    contrataciones: [],
 
     selectedAlumnoId: null,
     activeTab: "rutina_actual",
@@ -363,6 +384,124 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       });
 
       return planActualizado;
+    },
+
+    getContratacionAlumno: (alumno: Perfil) => {
+      const stored = get().contrataciones.find(
+        (c) => c.alumno_id === alumno.id,
+      );
+      return stored ?? derivarContratacionDesdePerfil(alumno);
+    },
+
+    registrarRenovacionManual: async ({ contratacion, monto, medioPago }) => {
+      const nowIso = new Date().toISOString();
+
+      // Regla de anclaje ADR-001: la nueva fecha de corte respeta el día de
+      // vencimiento original ("no se corre la fecha"), aunque el pago llegue tarde.
+      const nuevaFechaFin = computeAnchoredRenewalDate(
+        contratacion.fecha_fin,
+        contratacion.dia_vencimiento,
+      );
+
+      const idempotencyKey = `renov-${contratacion.id}-${contratacion.fecha_fin}-${medioPago}`;
+
+      const actualizada: Contratacion = {
+        ...contratacion,
+        estado: "VIGENTE",
+        fecha_fin: nuevaFechaFin,
+        updated_at: nowIso,
+      };
+
+      set((state) => {
+        const existe = state.contrataciones.some(
+          (c) => c.id === contratacion.id,
+        );
+        const contrataciones = existe
+          ? state.contrataciones.map((c) =>
+              c.id === contratacion.id ? actualizada : c,
+            )
+          : [...state.contrataciones, actualizada];
+
+        return {
+          contrataciones,
+          toast: {
+            id: `toast-${Date.now()}`,
+            type: "success",
+            title: "Renovación confirmada",
+            message: `Pago por ${medioPago === "TRANSFERENCIA" ? "transferencia" : "efectivo"} registrado. Próximo vencimiento: ${nuevaFechaFin} (día ${contratacion.dia_vencimiento} anclado).`,
+          },
+        };
+      });
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `rpc-renov-${Date.now()}`,
+        action: "RPC_REGISTRAR_Y_CONFIRMAR_RENOVACION",
+        payload: {
+          p_contratacion_id: contratacion.id,
+          p_monto: monto,
+          p_medio_pago: medioPago,
+          p_idempotency_key: idempotencyKey,
+          nuevaFechaFin,
+          updatedAt: nowIso,
+        },
+      });
+
+      return actualizada;
+    },
+
+    extenderContratacionExcepcional: async ({
+      contratacion,
+      nuevaFechaFin,
+      motivo,
+    }) => {
+      const motivoLimpio = motivo.trim();
+      if (!motivoLimpio) {
+        throw new Error(
+          "La extensión excepcional requiere un motivo obligatorio.",
+        );
+      }
+
+      const nowIso = new Date().toISOString();
+      const actualizada: Contratacion = {
+        ...contratacion,
+        estado: "VIGENTE",
+        fecha_fin: nuevaFechaFin,
+        updated_at: nowIso,
+      };
+
+      set((state) => {
+        const existe = state.contrataciones.some(
+          (c) => c.id === contratacion.id,
+        );
+        const contrataciones = existe
+          ? state.contrataciones.map((c) =>
+              c.id === contratacion.id ? actualizada : c,
+            )
+          : [...state.contrataciones, actualizada];
+
+        return {
+          contrataciones,
+          toast: {
+            id: `toast-${Date.now()}`,
+            type: "warning",
+            title: "Extensión excepcional aplicada",
+            message: `Vencimiento extendido a ${nuevaFechaFin}. Motivo registrado en auditoría.`,
+          },
+        };
+      });
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `rpc-extender-exc-${Date.now()}`,
+        action: "RPC_EXTENDER_CONTRATACION_EXCEPCIONAL",
+        payload: {
+          p_contratacion_id: contratacion.id,
+          p_nueva_fecha_fin: nuevaFechaFin,
+          p_motivo: motivoLimpio,
+          updatedAt: nowIso,
+        },
+      });
+
+      return actualizada;
     },
 
     asignarPlanUrgente: async (alumnoId: string, nombrePlan?: string) => {

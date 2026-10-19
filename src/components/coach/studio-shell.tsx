@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -13,6 +14,21 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isDashboardActive = pathname === "/studio/dashboard";
   const isStudioActive = pathname === "/studio";
   const isAthleteActive = pathname?.startsWith("/athlete");
+
+  const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
+
+  React.useEffect(() => {
+    setOnlineStatus(navigator.onLine);
+    const handleOnline = () => setOnlineStatus(true);
+    const handleOffline = () => setOnlineStatus(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [setOnlineStatus]);
 
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[280px_1fr] bg-background text-foreground transition-colors duration-150">
@@ -142,10 +158,37 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="hidden lg:block mt-auto pt-6 border-t border-border/60">
-            <div className="rounded-xl bg-secondary/40 border border-border/40 p-3 space-y-1">
-              <p className="text-[11px] font-bold text-foreground">Estado del Servidor</p>
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl bg-secondary/40 border border-border/40 p-3 space-y-1.5"
+              data-testid="studio-sync-status"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold text-foreground">Sincronización GOZS</p>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
+                    isOnline
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300 animate-pulse"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      isOnline ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"
+                    }`}
+                  />
+                  {isOnline ? "GOZS Cloud" : "Modo Avión"}
+                </span>
+              </div>
               <p className="text-[10px] text-muted-foreground">
-                Sincronización en vivo con Supabase &amp; Mynter Backup activa.
+                {isOnline
+                  ? pendingEvents.length > 0
+                    ? `Sincronizando ${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} de la cola offline…`
+                    : "Datos al día con GOZS Cloud."
+                  : pendingEvents.length > 0
+                    ? `${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} en cola · se sincronizarán al reconectar.`
+                    : "Sin conexión · los cambios se guardan localmente."}
               </p>
             </div>
           </div>

@@ -25,13 +25,18 @@ export function AthleteChat({
   athleteId = DEFAULT_ATHLETE_SENDER.id,
   athleteName = DEFAULT_ATHLETE_SENDER.nombre,
 }: AthleteChatProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const { restTimer } = useAthleteStore();
   const { isOnline } = useOfflineQueueStore();
-  const { getConversation, sendMessage, markAsRead } = useChatStore();
+  const {
+    getConversation,
+    sendMessage,
+    markAsRead,
+    isAthleteChatOpen: isOpen,
+    setAthleteChatOpen,
+  } = useChatStore();
 
   const conversation = getConversation(athleteId, athleteName);
   const messages = conversation.mensajes;
@@ -83,7 +88,7 @@ export function AthleteChat({
       >
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => setAthleteChatOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-controls="athlete-chat-drawer"
           aria-label="Abrir chat con tu equipo de entrenadores"
@@ -140,7 +145,7 @@ export function AthleteChat({
             </div>
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={() => setAthleteChatOpen(false)}
               aria-label="Cerrar chat"
               className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground touch-manipulation min-h-11 min-w-11"
             >
