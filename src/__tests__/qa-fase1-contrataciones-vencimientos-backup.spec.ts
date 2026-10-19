@@ -69,8 +69,11 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
       return fileList;
     }
 
+    const appFiles = getFilesRecursively(path.resolve(rootDir, "src/app"));
+    const componentFiles = getFilesRecursively(path.resolve(rootDir, "src/components"));
+    const serviceFiles = getFilesRecursively(path.resolve(rootDir, "src/services"));
+
     it("ningún archivo en 'src/app/' contiene la cadena 'Mynter'", () => {
-      const appFiles = getFilesRecursively(path.resolve(rootDir, "src/app"));
       expect(appFiles.length).toBeGreaterThan(0);
 
       const violations: { file: string; match: string }[] = [];
@@ -85,7 +88,6 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
     });
 
     it("ningún archivo en 'src/components/' contiene la cadena 'Mynter'", () => {
-      const componentFiles = getFilesRecursively(path.resolve(rootDir, "src/components"));
       expect(componentFiles.length).toBeGreaterThan(0);
 
       const violations: { file: string; line: number; match: string }[] = [];
@@ -108,7 +110,6 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
     });
 
     it("ningún archivo en 'src/services/' (salvo el dataset legado) contiene la palabra 'Mynter'", () => {
-      const serviceFiles = getFilesRecursively(path.resolve(rootDir, "src/services"));
       expect(serviceFiles.length).toBeGreaterThan(0);
 
       const violations: { file: string; match: string }[] = [];
