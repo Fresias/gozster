@@ -50,6 +50,9 @@ export function LiveWorkout() {
     nivelVistaAlumno,
     setNivelVistaAlumno,
     cuestionarioInicial,
+    stopProtocolActive,
+    setStopProtocolActive,
+    reportPainEvent,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -237,35 +240,57 @@ export function LiveWorkout() {
                 </p>
               </div>
 
-              {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
-              <div
-                className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
-                data-testid="athlete-view-mode-container"
-              >
-                <button
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Botón visible de Molestia en la Cabecera de la Sesión */}
+                <Button
                   type="button"
-                  onClick={() => setNivelVistaAlumno("SIMPLE")}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                    isSimpleView
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid="athlete-toggle-vista-simple"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPainModalData({
+                      exerciseId: currentSession.ejercicios[0]?.id || "",
+                      exerciseName: currentSession.nombre_rutina,
+                      setNumber: 1,
+                    })
+                  }
+                  className="min-h-11 sm:h-9 gap-1.5 text-xs font-bold border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-xl px-3"
+                  data-testid="header-pain-report-btn"
+                  title="Tengo una molestia o dolor articular"
                 >
-                  Vista Simple
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNivelVistaAlumno("TECNICA")}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                    !isSimpleView
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  data-testid="athlete-toggle-vista-tecnica"
+                  <span>⚠️</span>
+                  <span>Tengo una molestia</span>
+                </Button>
+
+                {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
+                <div
+                  className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
+                  data-testid="athlete-view-mode-container"
                 >
-                  Vista Técnica
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setNivelVistaAlumno("SIMPLE")}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                      isSimpleView
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="athlete-toggle-vista-simple"
+                  >
+                    Vista Simple
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNivelVistaAlumno("TECNICA")}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                      !isSimpleView
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="athlete-toggle-vista-tecnica"
+                  >
+                    Vista Técnica
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -305,6 +330,35 @@ export function LiveWorkout() {
                 </button>
               ))}
             </div>
+
+            {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
+            {stopProtocolActive && (
+              <div
+                className="rounded-2xl border-2 border-destructive bg-destructive/15 p-4 text-foreground shadow-lg space-y-2 animate-in fade-in"
+                data-testid="live-workout-stop-protocol-banner"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-destructive font-black text-sm">
+                    <span className="text-2xl">🛑</span>
+                    <span>PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStopProtocolActive(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 rounded"
+                    title="Ocultar aviso"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-sm font-bold text-foreground leading-relaxed">
+                  Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Se ha emitido una alerta CRÍTICA a tu entrenador. Tu salud articular es prioritaria; no continúes levantando carga ante síntomas de alarma o dolor agudo.
+                </p>
+              </div>
+            )}
 
             {/* Banner de Validación RPE Forzado */}
             {rpeValidationError && (
@@ -459,6 +513,26 @@ export function LiveWorkout() {
                             <span>Calentamiento</span>
                           </Button>
                         )}
+
+                        {/* Botón visible Tengo una Molestia en la tarjeta de ejercicio */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 font-bold"
+                          onClick={() =>
+                            setPainModalData({
+                              exerciseId: ejercicio.id,
+                              exerciseName: ejercicio.nombre,
+                              setNumber: 1,
+                            })
+                          }
+                          data-testid={`exercise-pain-report-btn-${ejercicio.id}`}
+                          title="Reportar molestia en este ejercicio"
+                        >
+                          <span>⚠️</span>
+                          <span className="hidden sm:inline">Tengo una molestia</span>
+                          <span className="sm:hidden">Molestia</span>
+                        </Button>
 
                         {/* Botón Video de Técnica (Siempre disponible en ambas vistas) */}
                         <Button
@@ -941,10 +1015,15 @@ export function LiveWorkout() {
           isOpen={Boolean(painModalData)}
           onClose={() => setPainModalData(null)}
           exerciseName={painModalData.exerciseName}
+          exerciseId={painModalData.exerciseId}
           setNumber={painModalData.setNumber}
-          onSavePainReport={(notes) =>
-            reportPainForSet(painModalData.exerciseId, painModalData.setNumber, notes)
-          }
+          onSavePainReport={(report) => {
+            if (typeof report === "string") {
+              reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
+            } else {
+              reportPainEvent(report);
+            }
+          }}
         />
       )}
 

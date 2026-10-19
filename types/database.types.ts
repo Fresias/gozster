@@ -642,10 +642,10 @@ export interface Database {
           ejercicio_id: string | null;
           serie_id: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
           detalle: string | null;
-          estado: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada: string | null;
           resuelto_por: string | null;
           resuelto_at: string | null;
@@ -659,10 +659,10 @@ export interface Database {
           ejercicio_id?: string | null;
           serie_id?: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
           detalle?: string | null;
-          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada?: string | null;
           resuelto_por?: string | null;
           resuelto_at?: string | null;
@@ -676,10 +676,10 @@ export interface Database {
           ejercicio_id?: string | null;
           serie_id?: string | null;
           tipo_alerta?: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo?: string;
           detalle?: string | null;
-          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada?: string | null;
           resuelto_por?: string | null;
           resuelto_at?: string | null;
@@ -735,6 +735,10 @@ export interface Database {
           notas_profesor: string | null;
           estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte: string;
+          momento_aparicion: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma: boolean;
+          sintomas_alarma: string[];
+          estado: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at: string;
           updated_at: string;
         };
@@ -748,6 +752,10 @@ export interface Database {
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte?: string;
+          momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma?: boolean;
+          sintomas_alarma?: string[];
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -761,6 +769,10 @@ export interface Database {
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte?: string;
+          momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma?: boolean;
+          sintomas_alarma?: string[];
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -978,6 +990,139 @@ export interface Database {
             foreignKeyName: 'alumno_cuestionario_inicial_alumno_id_fkey';
             columns: ['alumno_id'];
             isOneToOne: true;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      ejercicios_alternativas: {
+        Row: {
+          id: string;
+          ejercicio_origen_id: string;
+          ejercicio_alternativo_id: string;
+          patron_movimiento: string;
+          equipamiento: string | null;
+          nivel_exigencia: string | null;
+          restricciones_articulares: string[];
+          explicacion_tecnica: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          ejercicio_origen_id: string;
+          ejercicio_alternativo_id: string;
+          patron_movimiento: string;
+          equipamiento?: string | null;
+          nivel_exigencia?: string | null;
+          restricciones_articulares?: string[];
+          explicacion_tecnica?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          ejercicio_origen_id?: string;
+          ejercicio_alternativo_id?: string;
+          patron_movimiento?: string;
+          equipamiento?: string | null;
+          nivel_exigencia?: string | null;
+          restricciones_articulares?: string[];
+          explicacion_tecnica?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ejercicios_alternativas_ejercicio_origen_id_fkey';
+            columns: ['ejercicio_origen_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ejercicios_alternativas_ejercicio_alternativo_id_fkey';
+            columns: ['ejercicio_alternativo_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      sustituciones_ejercicios: {
+        Row: {
+          id: string;
+          plan_id: string;
+          ejercicio_en_rutina_id: string | null;
+          ejercicio_original_id: string;
+          ejercicio_sustituto_id: string;
+          reporte_dolor_id: string | null;
+          motivo: string | null;
+          responsable_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          plan_id: string;
+          ejercicio_en_rutina_id?: string | null;
+          ejercicio_original_id: string;
+          ejercicio_sustituto_id: string;
+          reporte_dolor_id?: string | null;
+          motivo?: string | null;
+          responsable_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          plan_id?: string;
+          ejercicio_en_rutina_id?: string | null;
+          ejercicio_original_id?: string;
+          ejercicio_sustituto_id?: string;
+          reporte_dolor_id?: string | null;
+          motivo?: string | null;
+          responsable_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sustituciones_ejercicios_plan_id_fkey';
+            columns: ['plan_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_entrenamiento';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_en_rutina_id_fkey';
+            columns: ['ejercicio_en_rutina_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios_en_rutina';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_original_id_fkey';
+            columns: ['ejercicio_original_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_sustituto_id_fkey';
+            columns: ['ejercicio_sustituto_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_reporte_dolor_id_fkey';
+            columns: ['reporte_dolor_id'];
+            isOneToOne: false;
+            referencedRelation: 'alumno_historial_dolor';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_responsable_id_fkey';
+            columns: ['responsable_id'];
+            isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
           },
@@ -1237,6 +1382,12 @@ export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
+export type EjercicioAlternativa = Tables<'ejercicios_alternativas'>;
+export type EjercicioAlternativaInsert = TablesInsert<'ejercicios_alternativas'>;
+export type EjercicioAlternativaUpdate = TablesUpdate<'ejercicios_alternativas'>;
+export type SustitucionEjercicio = Tables<'sustituciones_ejercicios'>;
+export type SustitucionEjercicioInsert = TablesInsert<'sustituciones_ejercicios'>;
+export type SustitucionEjercicioUpdate = TablesUpdate<'sustituciones_ejercicios'>;
 export type AlumnoCuestionarioInicial = Tables<'alumno_cuestionario_inicial'>;
 export type AlumnoCuestionarioInicialInsert = TablesInsert<'alumno_cuestionario_inicial'>;
 export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_inicial'>;

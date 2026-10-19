@@ -35,6 +35,10 @@ export const VERSION_SNAPSHOT = 1;
 export const TABLAS = [
   { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles" } },
   { nombre: "ejercicios", fks: { creado_por: "perfiles" } },
+  {
+    nombre: "ejercicios_alternativas",
+    fks: { ejercicio_alternativo_id: "ejercicios", ejercicio_origen_id: "ejercicios" },
+  },
   { nombre: "entrenador_alumnos", fks: { alumno_id: "perfiles", entrenador_id: "perfiles" } },
   { nombre: "planes_entrenamiento", fks: { alumno_id: "perfiles", profesor_id: "perfiles" } },
   { nombre: "dias_rutina", fks: { plan_id: "planes_entrenamiento" } },
@@ -63,8 +67,17 @@ export const TABLAS = [
     fks: { alumno_id: "perfiles", confirmado_por: "perfiles", contratacion_id: "contrataciones" },
   },
   { nombre: "auditoria_cambios", fks: { autorizado_por: "perfiles" } },
-  // ADR-002: todavía sin migración; se omite del snapshot mientras no exista.
-  { nombre: "sustituciones_ejercicios", fks: {}, opcional: true },
+  {
+    nombre: "sustituciones_ejercicios",
+    fks: {
+      ejercicio_en_rutina_id: "ejercicios_en_rutina",
+      ejercicio_original_id: "ejercicios",
+      ejercicio_sustituto_id: "ejercicios",
+      plan_id: "planes_entrenamiento",
+      reporte_dolor_id: "alumno_historial_dolor",
+      responsable_id: "perfiles",
+    },
+  },
 ];
 
 /** JSON estable: claves ordenadas, para que el hash no dependa del orden de columnas. */
