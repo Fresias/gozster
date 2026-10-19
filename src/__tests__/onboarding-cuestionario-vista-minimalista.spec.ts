@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
@@ -9,6 +9,9 @@ import type {
   AlumnoCuestionarioInicialInsert,
   AlumnoCuestionarioInicialUpdate,
 } from "@/types/database.types";
+import { useAthleteStore } from "@/store/use-athlete-store";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 
@@ -345,6 +348,188 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
         dias_disponibles_semana: 4,
       };
       expect(updatePayload.dias_disponibles_semana).toBe(4);
+    });
+  });
+
+  describe("4. Zustand Stores: useAthleteStore y useCoachStudioStore", () => {
+    beforeEach(() => {
+      useOfflineQueueStore.setState({ isOnline: true, pendingEvents: [] });
+      useAthleteStore.getState().resetSessionToDefaults();
+      useAthleteStore.getState().setNivelVistaAlumno("SIMPLE");
+      useAthleteStore.getState().setCuestionarioInicial(null);
+      vi.restoreAllMocks();
+    });
+
+    it("useAthleteStore inicia por defecto en modo SIMPLE y cuestionarioInicial null", () => {
+      const state = useAthleteStore.getState();
+      expect(state.nivelVistaAlumno).toBe("SIMPLE");
+      expect(state.cuestionarioInicial).toBeNull();
+    });
+
+    it("permite alternar el nivel de vista entre SIMPLE y TECNICA", () => {
+      const store = useAthleteStore.getState();
+      store.setNivelVistaAlumno("TECNICA");
+      expect(useAthleteStore.getState().nivelVistaAlumno).toBe("TECNICA");
+
+      store.setNivelVistaAlumno("SIMPLE");
+      expect(useAthleteStore.getState().nivelVistaAlumno).toBe("SIMPLE");
+    });
+
+    it("guarda el cuestionario inicial en memoria y encola evento offline", async () => {
+      const store = useAthleteStore.getState();
+      await store.saveCuestionarioInicial({
+        objetivo_principal: "Ganar masa muscular y fuerza",
+        experiencia_previa: "1 a 2 años",
+        dias_disponibles_semana: 4,
+        molestias_o_lesiones_previas: "Molestia leve en hombro derecho",
+        equipamiento_disponible: "Gimnasio comercial completo",
+        respuestas_extra: { comentarios: "Prefiero no hacer sentadilla profunda" },
+      });
+
+      const updated = useAthleteStore.getState().cuestionarioInicial;
+      expect(updated).not.toBeNull();
+      expect(updated?.objetivo_principal).toBe("Ganar masa muscular y fuerza");
+      expect(updated?.dias_disponibles_semana).toBe(4);
+      expect(updated?.completado_at).toBeDefined();
+
+      const queue = useOfflineQueueStore.getState().pendingEvents;
+      const queueEvent = queue.find((e) => e.action === "UPSERT_CUESTIONARIO_INICIAL");
+      expect(queueEvent).toBeDefined();
+      expect((queueEvent?.payload as any)?.objetivo_principal).toBe("Ganar masa muscular y fuerza");
+    });
+
+    it("en modo SIMPLE: completeSet permite registrar serie normal con peso y repeticiones sin bloqueo", () => {
+      const store = useAthleteStore.getState();
+      store.setNivelVistaAlumno("SIMPLE");
+
+      const session = store.currentSession;
+      const ejId = session.ejercicios[0]!.id;
+
+      store.updateSetField(ejId, 1, "peso_kg", 80);
+      store.updateSetField(ejId, 1, "reps_hechas", 10);
+      store.completeSet(ejId, 1);
+
+      expect(useAthleteStore.getState().rpeValidationError).toBeNull();
+      const updatedSet = useAthleteStore
+        .getState()
+        .currentSession.ejercicios[0]!.series[0]!;
+      expect(updatedSet.completada).toBe(true);
+      expect(updatedSet.peso_kg).toBe(80);
+      expect(updatedSet.reps_hechas).toBe(10);
+    });
+
+    it("en modo TECNICA: completeSet exige RPE obligatorio si force_rpe_required está activo", () => {
+      const store = useAthleteStore.getState();
+      store.setNivelVistaAlumno("TECNICA");
+
+      const session = store.currentSession;
+      const ejId = session.ejercicios[0]!.id;
+      session.ejercicios[0]!.force_rpe_required = true;
+      session.ejercicios[0]!.series[0]!.completada = false;
+      session.ejercicios[0]!.series[0]!.rpe_real = 0;
+
+      store.completeSet(ejId, 1);
+
+      expect(useAthleteStore.getState().rpeValidationError).toContain("exige registrar un RPE válido");
+      expect(useAthleteStore.getState().currentSession.ejercicios[0]!.series[0]!.completada).toBe(false);
+
+      store.updateSetField(ejId, 1, "rpe_real", 8);
+      store.completeSet(ejId, 1);
+      expect(useAthleteStore.getState().rpeValidationError).toBeNull();
+      expect(useAthleteStore.getState().currentSession.ejercicios[0]!.series[0]!.completada).toBe(true);
+    });
+
+    it("useCoachStudioStore.actualizarNivelVistaAlumno actualiza estado, muestra toast y encola evento", async () => {
+      const coachStore = useCoachStudioStore.getState();
+      const mockAlumno = coachStore.alumnos[0];
+      if (!mockAlumno) return;
+
+      await coachStore.actualizarNivelVistaAlumno(mockAlumno.id, "TECNICA");
+
+      const alumnoActualizado = useCoachStudioStore
+        .getState()
+        .alumnos.find((a) => a.id === mockAlumno.id);
+      expect(alumnoActualizado?.nivel_vista_alumno).toBe("TECNICA");
+
+      const toast = useCoachStudioStore.getState().toast;
+      expect(toast?.title).toBe("Nivel de vista actualizado");
+      expect(toast?.message).toContain("Vista Técnica Avanzada");
+
+      const queue = useOfflineQueueStore.getState().pendingEvents;
+      const queueEvent = queue.find((e) => e.action === "UPDATE_ALUMNO_NIVEL_VISTA");
+      expect(queueEvent).toBeDefined();
+      expect((queueEvent?.payload as any)?.nivel).toBe("TECNICA");
+    });
+  });
+
+  describe("5. Ergonomía Táctil, PWA Offline y Componentes de UI", () => {
+    const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+    const cuestionarioPath = path.resolve(__dirname, "../components/athlete/cuestionario-inicial.tsx");
+    const studentDetailPath = path.resolve(__dirname, "../components/coach/student-detail.tsx");
+    const coachStudioViewPath = path.resolve(__dirname, "../components/coach/coach-studio-view.tsx");
+
+    const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+    const cuestionarioCode = fs.readFileSync(cuestionarioPath, "utf-8");
+    const studentDetailCode = fs.readFileSync(studentDetailPath, "utf-8");
+    const coachStudioViewCode = fs.readFileSync(coachStudioViewPath, "utf-8");
+
+    it("Athlete App (LiveWorkout) contiene la solapa 'Cuestionario Inicial' sin bloquear el entrenamiento", () => {
+      expect(liveWorkoutCode).toContain('data-testid="tab-cuestionario"');
+      expect(liveWorkoutCode).toContain('data-testid="tab-workout"');
+      expect(liveWorkoutCode).toContain('useState<"workout" | "habits" | "nutrition" | "cuestionario">("workout")');
+      expect(liveWorkoutCode).toContain("<CuestionarioInicial");
+    });
+
+    it("LiveWorkout provee conmutador de vista y oculta métricas complejas en modo SIMPLE", () => {
+      expect(liveWorkoutCode).toContain('data-testid="athlete-view-mode-container"');
+      expect(liveWorkoutCode).toContain('data-testid="athlete-toggle-vista-simple"');
+      expect(liveWorkoutCode).toContain('data-testid="athlete-toggle-vista-tecnica"');
+
+      expect(liveWorkoutCode).toContain("isSimpleView");
+      expect(liveWorkoutCode).toContain("!isSimpleView && (");
+      expect(liveWorkoutCode).toContain("setWarmupModalExercise");
+      expect(liveWorkoutCode).toContain("setPlateModalWeight");
+    });
+
+    it("CuestionarioInicial ofrece experiencia opcional, accesible y táctil (>= 44-48px)", () => {
+      expect(cuestionarioCode).toContain("Cuestionario Inicial (Opcional)");
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-inicial-container"');
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-opcional-badge"');
+      expect(cuestionarioCode).toContain("No bloquea tu entrenamiento");
+
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-objetivo"');
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-experiencia"');
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-dias"');
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-equipamiento"');
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-molestias"');
+      expect(cuestionarioCode).toContain('data-testid="input-molestias"');
+      expect(cuestionarioCode).toContain('data-testid="input-comentarios"');
+
+      expect(cuestionarioCode).toContain('data-testid="submit-cuestionario-btn"');
+      expect(cuestionarioCode).toMatch(/min-h-\[48px\]|min-h-12/);
+
+      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-card"');
+      expect(cuestionarioCode).toContain('data-testid="btn-editar-cuestionario"');
+    });
+
+    it("Coach Studio (StudentDetail) permite alternar vista SIMPLE/TECNICA y visualizar el cuestionario", () => {
+      expect(studentDetailCode).toContain('data-testid="coach-nivel-vista-card"');
+      expect(studentDetailCode).toContain('data-testid="coach-toggle-vista-simple"');
+      expect(studentDetailCode).toContain('data-testid="coach-toggle-vista-tecnica"');
+
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-card"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-badge-completado"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-badge-pendiente"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-objetivo"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-experiencia"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-dias"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-equipamiento"');
+      expect(studentDetailCode).toContain('data-testid="coach-cuestionario-molestias"');
+    });
+
+    it("CoachStudioView propaga onActualizarNivelVista a StudentDetail", () => {
+      expect(coachStudioViewCode).toContain("actualizarNivelVistaAlumno");
+      expect(coachStudioViewCode).toContain("onActualizarNivelVista={actualizarNivelVistaAlumno}");
     });
   });
 });

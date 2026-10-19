@@ -28,6 +28,7 @@ import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { HabitTracker } from "@/components/athlete/habit-tracker";
 import { NutritionTracker } from "@/components/athlete/nutrition-tracker";
+import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 
 export function LiveWorkout() {
@@ -46,9 +47,13 @@ export function LiveWorkout() {
     resetSessionToDefaults,
     loadStudentSession,
     syncSessionToSupabase,
+    nivelVistaAlumno,
+    setNivelVistaAlumno,
+    cuestionarioInicial,
   } = useAthleteStore();
 
-  const [activeTab, setActiveTab] = React.useState<"workout" | "habits" | "nutrition">("workout");
+  const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
+  const [activeTab, setActiveTab] = React.useState<"workout" | "habits" | "nutrition" | "cuestionario">("workout");
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
@@ -154,7 +159,26 @@ export function LiveWorkout() {
         >
           🥗 Nutrición &amp; Macros
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("cuestionario")}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
+            activeTab === "cuestionario"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-secondary/40"
+          }`}
+          data-testid="tab-cuestionario"
+        >
+          📋 Cuestionario Inicial {cuestionarioInicial?.completado_at ? "✓" : "(Opcional)"}
+        </button>
       </div>
+
+      {activeTab === "cuestionario" && (
+        <CuestionarioInicial
+          athleteId={currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7"}
+          athleteName={currentSession.studentName || "Celeste Gerardi"}
+        />
+      )}
 
       {activeTab === "habits" && (
         <HabitTracker
@@ -203,13 +227,46 @@ export function LiveWorkout() {
               </div>
             </div>
 
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                {currentSession.nombre_rutina}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Fecha: {currentSession.fecha} • Objetivo: Hipertrofia &amp; Fuerza
-              </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  {currentSession.nombre_rutina}
+                </h1>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Fecha: {currentSession.fecha} • Objetivo: Hipertrofia &amp; Fuerza
+                </p>
+              </div>
+
+              {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
+              <div
+                className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
+                data-testid="athlete-view-mode-container"
+              >
+                <button
+                  type="button"
+                  onClick={() => setNivelVistaAlumno("SIMPLE")}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                    isSimpleView
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="athlete-toggle-vista-simple"
+                >
+                  Vista Simple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNivelVistaAlumno("TECNICA")}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                    !isSimpleView
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="athlete-toggle-vista-tecnica"
+                >
+                  Vista Técnica
+                </button>
+              </div>
             </div>
 
             {/* Selector rápido de Alumno Real GOZS o Rutina Base */}
@@ -265,8 +322,8 @@ export function LiveWorkout() {
               </div>
             )}
 
-            {/* Métricas en vivo de la sesión con Hevy Double Volume */}
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {/* Métricas en vivo de la sesión (Minimalista vs Técnica) */}
+            <div className={`grid gap-2.5 ${isSimpleView ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
               <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Series Hechas</p>
                 <p className="text-xl font-black font-mono tabular-nums text-foreground mt-0.5">
@@ -274,25 +331,39 @@ export function LiveWorkout() {
                 </p>
               </div>
 
-              {/* Hevy Double Volume */}
-              <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-m3-1">
-                <p className="text-[11px] font-bold text-primary uppercase tracking-wider">
-                  Vol. Efectivo (Hevy)
-                </p>
-                <p className="text-xl font-black text-primary font-mono tabular-nums mt-0.5">
-                  {effectiveVolumeKg.toLocaleString()} <span className="text-xs font-semibold">kg</span>
-                </p>
-                <span className="text-[9px] text-muted-foreground block mt-0.5">
-                  Excluye calentamiento (W)
-                </span>
-              </div>
+              {!isSimpleView && (
+                <>
+                  {/* Hevy Double Volume */}
+                  <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-m3-1">
+                    <p className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                      Vol. Efectivo (Hevy)
+                    </p>
+                    <p className="text-xl font-black text-primary font-mono tabular-nums mt-0.5">
+                      {effectiveVolumeKg.toLocaleString()} <span className="text-xs font-semibold">kg</span>
+                    </p>
+                    <span className="text-[9px] text-muted-foreground block mt-0.5">
+                      Excluye calentamiento (W)
+                    </span>
+                  </div>
 
-              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Volumen Bruto</p>
-                <p className="text-xl font-black text-foreground/90 font-mono tabular-nums mt-0.5">
-                  {totalVolumeKg.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">kg</span>
-                </p>
-              </div>
+                  {/* Volumen Bruto */}
+                  <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Volumen Bruto</p>
+                    <p className="text-xl font-black text-foreground/90 font-mono tabular-nums mt-0.5">
+                      {totalVolumeKg.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">kg</span>
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {isSimpleView && (
+                <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
+                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ejercicios</p>
+                  <p className="text-xl font-black text-foreground font-mono tabular-nums mt-0.5">
+                    {currentSession.ejercicios.length} <span className="text-xs font-normal text-muted-foreground">hoy</span>
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Cola Offline</p>
@@ -359,7 +430,7 @@ export function LiveWorkout() {
                                 {supersetBadge}
                               </Badge>
                             )}
-                            {ejercicio.force_rpe_required && (
+                            {!isSimpleView && ejercicio.force_rpe_required && (
                               <Badge
                                 variant="outline"
                                 className="border-amber-500 text-amber-400 text-[10px]"
@@ -375,19 +446,21 @@ export function LiveWorkout() {
                       </div>
 
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Botón Warmup Calculator */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold"
-                          onClick={() => setWarmupModalExercise(ejercicio)}
-                          data-testid={`warmup-btn-${ejercicio.id}`}
-                        >
-                          <span>🔥</span>
-                          <span>Calentamiento</span>
-                        </Button>
+                        {/* Botón Warmup Calculator (Solo en Vista Técnica) */}
+                        {!isSimpleView && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold"
+                            onClick={() => setWarmupModalExercise(ejercicio)}
+                            data-testid={`warmup-btn-${ejercicio.id}`}
+                          >
+                            <span>🔥</span>
+                            <span>Calentamiento</span>
+                          </Button>
+                        )}
 
-                        {/* Botón Video de Técnica */}
+                        {/* Botón Video de Técnica (Siempre disponible en ambas vistas) */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -407,7 +480,9 @@ export function LiveWorkout() {
 
                     <CardDescription className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
                       <span className="font-medium text-foreground">
-                        Objetivo: {ejercicio.series.length} series × {ejercicio.repeticiones_objetivo} reps (RPE ~{ejercicio.rpe_objetivo})
+                        {isSimpleView
+                          ? `Objetivo: ${ejercicio.series.length} series × ${ejercicio.repeticiones_objetivo} reps`
+                          : `Objetivo: ${ejercicio.series.length} series × ${ejercicio.repeticiones_objetivo} reps (RPE ~${ejercicio.rpe_objetivo})`}
                       </span>
                       {ejercicio.musculos_principales.length > 0 && (
                         <>
@@ -457,39 +532,41 @@ export function LiveWorkout() {
                         >
                           <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
                             <div className="flex items-center gap-2">
-                              {/* Selector Taxonomía de Series Cuádruple (W, N, F, D) */}
-                              <div className="flex items-center gap-1 bg-secondary/40 p-0.5 rounded-lg border border-border/40">
-                                {(["W", "N", "F", "D"] as const).map((t) => (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    disabled={serie.completada}
-                                    onClick={() => updateSetType(ejercicio.id, serie.numero_serie, t)}
-                                    className={`px-2 py-0.5 text-[10px] font-black rounded transition-all ${
-                                      setType === t
-                                        ? t === "W"
-                                          ? "bg-amber-500 text-black shadow-sm"
+                              {/* Selector Taxonomía de Series Cuádruple (W, N, F, D) - Solo en Vista Técnica */}
+                              {!isSimpleView && (
+                                <div className="flex items-center gap-1 bg-secondary/40 p-0.5 rounded-lg border border-border/40">
+                                  {(["W", "N", "F", "D"] as const).map((t) => (
+                                    <button
+                                      key={t}
+                                      type="button"
+                                      disabled={serie.completada}
+                                      onClick={() => updateSetType(ejercicio.id, serie.numero_serie, t)}
+                                      className={`px-2 py-0.5 text-[10px] font-black rounded transition-all ${
+                                        setType === t
+                                          ? t === "W"
+                                            ? "bg-amber-500 text-black shadow-sm"
+                                            : t === "F"
+                                            ? "bg-rose-600 text-white shadow-sm"
+                                            : t === "D"
+                                            ? "bg-purple-600 text-white shadow-sm"
+                                            : "bg-primary text-primary-foreground shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground"
+                                      }`}
+                                      title={
+                                        t === "W"
+                                          ? "Calentamiento / Aproximación (excluido de volumen)"
                                           : t === "F"
-                                          ? "bg-rose-600 text-white shadow-sm"
+                                          ? "Fallo concéntrico (RPE 10)"
                                           : t === "D"
-                                          ? "bg-purple-600 text-white shadow-sm"
-                                          : "bg-primary text-primary-foreground shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground"
-                                    }`}
-                                    title={
-                                      t === "W"
-                                        ? "Calentamiento / Aproximación (excluido de volumen)"
-                                        : t === "F"
-                                        ? "Fallo concéntrico (RPE 10)"
-                                        : t === "D"
-                                        ? "Drop Set descendente"
-                                        : "Serie Normal efectiva"
-                                    }
-                                  >
-                                    {t}
-                                  </button>
-                                ))}
-                              </div>
+                                          ? "Drop Set descendente"
+                                          : "Serie Normal efectiva"
+                                      }
+                                    >
+                                      {t}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
 
                               <span className="text-xs font-semibold text-foreground">
                                 Serie {serie.numero_serie}
@@ -503,15 +580,17 @@ export function LiveWorkout() {
 
                             {/* Estimación de 1RM & Botones auxiliares (Discos, Molestia, Video) */}
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-6 text-[10px] px-2 font-bold"
-                                onClick={() => setPlateModalWeight(serie.peso_kg)}
-                                title="Calcular discos olímpicos"
-                              >
-                                🏋️ Discos
-                              </Button>
+                              {!isSimpleView && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-[10px] px-2 font-bold"
+                                  onClick={() => setPlateModalWeight(serie.peso_kg)}
+                                  title="Calcular discos olímpicos"
+                                >
+                                  🏋️ Discos
+                                </Button>
+                              )}
 
                               <Button
                                 variant="outline"
@@ -553,11 +632,13 @@ export function LiveWorkout() {
                                 {serie.video_url ? "📹 Video OK" : "📹 Video"}
                               </Button>
 
-                              <div className="text-right">
-                                <span className="text-xs font-mono font-bold text-primary">
-                                  {serie.estimated1RM.toFixed(1)} kg 1RM
-                                </span>
-                              </div>
+                              {!isSimpleView && (
+                                <div className="text-right">
+                                  <span className="text-xs font-mono font-bold text-primary">
+                                    {serie.estimated1RM.toFixed(1)} kg 1RM
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -574,7 +655,7 @@ export function LiveWorkout() {
                           )}
 
                           {/* Controles de Carga: Peso, Reps, RPE con botones táctiles grandes (Thumb Zone) */}
-                          <div className="grid grid-cols-3 gap-2.5 py-1">
+                          <div className={`grid gap-2.5 py-1 ${isSimpleView ? "grid-cols-2" : "grid-cols-3"}`}>
                             {/* Peso (kg) */}
                             <div className="space-y-1.5">
                               <label
@@ -697,67 +778,70 @@ export function LiveWorkout() {
                               </div>
                             </div>
 
-                            {/* RPE */}
-                            <div className="space-y-1.5">
-                              <label
-                                htmlFor={`rpe-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
-                              >
-                                RPE (6-10)
-                              </label>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  id={`rpe-${ejercicio.id}-${serie.numero_serie}`}
-                                  type="number"
-                                  step="0.5"
-                                  min="6"
-                                  max="10"
-                                  value={serie.rpe_real}
-                                  onChange={(e) =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "rpe_real",
-                                      parseFloat(e.target.value) || 0,
-                                    )
-                                  }
-                                  disabled={serie.completada}
-                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                              </div>
-                              <div className="flex gap-1.5 pt-0.5">
-                                <button
-                                  type="button"
-                                  disabled={serie.completada || serie.rpe_real <= 6}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "rpe_real",
-                                      Math.max(1, serie.rpe_real - 0.5),
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                            {/* RPE (Solo en Vista Técnica Avanzada) */}
+                            {!isSimpleView && (
+                              <div className="space-y-1.5">
+                                <label
+                                  htmlFor={`rpe-${ejercicio.id}-${serie.numero_serie}`}
+                                  className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
                                 >
-                                  -0.5
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={serie.completada || serie.rpe_real >= 10}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "rpe_real",
-                                      Math.min(10, serie.rpe_real + 0.5),
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                >
-                                  +0.5
-                                </button>
+                                  RPE (6-10)
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    id={`rpe-${ejercicio.id}-${serie.numero_serie}`}
+                                    type="number"
+                                    step="0.5"
+                                    min="6"
+                                    max="10"
+                                    value={serie.rpe_real}
+                                    data-testid="input-rpe"
+                                    onChange={(e) =>
+                                      updateSetField(
+                                        ejercicio.id,
+                                        serie.numero_serie,
+                                        "rpe_real",
+                                        parseFloat(e.target.value) || 0,
+                                      )
+                                    }
+                                    disabled={serie.completada}
+                                    className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                  />
+                                </div>
+                                <div className="flex gap-1.5 pt-0.5">
+                                  <button
+                                    type="button"
+                                    disabled={serie.completada || serie.rpe_real <= 6}
+                                    onClick={() =>
+                                      updateSetField(
+                                        ejercicio.id,
+                                        serie.numero_serie,
+                                        "rpe_real",
+                                        Math.max(1, serie.rpe_real - 0.5),
+                                      )
+                                    }
+                                    className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                                  >
+                                    -0.5
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={serie.completada || serie.rpe_real >= 10}
+                                    onClick={() =>
+                                      updateSetField(
+                                        ejercicio.id,
+                                        serie.numero_serie,
+                                        "rpe_real",
+                                        Math.min(10, serie.rpe_real + 0.5),
+                                      )
+                                    }
+                                    className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                                  >
+                                    +0.5
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
 
                           {/* Botón táctil ergonómico grande de acción (Thumb Zone 48px - 56px) */}
@@ -769,7 +853,9 @@ export function LiveWorkout() {
                                     ✓
                                   </span>
                                   <span>
-                                    Serie {serie.numero_serie} ({setType}): {serie.peso_kg}kg × {serie.reps_hechas} @RPE {serie.rpe_real}
+                                    {isSimpleView
+                                      ? `Serie ${serie.numero_serie}: ${serie.peso_kg}kg × ${serie.reps_hechas} reps`
+                                      : `Serie ${serie.numero_serie} (${setType}): ${serie.peso_kg}kg × ${serie.reps_hechas} @RPE ${serie.rpe_real}`}
                                   </span>
                                 </div>
                                 <Button
