@@ -1,0 +1,24 @@
+{
+  "context": {
+    "fileName": "AGENTS.md"
+  },
+  "security": {
+    "disableYoloMode": true
+  },
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "^(run_shell_command|read_file|read_many_files)$",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "gozster-guard",
+            "command": "bash .claude/hooks/guard.sh --runtime gemini-cli",
+            "timeout": 10000,
+            "description": "GOZSter security and token anti-waste guard"
+          }
+        ]
+      }
+    ]
+  }
+}
