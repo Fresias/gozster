@@ -6,15 +6,20 @@
 // → `.harness/`) llega en H-03. Decisión P5 (cerrada): JSON sin dependencias —
 // validador escrito a mano, sin YAML ni ajv/zod (Ponytail).
 
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+/** Raíz del repo consumidor (misma convención que H-05: git rev-parse). */
+function repoRoot() {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: here, encoding: "utf8" }).trim();
+}
 
-// El overlay por defecto es ../harness (hermano de harness-kit/). Un primer
-// argumento opcional apunta a otro overlay (tests, otros proyectos).
-const overlayDir = path.resolve(process.argv[2] ?? path.join(here, "..", "harness"));
+// El overlay por defecto es <raíz del repo>/harness. Un primer argumento
+// opcional apunta a otro overlay (tests, otros proyectos).
+const overlayDir = path.resolve(process.argv[2] ?? path.join(repoRoot(), "harness"));
 
 // Contrato mínimo: clave requerida → tipo esperado ("string" | "array").
 const SCHEMA = {
@@ -51,6 +56,9 @@ function load(file) {
 
 /** Valida claves requeridas y sus tipos contra el contrato. */
 function validate(file, config) {
+  if (typeOf(config) !== "object" || config === null) {
+    fail(`invalid json: ${file} (expected object)`);
+  }
   for (const [key, expected] of Object.entries(SCHEMA[file])) {
     if (!(key in config)) fail(`missing key: ${key}`);
     const actual = typeOf(config[key]);

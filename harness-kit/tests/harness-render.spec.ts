@@ -9,14 +9,14 @@ import { afterEach, describe, expect, it } from "vitest";
 // Criterio de aceptación: un `project` sin `gate` => exit 1 con "missing key: gate".
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const renderPath = path.resolve(here, "..", "harness-render.mjs");
+const renderPath = path.resolve(here, "..", "core", "scripts", "harness-render.mjs");
 
 const VALID_HARNESS = { kit: "harness-kit", version: "2.0.0", out: ".harness" };
 
 let overlay: string | undefined;
 
 /** Crea un overlay temporal con un harness.json válido y el project.json dado. */
-function makeOverlay(project: Record<string, unknown>): string {
+function makeOverlay(project: unknown): string {
   overlay = mkdtempSync(path.join(tmpdir(), "harness-overlay-"));
   writeFileSync(path.join(overlay, "harness.json"), JSON.stringify(VALID_HARNESS));
   writeFileSync(path.join(overlay, "project.json"), JSON.stringify(project));
@@ -56,6 +56,17 @@ describe("harness-render: carga y validación de contratos", () => {
     expect(code).toBe(1);
     expect(stderr).toContain("invalid type: runtimes");
   });
+
+  it.each([null, [], "demo", 42])(
+    "falla con 'invalid json: project.json (expected object)' si el project es %j",
+    (project) => {
+      const dir = makeOverlay(project);
+      const { code, stderr } = runRender(dir);
+      expect(code).toBe(1);
+      expect(stderr).toContain("invalid json: project.json (expected object)");
+      expect(stderr).not.toContain("TypeError");
+    },
+  );
 
   it("pasa cuando harness.json y project.json están completos", () => {
     const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
