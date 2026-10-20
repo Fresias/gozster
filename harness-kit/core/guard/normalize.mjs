@@ -137,7 +137,10 @@ export function normalize(payload, options = {}) {
     const event = payload?.hook_event_name;
     if (event === "PostToolUse" || event === "AfterTool") {
       phase = "post";
-    } else if (payload?.output && payload?.input?.tool) {
+    } else if (
+      payload?.input?.tool &&
+      (payload?.output?.output !== undefined || typeof payload?.output === "string")
+    ) {
       phase = "post";
     } else if (payload?.tool_response || payload?.toolResponse) {
       phase = "post";
