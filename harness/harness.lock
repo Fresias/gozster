@@ -17,7 +17,7 @@
     ".gemini/settings.json": "sha256:1376e58a985d57305b01aee0734ba77bac7a4dce5d766261f0438c2bd7bad3f3",
     ".opencode/agents/schema-inspector.md": "sha256:e10eac7d8a59ad1221c4ba34d9dfa6b3a1254d7adf73b8f713ad614611414f3a",
     ".opencode/agents/trace-auditor.md": "sha256:43645e4579b0a24c8d2f33f0338a37f5425451158e5843b7f8ad17fcd64abe3f",
-    "AGENTS.md": "sha256:cd4a5058501bc36ae81598a147f047c1d8ff7eb3bf697090a77604f225aa3e9b",
+    "AGENTS.md": "sha256:4b7e9c64a02c1a22574b7eaebb2a1bd0297409be46731165ebae35b4b782f085",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }
 }

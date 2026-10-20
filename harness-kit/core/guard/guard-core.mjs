@@ -5,6 +5,7 @@
  * and OpenCode plugins.
  */
 
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,8 +82,18 @@ export function loadRules(options = {}) {
   return rules;
 }
 
+/** Optional `forbidden_reads` list from harness/project.json (dirs end with "/"). */
+function loadForbiddenReads(repoRoot) {
+  try {
+    const cfg = JSON.parse(readFileSync(path.join(repoRoot, "harness", "project.json"), "utf8"));
+    return Array.isArray(cfg.forbidden_reads) ? cfg.forbidden_reads : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Check sensitive file path for leaks and bloatware. */
-function checkSensitivePath(filePath) {
+function checkSensitivePath(filePath, repoRoot) {
   if (!filePath) return null;
   const base = path.basename(filePath);
 
@@ -105,6 +116,19 @@ function checkSensitivePath(filePath) {
           "Reading env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed.",
       };
     }
+  }
+
+  const norm = "/" + filePath.replace(/\\/g, "/");
+  const forbidden = loadForbiddenReads(repoRoot).some((entry) =>
+    entry.endsWith("/") ? norm.includes("/" + entry) : norm.endsWith("/" + entry),
+  );
+  if (/\.(pem|key)$/i.test(base) || forbidden) {
+    return {
+      allowed: false,
+      ruleId: "read.sensitive",
+      reason:
+        "Reading key/certificate files (*.pem, *.key) or paths listed in forbidden_reads is forbidden.",
+    };
   }
 
   return null;
@@ -130,7 +154,7 @@ function countLines(fullPath) {
 
 /** Evaluate read requests. */
 function evaluateRead(call, options, repoRoot) {
-  const sensitive = checkSensitivePath(call.filePath);
+  const sensitive = checkSensitivePath(call.filePath, repoRoot);
   if (sensitive) return sensitive;
 
   if (call.filePath) {
@@ -155,18 +179,71 @@ function evaluateRead(call, options, repoRoot) {
 }
 
 /** Evaluate read_many requests. */
-function evaluateReadMany(call) {
+function evaluateReadMany(call, repoRoot) {
   if (Array.isArray(call.paths)) {
     for (const p of call.paths) {
-      const sensitive = checkSensitivePath(p);
+      const sensitive = checkSensitivePath(p, repoRoot);
       if (sensitive) return sensitive;
     }
   }
   return { allowed: true };
 }
 
+/**
+ * Lines a `cat`/`head`/`tail` segment would print from a >300-line file, or 0.
+ * Covers `-n N`, `-nN`, `--lines=N`, `-N`, `head -n -K` and `tail -n +N`.
+ */
+function oversizeCatLines(cmd, repoRoot) {
+  for (const seg of cmd.split(/[|;&\n]+/)) {
+    const tokens = seg.trim().split(/\s+/).map((t) => t.replace(/^["']|["']$/g, ""));
+    const bin = tokens[0];
+    if (bin !== "cat" && bin !== "head" && bin !== "tail") continue;
+
+    let count = bin === "cat" ? null : "10";
+    const files = [];
+    for (let i = 1; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (/^\d*[<>]/.test(t)) {
+        if (/^\d*[<>]+$/.test(t)) i++; // redirection target is not an input
+        continue;
+      }
+      if (bin !== "cat") {
+        const m = t.match(/^(?:-n|--lines=?)(.*)$/) || t.match(/^-(\d+)$/);
+        if (m) {
+          count = m[1] || tokens[++i] || "10";
+          continue;
+        }
+      }
+      if (t && !t.startsWith("-")) files.push(t);
+    }
+
+    for (const f of files) {
+      const lines = countLines(path.isAbsolute(f) ? f : path.resolve(repoRoot, f));
+      if (lines <= 300) continue;
+      const n = Math.abs(parseInt(count, 10)) || 0;
+      let shown;
+      if (count === null) shown = lines;
+      else if (bin === "head" && count.startsWith("-")) shown = lines - n;
+      else if (bin === "tail" && count.startsWith("+")) shown = lines - n + 1;
+      else shown = Math.min(n, lines);
+      if (shown > 300) return shown;
+    }
+  }
+  return 0;
+}
+
+const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+
+/** Reuses `harness-gate.sh --verify` (single seal_valid implementation). */
+function sealValid(repoRoot) {
+  const script = path.join(here, "..", "scripts", "harness-gate.sh").replace(/\\/g, "/");
+  const bash = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
+  const res = spawnSync(bash, [script, "--verify"], { cwd: repoRoot, encoding: "utf8" });
+  return res.status === 0;
+}
+
 /** Evaluate shell commands. */
-function evaluateShell(call) {
+function evaluateShell(call, repoRoot) {
   const cmd = call.command || "";
   if (!cmd) return { allowed: true };
 
@@ -319,8 +396,27 @@ function evaluateShell(call) {
     };
   }
 
-  // Writing to .git/hooks or .claude/
-  if (/(\.git\/hooks|\.claude\/)/i.test(cmd)) {
+  // sudo (enforced in every runtime, not only Claude's permissions.deny)
+  if (/(^|[;&|(`])\s*sudo(\s|$)/.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "shell.sudo",
+      reason: "sudo is forbidden (privilege escalation).",
+    };
+  }
+
+  // Unbounded cat/head/tail of a >300-line file
+  const shown = oversizeCatLines(cmd, repoRoot);
+  if (shown) {
+    return {
+      allowed: false,
+      ruleId: "shell.oversize-cat",
+      reason: `This would print ${shown} lines of a >300-line file. Search with rg -n first, then print a bounded range (sed -n 'A,Bp', head/tail -n <=300).`,
+    };
+  }
+
+  // Writing to harness hooks or runtime settings
+  if (/(\.git\/hooks|\.claude\/|\.agents\/|\.gemini\/|\.opencode\/)/i.test(cmd)) {
     if (
       /(>>?|\stee\s|(^|\s)(cp|mv|install|dd|truncate|chmod)\s|sed\s+-i|(^|\s)rm\s)/i.test(
         cmd
@@ -335,7 +431,27 @@ function evaluateShell(call) {
     }
   }
 
+  // gh pr create requires a valid gate seal
+  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd) && !sealValid(repoRoot)) {
+    return {
+      allowed: false,
+      ruleId: "pr.requires-seal",
+      reason:
+        "No valid gate seal (.harness/complete.json missing or stale for HEAD + diff). Run harness-kit/core/scripts/harness-gate.sh before gh pr create.",
+    };
+  }
+
   return { allowed: true };
+}
+
+/** Generated artifacts as recorded by harness-render.mjs in harness/harness.lock. */
+function generatedArtifacts(repoRoot) {
+  try {
+    const lock = JSON.parse(readFileSync(path.join(repoRoot, "harness", "harness.lock"), "utf8"));
+    return new Set([...Object.keys(lock.artifacts || {}), "harness/harness.lock"]);
+  } catch {
+    return new Set();
+  }
 }
 
 /** Evaluate write operations (Write, Edit, replace, etc.). */
@@ -370,19 +486,29 @@ function evaluateWrite(call, repoRoot) {
     }
   }
 
-  // Protect harness settings and git hooks
-  if (
-    norm.includes(".git/hooks/") ||
-    norm.includes(".claude/") ||
-    norm.includes(".agents/hooks.json")
-  ) {
+  const tamper = {
+    allowed: false,
+    ruleId: "fs.protected",
+    reason:
+      "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox). Same for .agents/, .gemini/ and .opencode/.",
+  };
+
+  // Protect git hooks and Claude settings
+  if (norm.includes(".git/hooks/") || norm.includes(".claude/")) return tamper;
+
+  // Generated artifacts (single source: harness.lock written by the render)
+  const resolved = path.isAbsolute(target) ? target : path.resolve(repoRoot, target);
+  const rel = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+  if (generatedArtifacts(repoRoot).has(rel)) {
     return {
       allowed: false,
-      ruleId: "fs.protected",
-      reason:
-        "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+      ruleId: "write.generated",
+      reason: `${rel} is a generated artifact: edit \`harness/\` or \`harness-kit/\` and run render (node harness-kit/core/scripts/harness-render.mjs).`,
     };
   }
+
+  // Protect the remaining runtime harness directories
+  if (/(^|\/)\.(agents|gemini|opencode)\//.test(norm)) return tamper;
 
   return { allowed: true };
 }
@@ -491,11 +617,11 @@ export function evaluateRules(normalizedCall, options = {}) {
 
   switch (normalizedCall.kind) {
     case "shell":
-      return evaluateShell(normalizedCall);
+      return evaluateShell(normalizedCall, repoRoot);
     case "read":
       return evaluateRead(normalizedCall, options, repoRoot);
     case "read_many":
-      return evaluateReadMany(normalizedCall);
+      return evaluateReadMany(normalizedCall, repoRoot);
     case "write":
       return evaluateWrite(normalizedCall, repoRoot);
     default:

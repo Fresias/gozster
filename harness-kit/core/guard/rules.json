@@ -12,6 +12,12 @@
     "message": "Reading env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed."
   },
   {
+    "id": "read.sensitive",
+    "target": "read",
+    "description": "Reading *.pem, *.key or paths in project.json forbidden_reads is forbidden",
+    "message": "Reading key/certificate files (*.pem, *.key) or paths listed in forbidden_reads is forbidden."
+  },
+  {
     "id": "read.oversize",
     "target": "read",
     "maxLines": 300,
@@ -88,10 +94,35 @@
     "message": "Piping a downloaded script straight into a shell is forbidden."
   },
   {
+    "id": "shell.sudo",
+    "target": "shell",
+    "description": "sudo is forbidden in every runtime",
+    "message": "sudo is forbidden (privilege escalation)."
+  },
+  {
+    "id": "shell.oversize-cat",
+    "target": "shell",
+    "maxLines": 300,
+    "description": "cat, or head/tail -n >300, of a file with >300 lines is forbidden",
+    "message": "This would print >300 lines of a >300-line file. Search with rg -n first, then print a bounded range."
+  },
+  {
+    "id": "pr.requires-seal",
+    "target": "shell",
+    "description": "gh pr create requires a valid .harness/complete.json seal (harness-gate.sh --verify)",
+    "message": "No valid gate seal. Run harness-kit/core/scripts/harness-gate.sh before gh pr create."
+  },
+  {
     "id": "fs.protected",
     "target": "all",
-    "description": "Writing to .git/hooks or .claude/ is forbidden",
-    "message": "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox)."
+    "description": "Writing to .git/hooks, .claude/, .agents/, .gemini/ or .opencode/ is forbidden",
+    "message": "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox). Same for .agents/, .gemini/ and .opencode/."
+  },
+  {
+    "id": "write.generated",
+    "target": "write",
+    "description": "Writing a generated artifact listed in harness/harness.lock is forbidden",
+    "message": "Generated artifact: edit `harness/` or `harness-kit/` and run render (node harness-kit/core/scripts/harness-render.mjs)."
   },
   {
     "id": "git.gh007-noreply",
