@@ -199,6 +199,49 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
     });
   });
 
+  // GOZS-85 — reglas result remediate.* (§4.5)
+  describe("GIVEN un post de shell con cd fallido o salida > 20.000 chars", () => {
+    const cwdLost = "bash: cd: gozster: No such file or directory";
+
+    it("THEN Claude Code PostToolUse inyecta la remediación de cwd", () => {
+      const res = runGuardCli({
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "cd gozster" },
+        tool_response: { stdout: "", stderr: cwdLost, exit_code: 1 },
+      });
+      expect(res.code).toBe(0);
+      expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toBe(
+        "cwd persists between Bash calls; run `pwd` and use absolute paths.",
+      );
+    });
+
+    it("THEN Gemini CLI AfterTool inyecta la remediación de cwd", () => {
+      const res = runGuardCli(
+        {
+          hook_event_name: "AfterTool",
+          tool_name: "run_shell_command",
+          tool_input: { command: "cd gozster" },
+          tool_response: { llmContent: cwdLost, returnDisplay: cwdLost },
+        },
+        ["--runtime", "gemini-cli"],
+      );
+      expect(res.code).toBe(0);
+      expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toContain("cwd persists between Bash calls");
+    });
+
+    it("THEN Claude Code PostToolUse inyecta la remediación de salida acotada", () => {
+      const res = runGuardCli({
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "cat big.log" },
+        tool_response: { stdout: "x".repeat(20001), stderr: "", exit_code: 0 },
+      });
+      expect(res.code).toBe(0);
+      expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toContain("Tool output exceeded 20,000 characters");
+    });
+  });
+
   describe("GIVEN un runtime unsupported (Antigravity)", () => {
     it("THEN guard-cli responde {} con exit 0 sin inventar workarounds", () => {
       const payload = {

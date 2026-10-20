@@ -109,6 +109,14 @@ const coverage: Record<string, Record<string, unknown>> = {
     kind: "write",
     targetPath: "supabase/migrations/20991231000000_new.sql",
   },
+  "remediate.cwd-lost": {
+    phase: "post",
+    kind: "shell",
+    command: "cd gozster",
+    output: "bash: cd: gozster: No such file or directory",
+  },
+  "remediate.oversize-output": { phase: "post", kind: "shell", command: "cat big.log", output: "x".repeat(20001) },
+  "post.outside-scope": { phase: "post", kind: "write", targetPath: "docs/notes.md" },
 };
 
 const tempDirs: string[] = [];
@@ -123,14 +131,18 @@ afterAll(() => {
 
 // `pr.requires-seal` se evalúa en un directorio sin sello (el repo real podría tener uno local).
 const noSealDir = tempDir("harness-no-seal-");
-const repoRootFor: Record<string, string> = { "pr.requires-seal": noSealDir };
+// `post.outside-scope` necesita un `.harness/scope.json` (harness-init.sh --scope).
+const scopedDir = tempDir("harness-scope-");
+mkdirSync(path.join(scopedDir, ".harness"));
+writeFileSync(path.join(scopedDir, ".harness", "scope.json"), JSON.stringify({ scope: ["src/lib"] }));
+const repoRootFor: Record<string, string> = { "pr.requires-seal": noSealDir, "post.outside-scope": scopedDir };
 
 describe("H-11 Parte A: cobertura por `ruleId` del guard", () => {
   const canonical = collectCanonicalRuleIds();
   const exercised = new Set(Object.keys(coverage));
 
-  it("GIVEN las 4 fuentes THEN detecta al menos las 26 reglas conocidas (24 pre + 2 post)", () => {
-    expect(canonical.size).toBeGreaterThanOrEqual(26);
+  it("GIVEN las 4 fuentes THEN detecta al menos las 29 reglas conocidas (24 pre + 5 post)", () => {
+    expect(canonical.size).toBeGreaterThanOrEqual(29);
   });
 
   it("GIVEN cada `ruleId` de las fuentes THEN existe una entrada de cobertura (CI falla si entra una regla nueva sin test)", () => {

@@ -567,12 +567,43 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
         context: "New migration detected in supabase/migrations/. Remember to run tests: npx vitest run tests/db/",
       };
     }
+
+    // Warn (never block) on writes outside .harness/scope.json (written by harness-init.sh --scope).
+    const scopeFile = path.join(repoRoot, ".harness", "scope.json");
+    if (target && existsSync(scopeFile)) {
+      let scope = [];
+      try {
+        scope = JSON.parse(readFileSync(scopeFile, "utf8")).scope ?? [];
+      } catch {}
+      const rel = path.relative(repoRoot, path.resolve(repoRoot, target)).replace(/\\/g, "/");
+      const inScope = scope.some((s) => {
+        const prefix = String(s).replace(/\\/g, "/").replace(/\/+$/, "");
+        return rel === prefix || rel.startsWith(prefix + "/");
+      });
+      if (scope.length && !inScope) {
+        return {
+          allowed: true,
+          inject: true,
+          ruleId: "post.outside-scope",
+          context: `Warning: ${rel} is outside the declared scope in .harness/scope.json (${scope.join(", ")}).`,
+        };
+      }
+    }
   }
 
   // 3. User-defined post rules from rules.json or rules.local.json
   for (const rule of rules) {
     if (rule.phase !== "post" && rule.phase !== "result") continue;
     if (rule.target && rule.target !== normalizedCall.kind && rule.target !== "all") continue;
+
+    if (rule.minOutputLength && String(normalizedCall.output || "").length > rule.minOutputLength) {
+      return {
+        allowed: true,
+        inject: true,
+        ruleId: rule.id,
+        context: rule.message || rule.description,
+      };
+    }
 
     if (rule.pathPattern) {
       const target = normalizedCall.targetPath || normalizedCall.filePath || "";
