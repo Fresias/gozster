@@ -46,6 +46,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard.sh"
+          }
+        ]
+      }
     ]
   }
 }

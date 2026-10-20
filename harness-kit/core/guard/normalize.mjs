@@ -132,6 +132,40 @@ export function normalize(payload, options = {}) {
 
   const isBounded = typeof limit === "number" && limit > 0 && limit <= 300;
 
+  let phase = options.phase || "pre";
+  if (!options.phase) {
+    const event = payload?.hook_event_name;
+    if (event === "PostToolUse" || event === "AfterTool") {
+      phase = "post";
+    } else if (payload?.output && payload?.input?.tool) {
+      phase = "post";
+    } else if (payload?.tool_response || payload?.toolResponse) {
+      phase = "post";
+    }
+  }
+
+  let output = "";
+  if (payload?.tool_response) {
+    if (typeof payload.tool_response === "string") {
+      output = payload.tool_response;
+    } else if (typeof payload.tool_response === "object") {
+      const parts = [];
+      if (payload.tool_response.stdout) parts.push(String(payload.tool_response.stdout));
+      if (payload.tool_response.stderr) parts.push(String(payload.tool_response.stderr));
+      if (payload.tool_response.llmContent) parts.push(String(payload.tool_response.llmContent));
+      if (payload.tool_response.returnDisplay && typeof payload.tool_response.returnDisplay === "string") {
+        parts.push(payload.tool_response.returnDisplay);
+      }
+      output = parts.join("\n");
+    }
+  } else if (payload?.output) {
+    if (typeof payload.output === "string") {
+      output = payload.output;
+    } else if (payload.output.output) {
+      output = String(payload.output.output);
+    }
+  }
+
   return {
     runtime,
     kind,
@@ -145,6 +179,8 @@ export function normalize(payload, options = {}) {
     paths,
     targetPath,
     isEdit,
+    phase,
+    output,
     raw: payload,
   };
 }

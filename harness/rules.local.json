@@ -13,5 +13,13 @@
     "description": "Editing AGENTS.md directly is forbidden — edit harness/ files and run harness-render.mjs",
     "pathPattern": "(^|[\\\\/])AGENTS\\.md$",
     "message": "Editing AGENTS.md directly is forbidden. Edit files under harness/ and run harness-render.mjs to generate AGENTS.md."
+  },
+  {
+    "id": "db.migration-test-reminder",
+    "phase": "post",
+    "target": "write",
+    "pathPattern": "(^|[\\\\/])supabase[\\\\/]migrations[\\\\/][^/\\\\]+\\.sql$",
+    "description": "Remind running tests/db/ after creating a new migration",
+    "message": "New migration detected in supabase/migrations/. Remember to run tests: npx vitest run tests/db/"
   }
 ]
