@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "description": "Experience Ledger del harness GOZSter (Fase 4). Cada entrada L-### registra una hipótesis de mejora, su ventana de medición y las métricas antes/después derivadas de la telemetría del guard (.harness/telemetry/events.jsonl), agregadas con harness-kit/core/scripts/harness-telemetry.mjs.",
+  "metrics": {
+    "source": ".harness/telemetry/events.jsonl",
+    "aggregator": "harness-kit/core/scripts/harness-telemetry.mjs",
+    "tracked": [
+      "blocksByRule",
+      "timeToFirstEdit.medianMs",
+      "timeToFirstEdit.p90Ms",
+      "repeatedBlockSessions"
+    ]
+  },
+  "entries": [
+    {
+      "id": "L-000",
+      "title": "Línea base del harness (guard telemetry)",
+      "status": "measuring",
+      "hypothesis": "Antes de intervenir el harness necesitamos una línea base determinista de fricción: cuánto bloquea el guard por regla, cuánto tarda un agente en su primer edit (TTFE) y cuántas sesiones chocan repetidamente contra la misma regla.",
+      "experience": "EXPERIENCE-L-000.md",
+      "window": {
+        "durationDays": 7,
+        "before": { "start": null, "end": null },
+        "after": { "start": null, "end": null }
+      },
+      "metrics": {
+        "before": {
+          "blocksByRule": null,
+          "timeToFirstEditMs": { "median": null, "p90": null },
+          "repeatedBlockSessions": null
+        },
+        "after": {
+          "blocksByRule": null,
+          "timeToFirstEditMs": { "median": null, "p90": null },
+          "repeatedBlockSessions": null
+        }
+      },
+      "notes": "La ventana de 7 días (window.before) arranca cuando GOZS-81 (matchers de escritura → guard) y GOZS-82 (plugin de OpenCode) estén en main; antes de eso la cobertura del guard es parcial y la base quedaría 'confounded'. El PR de H-12 se mergea con L-000 en 'measuring'; el cierre del issue espera los 7 días de datos."
+    }
+  ]
+}

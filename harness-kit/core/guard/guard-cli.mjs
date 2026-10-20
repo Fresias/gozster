@@ -7,6 +7,7 @@
 
 import { evaluateRules, findRepoRoot } from "./guard-core.mjs";
 import { normalize } from "./normalize.mjs";
+import { recordEvent } from "./telemetry.mjs";
 
 let runtime = "";
 let phase = "";
@@ -45,6 +46,8 @@ process.stdin.on("end", () => {
   const normalized = normalize(payload, { runtime, phase });
   const repoRoot = findRepoRoot();
   const result = evaluateRules(normalized, { repoRoot, runtime: normalized.runtime });
+
+  recordEvent(normalized, result, { repoRoot });
 
   const effectiveRuntime = normalized.runtime;
 
