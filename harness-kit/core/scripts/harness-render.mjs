@@ -337,6 +337,15 @@ if (runtimes.has("antigravity")) {
   generatedArtifacts.set(".agents/hooks.json", JSON.stringify(agHooks, null, 2) + "\n");
 }
 
+if (runtimes.has("opencode")) {
+  // OpenCode carga plugins de .opencode/plugins/ (runtimes/opencode.json). Una sola
+  // línea que reexporta el plugin del kit: sin duplicar lógica (D6) y con un único export.
+  generatedArtifacts.set(
+    ".opencode/plugins/harness-guard.ts",
+    'export { HarnessPlugin } from "../../harness-kit/core/plugins/opencode/opencode-plugin";\n',
+  );
+}
+
 // Skills: Claude Code solo lee `.claude/skills/`; el resto lee `.agents/skills/`.
 const skillDirs = [
   runtimes.has("claude-code") && ".claude/skills",

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -86,6 +86,8 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
     evidenceSpec?: string;
     /** Clave en el runtime config que justifica `unsupported`. */
     unsupportedEvidence?: string;
+    /** Artefacto generado que conecta la celda al runtime (C8) — debe existir en disco. */
+    generated?: string;
   }
 
   const matrix: Record<string, { pre: Cell; post: Cell }> = {
@@ -102,8 +104,8 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
       post: { supported: true, evidenceSpec: "guard-cli.contract.spec.ts" },
     },
     "opencode": {
-      pre: { supported: true, evidenceSpec: "opencode-plugin.spec.ts" },
-      post: { supported: true, evidenceSpec: "opencode-plugin.spec.ts" },
+      pre: { supported: true, evidenceSpec: "opencode-plugin.spec.ts", generated: ".opencode/plugins/harness-guard.ts" },
+      post: { supported: true, evidenceSpec: "opencode-plugin.spec.ts", generated: ".opencode/plugins/harness-guard.ts" },
     },
   };
 
@@ -130,6 +132,7 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
         expect(cfg.hooks.pre).toBeDefined();
         const specPath = path.join(here, cell.evidenceSpec!);
         expect(readFileSync(specPath, "utf8").length).toBeGreaterThan(0);
+        if (cell.generated) expect(existsSync(path.join(repoRoot, cell.generated)), cell.generated).toBe(true);
       });
 
       it("celda §4.5 (post): test o `unsupported` con evidencia", () => {
@@ -138,6 +141,7 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
           expect(cfg.hooks.post).not.toBe("unsupported");
           const specPath = path.join(here, cell.evidenceSpec!);
           expect(readFileSync(specPath, "utf8").length).toBeGreaterThan(0);
+          if (cell.generated) expect(existsSync(path.join(repoRoot, cell.generated)), cell.generated).toBe(true);
         } else {
           // Celda unsupported: debe estar marcada Y tener evidencia documental.
           expect(cfg.hooks.post).toBe("unsupported");
@@ -148,6 +152,16 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
       });
     });
   }
+});
+
+// GOZS-82 — OpenCode registra como plugin cada función exportada: el archivo
+// generado debe exportar exactamente 1 (HarnessPlugin), igual que el módulo fuente.
+describe("GOZS-82: plugin de OpenCode generado", () => {
+  it(".opencode/plugins/harness-guard.ts exporta exactamente 1 función (HarnessPlugin)", async () => {
+    const mod = await import("../../.opencode/plugins/harness-guard");
+    expect(Object.keys(mod)).toEqual(["HarnessPlugin"]);
+    expect(typeof mod.HarnessPlugin).toBe("function");
+  });
 });
 
 // GOZS-81 — Los matchers generados cubren las tools de core/runtimes/<rt>.json
