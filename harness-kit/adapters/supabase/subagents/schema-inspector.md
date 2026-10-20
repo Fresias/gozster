@@ -18,7 +18,7 @@ Devuelve **solo** el bloque, sin prosa antes ni después. Máximo 30 líneas.
 [SCHEMA:<alcance>]
 migration: <archivo de migración más reciente>
 tables(<n>):
-  <tabla> rls=<on|off> cols=<n>
+  <tabla> rls=<on|off>
   …
 rpc: <fn>, … | (ninguna)
 ```
@@ -26,6 +26,7 @@ rpc: <fn>, … | (ninguna)
 ## Reglas
 - `migration:` es siempre el archivo más reciente de `supabase/migrations/` (timestamp mayor); verifica que exista.
 - Con alcance `all` lista todas las tablas; con una tabla concreta, solo esa.
+- `<n>` en `tables(<n>)` es el número real de `CREATE TABLE` distintos en las migraciones, contado y no estimado: busca `CREATE TABLE` en `supabase/migrations/*.sql` y cuenta los nombres distintos que devuelve esa búsqueda. Nunca listes una tabla que no tenga su `CREATE TABLE`.
 - `rls=on` si la tabla declara `ENABLE ROW LEVEL SECURITY`; `off` en caso contrario (márcalo como riesgo).
-- Máximo 30 líneas; si hay más tablas de las que caben, lista las primeras y cierra con `… (+<k> más)`.
+- Máximo 30 líneas; si hay más tablas de las que caben, lista las primeras y cierra con `… (+<k> más)`. Usa `(+<k> más)` solo si quedan tablas reales sin listar; si listaste las `<n>`, no lo agregues.
 - Solo lectura: nunca propongas ni ejecutes DDL.
