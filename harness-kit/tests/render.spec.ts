@@ -211,6 +211,18 @@ describe("harness-render: idempotencia y detección de drift (--check)", () => {
     expect(checkRes.stderr).toContain("AGENTS.md");
   });
 
+  it("--check detecta modificación manual en .opencode/plugins/harness-guard.ts con exit 1", () => {
+    const { workspace, overlay } = createTempWorkspace();
+    runRender([overlay]);
+
+    const pluginPath = path.join(workspace, ".opencode", "plugins", "harness-guard.ts");
+    writeFileSync(pluginPath, readFileSync(pluginPath, "utf8") + "export const Extra = async () => ({});\n");
+
+    const checkRes = runRender(["--check", overlay]);
+    expect(checkRes.code).toBe(1);
+    expect(checkRes.stderr).toContain(".opencode/plugins/harness-guard.ts");
+  });
+
   it("--check detecta un artefacto faltante con exit 1", () => {
     const { workspace, overlay } = createTempWorkspace();
     runRender([overlay]);
