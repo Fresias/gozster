@@ -111,6 +111,45 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(idxC4Multica).toBeGreaterThan(idxC4Core);
   });
 
+  // GOZS-83 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
+  it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails", () => {
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");
+    const order = [
+      "Local Guardrails",
+      "## Skills",
+      "# LongTermMEMORY",
+      "Tool Guidance & Execution Rules",
+      "# Helper scripts (run via bash)",
+    ].map((h) => content.indexOf(h));
+
+    expect(order[0]).toBeGreaterThan(-1);
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]!);
+  });
+
+  it("AGENTS.md incluye cada hecho [verified … | src: …] de LongTermMEMORY.md", () => {
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");
+    const facts = readFileSync(path.join(repoRoot, "harness", "LongTermMEMORY.md"), "utf8")
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith("- [verified "));
+
+    expect(facts).toHaveLength(5);
+    for (const fact of facts) expect(content).toContain(fact);
+  });
+
+  it("AGENTS.md lista cada script de core/scripts con su docstring y la ruta existe", () => {
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
+    const index = content.slice(content.indexOf("# Helper scripts (run via bash)"));
+    const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]!);
+
+    expect(listed).toEqual([
+      "harness-kit/core/scripts/harness-gate.sh",
+      "harness-kit/core/scripts/harness-init.sh",
+      "harness-kit/core/scripts/harness-render.mjs",
+      "harness-kit/core/scripts/harness-telemetry.mjs",
+    ]);
+    for (const rel of listed) expect(existsSync(path.join(repoRoot, rel)), rel).toBe(true);
+  });
+
   it("AGENTS.md documenta los 7 comandos obligatorios de package.json", () => {
     const agentsPath = path.join(repoRoot, "AGENTS.md");
     const content = readFileSync(agentsPath, "utf8");
@@ -244,5 +283,14 @@ describe("harness-render: idempotencia y detección de drift (--check)", () => {
     const checkRes = runRender(["--check", overlay]);
     expect(checkRes.code).toBe(1);
     expect(checkRes.stderr).toContain("harness.lock");
+  });
+
+  it("un hecho de LongTermMEMORY.md sin [verified … | src: …] hace fallar el render con exit 1", () => {
+    const { overlay } = createTempWorkspace();
+    writeFileSync(path.join(overlay, "LongTermMEMORY.md"), "# LongTermMEMORY\n\n- Hecho sin fuente.\n");
+
+    const res = runRender([overlay]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("invalid fact in LongTermMEMORY.md");
   });
 });

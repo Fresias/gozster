@@ -1,6 +1,6 @@
 # GOZSter — System Prompt & Guidelines
 
-Guidance for coding agents working in the GOZSter repository. Keep changes surgical (Karpathy) and add zero new dependencies without approval (Ponytail).
+Guidance for coding agents working in the GOZSter repository.
 
 ## Product Vision & Architecture
 GOZSter is a high-performance strength-training platform with a dual experience:
@@ -14,8 +14,6 @@ GOZSter is a high-performance strength-training platform with a dual experience:
 - **Backend:** Supabase — PostgreSQL 15+ with strict Row Level Security (RLS).
 
 ## Verified Commands
-Verified against `package.json`:
-
 | Task | Command |
 |---|---|
 | Install (clean, CI) | `npm ci` |
@@ -26,15 +24,14 @@ Verified against `package.json`:
 | Single test file | `npx vitest run <path/to/file.test.ts>` |
 | Seed from Mynter backup | `npm run seed:mynter` |
 
-**Gate Rule:** While iterating, run the single affected test file. As the final step before declaring work done, run the full gate:
-`npm test && npm run typecheck && npm run lint && npm run build`. Zero stale claims.
+**Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
 - `src/app/` — App Router routes: `(coach)/`, `(athlete)/`, `login/`, `invitacion/`, root `layout.tsx` / `page.tsx`.
 - `src/components/` — `coach/`, `athlete/`, `auth/`, `ui/` (Shadcn primitives).
 - `src/lib/` — shared logic: `supabase/` clients, `strength-metrics.ts`, `youtube.ts`, `utils.ts`, `src/services/`, `src/store/` (Zustand), `src/middleware.ts`.
 - `src/__tests__/` — Vitest suite (`*.spec.ts` / `*.test.ts`).
-- `supabase/migrations/` — **append-only** SQL migrations. Never edit or delete an existing migration; add a new timestamped file.
+- `supabase/migrations/` — append-only SQL migrations.
 - `types/database.types.ts` — generated Supabase types.
 - `docs/` — product and design specs, ADRs (`docs/adr/`), glossary (`docs/GLOSSARY.md`).
 - `tests/` — repo-level harness tests (e.g. `harness-guard.test.ts`).

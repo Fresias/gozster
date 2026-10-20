@@ -1,7 +1,5 @@
 # LongTermMEMORY
 
-Verified, durable facts about the GOZSter workspace and environment.
-
 - [verified 2026-10-19 | src: PR #63] Push protection GH007: commits must use 6156087+Fresias@users.noreply.github.com.
 - [verified 2026-10-19 | src: runtime] Bash cwd persists between calls; Git Bash at C:\Program Files\Git\bin\bash.exe.
 - [verified 2026-10-19 | src: tests/db] SQL/RLS tests run on @electric-sql/pglite, no Docker.
