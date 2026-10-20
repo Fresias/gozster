@@ -83,7 +83,9 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
 
   it("AGENTS.md respeta el presupuesto duro (<150 líneas, <=8000 caracteres)", () => {
     const agentsPath = path.join(repoRoot, "AGENTS.md");
-    const content = readFileSync(agentsPath, "utf8");
+    // Mide el contenido normalizado a LF (mismo criterio que `--check`), para
+    // que el presupuesto no dependa del EOL del checkout (Windows CRLF).
+    const content = readFileSync(agentsPath, "utf8").replace(/\r\n/g, "\n");
     const lines = content.split("\n");
 
     expect(lines.length).toBeLessThan(150);
