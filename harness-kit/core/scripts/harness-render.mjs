@@ -196,6 +196,14 @@ generatedArtifacts.set("AGENTS.md", agentsMdContent);
 
 const runtimes = new Set(projectConfig.runtimes);
 
+/** Nombres de tool de core/runtimes/<rt>.json (fuente única de los matchers). */
+function toolNames(runtime, kinds) {
+  const { tools } = JSON.parse(readFileSync(path.join(kitDir, "core", "runtimes", `${runtime}.json`), "utf8"));
+  return kinds.flatMap((kind) => tools[kind] ?? []).map((tool) => tool.name);
+}
+const PRE_KINDS = ["shell", "read", "read_many", "write"];
+const POST_KINDS = ["shell", "write"];
+
 if (runtimes.has("claude-code")) {
   generatedArtifacts.set("CLAUDE.md", "@AGENTS.md\n");
 
@@ -239,7 +247,7 @@ if (runtimes.has("claude-code")) {
     hooks: {
       PreToolUse: [
         {
-          matcher: "Bash|Read",
+          matcher: toolNames("claude-code", PRE_KINDS).join("|"),
           hooks: [
             {
               type: "command",
@@ -250,7 +258,7 @@ if (runtimes.has("claude-code")) {
       ],
       PostToolUse: [
         {
-          matcher: "Bash|Write",
+          matcher: toolNames("claude-code", POST_KINDS).join("|"),
           hooks: [
             {
               type: "command",
@@ -275,7 +283,7 @@ if (runtimes.has("gemini-cli")) {
     hooks: {
       BeforeTool: [
         {
-          matcher: "^(run_shell_command|read_file|read_many_files)$",
+          matcher: `^(${toolNames("gemini-cli", PRE_KINDS).join("|")})$`,
           hooks: [
             {
               type: "command",
@@ -289,7 +297,7 @@ if (runtimes.has("gemini-cli")) {
       ],
       AfterTool: [
         {
-          matcher: "^(run_shell_command|write_file|replace)$",
+          matcher: `^(${toolNames("gemini-cli", POST_KINDS).join("|")})$`,
           hooks: [
             {
               type: "command",
@@ -312,11 +320,13 @@ if (runtimes.has("antigravity")) {
       enabled: true,
       PreToolUse: [
         {
-          matcher: "run_command|view_file",
+          matcher: toolNames("antigravity", PRE_KINDS).join("|"),
           hooks: [
             {
               type: "command",
-              command: "bash .claude/hooks/guard.sh --runtime antigravity",
+              // cwd = .agents/ (runtimes/antigravity.json): resolver la raíz antes del guard.
+              // Comillas dobles: el comando corre con `sh -c` o `cmd /c`.
+              command: 'bash -c "exec bash \\"$(git rev-parse --show-toplevel)/.claude/hooks/guard.sh\\" --runtime antigravity"',
               timeout: 10,
             },
           ],

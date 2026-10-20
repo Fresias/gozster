@@ -148,8 +148,8 @@ describe("multi-runtime hook configs", () => {
     const cfg = JSON.parse(readFileSync(path.join(repoRoot, ".agents", "hooks.json"), "utf8"));
     const entry = cfg["gozster-guard"].PreToolUse[0];
     expect(cfg["gozster-guard"].enabled).toBe(true);
-    expect(entry.matcher).toBe("run_command|view_file");
-    expect(entry.hooks[0].command).toBe("bash .claude/hooks/guard.sh --runtime antigravity");
+    expect(entry.matcher).toBe("run_command|view_file|write_to_file|replace_file_content|multi_replace_file_content");
+    expect(entry.hooks[0].command).toBe('bash -c "exec bash \\"$(git rev-parse --show-toplevel)/.claude/hooks/guard.sh\\" --runtime antigravity"');
   });
 
   it(".gemini/settings.json loads AGENTS.md, disables YOLO and wires BeforeTool", () => {
@@ -157,7 +157,7 @@ describe("multi-runtime hook configs", () => {
     const entry = cfg.hooks.BeforeTool[0];
     expect(cfg.context.fileName).toBe("AGENTS.md");
     expect(cfg.security.disableYoloMode).toBe(true);
-    expect(entry.matcher).toBe("^(run_shell_command|read_file|read_many_files)$");
+    expect(entry.matcher).toBe("^(run_shell_command|read_file|read_many_files|write_file|replace)$");
     expect(entry.hooks[0].command).toBe("bash .claude/hooks/guard.sh --runtime gemini-cli");
   });
 });
