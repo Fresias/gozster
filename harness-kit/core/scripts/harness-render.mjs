@@ -338,6 +338,64 @@ for (const skill of skills) {
   }
 }
 
+// 3b. Materializar subagentes por runtime (H-09).
+// Fuente: core/subagents/*.md + adapters/<a>/subagents/*.md (adapters configurados).
+// El frontmatter NO es portable (runtimes/README implicación #2): un archivo por
+// runtime, con el frontmatter traducido al contrato de cada core/runtimes/<rt>.json.
+const SUBAGENT_DIRS = {
+  "claude-code": ".claude/agents",
+  "gemini-cli": ".gemini/agents",
+  "opencode": ".opencode/agents",
+  "antigravity": ".agents/agents",
+};
+
+/** Frontmatter traducido al contrato de cada runtime. */
+function subagentFrontmatter(runtime, sub) {
+  // OpenCode toma el nombre del archivo y exige `mode: subagent`, sin clave `name`.
+  if (runtime === "opencode") return { description: sub.description, mode: "subagent" };
+  // claude-code / gemini-cli / antigravity: `name` + `description`. Gemini es strict
+  // (zod .strict: clave desconocida = error) → el set mínimo name+description es portable.
+  return { name: sub.name, description: sub.description };
+}
+
+/** Parsea un subagente fuente (frontmatter `name`/`description` + cuerpo). */
+function parseSubagent(filePath) {
+  const raw = readFileSafe(filePath);
+  const m = raw && raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return fail(`invalid subagent (missing frontmatter): ${filePath}`);
+  const fm = {};
+  for (const line of m[1].split("\n")) {
+    const kv = line.match(/^(\w+):\s*(.*)$/);
+    if (kv) fm[kv[1]] = kv[2].replace(/^["']|["']$/g, "").trim();
+  }
+  if (!fm.name || !fm.description) return fail(`subagent missing name/description: ${filePath}`);
+  return { name: fm.name, description: fm.description, body: m[2].trim() };
+}
+
+/** Recolecta subagentes de core y de los adapters configurados. */
+function collectSubagents() {
+  const dirs = [path.join(kitDir, "core", "subagents")];
+  for (const a of adapters) dirs.push(path.join(kitDir, "adapters", a, "subagents"));
+  const subs = [];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const entry of readdirSync(dir).sort()) {
+      if (entry.endsWith(".md")) subs.push(parseSubagent(path.join(dir, entry)));
+    }
+  }
+  return subs;
+}
+
+for (const sub of collectSubagents()) {
+  for (const runtime of runtimes) {
+    const dir = SUBAGENT_DIRS[runtime];
+    if (!dir) continue;
+    const fm = subagentFrontmatter(runtime, sub);
+    const fmText = ["---", ...Object.entries(fm).map(([k, v]) => `${k}: ${JSON.stringify(v)}`), "---"].join("\n");
+    generatedArtifacts.set(`${dir}/${sub.name}.md`, `${fmText}\n\n${sub.body}\n`);
+  }
+}
+
 // 4. Generar harness.lock (idempotente: renderedAt es null)
 const lockArtifacts = {};
 const sortedKeys = Array.from(generatedArtifacts.keys()).sort();
