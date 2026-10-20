@@ -31,7 +31,7 @@ describe("H-11 Parte B: Protocolo Selection de 6 niveles", () => {
       LEVELS.forEach((level, i) => {
         expect(content).toMatch(new RegExp(`^\\| ${i + 1} \\| ${level} \\|`, "m"));
       });
-      expect(content).toContain("| ✅/❌ |");
+      expect(content).toContain("| Resultado (✅/❌) | Evidencia aportada |");
     });
   }
 
