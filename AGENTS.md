@@ -1,54 +1,32 @@
 # GOZSter — System Prompt & Guidelines
 
-Guidance for coding agents working in the GOZSter repository. Keep changes surgical (Karpathy) and add zero new dependencies without approval (Ponytail).
+Guidance for coding agents working in the GOZSter repository.
 
 ## Product Vision & Architecture
-GOZSter is a high-performance strength-training platform with a dual experience:
-- **Coach Studio (Desktop/Web):** visual workout plan creator, student management, retention analytics, progressive overload alerts.
-- **Athlete App (Mobile-First / PWA):** live training execution, offline logging, automatic timers, 1RM calculator, RPE tracking.
+Strength-training platform with a dual experience:
+- **Coach Studio (Desktop/Web):** plan creator, student management, retention analytics, overload alerts.
+- **Athlete App (Mobile-First / PWA):** live execution, offline logging, timers, 1RM calculator, RPE tracking.
 
 ## Technology Stack
-- **Framework:** Next.js 15 (App Router) + React 19, TypeScript (`strict`).
-- **UI:** Tailwind CSS + Shadcn UI (`components.json`).
-- **State:** Zustand, offline-first (delta sync via `updated_at`).
-- **Backend:** Supabase — PostgreSQL 15+ with strict Row Level Security (RLS).
+Next.js 15 (App Router) + React 19, TypeScript `strict`; Tailwind + Shadcn UI (`components.json`); Zustand (offline-first, delta sync via `updated_at`); Supabase — PostgreSQL 15+ with strict Row Level Security (RLS).
 
 ## Verified Commands
-Verified against `package.json`:
-
-| Task | Command |
-|---|---|
-| Install (clean, CI) | `npm ci` |
-| Dev server | `npm run dev` |
-| Production build / start | `npm run build` / `npm start` |
-| Type-check / lint | `npm run typecheck` / `npm run lint` |
-| Full test suite / watch | `npm test` / `npm run test:watch` |
-| Single test file | `npx vitest run <path/to/file.test.ts>` |
-| Seed from Mynter backup | `npm run seed:mynter` |
-
-**Gate Rule:** While iterating, run the single affected test file. As the final step before declaring work done, run the full gate:
-`npm test && npm run typecheck && npm run lint && npm run build`. Zero stale claims.
+Against `package.json`: `npm ci` (install); `npm run dev`; `npm run build` / `npm start`; `npm run typecheck` / `npm run lint`; `npm test` / `npm run test:watch`; `npx vitest run <path/to/file.test.ts>` (single file); `npm run seed:mynter`.
 
 ## Repository Layout
-- `src/app/` — App Router routes: `(coach)/`, `(athlete)/`, `login/`, `invitacion/`, root `layout.tsx` / `page.tsx`.
-- `src/components/` — `coach/`, `athlete/`, `auth/`, `ui/` (Shadcn primitives).
-- `src/lib/` — shared logic: `supabase/` clients, `strength-metrics.ts`, `youtube.ts`, `utils.ts`, `src/services/`, `src/store/` (Zustand), `src/middleware.ts`.
-- `src/__tests__/` — Vitest suite (`*.spec.ts` / `*.test.ts`).
-- `supabase/migrations/` — **append-only** SQL migrations. Never edit or delete an existing migration; add a new timestamped file.
-- `types/database.types.ts` — generated Supabase types.
-- `docs/` — product and design specs, ADRs (`docs/adr/`), glossary (`docs/GLOSSARY.md`).
-- `tests/` — repo-level harness tests (e.g. `harness-guard.test.ts`).
+- `src/` — `app/` (App Router: `(coach)/`, `(athlete)/`, `login/`, `invitacion/`), `components/` (`ui/` = Shadcn), `lib/` (`supabase/` clients, `strength-metrics.ts`, `youtube.ts`), `services/`, `store/` (Zustand), `middleware.ts`, `__tests__/` (Vitest).
+- `supabase/migrations/` — timestamped SQL migrations (append-only; see Local Guardrails).
+- `types/database.types.ts` — generated Supabase types. `docs/` — specs, ADRs (`docs/adr/`), `docs/GLOSSARY.md`. `tests/` — repo-level harness tests.
 
 ## Governance & Roles
 - Squad roles: `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`.
 - All development uses branches: `feature/<issue-#>-slug` or `fix/<issue-#>-slug`.
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
-- Merge authority: `@PM-GOZster` is the sole authority to merge into `main`, gated on green CI and QA `APPROVED`.
-- Review: `@qa-eng` applies the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) on every PR and `@PM-GOZster` before merge; the PR template (`.github/pull_request_template.md`) carries the table to fill.
+- Review: `@qa-eng` runs the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) on every PR before `@PM-GOZster` merges.
 
 # Core Guardrails (Invariants)
 
-Universal invariants enforced across all supported runtimes. Every negative rule maps to a deterministic guard check.
+Universal invariants across all runtimes; each negative rule maps to a guard check.
 
 ## Always
 - Read a file before editing it; understand the surrounding context first.
@@ -91,9 +69,20 @@ Project-specific invariants for GOZSter.
 ## Git & Release Governance
 - Never push or merge directly to `main`. Only `@PM-GOZster` performs merges after `@qa-eng` audit verdict is `APPROVED` and CI checks are green.
 
-# Tool Guidance & Execution Rules
+## Skills
 
-Best practices for token efficiency and surgical execution.
+- When the repository has no harness/project.json or the user asks to set up the harness, load the harness-bootstrap skill.
+- When a task touches training domain terms (planes, días de rutina, ejercicios en rutina, superseries, sesiones, series, 1RM, RPE) or business rules, load the gozster-domain skill.
+
+# Long-Term Memory
+
+- [verified 2026-10-19 | src: PR #63] Push protection GH007: commits must use 6156087+Fresias@users.noreply.github.com.
+- [verified 2026-10-19 | src: runtime] Bash cwd persists between calls; Git Bash at C:\Program Files\Git\bin\bash.exe.
+- [verified 2026-10-19 | src: tests/db] SQL/RLS tests run on @electric-sql/pglite, no Docker.
+- [verified 2026-10-19 | src: docs/GLOSSARY.md] Training hierarchy: planes_entrenamiento → dias_rutina → ejercicios_en_rutina → registro_sesiones → registro_series.
+- [verified 2026-10-19 | src: package.json] `npm run lint` == `tsc --noEmit` (same as typecheck).
+
+# Tool Guidance & Execution Rules
 
 ## File Exploration & Editing
 - **Scan-before-read:** Locate the exact target range first using `rg -n` or grep before reading file contents.
@@ -119,7 +108,9 @@ Enforce Scan-Then-Expand on all `multica` CLI invocations.
 - **Large payloads:** Long descriptions and comments must always use `--description-file ./description.md` or `--content-file ./comment.md` within the task workdir (never `/tmp`).
 - **Stream separation:** Never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
 
-## Skills
+# Helper scripts (run via bash)
 
-- When the repository has no harness/project.json or the user asks to set up the harness, load the harness-bootstrap skill.
-- When a task touches training domain terms (planes, días de rutina, ejercicios en rutina, superseries, sesiones, series, 1RM, RPE) or business rules, load the gozster-domain skill.
+- `harness-kit/core/scripts/harness-gate.sh` — Full gate: append-only check, project gate commands, writes .harness/complete.json.
+- `harness-kit/core/scripts/harness-init.sh` — Setup in one call: git identity, deps, harness status, optional scope.
+- `harness-kit/core/scripts/harness-render.mjs` — Harness compiler & drift checker (H-03).
+- `harness-kit/core/scripts/harness-telemetry.mjs` — Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -152,6 +152,28 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
       });
     });
   }
+});
+
+// GOZS-83 — El índice de helper scripts (C7) en AGENTS.md debe listar cada
+// script de core/scripts/*.{sh,mjs} y toda ruta citada debe existir en disco.
+describe("GOZS-83: índice de helper scripts (C7) en AGENTS.md", () => {
+  const agents = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
+  const section = agents.split("# Helper scripts (run via bash)")[1] ?? "";
+  const cited = [...section.matchAll(/^- `([^`]+)`/gm)].map((m) => m[1]!);
+
+  it("cita al menos un script y toda ruta citada existe en disco", () => {
+    expect(cited.length).toBeGreaterThan(0);
+    for (const rel of cited) {
+      expect(existsSync(path.join(repoRoot, rel)), rel).toBe(true);
+    }
+  });
+
+  it("lista exactamente los scripts .sh/.mjs de harness-kit/core/scripts", () => {
+    const scriptsDir = path.join(repoRoot, "harness-kit", "core", "scripts");
+    const expected = readdirSync(scriptsDir).filter((f) => /\.(sh|mjs)$/.test(f)).sort();
+    const got = cited.map((p) => p.split("/").pop()!).sort();
+    expect(got).toEqual(expected);
+  });
 });
 
 // GOZS-82 — OpenCode registra como plugin cada función exportada: el archivo

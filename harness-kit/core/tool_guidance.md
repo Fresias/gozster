@@ -1,7 +1,5 @@
 # Tool Guidance & Execution Rules
 
-Best practices for token efficiency and surgical execution.
-
 ## File Exploration & Editing
 - **Scan-before-read:** Locate the exact target range first using `rg -n` or grep before reading file contents.
 - **Bounded reading:** For files > 300 lines, always supply `offset` + `limit` (max 200 lines) or `StartLine` + `EndLine` (max 300 lines).

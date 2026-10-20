@@ -110,7 +110,8 @@ const adapters = Array.isArray(projectConfig.adapters)
   ? projectConfig.adapters
   : (existsSync(path.join(kitDir, "adapters", "multica")) ? ["multica"] : []);
 
-// 2. Componer AGENTS.md en orden canónico: C1 -> C2 -> C4
+// 2. Componer AGENTS.md en orden canónico (spec §5):
+// systemprompt -> guardrails -> autotriggers -> memory -> tool_guidance -> scripts_index
 // C1: systemprompt
 let systemPrompt = readFileSafe(path.join(overlayDir, "systemprompt.md"));
 if (!systemPrompt) {
@@ -171,14 +172,65 @@ const autotriggers = skills
   .map((s) => `- When ${s.autotrigger}, load the ${s.name} skill.`);
 const skillsSection = autotriggers.length ? `## Skills\n\n${autotriggers.join("\n")}` : null;
 
+// C3: long-term memory (overlay). Cada hecho es una línea de lista sellada con
+// `[verified <fecha> | src: <fuente>]`; un hecho sin el sello hace fallar el render.
+function loadMemory(memoryPath) {
+  const raw = readFileSafe(memoryPath);
+  if (!raw) return null;
+  const facts = raw.split("\n").filter((l) => /^-\s+/.test(l));
+  if (facts.length === 0) return null;
+  for (const fact of facts) {
+    if (!/^-\s+\[verified\s+[^|\]]+\|\s*src:\s*[^\]]+\]\s*\S/.test(fact)) {
+      fail(`invalid memory fact (missing verified/src): ${fact.trim()}`);
+    }
+  }
+  return `# Long-Term Memory\n\n${facts.join("\n")}`;
+}
+const memorySection = loadMemory(path.join(overlayDir, "LongTermMEMORY.md"));
+
+// C7: índice de helper scripts. Una línea por `core/scripts/*.{sh,mjs}` con la
+// primera línea útil de su docstring; la ruta citada debe existir en disco.
+function scriptDocline(file) {
+  const raw = readFileSafe(file);
+  if (!raw) return null;
+  for (const line of raw.split("\n")) {
+    const t = line.trim();
+    if (/^#!/.test(t)) continue; // shebang
+    const m = t.match(/^(?:\/\/+|#+|\*|\/\*\*?)\s*(.*)$/); // //, #, *, /** , /*
+    if (!m) { if (t === "") continue; break; } // fin del bloque de comentario
+    const text = m[1].trim();
+    if (!text || !/\s/.test(text)) continue; // separador vacío o nombre de archivo suelto
+    return text;
+  }
+  return null;
+}
+function scriptsIndex(scriptsDir) {
+  if (!existsSync(scriptsDir)) return null;
+  const rel = path.relative(repoRoot(), scriptsDir).replace(/\\/g, "/");
+  const lines = readdirSync(scriptsDir)
+    .filter((f) => /\.(sh|mjs)$/.test(f))
+    .sort()
+    .map((f) => {
+      const doc = scriptDocline(path.join(scriptsDir, f));
+      return doc ? `- \`${rel}/${f}\` — ${doc}` : null;
+    })
+    .filter(Boolean);
+  return lines.length ? `# Helper scripts (run via bash)\n\n${lines.join("\n")}` : null;
+}
+const scriptsSection = scriptsIndex(path.join(kitDir, "core", "scripts"));
+
+// Orden canónico (spec §5): systemprompt -> guardrails -> autotriggers ->
+// memory -> tool_guidance -> scripts_index.
 const agentSections = [
   systemPrompt?.trimEnd(),
   coreGuardrails?.trimEnd(),
   ...adapterGuardrails.map((s) => s.trimEnd()),
   localGuardrails?.trimEnd(),
+  skillsSection,
+  memorySection,
   coreToolGuidance?.trimEnd(),
   ...adapterToolGuidance.map((s) => s.trimEnd()),
-  skillsSection,
+  scriptsSection,
 ].filter(Boolean);
 
 const agentsMdContent = agentSections.join("\n\n") + "\n";

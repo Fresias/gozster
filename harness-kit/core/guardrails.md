@@ -1,6 +1,6 @@
 # Core Guardrails (Invariants)
 
-Universal invariants enforced across all supported runtimes. Every negative rule maps to a deterministic guard check.
+Universal invariants across all runtimes; each negative rule maps to a guard check.
 
 ## Always
 - Read a file before editing it; understand the surrounding context first.

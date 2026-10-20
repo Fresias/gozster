@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -92,23 +92,84 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(content.length).toBeLessThanOrEqual(8000);
   });
 
-  it("AGENTS.md respeta el orden canónico C1 -> C2 -> C4", () => {
+  it("AGENTS.md respeta el orden canónico de composición (spec §5)", () => {
     const agentsPath = path.join(repoRoot, "AGENTS.md");
     const content = readFileSync(agentsPath, "utf8");
 
+    // systemprompt -> guardrails -> autotriggers -> memory -> tool_guidance -> scripts_index
     const idxC1 = content.indexOf("System Prompt");
     const idxC2Core = content.indexOf("Core Guardrails (Invariants)");
     const idxC2Multica = content.indexOf("Multica Guardrails");
-    const idxC2Local = content.indexOf("Local Guardrails");
+    const idxC2Local = content.indexOf("GOZSter Local Guardrails");
+    const idxAuto = content.indexOf("## Skills");
+    const idxMemory = content.indexOf("# Long-Term Memory");
     const idxC4Core = content.indexOf("Tool Guidance & Execution Rules");
     const idxC4Multica = content.indexOf("Multica CLI Guidance");
+    const idxScripts = content.indexOf("# Helper scripts (run via bash)");
 
     expect(idxC1).toBeGreaterThan(-1);
     expect(idxC2Core).toBeGreaterThan(idxC1);
     expect(idxC2Multica).toBeGreaterThan(idxC2Core);
     expect(idxC2Local).toBeGreaterThan(idxC2Multica);
-    expect(idxC4Core).toBeGreaterThan(idxC2Local);
+    expect(idxAuto).toBeGreaterThan(idxC2Local);
+    expect(idxMemory).toBeGreaterThan(idxAuto);
+    expect(idxC4Core).toBeGreaterThan(idxMemory);
     expect(idxC4Multica).toBeGreaterThan(idxC4Core);
+    expect(idxScripts).toBeGreaterThan(idxC4Multica);
+  });
+
+  it("AGENTS.md incluye cada hecho verificado de LongTermMEMORY (C3)", () => {
+    const memPath = path.join(repoRoot, "harness", "LongTermMEMORY.md");
+    const facts = readFileSync(memPath, "utf8")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .filter((l) => /^-\s+/.test(l));
+    expect(facts.length).toBeGreaterThan(0);
+
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
+    for (const fact of facts) {
+      expect(/\[verified\s+[^|\]]+\|\s*src:\s*[^\]]+\]/.test(fact), `hecho sellado: ${fact}`).toBe(true);
+      expect(content, `AGENTS.md debe incluir el hecho: ${fact}`).toContain(fact);
+    }
+  });
+
+  it("un hecho sin verified/src hace fallar el render con exit 1 (C3)", () => {
+    const { overlay } = createTempWorkspace();
+    writeFileSync(path.join(overlay, "LongTermMEMORY.md"), "# LongTermMEMORY\n\n- un hecho sin sello.\n");
+
+    const res = runRender([overlay]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("invalid memory fact");
+  });
+
+  it("un hecho bien sellado se compone en AGENTS.md (C3)", () => {
+    const { workspace, overlay } = createTempWorkspace();
+    writeFileSync(
+      path.join(overlay, "LongTermMEMORY.md"),
+      "# LongTermMEMORY\n\n- [verified 2026-10-19 | src: test] hecho de prueba.\n",
+    );
+
+    const res = runRender([overlay]);
+    expect(res.code).toBe(0);
+
+    const agents = readFileSync(path.join(workspace, "AGENTS.md"), "utf8");
+    expect(agents).toContain("# Long-Term Memory");
+    expect(agents).toContain("- [verified 2026-10-19 | src: test] hecho de prueba.");
+  });
+
+  it("AGENTS.md lista una línea por helper script con su docstring (C7)", () => {
+    const scriptsDir = path.join(repoRoot, "harness-kit", "core", "scripts");
+    const scripts = readdirSync(scriptsDir).filter((f) => /\.(sh|mjs)$/.test(f)).sort();
+
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
+    const section = content.split("# Helper scripts (run via bash)")[1] ?? "";
+    expect(section, "debe existir la sección de helper scripts").not.toBe("");
+
+    for (const s of scripts) {
+      expect(section, `el índice debe listar ${s}`).toContain(`harness-kit/core/scripts/${s}`);
+    }
+    const listed = section.split("\n").filter((l) => /^- `harness-kit\/core\/scripts\//.test(l));
+    expect(listed.length, "una línea por script, sin faltantes ni extras").toBe(scripts.length);
   });
 
   it("AGENTS.md documenta los 7 comandos obligatorios de package.json", () => {
