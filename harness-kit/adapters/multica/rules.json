@@ -1,0 +1,20 @@
+[
+  {
+    "id": "multica.comment-bounded",
+    "target": "shell",
+    "description": "Require bounded comment list in multica CLI with --output json",
+    "message": "multica issue comment list with --output json must be bounded: multica issue comment list <id> --roots-only --summary --compact --output json"
+  },
+  {
+    "id": "multica.issue-bounded",
+    "target": "shell",
+    "description": "Require --limit on multica issue list with --output json",
+    "message": "multica issue list with --output json must include --limit <N> (e.g. --limit 15) to avoid dumping the whole backlog."
+  },
+  {
+    "id": "multica.daemon-protect",
+    "target": "shell",
+    "description": "Protect multica daemon process from being killed by name",
+    "message": "Terminating multica or multica.exe by process name is forbidden (protects the workspace daemon)."
+  }
+]
