@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 /**
- * harness-telemetry.mjs
  * Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:
  *   [ACTION]      tool calls per kind
  *   [OBSERVATION] blocks and injections per rule, median & p90 time-to-first-edit

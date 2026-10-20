@@ -1,7 +1,5 @@
 # Core Guardrails (Invariants)
 
-Universal invariants enforced across all supported runtimes. Every negative rule maps to a deterministic guard check.
-
 ## Always
 - Read a file before editing it; understand the surrounding context first.
 - Keep every change surgical, minimal and strictly scoped to the task (Karpathy).

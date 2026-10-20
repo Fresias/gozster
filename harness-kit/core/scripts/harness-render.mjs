@@ -171,14 +171,40 @@ const autotriggers = skills
   .map((s) => `- When ${s.autotrigger}, load the ${s.name} skill.`);
 const skillsSection = autotriggers.length ? `## Skills\n\n${autotriggers.join("\n")}` : null;
 
+// C3: LongTermMEMORY. Todo bullet debe ser un hecho `[verified <fecha> | src: <fuente>]`.
+const memory = readFileSafe(path.join(overlayDir, "LongTermMEMORY.md"));
+for (const line of memory?.split("\n") ?? []) {
+  if (line.startsWith("- ") && !/^- \[verified [^|\]]+\| src: [^\]]+\] \S/.test(line)) {
+    fail(`invalid fact in LongTermMEMORY.md (expected "- [verified <date> | src: <source>] <fact>"): ${line}`);
+  }
+}
+
+// C7: índice de scripts, desde la primera línea de comentario de cada uno (D8).
+const scriptsDir = path.join(kitDir, "core", "scripts");
+const scriptLines = readdirSync(scriptsDir)
+  .filter((f) => /\.(sh|mjs)$/.test(f))
+  .sort()
+  .map((f) => {
+    const doc = readFileSafe(path.join(scriptsDir, f))
+      .split("\n")
+      .slice(1)
+      .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
+      .find(Boolean);
+    return `- \`${path.relative(repoRoot(), path.join(scriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
+  });
+const scriptsSection = `# Helper scripts (run via bash)\n\n${scriptLines.join("\n")}`;
+
+// Orden canónico (spec §5): systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
 const agentSections = [
   systemPrompt?.trimEnd(),
   coreGuardrails?.trimEnd(),
   ...adapterGuardrails.map((s) => s.trimEnd()),
   localGuardrails?.trimEnd(),
+  skillsSection,
+  memory?.trimEnd(),
   coreToolGuidance?.trimEnd(),
   ...adapterToolGuidance.map((s) => s.trimEnd()),
-  skillsSection,
+  scriptsSection,
 ].filter(Boolean);
 
 const agentsMdContent = agentSections.join("\n\n") + "\n";
