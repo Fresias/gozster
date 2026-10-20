@@ -3,12 +3,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import {
-  createPlugin,
-  handleAfter,
-  handleBefore,
-  opencodePlugin,
-} from "../core/plugins/opencode/opencode-plugin";
+import * as pluginModule from "../core/plugins/opencode/opencode-plugin";
+import { HarnessPlugin } from "../core/plugins/opencode/opencode-plugin";
 
 // H-07: Plugin de OpenCode (opencode-plugin.ts) sobre guard-core
 // Criterios de Aceptación (Gherkin):
@@ -58,7 +54,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
   describe("Criterio 1: GIVEN los fixtures de OpenCode", () => {
     it("THEN pre-shell.json con comando seguro se permite sin lanzar excepción", async () => {
       const fixture = loadFixture("pre-shell.json");
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
 
       await expect(
         plugin["tool.execute.before"](fixture.input, fixture.output),
@@ -71,7 +67,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
         input: { ...fixture.input },
         output: { args: { command: "git push --force origin main" } },
       };
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
 
       await expect(
         plugin["tool.execute.before"](blockedPayload.input, blockedPayload.output),
@@ -84,7 +80,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
         input: { ...fixture.input },
         output: { args: { filePath: ".env" } },
       };
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
 
       await expect(
         plugin["tool.execute.before"](blockedPayload.input, blockedPayload.output),
@@ -102,7 +98,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
           },
         },
       };
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
 
       await expect(
         plugin["tool.execute.before"](blockedPayload.input, blockedPayload.output),
@@ -112,7 +108,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
     it("THEN post-shell.json sin violaciones no muta output.output", async () => {
       const fixture = loadFixture("post-shell.json");
       const outputCopy = JSON.parse(JSON.stringify(fixture.output));
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
 
       await plugin["tool.execute.after"](fixture.input, outputCopy);
       expect(outputCopy.output).toBe(fixture.output.output);
@@ -135,7 +131,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
         output: gh007Error,
       };
 
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await plugin["tool.execute.after"](input, output);
 
       expect(output.output).toContain(
@@ -158,7 +154,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
         output: "Wrote file successfully.",
       };
 
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await plugin["tool.execute.after"](input, output);
 
       expect(output.output).toContain("npx vitest run tests/db/");
@@ -177,7 +173,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
       expect(cliRes.code).toBe(0);
 
       // plugin
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await expect(
         plugin["tool.execute.before"](payload.input, payload.output),
       ).resolves.not.toThrow();
@@ -195,7 +191,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
       expect(cliRes.stderr).toContain("Force/destructive push is forbidden");
 
       // plugin
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       let pluginError: Error | null = null;
       try {
         await plugin["tool.execute.before"](payload.input, payload.output);
@@ -218,7 +214,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
       expect(cliRes.code).toBe(2);
       expect(cliRes.stderr).toContain("package-lock.json is forbidden");
 
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       let pluginError: Error | null = null;
       try {
         await plugin["tool.execute.before"](payload.input, payload.output);
@@ -241,7 +237,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
       expect(JSON.parse(cliRes.stdout)).toEqual({});
 
       const outputCopy = JSON.parse(JSON.stringify(payload.output));
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await plugin["tool.execute.after"](payload.input, outputCopy);
 
       expect(outputCopy.output).toBe(payload.output.output);
@@ -262,7 +258,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
 
       // plugin
       const outputCopy = JSON.parse(JSON.stringify(payload.output));
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await plugin["tool.execute.after"](payload.input, outputCopy);
 
       // Verificamos que el texto inyectado por el plugin contiene exactamente el mensaje de contexto del CLI
@@ -284,7 +280,7 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
       expect(cliOutput.output.output).toContain("npx vitest run tests/db/");
 
       const outputCopy = JSON.parse(JSON.stringify(payload.output));
-      const plugin = await opencodePlugin({ directory: repoRoot });
+      const plugin = await HarnessPlugin({ directory: repoRoot });
       await plugin["tool.execute.after"](payload.input, outputCopy);
 
       expect(outputCopy.output).toContain(cliOutput.output.output);
@@ -292,32 +288,32 @@ describe("H-07: OpenCode plugin in-process sobre guard-core", () => {
   });
 
   describe("API exportada y compatibilidad de contexto", () => {
-    it("exporta createPlugin, opencodePlugin y export default", async () => {
-      const p1 = createPlugin({ directory: repoRoot });
-      expect(typeof p1["tool.execute.before"]).toBe("function");
-      expect(typeof p1["tool.execute.after"]).toBe("function");
+    it("el módulo exporta exactamente 1 función (HarnessPlugin)", async () => {
+      const exported = Object.values(pluginModule);
+      expect(exported).toHaveLength(1);
+      expect(typeof exported[0]).toBe("function");
+      expect(Object.keys(pluginModule)).toEqual(["HarnessPlugin"]);
 
-      const p2 = await opencodePlugin({ directory: repoRoot });
-      expect(typeof p2["tool.execute.before"]).toBe("function");
-      expect(typeof p2["tool.execute.after"]).toBe("function");
+      const plugin = await HarnessPlugin({ directory: repoRoot });
+      expect(typeof plugin["tool.execute.before"]).toBe("function");
+      expect(typeof plugin["tool.execute.after"]).toBe("function");
     });
 
-    it("handleBefore y handleAfter funcionan como invocaciones directas", async () => {
-      const allowed = await handleBefore(
+    it("los hooks devuelven el veredicto de guard-core", async () => {
+      const plugin = await HarnessPlugin({ directory: repoRoot });
+      const allowed = await plugin["tool.execute.before"](
         { tool: "bash" },
         { args: { command: "echo direct" } },
-        { directory: repoRoot },
       );
       expect(allowed.allowed).toBe(true);
 
       const postOut = { output: "prev" };
-      const afterRes = await handleAfter(
+      const afterRes = await plugin["tool.execute.after"](
         {
           tool: "write",
           args: { filePath: "supabase/migrations/20261020111111_direct.sql" },
         },
         postOut,
-        { directory: repoRoot },
       );
       expect(afterRes.inject).toBe(true);
       expect(postOut.output).toContain("npx vitest run tests/db/");

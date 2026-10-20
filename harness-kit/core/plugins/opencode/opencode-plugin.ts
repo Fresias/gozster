@@ -59,7 +59,7 @@ export interface GuardEvaluationResult {
  * Evaluates OpenCode tool.execute.before hook in-process.
  * Throws an Error if the action is blocked by rules.
  */
-export async function handleBefore(
+async function handleBefore(
   input: OpenCodeBeforeInput,
   output: OpenCodeBeforeOutput,
   ctx?: OpenCodeContext,
@@ -92,7 +92,7 @@ export async function handleBefore(
  * Evaluates OpenCode tool.execute.after hook in-process.
  * Injects context instructions into output.output when required by rules.
  */
-export async function handleAfter(
+async function handleAfter(
   input: OpenCodeAfterInput,
   output: OpenCodeAfterOutput,
   ctx?: OpenCodeContext,
@@ -121,22 +121,16 @@ export async function handleAfter(
 }
 
 /**
- * Plugin factory for OpenCode runtime.
+ * OpenCode plugin. Single export on purpose: OpenCode loads every exported
+ * function of the module as a plugin, so extra exports would register hooks twice.
  */
-export function createPlugin(ctx?: OpenCodeContext) {
-  return {
-    "tool.execute.before": async (
-      input: OpenCodeBeforeInput,
-      output: OpenCodeBeforeOutput,
-    ) => handleBefore(input, output, ctx),
-    "tool.execute.after": async (
-      input: OpenCodeAfterInput,
-      output: OpenCodeAfterOutput,
-    ) => handleAfter(input, output, ctx),
-  };
-}
-
-export const opencodePlugin = async (ctx?: OpenCodeContext) => createPlugin(ctx);
-export const HarnessPlugin = opencodePlugin;
-export const createOpenCodePlugin = createPlugin;
-export default opencodePlugin;
+export const HarnessPlugin = async (ctx?: OpenCodeContext) => ({
+  "tool.execute.before": async (
+    input: OpenCodeBeforeInput,
+    output: OpenCodeBeforeOutput,
+  ) => handleBefore(input, output, ctx),
+  "tool.execute.after": async (
+    input: OpenCodeAfterInput,
+    output: OpenCodeAfterOutput,
+  ) => handleAfter(input, output, ctx),
+});
