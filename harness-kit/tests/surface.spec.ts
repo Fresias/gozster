@@ -56,4 +56,95 @@ describe("H-06: Superficie de hooks y soporte de flecha result (post-hook)", () 
     expect(settings.hooks.AfterTool).toBeDefined();
     expect(settings.hooks.AfterTool[0].hooks[0].command).toBe("bash .claude/hooks/guard.sh --runtime gemini-cli");
   });
+
+  it("documenta que opencode soporta post mutando output.output (plugin en proceso)", () => {
+    const opencodePath = path.join(runtimesDir, "opencode.json");
+    const opencode = JSON.parse(readFileSync(opencodePath, "utf8"));
+
+    // OpenCode no tiene hooks de shell: inyecta en proceso mutando output.output.
+    expect(opencode.hooks.post.event).toBe("tool.execute.after");
+    expect(opencode.hooks.post.inject_verified).toBe(true);
+    expect(opencode.hooks.post.inject).toContain("output.output");
+  });
+});
+
+// H-08 — Verificación de superficie: matriz reglas (§4.4/§4.5) × runtimes.
+// Criterio de aceptación:
+// GIVEN la matriz de §4.4/§4.5 × runtimes THEN cada celda tiene un test o está
+// marcada `unsupported` con evidencia.
+//
+// Cada fila declara, por runtime, dónde se verifica la flecha pre (§4.4) y la
+// flecha result/post (§4.5). Las celdas `unsupported` apuntan a la evidencia
+// documental en el propio runtime config. Las celdas soportadas apuntan al
+// spec que las ejercita; el test exige que ese spec exista en disco.
+describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
+  interface Cell {
+    /** `true` si el runtime soporta la flecha; `false` => debe haber evidencia unsupported. */
+    supported: boolean;
+    /** Spec que ejercita la celda (soportada) — debe existir en disco. */
+    evidenceSpec?: string;
+    /** Clave en el runtime config que justifica `unsupported`. */
+    unsupportedEvidence?: string;
+  }
+
+  const matrix: Record<string, { pre: Cell; post: Cell }> = {
+    "antigravity": {
+      pre: { supported: true, evidenceSpec: "guard-core.spec.ts" },
+      post: { supported: false, unsupportedEvidence: "post_detail" },
+    },
+    "claude-code": {
+      pre: { supported: true, evidenceSpec: "guard-cli.contract.spec.ts" },
+      post: { supported: true, evidenceSpec: "guard-cli.contract.spec.ts" },
+    },
+    "gemini-cli": {
+      pre: { supported: true, evidenceSpec: "guard-core.spec.ts" },
+      post: { supported: true, evidenceSpec: "guard-cli.contract.spec.ts" },
+    },
+    "opencode": {
+      pre: { supported: true, evidenceSpec: "opencode-plugin.spec.ts" },
+      post: { supported: true, evidenceSpec: "opencode-plugin.spec.ts" },
+    },
+  };
+
+  const runtimes = Object.keys(matrix);
+
+  it("cubre exactamente los 4 runtimes con un config en core/runtimes", () => {
+    for (const rt of runtimes) {
+      const cfgPath = path.join(runtimesDir, `${rt}.json`);
+      const cfg = JSON.parse(readFileSync(cfgPath, "utf8"));
+      expect(cfg.runtime).toBe(rt);
+    }
+  });
+
+  for (const [rt, row] of Object.entries(matrix)) {
+    describe(`runtime: ${rt}`, () => {
+      const cfg = JSON.parse(
+        readFileSync(path.join(runtimesDir, `${rt}.json`), "utf8"),
+      );
+
+      it("celda §4.4 (pre): soportada con spec existente en disco", () => {
+        const cell = row.pre;
+        // La flecha pre es universal: todos los runtimes la soportan.
+        expect(cell.supported).toBe(true);
+        expect(cfg.hooks.pre).toBeDefined();
+        const specPath = path.join(here, cell.evidenceSpec!);
+        expect(readFileSync(specPath, "utf8").length).toBeGreaterThan(0);
+      });
+
+      it("celda §4.5 (post): test o `unsupported` con evidencia", () => {
+        const cell = row.post;
+        if (cell.supported) {
+          expect(cfg.hooks.post).not.toBe("unsupported");
+          const specPath = path.join(here, cell.evidenceSpec!);
+          expect(readFileSync(specPath, "utf8").length).toBeGreaterThan(0);
+        } else {
+          // Celda unsupported: debe estar marcada Y tener evidencia documental.
+          expect(cfg.hooks.post).toBe("unsupported");
+          const evidence = cfg.hooks[cell.unsupportedEvidence!];
+          expect(typeof evidence).toBe("string");
+          expect(evidence.length).toBeGreaterThan(0);
+        }
+      });
+    });
+  }
 });
