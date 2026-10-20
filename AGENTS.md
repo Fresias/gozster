@@ -44,6 +44,7 @@ Verified against `package.json`:
 - All development uses branches: `feature/<issue-#>-slug` or `fix/<issue-#>-slug`.
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 - Merge authority: `@PM-GOZster` is the sole authority to merge into `main`, gated on green CI and QA `APPROVED`.
+- Review: `@qa-eng` and `@PM-GOZster` apply the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) to every PR; the PR template (`.github/pull_request_template.md`) carries the table to fill.
 
 # Core Guardrails (Invariants)
 
