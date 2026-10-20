@@ -18,7 +18,7 @@ const schemaSource = path.join(kitDir, "adapters", "supabase", "subagents", "sch
 
 /** Devuelve las claves del primer bloque de frontmatter de un `.md`. */
 function frontmatterKeys(content: string): string[] {
-  const m = content.match(/^---\n([\s\S]*?)\n---/);
+  const m = content.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---/);
   if (!m) return [];
   return (m[1] ?? "")
     .split("\n")
