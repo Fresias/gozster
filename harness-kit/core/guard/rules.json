@@ -131,5 +131,28 @@
     "pattern": "GH007",
     "description": "Injects git config command on GitHub Push Protection GH007 error",
     "message": "GitHub Push Protection (GH007) violation detected. Configure your noreply email: git config --worktree user.email <email>"
+  },
+  {
+    "id": "remediate.cwd-lost",
+    "phase": "post",
+    "target": "shell",
+    "pattern": "cd: .*: No such file or directory",
+    "description": "Injects cwd remediation when a cd fails because the working directory changed",
+    "message": "cwd persists between Bash calls; run `pwd` and use absolute paths."
+  },
+  {
+    "id": "remediate.oversize-output",
+    "phase": "post",
+    "target": "all",
+    "minOutputLength": 20000,
+    "description": "Injects bounded-output remediation when a tool output exceeds 20,000 characters",
+    "message": "Tool output exceeded 20,000 characters. Use bounded reads next time (`rg -n`, `offset` + `limit`, `head`/`tail`, `--stat`)."
+  },
+  {
+    "id": "post.outside-scope",
+    "phase": "post",
+    "target": "write",
+    "description": "Warns (never blocks) when a write lands outside .harness/scope.json; no-op without scope.json",
+    "message": "Warning: the written file is outside the declared scope in .harness/scope.json."
   }
 ]

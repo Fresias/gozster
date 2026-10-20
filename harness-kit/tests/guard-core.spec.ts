@@ -247,3 +247,42 @@ describe("H-05: Performance SLA (p95 < 150 ms)", () => {
     expect(p95).toBeLessThan(150);
   });
 });
+
+// GOZS-85 — post.outside-scope (warn, nunca bloquea) y reglas Supabase en su adapter (D4).
+describe("GOZS-85: post.outside-scope y adapter supabase", () => {
+  const scoped = mkdtempSync(path.join(tmpdir(), "guard-scope-"));
+  const unscoped = mkdtempSync(path.join(tmpdir(), "guard-noscope-"));
+  mkdirSync(path.join(scoped, ".harness"));
+  writeFileSync(path.join(scoped, ".harness", "scope.json"), JSON.stringify({ scope: ["src/lib", "docs/"] }));
+  afterAll(() => {
+    rmSync(scoped, { recursive: true, force: true });
+    rmSync(unscoped, { recursive: true, force: true });
+  });
+  const post = (targetPath: string, root: string) =>
+    evaluateRules({ phase: "post", kind: "write", targetPath }, { repoRoot: root });
+
+  it("GIVEN scope.json WHEN se escribe fuera THEN avisa sin bloquear", () => {
+    const res = post("src/app/page.tsx", scoped);
+    expect(res.allowed).toBe(true);
+    expect(res.ruleId).toBe("post.outside-scope");
+    expect(res.context).toContain("src/app/page.tsx is outside the declared scope");
+  });
+
+  it("GIVEN scope.json WHEN se escribe dentro (prefijo de carpeta) THEN no avisa", () => {
+    expect(post("src/lib/utils.ts", scoped).inject).toBe(false);
+    expect(post(path.join(scoped, "docs", "a.md"), scoped).inject).toBe(false);
+    expect(post("src/library.ts", scoped).ruleId).toBe("post.outside-scope");
+  });
+
+  it("GIVEN sin scope.json THEN la regla no aplica", () => {
+    expect(post("src/app/page.tsx", unscoped).inject).toBe(false);
+  });
+
+  it("GIVEN adapters/supabase/rules.json THEN define db.* y rules.local.json ya no", () => {
+    const ids = (file: string) =>
+      (JSON.parse(readFileSync(path.join(repoRoot, file), "utf8")) as Array<{ id: string }>).map((r) => r.id);
+    expect(ids("harness-kit/adapters/supabase/rules.json")).toEqual(["db.append-only", "db.migration-test-reminder"]);
+    expect(ids("harness/rules.local.json")).not.toContain("db.append-only");
+    expect(ids("harness/rules.local.json")).not.toContain("db.migration-test-reminder");
+  });
+});
