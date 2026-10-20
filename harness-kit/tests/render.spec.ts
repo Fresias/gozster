@@ -123,7 +123,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     ].map((h) => content.indexOf(h));
 
     expect(order[0]).toBeGreaterThan(-1);
-    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]!);
   });
 
   it("AGENTS.md incluye cada hecho [verified … | src: …] de LongTermMEMORY.md", () => {
@@ -139,7 +139,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
   it("AGENTS.md lista cada script de core/scripts con su docstring y la ruta existe", () => {
     const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
     const index = content.slice(content.indexOf("# Helper scripts (run via bash)"));
-    const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]);
+    const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]!);
 
     expect(listed).toEqual([
       "harness-kit/core/scripts/harness-gate.sh",
