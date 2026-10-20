@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -147,4 +148,53 @@ describe("H-08: Matriz reglas (§4.4 pre / §4.5 post) × runtimes", () => {
       });
     });
   }
+});
+
+// GOZS-81 — Los matchers generados cubren las tools de core/runtimes/<rt>.json
+// (shell, read y write en pre; shell y write en post) y el hook de Antigravity
+// corre desde su cwd (.agents/).
+describe("GOZS-81: matchers generados ⊇ tools de core/runtimes", () => {
+  const readJson = (...p: string[]) => JSON.parse(readFileSync(path.join(...p), "utf8"));
+  const names = (rt: string, kinds: string[]): string[] => {
+    const { tools } = readJson(runtimesDir, `${rt}.json`);
+    return kinds.flatMap((k) => tools[k] ?? []).map((t: { name: string }) => t.name);
+  };
+  const claude = readJson(repoRoot, ".claude", "settings.json").hooks;
+  const gemini = readJson(repoRoot, ".gemini", "settings.json").hooks;
+  const ag = readJson(repoRoot, ".agents", "hooks.json")["gozster-guard"];
+
+  const cases: Array<[string, string, string, string[]]> = [
+    ["claude-code", "pre", claude.PreToolUse[0].matcher, ["shell", "read", "write"]],
+    ["claude-code", "post", claude.PostToolUse[0].matcher, ["shell", "write"]],
+    ["gemini-cli", "pre", gemini.BeforeTool[0].matcher, ["shell", "read", "read_many", "write"]],
+    ["gemini-cli", "post", gemini.AfterTool[0].matcher, ["shell", "write"]],
+    ["antigravity", "pre", ag.PreToolUse[0].matcher, ["shell", "read", "write"]],
+  ];
+
+  for (const [rt, arrow, matcher, kinds] of cases) {
+    it(`${rt} ${arrow}: el matcher cubre ${kinds.join("/")}`, () => {
+      const re = new RegExp(`^(?:${matcher})$`);
+      for (const name of names(rt, kinds)) expect(name, `${rt} ${arrow} ${matcher}`).toMatch(re);
+    });
+  }
+
+  it("antigravity: con cwd .agents/ el hook deniega replace_file_content sobre una migración existente", () => {
+    const payload = JSON.stringify({
+      toolCall: {
+        name: "replace_file_content",
+        args: {
+          TargetFile: path.join(repoRoot, "supabase", "migrations", "20261016000000_initial_schema_rls.sql"),
+          TargetContent: "a",
+          ReplacementContent: "b",
+        },
+      },
+    });
+    // execSync usa `sh -c` / `cmd /c`, igual que Antigravity (runtimes/antigravity.json).
+    const out = execSync(ag.PreToolUse[0].hooks[0].command, {
+      cwd: path.join(repoRoot, ".agents"),
+      input: payload,
+      encoding: "utf8",
+    });
+    expect(JSON.parse(out)).toMatchObject({ decision: "deny" });
+  });
 });

@@ -8,7 +8,7 @@
   "hooks": {
     "BeforeTool": [
       {
-        "matcher": "^(run_shell_command|read_file|read_many_files)$",
+        "matcher": "^(run_shell_command|read_file|read_many_files|write_file|replace)$",
         "hooks": [
           {
             "type": "command",
