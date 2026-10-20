@@ -1,0 +1,419 @@
+/**
+ * guard-core.mjs
+ * Core evaluation engine for the harness guard (D6).
+ * Single shared implementation used by guard-cli.mjs, guard.sh (shim),
+ * and OpenCode plugins.
+ */
+
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { normalize } from "./normalize.mjs";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+/** Cache of loaded rules keyed by repoRoot. */
+const rulesCache = new Map();
+
+/** Find repository root walking up from a starting directory. */
+export function findRepoRoot(startDir = process.cwd()) {
+  let curr = path.resolve(startDir);
+  while (true) {
+    if (
+      existsSync(path.join(curr, ".git")) ||
+      existsSync(path.join(curr, "harness", "harness.json")) ||
+      existsSync(path.join(curr, "package.json"))
+    ) {
+      return curr;
+    }
+    const parent = path.dirname(curr);
+    if (parent === curr) break;
+    curr = parent;
+  }
+  return path.resolve(here, "../../..");
+}
+
+/**
+ * Load all rule definitions from core, adapters, and local overlay.
+ */
+export function loadRules(options = {}) {
+  const repoRoot = options.repoRoot || findRepoRoot();
+  if (options.rules) return options.rules;
+  if (rulesCache.has(repoRoot)) return rulesCache.get(repoRoot);
+
+  const rules = [];
+
+  // 1. Core rules
+  const coreRulesPath = path.join(here, "rules.json");
+  if (existsSync(coreRulesPath)) {
+    try {
+      const data = JSON.parse(readFileSync(coreRulesPath, "utf8"));
+      if (Array.isArray(data)) rules.push(...data);
+    } catch {}
+  }
+
+  // 2. Adapter rules
+  const adaptersDir = path.resolve(here, "../..", "adapters");
+  if (existsSync(adaptersDir)) {
+    try {
+      for (const entry of readdirSync(adaptersDir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          const adapterRules = path.join(adaptersDir, entry.name, "rules.json");
+          if (existsSync(adapterRules)) {
+            const data = JSON.parse(readFileSync(adapterRules, "utf8"));
+            if (Array.isArray(data)) rules.push(...data);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Local overlay rules
+  const localRulesPath = path.join(repoRoot, "harness", "rules.local.json");
+  if (existsSync(localRulesPath)) {
+    try {
+      const data = JSON.parse(readFileSync(localRulesPath, "utf8"));
+      if (Array.isArray(data)) rules.push(...data);
+    } catch {}
+  }
+
+  rulesCache.set(repoRoot, rules);
+  return rules;
+}
+
+/** Check sensitive file path for leaks and bloatware. */
+function checkSensitivePath(filePath) {
+  if (!filePath) return null;
+  const base = path.basename(filePath);
+
+  if (base === "package-lock.json") {
+    return {
+      allowed: false,
+      ruleId: "fs.bloatware",
+      reason:
+        "Reading package-lock.json is forbidden (huge, low-signal). Use rg/Grep for the specific dependency.",
+    };
+  }
+
+  if (base.startsWith(".env")) {
+    const allowed = [".env.example", ".env.sample", ".env.template"];
+    if (!allowed.includes(base)) {
+      return {
+        allowed: false,
+        ruleId: "fs.env-leak",
+        reason:
+          "Reading env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed.",
+      };
+    }
+  }
+
+  return null;
+}
+
+/** Count lines in a file efficiently. */
+function countLines(fullPath) {
+  try {
+    const stat = statSync(fullPath);
+    if (!stat.isFile()) return 0;
+    const buf = readFileSync(fullPath);
+    let lines = 0;
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] === 10) lines++;
+    }
+    // If the file doesn't end with a newline but has content, count last line
+    if (buf.length > 0 && buf[buf.length - 1] !== 10) lines++;
+    return lines;
+  } catch {
+    return 0;
+  }
+}
+
+/** Evaluate read requests. */
+function evaluateRead(call, options, repoRoot) {
+  const sensitive = checkSensitivePath(call.filePath);
+  if (sensitive) return sensitive;
+
+  if (call.filePath) {
+    const resolved = path.isAbsolute(call.filePath)
+      ? call.filePath
+      : path.resolve(repoRoot, call.filePath);
+
+    if (existsSync(resolved)) {
+      const lines = countLines(resolved);
+      if (lines > 300 && !call.isBounded) {
+        return {
+          allowed: false,
+          ruleId: "read.oversize",
+          reason:
+            "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines).",
+        };
+      }
+    }
+  }
+
+  return { allowed: true };
+}
+
+/** Evaluate read_many requests. */
+function evaluateReadMany(call) {
+  if (Array.isArray(call.paths)) {
+    for (const p of call.paths) {
+      const sensitive = checkSensitivePath(p);
+      if (sensitive) return sensitive;
+    }
+  }
+  return { allowed: true };
+}
+
+/** Evaluate shell commands. */
+function evaluateShell(call) {
+  const cmd = call.command || "";
+  if (!cmd) return { allowed: true };
+
+  // Multica comment list
+  if (/multica\s+issue\s+comment\s+list/i.test(cmd)) {
+    if (/--output[\s=]+json/i.test(cmd)) {
+      if (
+        !/--compact/i.test(cmd) ||
+        !/--roots-only|--summary|--thread|--since/i.test(cmd)
+      ) {
+        return {
+          allowed: false,
+          ruleId: "multica.comment-bounded",
+          reason:
+            "multica issue comment list with --output json must be bounded: multica issue comment list <id> --roots-only --summary --compact --output json",
+        };
+      }
+    }
+  } else if (/multica\s+issue\s+list/i.test(cmd)) {
+    if (/--output[\s=]+json/i.test(cmd)) {
+      if (!/--limit[\s=]+[0-9]+/i.test(cmd)) {
+        return {
+          allowed: false,
+          ruleId: "multica.issue-bounded",
+          reason:
+            "multica issue list with --output json must include --limit <N> (e.g. --limit 15) to avoid dumping the whole backlog.",
+        };
+      }
+    }
+  }
+
+  // Multica daemon protection
+  if (
+    /(^|[^\w])(killall|pkill|taskkill)(\s|$)/i.test(cmd) &&
+    /multica(\.exe)?/i.test(cmd)
+  ) {
+    return {
+      allowed: false,
+      ruleId: "multica.daemon-protect",
+      reason:
+        "Terminating multica or multica.exe by process name is forbidden (protects the workspace daemon).",
+    };
+  }
+
+  // Mass cat package-lock
+  if (/(^|[^a-zA-Z0-9_])cat(\s+.*)?package-lock\.json/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "shell.cat-lockfile",
+      reason:
+        "Do not cat package-lock.json (huge, low-signal). Use rg/Grep for the specific dependency.",
+    };
+  }
+
+  // Access to .env in shell
+  const stripped = cmd.replace(/\.env\.(example|sample|template)/gi, "");
+  if (/\.env([^A-Za-z0-9]|$)/.test(stripped)) {
+    if (
+      /(^|[^a-zA-Z0-9_])(cat|less|more|head|tail|bat|nl|tac|xxd|od|strings|source|cp|mv|scp|rsync|dd|ln|openssl)(\s|$)/i.test(
+        cmd
+      ) ||
+      />\s*[^|&;]*\.env([^A-Za-z0-9]|$)/.test(stripped) ||
+      /<\s*[^|&;]*\.env([^A-Za-z0-9]|$)/.test(stripped)
+    ) {
+      return {
+        allowed: false,
+        ruleId: "shell.env-leak",
+        reason:
+          "Access to .env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed.",
+      };
+    }
+  }
+
+  // Git force push
+  if (/(^|[^a-zA-Z0-9_])git(\s+-C\s+[^\s]+)?\s+.*push/i.test(cmd)) {
+    if (
+      /--force|--force-with-lease|--mirror|--delete|(^|\s)-f(\s|$)|push\s+.*\+[A-Za-z0-9_./-]/i.test(
+        cmd
+      )
+    ) {
+      return {
+        allowed: false,
+        ruleId: "git.force-push",
+        reason:
+          "Force/destructive push is forbidden (--force/-f/--mirror/--delete/+ref). Pushing to main is exclusive to @PM.",
+      };
+    }
+  }
+
+  // Git destructive commands
+  if (/git(\s+-C\s+[^\s]+)?\s+reset(\s+.*)?--hard/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "git.reset-hard",
+      reason:
+        "git reset --hard is forbidden (destroys committed/uncommitted work).",
+    };
+  }
+  if (/git(\s+-C\s+[^\s]+)?\s+clean(\s+.*)?-[a-zA-Z]*f/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "git.clean-force",
+      reason: "git clean -f is forbidden (deletes untracked files).",
+    };
+  }
+  if (/git\s+checkout\s+--\s+\./i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "git.checkout-all",
+      reason:
+        "git checkout -- . is forbidden (discards all working-tree changes).",
+    };
+  }
+  if (/git\s+restore\s+(--[a-z]+\s+)*\.(\s|$)/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "git.restore-all",
+      reason:
+        "git restore . is forbidden (discards all working-tree changes).",
+    };
+  }
+  if (/git\s+branch\s+(-[a-zA-Z]*\s+)*-D/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "git.branch-force-delete",
+      reason: "git branch -D is forbidden (force-deletes a branch).",
+    };
+  }
+
+  // rm -rf
+  if (/(^|[^a-zA-Z0-9_])rm(\s|$)/i.test(cmd)) {
+    if (
+      /(-[a-zA-Z]*r|--recursive)/i.test(cmd) &&
+      /(-[a-zA-Z]*f|--force)/i.test(cmd)
+    ) {
+      return {
+        allowed: false,
+        ruleId: "shell.rm-rf",
+        reason: "Recursive force delete (rm -rf / -r -f / -fr) is forbidden.",
+      };
+    }
+  }
+
+  // curl|wget pipe to shell
+  if (/(curl|wget)[^|]*\|\s*(sudo\s+)?(sh|bash|zsh)/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "shell.pipe-to-shell",
+      reason: "Piping a downloaded script straight into a shell is forbidden.",
+    };
+  }
+
+  // Writing to .git/hooks or .claude/
+  if (/(\.git\/hooks|\.claude\/)/i.test(cmd)) {
+    if (
+      /(>>?|\stee\s|(^|\s)(cp|mv|install|dd|truncate|chmod)\s|sed\s+-i|(^|\s)rm\s)/i.test(
+        cmd
+      )
+    ) {
+      return {
+        allowed: false,
+        ruleId: "fs.protected",
+        reason:
+          "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
+/** Evaluate write operations (Write, Edit, replace, etc.). */
+function evaluateWrite(call, repoRoot) {
+  const target = call.targetPath || "";
+  if (!target) return { allowed: true };
+
+  const norm = target.replace(/\\/g, "/");
+
+  // Protect AGENTS.md
+  if (norm === "AGENTS.md" || norm.endsWith("/AGENTS.md")) {
+    return {
+      allowed: false,
+      ruleId: "harness.agents-render",
+      reason:
+        "Editing AGENTS.md directly is forbidden. Edit files under harness/ and run harness-render.mjs to generate AGENTS.md.",
+    };
+  }
+
+  // Append-only on supabase/migrations/
+  if (norm.includes("supabase/migrations/")) {
+    const resolved = path.isAbsolute(target)
+      ? target
+      : path.resolve(repoRoot, target);
+    if (existsSync(resolved)) {
+      return {
+        allowed: false,
+        ruleId: "db.append-only",
+        reason:
+          "Modifying existing migrations in supabase/migrations/ is forbidden (append-only). Create a new migration file instead.",
+      };
+    }
+  }
+
+  // Protect harness settings and git hooks
+  if (
+    norm.includes(".git/hooks/") ||
+    norm.includes(".claude/") ||
+    norm.includes(".agents/hooks.json")
+  ) {
+    return {
+      allowed: false,
+      ruleId: "fs.protected",
+      reason:
+        "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Main evaluation entry point.
+ * @param {object} normalizedCall Output of normalize(payload)
+ * @param {object} [options]
+ * @returns {{ allowed: boolean, reason?: string, ruleId?: string }}
+ */
+export function evaluateRules(normalizedCall, options = {}) {
+  const repoRoot = options.repoRoot || findRepoRoot();
+
+  switch (normalizedCall.kind) {
+    case "shell":
+      return evaluateShell(normalizedCall);
+    case "read":
+      return evaluateRead(normalizedCall, options, repoRoot);
+    case "read_many":
+      return evaluateReadMany(normalizedCall);
+    case "write":
+      return evaluateWrite(normalizedCall, repoRoot);
+    default:
+      return { allowed: true };
+  }
+}
+
+/**
+ * Check guard convenience helper: normalizes raw payload then evaluates rules.
+ */
+export function checkGuard(rawPayload, options = {}) {
+  const normalized = normalize(rawPayload, options);
+  return evaluateRules(normalized, options);
+}

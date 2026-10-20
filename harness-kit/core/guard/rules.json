@@ -1,0 +1,96 @@
+[
+  {
+    "id": "fs.bloatware",
+    "target": "read",
+    "description": "Reading package-lock.json is forbidden (huge, low-signal)",
+    "message": "Reading package-lock.json is forbidden (huge, low-signal). Use rg/Grep for the specific dependency."
+  },
+  {
+    "id": "fs.env-leak",
+    "target": "read",
+    "description": "Reading env files is forbidden (may contain secrets)",
+    "message": "Reading env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed."
+  },
+  {
+    "id": "read.oversize",
+    "target": "read",
+    "maxLines": 300,
+    "description": "Reading >300 lines requires bounded read",
+    "message": "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines)."
+  },
+  {
+    "id": "shell.cat-lockfile",
+    "target": "shell",
+    "description": "Mass cat of package-lock.json is forbidden",
+    "pattern": "(^|[^a-zA-Z0-9_])cat(\\s+.*)?package-lock\\.json",
+    "message": "Do not cat package-lock.json (huge, low-signal). Use rg/Grep for the specific dependency."
+  },
+  {
+    "id": "shell.env-leak",
+    "target": "shell",
+    "description": "Shell access to .env files is forbidden",
+    "message": "Access to .env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed."
+  },
+  {
+    "id": "git.force-push",
+    "target": "shell",
+    "description": "Destructive or force push is forbidden",
+    "pattern": "(^|[^a-zA-Z0-9_])git(\\s+-C\\s+[^\\s]+)?\\s+.*push",
+    "subpattern": "--force|--force-with-lease|--mirror|--delete|(^|\\s)-f(\\s|$)|push\\s+.*\\+[A-Za-z0-9_./-]",
+    "message": "Force/destructive push is forbidden (--force/-f/--mirror/--delete/+ref). Pushing to main is exclusive to @PM."
+  },
+  {
+    "id": "git.reset-hard",
+    "target": "shell",
+    "description": "git reset --hard is forbidden",
+    "pattern": "git(\\s+-C\\s+[^\\s]+)?\\s+reset(\\s+.*)?--hard",
+    "message": "git reset --hard is forbidden (destroys committed/uncommitted work)."
+  },
+  {
+    "id": "git.clean-force",
+    "target": "shell",
+    "description": "git clean -f is forbidden",
+    "pattern": "git(\\s+-C\\s+[^\\s]+)?\\s+clean(\\s+.*)?-[a-zA-Z]*f",
+    "message": "git clean -f is forbidden (deletes untracked files)."
+  },
+  {
+    "id": "git.checkout-all",
+    "target": "shell",
+    "description": "git checkout -- . is forbidden",
+    "pattern": "git\\s+checkout\\s+--\\s+\\.",
+    "message": "git checkout -- . is forbidden (discards all working-tree changes)."
+  },
+  {
+    "id": "git.restore-all",
+    "target": "shell",
+    "description": "git restore . is forbidden",
+    "pattern": "git\\s+restore\\s+(--[a-z]+\\s+)*\\.(\\s|$)",
+    "message": "git restore . is forbidden (discards all working-tree changes)."
+  },
+  {
+    "id": "git.branch-force-delete",
+    "target": "shell",
+    "description": "git branch -D is forbidden",
+    "pattern": "git\\s+branch\\s+(-[a-zA-Z]*\\s+)*-D",
+    "message": "git branch -D is forbidden (force-deletes a branch)."
+  },
+  {
+    "id": "shell.rm-rf",
+    "target": "shell",
+    "description": "Recursive force delete (rm -rf) is forbidden",
+    "message": "Recursive force delete (rm -rf / -r -f / -fr) is forbidden."
+  },
+  {
+    "id": "shell.pipe-to-shell",
+    "target": "shell",
+    "description": "Piping download directly to shell is forbidden",
+    "pattern": "(curl|wget)[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)",
+    "message": "Piping a downloaded script straight into a shell is forbidden."
+  },
+  {
+    "id": "fs.protected",
+    "target": "all",
+    "description": "Writing to .git/hooks or .claude/ is forbidden",
+    "message": "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox)."
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "db.append-only",
+    "target": "write",
+    "description": "Migrations in supabase/migrations/ are strictly append-only — modifying existing migrations is forbidden",
+    "pathPattern": "(^|[\\\\/])supabase[\\\\/]migrations[\\\\/][^/\\\\]+\\.sql$",
+    "mustNotExist": true,
+    "message": "Modifying existing migrations in supabase/migrations/ is forbidden (append-only). Create a new migration file instead."
+  },
+  {
+    "id": "harness.agents-render",
+    "target": "write",
+    "description": "Editing AGENTS.md directly is forbidden — edit harness/ files and run harness-render.mjs",
+    "pathPattern": "(^|[\\\\/])AGENTS\\.md$",
+    "message": "Editing AGENTS.md directly is forbidden. Edit files under harness/ and run harness-render.mjs to generate AGENTS.md."
+  }
+]
