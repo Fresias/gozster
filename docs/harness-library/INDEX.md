@@ -6,7 +6,7 @@ del guard en lugar de impresiones.
 
 ## Flujo
 
-1. **Emisión** — `guard-cli.mjs` escribe un evento por invocación (fase `pre`) en
+1. **Emisión** — `guard-cli.mjs` escribe un evento por tool call (fase `pre`, más la fase `post` cuando inyecta contexto) en
    `.harness/telemetry/events.jsonl` vía `harness-kit/core/guard/telemetry.mjs`.
    Sin PII ni secretos: `sk-…` y `eyJ…` se redactan y `cmd` se trunca a 120 caracteres.
    La carpeta `.harness/` está en `.gitignore` (es runtime local, no se commitea).
@@ -24,19 +24,24 @@ Un objeto JSON por línea:
 | `ts` | Timestamp ISO-8601. |
 | `session` | Id de sesión del runtime (p. ej. `session_id` de Claude Code). |
 | `runtime` | `claude-code` \| `gemini-cli` \| `opencode` \| `antigravity`. |
-| `phase` | Siempre `pre` (un evento por tool call). |
+| `phase` | `pre` (un evento por tool call) o `post` (solo inyecciones). |
 | `kind` | `shell` \| `read` \| `write` \| `read_many` \| `other`. |
 | `tool` | Nombre de la herramienta del runtime. |
 | `decision` | `allow` \| `block`. |
 | `rule` | `ruleId` que bloqueó/aplicó, o `null`. |
+| `inject` | `true` si el guard inyectó contexto (p. ej. GH007). |
 | `cmd` | Comando o ruta, redactado y truncado a 120 caracteres. |
 
 ## Métricas del resumen
 
-- **Bloqueos por regla** — conteo de `decision="block"` agrupado por `rule`.
-- **Time-to-first-edit (TTFE)** — por sesión, ms entre el primer evento y el primer
+El resumen de texto ocupa ≤ 40 líneas (listas recortadas a 5 entradas) y usa tres secciones:
+
+- **`[ACTION]` Tool calls por kind** — eventos `pre` agrupados por `kind`.
+- **`[OBSERVATION]` Bloqueos por regla** — conteo de `decision="block"` agrupado por `rule`.
+- **`[OBSERVATION]` Inyecciones por regla** — conteo de `inject=true` agrupado por `rule`.
+- **`[OBSERVATION]` Time-to-first-edit (TTFE)** — por sesión, ms entre el primer evento y el primer
   `kind="write"`; se reporta **mediana** y **p90** (interpolación lineal).
-- **Sesiones con > 3 bloqueos repetidos** — sesiones donde una misma `rule` bloqueó
+- **`[ERROR]` Sesiones con > 3 bloqueos repetidos** — sesiones donde una misma `rule` bloqueó
   más de 3 veces (señal de fricción recurrente).
 
 ## Uso

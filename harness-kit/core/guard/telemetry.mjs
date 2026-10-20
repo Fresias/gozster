@@ -62,15 +62,16 @@ export function buildEvent(normalized, result, now = new Date()) {
     tool: normalized?.tool || "",
     decision: result?.allowed === false ? "block" : "allow",
     rule: result?.ruleId || null,
+    inject: result?.inject === true,
     cmd: redactCmd(normalized?.command || normalized?.targetPath || normalized?.filePath || ""),
   };
 }
 
 /**
- * Append a telemetry event for a guard invocation. Only pre-phase calls are
- * recorded (one per tool call), which carries every allow/block decision and
- * write without double-counting the post-phase pass. Best-effort: any failure
- * is swallowed so telemetry can never break the guard.
+ * Append a telemetry event for a guard invocation. Pre-phase calls are always
+ * recorded (one per tool call, every allow/block decision); post-phase calls
+ * only when they inject context (e.g. GH007), so actions are not double-counted.
+ * Best-effort: any failure is swallowed so telemetry can never break the guard.
  * @param {object} normalized
  * @param {object} result
  * @param {{ repoRoot?: string, dir?: string, now?: Date }} [options]
@@ -78,7 +79,7 @@ export function buildEvent(normalized, result, now = new Date()) {
 export function recordEvent(normalized, result, options = {}) {
   try {
     if (process.env.HARNESS_TELEMETRY === "0") return;
-    if (normalized?.phase && normalized.phase !== "pre") return;
+    if (normalized?.phase && normalized.phase !== "pre" && result?.inject !== true) return;
 
     const dir =
       options.dir ||

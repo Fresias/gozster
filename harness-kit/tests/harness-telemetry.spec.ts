@@ -6,12 +6,13 @@ import { afterEach, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { buildEvent, recordEvent, redactCmd } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
-import { parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
+import { formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
 // H-12 — Telemetría determinista del guard + agregador harness-telemetry.mjs.
 // Criterios de aceptación (Gherkin):
-// 1. GIVEN 100 eventos sintéticos THEN el resumen muestra bloqueos por regla,
-//    mediana y p90 de time-to-first-edit y sesiones con > 3 bloqueos repetidos.
+// 1. GIVEN 100 eventos sintéticos THEN el resumen (<= 40 líneas) muestra
+//    [ACTION] tool calls por kind, [OBSERVATION] bloqueos e inyecciones por regla
+//    y mediana/p90 de time-to-first-edit, y [ERROR] sesiones con > 3 bloqueos repetidos.
 // 2. GIVEN un comando con `sk-…` o `eyJ…` THEN queda redactado en events.jsonl.
 
 let tempDirs: string[] = [];
@@ -57,8 +58,24 @@ function synthEvents() {
       cmd: "src/file.ts",
     });
 
-    // 8 block events per session, timestamped after the edit so TTFE is unaffected.
+    // 8 events per session after the edit (TTFE unaffected): blocks, except that
+    // in s1..s4 the last one is a post-phase GH007 injection.
     for (let b = 0; b < 8; b++) {
+      if (b === 7 && i >= 1 && i <= 4) {
+        events.push({
+          ts: new Date(start + 500_000 + b).toISOString(),
+          session,
+          runtime: "claude-code",
+          phase: "post",
+          kind: "shell",
+          tool: "Bash",
+          decision: "allow",
+          rule: "git.gh007-noreply",
+          inject: true,
+          cmd: "git push",
+        });
+        continue;
+      }
       const rule = i === 0 ? "db.append-only" : spinRules[b % spinRules.length];
       events.push({
         ts: new Date(start + 500_000 + b).toISOString(),
@@ -117,7 +134,20 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(line.session).toBe("sess-1");
   });
 
-  it("no registra eventos de fase post", () => {
+  it("registra eventos post solo cuando inyectan contexto", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
+    tempDirs.push(dir);
+    recordEvent(
+      { runtime: "claude-code", kind: "shell", tool: "Bash", phase: "post", command: "git push", raw: {} },
+      { allowed: true, inject: true, ruleId: "git.gh007-noreply" },
+      { dir },
+    );
+    const line = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))[0] as Record<string, unknown>;
+    expect(line.inject).toBe(true);
+    expect(line.rule).toBe("git.gh007-noreply");
+  });
+
+  it("no registra eventos de fase post sin inyección", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
     tempDirs.push(dir);
     recordEvent(
@@ -139,6 +169,7 @@ describe("H-12: buildEvent", () => {
     expect(ev.decision).toBe("block");
     expect(ev.rule).toBe("db.append-only");
     expect(ev.ts).toBe("2026-10-20T10:00:00.000Z");
+    expect(ev.inject).toBe(false);
   });
 });
 
@@ -163,7 +194,44 @@ describe("H-12: summarize con 100 eventos sintéticos (criterio 1)", () => {
     expect(summary.blocksByRule["shell.destructive"]).toBe(18);
     expect(summary.blocksByRule["read.oversize"]).toBe(18);
     expect(summary.blocksByRule["fs.env-leak"]).toBe(18);
-    expect(summary.blocksByRule["fs.bloatware"]).toBe(18);
+    expect(summary.blocksByRule["fs.bloatware"]).toBe(14);
+  });
+
+  it("[ACTION] cuenta tool calls por kind sin contar las inyecciones post", () => {
+    expect(summary.actionsByKind).toEqual({ shell: 76, read: 10, write: 10 });
+  });
+
+  it("[OBSERVATION] cuenta inyecciones por regla", () => {
+    expect(summary.injectionsByRule).toEqual({ "git.gh007-noreply": 4 });
+  });
+
+  it("el texto usa [ACTION], [OBSERVATION] y [ERROR] en ese orden", () => {
+    const text = formatSummary(summary);
+    const iA = text.indexOf("[ACTION]");
+    const iO = text.indexOf("[OBSERVATION]");
+    const iE = text.indexOf("[ERROR]");
+    expect(iA).toBeGreaterThan(-1);
+    expect(iO).toBeGreaterThan(iA);
+    expect(iE).toBeGreaterThan(iO);
+    expect(text).toContain("4  git.gh007-noreply");
+    expect(text).toContain("median 5500  p90 9100");
+    expect(text).toContain("8  s0  db.append-only");
+    expect(text.split("\n").length).toBeLessThanOrEqual(40);
+  });
+
+  it("el texto sigue en <= 40 líneas con muchas reglas y sesiones", () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      ts: new Date(Date.parse("2026-10-20T00:00:00.000Z") + i).toISOString(),
+      session: `m${i % 12}`,
+      phase: i % 2 ? "pre" : "post",
+      kind: ["shell", "read", "write", "read_many", "other", "x"][i % 6],
+      decision: i % 2 ? "block" : "allow",
+      inject: i % 2 === 0,
+      rule: `rule.${i % 20}`,
+    }));
+    const text = formatSummary(summarize(many));
+    expect(text.split("\n").length).toBeLessThanOrEqual(40);
+    expect(text).toContain("more");
   });
 
   it("reporta mediana y p90 de time-to-first-edit", () => {
