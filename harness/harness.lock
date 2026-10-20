@@ -3,9 +3,13 @@
   "renderedAt": null,
   "artifacts": {
     ".agents/hooks.json": "sha256:048a635ba7a11d9b0169a166756298670d74b8154df332e31e35c81e08eb1fb3",
+    ".agents/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
+    ".agents/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
     ".claude/settings.json": "sha256:cc0009700f4fc89f4254947d1204b6b796bf936357d6e608c3526b14e329af76",
+    ".claude/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
+    ".claude/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
     ".gemini/settings.json": "sha256:1376e58a985d57305b01aee0734ba77bac7a4dce5d766261f0438c2bd7bad3f3",
-    "AGENTS.md": "sha256:04a790734edd752779a1819ae8ee6cf69fea524be9dd562fa92bbd5ce84bb722",
+    "AGENTS.md": "sha256:5ec072a6bc93722d68fad9167535629eb7c8ba7584fcab551223deee992ed02e",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }
 }

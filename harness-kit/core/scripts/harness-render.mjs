@@ -8,7 +8,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -146,6 +146,31 @@ const adapterToolGuidance = adapters
   .map((a) => readFileSafe(path.join(kitDir, "adapters", a, "tool_guidance.md")))
   .filter(Boolean);
 
+// C6: skills (core -> overlay). Cada `skills/<n>/SKILL.md` declara su
+// `autotrigger` en el frontmatter; el render lo publica en AGENTS.md.
+function loadSkills(skillsDir) {
+  if (!existsSync(skillsDir)) return [];
+  return readdirSync(skillsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort()
+    .map((dir) => readFileSafe(path.join(skillsDir, dir, "SKILL.md")))
+    .filter(Boolean)
+    .map((content) => {
+      const field = (key) => content.match(new RegExp(`^${key}:[ \\t]*(.+)$`, "m"))?.[1].trim();
+      return { name: field("name"), autotrigger: field("autotrigger"), content };
+    })
+    .filter((s) => s.name);
+}
+const skills = [
+  ...loadSkills(path.join(kitDir, "core", "skills")),
+  ...loadSkills(path.join(overlayDir, "skills")),
+];
+const autotriggers = skills
+  .filter((s) => s.autotrigger)
+  .map((s) => `- When ${s.autotrigger}, load the ${s.name} skill.`);
+const skillsSection = autotriggers.length ? `## Skills\n\n${autotriggers.join("\n")}` : null;
+
 const agentSections = [
   systemPrompt?.trimEnd(),
   coreGuardrails?.trimEnd(),
@@ -153,6 +178,7 @@ const agentSections = [
   localGuardrails?.trimEnd(),
   coreToolGuidance?.trimEnd(),
   ...adapterToolGuidance.map((s) => s.trimEnd()),
+  skillsSection,
 ].filter(Boolean);
 
 const agentsMdContent = agentSections.join("\n\n") + "\n";
@@ -299,6 +325,17 @@ if (runtimes.has("antigravity")) {
     },
   };
   generatedArtifacts.set(".agents/hooks.json", JSON.stringify(agHooks, null, 2) + "\n");
+}
+
+// Skills: Claude Code solo lee `.claude/skills/`; el resto lee `.agents/skills/`.
+const skillDirs = [
+  runtimes.has("claude-code") && ".claude/skills",
+  ["gemini-cli", "opencode", "antigravity"].some((rt) => runtimes.has(rt)) && ".agents/skills",
+].filter(Boolean);
+for (const skill of skills) {
+  for (const dir of skillDirs) {
+    generatedArtifacts.set(`${dir}/${skill.name}/SKILL.md`, skill.content);
+  }
 }
 
 // 4. Generar harness.lock (idempotente: renderedAt es null)

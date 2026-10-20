@@ -116,3 +116,8 @@ Enforce Scan-Then-Expand on all `multica` CLI invocations.
   - Never run `multica issue comment list` without bounding flags.
 - **Large payloads:** Long descriptions and comments must always use `--description-file ./description.md` or `--content-file ./comment.md` within the task workdir (never `/tmp`).
 - **Stream separation:** Never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
+
+## Skills
+
+- When the repository has no harness/project.json or the user asks to set up the harness, load the harness-bootstrap skill.
+- When a task touches training domain terms (planes, días de rutina, ejercicios en rutina, superseries, sesiones, series, 1RM, RPE) or business rules, load the gozster-domain skill.
