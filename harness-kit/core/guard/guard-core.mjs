@@ -387,14 +387,107 @@ function evaluateWrite(call, repoRoot) {
   return { allowed: true };
 }
 
+/** Find noreply email for GH007 command injection. */
+function resolveNoreplyEmail(output, repoRoot) {
+  const emailRegex = /([0-9]+\+[\w.-]+@users\.noreply\.github\.com|[a-zA-Z0-9_.+-]+@users\.noreply\.github\.com)/;
+  const match = String(output || "").match(emailRegex);
+  if (match) return match[1];
+
+  const envEmail = process.env.HARNESS_NOREPLY_EMAIL || process.env.NOREPLY_EMAIL;
+  if (envEmail) return envEmail;
+
+  if (repoRoot) {
+    const memoryPath = path.join(repoRoot, "harness", "LongTermMEMORY.md");
+    if (existsSync(memoryPath)) {
+      try {
+        const mem = readFileSync(memoryPath, "utf8");
+        const memMatch = mem.match(emailRegex);
+        if (memMatch) return memMatch[1];
+      } catch {}
+    }
+  }
+
+  return "6156087+Fresias@users.noreply.github.com";
+}
+
+/**
+ * Evaluate result (post-tool) rules.
+ */
+function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
+  const rules = loadRules({ repoRoot, rules: options.rules });
+
+  // 1. Shell GH007 check
+  if (normalizedCall.kind === "shell") {
+    const combined = `${normalizedCall.command || ""}\n${normalizedCall.output || ""}`;
+    if (/GH007/i.test(combined)) {
+      const email = resolveNoreplyEmail(combined, repoRoot);
+      return {
+        allowed: true,
+        inject: true,
+        ruleId: "git.gh007-noreply",
+        context: `GitHub Push Protection (GH007) violation detected. Configure your noreply email: git config --worktree user.email ${email}`,
+      };
+    }
+  }
+
+  // 2. Write migration check (reminder to run tests/db/)
+  if (normalizedCall.kind === "write") {
+    const target = normalizedCall.targetPath || normalizedCall.filePath || "";
+    if (/(^|[\\/])supabase[\\/]migrations[\\/][^/\\]+\.sql$/i.test(target)) {
+      return {
+        allowed: true,
+        inject: true,
+        ruleId: "db.migration-test-reminder",
+        context: "New migration detected in supabase/migrations/. Remember to run tests: npx vitest run tests/db/",
+      };
+    }
+  }
+
+  // 3. User-defined post rules from rules.json or rules.local.json
+  for (const rule of rules) {
+    if (rule.phase !== "post" && rule.phase !== "result") continue;
+    if (rule.target && rule.target !== normalizedCall.kind && rule.target !== "all") continue;
+
+    if (rule.pathPattern) {
+      const target = normalizedCall.targetPath || normalizedCall.filePath || "";
+      if (new RegExp(rule.pathPattern, "i").test(target)) {
+        return {
+          allowed: true,
+          inject: true,
+          ruleId: rule.id,
+          context: rule.message || rule.description,
+        };
+      }
+    }
+
+    if (rule.pattern) {
+      const text = `${normalizedCall.command || ""}\n${normalizedCall.output || ""}`;
+      if (new RegExp(rule.pattern, "i").test(text)) {
+        return {
+          allowed: true,
+          inject: true,
+          ruleId: rule.id,
+          context: rule.message || rule.description,
+        };
+      }
+    }
+  }
+
+  return { allowed: true, inject: false };
+}
+
 /**
  * Main evaluation entry point.
  * @param {object} normalizedCall Output of normalize(payload)
  * @param {object} [options]
- * @returns {{ allowed: boolean, reason?: string, ruleId?: string }}
+ * @returns {{ allowed: boolean, reason?: string, ruleId?: string, inject?: boolean, context?: string }}
  */
 export function evaluateRules(normalizedCall, options = {}) {
   const repoRoot = options.repoRoot || findRepoRoot();
+
+  if (normalizedCall.phase === "post" || normalizedCall.phase === "result") {
+    return evaluatePost(normalizedCall, options, repoRoot);
+  }
 
   switch (normalizedCall.kind) {
     case "shell":

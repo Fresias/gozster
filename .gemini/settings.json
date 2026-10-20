@@ -19,6 +19,20 @@
           }
         ]
       }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "^(run_shell_command|write_file|replace)$",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "gozster-guard-post",
+            "command": "bash .claude/hooks/guard.sh --runtime gemini-cli",
+            "timeout": 10000,
+            "description": "GOZSter post-tool result guard"
+          }
+        ]
+      }
     ]
   }
 }

@@ -3,8 +3,8 @@
   "renderedAt": null,
   "artifacts": {
     ".agents/hooks.json": "sha256:048a635ba7a11d9b0169a166756298670d74b8154df332e31e35c81e08eb1fb3",
-    ".claude/settings.json": "sha256:4a3fe0727ac597cff28138ab070d7257453178043f4e6147cbeb45456182d334",
-    ".gemini/settings.json": "sha256:061db0faf4fa19f12c12dac946e2842ccf5de3f5263b1150577ccca9c4a6444e",
+    ".claude/settings.json": "sha256:cc0009700f4fc89f4254947d1204b6b796bf936357d6e608c3526b14e329af76",
+    ".gemini/settings.json": "sha256:1376e58a985d57305b01aee0734ba77bac7a4dce5d766261f0438c2bd7bad3f3",
     "AGENTS.md": "sha256:04a790734edd752779a1819ae8ee6cf69fea524be9dd562fa92bbd5ce84bb722",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }

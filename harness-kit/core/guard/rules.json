@@ -92,5 +92,13 @@
     "target": "all",
     "description": "Writing to .git/hooks or .claude/ is forbidden",
     "message": "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox)."
+  },
+  {
+    "id": "git.gh007-noreply",
+    "phase": "post",
+    "target": "shell",
+    "pattern": "GH007",
+    "description": "Injects git config command on GitHub Push Protection GH007 error",
+    "message": "GitHub Push Protection (GH007) violation detected. Configure your noreply email: git config --worktree user.email <email>"
   }
 ]

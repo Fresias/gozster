@@ -222,6 +222,17 @@ if (runtimes.has("claude-code")) {
           ],
         },
       ],
+      PostToolUse: [
+        {
+          matcher: "Bash|Write",
+          hooks: [
+            {
+              type: "command",
+              command: "bash .claude/hooks/guard.sh",
+            },
+          ],
+        },
+      ],
     },
   };
   generatedArtifacts.set(".claude/settings.json", JSON.stringify(claudeSettings, null, 2) + "\n");
@@ -246,6 +257,20 @@ if (runtimes.has("gemini-cli")) {
               command: "bash .claude/hooks/guard.sh --runtime gemini-cli",
               timeout: 10000,
               description: `${displayName} security and token anti-waste guard`,
+            },
+          ],
+        },
+      ],
+      AfterTool: [
+        {
+          matcher: "^(run_shell_command|write_file|replace)$",
+          hooks: [
+            {
+              type: "command",
+              name: `${projectConfig.name}-guard-post`,
+              command: "bash .claude/hooks/guard.sh --runtime gemini-cli",
+              timeout: 10000,
+              description: `${displayName} post-tool result guard`,
             },
           ],
         },
