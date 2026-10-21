@@ -27,6 +27,9 @@ export type EstadoContratacion =
 export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO';
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
+export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
+export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO';
 
 export interface Database {
   public: {
@@ -805,6 +808,8 @@ export interface Database {
           dias_aviso_previo: number;
           created_at: string;
           updated_at: string;
+          plan_membresia_id: string | null;
+          actividad: ActividadClase | null;
         };
         Insert: {
           id?: string;
@@ -817,6 +822,8 @@ export interface Database {
           dias_aviso_previo?: number;
           created_at?: string;
           updated_at?: string;
+          plan_membresia_id?: string | null;
+          actividad?: ActividadClase | null;
         };
         Update: {
           id?: string;
@@ -829,6 +836,8 @@ export interface Database {
           dias_aviso_previo?: number;
           created_at?: string;
           updated_at?: string;
+          plan_membresia_id?: string | null;
+          actividad?: ActividadClase | null;
         };
         Relationships: [
           {
@@ -836,6 +845,13 @@ export interface Database {
             columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contrataciones_plan_membresia_id_fkey';
+            columns: ['plan_membresia_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_membresia';
             referencedColumns: ['id'];
           },
         ];
@@ -1128,6 +1144,202 @@ export interface Database {
           },
         ];
       };
+      planes_membresia: {
+        Row: {
+          id: string;
+          nombre: string;
+          limite_semanal: number | null;
+          cantidad_actividades: number;
+          duracion_meses: number;
+          precio: number;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          limite_semanal?: number | null;
+          cantidad_actividades: number;
+          duracion_meses: number;
+          precio: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          nombre?: string;
+          limite_semanal?: number | null;
+          cantidad_actividades?: number;
+          duracion_meses?: number;
+          precio?: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      clases_horario: {
+        Row: {
+          id: string;
+          actividad: ActividadClase;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_minutos: number;
+          capacidad: number | null;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          actividad: ActividadClase;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_minutos: number;
+          capacidad?: number | null;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          actividad?: ActividadClase;
+          dia_semana?: number;
+          hora_inicio?: string;
+          duracion_minutos?: number;
+          capacidad?: number | null;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      clases: {
+        Row: {
+          id: string;
+          horario_id: string | null;
+          actividad: ActividadClase;
+          inicio: string;
+          duracion_minutos: number;
+          capacidad: number | null;
+          estado: EstadoClase;
+          motivo_cancelacion: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          horario_id?: string | null;
+          actividad: ActividadClase;
+          inicio: string;
+          duracion_minutos: number;
+          capacidad?: number | null;
+          estado?: EstadoClase;
+          motivo_cancelacion?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          horario_id?: string | null;
+          actividad?: ActividadClase;
+          inicio?: string;
+          duracion_minutos?: number;
+          capacidad?: number | null;
+          estado?: EstadoClase;
+          motivo_cancelacion?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_horario_id_fkey';
+            columns: ['horario_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases_horario';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      clases_profesores: {
+        Row: {
+          clase_id: string;
+          profesor_id: string;
+          created_at: string;
+        };
+        Insert: {
+          clase_id: string;
+          profesor_id: string;
+          created_at?: string;
+        };
+        Update: {
+          clase_id?: string;
+          profesor_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_profesores_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clases_profesores_profesor_id_fkey';
+            columns: ['profesor_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reservas: {
+        Row: {
+          id: string;
+          clase_id: string;
+          alumno_id: string;
+          estado: EstadoReserva;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          alumno_id: string;
+          estado?: EstadoReserva;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          alumno_id?: string;
+          estado?: EstadoReserva;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reservas_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reservas_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1254,6 +1466,40 @@ export interface Database {
           p_filas: Json;
         };
         Returns: number;
+      };
+      es_profesor_de_clase: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: boolean;
+      };
+      reservar_clase: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: {
+          reserva_id: string;
+          aviso: string | null;
+        }[];
+      };
+      cancelar_reserva: {
+        Args: {
+          p_reserva_id: string;
+        };
+        Returns: Database['public']['Tables']['reservas']['Row'];
+      };
+      marcar_ausente: {
+        Args: {
+          p_reserva_id: string;
+        };
+        Returns: Database['public']['Tables']['reservas']['Row'];
+      };
+      cancelar_clase: {
+        Args: {
+          p_clase_id: string;
+          p_motivo?: string | null;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'];
       };
     };
     Enums: {
@@ -1391,3 +1637,8 @@ export type SustitucionEjercicioUpdate = TablesUpdate<'sustituciones_ejercicios'
 export type AlumnoCuestionarioInicial = Tables<'alumno_cuestionario_inicial'>;
 export type AlumnoCuestionarioInicialInsert = TablesInsert<'alumno_cuestionario_inicial'>;
 export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_inicial'>;
+export type PlanMembresia = Tables<'planes_membresia'>;
+export type ClaseHorario = Tables<'clases_horario'>;
+export type Clase = Tables<'clases'>;
+export type ClaseProfesor = Tables<'clases_profesores'>;
+export type Reserva = Tables<'reservas'>;
