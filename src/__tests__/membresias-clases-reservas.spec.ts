@@ -20,7 +20,9 @@ const DOS_BOXEO = "00000000-0000-0000-0000-00000000000a";
 const LIBRE = "00000000-0000-0000-0000-00000000000b";
 const EN_PAUSA = "00000000-0000-0000-0000-00000000000c";
 const VENCIDA = "00000000-0000-0000-0000-00000000000d";
-const AVISO = "00000000-0000-0000-0000-00000000000e";
+const LIBRE_2 = "00000000-0000-0000-0000-00000000000e";
+const RENUEVA = "00000000-0000-0000-0000-000000000010";
+const VENCIDA_SIN_BATCH = "00000000-0000-0000-0000-000000000011";
 const SIN_PLAN = "00000000-0000-0000-0000-00000000000f";
 
 const PLAN_2_1 = "20000000-0000-0000-0000-000000000001";
@@ -48,7 +50,8 @@ const SEED = `
   INSERT INTO auth.users (id, email) VALUES
     ('${ADMIN}','admin@t'),('${COACH}','coach@t'),('${OTRO_COACH}','c2@t'),
     ('${DOS_BOXEO}','a@t'),('${LIBRE}','b@t'),('${EN_PAUSA}','c@t'),
-    ('${VENCIDA}','d@t'),('${AVISO}','e@t'),('${SIN_PLAN}','f@t');
+    ('${VENCIDA}','d@t'),('${LIBRE_2}','e@t'),('${SIN_PLAN}','f@t'),
+    ('${RENUEVA}','g@t'),('${VENCIDA_SIN_BATCH}','h@t');
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
     ('${ADMIN}','admin@t','Admin','ADMIN',NULL,'ACTIVA'),
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
@@ -57,8 +60,10 @@ const SEED = `
     ('${LIBRE}','b@t','Libre','ALUMNO','${COACH}','ACTIVA'),
     ('${EN_PAUSA}','c@t','Pausa','ALUMNO','${COACH}','ACTIVA'),
     ('${VENCIDA}','d@t','Vencida','ALUMNO','${COACH}','ACTIVA'),
-    ('${AVISO}','e@t','Aviso','ALUMNO','${COACH}','ACTIVA'),
-    ('${SIN_PLAN}','f@t','Sin plan','ALUMNO','${COACH}','ACTIVA');
+    ('${LIBRE_2}','e@t','Libre 2','ALUMNO','${COACH}','ACTIVA'),
+    ('${SIN_PLAN}','f@t','Sin plan','ALUMNO','${COACH}','ACTIVA'),
+    ('${RENUEVA}','g@t','Renueva','ALUMNO','${COACH}','ACTIVA'),
+    ('${VENCIDA_SIN_BATCH}','h@t','Vencida sin batch','ALUMNO','${COACH}','ACTIVA');
   INSERT INTO public.planes_membresia (id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio) VALUES
     ('${PLAN_2_1}','2 por semana',2,1,1,20000),
     ('${PLAN_LIBRE}','Pase libre',NULL,2,1,35000);
@@ -68,7 +73,12 @@ const SEED = `
     ('${LIBRE}','PRESENCIAL',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'POR_VENCER','${PLAN_LIBRE}',NULL),
     ('${EN_PAUSA}','PRESENCIAL',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'EN_PAUSA','${PLAN_LIBRE}',NULL),
     ('${VENCIDA}','PRESENCIAL',5,CURRENT_DATE - 40,CURRENT_DATE - 10,'VENCIDA','${PLAN_LIBRE}',NULL),
-    ('${AVISO}','PRESENCIAL',5,CURRENT_DATE - 40,
+    ('${LIBRE_2}','PRESENCIAL',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'VIGENTE','${PLAN_LIBRE}',NULL),
+    -- Vence el lunes de esta semana (hora argentina)
+    ('${RENUEVA}','PRESENCIAL',5,CURRENT_DATE - 40,
+      date_trunc('week', now() AT TIME ZONE '${TZ}')::date,'VIGENTE','${PLAN_LIBRE}',NULL),
+    -- Venció ayer pero el batch todavía no la pasó a VENCIDA
+    ('${VENCIDA_SIN_BATCH}','PRESENCIAL',5,CURRENT_DATE - 40,
       (now() AT TIME ZONE '${TZ}')::date - 1,'VIGENTE','${PLAN_LIBRE}',NULL),
     ('${SIN_PLAN}','ASESORIA_ONLINE',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'VIGENTE',NULL,NULL);
 `;
@@ -77,6 +87,20 @@ const SEED = `
 const FIN_SEMANA = `((date_trunc('week', now() AT TIME ZONE '${TZ}') + interval '7 days') AT TIME ZONE '${TZ}')`;
 // Instante futuro dentro de la semana en curso, f ∈ (0, 1).
 const enSemana = (f: number) => `now() + (${FIN_SEMANA} - now()) * ${f}`;
+// Lunes de la semana en curso a las HH:00, hora argentina.
+const LUNES = `(date_trunc('week', now() AT TIME ZONE '${TZ}') AT TIME ZONE '${TZ}')`;
+const lunesMas = (horas: number) => `${LUNES} + interval '${horas} hours'`;
+
+// Reloj de prueba: solo en esta base, reservar_clase resuelve now() en el
+// esquema reloj, que devuelve test.ahora si está seteado. Permite fijar el
+// "ahora" en un día de semana para casos imposibles un domingo.
+const RELOJ = `
+  CREATE SCHEMA reloj;
+  CREATE FUNCTION reloj.now() RETURNS timestamptz LANGUAGE sql STABLE AS $$
+    SELECT coalesce(nullif(current_setting('test.ahora', true), '')::timestamptz, pg_catalog.now()) $$;
+  GRANT USAGE ON SCHEMA reloj TO authenticated;
+  ALTER FUNCTION public.reservar_clase(UUID) SET search_path = reloj, pg_catalog, public;
+`;
 
 let db: PGlite;
 
@@ -90,11 +114,12 @@ async function aplicarMigracion(sql: string) {
   }
 }
 
-function como<T>(rol: Rol, sub: string | null, sql: string) {
+function como<T>(rol: Rol, sub: string | null, sql: string, ahora?: string) {
   return db.transaction(async (tx: Transaction) => {
     await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
       JSON.stringify(sub ? { sub, role: rol } : { role: rol }),
     ]);
+    if (ahora) await tx.query(`SELECT set_config('test.ahora', (${ahora})::text, true)`);
     await tx.query(`SET LOCAL ROLE ${rol}`);
     return tx.query<T>(sql);
   });
@@ -117,11 +142,12 @@ async function crearClase(
   return id;
 }
 
-async function reservar(alumno: string, claseId: string) {
+async function reservar(alumno: string, claseId: string, ahora?: string) {
   const r = await como<{ reserva_id: string; aviso: string | null }>(
     "authenticated",
     alumno,
-    `SELECT reserva_id, aviso FROM public.reservar_clase('${claseId}')`
+    `SELECT reserva_id, aviso FROM public.reservar_clase('${claseId}')`,
+    ahora
   );
   return r.rows[0]!;
 }
@@ -149,6 +175,7 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
     // Idempotencia
     await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
     await db.exec(SEED);
+    await db.exec(RELOJ);
   }, 60_000);
 
   describe("esquema", () => {
@@ -264,14 +291,14 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
     it("una clase llena responde sin cupo", async () => {
       const clase = await crearClase("FUNCIONAL", enSemana(0.45), 1);
       await reservar(LIBRE, clase);
-      await expect(reservar(AVISO, clase)).rejects.toMatchObject({ code: "GZ001", message: "Sin cupo" });
+      await expect(reservar(LIBRE_2, clase)).rejects.toMatchObject({ code: "GZ001", message: "Sin cupo" });
     });
 
     it("cancelar libera el cupo para otro alumno", async () => {
       const clase = await crearClase("BOXEO", enSemana(0.55), 1);
       const r = await reservar(LIBRE, clase);
       await cancelarReserva(LIBRE, r.reserva_id);
-      await reservar(AVISO, clase);
+      await reservar(LIBRE_2, clase);
     });
   });
 
@@ -283,10 +310,25 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
     });
 
     it("avisa cuando la membresía vence antes de la clase", async () => {
-      const clase = await crearClase("BOXEO", enSemana(0.7));
-      const r = await reservar(AVISO, clase);
+      // Hoy = lunes 10:00, la membresía vence el lunes, la clase es el miércoles
+      const clase = await crearClase("BOXEO", lunesMas(2 * 24 + 10));
+      const r = await reservar(RENUEVA, clase, lunesMas(10));
       expect(r.reserva_id).toBeTruthy();
       expect(r.aviso).toMatch(/otro período/);
+    });
+
+    it("sin aviso cuando la membresía vence el mismo día de la clase", async () => {
+      const clase = await crearClase("FUNCIONAL", lunesMas(19));
+      const r = await reservar(RENUEVA, clase, lunesMas(10));
+      expect(r.aviso).toBeNull();
+    });
+
+    it("fecha_fin ya pasada rechaza aunque el batch no la haya marcado VENCIDA", async () => {
+      const clase = await crearClase("FUNCIONAL", enSemana(0.72));
+      await expect(reservar(VENCIDA_SIN_BATCH, clase)).rejects.toMatchObject({
+        code: "GZ004",
+        message: expect.stringMatching(/venció/),
+      });
     });
 
     it("EN_PAUSA, VENCIDA y sin membresía se rechazan", async () => {
@@ -326,6 +368,20 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
   });
 
   describe("RLS", () => {
+    it("un entrenador no puede asignarse a una clase; un admin sí", async () => {
+      const clase = await crearClase("BOXEO", enSemana(0.88), null, [OTRO_COACH]);
+      await expect(
+        como("authenticated", COACH, `INSERT INTO public.clases_profesores (clase_id, profesor_id) VALUES ('${clase}', '${COACH}')`)
+      ).rejects.toThrow(/row-level security/);
+      await expect(cancelarClase(COACH, clase)).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como("authenticated", OTRO_COACH, `DELETE FROM public.clases_profesores WHERE clase_id = '${clase}' RETURNING 1`)
+      ).resolves.toMatchObject({ rows: [] });
+
+      await como("authenticated", ADMIN, `INSERT INTO public.clases_profesores (clase_id, profesor_id) VALUES ('${clase}', '${COACH}')`);
+      await cancelarClase(COACH, clase);
+    });
+
     it("el alumno solo ve sus reservas; el staff ve todas", async () => {
       const propias = await como<{ alumno_id: string }>("authenticated", DOS_BOXEO, `SELECT alumno_id FROM public.reservas`);
       expect(propias.rows.length).toBeGreaterThan(0);

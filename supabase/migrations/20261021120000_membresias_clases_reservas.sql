@@ -192,8 +192,10 @@ CREATE INDEX IF NOT EXISTS idx_reservas_updated_at ON public.reservas (updated_a
 -- ============================================================================
 -- 5. ROW LEVEL SECURITY
 -- Catálogo (planes, horarios, clases, profesores): lectura para usuarios
--- autenticados, escritura para entrenadores/admin. Reservas: el alumno ve las
--- suyas, entrenadores/admin ven todas; ninguna escritura directa (solo RPC).
+-- autenticados, escritura para entrenadores/admin. Asignar profesores a una
+-- clase: solo ADMIN (un entrenador no puede asignarse solo y ganar permisos de
+-- cancelar_clase / marcar_ausente). Reservas: el alumno ve las suyas,
+-- entrenadores/admin ven todas; ninguna escritura directa (solo RPC).
 -- ============================================================================
 
 ALTER TABLE public.planes_membresia ENABLE ROW LEVEL SECURITY;
@@ -241,10 +243,11 @@ CREATE POLICY "clases_profesores_select_autenticado"
   USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "clases_profesores_write_entrenador_o_admin" ON public.clases_profesores;
-CREATE POLICY "clases_profesores_write_entrenador_o_admin"
+DROP POLICY IF EXISTS "clases_profesores_write_admin" ON public.clases_profesores;
+CREATE POLICY "clases_profesores_write_admin"
   ON public.clases_profesores FOR ALL TO authenticated
-  USING (public.es_entrenador_o_admin())
-  WITH CHECK (public.es_entrenador_o_admin());
+  USING (public.es_admin())
+  WITH CHECK (public.es_admin());
 
 DROP POLICY IF EXISTS "reservas_select_alumno_o_staff" ON public.reservas;
 CREATE POLICY "reservas_select_alumno_o_staff"
@@ -330,6 +333,13 @@ BEGIN
 
   IF v_contratacion.estado IN ('EN_PAUSA', 'VENCIDA') THEN
     RAISE EXCEPTION 'Tu membresía está %: no podés reservar', v_contratacion.estado
+      USING ERRCODE = 'GZ004';
+  END IF;
+
+  -- VENCIDA la escribe un batch: entre corridas, fecha_fin ya pasada también rechaza.
+  IF v_contratacion.fecha_fin < (now() AT TIME ZONE c_tz)::date THEN
+    RAISE EXCEPTION 'Tu membresía venció el %: no podés reservar',
+      to_char(v_contratacion.fecha_fin, 'DD/MM/YYYY')
       USING ERRCODE = 'GZ004';
   END IF;
 
