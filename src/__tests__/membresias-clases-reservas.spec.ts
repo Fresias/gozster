@@ -11,6 +11,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261021150000_reglas_reservas_entrenador.sql";
+const NEW_MIGRATION_107 = "20261021170000_borrado_clases_profesor_o_admin.sql";
 const TZ = "America/Argentina/Buenos_Aires";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
@@ -183,6 +184,7 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
     }
     // Idempotencia
     await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION_107), "utf-8"));
     await db.exec(SEED);
     await db.exec(RELOJ);
   }, 60_000);
@@ -481,6 +483,72 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       await como("authenticated", ADMIN, `UPDATE public.clases SET capacidad = 25 WHERE id = '${clase}'`);
       const c2 = await db.query<{ capacidad: number }>(`SELECT capacidad FROM public.clases WHERE id = '${clase}'`);
       expect(c2.rows[0]!.capacidad).toBe(25);
+    });
+
+    it("un coach no asignado y no ADMIN no puede borrar una clase (persiste); el profesor asignado y ADMIN sí pueden (GH #120)", async () => {
+      // Clase donde COACH es el profesor asignado
+      const clase1 = await crearClase("BOXEO", enSemana(0.85), 10, [COACH]);
+
+      // GIVEN coach no asignado y no ADMIN WHEN intenta DELETE THEN la clase no se borra (persiste)
+      const intentoNoAsignado = await como(
+        "authenticated",
+        OTRO_COACH,
+        `DELETE FROM public.clases WHERE id = '${clase1}' RETURNING id`
+      );
+      expect(intentoNoAsignado.rows).toHaveLength(0);
+
+      const checkClase1 = await db.query<{ id: string }>(
+        `SELECT id FROM public.clases WHERE id = '${clase1}'`
+      );
+      expect(checkClase1.rows).toHaveLength(1);
+      expect(checkClase1.rows[0]!.id).toBe(clase1);
+
+      // GIVEN profesor asignado WHEN intenta DELETE THEN la clase se borra correctamente
+      const borradoPorCoach = await como<{ id: string }>(
+        "authenticated",
+        COACH,
+        `DELETE FROM public.clases WHERE id = '${clase1}' RETURNING id`
+      );
+      expect(borradoPorCoach.rows).toHaveLength(1);
+      expect(borradoPorCoach.rows[0]!.id).toBe(clase1);
+
+      const checkBorradaCoach = await db.query(
+        `SELECT 1 FROM public.clases WHERE id = '${clase1}'`
+      );
+      expect(checkBorradaCoach.rows).toHaveLength(0);
+
+      // GIVEN ADMIN WHEN intenta DELETE THEN la clase se borra correctamente
+      const clase2 = await crearClase("FUNCIONAL", enSemana(0.86), 15, [COACH]);
+      const borradoPorAdmin = await como<{ id: string }>(
+        "authenticated",
+        ADMIN,
+        `DELETE FROM public.clases WHERE id = '${clase2}' RETURNING id`
+      );
+      expect(borradoPorAdmin.rows).toHaveLength(1);
+      expect(borradoPorAdmin.rows[0]!.id).toBe(clase2);
+
+      const checkBorradaAdmin = await db.query(
+        `SELECT 1 FROM public.clases WHERE id = '${clase2}'`
+      );
+      expect(checkBorradaAdmin.rows).toHaveLength(0);
+    });
+
+    it("un ENTRENADOR puede hacer INSERT de una nueva clase sin regresión (GH #120)", async () => {
+      const insertCoach = await como<{ id: string }>(
+        "authenticated",
+        COACH,
+        `INSERT INTO public.clases (actividad, inicio, duracion_minutos, capacidad)
+         VALUES ('BOXEO', ${enSemana(0.88)}, 60, 12) RETURNING id`
+      );
+      expect(insertCoach.rows).toHaveLength(1);
+      const nuevaClaseId = insertCoach.rows[0]!.id;
+      expect(nuevaClaseId).toBeDefined();
+
+      const check = await db.query<{ id: string; capacidad: number }>(
+        `SELECT id, capacidad FROM public.clases WHERE id = '${nuevaClaseId}'`
+      );
+      expect(check.rows).toHaveLength(1);
+      expect(check.rows[0]!.capacidad).toBe(12);
     });
   });
 });
