@@ -12,6 +12,16 @@ export default defineConfig({
     globals: false,
     testTimeout: 30000,
     hookTimeout: 120000,
+    pool: "forks",
+    fileParallelism: false,
+    poolOptions: {
+      forks: {
+        execArgv: [
+          "--no-wasm-dynamic-tiering",
+          "--no-wasm-tier-up",
+        ],
+      },
+    },
   },
   resolve: {
     alias: {
