@@ -361,6 +361,20 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       expect(await estadoReserva(res.reserva_id)).toBe("ANOTADO");
     });
 
+    it("alumno con contratación en curso y otra futura puede reservar (GOZS-104)", async () => {
+      // LIBRE_2 ya tiene una contratación VIGENTE en curso (fecha_inicio -10, fecha_fin +30).
+      // Al agregarle una VIGENTE futura, el ORDER BY de reservar_clase debe priorizar la
+      // vigente en curso; si se revierte el orden, elige la futura y responde GZ004.
+      await db.exec(
+        `INSERT INTO public.contrataciones (alumno_id, tipo_servicio, dia_vencimiento, fecha_inicio, fecha_fin, estado, plan_membresia_id, actividad)
+         VALUES ('${LIBRE_2}','PRESENCIAL',5,CURRENT_DATE + 20, CURRENT_DATE + 50,'VIGENTE','${PLAN_LIBRE}',NULL)`
+      );
+      const clase = await crearClase("FUNCIONAL", enSemana(0.92));
+      const res = await reservar(LIBRE_2, clase);
+      expect(res.reserva_id).toBeTruthy();
+      expect(await estadoReserva(res.reserva_id)).toBe("ANOTADO");
+    });
+
     it("contratación con fecha_inicio futura se rechaza (GOZS-104)", async () => {
       const clase = await crearClase("FUNCIONAL", enSemana(0.74));
       await expect(reservar(FUTURA, clase)).rejects.toMatchObject({
