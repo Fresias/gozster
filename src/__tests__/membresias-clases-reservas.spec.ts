@@ -10,7 +10,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // (lunes a domingo, America/Argentina/Buenos_Aires).
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261021120000_membresias_clases_reservas.sql";
+const NEW_MIGRATION = "20261021150000_reglas_reservas_entrenador.sql";
 const TZ = "America/Argentina/Buenos_Aires";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
@@ -23,6 +23,8 @@ const VENCIDA = "00000000-0000-0000-0000-00000000000d";
 const LIBRE_2 = "00000000-0000-0000-0000-00000000000e";
 const RENUEVA = "00000000-0000-0000-0000-000000000010";
 const VENCIDA_SIN_BATCH = "00000000-0000-0000-0000-000000000011";
+const PENDIENTE_RENOV = "00000000-0000-0000-0000-000000000012";
+const FUTURA = "00000000-0000-0000-0000-000000000013";
 const SIN_PLAN = "00000000-0000-0000-0000-00000000000f";
 
 const PLAN_2_1 = "20000000-0000-0000-0000-000000000001";
@@ -51,7 +53,8 @@ const SEED = `
     ('${ADMIN}','admin@t'),('${COACH}','coach@t'),('${OTRO_COACH}','c2@t'),
     ('${DOS_BOXEO}','a@t'),('${LIBRE}','b@t'),('${EN_PAUSA}','c@t'),
     ('${VENCIDA}','d@t'),('${LIBRE_2}','e@t'),('${SIN_PLAN}','f@t'),
-    ('${RENUEVA}','g@t'),('${VENCIDA_SIN_BATCH}','h@t');
+    ('${RENUEVA}','g@t'),('${VENCIDA_SIN_BATCH}','h@t'),
+    ('${PENDIENTE_RENOV}','pend@t'),('${FUTURA}','futura@t');
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
     ('${ADMIN}','admin@t','Admin','ADMIN',NULL,'ACTIVA'),
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
@@ -63,7 +66,9 @@ const SEED = `
     ('${LIBRE_2}','e@t','Libre 2','ALUMNO','${COACH}','ACTIVA'),
     ('${SIN_PLAN}','f@t','Sin plan','ALUMNO','${COACH}','ACTIVA'),
     ('${RENUEVA}','g@t','Renueva','ALUMNO','${COACH}','ACTIVA'),
-    ('${VENCIDA_SIN_BATCH}','h@t','Vencida sin batch','ALUMNO','${COACH}','ACTIVA');
+    ('${VENCIDA_SIN_BATCH}','h@t','Vencida sin batch','ALUMNO','${COACH}','ACTIVA'),
+    ('${PENDIENTE_RENOV}','pend@t','Pendiente','ALUMNO','${COACH}','ACTIVA'),
+    ('${FUTURA}','futura@t','Futura','ALUMNO','${COACH}','ACTIVA');
   INSERT INTO public.planes_membresia (id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio) VALUES
     ('${PLAN_2_1}','2 por semana',2,1,1,20000),
     ('${PLAN_LIBRE}','Pase libre',NULL,2,1,35000);
@@ -80,6 +85,10 @@ const SEED = `
     -- Venció ayer pero el batch todavía no la pasó a VENCIDA
     ('${VENCIDA_SIN_BATCH}','PRESENCIAL',5,CURRENT_DATE - 40,
       (now() AT TIME ZONE '${TZ}')::date - 1,'VIGENTE','${PLAN_LIBRE}',NULL),
+    -- PENDIENTE_RENOVACION (puede reservar según regla GOZS-104)
+    ('${PENDIENTE_RENOV}','PRESENCIAL',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'PENDIENTE_RENOVACION','${PLAN_LIBRE}',NULL),
+    -- Fecha de inicio futura (no puede reservar hasta que empiece)
+    ('${FUTURA}','PRESENCIAL',5,CURRENT_DATE + 5,CURRENT_DATE + 35,'VIGENTE','${PLAN_LIBRE}',NULL),
     ('${SIN_PLAN}','ASESORIA_ONLINE',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'VIGENTE',NULL,NULL);
 `;
 
@@ -234,9 +243,16 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       expect(await estadoReserva(rB3)).toBe("ANOTADO");
     });
 
-    it("solo un profesor de la clase o ADMIN marca ausentes", async () => {
+    it("solo un profesor de la clase o ADMIN marca ausentes y solo después del inicio de la clase", async () => {
       await expect(marcarAusente(OTRO_COACH, rB1)).rejects.toMatchObject({ code: "42501" });
       await expect(marcarAusente(DOS_BOXEO, rB1)).rejects.toMatchObject({ code: "42501" });
+      // Antes de que empiece la clase, marcar ausente se rechaza (GOZS-104)
+      await expect(marcarAusente(COACH, rB1)).rejects.toMatchObject({
+        code: "GZ006",
+        message: expect.stringMatching(/todavía no comenzó/),
+      });
+      // Simulamos que la clase ya comenzó
+      await db.query(`UPDATE public.clases SET inicio = now() - interval '10 minutes' WHERE id = '${b1}'`);
       await marcarAusente(COACH, rB1);
       expect(await estadoReserva(rB1)).toBe("AUSENTE");
       await expect(marcarAusente(ADMIN, rB1)).rejects.toMatchObject({ code: "GZ009" });
@@ -338,6 +354,21 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       await expect(reservar(SIN_PLAN, clase)).rejects.toMatchObject({ code: "GZ004" });
     });
 
+    it("PENDIENTE_RENOVACION puede reservar normalmente (GOZS-104)", async () => {
+      const clase = await crearClase("FUNCIONAL", enSemana(0.73));
+      const res = await reservar(PENDIENTE_RENOV, clase);
+      expect(res.reserva_id).toBeTruthy();
+      expect(await estadoReserva(res.reserva_id)).toBe("ANOTADO");
+    });
+
+    it("contratación con fecha_inicio futura se rechaza (GOZS-104)", async () => {
+      const clase = await crearClase("FUNCIONAL", enSemana(0.74));
+      await expect(reservar(FUTURA, clase)).rejects.toMatchObject({
+        code: "GZ004",
+        message: expect.stringMatching(/todavía no podés reservar/),
+      });
+    });
+
     it("una clase de la semana próxima se rechaza", async () => {
       const clase = await crearClase("FUNCIONAL", `${FIN_SEMANA} + interval '1 hour'`);
       await expect(reservar(LIBRE, clase)).rejects.toMatchObject({ code: "GZ005" });
@@ -427,6 +458,29 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       await expect(
         como("authenticated", COACH, `UPDATE public.clases SET estado = 'CANCELADA' WHERE id = '${clase}'`)
       ).rejects.toMatchObject({ code: "42501" });
+    });
+
+    it("solo el profesor asignado o ADMIN pueden cambiar inicio y capacidad de una clase (GOZS-104)", async () => {
+      const clase = await crearClase("BOXEO", enSemana(0.85), 10, [COACH]);
+
+      // Un coach no asignado no puede cambiar inicio ni capacidad
+      await expect(
+        como("authenticated", OTRO_COACH, `UPDATE public.clases SET capacidad = 20 WHERE id = '${clase}'`)
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como("authenticated", OTRO_COACH, `UPDATE public.clases SET inicio = ${enSemana(0.87)} WHERE id = '${clase}'`)
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // El profesor asignado SÍ puede cambiar inicio y capacidad
+      await como("authenticated", COACH, `UPDATE public.clases SET capacidad = 15 WHERE id = '${clase}'`);
+      const c1 = await db.query<{ capacidad: number }>(`SELECT capacidad FROM public.clases WHERE id = '${clase}'`);
+      expect(c1.rows[0]!.capacidad).toBe(15);
+
+      // ADMIN también puede cambiar inicio y capacidad
+      await como("authenticated", ADMIN, `UPDATE public.clases SET capacidad = 25 WHERE id = '${clase}'`);
+      const c2 = await db.query<{ capacidad: number }>(`SELECT capacidad FROM public.clases WHERE id = '${clase}'`);
+      expect(c2.rows[0]!.capacidad).toBe(25);
     });
   });
 });
