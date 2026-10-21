@@ -10,7 +10,10 @@ The consuming repo keeps its own overlay in `harness/` (`project.json`, `harness
 
 ## Add to a new repo
 
+Requires a Node repo with a `package.json` (`bootstrap.mjs` derives the default gate from its `scripts`).
+
 ```bash
+npm init -y   # only if the repo has no package.json yet
 git subtree add --prefix=harness-kit https://github.com/Fresias/harness.git v2.0.0 --squash
 node harness-kit/core/skills/harness-bootstrap/bootstrap.mjs . --name <project> --gate "npm test && npm run typecheck"
 node harness-kit/core/scripts/harness-render.mjs
