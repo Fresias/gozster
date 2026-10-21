@@ -152,10 +152,11 @@ CREATE TRIGGER trg_clases_proteger_estado
 
 -- Una clase puede tener varios profesores.
 CREATE TABLE IF NOT EXISTS public.clases_profesores (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   clase_id UUID NOT NULL REFERENCES public.clases(id) ON DELETE CASCADE,
   profesor_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (clase_id, profesor_id)
+  CONSTRAINT uq_clases_profesores UNIQUE (clase_id, profesor_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_clases_profesores_profesor_id
@@ -492,6 +493,55 @@ BEGIN
   RETURN v_clase;
 END;
 $$;
+
+-- ============================================================================
+-- 7. ACTUALIZACIÓN DE: public.restaurar_filas_respaldo (tablas de clases)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.restaurar_filas_respaldo(p_tabla TEXT, p_filas JSONB)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_insertadas INT;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Solo service_role puede restaurar respaldos'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_tabla NOT IN (
+    'perfiles', 'ejercicios', 'ejercicios_alternativas', 'entrenador_alumnos', 'planes_entrenamiento', 'dias_rutina',
+    'ejercicios_en_rutina', 'registro_sesiones', 'registro_series', 'conversaciones',
+    'mensajes', 'habitos_registros', 'nutricion_registros', 'alertas_entrenador',
+    'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'planes_membresia', 'contrataciones', 'pagos',
+    'auditoria_cambios', 'sustituciones_ejercicios', 'clases_horario', 'clases', 'clases_profesores', 'reservas'
+  ) THEN
+    RAISE EXCEPTION 'Tabla no restaurable: %', p_tabla
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_filas IS NULL OR jsonb_typeof(p_filas) <> 'array' THEN
+    RAISE EXCEPTION 'p_filas debe ser un array JSON'
+      USING ERRCODE = '22023';
+  END IF;
+
+  EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER USER', p_tabla);
+  EXECUTE format(
+    'INSERT INTO public.%1$I SELECT * FROM jsonb_populate_recordset(NULL::public.%1$I, $1) ON CONFLICT (id) DO NOTHING',
+    p_tabla
+  ) USING p_filas;
+  GET DIAGNOSTICS v_insertadas = ROW_COUNT;
+  EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER USER', p_tabla);
+
+  RETURN v_insertadas;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.restaurar_filas_respaldo(TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restaurar_filas_respaldo(TEXT, JSONB) TO service_role;
 
 REVOKE EXECUTE ON FUNCTION public.es_profesor_de_clase(UUID) FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.reservar_clase(UUID) FROM PUBLIC, anon;

@@ -1267,16 +1267,19 @@ export interface Database {
       };
       clases_profesores: {
         Row: {
+          id: string;
           clase_id: string;
           profesor_id: string;
           created_at: string;
         };
         Insert: {
+          id?: string;
           clase_id: string;
           profesor_id: string;
           created_at?: string;
         };
         Update: {
+          id?: string;
           clase_id?: string;
           profesor_id?: string;
           created_at?: string;
