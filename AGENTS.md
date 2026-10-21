@@ -114,6 +114,11 @@ GOZSter is a high-performance strength-training platform with a dual experience:
 - **Large payloads:** Long descriptions and comments must always use `--description-file ./description.md` or `--content-file ./comment.md` within the task workdir (never `/tmp`).
 - **Stream separation:** Never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
 
+## Comment Discipline (No-Action, No-Reply)
+- **No action, no comment:** If a wakeup/mention requires no concrete action from you (acks, thanks, "conformidad", "silencio operativo", status echoes), end the run WITHOUT commenting.
+- **No ack mentions:** Never @mention another agent unless you need them to act. Mentions trigger runs; acknowledgements are forbidden.
+- **One hand-off per state change:** Comment only when you deliver, block, or request a specific action.
+
 # Helper scripts (run via bash)
 
 - `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only check, project gate commands, writes .harness/complete.json.
