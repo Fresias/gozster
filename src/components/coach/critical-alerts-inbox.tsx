@@ -53,6 +53,9 @@ export function CriticalAlertsInbox({
   const [statusFilter, setStatusFilter] = React.useState<"PENDIENTE" | "ATENDIDO" | "CERRADO" | "TODAS">(
     "PENDIENTE"
   );
+  React.useEffect(() => {
+    setIsExpanded(!isTesteo);
+  }, [isTesteo]);
 
   const fetchAlerts = React.useCallback(async () => {
     setIsLoading(true);

@@ -146,6 +146,8 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(alertsContent).toContain('const isTesteo = mode === "TESTEO"');
       expect(alertsContent).toContain("Bandeja de alertas críticas");
       expect(alertsContent).toContain("aria-expanded={isExpanded}");
+      // Reseteo al alternar el toggle (misma instancia en ambos modos)
+      expect(alertsContent).toMatch(/useEffect\(\(\) => \{\s*setIsExpanded\(!isTesteo\);\s*\}, \[isTesteo\]\)/);
       expect(alertsContent).toContain("w-full min-h-12 flex items-center justify-between");
       // En Producción se conserva el header original
       expect(alertsContent).toContain("Bandeja de Alertas Críticas (Dolor Articular");
