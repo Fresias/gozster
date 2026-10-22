@@ -8,7 +8,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // con RLS automático y auditoría de cambios de rutina en Supabase (PostgreSQL 15+).
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261019100000_chat_gozs_transferencia_auditoria_rutina.sql";
+const NEW_MIGRATION = "20261022000000_chat_gozs_transferencia_auditoria_rutina.sql";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
 const COACH_ORIGINAL = "00000000-0000-0000-0000-00000000c0ac";

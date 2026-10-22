@@ -31,7 +31,6 @@ import {
   STAFF_COACH_FELIX,
   useChatStore,
 } from "@/store/use-chat-store";
-import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 
 export interface StudentDetailProps {
