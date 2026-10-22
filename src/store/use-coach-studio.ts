@@ -27,6 +27,7 @@ import {
 } from "@/services/coach-mock-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
+import { DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -504,7 +505,10 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const stored = get().contrataciones.find(
         (c) => c.alumno_id === alumno.id,
       );
-      return stored ?? derivarContratacionDesdePerfil(alumno);
+      if (stored) return stored;
+      const demoMembresia = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumno.id);
+      if (demoMembresia) return demoMembresia;
+      return derivarContratacionDesdePerfil(alumno);
     },
 
     registrarRenovacionManual: async ({ contratacion, monto, medioPago }) => {

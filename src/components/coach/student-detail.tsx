@@ -626,6 +626,52 @@ export function StudentDetail({
             </div>
           </div>
 
+          {/* Plan de Membresía y Actividad Presencial (GH #122) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="membresia-clases-panel">
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Plan de Membresía
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
+                {contratacion.plan_membresia_id === "demo-plan-funcional-2x"
+                  ? "Funcional 2x semana"
+                  : contratacion.plan_membresia_id === "demo-plan-pase-libre"
+                  ? "Pase libre Funcional + Boxeo"
+                  : contratacion.plan_membresia_id
+                  ? "Plan Presencial"
+                  : "Sin membresía de clases"}
+              </p>
+              <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
+                {contratacion.plan_membresia_id === "demo-plan-funcional-2x"
+                  ? "Límite: 2 clases por semana · $25.000/mes"
+                  : contratacion.plan_membresia_id === "demo-plan-pase-libre"
+                  ? "Pase libre sin límite semanal · $40.000/mes"
+                  : contratacion.plan_membresia_id
+                  ? "Membresía activa"
+                  : "Asesoría o sin plan de clases"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Actividad de la Contratación
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
+                {contratacion.actividad
+                  ? contratacion.actividad === "FUNCIONAL"
+                    ? "Funcional"
+                    : "Boxeo"
+                  : contratacion.plan_membresia_id
+                  ? "Funcional + Boxeo (Pase libre)"
+                  : "No asignada"}
+              </p>
+              <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
+                {contratacion.tipo_servicio === "PRESENCIAL"
+                  ? "Modalidad Presencial"
+                  : "Modalidad Online"}
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Renovación manual (Transferencia / Efectivo) */}
             <div
