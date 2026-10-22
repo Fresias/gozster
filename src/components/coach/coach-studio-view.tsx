@@ -19,6 +19,7 @@ import {
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
+import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
 import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
@@ -121,11 +122,13 @@ export function CoachStudioView({
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [filterQuery, setFilterQuery] = React.useState("");
   const [paymentFilter, setPaymentFilter] = React.useState<
-    "ALL" | "ACTIVA" | "PENDIENTE" | "SIN_PLAN"
+    "ALL" | "ACTIVA" | "PENDIENTE" | "SIN_PLAN" | "NUEVOS"
   >("ALL");
-  // En Testeo "Sin Plan" no existe: se deriva en render sin pisar el estado.
+  // "Sin Plan" no existe en Testeo y "Nuevos" solo existe en Testeo: se deriva en render sin pisar el estado.
   const effectivePaymentFilter =
-    isTestMode && paymentFilter === "SIN_PLAN" ? "ALL" : paymentFilter;
+    (isTestMode && paymentFilter === "SIN_PLAN") || (!isTestMode && paymentFilter === "NUEVOS")
+      ? "ALL"
+      : paymentFilter;
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -212,6 +215,8 @@ export function CoachStudioView({
       matchPayment = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
     } else if (effectivePaymentFilter === "PENDIENTE") {
       matchPayment = a.estado_membresia === "PENDIENTE";
+    } else if (effectivePaymentFilter === "NUEVOS") {
+      matchPayment = esAlumnoNuevo(a.created_at);
     } else if (effectivePaymentFilter === "SIN_PLAN") {
       const tienePlan = planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO");
       matchPayment = !tienePlan;
@@ -586,6 +591,22 @@ export function CoachStudioView({
                 >
                   Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
                 </button>
+                {isTestMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("NUEVOS");
+                      setCurrentPage(1);
+                    }}
+                    className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                      effectivePaymentFilter === "NUEVOS"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Nuevos ({alumnos.filter((a) => esAlumnoNuevo(a.created_at)).length})
+                  </button>
+                )}
                 {!isTestMode && (
                   <button
                     type="button"
@@ -932,6 +953,11 @@ export function CoachStudioView({
                                   <div className="min-w-0">
                                     <span className="font-bold text-foreground block truncate leading-tight text-xs">
                                       {alumno.nombre_completo}
+                                      {isTestMode && esAlumnoNuevo(alumno.created_at) && (
+                                        <span className="ml-1.5 align-middle text-[10px] rounded bg-secondary px-1.5 font-normal text-muted-foreground">
+                                          Nuevo
+                                        </span>
+                                      )}
                                     </span>
                                     {!isTestMode && (
                                       <span className="text-[10px] text-muted-foreground block truncate">
