@@ -46,9 +46,10 @@ export function CriticalAlertsInbox({
   onQuickSwap,
 }: CriticalAlertsInboxProps) {
   const { mode } = useWorkspaceModeStore();
+  const isTesteo = mode === "TESTEO";
   const [alerts, setAlerts] = React.useState<CriticalAlert[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [isExpanded, setIsExpanded] = React.useState(true);
+  const [isExpanded, setIsExpanded] = React.useState(mode !== "TESTEO");
   const [statusFilter, setStatusFilter] = React.useState<"PENDIENTE" | "ATENDIDO" | "CERRADO" | "TODAS">(
     "PENDIENTE"
   );
@@ -320,7 +321,25 @@ export function CriticalAlertsInbox({
       className="max-w-4xl rounded-2xl border border-destructive/40 bg-destructive/5 p-4 space-y-3 shadow-md backdrop-blur-sm"
       data-testid="critical-alerts-inbox"
     >
-      {/* Header con conteo y botón colapsar */}
+      {isTesteo ? (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          aria-expanded={isExpanded}
+          className="w-full min-h-12 flex items-center justify-between border-b border-destructive/20 pb-2.5"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-black">
+              {countPendientes}
+            </span>
+            <span className="text-sm font-bold text-foreground">Bandeja de alertas críticas</span>
+          </span>
+          <span aria-hidden="true" className="text-xs text-muted-foreground">
+            {isExpanded ? "▲" : "▼"}
+          </span>
+        </button>
+      ) : (
+      <>
       <div className="flex items-center justify-between border-b border-destructive/20 pb-2.5">
         <div className="flex items-center gap-2.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-black animate-pulse">
@@ -347,6 +366,9 @@ export function CriticalAlertsInbox({
           {isExpanded ? "Ocultar ▲" : "Mostrar ▼"}
         </button>
       </div>
+
+      </>
+      )}
 
       {isExpanded && (
         <div className="space-y-3 pt-1">

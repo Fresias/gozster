@@ -140,6 +140,16 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(alertsContent).toContain("Sustituir Ejercicio");
       expect(alertsContent).toContain("onQuickSwap");
     });
+
+    it("en Modo Testeo arranca colapsada, con título corto y header como botón accesible sin pulso", () => {
+      expect(alertsContent).toContain('React.useState(mode !== "TESTEO")');
+      expect(alertsContent).toContain('const isTesteo = mode === "TESTEO"');
+      expect(alertsContent).toContain("Bandeja de alertas críticas");
+      expect(alertsContent).toContain("aria-expanded={isExpanded}");
+      expect(alertsContent).toContain("w-full min-h-12 flex items-center justify-between");
+      // En Producción se conserva el header original
+      expect(alertsContent).toContain("Bandeja de Alertas Críticas (Dolor Articular");
+    });
   });
 
   // ==========================================================================
