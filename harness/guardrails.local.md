@@ -7,3 +7,6 @@
 ## Brand & Product Integrity
 - Zero references to "Mynter" in production UI and student-facing copy (ADR-005).
 - Respect dual view states: `SIMPLE` (clean, distraction-free) vs `TECNICA` (full overload details) per ADR-004.
+
+## QA & Review Rounds
+- **Max 2 QA rounds per PR:** a 3rd round means no re-audit — QA/PM set `blocked` and mention Gabriel (human owner) with a summary of the two rejections.

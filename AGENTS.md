@@ -1,45 +1,25 @@
 # GOZSter — System Prompt & Guidelines
 
 ## Product Vision & Architecture
-GOZSter is a strength-training platform with a dual experience:
-- **Coach Studio (Desktop/Web):** plan creator, student management, retention analytics, overload alerts.
-- **Athlete App (Mobile-First / PWA):** live training, offline logging, timers, 1RM calculator, RPE tracking.
+GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plans, students and overload alerts; **Athlete App** (Mobile-First/PWA) for live, offline-first training (timers, 1RM, RPE).
 
 ## Technology Stack
-- **Framework:** Next.js 15 (App Router) + React 19, TypeScript (`strict`).
-- **UI:** Tailwind CSS + Shadcn UI (`components.json`).
-- **State:** Zustand, offline-first (delta sync via `updated_at`).
-- **Backend:** Supabase — PostgreSQL 15+ with strict Row Level Security.
+- Next.js 15 + React 19, TypeScript (`strict`); Tailwind + Shadcn; Zustand (offline-first, delta sync via `updated_at`); **Backend:** Supabase — PostgreSQL 15+ with strict RLS.
 
 ## Verified Commands
-| Task | Command |
-|---|---|
-| Install (clean, CI) | `npm ci` |
-| Dev server | `npm run dev` |
-| Production build / start | `npm run build` / `npm start` |
-| Type-check / lint | `npm run typecheck` / `npm run lint` |
-| Full test suite / watch | `npm test` / `npm run test:watch` |
-| Single test file | `npx vitest run <path/to/file.test.ts>` |
-| Seed from Mynter backup | `npm run seed:mynter` |
-
-**Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
+- Install `npm ci`; dev `npm run dev`; build/start `npm run build` / `npm start`.
+- Type-check / lint `npm run typecheck` / `npm run lint`; tests `npm test` (watch `npm run test:watch`).
+- Single file `npx vitest run <path/to/file.test.ts>`; seed `npm run seed:mynter`.
+- **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
-- `src/app/` — App Router routes: `(coach)/`, `(athlete)/`, `login/`, `invitacion/`.
-- `src/components/` — `coach/`, `athlete/`, `auth/`, `ui/` (Shadcn).
-- `src/lib/` — shared logic, `supabase/` clients, `src/services/`, `src/store/`, `src/middleware.ts`.
-- `src/__tests__/` — Vitest suite (`*.spec.ts` / `*.test.ts`).
-- `supabase/migrations/` — append-only SQL migrations.
-- `types/database.types.ts` — generated Supabase types.
-- `docs/` — specs, ADRs (`docs/adr/`), glossary (`docs/GLOSSARY.md`).
-- `tests/` — repo-level harness tests.
+- `src/` — `app/` routes (`(coach)/`, `(athlete)/`, `login/`, `invitacion/`), `components/`, `lib/` (`supabase/` clients), `services/`, `store/`, `middleware.ts`, `__tests__/` (`*.spec.ts`/`*.test.ts`).
+- `supabase/migrations/`, `types/database.types.ts` (generated), `docs/` (`adr/`, `GLOSSARY.md`), `tests/` (harness).
 
 ## Governance & Roles
-- Squad roles: `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`.
-- All development uses branches: `feature/<issue-#>-slug` or `fix/<issue-#>-slug`.
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
-- Merge authority: `@PM-GOZster` is the sole authority to merge into `main`, gated on green CI and QA `APPROVED`.
-- Review: `@qa-eng` applies the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) on every PR via the PR template (`.github/pull_request_template.md`).
+- Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
+- Merge: `@PM-GOZster` alone merges to `main`, gated on green CI + QA `APPROVED`.
+- Review: `@qa-eng` runs the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) per PR.
 
 # Core Guardrails (Invariants)
 
@@ -77,6 +57,9 @@ GOZSter is a strength-training platform with a dual experience:
 - Zero references to "Mynter" in production UI and student-facing copy (ADR-005).
 - Respect dual view states: `SIMPLE` (clean, distraction-free) vs `TECNICA` (full overload details) per ADR-004.
 
+## QA & Review Rounds
+- **Max 2 QA rounds per PR:** a 3rd round means no re-audit — QA/PM set `blocked` and mention Gabriel (human owner) with a summary of the two rejections.
+
 ## Skills
 
 - When the repository has no harness/project.json or the user asks to set up the harness, load the harness-bootstrap skill.
@@ -105,17 +88,20 @@ GOZSter is a strength-training platform with a dual experience:
 # Multica CLI Guidance (Anti-Token-Waste)
 
 ## Command Rules
-- **Bounded issue queries:** Never run `multica issue list --output json` without `--limit` (max 15).
-- **Scan-Then-Expand comments:**
-  - Scan thread roots: `multica issue comment list <id> --roots-only --summary --compact --output json`
-  - Expand specific thread: `multica issue comment list <id> --thread <comment-id> --tail 10 --compact --output json`
-- **Large payloads:** Long descriptions and comments must always use `--description-file ./description.md` or `--content-file ./comment.md` within the task workdir (never `/tmp`).
-- **Stream separation:** Never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
+- **Bounded queries:** never run `multica issue list --output json` without `--limit` (max 15).
+- **Scan-Then-Expand comments:** scan roots `multica issue comment list <id> --roots-only --summary --compact --output json`, then expand a thread with `... --thread <comment-id> --tail 10 --compact`.
+- **Large payloads:** long descriptions/comments use `--description-file ./description.md` or `--content-file ./comment.md` in the task workdir (never `/tmp`).
+- **Stream separation:** never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
 
 ## Comment Discipline (No-Action, No-Reply)
-- **No action, no comment:** If a wakeup/mention requires no concrete action from you (acks, thanks, "conformidad", "silencio operativo", status echoes), end the run WITHOUT commenting.
-- **No ack mentions:** Never @mention another agent unless you need them to act. Mentions trigger runs; acknowledgements are forbidden.
-- **One hand-off per state change:** Comment only when you deliver, block, or request a specific action.
+- **No action, no comment:** if a wakeup/mention needs no concrete action (acks, thanks, "conformidad", "silencio operativo", status echoes), end the run WITHOUT commenting.
+- **No ack mentions:** never @mention another agent unless you need them to act — mentions trigger runs; acknowledgements are forbidden.
+- **One hand-off per state change:** comment only when you deliver, block, or request a specific action.
+
+## Terminal States (Stop the Loop)
+- **Retries (max 2):** at most 2 tries on the same failure (test or error); if the 2nd makes no measurable progress, set `blocked` with evidence (command, output, what was tried) and end the run.
+- **Hand-off, no start:** record goal, changes, evidence, risks and out-of-scope zones, name exactly ONE next action, then end the run without starting it.
+- **Waits by condition only:** use condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`/`--until-issue`); no periodic wakeups, no sleep/poll.
 
 # Helper scripts (run via bash)
 
