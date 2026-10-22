@@ -1385,6 +1385,24 @@ export interface Database {
         };
         Returns: boolean;
       };
+      obtener_kpis_negocio: {
+        Args: {
+          p_desde: string;
+          p_hasta: string;
+        };
+        Returns: {
+          ingresos: number;
+          ingresos_6m: number[];
+          ingresos_periodo_anterior: number;
+          cobranza_esperada: number;
+          cobranza_pendiente_monto: number;
+          cobranza_vencidas_cant: number;
+          sin_entrenar_7d_ids: string[];
+          activos_fin: number;
+          altas: number;
+          bajas: number;
+        }[];
+      };
       obtener_metricas_retencion: {
         Args: {
           p_profesor_id?: string | null;
