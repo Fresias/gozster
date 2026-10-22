@@ -658,10 +658,30 @@ export const useCoachStudioStore = create<CoachStudioState>()(
             .eq("id", alumnoId);
           if (error) {
             console.warn("Aviso actualizando nivel_vista_alumno en Supabase:", error.message);
+            set({
+              alumnos: prevAlumnos,
+              toast: {
+                id: `toast-${Date.now()}`,
+                type: "warning",
+                title: "Error al actualizar nivel de vista",
+                message: "No se pudo guardar, intentá de nuevo",
+              },
+            });
+            return false;
           }
         }
       } catch (err: any) {
         console.warn("Excepción actualizando nivel_vista_alumno en Supabase:", err?.message || err);
+        set({
+          alumnos: prevAlumnos,
+          toast: {
+            id: `toast-${Date.now()}`,
+            type: "warning",
+            title: "Error al actualizar nivel de vista",
+            message: "No se pudo guardar, intentá de nuevo",
+          },
+        });
+        return false;
       }
 
       return true;

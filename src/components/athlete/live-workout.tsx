@@ -49,6 +49,9 @@ export function LiveWorkout() {
     syncSessionToSupabase,
     nivelVistaAlumno,
     setNivelVistaAlumno,
+    vistaElegidaPorAlumno,
+    vistaRecomendadaCoach,
+    usarVistaRecomendada,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
@@ -56,6 +59,10 @@ export function LiveWorkout() {
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
+  const recomendadaTexto = (vistaRecomendadaCoach || "SIMPLE") === "TECNICA" ? "Técnica" : "Simple";
+  const tieneVistaDistinta = Boolean(
+    vistaElegidaPorAlumno && vistaElegidaPorAlumno !== (vistaRecomendadaCoach || "SIMPLE"),
+  );
   const [activeTab, setActiveTab] = React.useState<"workout" | "habits" | "nutrition" | "cuestionario">("workout");
 
   // Modales
@@ -262,34 +269,55 @@ export function LiveWorkout() {
                 </Button>
 
                 {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
-                <div
-                  className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
-                  data-testid="athlete-view-mode-container"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setNivelVistaAlumno("SIMPLE")}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                      isSimpleView
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid="athlete-toggle-vista-simple"
+                <div className="flex flex-wrap items-center gap-2">
+                  <div
+                    className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
+                    data-testid="athlete-view-mode-container"
                   >
-                    Vista Simple
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNivelVistaAlumno("TECNICA")}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                      !isSimpleView
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                    data-testid="athlete-toggle-vista-tecnica"
+                    <button
+                      type="button"
+                      onClick={() => setNivelVistaAlumno("SIMPLE")}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                        isSimpleView
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="athlete-toggle-vista-simple"
+                    >
+                      Vista Simple
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNivelVistaAlumno("TECNICA")}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                        !isSimpleView
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="athlete-toggle-vista-tecnica"
+                    >
+                      Vista Técnica
+                    </button>
+                  </div>
+
+                  <div
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    data-testid="athlete-vista-recomendada-info"
                   >
-                    Vista Técnica
-                  </button>
+                    <span data-testid="athlete-vista-recomendada-texto">
+                      Recomendada por tu coach: {recomendadaTexto}
+                    </span>
+                    {tieneVistaDistinta && (
+                      <button
+                        type="button"
+                        onClick={usarVistaRecomendada}
+                        className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors cursor-pointer"
+                        data-testid="athlete-usar-vista-recomendada-btn"
+                      >
+                        Usar la recomendada
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

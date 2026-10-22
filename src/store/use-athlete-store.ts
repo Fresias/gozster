@@ -76,12 +76,15 @@ interface AthleteStoreState {
   rpeValidationError: string | null;
   stopProtocolActive: boolean;
   nivelVistaAlumno: NivelVistaAlumno;
+  vistaElegidaPorAlumno: NivelVistaAlumno | null;
+  vistaRecomendadaCoach: NivelVistaAlumno;
   cuestionarioInicial: AlumnoCuestionarioInicial | null;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
+  usarVistaRecomendada: () => void;
   setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
   saveCuestionarioInicial: (
     data: Partial<AlumnoCuestionarioInicial>,
@@ -286,6 +289,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       membershipStatus: "ACTIVE",
       currentSession: defaultSession,
       nivelVistaAlumno: "SIMPLE",
+      vistaElegidaPorAlumno: null,
+      vistaRecomendadaCoach: "SIMPLE",
       cuestionarioInicial: null,
       rpeValidationError: null,
       stopProtocolActive: false,
@@ -300,7 +305,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
-      setNivelVistaAlumno: (nivel) => set({ nivelVistaAlumno: nivel }),
+      setNivelVistaAlumno: (nivel) =>
+        set({
+          vistaElegidaPorAlumno: nivel,
+          nivelVistaAlumno: nivel,
+        }),
+      usarVistaRecomendada: () =>
+        set((state) => ({
+          vistaElegidaPorAlumno: null,
+          nivelVistaAlumno: state.vistaRecomendadaCoach || "SIMPLE",
+        })),
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
       saveCuestionarioInicial: async (data) => {
         const studentId =
@@ -875,9 +889,15 @@ export const useAthleteStore = create<AthleteStoreState>()(
           studentId: student.id,
         };
 
+        const coachRecomendada =
+          (student.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE";
+        const eleccionAlumno = get().vistaElegidaPorAlumno;
+        const vistaEfectiva = eleccionAlumno ?? coachRecomendada;
+
         set({
           currentSession: newSession,
-          nivelVistaAlumno: (student.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE",
+          vistaRecomendadaCoach: coachRecomendada,
+          nivelVistaAlumno: vistaEfectiva,
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -892,9 +912,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       resetSessionToDefaults: () => {
+        const eleccionAlumno = get().vistaElegidaPorAlumno;
         set({
           currentSession: defaultSession,
-          nivelVistaAlumno: "SIMPLE",
+          vistaRecomendadaCoach: "SIMPLE",
+          nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
           restTimer: {
             isActive: false,
@@ -915,6 +937,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         membershipStatus: state.membershipStatus,
         currentSession: state.currentSession,
         nivelVistaAlumno: state.nivelVistaAlumno,
+        vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,
+        vistaRecomendadaCoach: state.vistaRecomendadaCoach,
         cuestionarioInicial: state.cuestionarioInicial,
       }),
     },
