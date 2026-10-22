@@ -700,7 +700,7 @@ export function CoachStudioView({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {!isTestMode && (<div className="flex items-center gap-2">
                     <div className="flex items-center rounded-lg bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium">
                       <button
                         type="button"
@@ -725,7 +725,7 @@ export function CoachStudioView({
                         Estándar (48px)
                       </button>
                     </div>
-                  </div>
+                  </div>)}
                 </div>
 
                 {/* Tabla Matriz con Semáforos M3 (Cero Texto Redundante) */}
@@ -901,7 +901,7 @@ export function CoachStudioView({
                             ? getDemoAlumnoAlerts(alumno.nombre_completo)
                             : getAlumnoAlerts(alumno, planActivo, historial);
 
-                          const isCompact = tableDensity === "compact";
+                          const isCompact = !isTestMode && tableDensity === "compact";
                           // Clases de altura de fila que preservan la referencia de 34px y acomodan ergonomía táctil
                           const rowPaddingClass = isCompact
                             ? "min-h-[34px] py-1.5"
