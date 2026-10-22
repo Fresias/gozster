@@ -98,6 +98,7 @@ export function CoachStudioView({
     getContratacionAlumno,
     registrarRenovacionManual,
     extenderContratacionExcepcional,
+    actualizarNivelVistaAlumno,
   } = store;
 
   React.useEffect(() => {
@@ -132,6 +133,11 @@ export function CoachStudioView({
     alumnoNombre: string;
     alumnoId: string;
     ejercicioActual: string;
+    ejercicioActualId?: string;
+    ejercicioEnRutinaId?: string;
+    planId?: string;
+    alertaId?: string;
+    reporteDolorId?: string;
     dolorDetalle?: string;
     zona?: string;
   }>({
@@ -235,11 +241,19 @@ export function CoachStudioView({
 
   // Handlers para abrir Quick Swap y WhatsApp
   const handleOpenQuickSwapFromAlert = (alert: CriticalAlert) => {
+    const planActivo =
+      planes.find((p) => p.alumno_id === alert.alumnoId && p.estado === "ACTIVO") ||
+      planes.find((p) => p.alumno_id === alert.alumnoId);
     setQuickSwapData({
       isOpen: true,
       alumnoNombre: alert.alumnoNombre,
       alumnoId: alert.alumnoId,
       ejercicioActual: alert.ejercicioNombre,
+      ejercicioActualId: alert.ejercicioId,
+      ejercicioEnRutinaId: alert.ejercicioEnRutinaId,
+      planId: planActivo?.id,
+      alertaId: alert.id,
+      reporteDolorId: alert.reporteDolorId,
       dolorDetalle: alert.detalle,
       zona: alert.zona,
     });
@@ -251,11 +265,17 @@ export function CoachStudioView({
     zona: string,
     detalle: string,
   ) => {
+    const planActivo =
+      planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ||
+      planes.find((p) => p.alumno_id === alumno.id);
     setQuickSwapData({
       isOpen: true,
       alumnoNombre: alumno.nombre_completo,
       alumnoId: alumno.id,
       ejercicioActual: ejercicio,
+      ejercicioActualId: undefined,
+      ejercicioEnRutinaId: undefined,
+      planId: planActivo?.id,
       dolorDetalle: detalle,
       zona,
     });
@@ -273,14 +293,30 @@ export function CoachStudioView({
     });
   };
 
-  const handleSwapSuccess = (originalExercise: string, newExercise: string) => {
-    useCoachStudioStore.setState({
-      toast: {
-        id: `swap-${Date.now()}`,
-        type: "success",
-        title: "Ejercicio sustituido con éxito",
-        message: `Se reemplazó "${originalExercise}" por "${newExercise}" en la rutina de ${quickSwapData.alumnoNombre}.`,
-      },
+  const handleSwapSuccess = (originalExercise: string, newExercise: string, motivo?: string) => {
+    const store = useCoachStudioStore.getState();
+    const planActivo =
+      store.planes.find((p) => p.alumno_id === quickSwapData.alumnoId && p.estado === "ACTIVO") ||
+      store.planes.find((p) => p.alumno_id === quickSwapData.alumnoId);
+    const planId = quickSwapData.planId || planActivo?.id || "demo-plan-1";
+
+    const ejOriginal = store.ejercicios.find(
+      (e) => e.nombre.toLowerCase() === originalExercise.toLowerCase(),
+    );
+    const ejNuevo = store.ejercicios.find(
+      (e) => e.nombre.toLowerCase() === newExercise.toLowerCase(),
+    );
+
+    store.registrarSustitucion({
+      planId,
+      ejercicioEnRutinaId: quickSwapData.ejercicioEnRutinaId,
+      ejercicioOriginalId:
+        quickSwapData.ejercicioActualId || ejOriginal?.id || "ej-orig-default",
+      ejercicioSustitutoId: ejNuevo?.id || "ej-sust-default",
+      originalNombre: originalExercise,
+      nuevoNombre: newExercise,
+      motivo: motivo || "Sustitución biomecánica por molestia informada",
+      alertaId: quickSwapData.alertaId,
     });
   };
 
@@ -1150,6 +1186,7 @@ export function CoachStudioView({
           onRegistrarRenovacion={registrarRenovacionManual}
           onExtenderExcepcional={extenderContratacionExcepcional}
           onOpenChat={() => setChatOpen(true)}
+          onActualizarNivelVista={actualizarNivelVistaAlumno}
         />
       )}
 
@@ -1160,6 +1197,11 @@ export function CoachStudioView({
         alumnoNombre={quickSwapData.alumnoNombre}
         alumnoId={quickSwapData.alumnoId}
         ejercicioActual={quickSwapData.ejercicioActual}
+        ejercicioActualId={quickSwapData.ejercicioActualId}
+        ejercicioEnRutinaId={quickSwapData.ejercicioEnRutinaId}
+        planId={quickSwapData.planId}
+        alertaId={quickSwapData.alertaId}
+        reporteDolorId={quickSwapData.reporteDolorId}
         dolorDetalle={quickSwapData.dolorDetalle}
         zona={quickSwapData.zona}
         catalogoEjercicios={ejercicios}

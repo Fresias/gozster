@@ -1,3 +1,16 @@
 *.sh text eol=lf
 *.mjs text eol=lf
 *.mts text eol=lf
+
+# Harness-generated artifacts: must be LF (spec §5.8). Keeps the hard
+# character budget identical on Windows (core.autocrlf=true) and Linux CI.
+AGENTS.md text eol=lf
+CLAUDE.md text eol=lf
+.claude/** text eol=lf
+.gemini/** text eol=lf
+.agents/** text eol=lf
+.opencode/** text eol=lf
+
+# Harness sources
+harness/** text eol=lf
+harness-kit/** text eol=lf

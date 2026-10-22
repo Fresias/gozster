@@ -1,5 +1,6 @@
 import * as React from "react";
 import type {
+  AlumnoCuestionarioInicial,
   Contratacion,
   DiaRutina,
   Ejercicio,
@@ -7,13 +8,15 @@ import type {
   EstadoContratacion,
   EstadoCuenta,
   MedioPago,
+  NivelVistaAlumno,
   Perfil,
   PlanEntrenamiento,
 } from "@/types/database.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CoachStudioTab } from "@/store/use-coach-studio";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
+import { supabase } from "@/lib/supabase/client";
 import {
   calculateStudentHealthScore,
   generateWhatsAppReactivationUrl,
@@ -57,6 +60,11 @@ export interface StudentDetailProps {
     motivo: string;
   }) => Promise<unknown>;
   onOpenChat?: () => void;
+  onActualizarNivelVista?: (
+    alumnoId: string,
+    nivel: NivelVistaAlumno,
+  ) => Promise<unknown>;
+  cuestionario?: AlumnoCuestionarioInicial | null;
 }
 
 export function StudentDetail({
@@ -77,6 +85,8 @@ export function StudentDetail({
   onRegistrarRenovacion,
   onExtenderExcepcional,
   onOpenChat,
+  onActualizarNivelVista,
+  cuestionario: cuestionarioProp,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
@@ -134,6 +144,70 @@ export function StudentDetail({
       setTransferError(err?.message || "Error al transferir");
     } finally {
       setIsTransferring(false);
+    }
+  };
+
+  const [nivelVista, setNivelVista] = React.useState<NivelVistaAlumno>(
+    alumno.nivel_vista_alumno ?? "SIMPLE",
+  );
+  const [cuestionario, setCuestionario] = React.useState<AlumnoCuestionarioInicial | null>(
+    cuestionarioProp ?? null,
+  );
+  const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
+
+  const storeSustituciones = useCoachStudioStore((s) => s.sustituciones);
+  const catalogoCompleto = useCoachStudioStore((s) => s.ejercicios);
+  const alumnoSustituciones = storeSustituciones.filter((s) => {
+    if (rutinaActiva && s.plan_id === rutinaActiva.id) return true;
+    return historialPlanes.some((p) => p.id === s.plan_id);
+  });
+
+  React.useEffect(() => {
+    setNivelVista(alumno.nivel_vista_alumno ?? "SIMPLE");
+  }, [alumno.id, alumno.nivel_vista_alumno]);
+
+  React.useEffect(() => {
+    if (cuestionarioProp !== undefined) {
+      setCuestionario(cuestionarioProp);
+      return;
+    }
+    let isMounted = true;
+    async function loadCuestionario() {
+      try {
+        if (!supabase) return;
+        const { data, error } = await supabase
+          .from("alumno_cuestionario_inicial")
+          .select("*")
+          .eq("alumno_id", alumno.id)
+          .maybeSingle();
+        if (!error && data && isMounted) {
+          setCuestionario(data as AlumnoCuestionarioInicial);
+        }
+      } catch (e) {
+        // offline fallback
+      }
+    }
+    loadCuestionario();
+    return () => {
+      isMounted = false;
+    };
+  }, [alumno.id, cuestionarioProp]);
+
+  const handleToggleNivelVista = async (nuevoNivel: NivelVistaAlumno) => {
+    if (nuevoNivel === nivelVista) return;
+    setNivelVista(nuevoNivel);
+    setIsUpdatingNivel(true);
+    try {
+      if (onActualizarNivelVista) {
+        await onActualizarNivelVista(alumno.id, nuevoNivel);
+      } else if (supabase) {
+        await supabase
+          .from("perfiles")
+          .update({ nivel_vista_alumno: nuevoNivel })
+          .eq("id", alumno.id);
+      }
+    } finally {
+      setIsUpdatingNivel(false);
     }
   };
 
@@ -401,6 +475,166 @@ export function StudentDetail({
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */}
+      <Card data-testid="coach-nivel-vista-card">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">
+                  Modo de Vista del Alumno (Athlete App)
+                </h3>
+                <Badge
+                  variant={nivelVista === "SIMPLE" ? "secondary" : "default"}
+                  className="text-[10px] font-bold"
+                  data-testid="coach-nivel-vista-badge"
+                >
+                  {nivelVista === "SIMPLE" ? "SIMPLE (Minimalista)" : "TÉCNICA (Avanzada)"}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {nivelVista === "SIMPLE"
+                  ? "Vista minimalista: El alumno visualiza únicamente Series × Reps × Peso + Video + Descanso (sin RPE ni 1RM)."
+                  : "Vista técnica completa: Expone RPE objetivo/real, %1RM y fórmulas para atletas avanzados."}
+              </p>
+            </div>
+
+            <div
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 p-1"
+              data-testid="coach-nivel-vista-switcher"
+            >
+              <Button
+                variant={nivelVista === "SIMPLE" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleToggleNivelVista("SIMPLE")}
+                disabled={isUpdatingNivel}
+                className="min-h-11 text-xs font-bold sm:min-h-9"
+                data-testid="coach-toggle-vista-simple"
+              >
+                Vista Simple (Minimalista)
+              </Button>
+              <Button
+                variant={nivelVista === "TECNICA" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleToggleNivelVista("TECNICA")}
+                disabled={isUpdatingNivel}
+                className="min-h-11 text-xs font-bold sm:min-h-9"
+                data-testid="coach-toggle-vista-tecnica"
+              >
+                Vista Técnica Avanzada
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cuestionario Inicial del Alumno (ADR-004 / Issue #65) */}
+      <Card data-testid="coach-cuestionario-card">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📋</span>
+              <CardTitle className="text-sm font-bold text-foreground">
+                Cuestionario Inicial del Alumno
+              </CardTitle>
+            </div>
+            {cuestionario?.completado_at ? (
+              <Badge
+                variant="success"
+                className="text-[10px] font-bold"
+                data-testid="coach-cuestionario-badge-completado"
+              >
+                ✓ Completado ({formatFecha(cuestionario.completado_at)})
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold text-muted-foreground"
+                data-testid="coach-cuestionario-badge-pendiente"
+              >
+                Pendiente (Opcional)
+              </Badge>
+            )}
+          </div>
+          <CardDescription className="text-xs">
+            {cuestionario?.completado_at
+              ? "Respuestas registradas por el alumno en su Athlete App."
+              : "El alumno aún no ha completado el cuestionario inicial opcional."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 p-4 pt-0 sm:p-6 sm:pt-0">
+          {cuestionario?.completado_at ? (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Objetivo Principal
+                </span>
+                <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-objetivo">
+                  {cuestionario.objetivo_principal || "No especificado"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Experiencia Previa
+                </span>
+                <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-experiencia">
+                  {cuestionario.experiencia_previa || "No especificado"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Días por Semana
+                </span>
+                <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-dias">
+                  {cuestionario.dias_disponibles_semana ? `${cuestionario.dias_disponibles_semana} días` : "No especificado"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Equipamiento
+                </span>
+                <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-equipamiento">
+                  {cuestionario.equipamiento_disponible || "No especificado"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5 sm:col-span-2">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Molestias o Lesiones Previas
+                </span>
+                <p
+                  className={`mt-1 text-xs font-medium ${
+                    cuestionario.molestias_o_lesiones_previas &&
+                    cuestionario.molestias_o_lesiones_previas !== "Ninguna reportada"
+                      ? "text-amber-500 font-semibold"
+                      : "text-foreground"
+                  }`}
+                  data-testid="coach-cuestionario-molestias"
+                >
+                  {cuestionario.molestias_o_lesiones_previas || "Ninguna reportada"}
+                </p>
+              </div>
+              {cuestionario.respuestas_extra &&
+                typeof cuestionario.respuestas_extra === "object" && (
+                  <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5 sm:col-span-2 lg:col-span-3">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Comentarios Extra
+                    </span>
+                    <p className="mt-1 text-xs font-medium text-foreground" data-testid="coach-cuestionario-comentarios">
+                      {String((cuestionario.respuestas_extra as Record<string, any>).comentarios || "Sin comentarios adicionales")}
+                    </p>
+                  </div>
+                )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/80 p-4 text-center" data-testid="coach-cuestionario-empty">
+              <p className="text-xs text-muted-foreground">
+                El alumno puede acceder a su rutina normalmente sin necesidad de completar este cuestionario.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -962,6 +1196,92 @@ export function StudentDetail({
                 {isExtending ? "Extendiendo..." : "[Extender vigencia]"}
               </Button>
             </div>
+          </div>
+
+          {/* Registro Histórico de Sustituciones Trazables (ADR-002) */}
+          <div className="space-y-3" data-testid="routine-substitutions-history-section">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔄</span>
+                <h3 className="text-sm font-bold text-foreground">
+                  Registro de Sustituciones Trazables (ADR-002)
+                </h3>
+                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 font-bold">
+                  Inmutabilidad Garantizada
+                </Badge>
+              </div>
+              <p
+                className="text-[11px] text-muted-foreground"
+                data-testid="aviso-inmutabilidad-sustituciones"
+              >
+                Sesiones y series completadas previamente permanecen 100% inmutables.
+              </p>
+            </div>
+
+            {alumnoSustituciones.length === 0 ? (
+              <Card>
+                <CardContent className="p-4 text-center text-xs text-muted-foreground">
+                  No se registran sustituciones de ejercicios en la rutina vigente. Las adaptaciones biomecánicas del profesor quedarán registradas aquí.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {alumnoSustituciones.map((sust) => {
+                  const ejOrigen =
+                    ejerciciosCatalogo.find((e) => e.id === sust.ejercicio_original_id)?.nombre ||
+                    catalogoCompleto.find((e) => e.id === sust.ejercicio_original_id)?.nombre ||
+                    "Ejercicio Original";
+                  const ejSustituto =
+                    ejerciciosCatalogo.find((e) => e.id === sust.ejercicio_sustituto_id)?.nombre ||
+                    catalogoCompleto.find((e) => e.id === sust.ejercicio_sustituto_id)?.nombre ||
+                    "Ejercicio Sustituto";
+                  const fechaSust = new Date(sust.created_at).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <Card
+                      key={sust.id}
+                      className="border-border/80 bg-secondary/15 hover:border-primary/40 transition-colors"
+                      data-testid={`substitution-record-${sust.id}`}
+                    >
+                      <CardContent className="p-3.5 sm:p-4 text-xs space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap font-bold">
+                            <span className="line-through text-muted-foreground">{ejOrigen}</span>
+                            <span className="text-primary font-black">→</span>
+                            <span className="text-foreground text-sm font-black text-emerald-500">
+                              {ejSustituto}
+                            </span>
+                            <Badge className="bg-primary/20 text-primary border border-primary/30 text-[10px]">
+                              Toda la Rutina Vigente
+                            </Badge>
+                          </div>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            {fechaSust}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] pt-1 border-t border-border/40">
+                          <div className="text-muted-foreground">
+                            <strong className="text-foreground">Motivo:</strong>{" "}
+                            {sust.motivo || "Sustitución biomecánica por molestia"}
+                          </div>
+                          <div className="text-muted-foreground font-medium">
+                            <strong className="text-foreground">Profesor Responsable:</strong>{" "}
+                            Coach Principal (Asignado)
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Chronological List of All Previous Plans */}

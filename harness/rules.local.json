@@ -1,0 +1,9 @@
+[
+  {
+    "id": "harness.agents-render",
+    "target": "write",
+    "description": "Editing AGENTS.md directly is forbidden — edit harness/ files and run harness-render.mjs",
+    "pathPattern": "(^|[\\\\/])AGENTS\\.md$",
+    "message": "Editing AGENTS.md directly is forbidden. Edit files under harness/ and run harness-render.mjs to generate AGENTS.md."
+  }
+]

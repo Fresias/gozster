@@ -4,7 +4,11 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "tests/**/*.test.ts"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "tests/**/*.test.ts",
+      "harness-kit/tests/**/*.spec.ts",
+    ],
     globals: false,
     testTimeout: 30000,
     hookTimeout: 120000,

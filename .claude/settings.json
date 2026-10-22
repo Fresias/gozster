@@ -38,7 +38,18 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Read",
+        "matcher": "Bash|Read|Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",

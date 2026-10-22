@@ -1,0 +1,22 @@
+{
+  "session_id": "25aca701-753d-47a0-abb6-afb4f08aabf5",
+  "transcript_path": "<HOME>\\.claude\\projects\\<project-slug>\\25aca701-753d-47a0-abb6-afb4f08aabf5.jsonl",
+  "cwd": "<WORKSPACE>",
+  "prompt_id": "261e7601-604a-4d30-adaf-dc88f04e5134",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo h00",
+    "description": "Echo h00"
+  },
+  "tool_response": {
+    "stdout": "h00",
+    "stderr": "",
+    "interrupted": false,
+    "isImage": false,
+    "noOutputExpected": false
+  },
+  "tool_use_id": "toolu_01Hoz7LdVtUPmep2MmckhNKz",
+  "duration_ms": 889
+}

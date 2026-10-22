@@ -1,0 +1,48 @@
+{
+  "runtime": "antigravity",
+  "verified": { "version": "agy 1.4.2", "date": "2026-10-19", "method": "doc", "live_capture": "bloqueada: 429 RESOURCE_EXHAUSTED (cuota individual) al correr agy -p; recapturar con harness-kit/tests/fixtures/README.md" },
+  "hooks": {
+    "config": ".agents/hooks.json",
+    "shape": "{ \"<hook-name>\": { \"enabled\": true, \"PreToolUse\": [{ \"matcher\": \"<regex>\", \"hooks\": [{ \"type\": \"command\", \"command\": \"...\", \"timeout\": <segundos> }] }] } }",
+    "matcher": "regex sobre el nombre de tool (\"*\" o \"\" = todas)",
+    "cwd": "directorio que contiene hooks.json (.agents/), NO la raíz del proyecto",
+    "shell": "sh -c en Unix, cmd /c en Windows",
+    "timeout_default_s": 30,
+    "json_keys": "camelCase (protojson)",
+    "input": { "tool": "toolCall.name", "args": "toolCall.args", "common": ["conversationId", "workspacePaths", "transcriptPath", "artifactDirectoryPath", "modelName", "stepIdx"], "post_error": "error" },
+    "pre": {
+      "event": "PreToolUse",
+      "allow": { "stdout": { "decision": "allow" }, "exit": 0 },
+      "deny": { "stdout": { "decision": "deny", "reason": "<reason>" }, "exit": 0 },
+      "other": ["ask", "force_ask", "permissionOverrides", "overwrite (merge superficial sobre toolCall.args)"]
+    },
+    "post": "unsupported",
+    "post_detail": "PostToolUse existe y recibe toolCall (+ error), pero su stdout debe ser {}: no hay campo para inyectar en el resultado de la tool. La única inyección de contexto es PreInvocation/PostInvocation/SessionStart vía injectSteps (siguiente llamada al modelo, no la flecha result).",
+    "other_events": ["SessionStart", "PreInvocation", "PostInvocation", "Stop"]
+  },
+  "tools": {
+    "shell": { "name": "run_command", "command": "CommandLine", "extra": ["Cwd", "WaitMsBeforeAsync"] },
+    "read": { "name": "view_file", "path": "AbsolutePath", "bound": ["StartLine", "EndLine"] },
+    "write": [
+      { "name": "write_to_file", "path": "TargetFile", "content": "CodeContent", "extra": ["Overwrite"] },
+      { "name": "replace_file_content", "path": "TargetFile", "old": "TargetContent", "new": "ReplacementContent", "extra": ["AllowMultiple", "Instruction"] },
+      { "name": "multi_replace_file_content", "path": "TargetFile", "chunks": "ReplacementChunks" }
+    ],
+    "write_args_confidence": "nombres de tool y de args extraídos de strings de agy.exe; el mapeo exacto arg→tool queda por confirmar en captura live"
+  },
+  "skills": { "dir": ".agents/skills/<name>/SKILL.md", "frontmatter_required": ["name", "description"], "limit": "cuerpo <= 24 KB", "shared_agents_dir": true },
+  "subagents": {
+    "dir": ".agents/agents/<name>.md",
+    "frontmatter_required": ["name", "description"],
+    "frontmatter_optional": ["tools", "skills", "plugins", "rules", "agents", "hooks", "excludeDefaultComponents", "enable_mcp_tools"],
+    "notes": "agent.json se ignora; nombres de agentes built-in reservados"
+  },
+  "rules": { "files": ["AGENTS.md", "GEMINI.md", ".agents/rules/*.md"] },
+  "sources": {
+    "fixtures": "harness-kit/tests/fixtures/antigravity/*.json (_provenance: doc-derived)",
+    "hooks": "agy 1.4.2 ~/.gemini/antigravity/builtin/skills/agy-customizations/docs/hooks.md",
+    "skills": "agy 1.4.2 ~/.gemini/antigravity/builtin/skills/agy-customizations/docs/skills.md",
+    "subagents": "`agy changelog` (1.4.2): validate de agents/ (frontmatter name/description), .agents/agents/ en proyecto, campos skills/plugins/rules/agents/hooks, excludeDefaultComponents, enable_mcp_tools",
+    "tool_names": "strings de agy.exe 1.4.2: run_command, view_file, write_to_file, replace_file_content, multi_replace_file_content, CommandLine, AbsolutePath, TargetFile, CodeContent, TargetContent, ReplacementContent, ReplacementChunks"
+  }
+}

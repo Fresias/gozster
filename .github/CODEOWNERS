@@ -1,0 +1,6 @@
+# Code owners — Harness 2.0 (H-08)
+# El kit agnóstico, el overlay por proyecto y los workflows de CI quedan bajo
+# revisión obligatoria de @Fresias (merge authority: @PM-GOZster).
+harness-kit/**          @Fresias
+harness/**              @Fresias
+.github/workflows/**    @Fresias

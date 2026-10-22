@@ -1,0 +1,158 @@
+[
+  {
+    "id": "fs.bloatware",
+    "target": "read",
+    "description": "Reading package-lock.json is forbidden (huge, low-signal)",
+    "message": "Reading package-lock.json is forbidden (huge, low-signal). Use rg/Grep for the specific dependency."
+  },
+  {
+    "id": "fs.env-leak",
+    "target": "read",
+    "description": "Reading env files is forbidden (may contain secrets)",
+    "message": "Reading env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed."
+  },
+  {
+    "id": "read.sensitive",
+    "target": "read",
+    "description": "Reading *.pem, *.key or paths in project.json forbidden_reads is forbidden",
+    "message": "Reading key/certificate files (*.pem, *.key) or paths listed in forbidden_reads is forbidden."
+  },
+  {
+    "id": "read.oversize",
+    "target": "read",
+    "maxLines": 300,
+    "description": "Reading >300 lines requires bounded read",
+    "message": "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines)."
+  },
+  {
+    "id": "shell.cat-lockfile",
+    "target": "shell",
+    "description": "Mass cat of package-lock.json is forbidden",
+    "pattern": "(^|[^a-zA-Z0-9_])cat(\\s+.*)?package-lock\\.json",
+    "message": "Do not cat package-lock.json (huge, low-signal). Use rg/Grep for the specific dependency."
+  },
+  {
+    "id": "shell.env-leak",
+    "target": "shell",
+    "description": "Shell access to .env files is forbidden",
+    "message": "Access to .env files is forbidden (may contain secrets). Only .env.example/.sample/.template are allowed."
+  },
+  {
+    "id": "git.force-push",
+    "target": "shell",
+    "description": "Destructive or force push is forbidden",
+    "pattern": "(^|[^a-zA-Z0-9_])git(\\s+-C\\s+[^\\s]+)?\\s+.*push",
+    "subpattern": "--force|--force-with-lease|--mirror|--delete|(^|\\s)-f(\\s|$)|push\\s+.*\\+[A-Za-z0-9_./-]",
+    "message": "Force/destructive push is forbidden (--force/-f/--mirror/--delete/+ref). Pushing to main is exclusive to @PM."
+  },
+  {
+    "id": "git.reset-hard",
+    "target": "shell",
+    "description": "git reset --hard is forbidden",
+    "pattern": "git(\\s+-C\\s+[^\\s]+)?\\s+reset(\\s+.*)?--hard",
+    "message": "git reset --hard is forbidden (destroys committed/uncommitted work)."
+  },
+  {
+    "id": "git.clean-force",
+    "target": "shell",
+    "description": "git clean -f is forbidden",
+    "pattern": "git(\\s+-C\\s+[^\\s]+)?\\s+clean(\\s+.*)?-[a-zA-Z]*f",
+    "message": "git clean -f is forbidden (deletes untracked files)."
+  },
+  {
+    "id": "git.checkout-all",
+    "target": "shell",
+    "description": "git checkout -- . is forbidden",
+    "pattern": "git\\s+checkout\\s+--\\s+\\.",
+    "message": "git checkout -- . is forbidden (discards all working-tree changes)."
+  },
+  {
+    "id": "git.restore-all",
+    "target": "shell",
+    "description": "git restore . is forbidden",
+    "pattern": "git\\s+restore\\s+(--[a-z]+\\s+)*\\.(\\s|$)",
+    "message": "git restore . is forbidden (discards all working-tree changes)."
+  },
+  {
+    "id": "git.branch-force-delete",
+    "target": "shell",
+    "description": "git branch -D is forbidden",
+    "pattern": "git\\s+branch\\s+(-[a-zA-Z]*\\s+)*-D",
+    "message": "git branch -D is forbidden (force-deletes a branch)."
+  },
+  {
+    "id": "shell.rm-rf",
+    "target": "shell",
+    "description": "Recursive force delete (rm -rf) is forbidden",
+    "message": "Recursive force delete (rm -rf / -r -f / -fr) is forbidden."
+  },
+  {
+    "id": "shell.pipe-to-shell",
+    "target": "shell",
+    "description": "Piping download directly to shell is forbidden",
+    "pattern": "(curl|wget)[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)",
+    "message": "Piping a downloaded script straight into a shell is forbidden."
+  },
+  {
+    "id": "shell.sudo",
+    "target": "shell",
+    "description": "sudo is forbidden in every runtime",
+    "message": "sudo is forbidden (privilege escalation)."
+  },
+  {
+    "id": "shell.oversize-cat",
+    "target": "shell",
+    "maxLines": 300,
+    "description": "cat, or head/tail -n >300, of a file with >300 lines is forbidden",
+    "message": "This would print >300 lines of a >300-line file. Search with rg -n first, then print a bounded range."
+  },
+  {
+    "id": "pr.requires-seal",
+    "target": "shell",
+    "description": "gh pr create requires a valid .harness/complete.json seal (harness-gate.sh --verify)",
+    "message": "No valid gate seal. Run harness-kit/core/scripts/harness-gate.sh before gh pr create."
+  },
+  {
+    "id": "fs.protected",
+    "target": "all",
+    "description": "Writing to .git/hooks, .claude/, .agents/, .gemini/ or .opencode/ is forbidden",
+    "message": "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox). Same for .agents/, .gemini/ and .opencode/."
+  },
+  {
+    "id": "write.generated",
+    "target": "write",
+    "description": "Writing a generated artifact listed in harness/harness.lock is forbidden",
+    "message": "Generated artifact: edit `harness/` or `harness-kit/` and run render (node harness-kit/core/scripts/harness-render.mjs)."
+  },
+  {
+    "id": "git.gh007-noreply",
+    "phase": "post",
+    "target": "shell",
+    "pattern": "GH007",
+    "description": "Injects git config command on GitHub Push Protection GH007 error",
+    "message": "GitHub Push Protection (GH007) violation detected. Configure your noreply email: git config --worktree user.email <email>"
+  },
+  {
+    "id": "remediate.cwd-lost",
+    "phase": "post",
+    "target": "shell",
+    "pattern": "cd: .*: No such file or directory",
+    "description": "Injects cwd remediation when a cd fails because the working directory changed",
+    "message": "cwd persists between Bash calls; run `pwd` and use absolute paths."
+  },
+  {
+    "id": "remediate.oversize-output",
+    "phase": "post",
+    "target": "all",
+    "minOutputLength": 20000,
+    "description": "Injects bounded-output remediation when a tool output exceeds 20,000 characters",
+    "message": "Tool output exceeded 20,000 characters. Use bounded reads next time (`rg -n`, `offset` + `limit`, `head`/`tail`, `--stat`)."
+  },
+  {
+    "id": "post.outside-scope",
+    "phase": "post",
+    "target": "write",
+    "description": "Warns (never blocks) when a write lands outside .harness/scope.json; no-op without scope.json",
+    "message": "Warning: the written file is outside the declared scope in .harness/scope.json."
+  }
+]

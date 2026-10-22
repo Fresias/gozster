@@ -1,0 +1,12 @@
+{
+  "session_id": "d7476bff-f30a-47c6-8c3d-304c3c69be1a",
+  "transcript_path": "<HOME>\\.gemini\\tmp\\gemini\\chats\\session-2026-10-19T21-08-d7476bff.jsonl",
+  "cwd": "<WORKSPACE>",
+  "hook_event_name": "BeforeTool",
+  "timestamp": "2026-10-19T21:10:19.225Z",
+  "tool_name": "write_file",
+  "tool_input": {
+    "file_path": "out.txt",
+    "content": "ok"
+  }
+}

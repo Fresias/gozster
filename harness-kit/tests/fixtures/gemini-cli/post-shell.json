@@ -1,0 +1,16 @@
+{
+  "session_id": "d7476bff-f30a-47c6-8c3d-304c3c69be1a",
+  "transcript_path": "<HOME>\\.gemini\\tmp\\gemini\\chats\\session-2026-10-19T21-08-d7476bff.jsonl",
+  "cwd": "<WORKSPACE>",
+  "hook_event_name": "AfterTool",
+  "timestamp": "2026-10-19T21:10:18.953Z",
+  "tool_name": "run_shell_command",
+  "tool_input": {
+    "description": "echo h00",
+    "command": "echo h00"
+  },
+  "tool_response": {
+    "llmContent": "<untrusted_context>\nOutput: h00\nProcess Group PGID: 29528\n</untrusted_context>",
+    "returnDisplay": "h00"
+  }
+}

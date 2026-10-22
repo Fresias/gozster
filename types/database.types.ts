@@ -26,6 +26,10 @@ export type EstadoContratacion =
   | 'PENDIENTE_RENOVACION';
 export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO';
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
+export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
+export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
+export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO';
 
 export interface Database {
   public: {
@@ -38,6 +42,7 @@ export interface Database {
           rol: Database['public']['Enums']['rol_usuario'];
           estado_membresia: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id: string | null;
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
@@ -54,6 +59,7 @@ export interface Database {
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -70,6 +76,7 @@ export interface Database {
           rol?: Database['public']['Enums']['rol_usuario'];
           estado_membresia?: Database['public']['Enums']['estado_membresia'];
           estado_cuenta?: EstadoCuenta;
+          nivel_vista_alumno?: NivelVistaAlumno;
           profesor_asignado_id?: string | null;
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
@@ -651,10 +658,10 @@ export interface Database {
           ejercicio_id: string | null;
           serie_id: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
           detalle: string | null;
-          estado: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada: string | null;
           resuelto_por: string | null;
           resuelto_at: string | null;
@@ -668,10 +675,10 @@ export interface Database {
           ejercicio_id?: string | null;
           serie_id?: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
           detalle?: string | null;
-          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada?: string | null;
           resuelto_por?: string | null;
           resuelto_at?: string | null;
@@ -685,10 +692,10 @@ export interface Database {
           ejercicio_id?: string | null;
           serie_id?: string | null;
           tipo_alerta?: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
-          severidad?: 'BAJA' | 'MEDIA' | 'ALTA';
+          severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo?: string;
           detalle?: string | null;
-          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO';
+          estado?: 'PENDIENTE' | 'RESUELTO' | 'IGNORADO' | 'ATENDIDO' | 'CERRADO';
           accion_tomada?: string | null;
           resuelto_por?: string | null;
           resuelto_at?: string | null;
@@ -744,6 +751,10 @@ export interface Database {
           notas_profesor: string | null;
           estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte: string;
+          momento_aparicion: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma: boolean;
+          sintomas_alarma: string[];
+          estado: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at: string;
           updated_at: string;
         };
@@ -757,6 +768,10 @@ export interface Database {
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte?: string;
+          momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma?: boolean;
+          sintomas_alarma?: string[];
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -770,6 +785,10 @@ export interface Database {
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
           fecha_reporte?: string;
+          momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma?: boolean;
+          sintomas_alarma?: string[];
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -802,6 +821,8 @@ export interface Database {
           dias_aviso_previo: number;
           created_at: string;
           updated_at: string;
+          plan_membresia_id: string | null;
+          actividad: ActividadClase | null;
         };
         Insert: {
           id?: string;
@@ -814,6 +835,8 @@ export interface Database {
           dias_aviso_previo?: number;
           created_at?: string;
           updated_at?: string;
+          plan_membresia_id?: string | null;
+          actividad?: ActividadClase | null;
         };
         Update: {
           id?: string;
@@ -826,6 +849,8 @@ export interface Database {
           dias_aviso_previo?: number;
           created_at?: string;
           updated_at?: string;
+          plan_membresia_id?: string | null;
+          actividad?: ActividadClase | null;
         };
         Relationships: [
           {
@@ -833,6 +858,13 @@ export interface Database {
             columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contrataciones_plan_membresia_id_fkey';
+            columns: ['plan_membresia_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_membresia';
             referencedColumns: ['id'];
           },
         ];
@@ -949,6 +981,385 @@ export interface Database {
           {
             foreignKeyName: 'auditoria_cambios_usuario_id_fkey';
             columns: ['usuario_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      alumno_cuestionario_inicial: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          objetivo_principal: string | null;
+          experiencia_previa: string | null;
+          dias_disponibles_semana: number | null;
+          molestias_o_lesiones_previas: string | null;
+          equipamiento_disponible: string | null;
+          respuestas_extra: Json;
+          completado_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          objetivo_principal?: string | null;
+          experiencia_previa?: string | null;
+          dias_disponibles_semana?: number | null;
+          molestias_o_lesiones_previas?: string | null;
+          equipamiento_disponible?: string | null;
+          respuestas_extra?: Json;
+          completado_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          objetivo_principal?: string | null;
+          experiencia_previa?: string | null;
+          dias_disponibles_semana?: number | null;
+          molestias_o_lesiones_previas?: string | null;
+          equipamiento_disponible?: string | null;
+          respuestas_extra?: Json;
+          completado_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_cuestionario_inicial_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: true;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      ejercicios_alternativas: {
+        Row: {
+          id: string;
+          ejercicio_origen_id: string;
+          ejercicio_alternativo_id: string;
+          patron_movimiento: string;
+          equipamiento: string | null;
+          nivel_exigencia: string | null;
+          restricciones_articulares: string[];
+          explicacion_tecnica: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          ejercicio_origen_id: string;
+          ejercicio_alternativo_id: string;
+          patron_movimiento: string;
+          equipamiento?: string | null;
+          nivel_exigencia?: string | null;
+          restricciones_articulares?: string[];
+          explicacion_tecnica?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          ejercicio_origen_id?: string;
+          ejercicio_alternativo_id?: string;
+          patron_movimiento?: string;
+          equipamiento?: string | null;
+          nivel_exigencia?: string | null;
+          restricciones_articulares?: string[];
+          explicacion_tecnica?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ejercicios_alternativas_ejercicio_origen_id_fkey';
+            columns: ['ejercicio_origen_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ejercicios_alternativas_ejercicio_alternativo_id_fkey';
+            columns: ['ejercicio_alternativo_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      sustituciones_ejercicios: {
+        Row: {
+          id: string;
+          plan_id: string;
+          ejercicio_en_rutina_id: string | null;
+          ejercicio_original_id: string;
+          ejercicio_sustituto_id: string;
+          reporte_dolor_id: string | null;
+          motivo: string | null;
+          responsable_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          plan_id: string;
+          ejercicio_en_rutina_id?: string | null;
+          ejercicio_original_id: string;
+          ejercicio_sustituto_id: string;
+          reporte_dolor_id?: string | null;
+          motivo?: string | null;
+          responsable_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          plan_id?: string;
+          ejercicio_en_rutina_id?: string | null;
+          ejercicio_original_id?: string;
+          ejercicio_sustituto_id?: string;
+          reporte_dolor_id?: string | null;
+          motivo?: string | null;
+          responsable_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'sustituciones_ejercicios_plan_id_fkey';
+            columns: ['plan_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_entrenamiento';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_en_rutina_id_fkey';
+            columns: ['ejercicio_en_rutina_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios_en_rutina';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_original_id_fkey';
+            columns: ['ejercicio_original_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_ejercicio_sustituto_id_fkey';
+            columns: ['ejercicio_sustituto_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_reporte_dolor_id_fkey';
+            columns: ['reporte_dolor_id'];
+            isOneToOne: false;
+            referencedRelation: 'alumno_historial_dolor';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'sustituciones_ejercicios_responsable_id_fkey';
+            columns: ['responsable_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      planes_membresia: {
+        Row: {
+          id: string;
+          nombre: string;
+          limite_semanal: number | null;
+          cantidad_actividades: number;
+          duracion_meses: number;
+          precio: number;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          limite_semanal?: number | null;
+          cantidad_actividades: number;
+          duracion_meses: number;
+          precio: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          nombre?: string;
+          limite_semanal?: number | null;
+          cantidad_actividades?: number;
+          duracion_meses?: number;
+          precio?: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      clases_horario: {
+        Row: {
+          id: string;
+          actividad: ActividadClase;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_minutos: number;
+          capacidad: number | null;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          actividad: ActividadClase;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_minutos: number;
+          capacidad?: number | null;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          actividad?: ActividadClase;
+          dia_semana?: number;
+          hora_inicio?: string;
+          duracion_minutos?: number;
+          capacidad?: number | null;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+        ];
+      };
+      clases: {
+        Row: {
+          id: string;
+          horario_id: string | null;
+          actividad: ActividadClase;
+          inicio: string;
+          duracion_minutos: number;
+          capacidad: number | null;
+          estado: EstadoClase;
+          motivo_cancelacion: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          horario_id?: string | null;
+          actividad: ActividadClase;
+          inicio: string;
+          duracion_minutos: number;
+          capacidad?: number | null;
+          estado?: EstadoClase;
+          motivo_cancelacion?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          horario_id?: string | null;
+          actividad?: ActividadClase;
+          inicio?: string;
+          duracion_minutos?: number;
+          capacidad?: number | null;
+          estado?: EstadoClase;
+          motivo_cancelacion?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_horario_id_fkey';
+            columns: ['horario_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases_horario';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      clases_profesores: {
+        Row: {
+          id: string;
+          clase_id: string;
+          profesor_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          profesor_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          profesor_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_profesores_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clases_profesores_profesor_id_fkey';
+            columns: ['profesor_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      reservas: {
+        Row: {
+          id: string;
+          clase_id: string;
+          alumno_id: string;
+          estado: EstadoReserva;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          alumno_id: string;
+          estado?: EstadoReserva;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          alumno_id?: string;
+          estado?: EstadoReserva;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'reservas_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reservas_alumno_id_fkey';
+            columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
@@ -1090,6 +1501,40 @@ export interface Database {
         };
         Returns: Database['public']['Tables']['conversaciones']['Row'];
       };
+      es_profesor_de_clase: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: boolean;
+      };
+      reservar_clase: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: {
+          reserva_id: string;
+          aviso: string | null;
+        }[];
+      };
+      cancelar_reserva: {
+        Args: {
+          p_reserva_id: string;
+        };
+        Returns: Database['public']['Tables']['reservas']['Row'];
+      };
+      marcar_ausente: {
+        Args: {
+          p_reserva_id: string;
+        };
+        Returns: Database['public']['Tables']['reservas']['Row'];
+      };
+      cancelar_clase: {
+        Args: {
+          p_clase_id: string;
+          p_motivo?: string | null;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'];
+      };
     };
     Enums: {
       rol_usuario: RolUsuario;
@@ -1221,3 +1666,17 @@ export type AuditoriaCambioInsert = TablesInsert<'auditoria_cambios'>;
 export type AuditoriaCambioUpdate = TablesUpdate<'auditoria_cambios'>;
 export type EstadoConversacion = 'ABIERTA' | 'PENDIENTE' | 'ATENDIDA';
 
+export type EjercicioAlternativa = Tables<'ejercicios_alternativas'>;
+export type EjercicioAlternativaInsert = TablesInsert<'ejercicios_alternativas'>;
+export type EjercicioAlternativaUpdate = TablesUpdate<'ejercicios_alternativas'>;
+export type SustitucionEjercicio = Tables<'sustituciones_ejercicios'>;
+export type SustitucionEjercicioInsert = TablesInsert<'sustituciones_ejercicios'>;
+export type SustitucionEjercicioUpdate = TablesUpdate<'sustituciones_ejercicios'>;
+export type AlumnoCuestionarioInicial = Tables<'alumno_cuestionario_inicial'>;
+export type AlumnoCuestionarioInicialInsert = TablesInsert<'alumno_cuestionario_inicial'>;
+export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_inicial'>;
+export type PlanMembresia = Tables<'planes_membresia'>;
+export type ClaseHorario = Tables<'clases_horario'>;
+export type Clase = Tables<'clases'>;
+export type ClaseProfesor = Tables<'clases_profesores'>;
+export type Reserva = Tables<'reservas'>;

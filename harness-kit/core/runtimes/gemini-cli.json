@@ -1,0 +1,46 @@
+{
+  "runtime": "gemini-cli",
+  "verified": { "version": "0.63.0", "date": "2026-10-19", "method": "live" },
+  "hooks": {
+    "config": ".gemini/settings.json",
+    "matcher": "regex sobre tool_name (\".*\" = todas)",
+    "cwd": "raíz del proyecto",
+    "project_hooks_warning": "en cada arranque imprime WARNING con los nombres de hooks de proyecto detectados",
+    "input": { "tool": "tool_name", "args": "tool_input", "result": "tool_response.llmContent" },
+    "pre": {
+      "event": "BeforeTool",
+      "allow": { "stdout": "{}", "exit": 0 },
+      "deny": { "stderr": "<reason>", "exit": 2 }
+    },
+    "post": {
+      "event": "AfterTool",
+      "inject": { "stdout": { "hookSpecificOutput": { "hookEventName": "AfterTool", "additionalContext": "<texto>" } }, "exit": 0 },
+      "inject_verified": true
+    },
+    "parallel_calls": "puede emitir varias tool calls en paralelo: el orden de los hooks no es el del prompt"
+  },
+  "tools": {
+    "shell": { "name": "run_shell_command", "command": "command" },
+    "read": { "name": "read_file", "path": "file_path", "path_style": "relativo al workspace o absoluto", "bound": ["start_line", "end_line"] },
+    "read_many": { "name": "read_many_files", "paths": "include" },
+    "write": [
+      { "name": "write_file", "path": "file_path", "content": "content" },
+      { "name": "replace", "path": "file_path", "old": "old_string", "new": "new_string", "extra": ["instruction", "allow_multiple"] }
+    ]
+  },
+  "skills": { "dir": ".gemini/skills/<name>/SKILL.md", "also": [".agents/skills/<name>/SKILL.md", "~/.agents/skills/<name>/SKILL.md"], "frontmatter_required": ["name", "description"], "shared_agents_dir": true },
+  "subagents": {
+    "dir": ".gemini/agents/<name>.md",
+    "frontmatter_required": ["name", "description"],
+    "frontmatter_optional": ["kind", "display_name", "tools", "mcp_servers", "model", "temperature", "max_turns", "timeout_mins"],
+    "frontmatter_strict": true
+  },
+  "sources": {
+    "fixtures": "harness-kit/tests/fixtures/gemini-cli/{pre,post}-{shell,read,write}.json",
+    "inject": "AfterTool con hookSpecificOutput.additionalContext → el modelo repitió H00-MARKER-7731 (gemini -p --yolo)",
+    "tool_names": "bundle @google/gemini-cli 0.63.0: SHELL_TOOL_NAME, READ_FILE_TOOL_NAME, WRITE_FILE_TOOL_NAME, EDIT_TOOL_NAME=\"replace\", READ_FILE_PARAM_START_LINE/END_LINE",
+    "subagents": "bundle @google/gemini-cli 0.63.0: localAgentSchema (zod .strict(), claves desconocidas = error); Storage.getGeminiDir()/agents",
+    "discovery": "`gemini skills list` muestra h00-skill (.gemini/skills) y h00-shared (.agents/skills)",
+    "docs": ["https://github.com/google-gemini/gemini-cli/tree/main/docs"]
+  }
+}

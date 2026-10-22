@@ -1,0 +1,13 @@
+{
+  "input": {
+    "tool": "write",
+    "sessionID": "ses_ea9fdb6a8ffecfyC8M0NtjpGH5",
+    "callID": "call_00_9udemocivzotktncu7kzvlby"
+  },
+  "output": {
+    "args": {
+      "filePath": "<WORKSPACE>\\out.txt",
+      "content": "ok"
+    }
+  }
+}

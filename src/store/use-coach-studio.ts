@@ -5,9 +5,12 @@ import type {
   Ejercicio,
   EjercicioEnRutina,
   MedioPago,
+  NivelVistaAlumno,
   Perfil,
   PlanEntrenamiento,
+  SustitucionEjercicio,
 } from "@/types/database.types";
+import { supabase } from "@/lib/supabase/client";
 import {
   computeAnchoredRenewalDate,
   derivarContratacionDesdePerfil,
@@ -88,6 +91,7 @@ interface CoachStudioState {
   ejercicios: Ejercicio[];
   historialCargas: Record<string, HistoricalLoadEntry[]>;
   contrataciones: Contratacion[];
+  sustituciones: SustitucionEjercicio[];
 
   selectedAlumnoId: string | null;
   activeTab: CoachStudioTab;
@@ -135,12 +139,33 @@ interface CoachStudioState {
     motivo: string;
   }) => Promise<Contratacion>;
 
+  // Nivel de Vista del Alumno (SIMPLE vs TECNICA)
+  actualizarNivelVistaAlumno: (
+    alumnoId: string,
+    nivel: NivelVistaAlumno,
+  ) => Promise<boolean>;
+
+  // Sustituciones Trazables de Ejercicios (ADR-002)
+  registrarSustitucion: (input: {
+    planId: string;
+    ejercicioEnRutinaId?: string | null;
+    ejercicioOriginalId: string;
+    ejercicioSustitutoId: string;
+    motivo?: string | null;
+    responsableId?: string | null;
+    originalNombre?: string;
+    nuevoNombre?: string;
+    alertaId?: string | null;
+  }) => Promise<SustitucionEjercicio>;
+
   // Getters & RPCs
   getSelectedAlumno: () => Perfil | null;
   getPlanesAlumno: (alumnoId: string) => PlanEntrenamiento[];
   getPlanesAlumnoCronologico: (alumnoId: string) => PlanEntrenamiento[];
   getRutinaActivaAlumno: (alumnoId: string) => PlanEntrenamiento | null;
   getHistorialCargasAlumno: (alumnoId: string) => HistoricalLoadEntry[];
+  getSustitucionesPlan: (planId: string) => SustitucionEjercicio[];
+  getSustitucionesAlumno: (alumnoId: string) => SustitucionEjercicio[];
 
   obtenerMetricasRetencion: (profesorId?: string | null) => MetricasRetencion;
   detectarSobrecargaProgresiva: (
@@ -165,6 +190,19 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ejercicios: MOCK_EJERCICIOS,
     historialCargas: MOCK_HISTORIAL_CARGAS,
     contrataciones: [],
+    sustituciones: [
+      {
+        id: "sust-demo-001",
+        plan_id: "plan-lucas-01",
+        ejercicio_en_rutina_id: "er-1",
+        ejercicio_original_id: "e2222222-2222-4222-8222-222222222202",
+        ejercicio_sustituto_id: "30000000-0000-0000-0000-000000000002",
+        reporte_dolor_id: null,
+        motivo: "Compresión subacromial en hombro",
+        responsable_id: MOCK_PROFESOR_ID,
+        created_at: "2026-10-18T14:30:00Z",
+      },
+    ],
 
     selectedAlumnoId: null,
     activeTab: "rutina_actual",
@@ -247,6 +285,82 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     getHistorialCargasAlumno: (alumnoId) => {
       const { historialCargas } = get();
       return historialCargas[alumnoId] ?? [];
+    },
+
+    getSustitucionesPlan: (planId: string) => {
+      const { sustituciones } = get();
+      return sustituciones.filter((s) => s.plan_id === planId);
+    },
+
+    getSustitucionesAlumno: (alumnoId: string) => {
+      const state = get();
+      const planIds = state.planes.filter((p) => p.alumno_id === alumnoId).map((p) => p.id);
+      return state.sustituciones.filter((s) => planIds.includes(s.plan_id));
+    },
+
+    registrarSustitucion: async (input) => {
+      const nowIso = new Date().toISOString();
+      const nuevaSustitucion: SustitucionEjercicio = {
+        id: `sust-${Date.now()}`,
+        plan_id: input.planId,
+        ejercicio_en_rutina_id: input.ejercicioEnRutinaId || null,
+        ejercicio_original_id: input.ejercicioOriginalId,
+        ejercicio_sustituto_id: input.ejercicioSustitutoId,
+        reporte_dolor_id: null,
+        motivo: input.motivo || "Sustitución biomecánica por molestia",
+        responsable_id: input.responsableId || MOCK_PROFESOR_ID,
+        created_at: nowIso,
+      };
+
+      set((state) => {
+        // Actualizar ejerciciosEnRutina para toda la rutina vigente
+        const updatedEjerciciosEnRutina = state.ejerciciosEnRutina.map((item) => {
+          if (
+            (input.ejercicioEnRutinaId && item.id === input.ejercicioEnRutinaId) ||
+            (!input.ejercicioEnRutinaId && item.ejercicio_id === input.ejercicioOriginalId)
+          ) {
+            const nota = `Sustituido por ${input.nuevoNombre || "ejercicio alternativo"}${
+              input.motivo ? ` (Motivo: ${input.motivo})` : ""
+            }`;
+            return {
+              ...item,
+              ejercicio_id: input.ejercicioSustitutoId,
+              notas: item.notas ? `${item.notas}\n${nota}` : nota,
+              updated_at: nowIso,
+            };
+          }
+          return item;
+        });
+
+        return {
+          sustituciones: [nuevaSustitucion, ...state.sustituciones],
+          ejerciciosEnRutina: updatedEjerciciosEnRutina,
+          toast: {
+            id: `swap-${Date.now()}`,
+            type: "success",
+            title: "Sustitución confirmada (ADR-002)",
+            message: `Reemplazado "${input.originalNombre || "Ejercicio"}" por "${
+              input.nuevoNombre || "Alternativa"
+            }" para toda la rutina vigente. Sesiones finalizadas inmutables.`,
+          },
+        };
+      });
+
+      // Intentar persistir en Supabase RPC
+      try {
+        if (input.ejercicioEnRutinaId) {
+          await supabase.rpc("quick_swap_ejercicio", {
+            p_ejercicio_en_rutina_id: input.ejercicioEnRutinaId,
+            p_nuevo_ejercicio_id: input.ejercicioSustitutoId,
+            p_alerta_id: input.alertaId || null,
+            p_motivo: input.motivo || null,
+          });
+        }
+      } catch {
+        // Resiliencia offline/mock
+      }
+
+      return nuevaSustitucion;
     },
 
     clonarUltimaRutina: async (alumnoId: string) => {
@@ -502,6 +616,51 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       });
 
       return actualizada;
+    },
+
+    actualizarNivelVistaAlumno: async (alumnoId: string, nivel: NivelVistaAlumno) => {
+      const prevAlumnos = get().alumnos;
+      const target = prevAlumnos.find((a) => a.id === alumnoId);
+      if (!target) return false;
+
+      const updatedAlumno: Perfil = {
+        ...target,
+        nivel_vista_alumno: nivel,
+      };
+
+      set({
+        alumnos: prevAlumnos.map((a) => (a.id === alumnoId ? updatedAlumno : a)),
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: "Nivel de vista actualizado",
+          message: `El alumno ${target.nombre_completo.split(" ")[0]} ahora usa ${
+            nivel === "SIMPLE" ? "Vista Simple (Minimalista)" : "Vista Técnica Avanzada"
+          }.`,
+        },
+      });
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `update-view-mode-${Date.now()}`,
+        action: "UPDATE_ALUMNO_NIVEL_VISTA",
+        payload: { alumnoId, nivel },
+      });
+
+      try {
+        if (supabase) {
+          const { error } = await supabase
+            .from("perfiles")
+            .update({ nivel_vista_alumno: nivel })
+            .eq("id", alumnoId);
+          if (error) {
+            console.warn("Aviso actualizando nivel_vista_alumno en Supabase:", error.message);
+          }
+        }
+      } catch (err: any) {
+        console.warn("Excepción actualizando nivel_vista_alumno en Supabase:", err?.message || err);
+      }
+
+      return true;
     },
 
     asignarPlanUrgente: async (alumnoId: string, nombrePlan?: string) => {

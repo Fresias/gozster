@@ -11,6 +11,11 @@ import {
   REAL_EJERCICIOS,
   REAL_EJERCICIOS_RUTINA,
 } from "@/services/real-mynter-data";
+import type {
+  NivelVistaAlumno,
+  AlumnoCuestionarioInicial,
+} from "@/types/database.types";
+import type { PainReportData } from "@/components/athlete/pain-report-modal";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -69,9 +74,18 @@ interface AthleteStoreState {
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
   rpeValidationError: string | null;
+  stopProtocolActive: boolean;
+  nivelVistaAlumno: NivelVistaAlumno;
+  cuestionarioInicial: AlumnoCuestionarioInicial | null;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
+  setStopProtocolActive: (active: boolean) => void;
+  setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
+  setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
+  saveCuestionarioInicial: (
+    data: Partial<AlumnoCuestionarioInicial>,
+  ) => Promise<{ success: boolean; error?: string }>;
   clearRpeValidationError: () => void;
   updateSetField: (
     exerciseId: string,
@@ -89,6 +103,7 @@ interface AthleteStoreState {
     setNumber: number,
     notes: string,
   ) => void;
+  reportPainEvent: (report: PainReportData) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
     setNumber: number,
@@ -270,7 +285,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
     (set, get) => ({
       membershipStatus: "ACTIVE",
       currentSession: defaultSession,
+      nivelVistaAlumno: "SIMPLE",
+      cuestionarioInicial: null,
       rpeValidationError: null,
+      stopProtocolActive: false,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -281,6 +299,81 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
+      setNivelVistaAlumno: (nivel) => set({ nivelVistaAlumno: nivel }),
+      setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
+      saveCuestionarioInicial: async (data) => {
+        const studentId =
+          get().currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        const nowIso = new Date().toISOString();
+        const prev = get().cuestionarioInicial;
+        const fullRecord: AlumnoCuestionarioInicial = {
+          id: prev?.id || `cuest-${Date.now()}`,
+          alumno_id: studentId,
+          objetivo_principal:
+            data.objetivo_principal !== undefined
+              ? data.objetivo_principal
+              : (prev?.objetivo_principal ?? null),
+          experiencia_previa:
+            data.experiencia_previa !== undefined
+              ? data.experiencia_previa
+              : (prev?.experiencia_previa ?? null),
+          dias_disponibles_semana:
+            data.dias_disponibles_semana !== undefined
+              ? data.dias_disponibles_semana
+              : (prev?.dias_disponibles_semana ?? null),
+          molestias_o_lesiones_previas:
+            data.molestias_o_lesiones_previas !== undefined
+              ? data.molestias_o_lesiones_previas
+              : (prev?.molestias_o_lesiones_previas ?? null),
+          equipamiento_disponible:
+            data.equipamiento_disponible !== undefined
+              ? data.equipamiento_disponible
+              : (prev?.equipamiento_disponible ?? null),
+          respuestas_extra:
+            data.respuestas_extra !== undefined
+              ? data.respuestas_extra
+              : (prev?.respuestas_extra ?? {}),
+          completado_at: prev?.completado_at || nowIso,
+          updated_at: nowIso,
+        };
+
+        set({ cuestionarioInicial: fullRecord });
+
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `cuest-${Date.now()}`,
+          action: "UPSERT_CUESTIONARIO_INICIAL",
+          payload: fullRecord,
+        });
+
+        try {
+          if (supabase) {
+            const { error } = await supabase
+              .from("alumno_cuestionario_inicial")
+              .upsert(
+                {
+                  alumno_id: studentId,
+                  objetivo_principal: fullRecord.objetivo_principal,
+                  experiencia_previa: fullRecord.experiencia_previa,
+                  dias_disponibles_semana: fullRecord.dias_disponibles_semana,
+                  molestias_o_lesiones_previas: fullRecord.molestias_o_lesiones_previas,
+                  equipamiento_disponible: fullRecord.equipamiento_disponible,
+                  respuestas_extra: fullRecord.respuestas_extra,
+                  completado_at: fullRecord.completado_at,
+                  updated_at: fullRecord.updated_at,
+                },
+                { onConflict: "alumno_id" }
+              );
+            if (error) {
+              console.warn("Aviso guardando cuestionario inicial en Supabase:", error.message);
+            }
+          }
+        } catch (err: any) {
+          console.warn("Excepción guardando cuestionario inicial (guardado local offline):", err?.message || err);
+        }
+
+        return { success: true };
+      },
       clearRpeValidationError: () => set({ rpeValidationError: null }),
 
       updateSetField: (exerciseId, setNumber, field, value) => {
@@ -343,6 +436,85 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }),
           },
         }));
+      },
+
+      reportPainEvent: async (report) => {
+        const state = get();
+        const {
+          exerciseId,
+          setNumber,
+          zonaArticular,
+          severidad,
+          sintomasAlarma,
+          esSintomaAlarma,
+          notasAlumno,
+          momentoAparicion,
+        } = report;
+
+        // 1. Si está asociado a un ejercicio y serie, marcarlo
+        if (exerciseId && setNumber) {
+          const notesText = `[Dolor: ${severidad}] ${zonaArticular}${
+            sintomasAlarma.length > 0 ? ` (Síntomas: ${sintomasAlarma.join(", ")})` : ""
+          }${notasAlumno ? ` - ${notasAlumno}` : ""}`;
+
+          set((s) => ({
+            currentSession: {
+              ...s.currentSession,
+              ejercicios: s.currentSession.ejercicios.map((ej) => {
+                if (ej.id !== exerciseId) return ej;
+                return {
+                  ...ej,
+                  series: ej.series.map((serie) =>
+                    serie.numero_serie === setNumber
+                      ? { ...serie, pain_reported: true, pain_notes: notesText }
+                      : serie
+                  ),
+                };
+              }),
+            },
+          }));
+        }
+
+        // 2. Activar protocolo de freno si hay Red Flags o dolor agudo
+        if (esSintomaAlarma || severidad === "AGUDO") {
+          set({ stopProtocolActive: true });
+        }
+
+        // 3. Encolar evento offline en Zustand
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `pain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          action: "PAIN_REPORT_SUBMITTED",
+          payload: {
+            sessionId: state.currentSession.id,
+            studentId:
+              state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7",
+            ...report,
+          },
+        });
+
+        // 4. Guardar en Supabase si está disponible
+        try {
+          const studentId =
+            state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+          const resolvedExerciseId =
+            exerciseId && exerciseId.length === 36
+              ? exerciseId
+              : "30000000-0000-0000-0000-000000000001";
+
+          await supabase.from("alumno_historial_dolor").insert({
+            alumno_id: studentId,
+            ejercicio_id: resolvedExerciseId,
+            zona_articular: zonaArticular,
+            severidad,
+            momento_aparicion: momentoAparicion,
+            es_sintoma_alarma: esSintomaAlarma,
+            sintomas_alarma: sintomasAlarma,
+            notas_alumno: notasAlumno || null,
+            estado: "PENDIENTE",
+          });
+        } catch {
+          // Silencioso en modo offline o test
+        }
       },
 
       attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
@@ -705,6 +877,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         set({
           currentSession: newSession,
+          nivelVistaAlumno: (student.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE",
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -721,6 +894,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       resetSessionToDefaults: () => {
         set({
           currentSession: defaultSession,
+          nivelVistaAlumno: "SIMPLE",
+          stopProtocolActive: false,
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -739,6 +914,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
         currentSession: state.currentSession,
+        nivelVistaAlumno: state.nivelVistaAlumno,
+        cuestionarioInicial: state.cuestionarioInicial,
       }),
     },
   ),
