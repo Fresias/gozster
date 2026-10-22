@@ -1,18 +1,18 @@
 {
-  "_provenance": "doc-derived: agy 1.4.2 builtin skills/agy-customizations/docs/hooks.md (toolCall/stepIdx/common fields) + arg names from agy.exe strings; live capture blocked (429 RESOURCE_EXHAUSTED, 2026-10-19). Replace with a live capture.",
+  "artifactDirectoryPath": "<HOME>/.gemini/antigravity-cli/brain/eea1e483-2c3d-4983-9424-7f805610a7ee",
+  "conversationId": "eea1e483-2c3d-4983-9424-7f805610a7ee",
+  "modelName": "gemini-3.8-flash-high",
+  "stepIdx": 4,
   "toolCall": {
-    "name": "write_to_file",
     "args": {
-      "TargetFile": "<WORKSPACE>/out.txt",
-      "CodeContent": "ok"
-    }
+      "Content": "ok",
+      "Overwrite": true,
+      "Path": "<WORKSPACE>/out.txt"
+    },
+    "name": "write_file"
   },
-  "stepIdx": 5,
-  "conversationId": "00000000-0000-0000-0000-000000000000",
+  "transcriptPath": "<HOME>/.gemini/antigravity-cli/brain/eea1e483-2c3d-4983-9424-7f805610a7ee/.system_generated/logs/transcript_full.jsonl",
   "workspacePaths": [
     "<WORKSPACE>"
-  ],
-  "transcriptPath": "<HOME>/.gemini/antigravity-cli/transcript.jsonl",
-  "artifactDirectoryPath": "<HOME>/.gemini/antigravity-cli/artifacts",
-  "modelName": "auto"
+  ]
 }
