@@ -123,6 +123,9 @@ export function CoachStudioView({
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "SIN_PLAN"
   >("ALL");
+  // En Testeo "Sin Plan" no existe: se deriva en render sin pisar el estado.
+  const effectivePaymentFilter =
+    isTestMode && paymentFilter === "SIN_PLAN" ? "ALL" : paymentFilter;
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -205,11 +208,11 @@ export function CoachStudioView({
       (a.email?.toLowerCase().includes(filterQuery.toLowerCase()) ?? false);
 
     let matchPayment = true;
-    if (paymentFilter === "ACTIVA") {
+    if (effectivePaymentFilter === "ACTIVA") {
       matchPayment = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
-    } else if (paymentFilter === "PENDIENTE") {
+    } else if (effectivePaymentFilter === "PENDIENTE") {
       matchPayment = a.estado_membresia === "PENDIENTE";
-    } else if (paymentFilter === "SIN_PLAN") {
+    } else if (effectivePaymentFilter === "SIN_PLAN") {
       const tienePlan = planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO");
       matchPayment = !tienePlan;
     }
@@ -548,7 +551,7 @@ export function CoachStudioView({
                     setCurrentPage(1);
                   }}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
-                    paymentFilter === "ALL"
+                    effectivePaymentFilter === "ALL"
                       ? "bg-secondary text-foreground"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
@@ -562,7 +565,7 @@ export function CoachStudioView({
                     setCurrentPage(1);
                   }}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
-                    paymentFilter === "ACTIVA"
+                    effectivePaymentFilter === "ACTIVA"
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
@@ -576,27 +579,29 @@ export function CoachStudioView({
                     setCurrentPage(1);
                   }}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
-                    paymentFilter === "PENDIENTE"
+                    effectivePaymentFilter === "PENDIENTE"
                       ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
                   Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentFilter("SIN_PLAN");
-                    setCurrentPage(1);
-                  }}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
-                    paymentFilter === "SIN_PLAN"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
-                      : "text-muted-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  Sin Plan ({metricas.cantSinPlanEntrenamiento})
-                </button>
+                {!isTestMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentFilter("SIN_PLAN");
+                      setCurrentPage(1);
+                    }}
+                    className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                      effectivePaymentFilter === "SIN_PLAN"
+                        ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Sin Plan ({metricas.cantSinPlanEntrenamiento})
+                  </button>
+                )}
 
                 {/* Botón de Herramientas: Constructor de Rutinas (Movido desde cabecera principal) */}
                 <Button
