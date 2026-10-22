@@ -486,7 +486,7 @@ export function CoachStudioView({
                 </span>
                 <div>
                   <p className="text-xs font-bold leading-tight flex items-center gap-2">
-                    <span>MODO TESTEO ACTIVO — Demostración Conceptual INDEC</span>
+                    <span>MODO TESTEO ACTIVO</span>
                     <span className="rounded bg-amber-500/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-800 dark:text-amber-200">
                       10 Atletas Ficticios
                     </span>
@@ -687,10 +687,14 @@ export function CoachStudioView({
                 {/* Subheader & Metadatos INDEC */}
                 <div className="border-b border-border/80 bg-secondary/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-foreground">Cuadro 1.1</span>
-                    <span className="text-xs text-muted-foreground">
-                      — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
+                    <span className="text-xs font-black text-foreground">
+                      {isTestMode ? "Alumnos" : "Cuadro 1.1"}
                     </span>
+                    {!isTestMode && (
+                      <span className="text-xs text-muted-foreground">
+                        — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
+                      </span>
+                    )}
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
                       Semana 42 / Octubre 2026
                     </span>
@@ -1109,7 +1113,7 @@ export function CoachStudioView({
                     Nota: Semáforos Material Design 3 con codificación tonal sin texto redundante. Touch targets ≥ 48px según estándar ergonómico.
                   </span>
                   <span className="font-semibold text-foreground">
-                    Fuente: GOZSter Studio / {isTestMode ? "Modo Testeo (Dataset Demo INDEC M3)" : "Registro Supabase Live"}
+                    Fuente: GOZSter Studio / {isTestMode ? "Modo Testeo (Dataset demo)" : "Registro Supabase Live"}
                   </span>
                 </div>
               </div>
