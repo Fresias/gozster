@@ -44,21 +44,22 @@ GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plan
 
 ## Invariants
 - **Daemon protection:** Never terminate `multica` or `multica.exe` by process name. Only terminate specific child PIDs after checking `multica daemon status --output json` (rule: `multica.daemon-protect`).
-- **Foreground blocking:** Never detach long-running work or exit a turn "standing by". Execute work synchronously within foreground tool calls.
-- **Windows comment encoding:** Write comment bodies to a UTF-8 file inside the task workdir first, then submit via `--content-file <path>`. Delete the temporary file only after the post succeeds.
+- **Foreground blocking:** Never detach long-running work or exit a turn "standing by"; run work synchronously in foreground tool calls.
+- **Windows comment encoding:** Write comment bodies to a UTF-8 file in the task workdir, submit via `--content-file`, then delete it only after the post succeeds.
 
 # GOZSter Local Guardrails
 
 ## Database & Migrations
 - `supabase/migrations/` is **strictly append-only**: never edit or delete a migration (rule: `db.append-only`).
-- All new database tables must define explicit PostgreSQL Row Level Security (RLS) policies.
+- New tables must define explicit PostgreSQL Row Level Security (RLS) policies.
 
 ## Brand & Product Integrity
 - Zero references to "Mynter" in production UI and student-facing copy (ADR-005).
-- Respect dual view states: `SIMPLE` (clean, distraction-free) vs `TECNICA` (full overload details) per ADR-004.
+- Respect dual view states `SIMPLE` vs `TECNICA` (full overload) per ADR-004.
 
 ## QA & Review Rounds
-- **Max 2 QA rounds per PR:** a 3rd round means no re-audit — QA/PM set `blocked` and mention Gabriel (human owner) with a summary of the two rejections.
+- **QA `CHANGES_REQUESTED`, round 1/2 — reopen the stage:** set the Stage issue `in_progress`; comment there with blocker + detail link + round `N/2`, @mentioning the assignee (an action request, so the mention fires their run); set the QA issue `todo` until the stage is `in_review` again.
+- **Round 2/2 — no re-audit, no reopen:** QA/PM set `blocked` and @mention Gabriel (human owner) with a summary of the two rejections.
 
 ## Skills
 
@@ -89,17 +90,17 @@ GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plan
 
 ## Command Rules
 - **Bounded queries:** never run `multica issue list --output json` without `--limit` (max 15).
-- **Scan-Then-Expand comments:** scan roots `multica issue comment list <id> --roots-only --summary --compact --output json`, then expand a thread with `... --thread <comment-id> --tail 10 --compact`.
-- **Large payloads:** long descriptions/comments use `--description-file ./description.md` or `--content-file ./comment.md` in the task workdir (never `/tmp`).
+- **Scan-Then-Expand comments:** scan roots (`--roots-only --summary --compact`), then expand a thread (`--thread <id> --tail 10 --compact`).
+- **Large payloads:** long descriptions/comments use `--description-file`/`--content-file` in the task workdir, never `/tmp`.
 - **Stream separation:** never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
 
 ## Comment Discipline (No-Action, No-Reply)
-- **No action, no comment:** if a wakeup/mention needs no concrete action (acks, thanks, "conformidad", "silencio operativo", status echoes), end the run WITHOUT commenting.
-- **No ack mentions:** never @mention another agent unless you need them to act — mentions trigger runs; acknowledgements are forbidden.
+- **No action, no comment:** if a wakeup/mention needs no concrete action (acks, thanks, status echoes), end the run WITHOUT commenting.
+- **No ack mentions:** never @mention another agent unless you need them to act — mentions trigger runs.
 - **One hand-off per state change:** comment only when you deliver, block, or request a specific action.
 
 ## Terminal States (Stop the Loop)
-- **Retries (max 2):** at most 2 tries on the same failure (test or error); if the 2nd makes no measurable progress, set `blocked` with evidence (command, output, what was tried) and end the run.
+- **Retries (max 2):** at most 2 tries on the same failure; if the 2nd makes no progress, set `blocked` with evidence (command, output, what was tried) and end the run.
 - **Hand-off, no start:** record goal, changes, evidence, risks and out-of-scope zones, name exactly ONE next action, then end the run without starting it.
 - **Waits by condition only:** use condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`/`--until-issue`); no periodic wakeups, no sleep/poll.
 
