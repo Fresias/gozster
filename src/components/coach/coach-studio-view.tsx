@@ -534,7 +534,7 @@ export function CoachStudioView({
                     setFilterQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  placeholder="Buscar atleta o email..."
+                  placeholder={isTestMode ? "Buscar atleta…" : "Buscar atleta o email..."}
                   className="min-h-11 w-full rounded-xl border border-input bg-card px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
                 />
               </div>
@@ -928,9 +928,11 @@ export function CoachStudioView({
                                     <span className="font-bold text-foreground block truncate leading-tight text-xs">
                                       {alumno.nombre_completo}
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground block truncate">
-                                      {alumno.email ?? "—"}
-                                    </span>
+                                    {!isTestMode && (
+                                      <span className="text-[10px] text-muted-foreground block truncate">
+                                        {alumno.email ?? "—"}
+                                      </span>
+                                    )}
                                   </div>
                                 </button>
                               </td>
