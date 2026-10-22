@@ -650,7 +650,8 @@ export function CoachStudioView({
                   <span>Alta de alumno</span>
                 </Button>
 
-                {/* Selector de Modo de Visualización (INDEC vs Tarjetas) */}
+                {/* Selector de Modo de Visualización (INDEC vs Tarjetas); oculto en Modo Testeo */}
+                {!isTestMode && (
                 <div className="flex items-center rounded-xl bg-secondary/80 border border-border/60 p-0.5 text-xs font-medium ml-auto">
                   <button
                     type="button"
@@ -675,11 +676,12 @@ export function CoachStudioView({
                     Tarjetas
                   </button>
                 </div>
+                )}
               </div>
             </div>
 
             {/* Contenido según vista seleccionada */}
-            {viewMode === "table" ? (
+            {isTestMode || viewMode === "table" ? (
               /* Cuadro Estadístico INDEC 1.1 con Semáforos M3 Puros y Ergonomía Táctil (Touch targets ≥ 48px) */
               <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
                 {/* Subheader & Metadatos INDEC */}
