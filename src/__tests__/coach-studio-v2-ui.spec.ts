@@ -152,6 +152,13 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       // En Producción se conserva el header original
       expect(alertsContent).toContain("Bandeja de Alertas Críticas (Dolor Articular");
     });
+
+    it("en Modo Testeo oculta el selector Cuadro INDEC / Tarjetas y fuerza la tabla; en Producción se conserva", () => {
+      expect(viewContent).toContain("{!isTestMode && (");
+      expect(viewContent).toContain('{isTestMode || viewMode === "table" ? (');
+      expect(viewContent).toContain("Cuadro INDEC");
+      expect(viewContent).toContain("Tarjetas");
+    });
   });
 
   // ==========================================================================
