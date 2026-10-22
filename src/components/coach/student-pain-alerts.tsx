@@ -7,10 +7,10 @@ import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   getDemoCriticalAlerts,
   persistAlertEstado,
-  withAlertEstado,
   type AlertaEstado,
   type CriticalAlert,
 } from "@/components/coach/critical-alerts-data";
+import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
 
 const ESTADOS: { value: AlertaEstado; label: string; active: string }[] = [
   { value: "PENDIENTE", label: "Pendiente", active: "bg-amber-500 text-slate-950" },
@@ -28,14 +28,16 @@ export interface StudentPainAlertsProps {
 /** Sección "Alertas de dolor" de la ficha del alumno (solo Modo Testeo). */
 export function StudentPainAlerts({ alumnoId, onQuickSwap }: StudentPainAlertsProps) {
   const isTesteo = useWorkspaceModeStore().mode === "TESTEO";
-  const [alerts, setAlerts] = React.useState<CriticalAlert[]>([]);
+  const [baseAlerts, setBaseAlerts] = React.useState<CriticalAlert[]>([]);
+  const { estados, setEstado } = useDemoAlertEstados();
+  const alerts = applyDemoEstados(baseAlerts, estados);
 
   React.useEffect(() => {
-    setAlerts(isTesteo ? getDemoCriticalAlerts().filter((a) => a.alumnoId === alumnoId) : []);
+    setBaseAlerts(isTesteo ? getDemoCriticalAlerts().filter((a) => a.alumnoId === alumnoId) : []);
   }, [isTesteo, alumnoId]);
 
   const handleUpdateStatus = async (alertId: string, nuevoEstado: AlertaEstado) => {
-    setAlerts((prev) => prev.map((a) => (a.id === alertId ? withAlertEstado(a, nuevoEstado) : a)));
+    setEstado(alertId, nuevoEstado);
     await persistAlertEstado(alertId, nuevoEstado);
   };
 

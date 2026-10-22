@@ -12,6 +12,7 @@ import {
   type AlertaEstado,
   type CriticalAlert,
 } from "@/components/coach/critical-alerts-data";
+import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
 
 export type {
   AlertaEstado,
@@ -35,12 +36,16 @@ export function CriticalAlertsInbox({
 }: CriticalAlertsInboxProps) {
   const { mode } = useWorkspaceModeStore();
   const isTesteo = mode === "TESTEO";
-  const [alerts, setAlerts] = React.useState<CriticalAlert[]>([]);
+  const [rawAlerts, setAlerts] = React.useState<CriticalAlert[]>([]);
+  const demoEstados = useDemoAlertEstados((s) => s.estados);
+  const alerts = isTesteo ? applyDemoEstados(rawAlerts, demoEstados) : rawAlerts;
   const [isLoading, setIsLoading] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(mode !== "TESTEO");
-  const [statusFilter, setStatusFilter] = React.useState<"PENDIENTE" | "ATENDIDO" | "CERRADO" | "TODAS">(
+  const [selectedFilter, setStatusFilter] = React.useState<"PENDIENTE" | "ATENDIDO" | "CERRADO" | "TODAS">(
     "PENDIENTE"
   );
+  // En Testeo el filtro efectivo es siempre PENDIENTE (sin pisar la pestaña elegida en Producción)
+  const statusFilter = isTesteo ? "PENDIENTE" : selectedFilter;
   React.useEffect(() => {
     setIsExpanded(!isTesteo);
   }, [isTesteo]);
@@ -142,7 +147,47 @@ export function CriticalAlertsInbox({
       </>
       )}
 
-      {isExpanded && (
+      {isExpanded && isTesteo && (
+        <div className="divide-y divide-border/60" data-testid="alerts-compact-list">
+          {filteredAlerts.map((alert) => {
+            const redFlag = alert.severidad === "CRITICA" || Boolean(alert.esSintomaAlarma);
+            const etiqueta = redFlag
+              ? "Síntoma de alarma"
+              : alert.severidad === "BAJA"
+              ? "Dolor leve"
+              : "Dolor moderado";
+            return (
+              <button
+                key={alert.id}
+                type="button"
+                onClick={() => onSelectAlumno?.(alert.alumnoId)}
+                className="w-full min-h-12 px-4 py-2 flex items-center gap-3 text-left hover:bg-muted/40"
+                data-testid={`alert-row-${alert.id}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${redFlag ? "bg-destructive" : "bg-amber-400"}`}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-foreground">{alert.alumnoNombre}</span>
+                  <span
+                    className={`block text-[11px] ${
+                      redFlag ? "text-destructive font-semibold" : "text-muted-foreground"
+                    }`}
+                  >
+                    {etiqueta}
+                    {alert.zona ? ` · ${alert.zona}` : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">{alert.fecha}</span>
+                <span aria-hidden="true" className="shrink-0 text-muted-foreground">›</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {isExpanded && !isTesteo && (
         <div className="space-y-3 pt-1">
           {/* Pestañas de Filtrado por Estado */}
           <div
