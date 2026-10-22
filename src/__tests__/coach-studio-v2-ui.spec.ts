@@ -34,6 +34,10 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
 
   const viewContent = fs.readFileSync(coachStudioViewPath, "utf-8");
   const alertsContent = fs.readFileSync(criticalAlertsPath, "utf-8");
+  const alertsDataContent = fs.readFileSync(
+    path.resolve(__dirname, "../components/coach/critical-alerts-data.ts"),
+    "utf-8"
+  );
   const retentionContent = fs.readFileSync(retentionCardsPath, "utf-8");
   const quickSwapContent = fs.readFileSync(quickSwapModalPath, "utf-8");
   const whatsappContent = fs.readFileSync(whatsappModalPath, "utf-8");
@@ -131,7 +135,7 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   describe("3. Bandeja de Alertas Críticas Compacta", () => {
     it("filtra estrictamente alertas de dolor articular (DOLOR)", () => {
       expect(alertsContent).toContain('type === "DOLOR"');
-      expect(alertsContent).toContain('.eq("pain_reported", true)');
+      expect(alertsDataContent).toContain('.eq("pain_reported", true)');
       expect(alertsContent).not.toContain("VIDEO_FORM_CHECK");
     });
 
