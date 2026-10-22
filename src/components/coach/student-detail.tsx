@@ -153,6 +153,7 @@ export function StudentDetail({
     cuestionarioProp ?? null,
   );
   const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
+  const [errorNivelVista, setErrorNivelVista] = React.useState<string | null>(null);
 
   const storeSustituciones = useCoachStudioStore((s) => s.sustituciones);
   const catalogoCompleto = useCoachStudioStore((s) => s.ejercicios);
@@ -194,17 +195,28 @@ export function StudentDetail({
 
   const handleToggleNivelVista = async (nuevoNivel: NivelVistaAlumno) => {
     if (nuevoNivel === nivelVista) return;
+    const nivelAnterior = nivelVista;
+    setErrorNivelVista(null);
     setNivelVista(nuevoNivel);
     setIsUpdatingNivel(true);
     try {
       if (onActualizarNivelVista) {
-        await onActualizarNivelVista(alumno.id, nuevoNivel);
+        const ok = await onActualizarNivelVista(alumno.id, nuevoNivel);
+        if (ok === false) {
+          throw new Error("No se pudo guardar, intentá de nuevo");
+        }
       } else if (supabase) {
-        await supabase
+        const { error } = await supabase
           .from("perfiles")
           .update({ nivel_vista_alumno: nuevoNivel })
           .eq("id", alumno.id);
+        if (error) {
+          throw error;
+        }
       }
+    } catch {
+      setNivelVista(nivelAnterior);
+      setErrorNivelVista("No se pudo guardar, intentá de nuevo");
     } finally {
       setIsUpdatingNivel(false);
     }
@@ -484,7 +496,7 @@ export function StudentDetail({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-foreground">
-                  Modo de Vista del Alumno (Athlete App)
+                  Vista recomendada
                 </h3>
                 <Badge
                   variant={nivelVista === "SIMPLE" ? "secondary" : "default"}
@@ -499,6 +511,14 @@ export function StudentDetail({
                   ? "Vista minimalista: El alumno visualiza únicamente Series × Reps × Peso + Video + Descanso (sin RPE ni 1RM)."
                   : "Vista técnica completa: Expone RPE objetivo/real, %1RM y fórmulas para atletas avanzados."}
               </p>
+              {errorNivelVista && (
+                <p
+                  className="mt-1 text-xs font-semibold text-destructive"
+                  data-testid="coach-nivel-vista-error"
+                >
+                  {errorNivelVista}
+                </p>
+              )}
             </div>
 
             <div
