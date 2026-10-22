@@ -658,6 +658,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
             .eq("id", alumnoId);
           if (error) {
             console.warn("Aviso actualizando nivel_vista_alumno en Supabase:", error.message);
+            if (!error.message?.includes("schema cache")) {
             set({
               alumnos: prevAlumnos,
               toast: {
@@ -668,6 +669,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
               },
             });
             return false;
+            }
           }
         }
       } catch (err: any) {
