@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
+import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
+import { useRolActual } from "@/lib/use-rol-actual";
+import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
@@ -42,6 +45,8 @@ export function CoachStudioView({
   const store = useCoachStudioStore();
   const { mode, setMode } = useWorkspaceModeStore();
   const isTestMode = mode === "TESTEO";
+  const rolActual = useRolActual();
+  const showKpiStrip = isTestMode && rolActual === "ADMIN";
 
   const liveAlumnos =
     initialDataset && initialDataset.alumnos.length > 0
@@ -134,6 +139,9 @@ export function CoachStudioView({
     (isTestMode && paymentFilter === "SIN_PLAN") || (!isTestMode && paymentFilter === "NUEVOS")
       ? "ALL"
       : paymentFilter;
+  const [sinEntrenarFilter, setSinEntrenarFilter] = React.useState(false);
+  // El filtro "Sin entrenar +7 días" solo existe en Testeo con la franja ADMIN visible: se deriva en render.
+  const effectiveSinEntrenar = sinEntrenarFilter && showKpiStrip;
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -227,7 +235,9 @@ export function CoachStudioView({
       matchPayment = !tienePlan;
     }
 
-    return matchQuery && matchPayment;
+    const matchSinEntrenar = !effectiveSinEntrenar || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id);
+
+    return matchQuery && matchPayment && matchSinEntrenar;
   });
 
   // Pagination calculation
@@ -530,10 +540,26 @@ export function CoachStudioView({
           />
 
           {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
-          <RetentionKpiCards
-            metricas={metricas}
-            onAssignPlanClick={() => setIsAssignModalOpen(true)}
-          />
+          {showKpiStrip ? (
+            <BusinessKpiStrip
+              kpis={DEMO_KPIS_NEGOCIO}
+              sinEntrenarNombres={alumnos
+                .filter((a) => DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id))
+                .map((a) => a.nombre_completo)}
+              sinRutina={metricas.cantSinPlanEntrenamiento}
+              onAsignarClick={() => setIsAssignModalOpen(true)}
+              onSinEntrenarClick={() => {
+                setIsAlumnosExpanded(true);
+                setSinEntrenarFilter(true);
+                setCurrentPage(1);
+              }}
+            />
+          ) : (
+            <RetentionKpiCards
+              metricas={metricas}
+              onAssignPlanClick={() => setIsAssignModalOpen(true)}
+            />
+          )}
 
           {/* Directorio de Atletas */}
           <div
@@ -652,6 +678,20 @@ export function CoachStudioView({
                     }`}
                   >
                     Sin Plan ({metricas.cantSinPlanEntrenamiento})
+                  </button>
+                )}
+
+                {effectiveSinEntrenar && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSinEntrenarFilter(false);
+                      setCurrentPage(1);
+                    }}
+                    data-testid="chip-sin-entrenar"
+                    className="min-h-9 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary"
+                  >
+                    Sin entrenar +7 días ✕
                   </button>
                 )}
 
