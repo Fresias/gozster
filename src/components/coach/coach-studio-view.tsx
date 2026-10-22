@@ -120,6 +120,11 @@ export function CoachStudioView({
   }, [initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
+  const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);
+  React.useEffect(() => {
+    setIsAlumnosExpanded(false);
+  }, [isTestMode]);
+  const showAlumnosBody = !isTestMode || isAlumnosExpanded;
   const [filterQuery, setFilterQuery] = React.useState("");
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "SIN_PLAN" | "NUEVOS"
@@ -531,7 +536,33 @@ export function CoachStudioView({
           />
 
           {/* Directorio de Atletas */}
-          <div className="space-y-4">
+          <div
+            className={
+              isTestMode
+                ? "rounded-2xl border border-border bg-card space-y-4 pb-4 [&>:not(button)]:mx-5"
+                : "space-y-4"
+            }
+            data-testid="alumnos-directory"
+          >
+            {isTestMode && (
+              <button
+                type="button"
+                onClick={() => setIsAlumnosExpanded(!isAlumnosExpanded)}
+                aria-expanded={isAlumnosExpanded}
+                className="w-full min-h-14 px-5 flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className="text-sm font-bold text-foreground">Alumnos</span>
+                  <span className="rounded-full bg-secondary px-2 text-xs tabular-nums">
+                    {alumnos.length}
+                  </span>
+                </span>
+                <span aria-hidden="true" className="text-xs text-muted-foreground">
+                  {isAlumnosExpanded ? "▲" : "▼"}
+                </span>
+              </button>
+            )}
+            {showAlumnosBody && (<>
             {/* Search, Filters, Tools and View Toggle */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="w-full sm:max-w-xs">
@@ -713,9 +744,9 @@ export function CoachStudioView({
                 {/* Subheader & Metadatos INDEC */}
                 <div className="border-b border-border/80 bg-secondary/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-black text-foreground">
-                      {isTestMode ? "Alumnos" : "Cuadro 1.1"}
-                    </span>
+                    {!isTestMode && (
+                      <span className="text-xs font-black text-foreground">Cuadro 1.1</span>
+                    )}
                     {!isTestMode && (
                       <span className="text-xs text-muted-foreground">
                         — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
@@ -1205,6 +1236,7 @@ export function CoachStudioView({
                 </Button>
               </div>
             </div>
+            </>)}
           </div>
         </div>
       ) : (

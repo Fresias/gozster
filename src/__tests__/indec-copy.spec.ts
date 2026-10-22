@@ -9,7 +9,7 @@ describe("GOZS-128: sin la palabra INDEC en Modo Testeo", () => {
 
   it("banner, título del cuadro y footer no dicen INDEC en Testeo", () => {
     expect(view).toContain("MODO TESTEO ACTIVO</span>");
-    expect(view).toContain('isTestMode ? "Alumnos" : "Cuadro 1.1"');
+    expect(view).toContain('<span className="text-xs font-black text-foreground">Cuadro 1.1</span>');
     expect(view).toContain("Modo Testeo (Dataset demo)");
     expect(view).not.toContain("Demostración Conceptual INDEC");
     expect(view).not.toContain("Dataset Demo INDEC");
