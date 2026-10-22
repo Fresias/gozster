@@ -45,7 +45,7 @@ export const TABLAS = [
   { nombre: "ejercicios_en_rutina", fks: { dia_id: "dias_rutina", ejercicio_id: "ejercicios" } },
   { nombre: "registro_sesiones", fks: { alumno_id: "perfiles", dia_id: "dias_rutina" } },
   { nombre: "registro_series", fks: { ejercicio_id: "ejercicios", sesion_id: "registro_sesiones" } },
-  { nombre: "conversaciones", fks: { alumno_id: "perfiles" } },
+  { nombre: "conversaciones", fks: { alumno_id: "perfiles", responsable_id: "perfiles" } },
   { nombre: "mensajes", fks: { conversacion_id: "conversaciones", remitente_id: "perfiles" } },
   { nombre: "habitos_registros", fks: { alumno_id: "perfiles" } },
   { nombre: "nutricion_registros", fks: { alumno_id: "perfiles" } },
@@ -67,7 +67,7 @@ export const TABLAS = [
     nombre: "pagos",
     fks: { alumno_id: "perfiles", confirmado_por: "perfiles", contratacion_id: "contrataciones" },
   },
-  { nombre: "auditoria_cambios", fks: { autorizado_por: "perfiles" } },
+  { nombre: "auditoria_cambios", fks: { autorizado_por: "perfiles", usuario_id: "perfiles" } },
   {
     nombre: "sustituciones_ejercicios",
     fks: {

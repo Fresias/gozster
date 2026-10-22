@@ -26,6 +26,12 @@ import {
   computeAnchoredRenewalDate,
   derivarContratacionDesdePerfil,
 } from "@/lib/contrataciones";
+import {
+  AVAILABLE_COACH_SENDERS,
+  STAFF_COACH_FELIX,
+  useChatStore,
+} from "@/store/use-chat-store";
+import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -52,6 +58,7 @@ export interface StudentDetailProps {
     nuevaFechaFin: string;
     motivo: string;
   }) => Promise<unknown>;
+  onOpenChat?: () => void;
   onActualizarNivelVista?: (
     alumnoId: string,
     nivel: NivelVistaAlumno,
@@ -76,11 +83,68 @@ export function StudentDetail({
   contratacion: contratacionProp,
   onRegistrarRenovacion,
   onExtenderExcepcional,
+  onOpenChat,
   onActualizarNivelVista,
   cuestionario: cuestionarioProp,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
+
+  // Integración Chat GOZS (ADR-004)
+  const { getConversation, transferirConversacion } = useChatStore();
+  const chatConv = getConversation(alumno.id, alumno.nombre_completo);
+
+  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>(
+    AVAILABLE_COACH_SENDERS[1]?.id || STAFF_COACH_FELIX.id,
+  );
+  const [transferMotivo, setTransferMotivo] = React.useState("");
+  const [isTransferring, setIsTransferring] = React.useState(false);
+  const [transferSuccess, setTransferSuccess] = React.useState<string | null>(null);
+  const [transferError, setTransferError] = React.useState<string | null>(null);
+
+  const chatActivePainAlert = React.useMemo(() => {
+    return DEMO_CRITICAL_ALERTS.find(
+      (a) =>
+        !a.resolved &&
+        (a.alumnoId === alumno.id ||
+          a.alumnoNombre.toLowerCase() ===
+            alumno.nombre_completo.toLowerCase()),
+    );
+  }, [alumno.id, alumno.nombre_completo]);
+
+  const handleTransferirConversacion = async () => {
+    setIsTransferring(true);
+    setTransferSuccess(null);
+    setTransferError(null);
+
+    const targetCoach = AVAILABLE_COACH_SENDERS.find(
+      (c) => c.id === transferTargetCoachId,
+    );
+    const targetNombre = targetCoach?.nombre || "Coach Asignado";
+
+    try {
+      const res = await transferirConversacion({
+        conversacionId: chatConv.id,
+        nuevoResponsableId: transferTargetCoachId,
+        motivo: transferMotivo.trim() || undefined,
+        alumnoId: alumno.id,
+      });
+
+      if (!res.success && res.error) {
+        setTransferError(res.error);
+      } else {
+        setTransferSuccess(`Responsable actualizado a ${targetNombre}`);
+        setTransferMotivo("");
+        setTimeout(() => {
+          setTransferSuccess(null);
+        }, 3000);
+      }
+    } catch (err: any) {
+      setTransferError(err?.message || "Error al transferir");
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
   const [nivelVista, setNivelVista] = React.useState<NivelVistaAlumno>(
     alumno.nivel_vista_alumno ?? "SIMPLE",
@@ -784,6 +848,172 @@ export function StudentDetail({
                   ? "Aplicando…"
                   : "Aplicar extensión excepcional"}
               </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Atención y Chat GOZS: Responsable Asignado y Transferencia (ADR-004) */}
+      <Card data-testid="chat-responsable-panel">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <span>Atención y Chat GOZS (Equipo)</span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                Canal Institucional
+              </span>
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {chatActivePainAlert && (
+                <span
+                  className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive"
+                  data-testid="student-pain-alert-badge"
+                >
+                  🚨 Molestia: {chatActivePainAlert.zona || "Articular"}
+                </span>
+              )}
+              <span
+                className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground uppercase"
+                data-testid="student-chat-estado"
+              >
+                {chatConv.estado || "ABIERTA"}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Profesor Responsable
+              </p>
+              <p
+                className="mt-1 text-sm font-bold text-foreground flex items-center gap-1.5"
+                data-testid="student-chat-responsable"
+              >
+                <span>{chatConv.responsable_nombre || "Coach Principal"}</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Vínculo RLS en entrenador_alumnos
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Mensajes en Hilo
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                {chatConv.mensajes.length} mensajes
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {chatConv.unreadCount > 0 ? (
+                  <span className="text-amber-400 font-bold">
+                    {chatConv.unreadCount} no leídos por el staff
+                  </span>
+                ) : (
+                  "Hilo al día"
+                )}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Acceso a Chat
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Interactuar en tiempo real con {alumno.nombre_completo}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 min-h-9 w-full text-xs font-semibold"
+                onClick={() => {
+                  onOpenChat?.();
+                  useCoachStudioStore.getState().setChatOpen(true);
+                }}
+                data-testid="open-student-chat-btn"
+              >
+                Abrir Chat en Vivo
+              </Button>
+            </div>
+          </div>
+
+          {/* Formulario de Reasignación / Transferencia de Responsable */}
+          <div
+            className="rounded-lg border border-border/80 bg-card p-3.5 space-y-3"
+            data-testid="transferir-responsable-section"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-foreground">
+                  Transferir responsable de conversación (RPC)
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Reasigna el caso a otro profesor del staff y audita el cambio en auditoria_cambios.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="text-[11px] font-semibold text-muted-foreground">
+                Nuevo Responsable
+                <select
+                  value={transferTargetCoachId}
+                  onChange={(e) => setTransferTargetCoachId(e.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground"
+                  data-testid="student-transfer-target-select"
+                >
+                  {AVAILABLE_COACH_SENDERS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre} ({c.rol})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="text-[11px] font-semibold text-muted-foreground">
+                Motivo de la transferencia
+                <input
+                  type="text"
+                  value={transferMotivo}
+                  onChange={(e) => setTransferMotivo(e.target.value)}
+                  placeholder="Ej.: Reasignación por rotación de pretemporada"
+                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground"
+                  data-testid="student-transfer-motivo-input"
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                variant="default"
+                size="default"
+                className="min-h-11 px-5 text-xs font-semibold"
+                onClick={handleTransferirConversacion}
+                disabled={isTransferring}
+                data-testid="student-transfer-confirm-btn"
+              >
+                {isTransferring ? "Transfiriendo…" : "Transferir Responsable"}
+              </Button>
+
+              {transferSuccess && (
+                <span
+                  className="text-xs font-semibold text-emerald-400"
+                  data-testid="student-transfer-success"
+                >
+                  ✓ {transferSuccess}
+                </span>
+              )}
+              {transferError && (
+                <span
+                  className="text-xs font-semibold text-destructive"
+                  data-testid="student-transfer-error"
+                >
+                  ✕ {transferError}
+                </span>
+              )}
             </div>
           </div>
         </CardContent>

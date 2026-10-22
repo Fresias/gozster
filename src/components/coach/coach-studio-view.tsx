@@ -1187,6 +1187,7 @@ export function CoachStudioView({
           contratacion={contratacionAlumno}
           onRegistrarRenovacion={registrarRenovacionManual}
           onExtenderExcepcional={extenderContratacionExcepcional}
+          onOpenChat={() => setChatOpen(true)}
           onActualizarNivelVista={actualizarNivelVistaAlumno}
         />
       )}

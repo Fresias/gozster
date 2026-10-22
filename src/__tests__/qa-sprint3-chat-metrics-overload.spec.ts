@@ -434,6 +434,8 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
     const conversacionAlumno1: Conversacion = {
       id: 'conv-alumno-1',
       alumno_id: alumno1.id,
+      responsable_id: null,
+      estado: 'ABIERTA',
       created_at: '2026-10-01T10:00:00Z',
       updated_at: '2026-10-01T10:00:00Z',
     };
@@ -441,6 +443,8 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
     const conversacionAlumno2: Conversacion = {
       id: 'conv-alumno-2',
       alumno_id: alumno2.id,
+      responsable_id: null,
+      estado: 'ABIERTA',
       created_at: '2026-10-01T10:00:00Z',
       updated_at: '2026-10-01T10:00:00Z',
     };
