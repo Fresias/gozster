@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { RosterPillLabel } from "@/components/roster-pill-label";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function HomePage() {
@@ -109,7 +110,7 @@ export default function HomePage() {
               {/* Feature Micro-pills */}
               <div className="flex flex-wrap gap-1.5 pt-2">
                 <span className="rounded-lg bg-secondary/80 px-2.5 py-1 text-[11px] font-semibold text-foreground border border-border/60">
-                  Roster de Atletas INDEC
+                  <RosterPillLabel />
                 </span>
                 <span className="rounded-lg bg-secondary/80 px-2.5 py-1 text-[11px] font-semibold text-foreground border border-border/60">
                   Sobrecarga Progresiva
