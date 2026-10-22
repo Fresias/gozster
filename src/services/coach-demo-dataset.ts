@@ -1,6 +1,7 @@
-import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
+import type { Clase, Contratacion, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
+import { diasDeLaSemana } from "@/lib/clases";
 
 export const DEMO_PROFESOR_ID = "00000000-0000-4000-a000-000000000001";
 
@@ -515,4 +516,257 @@ export function getDemoAlumnoAlerts(alumnoIdOrName: string) {
   }
 
   return [];
+}
+
+
+// ============================================================================
+// GH #122: Dataset ficticio para membresías, clases presenciales y reservas
+// Coach: Lucía Ferraro (coach.lucia@gozster.test)
+// Planes: "Funcional 2x semana" y "Pase libre Funcional + Boxeo"
+// Clases: Funcional lun, mié, jue 19:00 y Boxeo vie 20:00
+// Alumnos: Valentina Ríos, Sofía Benítez, Joaquín Paz, Tomás Ledesma
+// ============================================================================
+
+export const DEMO_COACH_LUCIA: Perfil = {
+  id: "demo-coach-lucia",
+  email: "coach.lucia@gozster.test",
+  nombre_completo: "Lucía Ferraro",
+  telefono: "+54 9 11 3456-7890",
+  rol: "ENTRENADOR",
+  estado_membresia: "ACTIVA",
+  profesor_asignado_id: null,
+  fecha_baja: null,
+  fecha_vencimiento_cuota: null,
+  ultimo_entreno_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
+export const DEMO_PLANES_MEMBRESIA: PlanMembresia[] = [
+  {
+    id: "demo-plan-funcional-2x",
+    nombre: "Funcional 2x semana",
+    limite_semanal: 2,
+    cantidad_actividades: 1,
+    duracion_meses: 1,
+    precio: 25000,
+    activo: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "demo-plan-pase-libre",
+    nombre: "Pase libre Funcional + Boxeo",
+    limite_semanal: null,
+    cantidad_actividades: 2,
+    duracion_meses: 1,
+    precio: 40000,
+    activo: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+export const DEMO_ALUMNOS_CLASES: Perfil[] = [
+  {
+    id: "demo-alumno-valentina",
+    nombre_completo: "Valentina Ríos",
+    email: "valentina.rios@gozster.test",
+    telefono: "+54 9 11 4123-1111",
+    rol: "ALUMNO",
+    estado_membresia: "ACTIVA",
+    profesor_asignado_id: DEMO_COACH_LUCIA.id,
+    fecha_baja: null,
+    fecha_vencimiento_cuota: getRelativeDateStr(20),
+    ultimo_entreno_at: getRelativeIsoStr(-1),
+    created_at: getRelativeIsoStr(-60),
+    updated_at: getRelativeIsoStr(-1),
+  },
+  {
+    id: "demo-alumno-sofia",
+    nombre_completo: "Sofía Benítez",
+    email: "sofia.benitez@gozster.test",
+    telefono: "+54 9 11 4123-2222",
+    rol: "ALUMNO",
+    estado_membresia: "ACTIVA",
+    profesor_asignado_id: DEMO_COACH_LUCIA.id,
+    fecha_baja: null,
+    fecha_vencimiento_cuota: getRelativeDateStr(15),
+    ultimo_entreno_at: getRelativeIsoStr(0),
+    created_at: getRelativeIsoStr(-45),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-alumno-joaquin",
+    nombre_completo: "Joaquín Paz",
+    email: "joaquin.paz@gozster.test",
+    telefono: "+54 9 11 4123-3333",
+    rol: "ALUMNO",
+    estado_membresia: "ACTIVA",
+    profesor_asignado_id: DEMO_COACH_LUCIA.id,
+    fecha_baja: null,
+    fecha_vencimiento_cuota: getRelativeDateStr(30),
+    ultimo_entreno_at: null,
+    created_at: getRelativeIsoStr(-5),
+    updated_at: getRelativeIsoStr(-5),
+  },
+  {
+    id: "demo-alumno-tomas",
+    nombre_completo: "Tomás Ledesma",
+    email: "tomas.ledesma@gozster.test",
+    telefono: "+54 9 11 4123-4444",
+    rol: "ALUMNO",
+    estado_membresia: "INACTIVA",
+    profesor_asignado_id: DEMO_COACH_LUCIA.id,
+    fecha_baja: null,
+    fecha_vencimiento_cuota: getRelativeDateStr(-10),
+    ultimo_entreno_at: getRelativeIsoStr(-15),
+    created_at: getRelativeIsoStr(-90),
+    updated_at: getRelativeIsoStr(-10),
+  },
+];
+
+export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
+  {
+    id: "demo-cont-valentina",
+    alumno_id: "demo-alumno-valentina",
+    tipo_servicio: "PRESENCIAL",
+    plan_membresia_id: "demo-plan-funcional-2x",
+    actividad: "FUNCIONAL",
+    dia_vencimiento: 10,
+    fecha_inicio: getRelativeDateStr(-10),
+    fecha_fin: getRelativeDateStr(20),
+    estado: "VIGENTE",
+    dias_aviso_previo: 5,
+    created_at: getRelativeIsoStr(-10),
+    updated_at: getRelativeIsoStr(-10),
+  },
+  {
+    id: "demo-cont-sofia",
+    alumno_id: "demo-alumno-sofia",
+    tipo_servicio: "PRESENCIAL",
+    plan_membresia_id: "demo-plan-pase-libre",
+    actividad: null,
+    dia_vencimiento: 15,
+    fecha_inicio: getRelativeDateStr(-15),
+    fecha_fin: getRelativeDateStr(15),
+    estado: "VIGENTE",
+    dias_aviso_previo: 5,
+    created_at: getRelativeIsoStr(-15),
+    updated_at: getRelativeIsoStr(-15),
+  },
+  {
+    id: "demo-cont-joaquin",
+    alumno_id: "demo-alumno-joaquin",
+    tipo_servicio: "PRESENCIAL",
+    plan_membresia_id: "demo-plan-funcional-2x",
+    actividad: "FUNCIONAL",
+    dia_vencimiento: 1,
+    fecha_inicio: getRelativeDateStr(30),
+    fecha_fin: getRelativeDateStr(60),
+    estado: "VIGENTE",
+    dias_aviso_previo: 5,
+    created_at: getRelativeIsoStr(-2),
+    updated_at: getRelativeIsoStr(-2),
+  },
+  {
+    id: "demo-cont-tomas",
+    alumno_id: "demo-alumno-tomas",
+    tipo_servicio: "PRESENCIAL",
+    plan_membresia_id: "demo-plan-funcional-2x",
+    actividad: "FUNCIONAL",
+    dia_vencimiento: 5,
+    fecha_inicio: getRelativeDateStr(-40),
+    fecha_fin: getRelativeDateStr(-10),
+    estado: "VENCIDA",
+    dias_aviso_previo: 5,
+    created_at: getRelativeIsoStr(-40),
+    updated_at: getRelativeIsoStr(-10),
+  },
+];
+
+export function generarDemoClasesSemana(fechaRef: Date = new Date()): Clase[] {
+  const dias = diasDeLaSemana(fechaRef);
+  return [
+    {
+      id: "demo-clase-func-lunes",
+      horario_id: "demo-horario-func-lun",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[0]?.clave}T19:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 3,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: "demo-clase-func-miercoles",
+      horario_id: "demo-horario-func-mie",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[2]?.clave}T19:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 3,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: "demo-clase-func-jueves",
+      horario_id: "demo-horario-func-jue",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[3]?.clave}T19:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 3,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: "demo-clase-box-viernes",
+      horario_id: "demo-horario-box-vie",
+      actividad: "BOXEO",
+      inicio: new Date(`${dias[4]?.clave}T20:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 10,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
+}
+
+export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre: string }> {
+  return [
+    {
+      id: "demo-res-mie-1",
+      clase_id: "demo-clase-func-miercoles",
+      alumno_id: "demo-alumno-ext-1",
+      alumno_nombre: "Camila Navarro",
+      estado: "ANOTADO",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: "demo-res-mie-2",
+      clase_id: "demo-clase-func-miercoles",
+      alumno_id: "demo-alumno-ext-2",
+      alumno_nombre: "Lucas Giménez",
+      estado: "ANOTADO",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: "demo-res-mie-3",
+      clase_id: "demo-clase-func-miercoles",
+      alumno_id: "demo-alumno-ext-3",
+      alumno_nombre: "Mateo Rossi",
+      estado: "ANOTADO",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
 }

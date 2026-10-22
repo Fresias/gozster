@@ -23,6 +23,7 @@ import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   DEMO_ALUMNOS,
+  DEMO_ALUMNOS_CLASES,
   DEMO_PLANES,
   getDemoAlumnoAlerts,
 } from "@/services/coach-demo-dataset";
@@ -50,7 +51,8 @@ export function CoachStudioView({
       ? initialDataset.planes
       : store.planes;
 
-  const alumnos = isTestMode ? DEMO_ALUMNOS : liveAlumnos;
+  const demoAlumnosTodos = React.useMemo(() => [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES], []);
+  const alumnos = isTestMode ? demoAlumnosTodos : liveAlumnos;
   const planes = isTestMode ? DEMO_PLANES : livePlanes;
   const dias =
     initialDataset && initialDataset.dias.length > 0

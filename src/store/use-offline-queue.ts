@@ -19,7 +19,7 @@ interface OfflineQueueState {
 
 const memoryFallback: Record<string, string> = {};
 
-const safeStorage: StateStorage = {
+export const safeStorage: StateStorage = {
   getItem: (name: string): string | null => {
     if (typeof window !== "undefined" && window.localStorage) {
       return window.localStorage.getItem(name);
