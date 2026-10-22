@@ -1260,6 +1260,7 @@ export function CoachStudioView({
           onExtenderExcepcional={extenderContratacionExcepcional}
           onOpenChat={() => setChatOpen(true)}
           onActualizarNivelVista={actualizarNivelVistaAlumno}
+          onQuickSwap={handleOpenQuickSwapFromAlert}
         />
       )}
 

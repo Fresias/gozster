@@ -121,6 +121,10 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
 
   const viewContent = fs.readFileSync(coachStudioViewPath, "utf-8");
   const alertsContent = fs.readFileSync(criticalAlertsPath, "utf-8");
+  const alertsDataContent = fs.readFileSync(
+    path.resolve(__dirname, "../components/coach/critical-alerts-data.ts"),
+    "utf-8"
+  );
   const retentionContent = fs.readFileSync(retentionCardsPath, "utf-8");
   const quickSwapContent = fs.readFileSync(quickSwapModalPath, "utf-8");
   const whatsappContent = fs.readFileSync(whatsappModalPath, "utf-8");
@@ -332,7 +336,7 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
 
     it("la bandeja de alertas críticas filtra estrictamente alertas rojas de dolor articular", () => {
       expect(alertsContent).toContain('type === "DOLOR"');
-      expect(alertsContent).toContain('.eq("pain_reported", true)');
+      expect(alertsDataContent).toContain('.eq("pain_reported", true)');
       expect(alertsContent).not.toContain("VIDEO_FORM_CHECK");
     });
   });

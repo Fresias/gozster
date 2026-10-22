@@ -32,6 +32,8 @@ import {
   useChatStore,
 } from "@/store/use-chat-store";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
+import { StudentPainAlerts } from "@/components/coach/student-pain-alerts";
+import type { CriticalAlert } from "@/components/coach/critical-alerts-data";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -64,6 +66,7 @@ export interface StudentDetailProps {
     nivel: NivelVistaAlumno,
   ) => Promise<unknown>;
   cuestionario?: AlumnoCuestionarioInicial | null;
+  onQuickSwap?: (alert: CriticalAlert) => void;
 }
 
 export function StudentDetail({
@@ -86,6 +89,7 @@ export function StudentDetail({
   onOpenChat,
   onActualizarNivelVista,
   cuestionario: cuestionarioProp,
+  onQuickSwap,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
@@ -656,6 +660,8 @@ export function StudentDetail({
           )}
         </CardContent>
       </Card>
+
+      <StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />
 
       {/* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */}
       <Card data-testid="contratacion-panel">
