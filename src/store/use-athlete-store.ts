@@ -79,12 +79,18 @@ interface AthleteStoreState {
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
   cuestionarioInicial: AlumnoCuestionarioInicial | null;
+  // Preferencias locales del onboarding de primera vez (GOZS-145). Este store
+  // es el dueño de ambos campos; el ejercicio en vivo consume mostrarTimerDescanso.
+  onboardingCompletado: boolean;
+  mostrarTimerDescanso: boolean;
 
   // Actions
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
+  setOnboardingCompletado: (completado: boolean) => void;
+  setMostrarTimerDescanso: (mostrar: boolean) => void;
   setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
   saveCuestionarioInicial: (
     data: Partial<AlumnoCuestionarioInicial>,
@@ -292,6 +298,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       vistaElegidaPorAlumno: null,
       vistaRecomendadaCoach: "SIMPLE",
       cuestionarioInicial: null,
+      onboardingCompletado: false,
+      mostrarTimerDescanso: true,
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -315,6 +323,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaElegidaPorAlumno: null,
           nivelVistaAlumno: state.vistaRecomendadaCoach || "SIMPLE",
         })),
+      setOnboardingCompletado: (completado) =>
+        set({ onboardingCompletado: completado }),
+      setMostrarTimerDescanso: (mostrar) =>
+        set({ mostrarTimerDescanso: mostrar }),
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
       saveCuestionarioInicial: async (data) => {
         const studentId =
@@ -940,6 +952,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,
         vistaRecomendadaCoach: state.vistaRecomendadaCoach,
         cuestionarioInicial: state.cuestionarioInicial,
+        onboardingCompletado: state.onboardingCompletado,
+        mostrarTimerDescanso: state.mostrarTimerDescanso,
       }),
     },
   ),
