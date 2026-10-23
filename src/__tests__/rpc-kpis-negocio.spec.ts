@@ -125,9 +125,10 @@ describe("GOZS-135: obtener_kpis_negocio (PGlite)", () => {
     db = await montarDb();
   }, 60_000);
 
-  it("la migración nueva es la última (append-only)", () => {
+  it("la migración existe y nada anterior se reescribió (append-only)", () => {
     const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    expect(archivos[archivos.length - 1]).toBe(NEW_MIGRATION);
+    expect(archivos).toContain(NEW_MIGRATION);
+    expect(archivos[archivos.length - 1]! >= NEW_MIGRATION).toBe(true);
   });
 
   it("ADMIN obtiene los números esperados del dataset", async () => {

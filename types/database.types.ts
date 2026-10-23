@@ -1204,6 +1204,41 @@ export interface Database {
         Relationships: [
         ];
       };
+      planes_membresia_precios: {
+        Row: {
+          id: string;
+          plan_membresia_id: string;
+          precio: number;
+          vigente_desde: string;
+          creado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          plan_membresia_id: string;
+          precio: number;
+          vigente_desde: string;
+          creado_por?: string | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: 'planes_membresia_precios_plan_membresia_id_fkey';
+            columns: ['plan_membresia_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_membresia';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'planes_membresia_precios_creado_por_fkey';
+            columns: ['creado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       clases_horario: {
         Row: {
           id: string;
@@ -1384,6 +1419,13 @@ export interface Database {
           p_alumno_id: string;
         };
         Returns: boolean;
+      };
+      precio_vigente: {
+        Args: {
+          p_plan_id: string;
+          p_fecha: string;
+        };
+        Returns: number | null;
       };
       obtener_kpis_negocio: {
         Args: {
