@@ -8,13 +8,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 const guardPath = path.join(repoRoot, ".claude", "hooks", "guard.sh").replace(/\\/g, "/");
-const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
-const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
+const gitBashWinCandidates = [
+  "C:\\Program Files\\Git\\bin\\bash.exe",
+  "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+  path.join(process.env.LOCALAPPDATA ?? "", "Programs", "Git", "bin", "bash.exe"),
+  path.join(process.env.LOCALAPPDATA ?? "", "Programs", "Git", "usr", "bin", "bash.exe"),
+];
+const gitBashWin = gitBashWinCandidates.find((p) => existsSync(p)) ?? "";
+const bashBin = process.platform === "win32" && gitBashWin ? gitBashWin : "bash";
 const bashEnv =
-  process.platform === "win32" && existsSync(gitBashWin)
+  process.platform === "win32" && gitBashWin
     ? {
         ...process.env,
-        PATH: `C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\usr\\bin;${process.env.PATH ?? ""}`,
+        PATH: `${path.dirname(gitBashWin)};${path.resolve(path.dirname(gitBashWin), "..", "usr", "bin")};${process.env.PATH ?? ""}`,
       }
     : process.env;
 
