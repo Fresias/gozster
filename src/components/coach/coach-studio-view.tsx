@@ -6,7 +6,6 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
-import { useRolActual } from "@/lib/use-rol-actual";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
@@ -28,9 +27,7 @@ import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
 import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 import {
-  DEMO_ALUMNOS,
-  DEMO_ALUMNOS_CLASES,
-  DEMO_PLANES,
+  DEMO_GIMNASIO,
   getDemoAlumnoAlerts,
 } from "@/services/coach-demo-dataset";
 import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
@@ -47,8 +44,8 @@ export function CoachStudioView({
   const store = useCoachStudioStore();
   const { mode, setMode } = useWorkspaceModeStore();
   const isTestMode = mode === "TESTEO";
-  const rolActual = useRolActual();
-  const showKpiStrip = isTestMode && rolActual === "ADMIN";
+  // En Testeo, cualquiera que pase el middleware de /studio (ENTRENADOR o ADMIN) ve la franja.
+  const showKpiStrip = isTestMode;
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
   // "Sin alertas" = sin alertas pendientes (la bandeja y la ficha comparten estado)
   const hasPendingAlerts =
@@ -67,9 +64,8 @@ export function CoachStudioView({
       ? initialDataset.planes
       : store.planes;
 
-  const demoAlumnosTodos = React.useMemo(() => [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES], []);
-  const alumnos = isTestMode ? demoAlumnosTodos : liveAlumnos;
-  const planes = isTestMode ? DEMO_PLANES : livePlanes;
+  const alumnos = isTestMode ? DEMO_GIMNASIO.alumnos : liveAlumnos;
+  const planes = isTestMode ? DEMO_GIMNASIO.planes : livePlanes;
   const dias =
     initialDataset && initialDataset.dias.length > 0
       ? initialDataset.dias
@@ -118,6 +114,9 @@ export function CoachStudioView({
     extenderContratacionExcepcional,
     actualizarNivelVistaAlumno,
   } = store;
+
+  const getHistorialCargas = (alumnoId: string): HistoricalLoadEntry[] =>
+    isTestMode ? DEMO_GIMNASIO.historial[alumnoId] ?? [] : getHistorialCargasAlumno(alumnoId);
 
   React.useEffect(() => {
     if (initialDataset && initialDataset.alumnos.length > 0) {
@@ -210,7 +209,9 @@ export function CoachStudioView({
           (a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE",
         ).length,
         cantSinPlanEntrenamiento: alumnos.filter(
-          (a) => !planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO"),
+          (a) =>
+            (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE") &&
+            !planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO"),
         ).length,
         cantClientesPerdidosMes: alumnos.filter(
           (a) => a.estado_membresia === "INACTIVA",
@@ -265,7 +266,7 @@ export function CoachStudioView({
       getRutinaActivaAlumno(selectedAlumno.id)
     : null;
   const historialPlanes = selectedAlumno ? getPlanesAlumnoCronologico(selectedAlumno.id) : [];
-  const historialCargas = selectedAlumno ? getHistorialCargasAlumno(selectedAlumno.id) : [];
+  const historialCargas = selectedAlumno ? getHistorialCargas(selectedAlumno.id) : [];
   const contratacionAlumno = selectedAlumno
     ? getContratacionAlumno(selectedAlumno)
     : null;
@@ -877,7 +878,7 @@ export function CoachStudioView({
                           const planActivo = isTestMode
                             ? planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null
                             : getRutinaActivaAlumno(alumno.id);
-                          const historial = getHistorialCargasAlumno(alumno.id);
+                          const historial = getHistorialCargas(alumno.id);
 
                           // Cálculo de Cuota (Semáforo M3 Puro: 🟢 Verde, 🟡 Amarillo, 🔴 Rojo)
                           let isAlDia =

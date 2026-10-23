@@ -2,7 +2,7 @@ import type { Clase, Contratacion, Perfil, PlanEntrenamiento, PlanMembresia, Res
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
 import { diasDeLaSemana } from "@/lib/clases";
-import { esSinEntrenar7d } from "@/lib/sin-entrenar";
+import { derivarKpisNegocio, generarDemoGimnasio, type KpisNegocio } from "@/services/coach-demo-generator";
 
 export const DEMO_PROFESOR_ID = "00000000-0000-4000-a000-000000000001";
 
@@ -776,22 +776,20 @@ export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre:
 // KPIs de negocio para el dueño (GOZS-136, solo Modo Testeo). Conexión real: GOZS-137.
 // ============================================================================
 
-const DEMO_ALUMNOS_KPI = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
+const AHORA_DEMO = new Date();
 
-export const DEMO_KPIS_NEGOCIO = {
-  ingresos_mes: 226002,
-  ingresos_variacion_pct: 12,
-  ingresos_mes_anterior_label: "sept.",
-  ingresos_ultimos_6_meses: [158400, 171250, 183900, 196300, 201800, 226002],
-  cobranza_pct: 80,
-  cobranza_faltante: 54000,
-  cobranza_vencidas: 3,
-  sin_entrenar_7d_ids: DEMO_ALUMNOS_KPI.filter((a) => esSinEntrenar7d(a)).map((a) => a.id),
-  alumnos_activos: DEMO_ALUMNOS_KPI.filter(
-    (a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE",
-  ).length,
-  altas_mes: 3,
-  bajas_mes: 1,
-};
+/** Gimnasio demo ampliado (GOZS-139): ~40 alumnos con un mes de historia, generado en coach-demo-generator. */
+export const DEMO_GIMNASIO = generarDemoGimnasio(
+  {
+    profesorId: DEMO_PROFESOR_ID,
+    alumnos: [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES],
+    planes: DEMO_PLANES,
+    contrataciones: DEMO_CONTRATACIONES_CLASES,
+    planesMembresia: DEMO_PLANES_MEMBRESIA,
+  },
+  AHORA_DEMO,
+);
 
-export type KpisNegocio = typeof DEMO_KPIS_NEGOCIO;
+export const DEMO_KPIS_NEGOCIO: KpisNegocio = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, AHORA_DEMO);
+
+export type { KpisNegocio };

@@ -2,15 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { esSinEntrenar7d } from "@/lib/sin-entrenar";
-import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
+import { DEMO_GIMNASIO, DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
 const read = (p: string) => fs.readFileSync(path.resolve(__dirname, p), "utf-8");
 const view = read("../components/coach/coach-studio-view.tsx");
 const strip = read("../components/coach/business-kpi-strip.tsx");
 
 describe("GOZS-136: franja de 4 KPIs para ADMIN en Modo Testeo", () => {
-  it("visibilidad: solo Testeo + ADMIN; si no, el banner actual", () => {
-    expect(view).toContain('const showKpiStrip = isTestMode && rolActual === "ADMIN";');
+  it("visibilidad: solo Testeo (ENTRENADOR o ADMIN, GOZS-139); si no, el banner actual", () => {
+    expect(view).toContain("const showKpiStrip = isTestMode;");
     expect(view).toMatch(/\{showKpiStrip \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
   });
 
@@ -28,7 +28,7 @@ describe("GOZS-136: franja de 4 KPIs para ADMIN en Modo Testeo", () => {
     expect(esSinEntrenar7d({ estado_membresia: "ACTIVA", ultimo_entreno_at: null }, ahora)).toBe(true);
     expect(esSinEntrenar7d({ estado_membresia: "ACTIVA", ultimo_entreno_at: dias(6) }, ahora)).toBe(false);
     expect(esSinEntrenar7d({ estado_membresia: "INACTIVA", ultimo_entreno_at: dias(30) }, ahora)).toBe(false);
-    const ids = new Set([...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES].map((a) => a.id));
+    const ids = new Set(DEMO_GIMNASIO.alumnos.map((a) => a.id));
     expect(DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.length).toBeGreaterThan(0);
     for (const id of DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids) expect(ids.has(id)).toBe(true);
   });
