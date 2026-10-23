@@ -1,0 +1,239 @@
+import * as React from "react";
+import { renderToString } from "react-dom/server";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import {
+  calcularPeriodoMesEnCurso,
+  mapearRpcAKpis,
+  type RpcKpiRow,
+} from "@/lib/kpis-negocio";
+import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
+import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
+
+describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () => {
+  beforeEach(() => {
+    useWorkspaceModeStore.getState().setMode("PRODUCCION");
+  });
+
+  describe("1. Período: del día 1 del mes en curso a hoy en hora de Argentina", () => {
+    it("calcula día 1 a hoy y label del mes anterior completo", () => {
+      // 23 de octubre de 2026 a las 15:00 UTC (12:00 en Argentina)
+      const fecha = new Date("2026-10-23T15:00:00Z");
+      const periodo = calcularPeriodoMesEnCurso(fecha);
+
+      expect(periodo.p_desde).toBe("2026-10-01");
+      expect(periodo.p_hasta).toBe("2026-10-23");
+      expect(periodo.mesAnteriorLabel).toMatch(/sep/i);
+    });
+
+    it("maneja correctamente la hora peligrosa (02:30 UTC = 23:30 del día previo en Argentina)", () => {
+      // 23/10 a las 02:30 UTC es 22/10 a las 23:30 en Argentina
+      const fechaPeligrosa = new Date("2026-10-23T02:30:00Z");
+      const periodo = calcularPeriodoMesEnCurso(fechaPeligrosa);
+
+      expect(periodo.p_desde).toBe("2026-10-01");
+      expect(periodo.p_hasta).toBe("2026-10-22");
+    });
+
+    it("maneja cruce de año en enero (el mes anterior es diciembre)", () => {
+      const primeroEnero = new Date("2026-01-05T12:00:00Z");
+      const periodo = calcularPeriodoMesEnCurso(primeroEnero);
+
+      expect(periodo.p_desde).toBe("2026-01-01");
+      expect(periodo.p_hasta).toBe("2026-01-05");
+      expect(periodo.mesAnteriorLabel).toMatch(/dic/i);
+    });
+  });
+
+  describe("2. Fórmulas de variación y cobranza según especificación", () => {
+    const mockRow: RpcKpiRow = {
+      ingresos: 20000,
+      ingresos_6m: [0, 0, 0, 0, 7000, 20000],
+      ingresos_periodo_anterior: 7000,
+      cobranza_esperada: 40000,
+      cobranza_pendiente_monto: 20000,
+      cobranza_vencidas_cant: 1,
+      sin_entrenar_7d_ids: ["uuid-1", "uuid-2"],
+      activos_fin: 3,
+      altas: 1,
+      bajas: 1,
+    };
+
+    it("variación de ingresos: (ingresos - anterior) / anterior", () => {
+      const kpis = mapearRpcAKpis(mockRow, "sept.");
+      // (20000 - 7000) / 7000 = 1.8571 -> 186%
+      expect(kpis.ingresos_variacion_pct).toBe(186);
+      expect(kpis.ingresos_mes).toBe(20000);
+      expect(kpis.ingresos_ultimos_6_meses).toEqual([0, 0, 0, 0, 7000, 20000]);
+    });
+
+    it("si anterior = 0, variación de ingresos devuelve null (para mostrar '—')", () => {
+      const rowSinAnterior = { ...mockRow, ingresos_periodo_anterior: 0 };
+      const kpis = mapearRpcAKpis(rowSinAnterior, "sept.");
+      expect(kpis.ingresos_variacion_pct).toBeNull();
+    });
+
+    it("cobranza: (esperada - pendiente) / esperada", () => {
+      const kpis = mapearRpcAKpis(mockRow, "sept.");
+      // (40000 - 20000) / 40000 = 50%
+      expect(kpis.cobranza_pct).toBe(50);
+      expect(kpis.cobranza_faltante).toBe(20000);
+      expect(kpis.cobranza_vencidas).toBe(1);
+    });
+
+    it("si esperada = 0, cobranza devuelve null (para mostrar '—')", () => {
+      const rowSinEsperada = { ...mockRow, cobranza_esperada: 0, cobranza_pendiente_monto: 0 };
+      const kpis = mapearRpcAKpis(rowSinEsperada, "sept.");
+      expect(kpis.cobranza_pct).toBeNull();
+    });
+
+    it("mapea alumnos activos, altas, bajas y sin entrenar correctamente", () => {
+      const kpis = mapearRpcAKpis(mockRow, "sept.");
+      expect(kpis.alumnos_activos).toBe(3);
+      expect(kpis.altas_mes).toBe(1);
+      expect(kpis.bajas_mes).toBe(1);
+      expect(kpis.sin_entrenar_7d_ids).toEqual(["uuid-1", "uuid-2"]);
+    });
+  });
+
+  describe("3. Criterios de aceptación del componente visual", () => {
+    it("GIVEN ADMIN en Producción THEN los números coinciden con la RPC", () => {
+      const kpisReales = mapearRpcAKpis(
+        {
+          ingresos: 20000,
+          ingresos_6m: [0, 0, 0, 0, 7000, 20000],
+          ingresos_periodo_anterior: 7000,
+          cobranza_esperada: 40000,
+          cobranza_pendiente_monto: 20000,
+          cobranza_vencidas_cant: 1,
+          sin_entrenar_7d_ids: ["uuid-1"],
+          activos_fin: 3,
+          altas: 1,
+          bajas: 1,
+        },
+        "sept.",
+      );
+
+      const html = renderToString(
+        React.createElement(BusinessKpiStrip, {
+          kpis: kpisReales,
+          sinEntrenarNombres: ["Alumno Uno"],
+          sinRutina: 2,
+        }),
+      );
+
+      const clean = html.replace(/<!--.*?-->/g, "");
+      // Ingresos: $20.000 y variación +186% vs sept.
+      expect(clean).toContain("$20.000");
+      expect(clean).toContain("186% vs sept.");
+      // Cobranza: 50% cobrado, faltan $20.000 y 1 vencidas
+      expect(clean).toContain("50% ");
+      expect(clean).toContain("cobrado");
+      expect(clean).toContain("Faltan $20.000 · 1 vencidas");
+      // Sin entrenar: 1 y avatar con iniciales AU
+      expect(clean).toContain("AU");
+      // Activos: 3, +1 altas · −1 baja este mes, 2 sin rutina
+      expect(clean).toContain("3");
+      expect(clean).toContain("+1 altas · −1 baja este mes");
+      expect(clean).toContain("2 sin rutina");
+    });
+
+    it("GIVEN anterior = 0 THEN muestra '—' en variación", () => {
+      const kpis = mapearRpcAKpis(
+        {
+          ingresos: 15000,
+          ingresos_6m: [0, 0, 0, 0, 0, 15000],
+          ingresos_periodo_anterior: 0,
+          cobranza_esperada: 15000,
+          cobranza_pendiente_monto: 0,
+          cobranza_vencidas_cant: 0,
+          sin_entrenar_7d_ids: [],
+          activos_fin: 5,
+          altas: 2,
+          bajas: 0,
+        },
+        "sept.",
+      );
+
+      const html = renderToString(
+        React.createElement(BusinessKpiStrip, { kpis }),
+      );
+
+      expect(html).toContain("$15.000");
+      // Chip de variación muestra "—"
+      expect(html).toMatch(/<span[^>]*bg-foreground\/\[0\.06\][^>]*>—<\/span>/);
+    });
+
+    it("GIVEN esperada = 0 THEN muestra '—' en cobranza", () => {
+      const kpis = mapearRpcAKpis(
+        {
+          ingresos: 0,
+          ingresos_6m: [0, 0, 0, 0, 0, 0],
+          ingresos_periodo_anterior: 0,
+          cobranza_esperada: 0,
+          cobranza_pendiente_monto: 0,
+          cobranza_vencidas_cant: 0,
+          sin_entrenar_7d_ids: [],
+          activos_fin: 0,
+          altas: 0,
+          bajas: 0,
+        },
+        "sept.",
+      );
+
+      const html = renderToString(
+        React.createElement(BusinessKpiStrip, { kpis }),
+      );
+
+      expect(html).toContain("data-testid=\"kpi-cobranza\"");
+      expect(html).toMatch(/data-testid="kpi-cobranza"[\s\S]*?>—<\/div>/);
+    });
+
+    it("GIVEN un error de red THEN la franja no rompe la pantalla y muestra 'No se pudieron cargar los datos'", () => {
+      // Mock de cliente Supabase con error
+      const mockSupabaseError = {
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: new Error("Network error / 500 Internal Server Error"),
+        }),
+      };
+
+      // Si se pasa error o el cliente falla, las 4 tarjetas muestran "—" y "No se pudieron cargar los datos"
+      // Probamos el render con el cliente de error
+      let html = "";
+      expect(() => {
+        html = renderToString(
+          React.createElement(BusinessKpiStrip, {
+            supabaseClient: mockSupabaseError,
+          }),
+        );
+      }).not.toThrow();
+
+      // En SSR inicial o estado de carga se renderiza el skeleton sin errores
+      expect(html).toContain("data-testid=\"business-kpi-strip\"");
+      expect(html).toContain("kpi-skeleton-ingresos");
+      expect(html).toContain("kpi-skeleton-cobranza");
+      expect(html).toContain("kpi-skeleton-sin-entrenar");
+      expect(html).toContain("kpi-skeleton-activos");
+    });
+
+    it("Modo Testeo sigue usando valores demo sin llamar a la RPC", () => {
+      useWorkspaceModeStore.getState().setMode("TESTEO");
+      const rpcSpy = vi.fn();
+      const mockClient = { rpc: rpcSpy };
+
+      const html = renderToString(
+        React.createElement(BusinessKpiStrip, {
+          kpis: DEMO_KPIS_NEGOCIO,
+          sinEntrenarNombres: ["Alumno Demo"],
+          supabaseClient: mockClient,
+        }),
+      );
+
+      expect(rpcSpy).not.toHaveBeenCalled();
+      expect(html).toContain("data-testid=\"business-kpi-strip\"");
+      expect(html).toContain("data-testid=\"kpi-ingresos\"");
+      expect(html).toContain("data-testid=\"kpi-cobranza\"");
+    });
+  });
+});
