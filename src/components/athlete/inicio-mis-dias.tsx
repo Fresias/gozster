@@ -1,0 +1,467 @@
+"use client";
+
+import * as React from "react";
+import { useAthleteStore } from "@/store/use-athlete-store";
+import {
+  REAL_ALUMNOS,
+  REAL_PLANES,
+  REAL_DIAS,
+  REAL_EJERCICIOS_RUTINA,
+} from "@/services/real-mynter-data";
+import {
+  calcularEstadosDias,
+  type DiaConEstado,
+  type DiaRutinaItem,
+} from "@/lib/athlete-dias";
+import {
+  Play,
+  ArrowRightLeft,
+  ChevronRight,
+  Check,
+  X,
+} from "@/components/athlete/icons";
+
+export function InicioMisDias() {
+  const {
+    currentSession,
+    diaElegidoHoyId,
+    sesionesCompletadas,
+    empezarDia,
+    elegirOtroDia,
+    deshacerCambioDia,
+  } = useAthleteStore();
+
+  const [isSheetOpen, setIsSheetOpen] = React.useState(false);
+  const [sheetSelectedDiaId, setSheetSelectedDiaId] = React.useState<string | null>(null);
+  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Identificar alumno y plan activo
+  const student = React.useMemo(() => {
+    const studentId = currentSession?.studentId;
+    if (studentId) {
+      const match = REAL_ALUMNOS.find(
+        (a) => a.id === studentId || a.nombre_completo.toLowerCase().includes(studentId.toLowerCase()),
+      );
+      if (match) return match;
+    }
+    return REAL_ALUMNOS[0];
+  }, [currentSession?.studentId]);
+
+  const plan = React.useMemo(() => {
+    return (
+      REAL_PLANES.find((p) => p.alumno_id === student?.id && p.estado === "ACTIVO") ||
+      REAL_PLANES.find((p) => p.alumno_id === student?.id) ||
+      REAL_PLANES[0]
+    );
+  }, [student?.id]);
+
+  // Obtener los días de la rutina con cantidad de ejercicios calculada
+  const diasItems: DiaRutinaItem[] = React.useMemo(() => {
+    const rawDias = REAL_DIAS.filter((d) => d.plan_id === plan?.id).sort(
+      (a, b) => a.orden - b.orden,
+    );
+
+    // Si el plan tiene días asociados, los usamos
+    if (rawDias.length > 0) {
+      return rawDias.map((d) => {
+        const count = REAL_EJERCICIOS_RUTINA.filter((er) => er.dia_id === d.id).length;
+        const ejerciciosCount = count > 0 ? count : 6;
+        return {
+          id: d.id,
+          orden: d.orden,
+          nombre: d.nombre,
+          plan_id: d.plan_id,
+          ejerciciosCount,
+          duracionMinutos: ejerciciosCount * 8 + 5,
+        };
+      });
+    }
+
+    // Fallback con los días demostrativos del mockup oficial (mockup 04)
+    return [
+      { id: "demo-dia-1", orden: 1, nombre: "Full body", ejerciciosCount: 5, duracionMinutos: 45 },
+      { id: "demo-dia-2", orden: 2, nombre: "Tren inferior", ejerciciosCount: 6, duracionMinutos: 55 },
+      { id: "demo-dia-3", orden: 3, nombre: "Tren superior", ejerciciosCount: 6, duracionMinutos: 50 },
+      { id: "demo-dia-4", orden: 4, nombre: "Movilidad y core", ejerciciosCount: 5, duracionMinutos: 35 },
+    ];
+  }, [plan?.id]);
+
+  // Cálculo puro de estados de los días
+  const {
+    diasConEstado,
+    diaTeTocaHoy,
+    diaActivoHoy,
+    cambioDeDia,
+    diasHechosCount,
+    totalDias,
+  } = React.useMemo(() => {
+    return calcularEstadosDias({
+      dias: diasItems,
+      sesionesSemana: sesionesCompletadas,
+      diaElegidoHoyId,
+    });
+  }, [diasItems, sesionesCompletadas, diaElegidoHoyId]);
+
+  // Sincronizar selección inicial del Sheet al abrir
+  const handleOpenSheet = (preselectedId?: string) => {
+    setSheetSelectedDiaId(preselectedId || diaActivoHoy?.id || diaTeTocaHoy?.id || null);
+    setIsSheetOpen(true);
+  };
+
+  const handleConfirmChange = () => {
+    if (!sheetSelectedDiaId) return;
+    const seleccionado = diasConEstado.find((d) => d.id === sheetSelectedDiaId);
+    if (!seleccionado || seleccionado.estado === "DONE") return;
+
+    elegirOtroDia(sheetSelectedDiaId);
+    setIsSheetOpen(false);
+
+    // Mostrar toast con acción Deshacer por 5 segundos
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(`Hoy hacés el Día ${seleccionado.orden}`);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 5000);
+  };
+
+  const handleUndo = () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    deshacerCambioDia();
+    setToastMessage(null);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const diaHero = diaActivoHoy || diasConEstado[0];
+
+  return (
+    <div className="space-y-5 pb-20" data-testid="inicio-mis-dias-container">
+      {/* Saludo y Plan */}
+      <div className="pt-2">
+        <p className="text-sm font-medium text-muted-foreground">
+          Hola, {student?.nombre_completo?.split(" ")[0] || "Celeste"}
+        </p>
+        <h1 className="font-outfit text-2xl sm:text-[26px] font-extrabold tracking-tight text-foreground mt-0.5">
+          {plan?.nombre || "Hipertrofia & Fuerza"}
+        </h1>
+        <p className="text-sm font-medium text-muted-foreground mt-0.5">
+          Semana{" "}
+          <span className="font-mono font-bold text-foreground">3</span> de{" "}
+          <span className="font-mono font-bold text-foreground">8</span>
+        </p>
+      </div>
+
+      {/* Hero Oscuro (#0F172A) con el Día activo para hoy */}
+      {diaHero && (
+        <section
+          aria-label="Día de hoy"
+          className="rounded-[20px] bg-[#0F172A] p-5 text-[#F8FAFC] shadow-xl border border-slate-800"
+          data-testid="hero-dia-hoy"
+        >
+          <div className="flex items-center gap-2">
+            {cambioDeDia ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
+                  Hoy
+                </span>
+                <span
+                  className="rounded-full bg-[#FDE68A] px-2 py-0.5 text-[11px] font-bold text-[#0F172A]"
+                  data-testid="tag-cambiaste-dia"
+                >
+                  Cambiaste de día
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
+                Te toca hoy
+              </span>
+            )}
+          </div>
+
+          <h2 className="font-outfit text-[26px] sm:text-[28px] font-extrabold tracking-tight text-white mt-1.5 leading-tight">
+            Día {diaHero.orden} · {diaHero.nombre}
+          </h2>
+
+          <p className="text-sm font-medium text-[#CBD5E1] mt-1">
+            <span className="font-mono">{diaHero.ejerciciosCount}</span> ejercicios ·{" "}
+            <span className="font-mono">~{diaHero.duracionMinutos}</span> min
+          </p>
+
+          {/* CTA Principal: Empezar Día */}
+          <button
+            type="button"
+            onClick={() => empezarDia(diaHero.id)}
+            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#38BDF8] text-[#0F172A] text-[17px] font-bold shadow-md hover:bg-[#38BDF8]/90 active:scale-[0.97] transition-all"
+            data-testid="empezar-dia-btn"
+          >
+            <Play className="h-5 w-5" />
+            <span>Empezar Día {diaHero.orden}</span>
+          </button>
+
+          {/* Botón Secundario: Hacer otro día */}
+          <button
+            type="button"
+            onClick={() => handleOpenSheet()}
+            className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[#334155] bg-transparent text-[#F8FAFC] text-[15px] font-semibold hover:bg-slate-800/60 active:scale-[0.97] transition-all"
+            data-testid="hacer-otro-dia-btn"
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+            <span>Hacer otro día</span>
+          </button>
+        </section>
+      )}
+
+      {/* Lista: Tus Días */}
+      <section aria-label="Lista de días de rutina" className="space-y-2.5">
+        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+          <span>Tus días</span>
+          <span className="font-mono lowercase">
+            {diasHechosCount}/{totalDias} esta semana
+          </span>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs divide-y divide-border">
+          {diasConEstado.map((dia: DiaConEstado) => {
+            const isDone = dia.estado === "DONE";
+            const isToday = dia.estado === "TODAY";
+            const isSkipped = dia.estado === "PENDING_SKIPPED";
+
+            return (
+              <div
+                key={dia.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (isDone) return;
+                  if (isToday) {
+                    empezarDia(dia.id);
+                  } else {
+                    handleOpenSheet(dia.id);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (!isDone) {
+                      if (isToday) empezarDia(dia.id);
+                      else handleOpenSheet(dia.id);
+                    }
+                  }
+                }}
+                className={`flex min-h-[68px] items-center gap-3.5 px-4 py-3 cursor-pointer transition-colors ${
+                  isDone
+                    ? "bg-muted/10 opacity-75 cursor-default"
+                    : "hover:bg-secondary/40 active:bg-secondary/60"
+                }`}
+                data-testid={`dia-row-${dia.id}`}
+              >
+                {/* Badge con el Número o Check */}
+                <div
+                  className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl font-mono text-lg font-extrabold ${
+                    isDone
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      : isToday
+                      ? "bg-primary text-primary-foreground"
+                      : isSkipped
+                      ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]"
+                      : "bg-secondary text-foreground"
+                  }`}
+                >
+                  {isDone ? <Check className="h-5 w-5 stroke-[2.5]" /> : dia.orden}
+                </div>
+
+                {/* Título y Subtítulo descriptivo */}
+                <div className="flex-1 min-w-0">
+                  <b className="block text-base font-bold text-foreground truncate">
+                    Día {dia.orden} · {dia.nombre}
+                  </b>
+                  <span
+                    className={`block text-[13px] truncate ${
+                      isToday
+                        ? "text-primary font-semibold"
+                        : isSkipped
+                        ? "text-[#B45309] font-semibold"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {dia.subtitulo}
+                  </span>
+                </div>
+
+                {/* Chevron */}
+                {!isDone && (
+                  <ChevronRight className="h-5 w-5 flex-none text-muted-foreground/60" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Sheet Inferior: ¿Qué día querés hacer hoy? */}
+      {isSheetOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsSheetOpen(false)}
+            data-testid="sheet-backdrop"
+          />
+
+          {/* Panel inferior */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sheet-title"
+            className="relative z-50 w-full max-w-md mx-auto rounded-t-[24px] bg-card p-5 pb-8 shadow-2xl border-t border-border animate-in slide-in-from-bottom duration-200"
+            data-testid="sheet-cambiar-dia"
+          >
+            {/* Grab handle */}
+            <div className="mx-auto h-1.5 w-10 rounded-full bg-muted-foreground/30 mb-3" />
+
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 id="sheet-title" className="font-outfit text-2xl font-extrabold tracking-tight text-foreground">
+                  ¿Qué día querés hacer hoy?
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  El Día {diaTeTocaHoy?.orden ?? 1} no se pierde: queda como el próximo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSheetOpen(false)}
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary/60"
+                aria-label="Cerrar selector de día"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Opciones de días */}
+            <div className="mt-4 space-y-2.5 max-h-[50vh] overflow-y-auto">
+              {diasConEstado.map((dia: DiaConEstado) => {
+                const isDone = dia.estado === "DONE";
+                const isSelected = sheetSelectedDiaId === dia.id;
+                const isNaturalNext = dia.id === diaTeTocaHoy?.id;
+
+                if (isDone) {
+                  return (
+                    <div
+                      key={dia.id}
+                      className="flex min-h-[64px] items-center gap-3.5 rounded-2xl bg-secondary/40 border border-secondary px-4 py-3 opacity-80 cursor-not-allowed"
+                    >
+                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-card text-emerald-600 dark:text-emerald-400">
+                        <Check className="h-5 w-5 stroke-[2.5]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <b className="block text-base font-bold text-muted-foreground truncate">
+                          Día {dia.orden} · {dia.nombre}
+                        </b>
+                        <span className="block text-xs text-muted-foreground">
+                          Ya lo hiciste esta semana
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={dia.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSheetSelectedDiaId(dia.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSheetSelectedDiaId(dia.id);
+                      }
+                    }}
+                    className={`flex min-h-[68px] items-center gap-3.5 rounded-2xl border-2 px-4 py-3 cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5 shadow-xs"
+                        : "border-border bg-card hover:border-primary/40"
+                    }`}
+                    data-testid={`sheet-option-dia-${dia.id}`}
+                  >
+                    <div
+                      className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl font-mono text-base font-extrabold ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-foreground"
+                      }`}
+                    >
+                      {dia.orden}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <b className="block text-base font-bold text-foreground truncate">
+                        Día {dia.orden} · {dia.nombre}
+                      </b>
+                      <span className="block text-xs text-muted-foreground">
+                        {isNaturalNext
+                          ? "El que te tocaba"
+                          : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`}
+                      </span>
+                    </div>
+
+                    {/* Radio indicator */}
+                    <div
+                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-muted-foreground/40 bg-transparent"
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Confirm button */}
+            <button
+              type="button"
+              onClick={handleConfirmChange}
+              disabled={!sheetSelectedDiaId}
+              className="mt-5 flex h-14 w-full items-center justify-center rounded-[14px] bg-primary text-primary-foreground text-[17px] font-bold shadow-md hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all"
+              data-testid="confirmar-cambio-dia-btn"
+            >
+              Hacer Día {diasConEstado.find((d) => d.id === sheetSelectedDiaId)?.orden ?? 1} hoy
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast con Deshacer (~5 s) */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-[14px] bg-[#0F172A] px-4 py-3 text-white shadow-2xl flex items-center justify-between border border-slate-800 animate-in fade-in slide-in-from-bottom duration-150"
+          data-testid="toast-cambio-dia"
+        >
+          <div className="flex items-center gap-2.5 text-sm font-medium">
+            <Check className="h-5 w-5 text-emerald-400 stroke-[2.5]" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="flex min-h-11 items-center px-2 text-sm font-bold text-[#38BDF8] hover:underline"
+            data-testid="deshacer-cambio-dia-btn"
+          >
+            Deshacer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

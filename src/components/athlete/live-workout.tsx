@@ -28,6 +28,7 @@ import {
   Check,
   CloudOff,
   Pencil,
+  ArrowLeft,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -57,6 +58,9 @@ export function LiveWorkout() {
     setStopProtocolActive,
     reportPainEvent,
     syncSessionToSupabase,
+    diaActivoId,
+    volverAlInicio,
+    marcarDiaCompletado,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -223,6 +227,9 @@ export function LiveWorkout() {
   const handleTerminarEntrenamiento = async () => {
     setIsFinishing(true);
     await syncSessionToSupabase();
+    if (diaActivoId) {
+      marcarDiaCompletado(diaActivoId);
+    }
     setIsFinishing(false);
     setWorkoutFinished(true);
   };
@@ -304,13 +311,25 @@ export function LiveWorkout() {
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                  {currentSession.nombre_rutina}
-                </h1>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Fecha: {currentSession.fecha} • Objetivo: Hipertrofia &amp; Fuerza
-                </p>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={volverAlInicio}
+                  className="flex h-11 items-center gap-1.5 px-3 rounded-xl border border-border/80 bg-card text-xs font-bold text-foreground hover:bg-secondary/60 active:scale-[0.97] transition-all"
+                  aria-label="Volver a Mis días"
+                  data-testid="volver-a-mis-dias-btn"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Mis días</span>
+                </button>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    {currentSession.nombre_rutina}
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Fecha: {currentSession.fecha} • Objetivo: Hipertrofia &amp; Fuerza
+                  </p>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">

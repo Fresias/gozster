@@ -169,3 +169,30 @@ export function ArrowLeft(props: IconProps) {
     </Icon>
   );
 }
+
+export function Play(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function ArrowRightLeft(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m16 3 4 4-4 4" />
+      <path d="M20 7H4" />
+      <path d="m8 21-4-4 4-4" />
+      <path d="M4 17h16" />
+    </Icon>
+  );
+}
+
+export function ChevronRight(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </Icon>
+  );
+}

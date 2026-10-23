@@ -83,8 +83,17 @@ interface AthleteStoreState {
   // es el dueño de ambos campos; el ejercicio en vivo consume mostrarTimerDescanso.
   onboardingCompletado: boolean;
   mostrarTimerDescanso: boolean;
+  // Estado del Inicio Mis días (GOZS-147)
+  diaActivoId: string | null;
+  diaElegidoHoyId: string | null;
+  sesionesCompletadas: Array<{ id: string; dia_id: string; fecha: string }>;
 
   // Actions
+  empezarDia: (diaId: string) => void;
+  volverAlInicio: () => void;
+  elegirOtroDia: (diaId: string) => void;
+  deshacerCambioDia: () => void;
+  marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
@@ -306,6 +315,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cuestionarioInicial: null,
       onboardingCompletado: false,
       mostrarTimerDescanso: true,
+      diaActivoId: null,
+      diaElegidoHoyId: null,
+      sesionesCompletadas: [],
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -318,6 +330,29 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      empezarDia: (diaId) => {
+        const studentId = get().currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        get().loadStudentSession(studentId, diaId);
+        set({ diaActivoId: diaId });
+      },
+      volverAlInicio: () => set({ diaActivoId: null }),
+      elegirOtroDia: (diaId) => set({ diaElegidoHoyId: diaId }),
+      deshacerCambioDia: () => set({ diaElegidoHoyId: null }),
+      marcarDiaCompletado: (diaId) =>
+        set((state) => {
+          const nuevasSesiones = [
+            ...state.sesionesCompletadas.filter((s) => s.dia_id !== diaId),
+            {
+              id: `sesion-${Date.now()}`,
+              dia_id: diaId,
+              fecha: new Date().toISOString(),
+            },
+          ];
+          return {
+            sesionesCompletadas: nuevasSesiones,
+            diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
+          };
+        }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
       setNivelVistaAlumno: (nivel) =>
         set({
@@ -1004,6 +1039,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
+          diaActivoId: null,
+          diaElegidoHoyId: null,
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -1028,6 +1065,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         cuestionarioInicial: state.cuestionarioInicial,
         onboardingCompletado: state.onboardingCompletado,
         mostrarTimerDescanso: state.mostrarTimerDescanso,
+        sesionesCompletadas: state.sesionesCompletadas,
+        diaElegidoHoyId: state.diaElegidoHoyId,
       }),
     },
   ),
