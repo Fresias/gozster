@@ -485,7 +485,11 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
     it("Athlete App (LiveWorkout) contiene la solapa 'Cuestionario Inicial' sin bloquear el entrenamiento", () => {
       expect(liveWorkoutCode).toContain('data-testid="tab-cuestionario"');
       expect(liveWorkoutCode).toContain('data-testid="tab-workout"');
-      expect(liveWorkoutCode).toContain('useState<"workout" | "habits" | "nutrition" | "cuestionario">("workout")');
+      // GOZS-144 PR1: las solapas Hábitos y Nutrición dejaron de montarse en la
+      // app del alumno; sólo quedan Entrenamiento y Cuestionario.
+      expect(liveWorkoutCode).toContain('useState<"workout" | "cuestionario">("workout")');
+      expect(liveWorkoutCode).not.toContain('data-testid="tab-habits"');
+      expect(liveWorkoutCode).not.toContain('data-testid="tab-nutrition"');
       expect(liveWorkoutCode).toContain("<CuestionarioInicial");
     });
 
