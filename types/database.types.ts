@@ -30,6 +30,7 @@ export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO';
+export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
 
 export interface Database {
   public: {
@@ -308,6 +309,8 @@ export interface Database {
           volumen_total_kg: number;
           effective_volume_kg?: number;
           athlete_feedback?: string | null;
+          motivo_cambio_dia?: MotivoCambioDia | null;
+          dia_sugerido_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -320,6 +323,8 @@ export interface Database {
           volumen_total_kg?: number;
           effective_volume_kg?: number;
           athlete_feedback?: string | null;
+          motivo_cambio_dia?: MotivoCambioDia | null;
+          dia_sugerido_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -332,6 +337,8 @@ export interface Database {
           volumen_total_kg?: number;
           effective_volume_kg?: number;
           athlete_feedback?: string | null;
+          motivo_cambio_dia?: MotivoCambioDia | null;
+          dia_sugerido_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -346,6 +353,13 @@ export interface Database {
           {
             foreignKeyName: 'registro_sesiones_dia_id_fkey';
             columns: ['dia_id'];
+            isOneToOne: false;
+            referencedRelation: 'dias_rutina';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'registro_sesiones_dia_sugerido_id_fkey';
+            columns: ['dia_sugerido_id'];
             isOneToOne: false;
             referencedRelation: 'dias_rutina';
             referencedColumns: ['id'];
