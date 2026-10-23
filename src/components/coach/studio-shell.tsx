@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +18,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isAthleteActive = pathname?.startsWith("/athlete");
 
   const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
+  const { mode } = useWorkspaceModeStore();
 
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
@@ -234,7 +236,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle showLabel />
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl">{children}</main>
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 ${mode === "TESTEO" ? "max-w-[1920px]" : "max-w-7xl"}`}>{children}</main>
       </div>
     </div>
   );

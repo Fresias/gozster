@@ -25,6 +25,8 @@ import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-moda
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
 import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
+import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 import {
   DEMO_ALUMNOS,
   DEMO_ALUMNOS_CLASES,
@@ -47,6 +49,14 @@ export function CoachStudioView({
   const isTestMode = mode === "TESTEO";
   const rolActual = useRolActual();
   const showKpiStrip = isTestMode && rolActual === "ADMIN";
+  const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
+  // "Sin alertas" = sin alertas pendientes (la bandeja y la ficha comparten estado)
+  const hasPendingAlerts =
+    isTestMode &&
+    applyDemoEstados(getDemoCriticalAlerts(), demoAlertEstados).some(
+      (a) => a.type === "DOLOR" && (a.estado || "PENDIENTE") === "PENDIENTE"
+    );
+  const leftCol = hasPendingAlerts ? "xl:col-start-1" : "xl:col-span-2";
 
   const liveAlumnos =
     initialDataset && initialDataset.alumnos.length > 0
@@ -440,9 +450,9 @@ export function CoachStudioView({
 
       {/* Main view switcher */}
       {!selectedAlumno ? (
-        <div className="space-y-6">
+        <div className={isTestMode ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]" : "space-y-6"}>
           {/* Header & Direct Link to Full Dashboard (Sin botón 'Constructor de Rutinas' aquí) */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${isTestMode ? leftCol : ""}`}>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -500,7 +510,7 @@ export function CoachStudioView({
           {/* Banner de Modo Testeo Activo (Demo Conceptual) */}
           {isTestMode && (
             <div
-              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-foreground"
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-foreground ${leftCol}`}
               data-testid="test-mode-banner"
             >
               <div className="flex items-center gap-2.5">
@@ -534,12 +544,24 @@ export function CoachStudioView({
           )}
 
           {/* Bandeja de Alertas Críticas Compacta (Exclusiva Dolor Articular con Quick Swap) */}
+          {isTestMode ? (
+            hasPendingAlerts && (
+              <aside className="relative self-stretch xl:col-start-2 xl:row-start-1 xl:row-span-3">
+                <CriticalAlertsInbox
+                  onSelectAlumno={(id) => selectAlumno(id)}
+                  onQuickSwap={handleOpenQuickSwapFromAlert}
+                />
+              </aside>
+            )
+          ) : (
           <CriticalAlertsInbox
             onSelectAlumno={(id) => selectAlumno(id)}
             onQuickSwap={handleOpenQuickSwapFromAlert}
           />
+          )}
 
           {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
+          <div className={isTestMode ? leftCol : undefined}>
           {showKpiStrip ? (
             <BusinessKpiStrip
               kpis={DEMO_KPIS_NEGOCIO}
@@ -560,8 +582,10 @@ export function CoachStudioView({
               onAssignPlanClick={() => setIsAssignModalOpen(true)}
             />
           )}
+          </div>
 
           {/* Directorio de Atletas */}
+          <div className={isTestMode ? "xl:col-span-2" : undefined}>
           <div
             className={
               isTestMode
@@ -1277,6 +1301,7 @@ export function CoachStudioView({
               </div>
             </div>
             </>)}
+          </div>
           </div>
         </div>
       ) : (
