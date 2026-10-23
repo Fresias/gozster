@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
@@ -41,6 +41,9 @@ const SUPABASE_STUBS = `
 // A_6D (entrenó hace 6d, contratación paga con 1ª contratación al inicio del mes),
 // A_NUNCA (nunca entrenó, cuota vence hoy). A_BAJA: dada de baja hoy, contratación vencida (no cuenta).
 // Pagos confirmados este mes: 15000 + 5000; mes anterior: 7000. Pendiente/rechazado no cuentan.
+// Fechas de los fixtures en la misma fecha local que p_hasta (no CURRENT_DATE, que es UTC).
+const HOY_AR = `(now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date`;
+
 const SEED = `
   INSERT INTO auth.users (id, email) VALUES
     ('${ADMIN}','admin@t'),('${COACH}','coach@t'),('${A_8D}','a8@t'),
@@ -55,10 +58,10 @@ const SEED = `
   INSERT INTO public.planes_membresia (id, nombre, cantidad_actividades, duracion_meses, precio)
     VALUES ('${PLAN}','Trimestral',1,3,30000);
   INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin, estado, plan_membresia_id, actividad) VALUES
-    ('10000000-0000-0000-0000-000000000001','${A_8D}',5,CURRENT_DATE - 60,CURRENT_DATE - 5,'VIGENTE','${PLAN}','FUNCIONAL'),
-    ('10000000-0000-0000-0000-000000000002','${A_6D}',5,date_trunc('month', CURRENT_DATE)::date,CURRENT_DATE + 10,'VIGENTE','${PLAN}','FUNCIONAL'),
-    ('10000000-0000-0000-0000-000000000003','${A_NUNCA}',5,CURRENT_DATE - 90,CURRENT_DATE,'VIGENTE','${PLAN}','FUNCIONAL'),
-    ('10000000-0000-0000-0000-000000000004','${A_BAJA}',5,CURRENT_DATE - 90,CURRENT_DATE - 20,'VENCIDA','${PLAN}','FUNCIONAL');
+    ('10000000-0000-0000-0000-000000000001','${A_8D}',5,${HOY_AR} - 60,${HOY_AR} - 5,'VIGENTE','${PLAN}','FUNCIONAL'),
+    ('10000000-0000-0000-0000-000000000002','${A_6D}',5,date_trunc('month', ${HOY_AR})::date,${HOY_AR} + 10,'VIGENTE','${PLAN}','FUNCIONAL'),
+    ('10000000-0000-0000-0000-000000000003','${A_NUNCA}',5,${HOY_AR} - 90,${HOY_AR},'VIGENTE','${PLAN}','FUNCIONAL'),
+    ('10000000-0000-0000-0000-000000000004','${A_BAJA}',5,${HOY_AR} - 90,${HOY_AR} - 20,'VENCIDA','${PLAN}','FUNCIONAL');
   INSERT INTO public.pagos (contratacion_id, alumno_id, monto, medio_pago, estado, idempotency_key, confirmado_at) VALUES
     ('10000000-0000-0000-0000-000000000002','${A_6D}',15000,'TRANSFERENCIA','CONFIRMADO','k1', now()),
     ('10000000-0000-0000-0000-000000000002','${A_6D}',5000,'EFECTIVO','CONFIRMADO','k2', now()),
@@ -68,8 +71,8 @@ const SEED = `
 `;
 
 const PERIODO = `
-  date_trunc('month', now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date,
-  (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+  date_trunc('month', ${HOY_AR})::date,
+  ${HOY_AR}
 `;
 
 let db: PGlite;
@@ -99,22 +102,27 @@ type Kpis = {
 
 const KPIS = `SELECT * FROM public.obtener_kpis_negocio(${PERIODO})`;
 
+async function montarDb(): Promise<PGlite> {
+  const nueva = new PGlite({ extensions: { pgcrypto } });
+  await nueva.exec(SUPABASE_STUBS);
+  const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+  for (const archivo of archivos) {
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8");
+    const inicio = sql.search(/^BEGIN;/m);
+    if (inicio > 0) {
+      await nueva.exec(sql.slice(0, inicio));
+      await nueva.exec(sql.slice(inicio));
+    } else {
+      await nueva.exec(sql);
+    }
+  }
+  await nueva.exec(SEED);
+  return nueva;
+}
+
 describe("GOZS-135: obtener_kpis_negocio (PGlite)", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8");
-      const inicio = sql.search(/^BEGIN;/m);
-      if (inicio > 0) {
-        await db.exec(sql.slice(0, inicio));
-        await db.exec(sql.slice(inicio));
-      } else {
-        await db.exec(sql);
-      }
-    }
-    await db.exec(SEED);
+    db = await montarDb();
   }, 60_000);
 
   it("la migración nueva es la última (append-only)", () => {
@@ -162,4 +170,32 @@ describe("GOZS-135: obtener_kpis_negocio (PGlite)", () => {
       como("authenticated", ADMIN, `SELECT * FROM public.obtener_kpis_negocio(NULL, '2026-10-01')`)
     ).rejects.toThrow(/Período inválido/);
   });
+
+  // 02:30 UTC del 23/10 = 23:30 del 22/10 en Argentina: CURRENT_DATE (UTC) y la fecha
+  // local difieren. Los fixtures y p_hasta salen de la fecha local, así que el resultado no cambia.
+  it("da los mismos números con el reloj en una hora peligrosa (02:30 UTC)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-23T02:30:00Z"));
+    try {
+      const peligrosa = await montarDb();
+      const hora = await peligrosa.query<{ utc: string; ar: string }>(
+        `SELECT (now() AT TIME ZONE 'UTC')::date::text AS utc, (${HOY_AR})::text AS ar`
+      );
+      expect(hora.rows[0]).toEqual({ utc: "2026-10-23", ar: "2026-10-22" });
+      const dbPrevia = db;
+      db = peligrosa;
+      try {
+        const k = (await como<Kpis>("authenticated", ADMIN, KPIS)).rows[0]!;
+        expect(Number(k.ingresos)).toBe(20000);
+        expect(Number(k.cobranza_pendiente_monto)).toBe(20000);
+        expect(Number(k.cobranza_esperada)).toBe(40000);
+        expect(k.cobranza_vencidas_cant).toBe(1);
+        expect([...k.sin_entrenar_7d_ids].sort()).toEqual([A_8D, A_NUNCA].sort());
+      } finally {
+        db = dbPrevia;
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 60_000);
 });
