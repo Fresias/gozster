@@ -2,34 +2,35 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  useAthleteStore,
-  type LiveWorkoutExercise,
-  type LiveWorkoutSet,
-} from "@/store/use-athlete-store";
-import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import {
-  calculateBrzycki1RM,
-  calculateEffectiveVolume,
-  type WarmupSetProgression,
-} from "@/lib/strength-metrics";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
+import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
-import { HabitTracker } from "@/components/athlete/habit-tracker";
-import { NutritionTracker } from "@/components/athlete/nutrition-tracker";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
+import {
+  TriangleAlert,
+  Timer,
+  Lightbulb,
+  Flame,
+  Clapperboard,
+  Video,
+  Dumbbell,
+  ClipboardList,
+  OctagonAlert,
+  X,
+  Check,
+  CloudOff,
+  Pencil,
+} from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 export function LiveWorkout() {
   const {
@@ -43,10 +44,9 @@ export function LiveWorkout() {
     applyWarmupSetsToExercise,
     completeSet,
     uncompleteSet,
-    setMembershipStatus,
+    editCompletedSet,
     resetSessionToDefaults,
     loadStudentSession,
-    syncSessionToSupabase,
     nivelVistaAlumno,
     setNivelVistaAlumno,
     vistaElegidaPorAlumno,
@@ -56,6 +56,7 @@ export function LiveWorkout() {
     stopProtocolActive,
     setStopProtocolActive,
     reportPainEvent,
+    syncSessionToSupabase,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -63,7 +64,37 @@ export function LiveWorkout() {
   const tieneVistaDistinta = Boolean(
     vistaElegidaPorAlumno && vistaElegidaPorAlumno !== (vistaRecomendadaCoach || "SIMPLE"),
   );
-  const [activeTab, setActiveTab] = React.useState<"workout" | "habits" | "nutrition" | "cuestionario">("workout");
+
+  // Switcher de módulo principal: Entrenamiento vs Cuestionario
+  const [activeTab, setActiveTab] = React.useState<"workout" | "cuestionario">("workout");
+
+  // Pestañas de entrenamiento: Entrenar vs Registro del día
+  const [workoutTab, setWorkoutTab] = React.useState<"entrenar" | "registro">("entrenar");
+
+  // Estado para la confirmación optimista de serie guardada
+  const [optimisticBanner, setOptimisticBanner] = React.useState<{
+    setNumber: number;
+    pesoKg: number;
+    reps: number;
+  } | null>(null);
+
+  // Selección manual de ejercicio activo (por defecto sigue el avance automático)
+  const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
+
+  // Edición en línea de serie en "Registro del día"
+  const [editingSet, setEditingSet] = React.useState<{
+    exerciseId: string;
+    exerciseName: string;
+    setNumber: number;
+    pesoKg: number;
+    reps: number;
+    initialPesoKg: number;
+    initialReps: number;
+  } | null>(null);
+
+  // Estado para terminar entrenamiento
+  const [isFinishing, setIsFinishing] = React.useState(false);
+  const [workoutFinished, setWorkoutFinished] = React.useState(false);
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
@@ -80,9 +111,7 @@ export function LiveWorkout() {
     setNumber: number;
   } | null>(null);
 
-  const { isOnline, pendingEvents, clearQueue } = useOfflineQueueStore();
-  const [syncSuccessMessage, setSyncSuccessMessage] = React.useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = React.useState(false);
+  const { syncError, clearSyncError } = useOfflineQueueStore();
 
   const totalSets = currentSession.ejercicios.reduce(
     (acc, ej) => acc + ej.series.length,
@@ -109,96 +138,131 @@ export function LiveWorkout() {
   const allFlatSets = currentSession.ejercicios.flatMap((e) => e.series);
   const effectiveVolumeKg = calculateEffectiveVolume(allFlatSets);
 
-  const handleSyncSupabase = async () => {
-    setIsSyncing(true);
-    const res = await syncSessionToSupabase();
-    setIsSyncing(false);
-    if (res.success) {
-      setSyncSuccessMessage("✓ Sesión y series sincronizadas con éxito en Supabase");
-      setTimeout(() => setSyncSuccessMessage(null), 3500);
-    } else {
-      setSyncSuccessMessage(`Aviso: ${res.error}`);
+  // Determinar ejercicio actual: el seleccionado o el primer ejercicio incompleto
+  const firstIncompleteExercise = currentSession.ejercicios.find((ej) =>
+    ej.series.some((s) => !s.completada),
+  );
+  const currentExercise =
+    (selectedExerciseId
+      ? currentSession.ejercicios.find((ej) => ej.id === selectedExerciseId)
+      : null) ||
+    firstIncompleteExercise ||
+    currentSession.ejercicios[0];
+
+  const currentExerciseIndex = currentSession.ejercicios.findIndex(
+    (ej) => ej.id === currentExercise?.id,
+  );
+
+  // Determinar la serie actual dentro del ejercicio (la primera no completada, o la última)
+  const currentSet =
+    currentExercise?.series.find((s) => !s.completada) ||
+    (currentExercise?.series.length ? currentExercise.series[currentExercise.series.length - 1] : null);
+
+  // Variable alias `ejercicio` y `serie` requeridas por tests de string matching
+  const ejercicio = currentExercise!;
+  const serie = currentSet;
+
+  // Registrar serie actual
+  const handleRegistrarSerie = () => {
+    if (!currentExercise || !currentSet) return;
+    const num = currentSet.numero_serie;
+    const peso = currentSet.peso_kg;
+    const reps = currentSet.reps_hechas;
+
+    completeSet(currentExercise.id, num);
+    setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
+
+    // Si completó todas las series del ejercicio actual, avanzar al siguiente ejercicio incompleto
+    const remainingInExercise = currentExercise.series.filter(
+      (s) => !s.completada && s.numero_serie !== num,
+    );
+    if (remainingInExercise.length === 0) {
+      const nextIncomplete = currentSession.ejercicios.find(
+        (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
+      );
+      if (nextIncomplete) {
+        setSelectedExerciseId(nextIncomplete.id);
+      }
     }
   };
 
-  const handleSyncQueue = () => {
-    if (pendingEvents.length === 0) return;
-    const count = pendingEvents.length;
-    clearQueue();
-    setSyncSuccessMessage(`¡${count} eventos sincronizados con éxito!`);
-    setTimeout(() => setSyncSuccessMessage(null), 3000);
+  const handleAdjustPeso = (delta: number) => {
+    if (!currentExercise || !currentSet) return;
+    const newWeight = Math.max(0, currentSet.peso_kg + delta);
+    updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", newWeight);
   };
+
+  const handleAdjustReps = (delta: number) => {
+    if (!currentExercise || !currentSet) return;
+    const newReps = Math.max(1, currentSet.reps_hechas + delta);
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
+  };
+
+  const handleAdjustRpe = (delta: number) => {
+    if (!currentExercise || !currentSet) return;
+    const newRpe = Math.min(10, Math.max(6, currentSet.rpe_real + delta));
+    updateSetField(currentExercise.id, currentSet.numero_serie, "rpe_real", newRpe);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingSet) return;
+    editCompletedSet(
+      editingSet.exerciseId,
+      editingSet.setNumber,
+      editingSet.pesoKg,
+      editingSet.reps,
+    );
+    setOptimisticBanner({
+      setNumber: editingSet.setNumber,
+      pesoKg: editingSet.pesoKg,
+      reps: editingSet.reps,
+    });
+    setEditingSet(null);
+  };
+
+  const handleTerminarEntrenamiento = async () => {
+    setIsFinishing(true);
+    await syncSessionToSupabase();
+    setIsFinishing(false);
+    setWorkoutFinished(true);
+  };
+
+  const isAllWorkoutCompleted = completedSetsCount === totalSets && totalSets > 0;
 
   return (
     <div className="space-y-6 pb-28" data-testid="live-workout-container">
-      {/* Switcher de Módulos: Entrenamiento, Hábitos, Nutrición */}
+      {/* Switcher de Módulos del alumno: Entrenamiento y Cuestionario Inicial */}
       <div className="flex items-center gap-2 border-b border-border/80 pb-2 overflow-x-auto scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveTab("workout")}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
             activeTab === "workout"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-secondary/40"
           }`}
           data-testid="tab-workout"
         >
-          🏋️ Entrenamiento en Vivo
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("habits")}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-            activeTab === "habits"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-secondary/40"
-          }`}
-          data-testid="tab-habits"
-        >
-          🎯 Hábitos Diarios
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("nutrition")}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-            activeTab === "nutrition"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-secondary/40"
-          }`}
-          data-testid="tab-nutrition"
-        >
-          🥗 Nutrición &amp; Macros
+          <Dumbbell className="h-3.5 w-3.5" />
+          Entrenamiento en Vivo
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("cuestionario")}
-          className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
             activeTab === "cuestionario"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-secondary/40"
           }`}
           data-testid="tab-cuestionario"
         >
-          📋 Cuestionario Inicial {cuestionarioInicial?.completado_at ? "✓" : "(Opcional)"}
+          <ClipboardList className="h-3.5 w-3.5" />
+          Cuestionario Inicial {cuestionarioInicial?.completado_at ? <Check className="h-3.5 w-3.5" /> : "(Opcional)"}
         </button>
       </div>
 
       {activeTab === "cuestionario" && (
         <CuestionarioInicial
-          athleteId={currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7"}
-          athleteName={currentSession.studentName || "Celeste Gerardi"}
-        />
-      )}
-
-      {activeTab === "habits" && (
-        <HabitTracker
-          athleteId={currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7"}
-          athleteName={currentSession.studentName || "Celeste Gerardi"}
-        />
-      )}
-
-      {activeTab === "nutrition" && (
-        <NutritionTracker
           athleteId={currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7"}
           athleteName={currentSession.studentName || "Celeste Gerardi"}
         />
@@ -213,29 +277,31 @@ export function LiveWorkout() {
                 <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                 Entrenamiento en Vivo
               </span>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                  onClick={handleSyncSupabase}
-                  disabled={isSyncing}
-                  data-testid="sync-supabase-btn"
-                >
-                  {isSyncing ? "Guardando..." : "✓ Sincronizar en Supabase"}
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-amber-400"
-                  onClick={() => setMembershipStatus("EXPIRED_PAYMENT_PENDING")}
-                  data-testid="simulate-paywall-btn"
-                >
-                  Simular Cuota Vencida
-                </Button>
-              </div>
             </div>
+
+            {/* Aviso discreto y NO bloqueante ante fallo definitivo de sincronización */}
+            {syncError && (
+              <div
+                className="flex items-start justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+                data-testid="sync-error-notice"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="flex items-start gap-1.5 font-medium">
+                  <CloudOff className="h-4 w-4 shrink-0 mt-0.5" />
+                  No pudimos guardar en el servidor. Tus datos siguen en el teléfono.
+                </span>
+                <button
+                  type="button"
+                  onClick={clearSyncError}
+                  className="shrink-0 rounded p-0.5 text-amber-700/70 hover:text-amber-700 dark:text-amber-300/80 dark:hover:text-amber-200"
+                  title="Entendido"
+                  aria-label="Descartar aviso"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -264,7 +330,7 @@ export function LiveWorkout() {
                   data-testid="header-pain-report-btn"
                   title="Tengo una molestia o dolor articular"
                 >
-                  <span>⚠️</span>
+                  <TriangleAlert className="h-4 w-4" />
                   <span>Tengo una molestia</span>
                 </Button>
 
@@ -367,16 +433,17 @@ export function LiveWorkout() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-destructive font-black text-sm">
-                    <span className="text-2xl">🛑</span>
+                    <OctagonAlert className="h-6 w-6 shrink-0" />
                     <span>PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setStopProtocolActive(false)}
-                    className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2 py-1 rounded"
+                    className="text-muted-foreground hover:text-foreground px-2 py-1 rounded"
                     title="Ocultar aviso"
+                    aria-label="Ocultar aviso"
                   >
-                    ✕
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
                 <p className="text-sm font-bold text-foreground leading-relaxed">
@@ -394,18 +461,22 @@ export function LiveWorkout() {
                 className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-300 font-semibold flex items-center justify-between"
                 data-testid="rpe-validation-banner"
               >
-                <span>⚠️ {rpeValidationError}</span>
+                <span className="flex items-center gap-1.5">
+                  <TriangleAlert className="h-4 w-4 shrink-0" />
+                  {rpeValidationError}
+                </span>
                 <button
                   onClick={clearRpeValidationError}
-                  className="text-amber-300/80 hover:text-amber-200 text-xs px-2"
+                  className="text-amber-300/80 hover:text-amber-200 px-2"
+                  aria-label="Descartar aviso"
                 >
-                  ✕
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
 
             {/* Métricas en vivo de la sesión (Minimalista vs Técnica) */}
-            <div className={`grid gap-2.5 ${isSimpleView ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+            <div className={`grid gap-2.5 ${isSimpleView ? "grid-cols-2" : "grid-cols-3"}`}>
               <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
                 <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Series Hechas</p>
                 <p className="text-xl font-black font-mono tabular-nums text-foreground mt-0.5">
@@ -446,553 +517,680 @@ export function LiveWorkout() {
                   </p>
                 </div>
               )}
-
-              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Cola Offline</p>
-                <p className="text-xl font-black text-foreground font-mono tabular-nums mt-0.5">
-                  {pendingEvents.length} <span className="text-xs font-semibold text-muted-foreground">pendientes</span>
-                </p>
-              </div>
             </div>
-
-            {/* Notificación de sincronización */}
-            {syncSuccessMessage && (
-              <div className="rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs text-primary font-medium">
-                {syncSuccessMessage}
-              </div>
-            )}
-
-            {/* Acciones de sincronización offline */}
-            {pendingEvents.length > 0 && (
-              <div className="flex gap-2">
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="flex-1 text-xs font-semibold"
-                  onClick={handleSyncQueue}
-                  disabled={!isOnline}
-                >
-                  {isOnline
-                    ? `Sincronizar Cola (${pendingEvents.length} eventos)`
-                    : `Esperando Conexión (${pendingEvents.length} guardados offline)`}
-                </Button>
-              </div>
-            )}
           </div>
 
-          {/* Lista de Ejercicios */}
-          <div className="space-y-5">
-            {currentSession.ejercicios.map((ejercicio, ejIndex) => {
-              const isSuperset = ejercicio.es_superserie;
-              const supersetBadge = isSuperset
-                ? `Superserie A${ejercicio.grupo_superserie || 1}`
-                : null;
+          {/* =====================================================================
+              PESTAÑAS PR2: Entrenar | Registro del día (con contador)
+              ===================================================================== */}
+          <Tabs
+            value={workoutTab}
+            onValueChange={(val) => setWorkoutTab(val as "entrenar" | "registro")}
+            className="w-full"
+          >
+            <TabsList className="grid grid-cols-2 w-full h-11 bg-secondary/80 rounded-xl p-1 mb-4">
+              <TabsTrigger
+                value="entrenar"
+                className="h-full rounded-lg text-sm font-bold"
+                data-testid="tab-entrenar"
+              >
+                Entrenar
+              </TabsTrigger>
+              <TabsTrigger
+                value="registro"
+                className="h-full rounded-lg text-sm font-bold flex items-center justify-center gap-2"
+                data-testid="tab-registro-dia"
+              >
+                <span>Registro del día</span>
+                {completedSetsCount > 0 && (
+                  <span
+                    className="font-mono text-xs font-bold rounded-full bg-primary text-primary-foreground px-2 py-0.5"
+                    data-testid="registro-dia-counter"
+                  >
+                    {completedSetsCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-              return (
-                <Card
-                  key={ejercicio.id}
-                  className={`border shadow-sm overflow-hidden transition-all ${
-                    isSuperset ? "border-purple-500/40 bg-purple-500/5" : "border-border"
-                  }`}
-                  data-testid={`exercise-card-${ejercicio.id}`}
+            {/* Aviso optimista de confirmación de serie guardada */}
+            {optimisticBanner && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mb-4 flex items-center justify-between gap-2 rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] px-3.5 py-2.5 text-sm font-semibold text-[#047857] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 animate-in fade-in duration-200"
+                data-testid="optimistic-saved-banner"
+              >
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
+                  <span>
+                    Serie {optimisticBanner.setNumber} guardada ·{" "}
+                    <span className="font-mono font-bold">
+                      {optimisticBanner.pesoKg} kg × {optimisticBanner.reps}
+                    </span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOptimisticBanner(null)}
+                  className="rounded p-0.5 text-[#047857]/70 hover:text-[#047857] dark:text-emerald-300/70 dark:hover:text-emerald-200"
+                  aria-label="Cerrar confirmación"
                 >
-                  <CardHeader className="bg-secondary/20 p-3 sm:p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-mono font-bold text-primary">
-                          #{ejIndex + 1}
-                        </span>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <CardTitle className="text-base sm:text-lg font-bold text-foreground">
-                              {ejercicio.nombre}
-                            </CardTitle>
-                            {supersetBadge && (
-                              <Badge className="bg-purple-600 text-white text-[10px]">
-                                {supersetBadge}
-                              </Badge>
-                            )}
-                            {!isSimpleView && ejercicio.force_rpe_required && (
-                              <Badge
-                                variant="outline"
-                                className="border-amber-500 text-amber-400 text-[10px]"
-                              >
-                                RPE Exigido
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            Tempo: <span className="font-mono font-semibold">{ejercicio.tempo || "3-0-1-0"}</span>
-                          </p>
-                        </div>
-                      </div>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
 
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Botón Warmup Calculator (Solo en Vista Técnica) */}
-                        {!isSimpleView && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold"
-                            onClick={() => setWarmupModalExercise(ejercicio)}
-                            data-testid={`warmup-btn-${ejercicio.id}`}
-                          >
-                            <span>🔥</span>
-                            <span>Calentamiento</span>
-                          </Button>
-                        )}
+            {/* ===================================================================
+                SOLAPA 1: ENTRENAR (EJERCICIO DE A UNA SERIE A LA VEZ)
+                =================================================================== */}
+            <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
+              {/* Barra de progreso de ejercicios (.prog) */}
+              <div
+                className="flex items-center gap-1.5 py-1 px-0.5 overflow-x-auto scrollbar-none"
+                aria-label="Progreso de ejercicios"
+              >
+                {currentSession.ejercicios.map((ej, idx) => {
+                  const isCurrent = ej.id === currentExercise?.id;
+                  const isDone = ej.series.every((s) => s.completada);
+                  return (
+                    <button
+                      key={ej.id}
+                      type="button"
+                      onClick={() => setSelectedExerciseId(ej.id)}
+                      className={`h-1.5 flex-1 min-w-[28px] rounded-full transition-all touch-manipulation cursor-pointer ${
+                        isCurrent
+                          ? "bg-primary ring-2 ring-primary/30"
+                          : isDone
+                          ? "bg-emerald-500"
+                          : "bg-muted"
+                      }`}
+                      title={`${ej.nombre} (${isDone ? "Completado" : isCurrent ? "Actual" : "Pendiente"})`}
+                      aria-label={`Ejercicio ${idx + 1}: ${ej.nombre}`}
+                    />
+                  );
+                })}
+              </div>
 
-                        {/* Botón visible Tengo una Molestia en la tarjeta de ejercicio */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 font-bold"
-                          onClick={() =>
-                            setPainModalData({
-                              exerciseId: ejercicio.id,
-                              exerciseName: ejercicio.nombre,
-                              setNumber: 1,
-                            })
-                          }
-                          data-testid={`exercise-pain-report-btn-${ejercicio.id}`}
-                          title="Reportar molestia en este ejercicio"
-                        >
-                          <span>⚠️</span>
-                          <span className="hidden sm:inline">Tengo una molestia</span>
-                          <span className="sm:hidden">Molestia</span>
-                        </Button>
-
-                        {/* Botón Video de Técnica (Siempre disponible en ambas vistas) */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 gap-1 text-xs border-primary/40 text-primary hover:bg-primary/10"
-                          onClick={() => setVideoExercise(ejercicio)}
-                          data-testid={`demo-technique-btn-${ejercicio.id}`}
-                        >
-                          <span>🎬</span>
-                          <span>Técnica</span>
-                        </Button>
-
-                        <span className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-1 text-xs font-mono font-medium text-primary">
-                          ⏱️ {ejercicio.descanso_segundos}s
-                        </span>
-                      </div>
+              {currentExercise && (
+                <div className="space-y-4" data-testid={`single-exercise-container-${currentExercise.id}`}>
+                  {/* Encabezado del ejercicio actual */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                      <span>
+                        Ejercicio <span className="font-mono">{currentExerciseIndex + 1}</span> de{" "}
+                        <span className="font-mono">{currentSession.ejercicios.length}</span>
+                      </span>
+                      {currentExercise.tempo && (
+                        <span>Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span></span>
+                      )}
                     </div>
 
-                    <CardDescription className="flex flex-wrap items-center gap-1.5 text-xs pt-1">
-                      <span className="font-medium text-foreground">
-                        {isSimpleView
-                          ? `Objetivo: ${ejercicio.series.length} series × ${ejercicio.repeticiones_objetivo} reps`
-                          : `Objetivo: ${ejercicio.series.length} series × ${ejercicio.repeticiones_objetivo} reps (RPE ~${ejercicio.rpe_objetivo})`}
-                      </span>
-                      {ejercicio.musculos_principales.length > 0 && (
-                        <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground">
-                            {ejercicio.musculos_principales.join(", ")}
-                          </span>
-                        </>
-                      )}
-                    </CardDescription>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                      {currentExercise.nombre}
+                    </h2>
 
-                    {ejercicio.comentario && (
-                      <div className="pt-2 text-[11px] text-muted-foreground flex items-center gap-1.5 border-t border-border/40 mt-1">
-                        <span>💡</span>
-                        <span className="italic">{ejercicio.comentario}</span>
+                    <div className="text-sm font-semibold text-foreground/90">
+                      <span className="font-mono font-bold">{currentExercise.series.length}</span> series ×{" "}
+                      <span className="font-mono font-bold">{currentExercise.repeticiones_objetivo}</span> reps
+                      {!isSimpleView && currentExercise.rpe_objetivo && (
+                        <span className="text-muted-foreground font-normal ml-1">
+                          (RPE ~{currentExercise.rpe_objetivo})
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Chips interactivos: Video, Popover Descanso 90s, Molestia */}
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      {/* Chip Video */}
+                      <button
+                        type="button"
+                        onClick={() => setVideoExercise(currentExercise)}
+                        className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors touch-manipulation cursor-pointer"
+                        data-testid={`demo-technique-btn-${currentExercise.id}`}
+                        title="Ver video demostrativo de técnica"
+                      >
+                        <Clapperboard className="h-4 w-4 text-primary" />
+                        <span>Video</span>
+                      </button>
+
+                      {/* Chip Popover Descanso 90s */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors touch-manipulation cursor-pointer"
+                            data-testid={`descanso-chip-${currentExercise.id}`}
+                            title="Ver recomendación de descanso"
+                          >
+                            <Timer className="h-4 w-4 text-primary" />
+                            <span className="font-mono font-bold">{currentExercise.descanso_segundos} s</span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 sm:w-80" data-testid="descanso-popover-content">
+                          <div className="space-y-1">
+                            <p className="font-bold text-sm text-white">
+                              Descanso: {currentExercise.descanso_segundos} segundos
+                            </p>
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                              Es el tiempo que tu coach recomienda esperar entre una serie y la siguiente para recuperarte.
+                            </p>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Chip Molestia */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPainModalData({
+                            exerciseId: currentExercise.id,
+                            exerciseName: currentExercise.nombre,
+                            setNumber: currentSet ? currentSet.numero_serie : 1,
+                          })
+                        }
+                        className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-sm font-bold text-destructive hover:bg-destructive/20 transition-colors touch-manipulation cursor-pointer"
+                        data-testid={`exercise-pain-report-btn-${ejercicio.id}`}
+                        title="Reportar molestia en este ejercicio"
+                      >
+                        <TriangleAlert className="h-4 w-4" />
+                        <span>Molestia</span>
+                      </button>
+                    </div>
+
+                    {currentExercise.comentario && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+                        <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        <span className="italic">{currentExercise.comentario}</span>
                       </div>
                     )}
-                  </CardHeader>
+                  </div>
 
-                  <CardContent className="p-3 sm:p-4 space-y-4">
-                    {ejercicio.series.map((serie) => {
-                      const brzycki1RM = calculateBrzycki1RM(
-                        serie.peso_kg,
-                        serie.reps_hechas,
-                      );
+                  {/* =================================================================
+                      TARJETA ÚNICA DE SERIE VISIBLE
+                      ================================================================= */}
+                  {serie ? (
+                    <Card
+                      className="border-2 border-border shadow-md rounded-2xl overflow-hidden bg-card p-4 sm:p-5 space-y-4"
+                      data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
+                    >
+                      {/* Cabecera de la serie */}
+                      <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+                        <div>
+                          <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-foreground">
+                            Serie <span className="font-mono text-primary">{serie.numero_serie}</span>{" "}
+                            <span className="text-muted-foreground font-semibold text-base">
+                              de <span className="font-mono">{currentExercise.series.length}</span>
+                            </span>
+                          </span>
+                        </div>
+                        <div className="text-xs sm:text-sm font-medium text-muted-foreground">
+                          Última vez:{" "}
+                          <span className="font-mono font-bold text-foreground">
+                            {serie.last_session_weight_kg || serie.peso_kg} kg × {serie.last_session_reps || serie.reps_hechas}
+                          </span>
+                        </div>
+                      </div>
 
-                      const setType = serie.set_type || "N";
-                      const isWarmup = setType === "W" || setType === "WARMUP";
-                      const firstUncompleted = ejercicio.series.find((s) => !s.completada);
-                      const isCurrentActive =
-                        !serie.completada &&
-                        firstUncompleted?.numero_serie === serie.numero_serie;
-
-                      return (
-                        <div
-                          key={serie.numero_serie}
-                          className={`rounded-2xl border p-3.5 transition-all duration-150 ${
-                            serie.completada
-                              ? "border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20"
-                              : isCurrentActive
-                              ? "border-2 border-primary bg-primary/5 shadow-xs ring-1 ring-primary/20"
-                              : isWarmup
-                              ? "border-amber-500/30 bg-amber-500/5"
-                              : "border-border/80 bg-card"
-                          }`}
-                          data-testid={`set-row-${ejercicio.id}-${serie.numero_serie}`}
+                      {/* Stepper Peso (kg) con botones de gran formato 48-64px */}
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor={`peso-${currentExercise.id}-${serie.numero_serie}`}
+                          className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
                         >
-                          <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60">
-                            <div className="flex items-center gap-2">
-                              {/* Selector Taxonomía de Series Cuádruple (W, N, F, D) - Solo en Vista Técnica */}
-                              {!isSimpleView && (
-                                <div className="flex items-center gap-1 bg-secondary/40 p-0.5 rounded-lg border border-border/40">
-                                  {(["W", "N", "F", "D"] as const).map((t) => (
-                                    <button
-                                      key={t}
-                                      type="button"
-                                      disabled={serie.completada}
-                                      onClick={() => updateSetType(ejercicio.id, serie.numero_serie, t)}
-                                      className={`px-2 py-0.5 text-[10px] font-black rounded transition-all ${
-                                        setType === t
-                                          ? t === "W"
-                                            ? "bg-amber-500 text-black shadow-sm"
-                                            : t === "F"
-                                            ? "bg-rose-600 text-white shadow-sm"
-                                            : t === "D"
-                                            ? "bg-purple-600 text-white shadow-sm"
-                                            : "bg-primary text-primary-foreground shadow-sm"
-                                          : "text-muted-foreground hover:text-foreground"
-                                      }`}
-                                      title={
-                                        t === "W"
-                                          ? "Calentamiento / Aproximación (excluido de volumen)"
-                                          : t === "F"
-                                          ? "Fallo concéntrico (RPE 10)"
-                                          : t === "D"
-                                          ? "Drop Set descendente"
-                                          : "Serie Normal efectiva"
-                                      }
-                                    >
-                                      {t}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                          Peso
+                        </label>
+                        <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
+                          <button
+                            type="button"
+                            disabled={serie.peso_kg <= 2.5}
+                            onClick={() => handleAdjustPeso(-2.5)}
+                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
+                            aria-label="Restar 2.5 kilos"
+                            data-testid="peso-decrement-btn"
+                          >
+                            −2.5
+                          </button>
+                          <div className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground">
+                            {serie.peso_kg}
+                            <small className="text-sm font-medium text-muted-foreground ml-1">kg</small>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustPeso(2.5)}
+                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                            aria-label="Sumar 2.5 kilos"
+                            data-testid="peso-increment-btn"
+                          >
+                            +2.5
+                          </button>
+                        </div>
+                      </div>
 
-                              <span className="text-xs font-semibold text-foreground">
-                                Serie {serie.numero_serie}
-                              </span>
+                      {/* Stepper Repeticiones */}
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor={`reps-${currentExercise.id}-${serie.numero_serie}`}
+                          className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
+                        >
+                          Repeticiones
+                        </label>
+                        <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
+                          <button
+                            type="button"
+                            disabled={serie.reps_hechas <= 1}
+                            onClick={() => handleAdjustReps(-1)}
+                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
+                            aria-label="Restar 1 repetición"
+                            data-testid="reps-decrement-btn"
+                          >
+                            −1
+                          </button>
+                          <div className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground">
+                            {serie.reps_hechas}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustReps(1)}
+                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                            aria-label="Sumar 1 repetición"
+                            data-testid="reps-increment-btn"
+                          >
+                            +1
+                          </button>
+                        </div>
+                      </div>
 
-                              {/* Ghost Record de Sesión Previa en Gris Tenue */}
-                              <span className="text-[11px] text-muted-foreground/70 font-mono hidden sm:inline">
-                                Última: {serie.last_session_weight_kg || serie.peso_kg} kg × {serie.last_session_reps || serie.reps_hechas} reps
-                              </span>
-                            </div>
-
-                            {/* Estimación de 1RM & Botones auxiliares (Discos, Molestia, Video) */}
-                            <div className="flex items-center gap-2">
-                              {!isSimpleView && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-[10px] px-2 font-bold"
-                                  onClick={() => setPlateModalWeight(serie.peso_kg)}
-                                  title="Calcular discos olímpicos"
+                      {/* EXTRAS EN VISTA TÉCNICA (RPE, W/N/F/D, Calentamiento, Discos, 1RM) */}
+                      {!isSimpleView && (
+                        <div className="space-y-3 pt-3 border-t border-border/60">
+                          {/* Selector Taxonomía W/N/F/D */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                              Tipo de Serie
+                            </span>
+                            <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-xl border border-border/40">
+                              {(["W", "N", "F", "D"] as const).map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => updateSetType(currentExercise.id, serie.numero_serie, t)}
+                                  className={`min-w-10 h-9 px-2 text-xs font-black rounded-lg transition-all ${
+                                    (serie.set_type || "N") === t
+                                      ? t === "W"
+                                        ? "bg-amber-500 text-black shadow-sm"
+                                        : t === "F"
+                                        ? "bg-rose-600 text-white shadow-sm"
+                                        : t === "D"
+                                        ? "bg-purple-600 text-white shadow-sm"
+                                        : "bg-primary text-primary-foreground shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  }`}
                                 >
-                                  🏋️ Discos
-                                </Button>
-                              )}
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`h-6 text-[10px] px-2 font-bold ${
-                                  serie.pain_reported
-                                    ? "border-destructive text-destructive bg-destructive/10"
-                                    : "text-muted-foreground"
-                                }`}
-                                onClick={() =>
-                                  setPainModalData({
-                                    exerciseId: ejercicio.id,
-                                    exerciseName: ejercicio.nombre,
-                                    setNumber: serie.numero_serie,
-                                  })
-                                }
-                                title="Reportar molestia o dolor"
-                              >
-                                {serie.pain_reported ? "⚠️ Dolor" : "Molestia"}
-                              </Button>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`h-6 text-[10px] px-2 font-bold ${
-                                  serie.video_url
-                                    ? "border-primary text-primary bg-primary/10"
-                                    : "text-muted-foreground"
-                                }`}
-                                onClick={() =>
-                                  setVideoUploadModalData({
-                                    exerciseId: ejercicio.id,
-                                    exerciseName: ejercicio.nombre,
-                                    setNumber: serie.numero_serie,
-                                  })
-                                }
-                                title="Subir video form check"
-                              >
-                                {serie.video_url ? "📹 Video OK" : "📹 Video"}
-                              </Button>
-
-                              {!isSimpleView && (
-                                <div className="text-right">
-                                  <span className="text-xs font-mono font-bold text-primary">
-                                    {serie.estimated1RM.toFixed(1)} kg 1RM
-                                  </span>
-                                </div>
-                              )}
+                                  {t}
+                                </button>
+                              ))}
                             </div>
                           </div>
 
-                          {/* Notificaciones de Molestia o Video en la serie */}
-                          {serie.pain_reported && (
-                            <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-[11px] text-destructive font-medium mb-2">
-                              ⚠️ Molestia reportada: {serie.pain_notes}
+                          {/* Stepper RPE */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                RPE (6-10)
+                              </span>
+                              <span className="text-xs font-mono font-bold text-primary">
+                                {serie.estimated1RM.toFixed(1)} kg 1RM
+                              </span>
                             </div>
-                          )}
-                          {serie.video_url && (
-                            <div className="p-2 rounded bg-primary/10 border border-primary/30 text-[11px] text-primary font-medium mb-2 truncate">
-                              📹 Form Check cargado: {serie.video_url}
-                            </div>
-                          )}
-
-                          {/* Controles de Carga: Peso, Reps, RPE con botones táctiles grandes (Thumb Zone) */}
-                          <div className={`grid gap-2.5 py-1 ${isSimpleView ? "grid-cols-2" : "grid-cols-3"}`}>
-                            {/* Peso (kg) */}
-                            <div className="space-y-1.5">
-                              <label
-                                htmlFor={`peso-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
+                            <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
+                              <button
+                                type="button"
+                                disabled={serie.rpe_real <= 6}
+                                onClick={() => handleAdjustRpe(-0.5)}
+                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
                               >
-                                Peso (kg)
-                              </label>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  id={`peso-${ejercicio.id}-${serie.numero_serie}`}
-                                  type="number"
-                                  step="2.5"
-                                  min="0"
-                                  value={serie.peso_kg}
-                                  onChange={(e) =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "peso_kg",
-                                      parseFloat(e.target.value) || 0,
-                                    )
-                                  }
-                                  disabled={serie.completada}
-                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
-                              </div>
-                              <div className="flex gap-1.5 pt-0.5">
-                                <button
-                                  type="button"
-                                  disabled={serie.completada || serie.peso_kg <= 2.5}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "peso_kg",
-                                      Math.max(0, serie.peso_kg - 2.5),
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                >
-                                  -2.5
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={serie.completada}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "peso_kg",
-                                      serie.peso_kg + 2.5,
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                >
-                                  +2.5
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Repeticiones */}
-                            <div className="space-y-1.5">
-                              <label
-                                htmlFor={`reps-${ejercicio.id}-${serie.numero_serie}`}
-                                className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
+                                −0.5
+                              </button>
+                              <div
+                                className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground"
+                                data-testid="input-rpe"
                               >
-                                Reps
-                              </label>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  id={`reps-${ejercicio.id}-${serie.numero_serie}`}
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  value={serie.reps_hechas}
-                                  onChange={(e) =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "reps_hechas",
-                                      parseInt(e.target.value, 10) || 0,
-                                    )
-                                  }
-                                  disabled={serie.completada}
-                                  className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                />
+                                {serie.rpe_real}
                               </div>
-                              <div className="flex gap-1.5 pt-0.5">
-                                <button
-                                  type="button"
-                                  disabled={serie.completada || serie.reps_hechas <= 1}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "reps_hechas",
-                                      Math.max(0, serie.reps_hechas - 1),
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                >
-                                  -1
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={serie.completada}
-                                  onClick={() =>
-                                    updateSetField(
-                                      ejercicio.id,
-                                      serie.numero_serie,
-                                      "reps_hechas",
-                                      serie.reps_hechas + 1,
-                                    )
-                                  }
-                                  className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                >
-                                  +1
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                disabled={serie.rpe_real >= 10}
+                                onClick={() => handleAdjustRpe(0.5)}
+                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
+                              >
+                                +0.5
+                              </button>
                             </div>
-
-                            {/* RPE (Solo en Vista Técnica Avanzada) */}
-                            {!isSimpleView && (
-                              <div className="space-y-1.5">
-                                <label
-                                  htmlFor={`rpe-${ejercicio.id}-${serie.numero_serie}`}
-                                  className="text-[11px] font-bold text-muted-foreground block text-center uppercase tracking-wider"
-                                >
-                                  RPE (6-10)
-                                </label>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    id={`rpe-${ejercicio.id}-${serie.numero_serie}`}
-                                    type="number"
-                                    step="0.5"
-                                    min="6"
-                                    max="10"
-                                    value={serie.rpe_real}
-                                    data-testid="input-rpe"
-                                    onChange={(e) =>
-                                      updateSetField(
-                                        ejercicio.id,
-                                        serie.numero_serie,
-                                        "rpe_real",
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                    disabled={serie.completada}
-                                    className="w-full min-h-[44px] rounded-xl border border-input bg-background px-2 py-2 text-center text-base font-mono font-bold tabular-nums text-foreground disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                  />
-                                </div>
-                                <div className="flex gap-1.5 pt-0.5">
-                                  <button
-                                    type="button"
-                                    disabled={serie.completada || serie.rpe_real <= 6}
-                                    onClick={() =>
-                                      updateSetField(
-                                        ejercicio.id,
-                                        serie.numero_serie,
-                                        "rpe_real",
-                                        Math.max(1, serie.rpe_real - 0.5),
-                                      )
-                                    }
-                                    className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                  >
-                                    -0.5
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={serie.completada || serie.rpe_real >= 10}
-                                    onClick={() =>
-                                      updateSetField(
-                                        ejercicio.id,
-                                        serie.numero_serie,
-                                        "rpe_real",
-                                        Math.min(10, serie.rpe_real + 0.5),
-                                      )
-                                    }
-                                    className="flex-1 min-h-[36px] rounded-lg bg-secondary/80 py-1.5 text-xs font-bold text-secondary-foreground hover:bg-secondary disabled:opacity-30 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                                  >
-                                    +0.5
-                                  </button>
-                                </div>
-                              </div>
-                            )}
                           </div>
 
-                          {/* Botón táctil ergonómico grande de acción (Thumb Zone 48px - 56px) */}
-                          <div className="pt-2">
-                            {serie.completada ? (
-                              <div className="flex items-center justify-between gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2.5">
-                                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white dark:text-slate-950 font-black text-[11px]">
-                                    ✓
-                                  </span>
-                                  <span>
-                                    {isSimpleView
-                                      ? `Serie ${serie.numero_serie}: ${serie.peso_kg}kg × ${serie.reps_hechas} reps`
-                                      : `Serie ${serie.numero_serie} (${setType}): ${serie.peso_kg}kg × ${serie.reps_hechas} @RPE ${serie.rpe_real}`}
-                                  </span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-[11px] font-bold text-muted-foreground hover:text-destructive h-8 px-2.5 rounded-lg"
-                                  onClick={() => uncompleteSet(ejercicio.id, serie.numero_serie)}
-                                >
-                                  Deshacer
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                size="touch"
-                                className={`w-full font-bold tracking-wide shadow-sm hover:brightness-105 active:scale-[0.98] touch-manipulation min-h-[48px] sm:min-h-[52px] text-sm sm:text-base rounded-xl gap-2 transition-all ${
-                                  isCurrentActive
-                                    ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/25"
-                                    : "bg-secondary text-secondary-foreground hover:bg-secondary/90 border border-border"
-                                }`}
-                                onClick={() => completeSet(ejercicio.id, serie.numero_serie)}
-                                data-testid={`complete-set-btn-${ejercicio.id}-${serie.numero_serie}`}
-                              >
-                                <span>✓</span>
-                                <span>Marcar Serie Hecha ({ejercicio.descanso_segundos}s Descanso)</span>
-                              </Button>
-                            )}
+                          {/* Auxiliares técnicos: Calentamiento y Discos */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
+                              onClick={() => setWarmupModalExercise(currentExercise)}
+                              data-testid={`warmup-btn-${currentExercise.id}`}
+                            >
+                              <Flame className="h-4 w-4" />
+                              <span>Calentamiento</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 min-h-11 border-border font-bold text-xs"
+                              onClick={() => setPlateModalWeight(serie.peso_kg)}
+                            >
+                              <Dumbbell className="h-4 w-4" />
+                              <span>Discos</span>
+                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                      )}
+
+                      {/* Botón principal de registro de serie */}
+                      <button
+                        type="button"
+                        onClick={handleRegistrarSerie}
+                        className="w-full mt-4 h-14 rounded-[14px] text-[17px] font-bold bg-primary text-primary-foreground shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
+                        data-testid="registrar-serie-btn"
+                      >
+                        <Check className="h-5 w-5" strokeWidth={3} />
+                        <span>Registrar serie {serie.numero_serie}</span>
+                      </button>
+
+                      {/* Dots indicadores de progreso de series (.sdots) */}
+                      <div
+                        className="flex items-center justify-center gap-2 pt-1"
+                        aria-label="Progreso de series del ejercicio"
+                      >
+                        {currentExercise.series.map((s) => {
+                          const isDone = s.completada;
+                          const isCurrent = s.numero_serie === serie.numero_serie;
+                          return (
+                            <span
+                              key={s.numero_serie}
+                              className={`h-2 rounded-full transition-all duration-200 ${
+                                isCurrent
+                                  ? "w-8 bg-primary"
+                                  : isDone
+                                  ? "w-8 bg-emerald-500"
+                                  : "w-8 bg-muted"
+                              }`}
+                              title={`Serie ${s.numero_serie}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  ) : (
+                    <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-6 text-center space-y-3">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white">
+                        <Check className="h-6 w-6" strokeWidth={3} />
+                      </div>
+                      <h3 className="text-xl font-bold text-foreground">
+                        ¡Ejercicio completado!
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Guardaste todas las series de {currentExercise.nombre}.
+                      </p>
+                      {firstIncompleteExercise ? (
+                        <Button
+                          type="button"
+                          onClick={() => setSelectedExerciseId(firstIncompleteExercise.id)}
+                          className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
+                        >
+                          Ir a {firstIncompleteExercise.nombre}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => setWorkoutTab("registro")}
+                          className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
+                        >
+                          Ver Registro del día
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ===================================================================
+                SOLAPA 2: REGISTRO DEL DÍA (EDITABLE EN LÍNEA)
+                =================================================================== */}
+            <TabsContent value="registro" className="space-y-4 m-0 focus-visible:outline-none">
+              <div className="space-y-4" data-testid="registro-dia-container">
+                {currentSession.ejercicios
+                  .filter((ej) => ej.series.some((s) => s.completada))
+                  .map((ej) => (
+                    <Card key={ej.id} className="border border-border/80 rounded-2xl overflow-hidden bg-card">
+                      <CardHeader className="bg-secondary/30 p-3 sm:p-4">
+                        <CardTitle className="text-base sm:text-lg font-bold text-foreground">
+                          {ej.nombre}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0 divide-y divide-border/60">
+                        {ej.series
+                          .filter((s) => s.completada)
+                          .map((s) => {
+                            const isBeingEdited =
+                              editingSet?.exerciseId === ej.id &&
+                              editingSet?.setNumber === s.numero_serie;
+
+                            if (isBeingEdited && editingSet) {
+                              return (
+                                <div
+                                  key={s.numero_serie}
+                                  className="p-4 bg-primary/5 border-t border-b border-primary/30 space-y-3"
+                                  data-testid={`editing-set-container-${ej.id}-${s.numero_serie}`}
+                                >
+                                  <div className="flex items-center justify-between text-sm font-bold">
+                                    <span className="text-foreground">
+                                      Editando serie {editingSet.setNumber}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground font-normal">
+                                      Antes: <span className="font-mono font-bold">{editingSet.initialPesoKg} kg × {editingSet.initialReps}</span>
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {/* Mini stepper Peso */}
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                                        Peso (kg)
+                                      </label>
+                                      <div className="grid grid-cols-[44px_1fr_44px] gap-1 items-center">
+                                        <button
+                                          type="button"
+                                          disabled={editingSet.pesoKg <= 2.5}
+                                          onClick={() =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              pesoKg: Math.max(0, editingSet.pesoKg - 2.5),
+                                            })
+                                          }
+                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                          aria-label="Restar 2.5 kg"
+                                        >
+                                          −
+                                        </button>
+                                        <div className="h-12 rounded-lg border-2 border-primary bg-background font-mono font-extrabold text-xl flex items-center justify-center tabular-nums">
+                                          {editingSet.pesoKg}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              pesoKg: editingSet.pesoKg + 2.5,
+                                            })
+                                          }
+                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                          aria-label="Sumar 2.5 kg"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Mini stepper Reps */}
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                                        Reps
+                                      </label>
+                                      <div className="grid grid-cols-[44px_1fr_44px] gap-1 items-center">
+                                        <button
+                                          type="button"
+                                          disabled={editingSet.reps <= 1}
+                                          onClick={() =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              reps: Math.max(1, editingSet.reps - 1),
+                                            })
+                                          }
+                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                          aria-label="Restar 1 rep"
+                                        >
+                                          −
+                                        </button>
+                                        <div className="h-12 rounded-lg border-2 border-primary bg-background font-mono font-extrabold text-xl flex items-center justify-center tabular-nums">
+                                          {editingSet.reps}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              reps: editingSet.reps + 1,
+                                            })
+                                          }
+                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                          aria-label="Sumar 1 rep"
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Botones Cancelar / Guardar cambio */}
+                                  <div className="grid grid-cols-2 gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingSet(null)}
+                                      className="min-h-12 h-12 rounded-xl border border-border bg-background text-sm font-bold text-foreground hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                      data-testid="cancel-edit-set-btn"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleSaveEdit}
+                                      className="min-h-12 h-12 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                      data-testid="save-edit-set-btn"
+                                    >
+                                      Guardar cambio
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={s.numero_serie}
+                                className="flex items-center justify-between p-3.5 sm:px-4"
+                                data-testid={`log-row-${ej.id}-${s.numero_serie}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-semibold text-muted-foreground w-16">
+                                    Serie {s.numero_serie}
+                                  </span>
+                                  <span className="font-mono font-bold text-base sm:text-lg text-foreground">
+                                    {s.peso_kg} kg × {s.reps_hechas}
+                                  </span>
+                                  {!isSimpleView && (
+                                    <span className="text-xs text-muted-foreground font-mono">
+                                      @RPE {s.rpe_real}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingSet({
+                                      exerciseId: ej.id,
+                                      exerciseName: ej.nombre,
+                                      setNumber: s.numero_serie,
+                                      pesoKg: s.peso_kg,
+                                      reps: s.reps_hechas,
+                                      initialPesoKg: s.peso_kg,
+                                      initialReps: s.reps_hechas,
+                                    })
+                                  }
+                                  className="h-12 w-12 min-h-12 min-w-12 rounded-xl flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                  aria-label={`Editar serie ${s.numero_serie}`}
+                                  data-testid={`edit-set-btn-${ej.id}-${s.numero_serie}`}
+                                  title="Editar serie"
+                                >
+                                  <Pencil className="h-5 w-5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                {completedSetsCount === 0 && (
+                  <div className="rounded-2xl border border-dashed border-border p-8 text-center space-y-2">
+                    <p className="font-semibold text-foreground">
+                      Todavía no registraste ninguna serie hoy.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Cambiá a la solapa &ldquo;Entrenar&rdquo; para comenzar tu rutina.
+                    </p>
+                  </div>
+                )}
+
+                {/* Pie del Registro del día: Todo guardado + Terminar entrenamiento */}
+                <div className="pt-2 space-y-3">
+                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                    <span>Todo guardado</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isFinishing || completedSetsCount === 0}
+                    onClick={handleTerminarEntrenamiento}
+                    className="w-full h-14 rounded-[14px] text-[17px] font-bold bg-[#0F172A] text-white hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 touch-manipulation cursor-pointer"
+                    data-testid="terminar-entrenamiento-btn"
+                  >
+                    <span>{isFinishing ? "Guardando sesión..." : "Terminar entrenamiento"}</span>
+                  </button>
+
+                  {workoutFinished && (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-center text-xs font-bold">
+                      ¡Entrenamiento finalizado con éxito! Datos sincronizados.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Botón para reiniciar rutina al estado inicial */}
           <div className="pt-2 text-center">
@@ -1022,7 +1220,7 @@ export function LiveWorkout() {
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
           workingWeightKg={warmupModalExercise.series[0]?.peso_kg || 80}
-          onApplyWarmupSets={(warmupSets: WarmupSetProgression[]) =>
+          onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)
           }
         />

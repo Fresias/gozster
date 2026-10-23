@@ -124,6 +124,12 @@ interface AthleteStoreState {
   ) => void;
   completeSet: (exerciseId: string, setNumber: number) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
+  editCompletedSet: (
+    exerciseId: string,
+    setNumber: number,
+    pesoKg: number,
+    reps: number,
+  ) => void;
   syncSessionToSupabase: () => Promise<{ success: boolean; error?: string }>;
 
   // Timer Actions
@@ -629,13 +635,23 @@ export const useAthleteStore = create<AthleteStoreState>()(
               return {
                 ...ej,
                 series: ej.series.map((s) => {
-                  if (s.numero_serie !== setNumber) return s;
-                  return {
-                    ...s,
-                    completada: true,
-                    estimated1RM,
-                    completedAt,
-                  };
+                  if (s.numero_serie === setNumber) {
+                    return {
+                      ...s,
+                      completada: true,
+                      estimated1RM,
+                      completedAt,
+                    };
+                  }
+                  if (s.numero_serie === setNumber + 1 && !s.completada) {
+                    return {
+                      ...s,
+                      peso_kg: targetSet.peso_kg,
+                      reps_hechas: targetSet.reps_hechas,
+                      estimated1RM,
+                    };
+                  }
+                  return s;
                 }),
               };
             }),
@@ -663,9 +679,67 @@ export const useAthleteStore = create<AthleteStoreState>()(
           },
         });
 
-        // 3. Iniciar automáticamente temporizador de descanso
-        const restDuration = targetExercise.descanso_segundos || 90;
-        get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+        // 3. Iniciar automáticamente temporizador de descanso si mostrarTimerDescanso es true
+        if (state.mostrarTimerDescanso !== false) {
+          const restDuration = targetExercise.descanso_segundos || 90;
+          get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+        }
+      },
+
+      editCompletedSet: (
+        exerciseId: string,
+        setNumber: number,
+        pesoKg: number,
+        reps: number,
+      ) => {
+        const state = get();
+        const targetExercise = state.currentSession.ejercicios.find(
+          (e) => e.id === exerciseId,
+        );
+        const targetSet = targetExercise?.series.find(
+          (s) => s.numero_serie === setNumber,
+        );
+
+        if (!targetExercise || !targetSet) return;
+
+        const estimated1RM = calculateEpley1RM(pesoKg, reps);
+        const updatedAt = new Date().toISOString();
+
+        set((prevState) => ({
+          currentSession: {
+            ...prevState.currentSession,
+            ejercicios: prevState.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              return {
+                ...ej,
+                series: ej.series.map((s) => {
+                  if (s.numero_serie !== setNumber) return s;
+                  return {
+                    ...s,
+                    peso_kg: pesoKg,
+                    reps_hechas: reps,
+                    estimated1RM,
+                  };
+                }),
+              };
+            }),
+          },
+        }));
+
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `set-edit-${exerciseId}-${setNumber}-${Date.now()}`,
+          action: "WORKOUT_SET_UPDATED",
+          payload: {
+            sessionId: state.currentSession.id,
+            exerciseId,
+            exerciseName: targetExercise.nombre,
+            setNumber,
+            pesoKg,
+            reps,
+            estimated1RM,
+            updatedAt,
+          },
+        });
       },
 
       syncSessionToSupabase: async () => {

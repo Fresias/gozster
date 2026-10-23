@@ -7,6 +7,7 @@ import { useAthleteStore } from "@/store/use-athlete-store";
 export function RestTimer() {
   const {
     restTimer,
+    mostrarTimerDescanso,
     tickTimer,
     pauseTimer,
     resumeTimer,
@@ -15,7 +16,7 @@ export function RestTimer() {
   } = useAthleteStore();
 
   React.useEffect(() => {
-    if (!restTimer.isActive || restTimer.isPaused) {
+    if (!restTimer.isActive || restTimer.isPaused || mostrarTimerDescanso === false) {
       return;
     }
 
@@ -24,9 +25,9 @@ export function RestTimer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [restTimer.isActive, restTimer.isPaused, tickTimer]);
+  }, [restTimer.isActive, restTimer.isPaused, mostrarTimerDescanso, tickTimer]);
 
-  if (!restTimer.isActive) {
+  if (!restTimer.isActive || mostrarTimerDescanso === false) {
     return null;
   }
 
