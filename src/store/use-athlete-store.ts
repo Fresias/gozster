@@ -14,6 +14,7 @@ import {
 import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
+  MotivoCambioDia,
 } from "@/types/database.types";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
 
@@ -58,6 +59,9 @@ export interface LiveWorkoutSession {
   ejercicios: LiveWorkoutExercise[];
   studentName?: string;
   studentId?: string;
+  dia_id?: string;
+  dia_sugerido_id?: string | null;
+  motivo_cambio_dia?: MotivoCambioDia | null;
 }
 
 export interface RestTimerState {
@@ -83,15 +87,27 @@ interface AthleteStoreState {
   // es el dueño de ambos campos; el ejercicio en vivo consume mostrarTimerDescanso.
   onboardingCompletado: boolean;
   mostrarTimerDescanso: boolean;
-  // Estado del Inicio Mis días (GOZS-147)
+  // Estado del Inicio Mis días (GOZS-147 + GOZS-149)
   diaActivoId: string | null;
   diaElegidoHoyId: string | null;
-  sesionesCompletadas: Array<{ id: string; dia_id: string; fecha: string }>;
+  diaSugeridoId: string | null;
+  motivoCambioDia: MotivoCambioDia | null;
+  sesionesCompletadas: Array<{
+    id: string;
+    dia_id: string;
+    fecha: string;
+    dia_sugerido_id?: string | null;
+    motivo_cambio_dia?: MotivoCambioDia | null;
+  }>;
 
   // Actions
   empezarDia: (diaId: string) => void;
   volverAlInicio: () => void;
-  elegirOtroDia: (diaId: string) => void;
+  elegirOtroDia: (
+    diaId: string,
+    motivo?: MotivoCambioDia | null,
+    diaSugeridoId?: string | null,
+  ) => void;
   deshacerCambioDia: () => void;
   marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
@@ -151,7 +167,12 @@ interface AthleteStoreState {
 
   // Session & Routine Loaders
   setSession: (session: LiveWorkoutSession) => void;
-  loadStudentSession: (studentId?: string, diaId?: string) => boolean;
+  loadStudentSession: (
+    studentId?: string,
+    diaId?: string,
+    motivo?: MotivoCambioDia | null,
+    diaSugeridoId?: string | null,
+  ) => boolean;
   resetSessionToDefaults: () => void;
 }
 
@@ -317,6 +338,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       mostrarTimerDescanso: true,
       diaActivoId: null,
       diaElegidoHoyId: null,
+      diaSugeridoId: null,
+      motivoCambioDia: null,
       sesionesCompletadas: [],
       rpeValidationError: null,
       stopProtocolActive: false,
@@ -331,26 +354,87 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       empezarDia: (diaId) => {
-        const studentId = get().currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
-        get().loadStudentSession(studentId, diaId);
+        const state = get();
+        const studentId = state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        const motivo = state.motivoCambioDia;
+        const diaSugeridoId = state.diaSugeridoId;
+
+        get().loadStudentSession(studentId, diaId, motivo, diaSugeridoId);
         set({ diaActivoId: diaId });
+
+        // Si hubo cambio de día (dia sugerido distinto o motivo asignado), encolar evento offline
+        if (diaSugeridoId && diaSugeridoId !== diaId) {
+          useOfflineQueueStore.getState().enqueueEvent({
+            id: `cambio-dia-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            action: "CAMBIO_DIA_REGISTRADO",
+            payload: {
+              sessionId: get().currentSession.id,
+              alumnoId: studentId,
+              diaElegidoId: diaId,
+              diaSugeridoId,
+              motivoCambioDia: motivo || null,
+              timestamp: new Date().toISOString(),
+            },
+          });
+
+          if (supabase) {
+            const sessionId = get().currentSession.id;
+            supabase
+              .from("registro_sesiones")
+              .upsert(
+                {
+                  id: sessionId,
+                  alumno_id: studentId,
+                  dia_id: diaId,
+                  dia_sugerido_id: diaSugeridoId,
+                  motivo_cambio_dia: motivo || null,
+                },
+                { onConflict: "id" }
+              )
+              .then(
+                ({ error }) => {
+                  if (error) {
+                    console.warn("Aviso guardando motivo de cambio en Supabase:", error.message);
+                  }
+                },
+                () => {
+                  // Silencioso en modo offline
+                },
+              );
+          }
+        }
       },
       volverAlInicio: () => set({ diaActivoId: null }),
-      elegirOtroDia: (diaId) => set({ diaElegidoHoyId: diaId }),
-      deshacerCambioDia: () => set({ diaElegidoHoyId: null }),
+      elegirOtroDia: (diaId, motivo = null, diaSugeridoId = null) =>
+        set({
+          diaElegidoHoyId: diaId,
+          motivoCambioDia: motivo ?? null,
+          diaSugeridoId: diaSugeridoId ?? null,
+        }),
+      deshacerCambioDia: () =>
+        set({
+          diaElegidoHoyId: null,
+          motivoCambioDia: null,
+          diaSugeridoId: null,
+        }),
       marcarDiaCompletado: (diaId) =>
         set((state) => {
+          const session = state.currentSession;
           const nuevasSesiones = [
             ...state.sesionesCompletadas.filter((s) => s.dia_id !== diaId),
             {
-              id: `sesion-${Date.now()}`,
+              id: session?.id || `sesion-${Date.now()}`,
               dia_id: diaId,
+              dia_sugerido_id: session?.dia_sugerido_id || state.diaSugeridoId || null,
+              motivo_cambio_dia: session?.motivo_cambio_dia || state.motivoCambioDia || null,
               fecha: new Date().toISOString(),
             },
           ];
           return {
             sesionesCompletadas: nuevasSesiones,
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
+            motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
+            diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
           };
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
@@ -800,6 +884,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
             {
               id: session.id,
               alumno_id: studentId,
+              dia_id: session.dia_id,
+              dia_sugerido_id: session.dia_sugerido_id || null,
+              motivo_cambio_dia: session.motivo_cambio_dia || null,
               duracion_minutos: 45,
               volumen_total_kg: totalVol,
               effective_volume_kg: effVol,
@@ -950,7 +1037,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({ currentSession: session });
       },
 
-      loadStudentSession: (studentId, diaId) => {
+      loadStudentSession: (studentId, diaId, motivo = null, diaSugeridoId = null) => {
         const student = studentId
           ? REAL_ALUMNOS.find((a) => a.id === studentId || a.nombre_completo.toLowerCase().includes(studentId.toLowerCase()))
           : REAL_ALUMNOS[0];
@@ -1008,6 +1095,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           ejercicios: mappedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
+          dia_id: selectedDia.id,
+          dia_sugerido_id: diaSugeridoId ?? null,
+          motivo_cambio_dia: motivo ?? null,
         };
 
         const coachRecomendada =
@@ -1041,6 +1131,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           stopProtocolActive: false,
           diaActivoId: null,
           diaElegidoHoyId: null,
+          diaSugeridoId: null,
+          motivoCambioDia: null,
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -1067,6 +1159,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         mostrarTimerDescanso: state.mostrarTimerDescanso,
         sesionesCompletadas: state.sesionesCompletadas,
         diaElegidoHoyId: state.diaElegidoHoyId,
+        diaSugeridoId: state.diaSugeridoId,
+        motivoCambioDia: state.motivoCambioDia,
       }),
     },
   ),
