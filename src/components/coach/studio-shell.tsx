@@ -15,6 +15,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isDashboardActive = pathname === "/studio/dashboard";
   const isStudioActive = pathname === "/studio";
   const isAgendaActive = pathname === "/studio/agenda";
+  const isDocumentacionActive = pathname === "/studio/documentacion";
   const isAthleteActive = pathname?.startsWith("/athlete");
 
   const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
@@ -135,6 +136,34 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </svg>
               <span>Agenda de Clases</span>
             </Link>
+
+            {mode === "TESTEO" && (
+              <Link
+                href="/studio/documentacion"
+                data-testid="sidebar-documentacion-link"
+                className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                  isDocumentacionActive
+                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
+                }`}
+              >
+                <svg
+                  className="mr-2.5 h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                  />
+                </svg>
+                <span>Documentación</span>
+              </Link>
+            )}
 
             <Link
               href="/athlete"
