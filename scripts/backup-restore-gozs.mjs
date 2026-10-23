@@ -43,7 +43,7 @@ export const TABLAS = [
   { nombre: "planes_entrenamiento", fks: { alumno_id: "perfiles", profesor_id: "perfiles" } },
   { nombre: "dias_rutina", fks: { plan_id: "planes_entrenamiento" } },
   { nombre: "ejercicios_en_rutina", fks: { dia_id: "dias_rutina", ejercicio_id: "ejercicios" } },
-  { nombre: "registro_sesiones", fks: { alumno_id: "perfiles", dia_id: "dias_rutina" } },
+  { nombre: "registro_sesiones", fks: { alumno_id: "perfiles", dia_id: "dias_rutina", dia_sugerido_id: "dias_rutina" } },
   { nombre: "registro_series", fks: { ejercicio_id: "ejercicios", sesion_id: "registro_sesiones" } },
   { nombre: "conversaciones", fks: { alumno_id: "perfiles", responsable_id: "perfiles" } },
   { nombre: "mensajes", fks: { conversacion_id: "conversaciones", remitente_id: "perfiles" } },
