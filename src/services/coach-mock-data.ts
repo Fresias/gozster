@@ -378,6 +378,8 @@ export const MOCK_HISTORIAL_CARGAS: Record<string, HistoricalLoadEntry[]> = {
         id: "ses-103",
         alumno_id: "a1111111-1111-4111-8111-111111111101",
         dia_id: "d1-torso",
+        dia_sugerido_id: "d2-pierna",
+        motivo_cambio_dia: "CANSANCIO_DEPORTE",
         fecha: "2026-10-15T18:30:00Z",
         duracion_minutos: 65,
         volumen_total_kg: 4950,

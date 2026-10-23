@@ -13,6 +13,17 @@ import {
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
+import type { MotivoCambioDia } from "@/types/database.types";
+
+export const CHIPS_MOTIVOS_CAMBIO: Array<{
+  id: MotivoCambioDia;
+  label: string;
+}> = [
+  { id: "CANSANCIO_DEPORTE", label: "Cansancio / otro deporte" },
+  { id: "MOLESTIA", label: "Molestia" },
+  { id: "POCO_TIEMPO", label: "Poco tiempo" },
+  { id: "EQUIPO_OCUPADO", label: "Máquina ocupada" },
+];
 import {
   Play,
   ArrowRightLeft,
@@ -25,6 +36,7 @@ export function InicioMisDias() {
   const {
     currentSession,
     diaElegidoHoyId,
+    motivoCambioDia,
     sesionesCompletadas,
     empezarDia,
     elegirOtroDia,
@@ -33,6 +45,7 @@ export function InicioMisDias() {
 
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [sheetSelectedDiaId, setSheetSelectedDiaId] = React.useState<string | null>(null);
+  const [sheetMotivo, setSheetMotivo] = React.useState<MotivoCambioDia | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -105,7 +118,9 @@ export function InicioMisDias() {
 
   // Sincronizar selección inicial del Sheet al abrir
   const handleOpenSheet = (preselectedId?: string) => {
-    setSheetSelectedDiaId(preselectedId || diaActivoHoy?.id || diaTeTocaHoy?.id || null);
+    const targetId = preselectedId || diaActivoHoy?.id || diaTeTocaHoy?.id || null;
+    setSheetSelectedDiaId(targetId);
+    setSheetMotivo(targetId !== diaTeTocaHoy?.id ? motivoCambioDia : null);
     setIsSheetOpen(true);
   };
 
@@ -114,7 +129,11 @@ export function InicioMisDias() {
     const seleccionado = diasConEstado.find((d) => d.id === sheetSelectedDiaId);
     if (!seleccionado || seleccionado.estado === "DONE") return;
 
-    elegirOtroDia(sheetSelectedDiaId);
+    const isChanging = sheetSelectedDiaId !== diaTeTocaHoy?.id;
+    const motivo = isChanging ? sheetMotivo : null;
+    const diaSugerido = isChanging ? diaTeTocaHoy?.id ?? null : null;
+
+    elegirOtroDia(sheetSelectedDiaId, motivo, diaSugerido);
     setIsSheetOpen(false);
 
     // Mostrar toast con acción Deshacer por 5 segundos
@@ -128,6 +147,7 @@ export function InicioMisDias() {
   const handleUndo = () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     deshacerCambioDia();
+    setSheetMotivo(null);
     setToastMessage(null);
   };
 
@@ -376,7 +396,12 @@ export function InicioMisDias() {
                     key={dia.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSheetSelectedDiaId(dia.id)}
+                    onClick={() => {
+                      setSheetSelectedDiaId(dia.id);
+                      if (dia.id === diaTeTocaHoy?.id) {
+                        setSheetMotivo(null);
+                      }
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
@@ -425,6 +450,42 @@ export function InicioMisDias() {
                 );
               })}
             </div>
+
+            {/* Sección ¿Por qué cambiás? (opcional) - visible cuando se cambia de día */}
+            {Boolean(sheetSelectedDiaId && sheetSelectedDiaId !== diaTeTocaHoy?.id) && (
+              <div className="mt-4 pt-1" data-testid="seccion-motivo-cambio-dia">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  ¿Por qué cambiás? (opcional)
+                </label>
+                <div
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                  aria-label="Motivo del cambio de día"
+                >
+                  {CHIPS_MOTIVOS_CAMBIO.map((chip) => {
+                    const isSelected = sheetMotivo === chip.id;
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() =>
+                          setSheetMotivo((prev) => (prev === chip.id ? null : chip.id))
+                        }
+                        className={`flex h-11 items-center justify-center rounded-full px-3.5 text-sm font-semibold transition-all active:scale-[0.97] border ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary dark:text-blue-400 font-bold shadow-xs"
+                            : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary/40"
+                        }`}
+                        data-testid={`chip-motivo-${chip.id.toLowerCase()}`}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Confirm button */}
             <button

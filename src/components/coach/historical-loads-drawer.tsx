@@ -1,6 +1,41 @@
 import * as React from "react";
-import type { Perfil } from "@/types/database.types";
+import type { DiaRutina, MotivoCambioDia, Perfil } from "@/types/database.types";
 import { type HistoricalLoadEntry } from "@/services/coach-mock-data";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
+
+export const MOTIVOS_CAMBIO_DIA_MAP: Record<MotivoCambioDia, string> = {
+  CANSANCIO_DEPORTE: "Cansancio / otro deporte",
+  MOLESTIA: "Molestia",
+  POCO_TIEMPO: "Poco tiempo",
+  EQUIPO_OCUPADO: "Máquina ocupada",
+};
+
+export function formatCambioDia(
+  diaSugeridoId: string | null | undefined,
+  diaId: string | null | undefined,
+  motivo: MotivoCambioDia | null | undefined,
+  dias: DiaRutina[] = [],
+): string | null {
+  if (!diaSugeridoId && !motivo) return null;
+
+  const resolveLabel = (id: string | null | undefined): string => {
+    if (!id) return "Día";
+    const found = dias.find((d) => d.id === id);
+    if (found) return `Día ${found.orden}`;
+    const match = id.match(/\d+/);
+    if (match) return `Día ${match[0]}`;
+    return id;
+  };
+
+  const sugeridoLabel = resolveLabel(diaSugeridoId);
+  const hechoLabel = resolveLabel(diaId);
+  const motivoTexto = motivo ? MOTIVOS_CAMBIO_DIA_MAP[motivo] || motivo : null;
+
+  if (motivoTexto) {
+    return `Cambió ${sugeridoLabel} → ${hechoLabel} · ${motivoTexto}`;
+  }
+  return `Cambió ${sugeridoLabel} → ${hechoLabel}`;
+}
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +49,7 @@ export interface HistoricalLoadsDrawerProps {
   onClose: () => void;
   alumno: Perfil | null;
   historial: HistoricalLoadEntry[];
+  dias?: DiaRutina[];
 }
 
 export function HistoricalLoadsDrawer({
@@ -21,7 +57,10 @@ export function HistoricalLoadsDrawer({
   onClose,
   alumno,
   historial,
+  dias: diasProp,
 }: HistoricalLoadsDrawerProps) {
+  const storeDias = useCoachStudioStore((state) => state.dias);
+  const diasList = diasProp || storeDias || [];
   if (!isOpen || !alumno) return null;
 
   return (
@@ -104,6 +143,25 @@ export function HistoricalLoadsDrawer({
                       )}
                     </div>
                   </div>
+
+                  {/* Línea discreta de cambio de día (GOZS-149) */}
+                  {(() => {
+                    const cambioTexto = formatCambioDia(
+                      entry.sesion.dia_sugerido_id,
+                      entry.sesion.dia_id,
+                      entry.sesion.motivo_cambio_dia,
+                      diasList,
+                    );
+                    if (!cambioTexto) return null;
+                    return (
+                      <div
+                        className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400"
+                        data-testid="sesion-cambio-dia-info"
+                      >
+                        {cambioTexto}
+                      </div>
+                    );
+                  })()}
 
                   {/* Series del entrenamiento */}
                   <div className="mt-3 space-y-2.5">
