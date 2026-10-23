@@ -8,11 +8,16 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
+  const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
 
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
-    const handleOnline = () => setOnlineStatus(true);
+    const handleOnline = () => {
+      setOnlineStatus(true);
+      // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
+      // nunca ve "pendientes", para él sus datos ya estaban guardados.
+      flushQueue();
+    };
     const handleOffline = () => setOnlineStatus(false);
 
     window.addEventListener("online", handleOnline);
@@ -21,7 +26,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [setOnlineStatus]);
+  }, [setOnlineStatus, flushQueue]);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col border-x border-border/80 bg-background text-foreground shadow-2xl transition-colors duration-150">
@@ -55,11 +60,6 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
             />
             <span className="font-semibold text-[11px]">
               {isOnline ? "Online" : "Modo Avión"}
-              {pendingEvents.length > 0 && (
-                <span className="ml-1 font-mono tabular-nums">
-                  • {pendingEvents.length}
-                </span>
-              )}
             </span>
           </div>
 
