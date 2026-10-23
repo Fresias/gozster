@@ -49,6 +49,13 @@ export function CriticalAlertsInbox({
   React.useEffect(() => {
     setIsExpanded(!isTesteo);
   }, [isTesteo]);
+  // Degradado inferior: solo cuando la lista scrolleable tiene contenido oculto
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const [hasHiddenBelow, setHasHiddenBelow] = React.useState(false);
+  const updateHiddenBelow = React.useCallback(() => {
+    const el = listRef.current;
+    setHasHiddenBelow(!!el && el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, []);
 
   const fetchAlerts = React.useCallback(async () => {
     setIsLoading(true);
@@ -91,11 +98,19 @@ export function CriticalAlertsInbox({
     return estado === statusFilter && a.type === "DOLOR";
   });
 
+  React.useEffect(() => {
+    updateHiddenBelow();
+    window.addEventListener("resize", updateHiddenBelow);
+    return () => window.removeEventListener("resize", updateHiddenBelow);
+  }, [updateHiddenBelow, isExpanded, isTesteo, filteredAlerts.length]);
+
   if (alerts.length === 0 && !isLoading) return null;
 
   return (
     <div
-      className="max-w-4xl rounded-2xl border border-destructive/40 bg-destructive/5 p-4 space-y-3 shadow-md backdrop-blur-sm"
+      className={`${
+        isTesteo ? "xl:absolute xl:inset-x-0 xl:top-0 xl:max-h-full flex flex-col" : "max-w-4xl"
+      } rounded-2xl border border-destructive/40 bg-destructive/5 p-4 space-y-3 shadow-md backdrop-blur-sm`}
       data-testid="critical-alerts-inbox"
     >
       {isTesteo ? (
@@ -103,7 +118,7 @@ export function CriticalAlertsInbox({
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           aria-expanded={isExpanded}
-          className="w-full min-h-12 flex items-center justify-between border-b border-destructive/20 pb-2.5"
+          className="w-full min-h-12 flex items-center justify-between shrink-0 border-b border-destructive/20 pb-2.5"
         >
           <span className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs font-black">
@@ -148,7 +163,15 @@ export function CriticalAlertsInbox({
       )}
 
       {isExpanded && isTesteo && (
-        <div className="divide-y divide-border/60" data-testid="alerts-compact-list">
+        <div className="relative min-h-0 flex flex-col">
+        <div
+          ref={listRef}
+          onScroll={updateHiddenBelow}
+          tabIndex={0}
+          aria-label="Alertas pendientes"
+          className="min-h-0 max-h-80 xl:max-h-none overflow-y-auto overscroll-contain divide-y divide-border/60"
+          data-testid="alerts-compact-list"
+        >
           {filteredAlerts.map((alert) => {
             const redFlag = alert.severidad === "CRITICA" || Boolean(alert.esSintomaAlarma);
             const etiqueta = redFlag
@@ -184,6 +207,14 @@ export function CriticalAlertsInbox({
               </button>
             );
           })}
+        </div>
+        {hasHiddenBelow && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-card"
+            data-testid="alerts-scroll-hint"
+          />
+        )}
         </div>
       )}
 
