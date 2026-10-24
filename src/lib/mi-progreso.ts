@@ -115,7 +115,7 @@ export function puntosDeEjercicio(series: SerieHistorica[], ejercicioId: string)
   const puntos = [...porSesion.values()].map((ss) => {
     const conReps = ss.filter((s) => s.reps_hechas <= EPLEY_MAX_REPS).map((s) => calculateEpley1RM(s.peso_kg, s.reps_hechas));
     return {
-      fecha: ss[0].fecha,
+      fecha: ss[0]!.fecha,
       peso_max_kg: Math.max(...ss.map((s) => s.peso_kg)),
       reps_max: Math.max(...ss.map((s) => s.reps_hechas)),
       epley_max_kg: conReps.length > 0 ? Math.max(...conReps) : 0,
@@ -177,8 +177,8 @@ export interface Delta {
 // "+10 kg desde agosto" | "Igual que en agosto" | "−5 kg desde agosto" (sin rojo: es info).
 export function formatearDelta(ej: EjercicioProgreso, hoy: Date = new Date()): Delta | null {
   if (ej.puntos.length < 2) return null;
-  const primero = ej.puntos[0];
-  const ultimo = ej.puntos[ej.puntos.length - 1];
+  const primero = ej.puntos[0]!;
+  const ultimo = ej.puntos[ej.puntos.length - 1]!;
   const diff = valorPunto(ultimo, ej.a_peso_corporal) - valorPunto(primero, ej.a_peso_corporal);
   const mes = mesDe(primero.fecha, hoy);
   if (diff === 0) return { texto: `Igual que en ${mes}`, signo: "cero" };
@@ -191,8 +191,8 @@ export function formatearDelta(ej: EjercicioProgreso, hoy: Date = new Date()): D
 // §4.4: aria-label del gráfico. "Sentadilla: de 75 a 85 kilos en las últimas 12 sesiones".
 export function ariaProgreso(ej: EjercicioProgreso): string {
   if (ej.puntos.length === 0) return ej.nombre;
-  const v0 = valorPunto(ej.puntos[0], ej.a_peso_corporal);
-  const v1 = valorPunto(ej.puntos[ej.puntos.length - 1], ej.a_peso_corporal);
+  const v0 = valorPunto(ej.puntos[0]!, ej.a_peso_corporal);
+  const v1 = valorPunto(ej.puntos[ej.puntos.length - 1]!, ej.a_peso_corporal);
   const unidad = ej.a_peso_corporal ? "repeticiones" : "kilos";
   return `${ej.nombre}: de ${kg.format(v0)} a ${kg.format(v1)} ${unidad} en las últimas ${ej.puntos.length} sesiones`;
 }

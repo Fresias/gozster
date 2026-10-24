@@ -24,6 +24,7 @@ import {
   type MarcasEjercicio,
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
+import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -114,9 +115,15 @@ interface AthleteStoreState {
   cargandoUltimaVez: boolean;
   // Marcas históricas por ejercicio_id para decidir récords offline (GOZS-161). null = sin historial.
   marcas: Record<string, MarcasEjercicio | null>;
+  // "Mi progreso" (GOZS-162). null = todavía sin descargar; se persiste para verse offline.
+  miProgreso: MiProgresoData | null;
+  miProgresoFecha: string | null; // ISO de la última descarga
+  cargandoMiProgreso: boolean;
 
   // Actions
   cargarUltimaVez: () => Promise<void>;
+  // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
+  cargarMiProgreso: () => Promise<void>;
   // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
   empezarDia: (diaId: string) => void;
@@ -362,6 +369,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
       ultimaVez: {},
       cargandoUltimaVez: false,
       marcas: {},
+      miProgreso: null,
+      miProgresoFecha: null,
+      cargandoMiProgreso: false,
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -930,6 +940,61 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
+      // §0.3 y §4.3: descarga el historial del alumno y lo agrega con las funciones puras
+      // (mismo patrón que cargarUltimaVez). Sin red no consulta: queda lo persistido.
+      cargarMiProgreso: async () => {
+        if (!useOfflineQueueStore.getState().isOnline) return;
+        const session = get().currentSession;
+        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+        if (!alumnoId) return;
+
+        set({ cargandoMiProgreso: true });
+        try {
+          const [{ data: filasSeries }, { data: filasSesiones }] = await Promise.all([
+            supabase
+              .from("registro_series")
+              .select(
+                "ejercicio_id, sesion_id, numero_serie, peso_kg, reps_hechas, rpe_real, completada, set_type, registro_sesiones!inner(fecha, alumno_id)",
+              )
+              .eq("completada", true)
+              .gte("reps_hechas", 1)
+              .or("set_type.is.null,set_type.neq.WARMUP")
+              .eq("registro_sesiones.alumno_id", alumnoId)
+              .order("registro_sesiones(fecha)", { ascending: false })
+              .limit(1000),
+            supabase
+              .from("registro_sesiones")
+              .select("id, fecha, effective_volume_kg")
+              .eq("alumno_id", alumnoId)
+              .order("fecha", { ascending: false })
+              .limit(400),
+          ]);
+
+          const series: SerieHistorica[] = (filasSeries ?? []).map(({ registro_sesiones, ...s }) => ({
+            ...s,
+            fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
+          }));
+          const sesiones: SesionHistorica[] = (filasSesiones ?? []) as unknown as SesionHistorica[];
+
+          // Nombres del catálogo para los ejercicios presentes (ADR-005: sin datos reales en código).
+          const ids = [...new Set(series.map((s) => s.ejercicio_id))];
+          let nombres: Record<string, string> = {};
+          if (ids.length > 0) {
+            const { data: cat } = await supabase.from("ejercicios").select("id, nombre").in("id", ids);
+            nombres = Object.fromEntries((cat ?? []).map((e) => [e.id as string, e.nombre as string]));
+          }
+
+          set({
+            miProgreso: agregarMiProgreso(series, sesiones, nombres),
+            miProgresoFecha: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.warn("No se pudo descargar «Mi progreso»:", e);
+        } finally {
+          set({ cargandoMiProgreso: false });
+        }
+      },
+
       // §3.3: tras registrar una serie, se suma a la frontera en memoria (fecha de la sesión de hoy).
       registrarSerieEnMarcas: (ejercicioId, serie) => {
         set((s) => ({
@@ -1243,6 +1308,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         sesionesCompletadas: state.sesionesCompletadas,
         ultimaVez: state.ultimaVez,
         marcas: state.marcas,
+        miProgreso: state.miProgreso,
+        miProgresoFecha: state.miProgresoFecha,
         diaElegidoHoyId: state.diaElegidoHoyId,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,

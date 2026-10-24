@@ -133,10 +133,10 @@ describe("puntosDeEjercicio (spec historial-progreso §4.3)", () => {
     ];
     const puntos = puntosDeEjercicio(series, SENTADILLA);
     expect(puntos.map((p) => p.fecha)).toEqual(["2026-09-10T13:00:00Z", "2026-10-10T13:00:00Z"]);
-    expect(puntos[1].peso_max_kg).toBe(85);
-    expect(puntos[1].reps_max).toBe(8);
+    expect(puntos[1]!.peso_max_kg).toBe(85);
+    expect(puntos[1]!.reps_max).toBe(8);
     // Epley máx de la sesión 2: max(85*(1+5/30), 80*(1+8/30)).
-    expect(puntos[1].epley_max_kg).toBeCloseTo(Math.max(85 * (1 + 5 / 30), 80 * (1 + 8 / 30)), 5);
+    expect(puntos[1]!.epley_max_kg).toBeCloseTo(Math.max(85 * (1 + 5 / 30), 80 * (1 + 8 / 30)), 5);
   });
 
   it("toma solo las últimas 12 sesiones", () => {
@@ -148,7 +148,7 @@ describe("puntosDeEjercicio (spec historial-progreso §4.3)", () => {
 
   it("excluye del Epley las series de más de 12 reps", () => {
     const series: SerieHistorica[] = [serie({ sesion_id: "s1", peso_kg: 40, reps_hechas: 20 })];
-    expect(puntosDeEjercicio(series, SENTADILLA)[0].epley_max_kg).toBe(0);
+    expect(puntosDeEjercicio(series, SENTADILLA)[0]!.epley_max_kg).toBe(0);
   });
 });
 
