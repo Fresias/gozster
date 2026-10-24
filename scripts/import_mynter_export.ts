@@ -413,6 +413,50 @@ const fechaPlantilla = (p: Raw): number => {
   return Number.isNaN(t) ? 0 : t;
 };
 
+/** Días y ejercicios de un plan (plantilla o plan de alumno) sobre un acumulador. */
+function agregarDiasYRutina(
+  p: Raw,
+  planId: string,
+  nombre: string,
+  mapa: Record<string, string>,
+  res: { dias: DiaPlantilla[]; rutina: FilaRutina[]; noInterpretados: number }
+): void {
+  diasDePlantilla(p).forEach((dia, di) => {
+    const diaId = toUUID(`${planId}-dia-${di + 1}`);
+    res.dias.push({ id: diaId, plan_id: planId, nombre: dia.nombre, orden: di + 1 });
+    let orden = 1;
+    let grupo = 0;
+
+    const agregar = (e: Raw, superserie: number | null) => {
+      const origen = idOrigen({ id: e?.idEjercicio ?? e?.ejercicioId ?? e?.id });
+      const ejercicioId = mapa[origen];
+      if (!ejercicioId) throw new Error(`Ejercicio sin mapear en plantilla "${nombre}": ${origen || nombreOrigen(e)}`);
+      const pr = parsePrescripcion(e?.ejecucionEjercicio, e?.nota ?? e?.comentario);
+      res.noInterpretados += pr.noInterpretados;
+      res.rutina.push({
+        id: toUUID(`${diaId}-${orden}-${ejercicioId}`),
+        dia_id: diaId,
+        ejercicio_id: ejercicioId,
+        orden: orden++,
+        series: pr.series,
+        repeticiones: pr.repeticiones,
+        descanso_segundos: pr.descanso_segundos,
+        rpe_objetivo: pr.rpe_objetivo,
+        notas: pr.notas,
+        es_superserie: superserie !== null,
+        grupo_superserie: superserie,
+      });
+    };
+
+    for (const e of dia.ejercicios) {
+      const hijos: Raw[] = Array.isArray(e?.children) ? e.children : [];
+      const g = hijos.length ? ++grupo : null;
+      agregar(e, g);
+      for (const h of hijos) agregar(h, g);
+    }
+  });
+}
+
 export function construirPlantillas(
   plantillas: Raw[],
   mapa: Record<string, string>
@@ -442,42 +486,185 @@ export function construirPlantillas(
     if (estado === 'ACTIVO') res.activas++;
     else res.inactivas++;
 
-    diasDePlantilla(p).forEach((dia, di) => {
-      const diaId = toUUID(`${planId}-dia-${di + 1}`);
-      res.dias.push({ id: diaId, plan_id: planId, nombre: dia.nombre, orden: di + 1 });
-      let orden = 1;
-      let grupo = 0;
-
-      const agregar = (e: Raw, superserie: number | null) => {
-        const origen = idOrigen({ id: e?.idEjercicio ?? e?.ejercicioId ?? e?.id });
-        const ejercicioId = mapa[origen];
-        if (!ejercicioId) throw new Error(`Ejercicio sin mapear en plantilla "${nombre}": ${origen || nombreOrigen(e)}`);
-        const pr = parsePrescripcion(e?.ejecucionEjercicio, e?.nota ?? e?.comentario);
-        res.noInterpretados += pr.noInterpretados;
-        res.rutina.push({
-          id: toUUID(`${diaId}-${orden}-${ejercicioId}`),
-          dia_id: diaId,
-          ejercicio_id: ejercicioId,
-          orden: orden++,
-          series: pr.series,
-          repeticiones: pr.repeticiones,
-          descanso_segundos: pr.descanso_segundos,
-          rpe_objetivo: pr.rpe_objetivo,
-          notas: pr.notas,
-          es_superserie: superserie !== null,
-          grupo_superserie: superserie,
-        });
-      };
-
-      for (const e of dia.ejercicios) {
-        const hijos: Raw[] = Array.isArray(e?.children) ? e.children : [];
-        const g = hijos.length ? ++grupo : null;
-        agregar(e, g);
-        for (const h of hijos) agregar(h, g);
-      }
-    });
+    agregarDiasYRutina(p, planId, nombre, mapa, res);
   });
   return res;
+}
+
+// ============================================================================
+// Alumnos, contrataciones y planes por alumno
+// ============================================================================
+
+export interface PerfilAlumno {
+  id: string;
+  email: string | null;
+  nombre_completo: string;
+  telefono: string | null;
+  rol: 'ALUMNO';
+  estado_membresia: 'ACTIVA';
+  profesor_asignado_id: string;
+}
+
+export interface VinculoAlumno {
+  id: string;
+  entrenador_id: string;
+  alumno_id: string;
+  rol_entrenador: 'PRINCIPAL';
+  es_principal: true;
+}
+
+export interface ContratacionAlumno {
+  id: string;
+  alumno_id: string;
+  tipo_servicio: 'ASESORIA_ONLINE' | 'PRESENCIAL';
+  estado: 'VIGENTE' | 'VENCIDA';
+  dia_vencimiento: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+}
+
+export interface PlanAlumno extends PlanPlantilla {
+  profesor_id: string;
+  alumno_id: string;
+  comentarios: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+}
+
+export interface AlumnosResultado {
+  perfiles: PerfilAlumno[];
+  vinculos: VinculoAlumno[];
+  contrataciones: ContratacionAlumno[];
+  sinContratacion: number;
+}
+
+export interface PlanesAlumnosResultado {
+  planes: PlanAlumno[];
+  dias: DiaPlantilla[];
+  rutina: FilaRutina[];
+  sinFicha: string[];
+  noInterpretados: number;
+}
+
+const aIso = (v: unknown): string | null => {
+  const t = Date.parse(String(v ?? ''));
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+};
+
+/**
+ * Whitelist explícita: sólo se copian los campos listados. `pagoAlumno`, `dni`,
+ * `cuentasBancarias` y `domicilio` nunca se leen.
+ */
+export function construirAlumnos(entradas: Raw[], profesorId: string, ahora: Date = new Date()): AlumnosResultado {
+  const res: AlumnosResultado = { perfiles: [], vinculos: [], contrataciones: [], sinContratacion: 0 };
+  const vistos = new Set<string>();
+  for (const e of entradas) {
+    const a: Raw = e?.alumno ?? {};
+    const origen = String(a.id ?? e?.idAlumno ?? '');
+    if (!origen || vistos.has(origen)) continue;
+    vistos.add(origen);
+    const id = toUUID(origen);
+    const email = String(a.email ?? '').trim().toLowerCase();
+    const tel = [a.codPaisTelefono, a.telefono].map((x) => String(x ?? '').trim()).filter(Boolean).join(' ');
+    res.perfiles.push({
+      id,
+      email: email || null,
+      nombre_completo: limpiarEspacios(`${a.nombre ?? ''} ${a.apellido ?? ''}`),
+      telefono: tel || null,
+      rol: 'ALUMNO',
+      estado_membresia: 'ACTIVA',
+      profesor_asignado_id: profesorId,
+    });
+    res.vinculos.push({
+      id: toUUID(`entrenador-alumno-${profesorId}-${id}`),
+      entrenador_id: profesorId,
+      alumno_id: id,
+      rol_entrenador: 'PRINCIPAL',
+      es_principal: true,
+    });
+    const ini = aIso(e?.inicioAsesoria)?.slice(0, 10);
+    const fin = aIso(e?.finAsesoria)?.slice(0, 10);
+    if (!ini || !fin || fin < ini) {
+      res.sinContratacion++;
+      continue;
+    }
+    res.contrataciones.push({
+      id: toUUID(`contratacion-${String(e?.id ?? origen)}`),
+      alumno_id: id,
+      tipo_servicio: String(e?.modalidad ?? '').toUpperCase() === 'PRESENCIAL' ? 'PRESENCIAL' : 'ASESORIA_ONLINE',
+      estado: Date.parse(`${fin}T23:59:59Z`) < ahora.getTime() ? 'VENCIDA' : 'VIGENTE',
+      dia_vencimiento: Number(fin.slice(8, 10)),
+      fecha_inicio: ini,
+      fecha_fin: fin,
+    });
+  }
+  return res;
+}
+
+/**
+ * Planes de cada alumno del JSON de historial. Cada plan rige desde su creación
+ * hasta la creación del siguiente (fecha_fin = creación del siguiente, null en el último).
+ * Sólo el plan activo más reciente queda ACTIVO.
+ */
+export function construirPlanesAlumnos(
+  alumnosHistorial: Raw[],
+  mapa: Record<string, string>,
+  profesorId: string,
+  idsAlumnosConFicha: Set<string>
+): PlanesAlumnosResultado {
+  const res: PlanesAlumnosResultado = { planes: [], dias: [], rutina: [], sinFicha: [], noInterpretados: 0 };
+  for (const al of alumnosHistorial) {
+    const alumnoId = toUUID(String(al?.id ?? ''));
+    if (!idsAlumnosConFicha.has(alumnoId)) {
+      res.sinFicha.push(String(al?.id ?? ''));
+      continue;
+    }
+    const ordenados = (Array.isArray(al?.planes) ? (al.planes as Raw[]) : [])
+      .map((p, i) => ({ p, i, t: Date.parse(String(p?.audFechaIns ?? '')) || 0 }))
+      .sort((x, y) => x.t - y.t || x.i - y.i);
+    const esActivo = (p: Raw) => /^(ESTADO_)?ACTIVO$/i.test(String(p?.estado ?? '').trim());
+    const activo = ordenados.map((x) => esActivo(x.p)).lastIndexOf(true);
+
+    ordenados.forEach((x, k) => {
+      const nombre = limpiarEspacios(String(x.p?.nombrePlan ?? x.p?.nombre ?? '')) || 'Plan de Entrenamiento';
+      const planId = toUUID(String(x.p?.id ?? x.p?.idPlan ?? `${al.id}-plan-${k}`));
+      const siguiente = ordenados[k + 1];
+      res.planes.push({
+        id: planId,
+        nombre,
+        estado: k === activo ? 'ACTIVO' : 'INACTIVO',
+        profesor_id: profesorId,
+        alumno_id: alumnoId,
+        comentarios: String(x.p?.comentario ?? '').trim() || null,
+        fecha_inicio: x.t ? new Date(x.t).toISOString() : null,
+        fecha_fin: siguiente?.t ? new Date(siguiente.t).toISOString() : null,
+      });
+      agregarDiasYRutina(x.p, planId, nombre, mapa, res);
+    });
+  }
+  return res;
+}
+
+/**
+ * Si el plan ya existe (seed #26) con otros ids de día, se reutilizan esos ids
+ * para actualizar en lugar de duplicar. La clave es `plan_id:orden`.
+ */
+export function reutilizarDias(
+  dias: DiaPlantilla[],
+  rutina: FilaRutina[],
+  existentes: Map<string, string>
+): { dias: DiaPlantilla[]; rutina: FilaRutina[] } {
+  const nuevoId = new Map<string, string>();
+  const diasOut = dias.map((d) => {
+    const id = existentes.get(`${d.plan_id}:${d.orden}`) ?? d.id;
+    nuevoId.set(d.id, id);
+    return { ...d, id };
+  });
+  const rutinaOut = rutina.map((r) => {
+    const diaId = nuevoId.get(r.dia_id) ?? r.dia_id;
+    return diaId === r.dia_id ? r : { ...r, dia_id: diaId, id: toUUID(`${diaId}-${r.orden}-${r.ejercicio_id}`) };
+  });
+  return { dias: diasOut, rutina: rutinaOut };
 }
 
 // ============================================================================
@@ -553,13 +740,78 @@ export async function catalogoPlantillas(args: string[]): Promise<void> {
   if (errores.length) process.exit(1);
 }
 
+export async function alumnosPlanes(args: string[]): Promise<void> {
+  const dir = process.env.MYNTER_EXPORT_DIR;
+  if (!dir) throw new Error('Definí MYNTER_EXPORT_DIR (carpeta fuera del repo).');
+  const dryRun = args.includes('--dry-run');
+  const leer = (re: RegExp) => {
+    const f = fs.readdirSync(dir).find((n) => re.test(n));
+    if (!f) throw new Error(`Falta un archivo ${re} en ${dir}`);
+    return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+  };
+  const entradas: Raw[] = leer(/^mynter-alumnos.*\.json$/);
+  const historial: Raw = leer(/^mynter-historial-completo.*\.json$/);
+  const mapaPath = path.join(dir, 'mapa-ejercicios.json');
+  if (!fs.existsSync(mapaPath)) throw new Error('Falta mapa-ejercicios.json: corré antes catalogo-plantillas.');
+  const mapa: Record<string, string> = JSON.parse(fs.readFileSync(mapaPath, 'utf8'));
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!dryRun && (!url || !key)) throw new Error('Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (o usá --dry-run).');
+  const client = !dryRun && url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+
+  let profesorId = toUUID(String(entradas[0]?.idProfesional ?? '66b8a2401ce75e2e247c5ff6'));
+  if (client) {
+    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.mynter@gozster.local';
+    const prof = await client.from('perfiles').select('id').eq('email', email).maybeSingle();
+    if (prof.error || !prof.data) throw new Error(`No existe el perfil del entrenador (${email}). Corré antes el seed (#26).`);
+    profesorId = prof.data.id;
+  }
+
+  const al = construirAlumnos(entradas, profesorId);
+  const pl = construirPlanesAlumnos(historial.alumnos ?? [], mapa, profesorId, new Set(al.perfiles.map((p) => p.id)));
+  let { dias, rutina } = pl;
+  const errores: string[] = [];
+
+  if (client) {
+    const ex = await client.from('dias_rutina').select('id, plan_id, orden').in('plan_id', pl.planes.map((p) => p.id));
+    if (ex.error) throw new Error(ex.error.message);
+    ({ dias, rutina } = reutilizarDias(dias, rutina, new Map((ex.data ?? []).map((d) => [`${d.plan_id}:${d.orden}`, d.id]))));
+    const subir = async (tabla: string, filas: object[], onConflict = 'id') => {
+      for (const lote of lotes(filas)) {
+        const { error } = await client.from(tabla).upsert(lote, { onConflict });
+        if (error) errores.push(`${tabla}: ${error.message}`);
+      }
+    };
+    await subir('perfiles', al.perfiles);
+    await subir('entrenador_alumnos', al.vinculos, 'entrenador_id,alumno_id');
+    await subir('contrataciones', al.contrataciones);
+    await subir('planes_entrenamiento', pl.planes);
+    await subir('dias_rutina', dias);
+    await subir('ejercicios_en_rutina', rutina);
+  }
+
+  console.log(`Alumnos: ${al.perfiles.length} (${al.contrataciones.length} contrataciones, ${al.sinContratacion} sin fechas válidas)`);
+  console.log(`Planes: ${pl.planes.filter((p) => p.estado === 'ACTIVO').length} activos, ${pl.planes.filter((p) => p.estado === 'INACTIVO').length} inactivos (${dias.length} días, ${rutina.length} ejercicios en rutina)`);
+  console.log(`Alumnos del historial sin ficha (omitidos): ${pl.sinFicha.length}`);
+  console.log(`Prescripciones no interpretadas (pasaron a notas): ${pl.noInterpretados}`);
+  console.log(`Errores: ${errores.length}${dryRun ? ' (dry-run: no se escribió en la base)' : ''}`);
+  for (const e of errores) console.error(` - ${e}`);
+  if (errores.length) process.exit(1);
+}
+
 if (process.argv[1]?.includes('import_mynter_export')) {
   const [sub, ...resto] = process.argv.slice(2);
-  if (sub !== 'catalogo-plantillas') {
-    console.error('Uso: tsx scripts/import_mynter_export.ts catalogo-plantillas [--dry-run] [--solo-usados]');
+  const comandos: Record<string, (a: string[]) => Promise<void>> = {
+    'catalogo-plantillas': catalogoPlantillas,
+    'alumnos-planes': alumnosPlanes,
+  };
+  const comando = comandos[sub ?? ''];
+  if (!comando) {
+    console.error('Uso: tsx scripts/import_mynter_export.ts <catalogo-plantillas|alumnos-planes> [--dry-run] [--solo-usados]');
     process.exit(1);
   }
-  catalogoPlantillas(resto).catch((e) => {
+  comando(resto).catch((e) => {
     console.error('Error fatal:', e?.message ?? e);
     process.exit(1);
   });
