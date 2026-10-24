@@ -44,6 +44,19 @@ Todo número va con `font-mono tabular-nums` (regla del Design System).
 
 Las piezas 1, 2 y 3 se usan **durante** el entrenamiento, muchas veces sin señal. Por eso sus datos se descargan **al abrir la sesión del día** (junto con el plan) y se guardan en el store persistido (`src/store/use-athlete-store.ts`). Si no hay red, se usa lo guardado; si nunca se descargó, se aplica el estado vacío de cada pieza. **Nunca** se bloquea el registro de una serie esperando historial.
 
+### 0.4. Íconos
+
+El proyecto **no** usa `lucide-react`: los íconos de la App son SVG propios en `src/components/athlete/icons.tsx` (componente `Icon`, trazo de 24×24 estilo Lucide). Esta spec agrega cuatro, copiando los paths de Lucide (licencia ISC) con el mismo patrón que `TriangleAlert`:
+
+| Componente | Path de referencia (Lucide) | Usado en |
+| :--- | :--- | :--- |
+| `History` | `history` | Pieza 1 |
+| `TrendingUp` | `trending-up` | Pieza 2 (subir) |
+| `Equal` | `equal` | Pieza 2 (repetir) |
+| `Trophy` | `trophy` | Pieza 3 |
+
+En el Coach Studio los íconos son SVG inline en el propio componente (como en `student-detail.tsx`); se sigue ese patrón.
+
 ---
 
 ## 1. App — "La última vez"
@@ -128,7 +141,7 @@ ORDER BY v.ejercicio_id, v.numero_serie;
 
 ```tsx
 <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground" data-testid="ultima-vez">
-  <History className="h-4 w-4 shrink-0" aria-hidden="true" />   {/* lucide-react, ya en el bundle */}
+  <History className="h-4 w-4 shrink-0" aria-hidden="true" />   {/* icons.tsx, ver 0.4 */}
   <span>Última vez:</span>
   <span className="font-mono font-bold tabular-nums text-foreground">80 kg × 6</span>
   <span aria-hidden="true">·</span>
