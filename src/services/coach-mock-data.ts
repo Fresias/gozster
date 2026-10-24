@@ -368,6 +368,7 @@ export const MOCK_EJERCICIOS_RUTINA: EjercicioEnRutina[] = [
 export interface HistoricalLoadEntry {
   sesion: RegistroSesion;
   series: (RegistroSerie & { ejercicioNombre: string })[];
+  plan?: { id: string; nombre: string } | null;
 }
 
 export const MOCK_HISTORIAL_CARGAS: Record<string, HistoricalLoadEntry[]> = {
