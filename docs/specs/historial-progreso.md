@@ -599,3 +599,108 @@ El entrenador ve de un vistazo **si el alumno viene con constancia**, semana por
 - GIVEN un alumno cuya primera sesión fue hace 10 semanas THEN las 42 semanas anteriores se ven punteadas con `…` y no cuentan para "semanas con objetivo cumplido".
 - GIVEN un alumno sin plan activo THEN no hay números en rojo ni mención a objetivo.
 - GIVEN un monitor de 1440 px THEN la grilla entra completa sin scroll horizontal.
+
+---
+
+## 6. Dashboard — Marcas de cambio de plan en "Cargas y RPE Históricos"
+
+### 6.1. Qué resuelve
+Con 969 sesiones desde 2024, el entrenador necesita ver **qué plan estaba haciendo** el alumno cuando las cargas subieron o se estancaron. Las marcas de cambio de plan responden "¿funcionó el plan nuevo?".
+
+### 6.2. Punto de partida (importante)
+Hoy `src/components/coach/historical-loads-drawer.tsx` **no tiene gráfico**: es una lista de sesiones (más nueva arriba) con sus series. Esta pieza agrega:
+1. Un **gráfico mínimo** arriba de la lista (SVG inline, sin librerías) con la carga máxima por sesión de un ejercicio, y las marcas de cambio de plan sobre él.
+2. Un **separador** en la lista en cada cambio de plan.
+
+No se cambia nada más del drawer (tarjetas de serie, cambio de día de GOZS-149, ancho `max-w-lg`).
+
+```
+┌──────────────────────────────────────────────┐
+│ Cargas y RPE Históricos                [✕]   │
+│ Atleta: Lucas Giménez                        │
+├──────────────────────────────────────────────┤
+│ CARGA MÁXIMA POR SESIÓN [kg]  [Sentadilla ▾] │
+│  Fuerza Base ┆ Hipertrofia 2   ┆ Fuerza 3    │
+│        ╱‾‾╲  ┆      __╱‾‾‾╲    ┆   ╱‾‾       │
+│   ╱‾‾‾╱      ┆ ‾‾‾‾╱           ┆ ╱           │
+│ 85 kg máx · 24 sesiones   Fuente: GOZSter    │
+├──────────────────────────────────────────────┤
+│ Sesión #24 · mié 15 oct 2026                 │
+│ ...                                          │
+│ ──── Cambio de plan: Hipertrofia 2 → Fuerza 3 · 1 sep 2026 ──── │
+│ Sesión #19 · ...                             │
+└──────────────────────────────────────────────┘
+```
+
+### 6.3. Datos
+- **Plan de cada sesión:** `registro_sesiones.dia_id → dias_rutina.plan_id → planes_entrenamiento (id, nombre)`. El import (GOZS-157) ya asignó a cada sesión histórica el día del plan vigente en esa fecha. Si `dia_id` es `NULL` → plan `null` ("Sin plan").
+- **Contrato:** se enriquece `HistoricalLoadEntry` (`src/services/coach-mock-data.ts`) con un campo opcional, calculado por quien arma el historial (`getHistorialCargasAlumno` en el store del Coach Studio). El drawer no consulta nada por su cuenta.
+
+```ts
+export interface HistoricalLoadEntry {
+  sesion: RegistroSesion;
+  series: (RegistroSerie & { ejercicioNombre: string })[];
+  plan?: { id: string; nombre: string } | null;   // nuevo
+}
+```
+
+- **Cambio de plan:** recorriendo las sesiones en orden **cronológico**, hay una marca cada vez que `plan.id` difiere del de la sesión anterior (incluye pasar de/hacia `null`). La primera sesión no genera marca.
+- **Punto del gráfico:** por sesión, `max(peso_kg)` de las series **válidas** (0.1) del ejercicio elegido. Sesiones sin ese ejercicio no dibujan punto (la línea une las que sí). Ejercicio a peso corporal → reps máximas y la unidad del título pasa a `[reps]`.
+- **Ejercicio por defecto:** el que aparece en más sesiones del historial. El selector lista todos los ejercicios con al menos 1 serie válida, ordenados por frecuencia.
+- Para que el gráfico se lea, se dibujan como máximo las **últimas 60 sesiones** con ese ejercicio; la lista de abajo sigue mostrando todo.
+
+### 6.4. Gráfico
+- Contenedor `relative h-28 w-full`; `svg` `viewBox="0 0 100 40" preserveAspectRatio="none"` con `polyline` `text-primary strokeWidth="2" vectorEffect="non-scaling-stroke"`. Eje X proporcional al **índice** de sesión (no a la fecha), igual que `Sparkline`.
+- **Marca de cambio de plan:** `line` vertical de arriba a abajo en la x de la primera sesión del plan nuevo, `stroke="currentColor"` con `className="text-muted-foreground"`, `strokeDasharray="2 2"`, `vectorEffect="non-scaling-stroke"`.
+- **Etiqueta del plan:** HTML (no `<text>` en SVG, para no deformarse), `span` absoluto en `left: {x}%`, arriba del gráfico: `text-[10px] font-semibold text-muted-foreground truncate max-w-[30%] pl-1`. Muestra el nombre del plan que **empieza** ahí. La primera franja lleva el nombre del primer plan en `left: 0`. Si dos marcas quedan a menos de 8 % de distancia, la etiqueta de la anterior se oculta (queda el `title`).
+- Se diferencia a propósito del aviso **ámbar** de "cambio de día" (GOZS-149): el cambio de plan es gris punteado y siempre con nombre.
+- Debajo: `85 kg máx · 24 sesiones` (`text-xs text-muted-foreground`, números `font-mono tabular-nums text-foreground`) y `Fuente: Registro GOZSter` a la derecha (INDEC).
+- **Selector de ejercicio:** `<select>` nativo con las clases del input del Design System (`h-9 rounded-md border border-input bg-background px-2 text-xs`), `aria-label="Ejercicio del gráfico"`. Nativo = cero dependencias y teclado gratis.
+- Accesibilidad: `svg` con `role="img"` y `aria-label="Sentadilla: carga máxima de 60 a 85 kilos en 24 sesiones, 2 cambios de plan"`.
+
+### 6.5. Separador en la lista
+Entre la tarjeta de la **primera sesión del plan nuevo** y la de la **última sesión del plan anterior** (como la lista va de más nueva a más vieja, el separador queda justo debajo de la primera sesión del plan nuevo):
+
+```tsx
+<div role="separator" className="flex items-center gap-2 py-1 text-[11px] font-semibold text-muted-foreground" data-testid="cambio-plan-separador">
+  <span className="h-px flex-1 bg-border" />
+  <span>Cambio de plan: <span className="text-foreground">Hipertrofia 2</span> → <span className="text-foreground">Fuerza 3</span> · 1 sep 2026</span>
+  <span className="h-px flex-1 bg-border" />
+</div>
+```
+
+- Fecha = la de la primera sesión del plan nuevo (formato Dashboard de 0.2).
+- Hacia/desde sin plan: `Cambio de plan: Fuerza Base → Sin plan`.
+
+### 6.6. Estados
+
+| Estado | Qué se ve |
+| :--- | :--- |
+| **Sin historial** | Sin gráfico; se mantiene el vacío actual de la lista (`No hay registros de cargas previas para este alumno.`). |
+| **Ejercicio con 1 sola sesión** | En lugar de la línea: `Con 2 sesiones de este ejercicio se dibuja la evolución.` (`text-xs text-muted-foreground`, mismo alto `h-28` para que no salte). |
+| **Un solo plan en todo el historial** | Gráfico sin marcas; etiqueta del plan a la izquierda. Sin separadores en la lista. |
+| **Sesiones sin plan (`dia_id` nulo)** | Cuentan como plan `Sin plan` para las marcas. |
+| **Cargando** | El drawer recibe el historial ya armado (hoy es síncrono); si `historial` llega `undefined` mientras se consulta, esqueleto `h-28 rounded-md bg-muted animate-pulse motion-reduce:animate-none` en el lugar del gráfico. |
+
+### 6.7. Criterios de aceptación
+- GIVEN 24 sesiones con Sentadilla en 3 planes (Fuerza Base, Hipertrofia 2, Fuerza 3) WHEN el coach abre el drawer THEN el gráfico muestra 2 líneas punteadas verticales con el nombre del plan que empieza en cada una, y la lista muestra 2 separadores `Cambio de plan: …`.
+- GIVEN el coach elige "Press de banca" en el selector THEN la línea se redibuja con ese ejercicio y las marcas de plan no cambian de lugar relativo a sus sesiones.
+- GIVEN sesiones sin `dia_id` en el medio THEN aparece `Sin plan` como un plan más.
+- GIVEN Dominadas a peso corporal THEN el título dice `[reps]`.
+
+---
+
+## 7. Checklist de entrega para `@frontend-eng` / `@backend-eng`
+
+| # | Pieza | Archivos nuevos | Archivos que se tocan | Backend |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | La última vez | `src/lib/historial-ejercicio.ts` (selección de serie de referencia) | `live-workout.tsx`, `use-athlete-store.ts`, `icons.tsx` | RPC de 1.3 |
+| 2 | Sugerencia de carga | `src/lib/sugerencia-carga.ts` (`sugerirCarga`, `INCREMENTOS_SUGERIDOS`) | `live-workout.tsx`, `icons.tsx` | — (usa el RPC de 1.3) |
+| 3 | ¡Nuevo récord! | `src/lib/records.ts` (frontera + `esRecord`) | `live-workout.tsx`, `use-athlete-store.ts`, `icons.tsx` | Extensión del RPC (3.3) |
+| 4 | Mi progreso | `src/app/(athlete)/athlete/progreso/page.tsx`, `src/components/athlete/mi-progreso.tsx` | `athlete-shell.tsx` | RPC `obtener_mi_progreso` (4.3) |
+| 5 | Adherencia | `src/lib/adherencia.ts`, `src/components/coach/adherencia-card.tsx` | `student-detail.tsx` | — (consulta directa con RLS) |
+| 6 | Cambio de plan | — | `historical-loads-drawer.tsx`, `coach-mock-data.ts` (tipo), store del Coach Studio | — |
+
+- Toda la lógica de decisión (referencia, sugerencia, récord, adherencia, marcas de plan) vive en **funciones puras** de `src/lib/` con su spec de Vitest; los criterios de aceptación de cada sección son los casos de test mínimos.
+- Fixtures con datos **inventados**; nada del export real ni la palabra "Mynter" (ADR-005).
+- Pendiente detectado fuera de alcance (no bloquea): la variante `destructive` de `Badge` usa `text-rose-300`, que en tema claro no llega a AA. Si el Coach Studio se usa en claro, corregir la variante en un issue aparte antes de que el badge de 5.5 salga a producción.
