@@ -39,3 +39,6 @@ supabase/.temp/
 # harness (archivos de runtime generados por harness-render; drift detectado por CI)
 .harness/
 
+
+# exports del sistema anterior (datos personales, nunca al repo)
+mynter-*.json
