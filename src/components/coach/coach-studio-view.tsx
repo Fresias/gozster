@@ -38,14 +38,17 @@ import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 
 export function CoachStudioView({
   initialDataset,
+  esAdmin = false,
 }: {
   initialDataset?: LiveSupabaseDataset | null;
+  esAdmin?: boolean;
 } = {}) {
   const store = useCoachStudioStore();
   const { mode, setMode } = useWorkspaceModeStore();
   const isTestMode = mode === "TESTEO";
   // En Testeo, cualquiera que pase el middleware de /studio (ENTRENADOR o ADMIN) ve la franja.
-  const showKpiStrip = isTestMode;
+  // En Producción solo el ADMIN: la RPC obtener_kpis_negocio rechaza a los demás roles.
+  const showKpiStrip = isTestMode || esAdmin;
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
   // "Sin alertas" = sin alertas pendientes (la bandeja y la ficha comparten estado)
   const hasPendingAlerts =
@@ -150,7 +153,7 @@ export function CoachStudioView({
       : paymentFilter;
   const [sinEntrenarFilter, setSinEntrenarFilter] = React.useState(false);
   // El filtro "Sin entrenar +7 días" solo existe en Testeo con la franja ADMIN visible: se deriva en render.
-  const effectiveSinEntrenar = sinEntrenarFilter && showKpiStrip;
+  const effectiveSinEntrenar = sinEntrenarFilter && isTestMode;
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -564,19 +567,28 @@ export function CoachStudioView({
           {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
           <div className={isTestMode ? leftCol : undefined}>
           {showKpiStrip ? (
-            <BusinessKpiStrip
-              kpis={DEMO_KPIS_NEGOCIO}
-              sinEntrenarNombres={alumnos
-                .filter((a) => DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id))
-                .map((a) => a.nombre_completo)}
-              sinRutina={metricas.cantSinPlanEntrenamiento}
-              onAsignarClick={() => setIsAssignModalOpen(true)}
-              onSinEntrenarClick={() => {
-                setIsAlumnosExpanded(true);
-                setSinEntrenarFilter(true);
-                setCurrentPage(1);
-              }}
-            />
+            isTestMode ? (
+              <BusinessKpiStrip
+                kpis={DEMO_KPIS_NEGOCIO}
+                sinEntrenarNombres={alumnos
+                  .filter((a) => DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id))
+                  .map((a) => a.nombre_completo)}
+                sinRutina={metricas.cantSinPlanEntrenamiento}
+                onAsignarClick={() => setIsAssignModalOpen(true)}
+                onSinEntrenarClick={() => {
+                  setIsAlumnosExpanded(true);
+                  setSinEntrenarFilter(true);
+                  setCurrentPage(1);
+                }}
+              />
+            ) : (
+              // Producción: sin `kpis` fijo para que la franja llame a obtener_kpis_negocio.
+              <BusinessKpiStrip
+                alumnos={alumnos}
+                sinRutina={metricas.cantSinPlanEntrenamiento}
+                onAsignarClick={() => setIsAssignModalOpen(true)}
+              />
+            )
           ) : (
             <RetentionKpiCards
               metricas={metricas}

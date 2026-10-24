@@ -164,11 +164,11 @@ describe("GOZS-139: visibilidad de la franja por modo y rol", () => {
   const view = fs.readFileSync(path.resolve(__dirname, "../components/coach/coach-studio-view.tsx"), "utf-8");
 
   it("en Testeo la ve cualquier usuario del middleware de /studio, sin condición de rol", () => {
-    expect(view).toContain("const showKpiStrip = isTestMode;");
+    expect(view).toContain("const showKpiStrip = isTestMode || esAdmin;");
     expect(view).not.toMatch(/rolActual|useRolActual/);
   });
 
-  it("en Producción se mantiene el banner de retención", () => {
-    expect(view).toMatch(/\{showKpiStrip \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
+  it("en Producción, quien no es ADMIN mantiene el banner de retención", () => {
+    expect(view).toMatch(/\{showKpiStrip \? \(\s*isTestMode \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
   });
 });
