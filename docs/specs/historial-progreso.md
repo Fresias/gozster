@@ -260,3 +260,110 @@ El tipo se deduce del catálogo (`ejercicios.musculos_principales`) y del peso; 
 - GIVEN Elevaciones laterales con 8 kg × 12 en todas las series y objetivo `"10-12"` THEN sugiere `9 kg`.
 - GIVEN Dominadas a peso corporal con 3 × 10 y objetivo `"10"` THEN ve `Probá 11 reps` y nunca `0 kg`.
 - GIVEN el alumno ya cambió el peso de la serie 3 WHEN vuelve a esa serie THEN se respeta su valor.
+
+---
+
+## 3. App — "¡Nuevo récord!"
+
+### 3.1. Qué resuelve
+Al registrar una serie que supera su mejor marca en ese ejercicio, el alumno lo ve en el momento. Es la "gamificación mínima" de ADR-003: récords por ejercicio, **sin ranking** contra otros.
+
+### 3.2. Ubicación exacta
+- Ocupa **el mismo lugar que el aviso "Serie N guardada"** (`optimistic-saved-banner`, arriba de las pestañas Entrenar / Registro del día). Si la serie es récord, el aviso verde se **reemplaza** por la variante récord; nunca se muestran los dos.
+- En "Registro del día", la fila de esa serie lleva un ícono `Trophy` dorado chico al lado del peso (persistente durante la sesión).
+
+```
+┌──────────────────────────────────────┐
+│ 🏆 ¡Nuevo récord!               [✕]  │  ← dorado, reemplaza "Serie 2 guardada"
+│    85 kg × 5 · tu mejor marca en     │
+│    Sentadilla                        │
+└──────────────────────────────────────┘
+```
+
+### 3.3. Datos
+Se extiende el RPC de la pieza 1 para devolver también las **marcas históricas** de cada ejercicio del día (todas las series válidas de 0.1, de todas las sesiones anteriores, no solo la última):
+
+```ts
+type MarcasEjercicio = {
+  ejercicio_id: string;
+  // Frontera de Pareto de (peso, reps): series que ninguna otra supera en peso Y reps a la vez.
+  // Es corta (en general < 10 pares) y alcanza para decidir cualquier récord offline.
+  frontera: { peso_kg: number; reps_hechas: number; fecha: string }[];
+  max_peso_kg: number;     // 0 si es a peso corporal
+  max_epley_kg: number;    // calculateEpley1RM() sobre series con reps <= 12
+};
+// useAthleteStore: marcas: Record<string /* ejercicio_id */, MarcasEjercicio | null>
+```
+
+- La frontera se puede calcular en el RPC (SQL) o en el cliente a partir de las series; lo importante es que viaje en la misma descarga de la sesión y quede guardada para offline.
+- Las series **ya completadas en la sesión de hoy** se suman a la frontera en memoria a medida que se registran, para que la serie 3 no festeje un récord que ya superó la serie 2.
+
+### 3.4. Regla de récord
+Al tocar "Registrar serie" (`handleRegistrarSerie`), con la serie válida según 0.1 (no `WARMUP`, reps ≥ 1):
+
+1. **Sin historial** (`marcas = null`, primera vez con el ejercicio) → **no** hay récord. No se festeja la primera serie de la vida.
+2. **Es récord** si **ninguna** serie de la frontera tiene `peso_kg >= peso` **y** `reps_hechas >= reps` a la vez (nadie la iguala ni la supera en las dos cosas), **y** además `peso >= 0,8 × max_peso_kg` (evita festejar 12 reps livianas con un peso que nunca usó).
+3. Tipo de récord (define el texto; uno solo por serie, en este orden):
+   - **Récord de peso:** `peso > max_peso_kg`.
+   - **Récord de reps:** el resto de los casos de la regla 2 (más reps que nunca con ese peso o más).
+   - **Peso corporal** (`peso = 0`): solo aplica récord de reps; la regla del 80% no aplica.
+4. **1RM estimado:** si `calculateEpley1RM(peso, reps) > max_epley_kg` y `reps <= 12`, en vista `TECNICA` se agrega la línea del 1RM. En vista `SIMPLE` **nunca** se menciona 1RM (ADR-004).
+5. Récord en una serie `DROPSET` o `FAILURE` cuenta igual (es una serie efectiva).
+
+### 3.5. Estados y copy
+
+| Caso | Título | Detalle |
+| :--- | :--- | :--- |
+| Récord de peso | `¡Nuevo récord!` | `85 kg × 5 · tu mejor marca en Sentadilla` |
+| Récord de reps | `¡Nuevo récord!` | `80 kg × 9 · nunca hiciste tantas reps con este peso` |
+| Récord, peso corporal | `¡Nuevo récord!` | `14 reps · tu mejor marca en Dominadas` |
+| Línea extra solo `TECNICA` | — | `1RM estimado: 99 kg (+3 kg)` |
+| Sin récord | — | Se muestra el aviso verde actual `Serie N guardada · 80 kg × 6`, sin cambios. |
+| Sin datos (offline sin descarga previa) | — | Sin récord (no se puede comparar); aviso verde normal. No se recalcula después. |
+
+- "Cargando" no existe: la decisión es local y sincrónica con datos ya guardados.
+- Nada de "¡Increíble, bestia!" ni emojis en el texto: el trofeo y el color dicen suficiente. El nombre del ejercicio es el de `ejercicios.nombre`.
+
+### 3.6. Clases Tailwind y feedback
+
+```tsx
+<div
+  role="status"
+  aria-live="polite"
+  className="mb-4 flex items-start justify-between gap-2 rounded-xl border-2 border-warning bg-warning/15 px-3.5 py-3 text-foreground
+             transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none
+             data-[enter=true]:opacity-0 data-[enter=true]:translate-y-1"
+  data-testid="nuevo-record-banner"
+>
+  <div className="flex items-start gap-2.5">
+    <Trophy className="h-6 w-6 shrink-0 text-warning" aria-hidden="true" />
+    <div>
+      <p className="text-base font-extrabold">¡Nuevo récord!</p>
+      <p className="text-sm font-medium">
+        <span className="font-mono font-bold tabular-nums">85 kg × 5</span> · tu mejor marca en Sentadilla
+      </p>
+      {/* solo TECNICA */}
+      <p className="text-xs text-muted-foreground font-mono tabular-nums">1RM estimado: 99 kg (+3 kg)</p>
+    </div>
+  </div>
+  <button type="button" aria-label="Cerrar aviso de récord"
+          className="-m-2 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-foreground/70 hover:text-foreground touch-manipulation">
+    <X className="h-4 w-4" />
+  </button>
+</div>
+```
+
+- **Color:** token `warning` (dorado: `#F59E0B` en claro, `#FBBF24` en oscuro, ver `src/app/globals.css`). El texto va en `text-foreground`, **no** en dorado, para mantener AA sobre el fondo `warning/15`. El dorado solo va en el borde y el trofeo (elementos gráficos, requisito 3:1 cumplido).
+- **Movimiento:** solo entrada de opacidad + 4 px hacia arriba en 200 ms por CSS. Sin confeti, sin Lottie, sin escalado (Regla Ponytail).
+- **Vibración:** `triggerHapticVibration([60, 40, 60])` (`src/lib/sound.ts`) una vez. Sin sonido: el beep queda reservado al timer de descanso.
+- **Duración:** queda visible hasta registrar la serie siguiente o tocar ✕ (igual que el aviso verde). El ✕ mide **48 × 48 px** (el ✕ actual del aviso verde mide ~18 px: corregirlo con las mismas clases en esa misma pasada).
+- **Registro del día:** `<Trophy className="h-4 w-4 text-warning" aria-label="Récord" />` a la derecha del peso de la fila.
+
+### 3.7. Criterios de aceptación
+- GIVEN marcas de Sentadilla con frontera `[100×3, 90×6, 80×8]` WHEN registra `95 kg × 5` THEN ve récord de reps (`nunca hiciste tantas reps con este peso`): nadie hizo ≥ 95 kg con ≥ 5 reps.
+- GIVEN la misma frontera WHEN registra `90 kg × 6` THEN **no** es récord (lo iguala) y ve el aviso verde.
+- GIVEN la misma frontera WHEN registra `102,5 kg × 1` THEN ve récord de peso.
+- GIVEN la misma frontera WHEN registra `60 kg × 15` THEN **no** es récord (60 < 0,8 × 100).
+- GIVEN vista `SIMPLE` THEN el aviso no contiene "1RM" en ningún caso.
+- GIVEN un ejercicio que nunca hizo WHEN registra la primera serie THEN no hay récord.
+- GIVEN serie 2 récord con 85 × 5 WHEN la serie 3 es 85 × 5 THEN no se repite el récord.
