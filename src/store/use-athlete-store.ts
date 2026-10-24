@@ -17,6 +17,9 @@ import type {
   MotivoCambioDia,
 } from "@/types/database.types";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
+import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -38,6 +41,7 @@ export interface LiveWorkoutSet {
 
 export interface LiveWorkoutExercise {
   id: string;
+  ejercicio_id?: string; // ejercicios_en_rutina.ejercicio_id: ejercicio canónico del catálogo
   nombre: string;
   musculos_principales: string[];
   descanso_segundos: number;
@@ -99,8 +103,12 @@ interface AthleteStoreState {
     dia_sugerido_id?: string | null;
     motivo_cambio_dia?: MotivoCambioDia | null;
   }>;
+  // "La última vez" por ejercicio_id (GOZS-159). null = sin historial; undefined = todavía no consultado.
+  ultimaVez: Record<string, UltimaVezEjercicio | null>;
+  cargandoUltimaVez: boolean;
 
   // Actions
+  cargarUltimaVez: () => Promise<void>;
   empezarDia: (diaId: string) => void;
   volverAlInicio: () => void;
   elegirOtroDia: (
@@ -341,6 +349,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       diaSugeridoId: null,
       motivoCambioDia: null,
       sesionesCompletadas: [],
+      ultimaVez: {},
+      cargandoUltimaVez: false,
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -861,6 +871,49 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
       },
 
+      // Descarga "la última vez" de los ejercicios del día al abrir la sesión (spec historial-progreso §0.3, §1.3).
+      // Sin red no consulta: queda lo persistido. Nunca bloquea el registro de una serie.
+      cargarUltimaVez: async () => {
+        const session = get().currentSession;
+        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => UUID_RE.test(id));
+        if (ids.length === 0 || !useOfflineQueueStore.getState().isOnline) return;
+
+        // Solo sesiones anteriores al día de la sesión en curso (hora de Buenos Aires).
+        const antesDe = `${session.fecha}T00:00:00-03:00`;
+        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+        set({ cargandoUltimaVez: true });
+        try {
+          const filas = await Promise.all(
+            ids.map(async (id) => {
+              let q = supabase
+                .from("registro_series")
+                .select(
+                  "ejercicio_id, sesion_id, numero_serie, peso_kg, reps_hechas, rpe_real, completada, set_type, registro_sesiones!inner(fecha)",
+                )
+                .eq("ejercicio_id", id)
+                .eq("completada", true)
+                .gte("reps_hechas", 1)
+                .or("set_type.is.null,set_type.neq.WARMUP")
+                .lt("registro_sesiones.fecha", antesDe);
+              if (alumnoId) q = q.eq("registro_sesiones.alumno_id", alumnoId);
+              const { data, error } = await q.order("registro_sesiones(fecha)", { ascending: false }).limit(50);
+              if (error || !data) return null;
+              const series: SerieHistorica[] = data.map(({ registro_sesiones, ...s }) => ({
+                ...s,
+                fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
+              }));
+              return [id, ultimaVezDeEjercicio(series, id, antesDe)] as const;
+            }),
+          );
+          const nuevas = Object.fromEntries(filas.filter((f) => f !== null));
+          set((s) => ({ ultimaVez: { ...s.ultimaVez, ...nuevas } }));
+        } catch (e) {
+          console.warn("No se pudo descargar «la última vez»:", e);
+        } finally {
+          set({ cargandoUltimaVez: false });
+        }
+      },
+
       syncSessionToSupabase: async () => {
         const state = get();
         const session = state.currentSession;
@@ -868,7 +921,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         // Aplanar todas las series
         const allSets = session.ejercicios.flatMap((e) =>
-          e.series.map((s) => ({ ...s, exerciseId: e.id }))
+          e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
         );
 
         const totalVol = allSets.reduce((acc, s) => {
@@ -1077,6 +1130,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
           return {
             id: er.id || `ej-${idx + 1}`,
+            ejercicio_id: er.ejercicio_id,
             nombre: ejMaestro?.nombre || `Ejercicio #${idx + 1}`,
             musculos_principales: ejMaestro?.musculos_principales || [],
             descanso_segundos: er.descanso_segundos || 60,
@@ -1158,6 +1212,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         onboardingCompletado: state.onboardingCompletado,
         mostrarTimerDescanso: state.mostrarTimerDescanso,
         sesionesCompletadas: state.sesionesCompletadas,
+        ultimaVez: state.ultimaVez,
         diaElegidoHoyId: state.diaElegidoHoyId,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,

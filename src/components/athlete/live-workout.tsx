@@ -32,6 +32,7 @@ import {
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { UltimaVez } from "@/components/athlete/ultima-vez";
 
 export function LiveWorkout() {
   const {
@@ -61,6 +62,9 @@ export function LiveWorkout() {
     diaActivoId,
     volverAlInicio,
     marcarDiaCompletado,
+    ultimaVez,
+    cargandoUltimaVez,
+    cargarUltimaVez,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -115,7 +119,12 @@ export function LiveWorkout() {
     setNumber: number;
   } | null>(null);
 
-  const { syncError, clearSyncError } = useOfflineQueueStore();
+  const { syncError, clearSyncError, isOnline } = useOfflineQueueStore();
+
+  // "La última vez": se descarga al abrir la sesión y al volver la conexión (queda persistida para modo avión).
+  React.useEffect(() => {
+    if (isOnline) void cargarUltimaVez();
+  }, [currentSession.id, isOnline, cargarUltimaVez]);
 
   const totalSets = currentSession.ejercicios.reduce(
     (acc, ej) => acc + ej.series.length,
@@ -734,21 +743,18 @@ export function LiveWorkout() {
                       data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
                     >
                       {/* Cabecera de la serie */}
-                      <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
-                        <div>
-                          <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-foreground">
-                            Serie <span className="font-mono text-primary">{serie.numero_serie}</span>{" "}
-                            <span className="text-muted-foreground font-semibold text-base">
-                              de <span className="font-mono">{currentExercise.series.length}</span>
-                            </span>
+                      <div className="space-y-1 border-b border-border/60 pb-3">
+                        <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-foreground">
+                          Serie <span className="font-mono text-primary">{serie.numero_serie}</span>{" "}
+                          <span className="text-muted-foreground font-semibold text-base">
+                            de <span className="font-mono">{currentExercise.series.length}</span>
                           </span>
-                        </div>
-                        <div className="text-xs sm:text-sm font-medium text-muted-foreground">
-                          Última vez:{" "}
-                          <span className="font-mono font-bold text-foreground">
-                            {serie.last_session_weight_kg || serie.peso_kg} kg × {serie.last_session_reps || serie.reps_hechas}
-                          </span>
-                        </div>
+                        </span>
+                        <UltimaVez
+                          ultima={ultimaVez[currentExercise.ejercicio_id ?? currentExercise.id]}
+                          numeroSerie={serie.numero_serie}
+                          cargando={cargandoUltimaVez}
+                        />
                       </div>
 
                       {/* Stepper Peso (kg) con botones de gran formato 48-64px */}
@@ -1132,18 +1138,26 @@ export function LiveWorkout() {
                                 className="flex items-center justify-between p-3.5 sm:px-4"
                                 data-testid={`log-row-${ej.id}-${s.numero_serie}`}
                               >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs font-semibold text-muted-foreground w-16">
-                                    Serie {s.numero_serie}
-                                  </span>
-                                  <span className="font-mono font-bold text-base sm:text-lg text-foreground">
-                                    {s.peso_kg} kg × {s.reps_hechas}
-                                  </span>
-                                  {!isSimpleView && (
-                                    <span className="text-xs text-muted-foreground font-mono">
-                                      @RPE {s.rpe_real}
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs font-semibold text-muted-foreground w-16">
+                                      Serie {s.numero_serie}
                                     </span>
-                                  )}
+                                    <span className="font-mono font-bold text-base sm:text-lg text-foreground">
+                                      {s.peso_kg} kg × {s.reps_hechas}
+                                    </span>
+                                    {!isSimpleView && (
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                        @RPE {s.rpe_real}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <UltimaVez
+                                    ultima={ultimaVez[ej.ejercicio_id ?? ej.id]}
+                                    numeroSerie={s.numero_serie}
+                                    cargando={cargandoUltimaVez}
+                                    compacta
+                                  />
                                 </div>
 
                                 <button
