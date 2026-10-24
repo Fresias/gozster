@@ -9,14 +9,14 @@ const view = read("../components/coach/coach-studio-view.tsx");
 const strip = read("../components/coach/business-kpi-strip.tsx");
 
 describe("GOZS-136: franja de 4 KPIs para ADMIN en Modo Testeo", () => {
-  it("visibilidad: solo Testeo (ENTRENADOR o ADMIN, GOZS-139); si no, el banner actual", () => {
-    expect(view).toContain("const showKpiStrip = isTestMode;");
-    expect(view).toMatch(/\{showKpiStrip \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
+  it("visibilidad: Testeo (ENTRENADOR o ADMIN, GOZS-139) o ADMIN en Producción (GOZS-137); si no, el banner actual", () => {
+    expect(view).toContain("const showKpiStrip = isTestMode || esAdmin;");
+    expect(view).toMatch(/\{showKpiStrip \? \(\s*isTestMode \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
   });
 
   it("el click despliega la tabla y aplica el filtro; el filtro se deriva con el toggle", () => {
     expect(view).toMatch(/setIsAlumnosExpanded\(true\);\s*setSinEntrenarFilter\(true\);/);
-    expect(view).toContain("const effectiveSinEntrenar = sinEntrenarFilter && showKpiStrip;");
+    expect(view).toContain("const effectiveSinEntrenar = sinEntrenarFilter && isTestMode;");
     expect(view).toContain("sin_entrenar_7d_ids.includes(a.id)");
     expect(view).toContain("Sin entrenar +7 días ✕");
   });
