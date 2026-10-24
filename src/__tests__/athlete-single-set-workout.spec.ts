@@ -10,6 +10,7 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
   const tabsPath = path.resolve(__dirname, "../components/ui/tabs.tsx");
 
   const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ultimaVezCode = fs.readFileSync(path.resolve(__dirname, "../components/athlete/ultima-vez.tsx"), "utf-8");
 
   beforeEach(() => {
     useOfflineQueueStore.setState({
@@ -58,7 +59,10 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
       expect(liveWorkoutCode).toContain('data-testid="registrar-serie-btn"');
       expect(liveWorkoutCode).toContain('{serie.numero_serie}');
       expect(liveWorkoutCode).toContain('{currentExercise.series.length}');
-      expect(liveWorkoutCode).toContain("Última vez:");
+      // "La última vez" vive en su componente (GOZS-159) y la tarjeta lo usa.
+      expect(liveWorkoutCode).toContain("<UltimaVez");
+      expect(ultimaVezCode).toContain("Última vez:");
+      expect(liveWorkoutCode).not.toContain("last_session_weight_kg || serie.peso_kg");
     });
 
     it("la confirmación optimista de serie guardada usa los colores y formato de spec", () => {

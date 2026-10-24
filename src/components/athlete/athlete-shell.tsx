@@ -67,9 +67,10 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <nav aria-label="Secciones Athlete" className="grid grid-cols-2 gap-2 border-b border-border/80 bg-card/95 px-4 py-2">
+      <nav aria-label="Secciones Athlete" className="grid grid-cols-3 gap-2 border-b border-border/80 bg-card/95 px-4 py-2">
         {[
           { href: "/athlete", label: "Entrenar" },
+          { href: "/athlete/progreso", label: "Progreso" },
           { href: "/athlete/clases", label: "Clases" },
         ].map((item) => (
           <Link

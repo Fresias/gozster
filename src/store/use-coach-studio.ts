@@ -284,8 +284,25 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     },
 
     getHistorialCargasAlumno: (alumnoId) => {
-      const { historialCargas } = get();
-      return historialCargas[alumnoId] ?? [];
+      const { historialCargas, dias, planes } = get();
+      const raw = historialCargas[alumnoId] ?? [];
+      return raw.map((entry) => {
+        if (entry.plan !== undefined) {
+          return entry;
+        }
+        if (!entry.sesion.dia_id) {
+          return { ...entry, plan: null };
+        }
+        const dia = dias.find((d) => d.id === entry.sesion.dia_id);
+        if (!dia || !dia.plan_id) {
+          return { ...entry, plan: null };
+        }
+        const plan = planes.find((p) => p.id === dia.plan_id);
+        return {
+          ...entry,
+          plan: plan ? { id: plan.id, nombre: plan.nombre } : null,
+        };
+      });
     },
 
     getSustitucionesPlan: (planId: string) => {

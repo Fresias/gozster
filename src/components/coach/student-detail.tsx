@@ -34,6 +34,8 @@ import {
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 import { StudentPainAlerts } from "@/components/coach/student-pain-alerts";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-data";
+import { AdherenciaCard, type EstadoAdherencia } from "@/components/coach/adherencia-card";
+import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -196,6 +198,61 @@ export function StudentDetail({
       isMounted = false;
     };
   }, [alumno.id, cuestionarioProp]);
+
+  // GOZS-163 (§5): calendario de adherencia. Lee registro_sesiones del alumno con el
+  // cliente del coach (RLS lo permite) y arma el modelo con la función pura.
+  const [adherencia, setAdherencia] = React.useState<Adherencia | null>(null);
+  const [estadoAdherencia, setEstadoAdherencia] =
+    React.useState<EstadoAdherencia>("cargando");
+  const [recargaAdherencia, setRecargaAdherencia] = React.useState(0);
+  const objetivoAdherencia = rutinaActiva
+    ? dias.filter((d) => d.plan_id === rutinaActiva.id).length
+    : null;
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function cargarAdherencia() {
+      setEstadoAdherencia("cargando");
+      try {
+        if (!supabase) {
+          if (isMounted) {
+            setAdherencia(armarAdherencia([], new Date(), objetivoAdherencia, null));
+            setEstadoAdherencia("listo");
+          }
+          return;
+        }
+        const desde = new Date(Date.now() - 371 * 86_400_000).toISOString();
+        const [recientes, primera] = await Promise.all([
+          supabase
+            .from("registro_sesiones")
+            .select("fecha")
+            .eq("alumno_id", alumno.id)
+            .gte("fecha", desde)
+            .order("fecha", { ascending: false })
+            .limit(1000),
+          supabase
+            .from("registro_sesiones")
+            .select("fecha")
+            .eq("alumno_id", alumno.id)
+            .order("fecha", { ascending: true })
+            .limit(1),
+        ]);
+        if (recientes.error || primera.error) throw recientes.error ?? primera.error;
+        if (!isMounted) return;
+        const sesiones = (recientes.data ?? []) as { fecha: string }[];
+        const primeraSesion =
+          (primera.data?.[0] as { fecha: string } | undefined)?.fecha ?? null;
+        setAdherencia(armarAdherencia(sesiones, new Date(), objetivoAdherencia, primeraSesion));
+        setEstadoAdherencia("listo");
+      } catch {
+        if (isMounted) setEstadoAdherencia("error");
+      }
+    }
+    cargarAdherencia();
+    return () => {
+      isMounted = false;
+    };
+  }, [alumno.id, objetivoAdherencia, recargaAdherencia]);
 
   const handleToggleNivelVista = async (nuevoNivel: NivelVistaAlumno) => {
     if (nuevoNivel === nivelVista) return;
@@ -492,6 +549,13 @@ export function StudentDetail({
           </div>
         </CardContent>
       </Card>
+
+      {/* Calendario de adherencia y "días sin entrenar" (GOZS-163, spec §5) */}
+      <AdherenciaCard
+        estado={estadoAdherencia}
+        data={adherencia}
+        onReintentar={() => setRecargaAdherencia((n) => n + 1)}
+      />
 
       {/* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */}
       <Card data-testid="coach-nivel-vista-card">
