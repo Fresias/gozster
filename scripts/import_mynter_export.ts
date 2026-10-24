@@ -668,6 +668,220 @@ export function reutilizarDias(
 }
 
 // ============================================================================
+// Historial: sesiones, series y avisos de dolor
+// ============================================================================
+
+export interface SesionHistorial {
+  id: string;
+  alumno_id: string;
+  dia_id: string | null;
+  fecha: string;
+  volumen_total_kg: number;
+}
+
+export interface SerieHistorial {
+  id: string;
+  sesion_id: string;
+  ejercicio_id: string;
+  numero_serie: number;
+  reps_hechas: number;
+  peso_kg: number;
+  completada: true;
+  rpe_real: null;
+  notas: string | null;
+}
+
+export interface DolorHistorial {
+  id: string;
+  alumno_id: string;
+  ejercicio_id: string;
+  zona_articular: 'OTRO';
+  notas_alumno: string | null;
+  fecha_reporte: string;
+}
+
+export interface ReporteAlumno {
+  sesiones: number;
+  series: number;
+  duplicadosIdenticos: number;
+  conflictos: string[];
+  sinMapeo: number;
+  ejerciciosMultiplan: number;
+}
+
+export interface HistorialResultado {
+  sesiones: SesionHistorial[];
+  series: SerieHistorial[];
+  dolores: DolorHistorial[];
+  reporte: Record<string, ReporteAlumno>;
+  sinFicha: string[];
+  sinMapeoIds: string[];
+  choquesDeSerie: number;
+}
+
+/** Registros de series de un alumno del historial (sueltos o dentro de cada plan). */
+function registrosDeAlumno(al: Raw): Raw[] {
+  const sueltos = [al?.registros, al?.registrosSeries, al?.historial].find(Array.isArray) as Raw[] | undefined;
+  if (sueltos) return sueltos;
+  return (Array.isArray(al?.planes) ? (al.planes as Raw[]) : []).flatMap((p) => (Array.isArray(p?.registros) ? p.registros : []));
+}
+
+const contenidoRegistro = (r: Raw) =>
+  JSON.stringify([r?.fecha ?? null, r?.peso ?? null, r?.nroRep ?? null, r?.nroSerie ?? null, r?.comentario ?? null, r?.notificoDolor ?? null]);
+
+/** Deduplica por `id` comparando el contenido: iguales se descartan; distintos son conflicto y no se descarta ninguno. */
+export function deduplicarRegistros(registros: Raw[]): { unicos: Raw[]; identicos: number; conflictos: string[] } {
+  const vistos = new Map<string, Raw>();
+  const conflictos = new Set<string>();
+  const unicos: Raw[] = [];
+  let identicos = 0;
+  for (const r of registros) {
+    const id = String(r?.id ?? '');
+    const previo = vistos.get(id);
+    if (!previo) {
+      vistos.set(id, r);
+      unicos.push(r);
+    } else if (contenidoRegistro(previo) === contenidoRegistro(r)) {
+      identicos++;
+    } else {
+      conflictos.add(id);
+      unicos.push(r);
+    }
+  }
+  return { unicos, identicos, conflictos: [...conflictos] };
+}
+
+const numero = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+export function construirHistorial(
+  alumnosHistorial: Raw[],
+  mapa: Record<string, string>,
+  planes: PlanAlumno[],
+  dias: DiaPlantilla[],
+  rutina: FilaRutina[],
+  idsAlumnosConFicha: Set<string>
+): HistorialResultado {
+  const res: HistorialResultado = { sesiones: [], series: [], dolores: [], reporte: {}, sinFicha: [], sinMapeoIds: [], choquesDeSerie: 0 };
+  const sinMapeo = new Set<string>();
+  const diasDePlan = new Map<string, DiaPlantilla[]>();
+  for (const d of dias) diasDePlan.set(d.plan_id, [...(diasDePlan.get(d.plan_id) ?? []), d]);
+  const ordenEnDia = new Map<string, number>();
+  for (const r of rutina) if (!ordenEnDia.has(`${r.dia_id}:${r.ejercicio_id}`)) ordenEnDia.set(`${r.dia_id}:${r.ejercicio_id}`, r.orden);
+
+  for (const al of alumnosHistorial) {
+    const alumnoId = toUUID(String(al?.id ?? ''));
+    if (!idsAlumnosConFicha.has(alumnoId)) {
+      res.sinFicha.push(String(al?.id ?? ''));
+      continue;
+    }
+    const dedup = deduplicarRegistros(registrosDeAlumno(al));
+    const rep: ReporteAlumno = {
+      sesiones: 0,
+      series: 0,
+      duplicadosIdenticos: dedup.identicos,
+      conflictos: dedup.conflictos,
+      sinMapeo: 0,
+      ejerciciosMultiplan: 0,
+    };
+    res.reporte[String(al.id)] = rep;
+
+    const planesAlumno = planes.filter((p) => p.alumno_id === alumnoId);
+    const planVigente = (t: number) =>
+      planesAlumno.find((p) => {
+        const ini = Date.parse(p.fecha_inicio ?? '');
+        const fin = p.fecha_fin ? Date.parse(p.fecha_fin) : Infinity;
+        return !Number.isNaN(ini) && t >= ini && t < fin;
+      });
+
+    const porDia = new Map<string, { ejercicio: string; r: Raw; fechaMs: number }[]>();
+    for (const r of dedup.unicos) {
+      const origen = String(r?.idEjercicio ?? r?.idOrigen ?? '');
+      const ejercicio = mapa[origen];
+      const fechaMs = Date.parse(String(r?.fecha ?? ''));
+      if (!ejercicio || Number.isNaN(fechaMs)) {
+        rep.sinMapeo++;
+        sinMapeo.add(origen || String(r?.id ?? ''));
+        continue;
+      }
+      const dia = new Date(fechaMs).toISOString().slice(0, 10);
+      porDia.set(dia, [...(porDia.get(dia) ?? []), { ejercicio, r, fechaMs }]);
+    }
+
+    const planesPorEjercicio = new Map<string, Set<string>>();
+    for (const dia of [...porDia.keys()].sort()) {
+      const regs = porDia.get(dia)!;
+      const sesionId = toUUID(`sesion-${alumnoId}-${dia}`);
+      const inicioSesion = Math.min(...regs.map((x) => x.fechaMs));
+      const plan = planVigente(inicioSesion);
+      // dia_id: el día del plan vigente con más ejercicios de la sesión (empate: el primero).
+      let diaId: string | null = null;
+      let mejor = 0;
+      for (const d of diasDePlan.get(plan?.id ?? '') ?? []) {
+        const n = new Set(regs.filter((x) => ordenEnDia.has(`${d.id}:${x.ejercicio}`)).map((x) => x.ejercicio)).size;
+        if (n > mejor) {
+          mejor = n;
+          diaId = d.id;
+        }
+      }
+      if (plan) for (const x of regs) planesPorEjercicio.set(x.ejercicio, (planesPorEjercicio.get(x.ejercicio) ?? new Set()).add(plan.id));
+
+      regs.sort(
+        (a, b) =>
+          a.fechaMs - b.fechaMs ||
+          (ordenEnDia.get(`${diaId}:${a.ejercicio}`) ?? Infinity) - (ordenEnDia.get(`${diaId}:${b.ejercicio}`) ?? Infinity) ||
+          numero(a.r.nroSerie) - numero(b.r.nroSerie)
+      );
+      const series = new Map<string, SerieHistorial>();
+      for (const { ejercicio, r } of regs) {
+        const nro = Math.max(1, Math.trunc(numero(r.nroSerie)) || 1);
+        const serie: SerieHistorial = {
+          id: toUUID(`serie-${sesionId}-${ejercicio}-${nro}`),
+          sesion_id: sesionId,
+          ejercicio_id: ejercicio,
+          numero_serie: nro,
+          reps_hechas: Math.max(0, Math.trunc(numero(r.nroRep))),
+          peso_kg: Math.max(0, numero(r.peso)),
+          completada: true,
+          rpe_real: null,
+          notas: String(r.comentario ?? '').trim() || null,
+        };
+        const previa = series.get(serie.id);
+        if (previa) res.choquesDeSerie++;
+        if (!previa || serie.peso_kg > previa.peso_kg) series.set(serie.id, serie);
+        if (r.notificoDolor === true) {
+          res.dolores.push({
+            id: toUUID(`dolor-${r.id}`),
+            alumno_id: alumnoId,
+            ejercicio_id: ejercicio,
+            zona_articular: 'OTRO',
+            notas_alumno: serie.notas,
+            fecha_reporte: dia,
+          });
+        }
+      }
+      let volumen = 0;
+      for (const s of series.values()) volumen += s.peso_kg * s.reps_hechas;
+      res.sesiones.push({
+        id: sesionId,
+        alumno_id: alumnoId,
+        dia_id: diaId,
+        fecha: new Date(inicioSesion).toISOString(),
+        volumen_total_kg: Math.round(volumen * 100) / 100,
+      });
+      res.series.push(...series.values());
+      rep.sesiones++;
+      rep.series += series.size;
+    }
+    rep.ejerciciosMultiplan = [...planesPorEjercicio.values()].filter((s) => s.size > 1).length;
+  }
+  res.sinMapeoIds = [...sinMapeo];
+  return res;
+}
+
+// ============================================================================
 // CLI
 // ============================================================================
 
@@ -800,15 +1014,88 @@ export async function alumnosPlanes(args: string[]): Promise<void> {
   if (errores.length) process.exit(1);
 }
 
+export async function historial(args: string[]): Promise<void> {
+  const dir = process.env.MYNTER_EXPORT_DIR;
+  if (!dir) throw new Error('Definí MYNTER_EXPORT_DIR (carpeta fuera del repo).');
+  const dryRun = args.includes('--dry-run');
+  const leer = (re: RegExp) => {
+    const f = fs.readdirSync(dir).find((n) => re.test(n));
+    if (!f) throw new Error(`Falta un archivo ${re} en ${dir}`);
+    return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+  };
+  const entradas: Raw[] = leer(/^mynter-alumnos.*\.json$/);
+  const exportado: Raw = leer(/^mynter-historial-completo.*\.json$/);
+  const mapaPath = path.join(dir, 'mapa-ejercicios.json');
+  if (!fs.existsSync(mapaPath)) throw new Error('Falta mapa-ejercicios.json: corré antes catalogo-plantillas.');
+  const mapa: Record<string, string> = JSON.parse(fs.readFileSync(mapaPath, 'utf8'));
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!dryRun && (!url || !key)) throw new Error('Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (o usá --dry-run).');
+  const client = !dryRun && url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+
+  let profesorId = toUUID(String(entradas[0]?.idProfesional ?? '66b8a2401ce75e2e247c5ff6'));
+  if (client) {
+    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.mynter@gozster.local';
+    const prof = await client.from('perfiles').select('id').eq('email', email).maybeSingle();
+    if (prof.error || !prof.data) throw new Error(`No existe el perfil del entrenador (${email}). Corré antes el seed (#26).`);
+    profesorId = prof.data.id;
+  }
+
+  const idsConFicha = new Set(construirAlumnos(entradas, profesorId).perfiles.map((p) => p.id));
+  const pl = construirPlanesAlumnos(exportado.alumnos ?? [], mapa, profesorId, idsConFicha);
+  let { dias, rutina } = pl;
+  if (client) {
+    const ex = await client.from('dias_rutina').select('id, plan_id, orden').in('plan_id', pl.planes.map((p) => p.id));
+    if (ex.error) throw new Error(ex.error.message);
+    ({ dias, rutina } = reutilizarDias(dias, rutina, new Map((ex.data ?? []).map((d) => [`${d.plan_id}:${d.orden}`, d.id]))));
+  }
+  const h = construirHistorial(exportado.alumnos ?? [], mapa, pl.planes, dias, rutina, idsConFicha);
+
+  for (const [id, r] of Object.entries(h.reporte)) {
+    console.log(
+      `Alumno ${id}: ${r.sesiones} sesiones, ${r.series} series, duplicados idénticos descartados: ${r.duplicadosIdenticos}, ` +
+        `conflictos: ${r.conflictos.length}, sin mapeo: ${r.sinMapeo}, ejercicios con historial en más de un plan: ${r.ejerciciosMultiplan}`
+    );
+  }
+  const conflictos = Object.entries(h.reporte).flatMap(([id, r]) => r.conflictos.map((c) => `${id}: ${c}`));
+  console.log(`Total: ${h.sesiones.length} sesiones, ${h.series.length} series, ${h.dolores.length} avisos de dolor`);
+  console.log(`Series que chocaron por (sesión, ejercicio, n.º) y quedó la de mayor peso: ${h.choquesDeSerie}`);
+  console.log(`Ejercicios sin mapeo (${h.sinMapeoIds.length}): ${h.sinMapeoIds.join(', ') || '-'}`);
+  console.log(`Alumnos del historial sin ficha (omitidos): ${h.sinFicha.length}`);
+  if (conflictos.length) {
+    console.error(`Conflictos: ${conflictos.length} registros con el mismo id y distinto contenido. No se escribió nada:`);
+    for (const c of conflictos) console.error(` - ${c}`);
+    process.exit(1);
+  }
+
+  const errores: string[] = [];
+  if (client) {
+    const subir = async (tabla: string, filas: object[]) => {
+      for (const lote of lotes(filas)) {
+        const { error } = await client.from(tabla).upsert(lote, { onConflict: 'id' });
+        if (error) errores.push(`${tabla}: ${error.message}`);
+      }
+    };
+    await subir('registro_sesiones', h.sesiones);
+    await subir('registro_series', h.series);
+    await subir('alumno_historial_dolor', h.dolores);
+  }
+  console.log(`Conflictos: 0. Errores: ${errores.length}${dryRun ? ' (dry-run: no se escribió en la base)' : ''}`);
+  for (const e of errores) console.error(` - ${e}`);
+  if (errores.length) process.exit(1);
+}
+
 if (process.argv[1]?.includes('import_mynter_export')) {
   const [sub, ...resto] = process.argv.slice(2);
   const comandos: Record<string, (a: string[]) => Promise<void>> = {
     'catalogo-plantillas': catalogoPlantillas,
     'alumnos-planes': alumnosPlanes,
+    historial,
   };
   const comando = comandos[sub ?? ''];
   if (!comando) {
-    console.error('Uso: tsx scripts/import_mynter_export.ts <catalogo-plantillas|alumnos-planes> [--dry-run] [--solo-usados]');
+    console.error('Uso: tsx scripts/import_mynter_export.ts <catalogo-plantillas|alumnos-planes|historial> [--dry-run] [--solo-usados]');
     process.exit(1);
   }
   comando(resto).catch((e) => {
