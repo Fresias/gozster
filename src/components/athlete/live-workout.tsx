@@ -33,6 +33,8 @@ import {
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { UltimaVez } from "@/components/athlete/ultima-vez";
+import { SugerenciaCarga } from "@/components/athlete/sugerencia-carga";
+import { sugerirCarga } from "@/lib/sugerencia-carga";
 
 export function LiveWorkout() {
   const {
@@ -175,6 +177,33 @@ export function LiveWorkout() {
   const ejercicio = currentExercise!;
   const serie = currentSet;
 
+  // Sugerencia de carga (GOZS-160, spec historial-progreso §2) para la serie visible.
+  const sugerencia =
+    currentExercise && serie
+      ? sugerirCarga(ultimaVez[currentExercise.ejercicio_id ?? currentExercise.id], {
+          numeroSerie: serie.numero_serie,
+          repeticionesObjetivo: currentExercise.repeticiones_objetivo,
+          seriesPrescriptas: currentExercise.series.length,
+          musculosPrincipales: currentExercise.musculos_principales,
+          setType: serie.set_type,
+        })
+      : null;
+
+  // §2.5: se precarga una sola vez por serie pendiente y nunca encima de lo que el alumno ya tocó.
+  const seriesTocadas = React.useRef(new Set<string>());
+  const claveSerie = currentExercise && serie ? `${currentExercise.id}-${serie.numero_serie}` : null;
+  const pesoSugerido = sugerencia?.pesoSugerido;
+  const repsSugeridas = sugerencia?.repsSugeridas;
+  React.useEffect(() => {
+    if (!claveSerie || !currentExercise || !serie || serie.completada) return;
+    if (pesoSugerido === undefined || repsSugeridas === undefined) return;
+    if (seriesTocadas.current.has(claveSerie)) return;
+    seriesTocadas.current.add(claveSerie);
+    updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoSugerido);
+    updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsSugeridas);
+    // Deps a propósito: solo cuando aparece la sugerencia de esa serie, no en cada cambio del stepper.
+  }, [claveSerie, pesoSugerido, repsSugeridas]);
+
   // Registrar serie actual
   const handleRegistrarSerie = () => {
     if (!currentExercise || !currentSet) return;
@@ -201,12 +230,14 @@ export function LiveWorkout() {
 
   const handleAdjustPeso = (delta: number) => {
     if (!currentExercise || !currentSet) return;
+    seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
     const newWeight = Math.max(0, currentSet.peso_kg + delta);
     updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", newWeight);
   };
 
   const handleAdjustReps = (delta: number) => {
     if (!currentExercise || !currentSet) return;
+    seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
     const newReps = Math.max(1, currentSet.reps_hechas + delta);
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
   };
@@ -756,6 +787,13 @@ export function LiveWorkout() {
                           cargando={cargandoUltimaVez}
                         />
                       </div>
+
+                      <SugerenciaCarga
+                        sugerencia={sugerencia}
+                        vista={isSimpleView ? "SIMPLE" : "TECNICA"}
+                        pesoActual={serie.peso_kg}
+                        repsActuales={serie.reps_hechas}
+                      />
 
                       {/* Stepper Peso (kg) con botones de gran formato 48-64px */}
                       <div className="space-y-1.5">

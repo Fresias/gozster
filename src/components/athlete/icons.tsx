@@ -206,3 +206,21 @@ export function History(props: IconProps) {
     </Icon>
   );
 }
+
+export function TrendingUp(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M16 7h6v6" />
+      <path d="m22 7-8.5 8.5-5-5L2 17" />
+    </Icon>
+  );
+}
+
+export function Equal(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <line x1="5" x2="19" y1="9" y2="9" />
+      <line x1="5" x2="19" y1="15" y2="15" />
+    </Icon>
+  );
+}

@@ -179,12 +179,16 @@ export function formatearPeso(peso: number): string {
   return `${kg.format(peso)} kg`;
 }
 
-// §2.6: título visible (no depende de la vista SIMPLE/TECNICA).
+// §2.6: título visible (no depende de la vista SIMPLE/TECNICA). El valor va aparte para la tipografía mono.
+export function partesTitulo(s: SugerenciaCarga): { prefijo: string; valor: string } {
+  const prefijo = s.tipo === "repetir" ? "Repetí" : s.esPesoCorporal ? "Probá" : "Subí a";
+  const valor = s.esPesoCorporal ? `${s.repsSugeridas} reps` : formatearPeso(s.pesoSugerido);
+  return { prefijo, valor };
+}
+
 export function tituloSugerencia(s: SugerenciaCarga): string {
-  if (s.esPesoCorporal) {
-    return s.tipo === "subir" ? `Probá ${s.repsSugeridas} reps` : `Repetí ${s.repsSugeridas} reps`;
-  }
-  return s.tipo === "subir" ? `Subí a ${formatearPeso(s.pesoSugerido)}` : `Repetí ${formatearPeso(s.pesoSugerido)}`;
+  const { prefijo, valor } = partesTitulo(s);
+  return `${prefijo} ${valor}`;
 }
 
 // §2.6: motivo visible. En vista SIMPLE el caso RPE pierde la sigla.
