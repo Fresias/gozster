@@ -1,3 +1,4 @@
+import * as React from "react";
 import { History } from "@/components/athlete/icons";
 import {
   ariaUltimaVez,
