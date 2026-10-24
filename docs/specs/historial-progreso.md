@@ -473,3 +473,129 @@ Componente `ProgresoLinea` dentro de `mi-progreso.tsx`, derivado del `Sparkline`
 - GIVEN Dominadas a peso corporal THEN el número es `14 reps` y el gráfico usa reps máximas.
 - GIVEN un alumno sin ninguna sesión THEN ve el estado vacío con el botón `Ir a entrenar`.
 - GIVEN 390 px de ancho THEN la navegación muestra `Entrenar · Progreso · Clases` sin cortes y cada botón mide ≥ 48 px de alto.
+
+---
+
+## 5. Dashboard — Calendario de adherencia y "días sin entrenar"
+
+### 5.1. Qué resuelve
+El entrenador ve de un vistazo **si el alumno viene con constancia**, semana por semana, durante el último año, y cuántos días lleva sin entrenar. Sirve para decidir: escribirle, ajustar la frecuencia del plan o no tocar nada.
+
+### 5.2. Ubicación exacta
+- **Detalle del alumno** en el Coach Studio (`src/components/coach/student-detail.tsx`): una tarjeta nueva `AdherenciaCard` **inmediatamente debajo de la tarjeta de encabezado** del alumno (la que tiene el nombre, el estado de cuota y el botón "Cargas y RPE Históricos") y **arriba** de la tarjeta "Vista recomendada" (`coach-nivel-vista-card`).
+- Componente nuevo: `src/components/coach/adherencia-card.tsx`.
+- No se agrega columna nueva al roster: ya tiene `ÚLTIMO ENTRENO` y el filtro "Sin entrenar +7 días" (GOZS-136).
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ADHERENCIA · ÚLTIMAS 52 SEMANAS                        [ 9 días sin entrenar ]  (badge)    │
+│ Promedio 12 sem.: 2,4 ses/sem (obj. 3)   ·   Semanas con objetivo cumplido: 31 de 52      │
+│                                                                                            │
+│        nov       dic       ene       feb   …                                    oct        │
+│ Lun  ▢ ■ ■ ▢ ■ ▢ ▢ ■ ■ ■ ▢ ■ …                                               ■ ▢ ▢         │
+│ Mié  ■ ▢ ■ ■ ▢ ■ ▢ ▢ ■ ■ ■ ▢ …                                               ▢ ■ ▢         │
+│ Vie  ...                                                                                   │
+│ ses  2 3 3 1 2 — 1 2 3 3 2 2 …                                               2 1 …         │
+│                                                                                            │
+│ ■ Entrenó  ▢ No entrenó  ▢ (punteado) Antes de su primera sesión    Fuente: Registro GOZSter│
+└────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3. Datos
+
+| Dato | Fuente | Regla |
+| :--- | :--- | :--- |
+| Días entrenados | `registro_sesiones` (`alumno_id`, `fecha`, `dia_id`) de los últimos **371 días** (53 semanas completas) | Un día cuenta como entrenado si tiene ≥ 1 sesión. Fechas en `America/Argentina/Buenos_Aires`. |
+| Sesiones por semana | Mismas filas | Conteo de sesiones (no días) por semana lunes–domingo. |
+| Objetivo semanal | `dias_rutina` del plan activo (`rutinaActiva`) | Cantidad de días del plan. Sin plan activo → **sin objetivo** (no se colorea nada en rojo). |
+| Días sin entrenar | Última `registro_sesiones.fecha` | Días calendario entre esa fecha y hoy. Si no hay sesiones → no hay número (ver estados). |
+| Primera sesión | Mínima `fecha` del alumno (se pide aparte, `limit 1`) | Las semanas anteriores se muestran como "sin datos", no como "no entrenó". |
+
+- Consulta directa con el cliente Supabase del coach (RLS ya permite al entrenador leer las sesiones de sus alumnos). Son ≤ ~400 filas livianas; no hace falta RPC.
+- El cálculo (grilla, conteos, promedio) va en una función pura `armarAdherencia(sesiones, hoy, objetivo, primeraSesion)` en `src/lib/adherencia.ts`, testeable con Vitest. Reutiliza `DIAS_SIN_ENTRENAR` de `src/lib/sin-entrenar.ts` para el umbral rojo.
+
+### 5.4. Grilla estilo contribuciones
+- **Columnas:** 52 semanas, la más reciente a la **derecha**. **Filas:** 7 días (lunes arriba). Etiquetas de fila solo en `Lun`, `Mié`, `Vie` (como GitHub) para no saturar.
+- **Celda:** `h-3 w-3 rounded-[3px]`, separación `gap-[3px]`. Ancho total ≈ 52 × 15 px = 780 px: entra en el panel de detalle a 1440 px. Por debajo de eso, el contenedor hace `overflow-x-auto` y arranca **scrolleado al final** (`scrollLeft = scrollWidth`), para que siempre se vea la semana actual.
+- **Colores (binario, sin escala de intensidad: el alumno entrena una vez por día):**
+
+| Estado de la celda | Clase |
+| :--- | :--- |
+| Entrenó | `bg-primary` |
+| No entrenó | `bg-surface-container` |
+| Antes de la primera sesión | `border border-dashed border-border bg-transparent` |
+| Días futuros de la semana actual | `bg-transparent` (sin borde) |
+| Hoy | se suma `ring-1 ring-foreground/50 ring-offset-1 ring-offset-card` |
+
+- **Fila de sesiones por semana** (debajo de la grilla, alineada a cada columna): `font-mono text-[10px] tabular-nums text-center w-3`.
+  - Con objetivo y `sesiones >= objetivo`: `text-foreground`.
+  - Con objetivo y `0 < sesiones < objetivo`: `text-destructive font-bold`.
+  - `0` sesiones: `—` (simbología INDEC: magnitud cero) en `text-destructive` si hay objetivo.
+  - Semana anterior a la primera sesión: `…` (INDEC: dato no disponible) en `text-muted-foreground`.
+  - Semana actual (incompleta): número en `text-muted-foreground`, nunca en rojo.
+- **Meses:** etiqueta `text-[11px] text-muted-foreground` sobre la primera columna de cada mes (`ene`, `feb`…).
+- **Hover:** cada celda lleva `title` nativo, sin tooltip custom: `mar 14 oct 2025 · 1 sesión` / `mar 14 oct 2025 · sin entrenar`. Las celdas **no** son focusables (serían 364 paradas de Tab); la accesibilidad va en el resumen (5.7).
+
+### 5.5. Resumen y "días sin entrenar"
+- **Badge "días sin entrenar"** (arriba a la derecha de la tarjeta), usando las variantes de `Badge` del Design System:
+
+| Días | Texto | Variante |
+| :--- | :--- | :--- |
+| 0 | `Entrenó hoy` | `outline` con `text-success` (`text-emerald-700` en claro) |
+| 1 | `1 día sin entrenar` | `outline` |
+| 2 a 7 | `{n} días sin entrenar` | `outline` |
+| > 7 (`DIAS_SIN_ENTRENAR`) | `{n} días sin entrenar` | `destructive` |
+| Sin sesiones | `Nunca entrenó` | `secondary` |
+
+- **Línea de resumen** (`text-xs text-muted-foreground`, números en `font-mono tabular-nums text-foreground`):
+  - `Promedio 12 sem.: 2,4 ses/sem (obj. 3)` — promedio de las últimas 12 semanas **completas** (sin contar la actual), 1 decimal con coma. Sin objetivo: se omite `(obj. 3)`.
+  - `Semanas con objetivo cumplido: 31 de 52` — solo semanas completas posteriores a la primera sesión. Sin objetivo: se omite este dato.
+- **Pie INDEC:** leyenda de colores a la izquierda y `Fuente: Registro GOZSter` a la derecha, `text-[11px] text-muted-foreground`.
+
+### 5.6. Estados
+
+| Estado | Qué se ve |
+| :--- | :--- |
+| **Cargando** | La tarjeta con su título y una grilla esqueleto `h-[120px] w-full rounded-md bg-muted animate-pulse motion-reduce:animate-none`. El badge no se muestra hasta tener datos. |
+| **Vacío** (alumno sin ninguna sesión) | Título igual, badge `Nunca entrenó`, y en lugar de la grilla: `Todavía no registró entrenamientos. El calendario se completa con cada sesión.` en `text-sm text-muted-foreground`, con una grilla de celdas punteadas detrás al 40 % de opacidad para anticipar la forma. |
+| **Con datos, < 52 semanas de historia** | Grilla completa; las semanas previas a la primera sesión en punteado y `…`. |
+| **Con datos** | Como el esquema 5.2. |
+| **Error de red** | `No se pudo cargar la adherencia.` + botón `Reintentar` (`Button variant="outline" size="sm"`, `min-h-11`). |
+
+### 5.7. Clases Tailwind (esqueleto)
+
+```tsx
+<Card data-testid="adherencia-card">
+  <CardContent className="p-4 sm:p-5 space-y-3">
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          Adherencia · últimas 52 semanas
+        </h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Promedio 12 sem.: <span className="font-mono tabular-nums text-foreground">2,4</span> ses/sem (obj. 3)
+          <span aria-hidden="true"> · </span>
+          Semanas con objetivo cumplido: <span className="font-mono tabular-nums text-foreground">31 de 52</span>
+        </p>
+      </div>
+      <Badge variant="destructive">9 días sin entrenar</Badge>
+    </div>
+    <div className="overflow-x-auto" role="img"
+         aria-label="Adherencia de las últimas 52 semanas: 31 semanas con el objetivo cumplido, promedio 2,4 sesiones por semana, 9 días sin entrenar">
+      <div className="grid grid-flow-col grid-rows-7 gap-[3px] w-max">{/* 364 celdas h-3 w-3 */}</div>
+      <div className="mt-1 grid grid-flow-col gap-[3px] w-max">{/* 52 números w-3 */}</div>
+    </div>
+    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+      <span>{/* leyenda */}</span>
+      <span>Fuente: Registro GOZSter</span>
+    </div>
+  </CardContent>
+</Card>
+```
+
+### 5.8. Criterios de aceptación
+- GIVEN un alumno con plan activo de 3 días que entrenó 2 veces la semana pasada WHEN el coach abre su detalle THEN la columna de esa semana tiene 2 celdas `bg-primary` y el número `2` en rojo.
+- GIVEN la última sesión hace 9 días THEN el badge dice `9 días sin entrenar` en variante `destructive`.
+- GIVEN un alumno cuya primera sesión fue hace 10 semanas THEN las 42 semanas anteriores se ven punteadas con `…` y no cuentan para "semanas con objetivo cumplido".
+- GIVEN un alumno sin plan activo THEN no hay números en rojo ni mención a objetivo.
+- GIVEN un monitor de 1440 px THEN la grilla entra completa sin scroll horizontal.
