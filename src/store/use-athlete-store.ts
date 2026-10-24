@@ -18,6 +18,12 @@ import type {
 } from "@/types/database.types";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
+import {
+  agregarSerieAMarcas,
+  marcasDeEjercicio,
+  type MarcasEjercicio,
+  type SerieCandidata,
+} from "@/lib/record-ejercicio";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -106,9 +112,13 @@ interface AthleteStoreState {
   // "La última vez" por ejercicio_id (GOZS-159). null = sin historial; undefined = todavía no consultado.
   ultimaVez: Record<string, UltimaVezEjercicio | null>;
   cargandoUltimaVez: boolean;
+  // Marcas históricas por ejercicio_id para decidir récords offline (GOZS-161). null = sin historial.
+  marcas: Record<string, MarcasEjercicio | null>;
 
   // Actions
   cargarUltimaVez: () => Promise<void>;
+  // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
+  registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
   empezarDia: (diaId: string) => void;
   volverAlInicio: () => void;
   elegirOtroDia: (
@@ -351,6 +361,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       sesionesCompletadas: [],
       ultimaVez: {},
       cargandoUltimaVez: false,
+      marcas: {},
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -902,16 +913,34 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ...s,
                 fecha: (registro_sesiones as unknown as { fecha: string }).fecha,
               }));
-              return [id, ultimaVezDeEjercicio(series, id, antesDe)] as const;
+              return [id, ultimaVezDeEjercicio(series, id, antesDe), marcasDeEjercicio(series, id)] as const;
             }),
           );
-          const nuevas = Object.fromEntries(filas.filter((f) => f !== null));
-          set((s) => ({ ultimaVez: { ...s.ultimaVez, ...nuevas } }));
+          const validas = filas.filter((f) => f !== null);
+          const nuevas = Object.fromEntries(validas.map(([id, ultima]) => [id, ultima]));
+          const nuevasMarcas = Object.fromEntries(validas.map(([id, , m]) => [id, m]));
+          set((s) => ({
+            ultimaVez: { ...s.ultimaVez, ...nuevas },
+            marcas: { ...s.marcas, ...nuevasMarcas },
+          }));
         } catch (e) {
           console.warn("No se pudo descargar «la última vez»:", e);
         } finally {
           set({ cargandoUltimaVez: false });
         }
+      },
+
+      // §3.3: tras registrar una serie, se suma a la frontera en memoria (fecha de la sesión de hoy).
+      registrarSerieEnMarcas: (ejercicioId, serie) => {
+        set((s) => ({
+          marcas: {
+            ...s.marcas,
+            [ejercicioId]: agregarSerieAMarcas(s.marcas[ejercicioId] ?? null, ejercicioId, {
+              ...serie,
+              fecha: `${s.currentSession.fecha}T00:00:00-03:00`,
+            }),
+          },
+        }));
       },
 
       syncSessionToSupabase: async () => {
@@ -1213,6 +1242,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         mostrarTimerDescanso: state.mostrarTimerDescanso,
         sesionesCompletadas: state.sesionesCompletadas,
         ultimaVez: state.ultimaVez,
+        marcas: state.marcas,
         diaElegidoHoyId: state.diaElegidoHoyId,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,

@@ -29,12 +29,16 @@ import {
   CloudOff,
   Pencil,
   ArrowLeft,
+  Trophy,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { UltimaVez } from "@/components/athlete/ultima-vez";
 import { SugerenciaCarga } from "@/components/athlete/sugerencia-carga";
+import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { sugerirCarga } from "@/lib/sugerencia-carga";
+import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
+import { triggerHapticVibration } from "@/lib/sound";
 
 export function LiveWorkout() {
   const {
@@ -67,6 +71,8 @@ export function LiveWorkout() {
     ultimaVez,
     cargandoUltimaVez,
     cargarUltimaVez,
+    marcas,
+    registrarSerieEnMarcas,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -86,7 +92,12 @@ export function LiveWorkout() {
     setNumber: number;
     pesoKg: number;
     reps: number;
+    // Variante récord (§3.2): reemplaza el aviso verde cuando la serie es un nuevo récord.
+    record?: { resultado: ResultadoRecord; exerciseName: string; peso_kg: number; reps_hechas: number };
   } | null>(null);
+
+  // Series que resultaron récord en esta sesión (persistente mientras dura): clave `${exerciseId}-${numero_serie}`.
+  const [seriesRecord, setSeriesRecord] = React.useState<Set<string>>(() => new Set());
 
   // Selección manual de ejercicio activo (por defecto sigue el avance automático)
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
@@ -210,9 +221,30 @@ export function LiveWorkout() {
     const num = currentSet.numero_serie;
     const peso = currentSet.peso_kg;
     const reps = currentSet.reps_hechas;
+    const setType = currentSet.set_type;
+    const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
+
+    // §3.4: récord con las marcas de ANTES de sumar esta serie (si no, se dominaría a sí misma).
+    const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
+    const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
     completeSet(currentExercise.id, num);
-    setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
+    // §3.3: la serie recién registrada entra a la frontera para las siguientes series de hoy.
+    registrarSerieEnMarcas(ejId, serieCandidata);
+
+    if (resultado.esRecord) {
+      setSeriesRecord((prev) => new Set(prev).add(`${currentExercise.id}-${num}`));
+      // §3.6: una vibración breve, sin sonido (el beep es del timer de descanso).
+      triggerHapticVibration([60, 40, 60]);
+      setOptimisticBanner({
+        setNumber: num,
+        pesoKg: peso,
+        reps,
+        record: { resultado, exerciseName: currentExercise.nombre, peso_kg: peso, reps_hechas: reps },
+      });
+    } else {
+      setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
+    }
 
     // Si completó todas las series del ejercicio actual, avanzar al siguiente ejercicio incompleto
     const remainingInExercise = currentExercise.series.filter(
@@ -612,8 +644,19 @@ export function LiveWorkout() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Aviso optimista de confirmación de serie guardada */}
-            {optimisticBanner && (
+            {/* Aviso optimista: récord (§3) reemplaza al verde "Serie N guardada"; nunca ambos. */}
+            {optimisticBanner?.record?.resultado.esRecord ? (
+              <AvisoRecord
+                resultado={optimisticBanner.record.resultado}
+                serie={{
+                  peso_kg: optimisticBanner.record.peso_kg,
+                  reps_hechas: optimisticBanner.record.reps_hechas,
+                }}
+                nombreEjercicio={optimisticBanner.record.exerciseName}
+                tecnica={!isSimpleView}
+                onClose={() => setOptimisticBanner(null)}
+              />
+            ) : optimisticBanner ? (
               <div
                 role="status"
                 aria-live="polite"
@@ -632,13 +675,13 @@ export function LiveWorkout() {
                 <button
                   type="button"
                   onClick={() => setOptimisticBanner(null)}
-                  className="rounded p-0.5 text-[#047857]/70 hover:text-[#047857] dark:text-emerald-300/70 dark:hover:text-emerald-200"
+                  className="-m-2 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-[#047857]/70 hover:text-[#047857] dark:text-emerald-300/70 dark:hover:text-emerald-200 touch-manipulation"
                   aria-label="Cerrar confirmación"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
-            )}
+            ) : null}
 
             {/* ===================================================================
                 SOLAPA 1: ENTRENAR (EJERCICIO DE A UNA SERIE A LA VEZ)
@@ -1184,6 +1227,10 @@ export function LiveWorkout() {
                                     <span className="font-mono font-bold text-base sm:text-lg text-foreground">
                                       {s.peso_kg} kg × {s.reps_hechas}
                                     </span>
+                                    {/* §3.2: marca de récord persistente durante la sesión. */}
+                                    {seriesRecord.has(`${ej.id}-${s.numero_serie}`) && (
+                                      <Trophy className="h-4 w-4 text-warning" aria-label="Récord" />
+                                    )}
                                     {!isSimpleView && (
                                       <span className="text-xs text-muted-foreground font-mono">
                                         @RPE {s.rpe_real}
