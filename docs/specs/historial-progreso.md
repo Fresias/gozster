@@ -367,3 +367,109 @@ Al tocar "Registrar serie" (`handleRegistrarSerie`), con la serie válida según
 - GIVEN vista `SIMPLE` THEN el aviso no contiene "1RM" en ningún caso.
 - GIVEN un ejercicio que nunca hizo WHEN registra la primera serie THEN no hay récord.
 - GIVEN serie 2 récord con 85 × 5 WHEN la serie 3 es 85 × 5 THEN no se repite el récord.
+
+---
+
+## 4. App — "Mi progreso"
+
+### 4.1. Qué resuelve
+Una pantalla para **motivarse**, no para analizar: "¿estoy levantando más que antes?" y "¿cuánto vine este mes?". Nada de tablas.
+
+### 4.2. Ubicación exacta
+- **Nueva sección en la navegación de la App** (`src/components/athlete/athlete-shell.tsx`): la grilla pasa de `grid-cols-2` a `grid-cols-3` con el orden `Entrenar · Progreso · Clases`. Mismo estilo de link (`min-h-12`, ya cumple 48 px). En 390 px cada botón queda en ~114 px de ancho: entra la palabra sin cortar.
+- **Nueva ruta:** `src/app/(athlete)/athlete/progreso/page.tsx`, con el componente `src/components/athlete/mi-progreso.tsx`.
+- Diseño de una sola columna (la Athlete App es exclusivamente móvil), ancho útil 390 − 2 × 16 px = 358 px.
+
+```
+┌──────────────────────────────────────┐
+│ [Entrenar] [Progreso] [Clases]       │
+├──────────────────────────────────────┤
+│ SESIONES ESTE MES                    │
+│ 9            el mes pasado: 7        │  ← número grande
+├──────────────────────────────────────┤
+│ Sentadilla                           │
+│ 85 kg          +10 kg desde agosto   │
+│ ╱‾‾╲__╱‾‾‾‾╱                         │  ← línea simple, 12 sesiones
+├──────────────────────────────────────┤
+│ Press de banca                       │
+│ ...                                  │
+└──────────────────────────────────────┘
+```
+
+### 4.3. Datos
+
+| Bloque | Fuente | Regla |
+| :--- | :--- | :--- |
+| **Sesiones este mes** | `registro_sesiones` del alumno | Cantidad de sesiones con `fecha` dentro del mes calendario en curso (zona horaria de 0.2). "El mes pasado" = mismo conteo del mes calendario anterior **completo**. |
+| **Ejercicios principales** | `registro_series` válidas (0.1) de los últimos **90 días** | Los **4** `ejercicio_id` presentes en más sesiones distintas. Desempate: mayor peso máximo. Si hay menos de 4, se muestran los que haya. Si no hay ninguno en 90 días, se usan los 4 más frecuentes de todo el historial. |
+| **Punto del gráfico** | Uno por sesión, últimas **12** sesiones del ejercicio (sin límite de fecha) | `SIMPLE`: **peso máximo** de la sesión (`max(peso_kg)`). Peso corporal: **reps máximas**. `TECNICA`: además, 1RM Epley máximo de la sesión (series con reps ≤ 12). |
+| **Delta** | Primer y último punto del gráfico | `+10 kg desde agosto` (mes del primer punto, en minúscula; si es de otro año: `desde agosto 2025`). Si es 0: `Igual que en agosto`. Si es negativo: `−5 kg desde agosto` (sin rojo: es información, no un reto). |
+| **Volumen del mes** (solo `TECNICA`) | `registro_sesiones.effective_volume_kg` | Suma del mes en curso. |
+
+- Contrato sugerido: un RPC `obtener_mi_progreso()` (`SECURITY INVOKER`, sin parámetros, usa `auth.uid()`) que devuelve `{ sesiones_mes, sesiones_mes_anterior, volumen_mes_kg, ejercicios: [{ ejercicio_id, nombre, a_peso_corporal, puntos: [{ fecha, peso_max_kg, reps_max, epley_max_kg }] }] }`. Una sola llamada, < 5 KB.
+- Se guarda en el store persistido con su `fecha_descarga` para mostrarse offline.
+
+### 4.4. Gráfico (SVG inline, sin librerías)
+Componente `ProgresoLinea` dentro de `mi-progreso.tsx`, derivado del `Sparkline` de `business-kpi-strip.tsx`:
+
+- `viewBox="0 0 100 40"`, `className="h-20 w-full text-primary"`, `preserveAspectRatio="none"`, `polyline` con `strokeWidth="2.5"` y `vectorEffect="non-scaling-stroke"`.
+- **Último punto** marcado con un círculo de 6 px relleno `currentColor`. Como el `svg` se estira (`preserveAspectRatio="none"`), el punto se dibuja como un `span` absoluto `h-1.5 w-1.5 rounded-full bg-primary` posicionado en `%` sobre el contenedor (`relative`), para que no se deforme.
+- Sin ejes, sin grilla, sin tooltip: el número grande arriba del gráfico ya es el dato. La línea es la "forma" del progreso.
+- Eje Y: de `min − 5 %` a `max + 5 %` de los puntos, para que una mejora de 80 → 85 kg se vea.
+- `TECNICA`: segunda línea del 1RM en `text-muted-foreground` con `strokeDasharray="3 3"`, y leyenda de texto debajo: `— Peso máx  ··· 1RM estimado`.
+- Accesibilidad: el `svg` lleva `role="img"` y `aria-label="Sentadilla: de 75 a 85 kilos en las últimas 12 sesiones"`.
+
+### 4.5. Estados
+
+| Estado | Qué se ve |
+| :--- | :--- |
+| **Cargando** (sin datos guardados) | Esqueleto: un bloque `h-24` para "Sesiones este mes" y 3 tarjetas `h-36`, `bg-muted animate-pulse motion-reduce:animate-none rounded-2xl`. |
+| **Vacío** (ninguna sesión registrada nunca) | Ícono `History` grande `h-10 w-10 text-muted-foreground`, título `Todavía no hay entrenamientos` y texto `Tu progreso aparece acá después de tu primera sesión.` Botón primario `Ir a entrenar` (`h-14 w-full`, link a `/athlete`). |
+| **Sesiones este mes = 0, con historial** | Número `0` y debajo `el mes pasado: 7`. Sin regaño ni copy negativo. |
+| **Ejercicio con 1 sola sesión** | Tarjeta con el número grande y, en lugar del gráfico, `Con 2 sesiones vas a ver tu línea de progreso.` en `text-sm text-muted-foreground`. |
+| **Con datos** | Como el esquema 4.2. |
+| **Offline con datos guardados** | Igual que "con datos" + línea `text-xs text-muted-foreground` arriba de todo: `Sin conexión · datos del 23/10`. |
+| **Offline sin datos guardados** | Ícono `CloudOff` (ya existe en `icons.tsx`) + `Sin conexión. Conectate para ver tu progreso.` |
+
+### 4.6. Copy y vista `SIMPLE` vs `TECNICA`
+
+| Elemento | `SIMPLE` | `TECNICA` |
+| :--- | :--- | :--- |
+| Título de la pantalla | `Mi progreso` | `Mi progreso` |
+| Bloque mensual | `Sesiones este mes` | `Sesiones este mes` + `Volumen del mes: 42.350 kg` |
+| Número de la tarjeta | `85 kg` (peso máximo de la última sesión) | `85 kg` + debajo `1RM est. 99 kg` |
+| Gráfico | 1 línea (peso máx) | 2 líneas (peso máx + 1RM) |
+| Palabras que no aparecen | "1RM", "volumen", "tonelaje", "RPE" | — |
+
+### 4.7. Clases Tailwind
+
+```tsx
+{/* Bloque mensual */}
+<section className="rounded-2xl border border-border bg-card p-4" aria-labelledby="sesiones-mes">
+  <h2 id="sesiones-mes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sesiones este mes</h2>
+  <div className="mt-1 flex items-baseline justify-between">
+    <span className="font-mono text-5xl font-extrabold tabular-nums text-foreground">9</span>
+    <span className="text-sm text-muted-foreground">el mes pasado: <span className="font-mono font-bold text-foreground">7</span></span>
+  </div>
+</section>
+
+{/* Tarjeta de ejercicio */}
+<article className="rounded-2xl border border-border bg-card p-4 space-y-2" data-testid="progreso-ejercicio">
+  <h3 className="text-base font-bold text-foreground">Sentadilla</h3>
+  <div className="flex items-baseline justify-between">
+    <span className="font-mono text-3xl font-extrabold tabular-nums text-foreground">85 kg</span>
+    <span className="text-sm font-semibold text-emerald-700 dark:text-success">+10 kg desde agosto</span>
+  </div>
+  {/* <ProgresoLinea /> */}
+</article>
+```
+
+- Delta positivo en `text-emerald-700 dark:text-success` (en tema claro `--success` #10B981 sobre blanco no llega a AA para texto chico; #047857 sí), cero o negativo en `text-muted-foreground`.
+- Las tarjetas **no son tocables** en esta versión (no hay detalle por ejercicio): sin `hover`, sin chevron. Evita prometer una pantalla que no existe.
+
+### 4.8. Criterios de aceptación
+- GIVEN un alumno `SIMPLE` con historial WHEN abre Progreso THEN ve sesiones del mes, hasta 4 ejercicios con su línea, y en ningún lugar las palabras "1RM", "volumen" o "RPE".
+- GIVEN el mismo alumno pasado a `TECNICA` THEN ve además la línea punteada de 1RM y el volumen del mes.
+- GIVEN Dominadas a peso corporal THEN el número es `14 reps` y el gráfico usa reps máximas.
+- GIVEN un alumno sin ninguna sesión THEN ve el estado vacío con el botón `Ir a entrenar`.
+- GIVEN 390 px de ancho THEN la navegación muestra `Entrenar · Progreso · Clases` sin cortes y cada botón mide ≥ 48 px de alto.
