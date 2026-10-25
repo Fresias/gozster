@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOZSter Athlete - Propuestas de Rediseño UX/UI (12 Mejoras)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            outfit: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            background: '#090D16',
+            card: '#0F172A',
+            surface: '#1E293B',
+            border: '#334155',
+            primary: {
+              DEFAULT: '#2563EB',
+              hover: '#1D4ED8',
+              foreground: '#FFFFFF',
+              glow: 'rgba(37, 99, 235, 0.25)',
+            },
+            accent: '#38BDF8',
+            success: '#10B981',
+            warning: '#F59E0B',
+            destructive: '#EF4444',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090D16; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    .phone-mockup {
+      width: 390px;
+      height: 844px;
+      border-radius: 44px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 10px #1e293b, 0 0 0 12px #334155;
+    }
+    .tap-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  </style>
+</head>
+<body class="bg-background text-slate-100 min-h-screen p-4 lg:p-8 font-sans antialiased">
+
+  <!-- Header del Workbench de Propuestas -->
+  <header class="max-w-7xl mx-auto mb-8 border-b border-border pb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wider uppercase bg-primary/20 text-accent border border-primary/40">
+            SQUAD REVIEW • GH #168 / GOZS-167
+          </span>
+          <span class="text-xs text-slate-400 font-mono">Feedback Gabriel: 12 Puntos</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-outfit font-extrabold tracking-tight mt-1 text-white">
+          Rediseño de UX/UI en Athlete App: Entrenamiento en Vivo & Configuración
+        </h1>
+        <p class="text-sm text-slate-400 mt-1 max-w-3xl">
+          Solución integral a la sobrecarga visual, poda de controles de demo/admin, migración de opciones a Configuración (⚙️), input libre de Kg, eliminación individual de series erróneas y clarificación de actividades en Clases.
+        </p>
+      </div>
+
+      <!-- Navegación de Vistas del Prototipo -->
+      <div class="flex flex-wrap gap-2 bg-card p-1.5 rounded-xl border border-border">
+        <button onclick="switchView('focus')" id="tab-focus" class="px-3.5 py-2 text-xs font-bold rounded-lg transition-all bg-primary text-white shadow-sm">
+          📱 Propuesta A: Focus Mode
+        </button>
+        <button onclick="switchView('comparison')" id="tab-comparison" class="px-3.5 py-2 text-xs font-bold rounded-lg transition-all text-slate-300 hover:bg-surface">
+          ⚖️ Comparativa: Antes vs. Después
+        </button>
+        <button onclick="switchView('classes')" id="tab-classes" class="px-3.5 py-2 text-xs font-bold rounded-lg transition-all text-slate-300 hover:bg-surface">
+          🎟️ Clases Habilitadas
+        </button>
+        <button onclick="toggleModal('settings-modal')" class="px-3.5 py-2 text-xs font-bold rounded-lg transition-all bg-surface text-accent hover:bg-border border border-border">
+          ⚙️ Ver Modal Ajustes
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENIDO 1: PROPUESTA A (FOCUS MODE) -->
+  <main id="view-focus" class="max-w-7xl mx-auto">
+    <div class="grid lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Teléfono Mobile Mockup (390px) -->
+      <div class="lg:col-span-5 flex justify-center">
+        <div class="phone-mockup bg-[#090D16] border border-slate-700 flex flex-col overflow-hidden relative">
+          
+          <!-- Dynamic Island / Top bar -->
+          <div class="h-8 bg-[#090D16] flex items-center justify-between px-7 shrink-0 z-30">
+            <span class="text-[11px] font-semibold text-slate-300 font-mono">09:41</span>
+            <div class="w-20 h-4 bg-black rounded-full mx-auto"></div>
+            <div class="flex items-center gap-1.5 text-xs text-slate-300">
+              <span class="text-[10px]">5G</span>
+              <div class="w-4 h-2.5 border border-slate-300 rounded-sm p-0.5"><div class="h-full bg-slate-300 w-2/3"></div></div>
+            </div>
+          </div>
+
+          <!-- App Top Header (Limpio, con nombre de día y Ajustes) -->
+          <header class="px-4 py-2.5 bg-card/80 backdrop-blur border-b border-border flex items-center justify-between shrink-0">
+            <button class="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white tap-target">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+              <span>Mis Días</span>
+            </button>
+            <div class="text-center">
+              <span class="text-[10px] uppercase font-extrabold tracking-widest text-accent font-mono">Fernando Rosales</span>
+              <h2 class="text-xs font-bold text-white truncate max-w-[160px]">Día 1: Empuje & Piernas</h2>
+            </div>
+            <!-- Botón Ajustes (Resuelve punto 1, 2, 6 y 10) -->
+            <button onclick="toggleModal('settings-modal')" title="Ajustes de entrenamiento" class="p-2 rounded-lg bg-surface text-slate-300 hover:text-white border border-border tap-target">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+          </header>
+
+          <!-- Scrollable Body -->
+          <div class="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+
+            <!-- NUEVA BARRA DE PROGRESO POR EJERCICIOS (Resuelve puntos 3, 7 y 8) -->
+            <section class="bg-card rounded-2xl p-3.5 border border-border shadow-md space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-extrabold text-white flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+                  3 de 8 ejercicios completados
+                </span>
+                <span class="font-mono font-bold text-accent">38%</span>
+              </div>
+              <!-- Barra de progreso -->
+              <div class="w-full bg-surface h-2 rounded-full overflow-hidden flex">
+                <div class="bg-gradient-to-r from-primary to-accent h-full w-[38%] transition-all duration-300"></div>
+              </div>
+              <!-- Mini pills táctiles de los 8 ejercicios -->
+              <div class="grid grid-cols-8 gap-1 pt-1">
+                <div title="Ej 1: Listo" class="h-1.5 rounded-full bg-success"></div>
+                <div title="Ej 2: Listo" class="h-1.5 rounded-full bg-success"></div>
+                <div title="Ej 3: Listo" class="h-1.5 rounded-full bg-success"></div>
+                <div title="Ej 4: Actual" class="h-1.5 rounded-full bg-accent ring-2 ring-accent/40"></div>
+                <div title="Ej 5: Pendiente" class="h-1.5 rounded-full bg-border"></div>
+                <div title="Ej 6: Pendiente" class="h-1.5 rounded-full bg-border"></div>
+                <div title="Ej 7: Pendiente" class="h-1.5 rounded-full bg-border"></div>
+                <div title="Ej 8: Pendiente" class="h-1.5 rounded-full bg-border"></div>
+              </div>
+            </section>
+
+            <!-- TARJETA DEL EJERCICIO ACTUAL -->
+            <section class="bg-card rounded-2xl p-4 border border-border shadow-md space-y-3">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="text-[11px] font-extrabold uppercase font-mono text-accent">Ejercicio 4 de 8</span>
+                  <h3 class="text-lg font-outfit font-extrabold text-white leading-tight">
+                    Press de Banca Plano con Barra
+                  </h3>
+                  <p class="text-xs text-slate-400 mt-0.5">
+                    4 series × 4 a 6 reps descendentes • Descanso 120s
+                  </p>
+                </div>
+                
+                <!-- Micro-interacción: Popover de Ayuda '?' (Resuelve punto 5) -->
+                <div class="relative group">
+                  <button class="w-7 h-7 rounded-full bg-surface text-slate-300 hover:text-white border border-border flex items-center justify-center font-bold text-xs" aria-label="Ver notas del coach">
+                    ?
+                  </button>
+                  <div class="absolute right-0 top-8 w-56 p-2.5 bg-slate-900 border border-slate-700 text-[11px] text-slate-300 rounded-xl shadow-xl hidden group-hover:block z-40">
+                    <p class="font-bold text-white mb-0.5">Nota de Fernando:</p>
+                    <p>Retracción escapular activa, agarre firme simétrico. RPE 8 en serie 1, subir carga al fallo en la serie 4.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Acciones Rápidas del Ejercicio -->
+              <div class="flex items-center gap-2 pt-1">
+                <button class="flex-1 py-1.5 px-3 rounded-lg bg-surface hover:bg-border border border-border text-xs font-semibold text-slate-200 flex items-center justify-center gap-1.5 tap-target">
+                  <svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <span>Video</span>
+                </button>
+                <button class="py-1.5 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-semibold text-rose-300 flex items-center gap-1.5 tap-target">
+                  <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  <span>Molestia</span>
+                </button>
+              </div>
+            </section>
+
+            <!-- ÁREA DE REGISTRO ACTIVO: SERIE ACTUAL -->
+            <section class="bg-card rounded-2xl p-4 border border-border shadow-lg space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-extrabold text-white flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-accent"></span>
+                  Serie 3 de 4
+                </span>
+                <span class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-surface border border-border text-slate-300">
+                  Objetivo: 2 a 4 @ RPE 9
+                </span>
+              </div>
+
+              <!-- INPUTS ERGONÓMICOS TÁCTILES: PESO LIBRE (Resuelve punto 6) -->
+              <div class="grid grid-cols-2 gap-3">
+                
+                <!-- Control de Peso: Libre tipeo + botones personalizables -->
+                <div class="space-y-1">
+                  <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Carga (Kg)</label>
+                  <div class="flex items-center rounded-xl bg-surface border border-border overflow-hidden p-1">
+                    <button class="w-10 h-11 flex items-center justify-center rounded-lg bg-card hover:bg-border text-slate-200 font-mono font-bold text-sm tap-target transition-colors" title="Restar 2.5 kg">-2.5</button>
+                    <!-- Input libre de tipeo numérico directo -->
+                    <input type="number" step="any" value="95" class="w-full bg-transparent text-center font-mono font-extrabold text-xl text-white focus:outline-none px-1" />
+                    <button class="w-10 h-11 flex items-center justify-center rounded-lg bg-card hover:bg-border text-slate-200 font-mono font-bold text-sm tap-target transition-colors" title="Sumar 2.5 kg">+2.5</button>
+                  </div>
+                </div>
+
+                <!-- Control de Repeticiones -->
+                <div class="space-y-1">
+                  <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Repeticiones</label>
+                  <div class="flex items-center rounded-xl bg-surface border border-border overflow-hidden p-1">
+                    <button class="w-10 h-11 flex items-center justify-center rounded-lg bg-card hover:bg-border text-slate-200 font-mono font-bold text-sm tap-target transition-colors">-1</button>
+                    <input type="number" value="4" class="w-full bg-transparent text-center font-mono font-extrabold text-xl text-white focus:outline-none px-1" />
+                    <button class="w-10 h-11 flex items-center justify-center rounded-lg bg-card hover:bg-border text-slate-200 font-mono font-bold text-sm tap-target transition-colors">+1</button>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Botón Primario de Registro -->
+              <button class="w-full py-3.5 px-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/25 transition-transform active:scale-[0.98] tap-target">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <span>Registrar Serie 3 (95 kg × 4)</span>
+              </button>
+            </section>
+
+            <!-- SERIES YA REGISTRADAS CON ELIMINACIÓN INDIVIDUAL (Resuelve punto 9) -->
+            <section class="bg-card rounded-2xl p-3.5 border border-border space-y-2.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-extrabold text-slate-300 uppercase tracking-wider text-[11px]">Series Hechas (2)</span>
+                <span class="text-slate-400 text-[11px]">Volumen: 920 kg</span>
+              </div>
+
+              <div class="space-y-1.5">
+                <!-- Serie 1 -->
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface/60 border border-border text-xs">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-5 h-5 rounded-md bg-success/20 text-success flex items-center justify-center font-mono font-bold text-[10px]">1</span>
+                    <span class="font-mono font-bold text-white">90 kg × 6 reps</span>
+                    <span class="text-[10px] text-slate-400 font-mono">@ RPE 8</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button title="Editar serie" class="p-1.5 text-slate-400 hover:text-white rounded tap-target">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <!-- BOTÓN BORRAR SERIE (Resuelve punto 9) -->
+                    <button title="Eliminar serie" class="p-1.5 text-rose-400 hover:text-rose-300 rounded tap-target">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Serie 2 -->
+                <div class="flex items-center justify-between p-2 rounded-xl bg-surface/60 border border-border text-xs">
+                  <div class="flex items-center gap-2.5">
+                    <span class="w-5 h-5 rounded-md bg-success/20 text-success flex items-center justify-center font-mono font-bold text-[10px]">2</span>
+                    <span class="font-mono font-bold text-white">95 kg × 4 reps</span>
+                    <span class="text-[10px] text-slate-400 font-mono">@ RPE 9</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button title="Editar serie" class="p-1.5 text-slate-400 hover:text-white rounded tap-target">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <!-- BOTÓN BORRAR SERIE -->
+                    <button title="Eliminar serie" class="p-1.5 text-rose-400 hover:text-rose-300 rounded tap-target">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Bottom Navigation Bar -->
+          <nav class="h-16 bg-card border-t border-border grid grid-cols-3 items-center px-4 shrink-0">
+            <button class="flex flex-col items-center justify-center text-primary font-bold text-[10px] gap-1">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span>Entrenar</span>
+            </button>
+            <button class="flex flex-col items-center justify-center text-slate-400 hover:text-white font-medium text-[10px] gap-1">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              <span>Progreso</span>
+            </button>
+            <button class="flex flex-col items-center justify-center text-slate-400 hover:text-white font-medium text-[10px] gap-1">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Clases</span>
+            </button>
+          </nav>
+
+        </div>
+      </div>
+
+      <!-- Explicación Técnica y Mapeo de los 12 Puntos -->
+      <div class="lg:col-span-7 space-y-6">
+        <div class="bg-card rounded-2xl p-6 border border-border shadow-md">
+          <h2 class="text-xl font-outfit font-extrabold text-white flex items-center gap-2">
+            <span>✨ Principales Mejoras de Propuesta A (Focus Mode)</span>
+          </h2>
+          <p class="text-sm text-slate-400 mt-1">
+            Diseñada con el principio Karpathy (quirúrgico) y Ponytail (cero bloatware). La pantalla del atleta pasa de un panel administrativo saturado a una herramienta de rendimiento deportivo instantáneo.
+          </p>
+
+          <div class="grid sm:grid-cols-2 gap-4 mt-6">
+            
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">1, 10</span>
+                <h4 class="text-xs font-bold text-white">Vista Simple/Técnica en Configuración</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Se eliminan los botones y el texto "Recomendada por tu coach" del medio de la pantalla. Ahora residen en el modal de Ajustes (⚙️).
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">2</span>
+                <h4 class="text-xs font-bold text-white">Cuestionario fuera del entrenamiento</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Se elimina la pestaña de Cuestionario Inicial. Se completa en el Onboarding o desde Ajustes/Perfil sin distraer mientras se entrena.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">3, 7, 8</span>
+                <h4 class="text-xs font-bold text-white">Progreso dinámico por ejercicios</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Se quitan las dos tarjetas toscas ("Series hechas" y "Ejercicios"). Se unifican en un indicador dinámico: "3 de 8 ejercicios (38%)" con barra y pills.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">6</span>
+                <h4 class="text-xs font-bold text-white">Carga libre + incremento configurable</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Input numérico editable directo (teclado táctil en 1 tap para poner 30 o 45 kg) + botones rápidos +/- cuyo paso es editable en Ajustes.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">5</span>
+                <h4 class="text-xs font-bold text-white">Notas a demanda con popover '?'</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Las notas largas del coach ya no ocupan renglones fijos. Un icono discreto '?' despliega la nota en un tooltip táctil flotante solo al tocarlo.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-rose-500/20 text-rose-300 font-bold text-xs flex items-center justify-center">9</span>
+                <h4 class="text-xs font-bold text-white">Eliminación individual de series</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Cada serie registrada cuenta con icono de papelera (🗑️) para borrar errores de carga al instante sin tener que reiniciar la sesión.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-accent/20 text-accent font-bold text-xs flex items-center justify-center">11, 12</span>
+                <h4 class="text-xs font-bold text-white">Poda de selector multi-alumno y fechas</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                Se eliminan las píldoras de "RUTINA REAL: Celeste, Esteban..." y fechas crudas. La app es personal para Fernando Rosales; multi-alumno queda en Studio.
+              </p>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-surface/70 border border-border space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-md bg-success/20 text-success font-bold text-xs flex items-center justify-center">4</span>
+                <h4 class="text-xs font-bold text-white">Actividades habilitadas en Clases</h4>
+              </div>
+              <p class="text-[12px] text-slate-300">
+                La pestaña de Clases ahora contrasta la oferta con el plan del alumno (Pase Libre vs. Funcional 2x) mostrando claramente qué puede reservar.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- CONTENIDO 2: COMPARATIVA ANTES VS DESPUÉS -->
+  <section id="view-comparison" class="max-w-7xl mx-auto hidden space-y-6">
+    <div class="bg-card rounded-2xl p-6 border border-border">
+      <h2 class="text-xl font-outfit font-extrabold text-white">Comparativa Directa: Actual vs. Propuesta</h2>
+      <p class="text-sm text-slate-400 mt-1">Inspección de elementos podados, reubicados y mejorados.</p>
+
+      <div class="grid md:grid-cols-2 gap-8 mt-6">
+        
+        <!-- ESTADO ACTUAL (PROBLEMAS DETECTADOS) -->
+        <div class="border border-rose-500/30 rounded-2xl p-5 bg-rose-500/5 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase">
+              Estado Actual (Captura Gabriel)
+            </span>
+            <span class="text-xs text-rose-400">12 puntos a resolver</span>
+          </div>
+          
+          <ul class="text-xs space-y-2 text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Selector de alumno visible:</strong> Fernando, Celeste, Gabriel... expuestos en la pantalla del atleta.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Selector Vista Simple/Técnica:</strong> Estorba en la cabecera principal.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Cuestionario Inicial:</strong> Ocupa un tab principal de entrenamiento.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Tarjetas toscas:</strong> "Series hechas 3/26" y "Ejercicios 8 hoy" ocupan 120px de alto.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Sin tipeo libre de peso:</strong> Obliga a tocar 12 veces `+2.5` para llegar a 30 kg.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-rose-400 font-bold">❌</span>
+              <span><strong>Sin borrado de serie:</strong> Si se carga un error, no se puede eliminar la serie.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- PROPUESTA OPTIMIZADA -->
+        <div class="border border-success/30 rounded-2xl p-5 bg-success/5 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold px-3 py-1 rounded-full bg-success/20 text-success border border-success/40 uppercase">
+              Propuesta A (Focus Mode)
+            </span>
+            <span class="text-xs text-success">100% Karpathy / Ponytail</span>
+          </div>
+
+          <ul class="text-xs space-y-2 text-slate-300">
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>App personal para Fernando:</strong> Cero selectores de otros alumnos o administradores.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>Ajustes en modal (⚙️):</strong> Vista Simple/Técnica y paso de incremento se configuran allí.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>Cuestionario reubicado:</strong> Disponible en Onboarding y Ajustes, no en la rutina.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>Barra compacta de ejercicios:</strong> "3 de 8 completados (38%)" con micro-pills animadas.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>Input libre de Kg:</strong> Toca el número y escribe `30` en 1 segundo; botones +/- configurables.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-success font-bold">✅</span>
+              <span><strong>Borrado individual (🗑️):</strong> Cada serie completada tiene botón de edición y eliminación.</span>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO 3: SECCIÓN CLASES HABILITADAS (Resuelve punto 4) -->
+  <section id="view-classes" class="max-w-7xl mx-auto hidden space-y-6">
+    <div class="bg-card rounded-2xl p-6 border border-border">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-bold text-accent uppercase font-mono tracking-wider">Módulo de Clases & Reservas</span>
+          <h2 class="text-xl font-outfit font-extrabold text-white">Actividades Habilitadas según tu Plan</h2>
+        </div>
+        <div class="px-3 py-1.5 rounded-xl bg-surface border border-border text-xs font-mono text-slate-300">
+          Plan Activo: <strong class="text-white">GOZS Premium (Pase Libre)</strong>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mt-6">
+        
+        <!-- Tarjeta de Clase Habilitada -->
+        <div class="p-4 rounded-xl bg-surface border border-emerald-500/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              ✓ Habilitada con tu plan
+            </span>
+            <span class="text-xs font-mono text-slate-400">Hoy 19:00 hs</span>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-white">Fuerza & Acondicionamiento Físico</h4>
+            <p class="text-xs text-slate-400">Coach: Gabriel • Cupo: 8 / 12 disponibles</p>
+          </div>
+          <button class="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tap-target transition-colors">
+            Reservar Mi Lugar
+          </button>
+        </div>
+
+        <!-- Tarjeta de Clase No Incluida / Requiere Plan -->
+        <div class="p-4 rounded-xl bg-surface border border-slate-700 opacity-70 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">
+              No incluida en tu plan actual
+            </span>
+            <span class="text-xs font-mono text-slate-400">Mañana 20:30 hs</span>
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-slate-300">Yoga & Movilidad Especial</h4>
+            <p class="text-xs text-slate-500">Actividad exclusiva del Plan Bienestar Integral</p>
+          </div>
+          <button disabled class="w-full py-2.5 px-3 rounded-lg bg-slate-800 text-slate-500 font-bold text-xs tap-target cursor-not-allowed">
+            Requiere Ampliar Plan
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL DE AJUSTES Y CONFIGURACIÓN (INTERACTIVO) -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden p-6 space-y-6">
+      
+      <div class="flex items-center justify-between border-b border-border pb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-primary/20 text-accent flex items-center justify-center font-bold">⚙️</div>
+          <div>
+            <h3 class="text-base font-outfit font-extrabold text-white">Configuración del Atleta</h3>
+            <p class="text-xs text-slate-400">Personalizá tu experiencia de entrenamiento</p>
+          </div>
+        </div>
+        <button onclick="toggleModal('settings-modal')" class="text-slate-400 hover:text-white p-1 rounded-lg tap-target">✕</button>
+      </div>
+
+      <!-- AJUSTE 1: VISTA SIMPLE VS TÉCNICA (Resuelve puntos 1 y 10) -->
+      <div class="space-y-2">
+        <label class="text-xs font-extrabold uppercase tracking-wider text-slate-300">Nivel de Detalle en Rutina</label>
+        <div class="grid grid-cols-2 gap-2 bg-surface p-1 rounded-xl border border-border">
+          <button class="py-2.5 text-xs font-bold rounded-lg bg-primary text-white shadow-sm tap-target">
+            Vista Simple
+          </button>
+          <button class="py-2.5 text-xs font-bold rounded-lg text-slate-300 hover:text-white tap-target">
+            Vista Técnica
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400 flex items-center gap-1">
+          <span class="text-accent font-bold">Coach:</span> Recomendada por tu coach: <strong>Simple</strong>.
+        </p>
+      </div>
+
+      <!-- AJUSTE 2: INCREMENTO DE KG PERSONALIZABLE (Resuelve punto 6) -->
+      <div class="space-y-2">
+        <label class="text-xs font-extrabold uppercase tracking-wider text-slate-300">Paso de Incremento Rápido (+/-)</label>
+        <div class="grid grid-cols-4 gap-2">
+          <button class="py-2 rounded-lg bg-surface border border-border text-xs font-mono font-bold text-slate-300 hover:border-accent tap-target">1.25 kg</button>
+          <button class="py-2 rounded-lg bg-primary text-white text-xs font-mono font-bold border border-primary tap-target">2.5 kg</button>
+          <button class="py-2 rounded-lg bg-surface border border-border text-xs font-mono font-bold text-slate-300 hover:border-accent tap-target">5 kg</button>
+          <button class="py-2 rounded-lg bg-surface border border-border text-xs font-mono font-bold text-slate-300 hover:border-accent tap-target">10 kg</button>
+        </div>
+        <p class="text-[11px] text-slate-400">
+          Define cuánto suman o restan los botones rápidos al lado de la carga.
+        </p>
+      </div>
+
+      <!-- AJUSTE 3: ACCESO AL CUESTIONARIO INICIAL (Resuelve punto 2) -->
+      <div class="pt-2 border-t border-border">
+        <a href="#cuestionario" onclick="alert('Abriendo Cuestionario Inicial...'); toggleModal('settings-modal')" class="flex items-center justify-between p-3 rounded-xl bg-surface hover:bg-border border border-border text-xs font-bold text-slate-200 transition-colors tap-target">
+          <div class="flex items-center gap-2">
+            <span>📋</span>
+            <span>Mi Cuestionario Inicial & Objetivos</span>
+          </div>
+          <span class="text-accent">Editar →</span>
+        </a>
+      </div>
+
+      <button onclick="toggleModal('settings-modal')" class="w-full py-3 rounded-xl bg-primary text-white font-bold text-xs tap-target">
+        Guardar y Volver al Entrenamiento
+      </button>
+
+    </div>
+  </div>
+
+  <script>
+    function switchView(view) {
+      document.getElementById('view-focus').classList.add('hidden');
+      document.getElementById('view-comparison').classList.add('hidden');
+      document.getElementById('view-classes').classList.add('hidden');
+
+      document.getElementById('tab-focus').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all text-slate-300 hover:bg-surface';
+      document.getElementById('tab-comparison').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all text-slate-300 hover:bg-surface';
+      document.getElementById('tab-classes').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all text-slate-300 hover:bg-surface';
+
+      if (view === 'focus') {
+        document.getElementById('view-focus').classList.remove('hidden');
+        document.getElementById('tab-focus').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all bg-primary text-white shadow-sm';
+      } else if (view === 'comparison') {
+        document.getElementById('view-comparison').classList.remove('hidden');
+        document.getElementById('tab-comparison').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all bg-primary text-white shadow-sm';
+      } else if (view === 'classes') {
+        document.getElementById('view-classes').classList.remove('hidden');
+        document.getElementById('tab-classes').className = 'px-3.5 py-2 text-xs font-bold rounded-lg transition-all bg-primary text-white shadow-sm';
+      }
+    }
+
+    function toggleModal(id) {
+      const el = document.getElementById(id);
+      el.classList.toggle('hidden');
+    }
+  </script>
+
+</body>
+</html>
