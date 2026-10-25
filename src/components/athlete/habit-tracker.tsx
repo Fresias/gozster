@@ -11,7 +11,7 @@ interface HabitTrackerProps {
   athleteName?: string;
 }
 
-export function HabitTracker({ athleteId = "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7", athleteName = "Atleta" }: HabitTrackerProps) {
+export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000", athleteName = "Fernando Rosales" }: HabitTrackerProps) {
   const [todayHabits, setTodayHabits] = React.useState<HabitoRegistro | null>(null);
   const [streakDays, setStreakDays] = React.useState<number>(5);
   const [isLoading, setIsLoading] = React.useState(false);

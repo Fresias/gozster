@@ -164,7 +164,7 @@ export function InicioMisDias() {
       {/* Saludo y Plan */}
       <div className="pt-2">
         <p className="text-sm font-medium text-muted-foreground">
-          Hola, {student?.nombre_completo?.split(" ")[0] || "Celeste"}
+          Hola, {student?.nombre_completo?.split(" ")[0] || "Fernando"}
         </p>
         <h1 className="font-outfit text-2xl sm:text-[26px] font-extrabold tracking-tight text-foreground mt-0.5">
           {plan?.nombre || "Hipertrofia & Fuerza"}

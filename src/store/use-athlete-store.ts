@@ -201,6 +201,9 @@ interface AthleteStoreState {
   resetSessionToDefaults: () => void;
 }
 
+export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
+export const DEFAULT_ATHLETE_NAME = "Fernando Rosales";
+
 const defaultSession: LiveWorkoutSession = {
   id: "session-today-001",
   nombre_rutina: "Fernando Rosales: DIA 1 (F Y H FER ROSALES)",
@@ -403,7 +406,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       empezarDia: (diaId) => {
         const state = get();
-        const studentId = state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        const studentId = state.currentSession.studentId || DEFAULT_ATHLETE_ID;
         const motivo = state.motivoCambioDia;
         const diaSugeridoId = state.diaSugeridoId;
 
@@ -503,7 +506,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
       saveCuestionarioInicial: async (data) => {
         const studentId =
-          get().currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+          get().currentSession.studentId || DEFAULT_ATHLETE_ID;
         const nowIso = new Date().toISOString();
         const prev = get().cuestionarioInicial;
         const fullRecord: AlumnoCuestionarioInicial = {
@@ -686,7 +689,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           payload: {
             sessionId: state.currentSession.id,
             studentId:
-              state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7",
+              state.currentSession.studentId || DEFAULT_ATHLETE_ID,
             ...report,
           },
         });
@@ -694,7 +697,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 4. Guardar en Supabase si está disponible
         try {
           const studentId =
-            state.currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+            state.currentSession.studentId || DEFAULT_ATHLETE_ID;
           const resolvedExerciseId =
             exerciseId && exerciseId.length === 36
               ? exerciseId
@@ -1028,7 +1031,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       syncSessionToSupabase: async () => {
         const state = get();
         const session = state.currentSession;
-        const studentId = session.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+        const studentId = session.studentId || DEFAULT_ATHLETE_ID;
 
         // Aplanar todas las series
         const allSets = session.ejercicios.flatMap((e) =>
@@ -1311,7 +1314,24 @@ export const useAthleteStore = create<AthleteStoreState>()(
     }),
     {
       name: "gozster-athlete-store",
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
+      migrate: (persistedState: any, version: number) => {
+        const state = persistedState as Partial<AthleteStoreState>;
+        if (
+          version < 2 ||
+          !state?.currentSession?.studentId ||
+          state?.currentSession?.studentName !== "Fernando Rosales"
+        ) {
+          return {
+            ...state,
+            currentSession: defaultSession,
+            diaActivoId: null,
+            diaElegidoHoyId: null,
+          };
+        }
+        return state;
+      },
       // No persistir el estado dinámico del temporizador para evitar inconsistencias al recargar
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,

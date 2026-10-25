@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { useAthleteStore, DEFAULT_ATHLETE_ID, DEFAULT_ATHLETE_NAME } from "@/store/use-athlete-store";
 import {
   REAL_ALUMNOS,
   REAL_PLANES,
@@ -144,6 +144,42 @@ describe("GH #165 / GOZS-166: Rutina de Fernando Rosales por defecto y dataset r
       const studioStore = useCoachStudioStore.getState();
       studioStore.setActiveTab("registros_sesiones");
       expect(useCoachStudioStore.getState().activeTab).toBe("registros_sesiones");
+    });
+  });
+  describe("Criterio 4: Saneamiento y migración automática de caché local (v2)", () => {
+    it("exporta constantes por defecto vinculadas a Fernando Rosales", () => {
+      expect(DEFAULT_ATHLETE_ID).toBe("66b92b9a-1ce7-4e2e-a47c-7c5600000000");
+      expect(DEFAULT_ATHLETE_NAME).toBe("Fernando Rosales");
+    });
+
+    it("la configuración de persistencia en use-athlete-store tiene versión 2 y función de migración", () => {
+      const source = fs.readFileSync(
+        path.join(process.cwd(), "src/store/use-athlete-store.ts"),
+        "utf8"
+      );
+
+      expect(source).toContain('name: "gozster-athlete-store"');
+      expect(source).toContain("version: 2");
+      expect(source).toContain("migrate: (persistedState: any, version: number)");
+    });
+
+    it("los componentes del atleta no tienen fallbacks residuales a Celeste Gerardi", () => {
+      const liveWorkoutSrc = fs.readFileSync(
+        path.join(process.cwd(), "src/components/athlete/live-workout.tsx"),
+        "utf8"
+      );
+      const cuestionarioSrc = fs.readFileSync(
+        path.join(process.cwd(), "src/components/athlete/cuestionario-inicial.tsx"),
+        "utf8"
+      );
+      const inicioMisDiasSrc = fs.readFileSync(
+        path.join(process.cwd(), "src/components/athlete/inicio-mis-dias.tsx"),
+        "utf8"
+      );
+
+      expect(liveWorkoutSrc).not.toContain('"Celeste Gerardi"');
+      expect(cuestionarioSrc).not.toContain('"Celeste Gerardi"');
+      expect(inicioMisDiasSrc).not.toContain('"Celeste"');
     });
   });
 });
