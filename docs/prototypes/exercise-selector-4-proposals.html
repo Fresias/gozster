@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOZSter - 4 Propuestas Selector de Ejercicios (GH #172 / GOZS-168)</title>
+  <style>
+    :root {
+      --bg: #090D16;
+      --card: #0F172A;
+      --surface: #1E293B;
+      --surface-hover: #273549;
+      --border: #334155;
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --primary-glow: rgba(37, 99, 235, 0.25);
+      --accent: #38BDF8;
+      --success: #10B981;
+      --success-bg: rgba(16, 185, 129, 0.12);
+      --warning: #F59E0B;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.4;
+      padding: 24px;
+    }
+    .header-banner {
+      max-width: 1400px;
+      margin: 0 auto 32px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.8));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-primary {
+      background: rgba(37, 99, 235, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .badge-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-warning {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .title-h1 {
+      font-size: 26px;
+      font-weight: 800;
+      margin: 12px 0 6px;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      max-width: 900px;
+    }
+    .feedback-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .feedback-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+    }
+    .feedback-item b {
+      color: #FFFFFF;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* Controles de vista */
+    .view-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto 24px;
+    }
+    .tab-pills {
+      display: flex;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 4px;
+      gap: 4px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      color: #FFFFFF;
+      background: var(--surface);
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    /* Grid principal de las 4 propuestas */
+    .proposals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 28px;
+      max-width: 1540px;
+      margin: 0 auto;
+    }
+    .proposal-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-col: column;
+      gap: 16px;
+    }
+    .proposal-header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .proposal-header h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .proposal-header p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .tag-highlight {
+      font-size: 10px;
+      padding: 2px 8px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    /* Simulación Mobile Device 390px */
+    .mobile-frame {
+      width: 100%;
+      max-width: 370px;
+      margin: 0 auto;
+      background: #0B1120;
+      border: 1px solid #334155;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+    }
+    .mobile-notch {
+      height: 20px;
+      background: #0B1120;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding-top: 6px;
+    }
+    .mobile-pill {
+      width: 60px;
+      height: 4px;
+      background: #334155;
+      border-radius: 4px;
+    }
+    .mobile-header {
+      padding: 10px 14px;
+      background: #0F172A;
+      border-bottom: 1px solid #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .mobile-header .athlete-info {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .mobile-header .routine-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+    .mobile-content {
+      padding: 12px;
+      background: #090D16;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Mini logger de series preview para dar contexto real */
+    .logger-preview {
+      background: #0F172A;
+      border: 1px solid #1E293B;
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-top: 4px;
+    }
+    .logger-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logger-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .input-box {
+      background: #1E293B;
+      border: 1px solid #334155;
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      font-size: 11px;
+      color: #FFFFFF;
+      text-align: center;
+    }
+    .btn-save-series {
+      background: var(--primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+      cursor: pointer;
+      text-align: center;
+      width: 100%;
+    }
+
+    /* -------------------------------------------------------------
+       PROPUESTA A: HORIZONTAL SNAP CAROUSEL (PILLS DESLIZABLES)
+       ------------------------------------------------------------- */
+    .carousel-container {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding: 4px 0 8px;
+      scrollbar-width: none;
+    }
+    .carousel-container::-webkit-scrollbar {
+      display: none;
+    }
+    .carousel-item {
+      flex: 0 0 170px;
+      scroll-snap-align: start;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 9px 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 64px;
+    }
+    .carousel-item.active {
+      border-color: var(--primary);
+      background: rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+    .carousel-item.done {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: var(--success-bg);
+    }
+    .carousel-few {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .carousel-few .carousel-item {
+      flex: 1;
+    }
+    .item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .item-ord {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .carousel-item.active .item-ord {
+      color: var(--accent);
+    }
+    .item-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-warm {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+    .item-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .item-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 10px;
+    }
+    .item-reps {
+      color: var(--text-muted);
+      font-family: monospace;
+      font-size: 10px;
+    }
+    .item-status {
+      font-weight: 700;
+      font-size: 10px;
+    }
+    .status-done {
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .status-count {
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .carousel-item.active .status-count {
+      color: var(--accent);
+    }
+
+    /* -------------------------------------------------------------
+       PROPUESTA B: MODERN COMPACT ROWS (1 COLUMNA COMPLETA)
+       ------------------------------------------------------------- */
+    .rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .row-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      min-height: 48px;
+    }
+    .row-item.active {
+      border-color: var(--primary);
+      background: rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+    .row-item.done {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: var(--success-bg);
+    }
+    .row-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .row-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+    .row-item.active .row-num {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+    .row-item.done .row-num {
+      background: var(--success);
+      color: #FFFFFF;
+    }
+    .row-details {
+      min-width: 0;
+      flex: 1;
+    }
+    .row-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #FFFFFF;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-meta {
+      font-size: 10px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .row-right {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: 700;
+    }
+    .badge-done {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* -------------------------------------------------------------
+       PROPUESTA C: SEGMENTED DRAWER / FLOATING HEADER
+       ------------------------------------------------------------- */
+    .drawer-header-trigger {
+      background: linear-gradient(135deg, #1E293B, #0F172A);
+      border: 1px solid #334155;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .drawer-header-trigger:hover {
+      border-color: var(--accent);
+    }
+    .trigger-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .trigger-sub {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .trigger-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .trigger-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .nav-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: #0F172A;
+      border: 1px solid #334155;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .drawer-sheet {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-top: 8px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .drawer-block-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      padding-left: 2px;
+    }
+    .drawer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    /* -------------------------------------------------------------
+       PROPUESTA D: ADAPTIVE SMART CARDS (HÍBRIDO SEGÚN VOLUMEN)
+       ------------------------------------------------------------- */
+    .hero-card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hero-card.active {
+      border-color: var(--primary);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(15, 23, 42, 0.9));
+      box-shadow: 0 0 0 1px var(--primary);
+    }
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: rgba(11, 17, 32, 0.6);
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 10px;
+      text-align: center;
+    }
+    .metric-val {
+      font-weight: 800;
+      color: #FFFFFF;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .metric-label {
+      color: var(--text-dim);
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+    .accordion-pill-bar {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .pill-num {
+      flex: 1;
+      min-width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1E293B;
+      border: 1px solid #334155;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-family: monospace;
+    }
+    .pill-num.active {
+      background: var(--primary);
+      color: #FFFFFF;
+      border-color: var(--accent);
+    }
+    .pill-num.done {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+      border-color: var(--success);
+    }
+
+    /* Resumen comparativo inferior */
+    .comparison-table-wrapper {
+      max-width: 1400px;
+      margin: 40px auto 0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      overflow-x: auto;
+    }
+    .table-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 16px;
+      color: #FFFFFF;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      background: var(--surface);
+    }
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Banner -->
+  <header class="header-banner">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+      <div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="badge badge-primary">UI/UX & Art Director</span>
+          <span class="badge badge-warning">Sprint GOZS-168 / GH #172</span>
+        </div>
+        <h1 class="title-h1">4 Propuestas: Selector de Ejercicios en Entrenamiento Móvil</h1>
+        <p class="subtitle">
+          Resolución definitiva a las observaciones de Gabriel: eliminación de textos redundantes, legibilidad 100% libre de truncamiento, eliminación de repetición de "series" y comportamiento óptimo tanto en rutinas cortas (2-3 ejercicios) como extensas (8 ejercicios).
+        </p>
+      </div>
+    </div>
+
+    <!-- Feedback abordado -->
+    <div class="feedback-grid">
+      <div class="feedback-item">
+        <b>1. Eliminación de Textos Relleno</b>
+        <span>Se retiran definitivamente <code>ejercicios del día</code> y <code>tocá para cambiar de máquina</code>.</span>
+      </div>
+      <div class="feedback-item">
+        <b>2. Cero Textos Cortados</b>
+        <span>Ancho expandido o carrusel con 2 líneas: "Press Inclinado en Smith..." se lee completo.</span>
+      </div>
+      <div class="feedback-item">
+        <b>3. No Repetición de Series</b>
+        <span>Se elimina la redundancia de mostrar "0/3" y "3 series". Se muestra solo reps prescritas + progreso.</span>
+      </div>
+      <div class="feedback-item">
+        <b>4. Adaptable a Pocos vs Muchos</b>
+        <span>Diseñado tanto para Warm up (2 ejercicios, Gabriel) como Rutina completa (8 ejercicios, Fernando).</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controles Interactivos -->
+  <div class="view-controls">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Atleta de Prueba:</span>
+      <div class="tab-pills" id="student-switcher">
+        <button class="tab-btn active" onclick="switchStudent('fernando')">Fernando Rosales (8 ejercicios)</button>
+        <button class="tab-btn" onclick="switchStudent('gabriel')">Gabriel Sánchez (2 ejercicios)</button>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Vista:</span>
+      <div class="tab-pills" id="view-mode-switcher">
+        <button class="tab-btn active" onclick="switchView('all')">Ver 4 Propuestas</button>
+        <button class="tab-btn" onclick="switchView('A')">Solo A</button>
+        <button class="tab-btn" onclick="switchView('B')">Solo B</button>
+        <button class="tab-btn" onclick="switchView('C')">Solo C</button>
+        <button class="tab-btn" onclick="switchView('D')">Solo D</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor de las 4 Propuestas -->
+  <main class="proposals-grid" id="main-proposals-grid">
+
+    <!-- ============================================================== -->
+    <!-- PROPUESTA A: HORIZONTAL SNAP CAROUSEL                          -->
+    <!-- ============================================================== -->
+    <section class="proposal-card" id="card-propuesta-A">
+      <div class="proposal-header">
+        <h3>
+          <span>A. Horizontal Snap Carousel</span>
+          <span class="tag-highlight">Cero Scroll Vertical</span>
+        </h3>
+        <p>Tira horizontal táctil deslizante con snap. Deja el 100% de la pantalla para el logger de series.</p>
+      </div>
+
+      <!-- Mockup Celular -->
+      <div class="mobile-frame">
+        <div class="mobile-notch"><div class="mobile-pill"></div></div>
+        <div class="mobile-header">
+          <div>
+            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
+          </div>
+          <span class="badge badge-primary" style="font-size:9px;">1RM Activo</span>
+        </div>
+
+        <div class="mobile-content">
+          <!-- Carrusel de Ejercicios -->
+          <div id="carousel-slot">
+            <!-- Inyectado por JS o estático inicial (Fernando 8 ejs) -->
+            <div class="carousel-container" id="carousel-track">
+              <!-- Item 1 Warmup -->
+              <div class="carousel-item">
+                <div class="item-top">
+                  <span class="item-ord">#1</span>
+                  <span class="item-badge badge-warm">Warmup</span>
+                </div>
+                <div class="item-name">Sentadilla isométrica unilateral</div>
+                <div class="item-bottom">
+                  <span class="item-reps">3s · 15'' x lado</span>
+                  <span class="item-status status-count">0/3</span>
+                </div>
+              </div>
+
+              <!-- Item 2 -->
+              <div class="carousel-item">
+                <div class="item-top">
+                  <span class="item-ord">#2</span>
+                </div>
+                <div class="item-name">Press Plano con Barra</div>
+                <div class="item-bottom">
+                  <span class="item-reps">4s · 4 a 6</span>
+                  <span class="item-status status-count">0/4</span>
+                </div>
+              </div>
+
+              <!-- Item 3 ACTIVO -->
+              <div class="carousel-item active">
+                <div class="item-top">
+                  <span class="item-ord">#3</span>
+                  <span class="badge badge-primary" style="font-size:8px; padding:1px 4px;">En Curso</span>
+                </div>
+                <div class="item-name">Sentadilla con Barra</div>
+                <div class="item-bottom">
+                  <span class="item-reps">4s · 4 a 6</span>
+                  <span class="item-status status-count">1/4</span>
+                </div>
+              </div>
+
+              <!-- Item 4 -->
+              <div class="carousel-item">
+                <div class="item-top">
+                  <span class="item-ord">#4</span>
+                </div>
+                <div class="item-name">Press Inclinado en Smith</div>
+                <div class="item-bottom">
+                  <span class="item-reps">3s · 6 a 10</span>
+                  <span class="item-status status-count">0/3</span>
+                </div>
+              </div>
+
+              <!-- Item 5 -->
+              <div class="carousel-item">
+                <div class="item-top">
+                  <span class="item-ord">#5</span>
+                </div>
+                <div class="item-name">Estocadas Caminando Manc.</div>
+                <div class="item-bottom">
+                  <span class="item-reps">3s · 8 x lado</span>
+                  <span class="item-status status-count">0/3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Logger de series preview -->
+          <div class="logger-preview">
+            <div class="logger-title">
+              <span>3. Sentadilla con Barra</span>
+              <span style="font-size:11px; color:var(--accent); font-family:monospace;">Serie 2 de 4</span>
+            </div>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Objetivo: 4 a 6 reps • RPE 8</div>
+            <div class="logger-inputs">
+              <div>
+                <div style="font-size:9px; color:var(--text-dim); margin-bottom:2px; font-weight:700;">PESO (KG)</div>
+                <div class="input-box" style="font-size:14px; font-weight:800; color:var(--accent);">85.0 kg</div>
+              </div>
+              <div>
+                <div style="font-size:9px; color:var(--text-dim); margin-bottom:2px; font-weight:700;">REPS</div>
+                <div class="input-box" style="font-size:14px; font-weight:800; color:#FFFFFF;">5 reps</div>
+              </div>
+            </div>
+            <button class="btn-save-series">✓ Registrar Serie 2</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PROPUESTA B: MODERN COMPACT ROWS (1 COLUMNA COMPLETA)         -->
+    <!-- ============================================================== -->
+    <section class="proposal-card" id="card-propuesta-B">
+      <div class="proposal-header">
+        <h3>
+          <span>B. Modern Compact Rows</span>
+          <span class="tag-highlight">100% Legibilidad</span>
+        </h3>
+        <p>1 sola columna de ancho completo. Nombres largos nunca se cortan. Sin repetición de palabras.</p>
+      </div>
+
+      <!-- Mockup Celular -->
+      <div class="mobile-frame">
+        <div class="mobile-notch"><div class="mobile-pill"></div></div>
+        <div class="mobile-header">
+          <div>
+            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
+          </div>
+          <span class="badge badge-success" style="font-size:9px;">1 Hecho</span>
+        </div>
+
+        <div class="mobile-content">
+          <!-- Lista de filas -->
+          <div class="rows-container" id="rows-slot">
+            <!-- Fila 1 Completada -->
+            <div class="row-item done">
+              <div class="row-left">
+                <div class="row-num">✓</div>
+                <div class="row-details">
+                  <div class="row-name">Sentadilla isométrica unilateral</div>
+                  <div class="row-meta">
+                    <span class="item-badge badge-warm">Warmup</span>
+                    <span>15'' x lado</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row-right">
+                <span class="badge-done">Hecho</span>
+              </div>
+            </div>
+
+            <!-- Fila 2 ACTIVA -->
+            <div class="row-item active">
+              <div class="row-left">
+                <div class="row-num">2</div>
+                <div class="row-details">
+                  <div class="row-name">Press Plano con Barra</div>
+                  <div class="row-meta">
+                    <span>4 a 6 reps</span>
+                    <span>•</span>
+                    <span style="color:var(--accent);">RPE 8.5</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row-right" style="color:var(--accent);">
+                1/4
+              </div>
+            </div>
+
+            <!-- Fila 3 -->
+            <div class="row-item">
+              <div class="row-left">
+                <div class="row-num">3</div>
+                <div class="row-details">
+                  <div class="row-name">Sentadilla con Barra</div>
+                  <div class="row-meta">
+                    <span>4 a 6 reps</span>
+                    <span>•</span>
+                    <span>120s descanso</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row-right" style="color:var(--text-dim);">
+                0/4
+              </div>
+            </div>
+
+            <!-- Fila 4 -->
+            <div class="row-item">
+              <div class="row-left">
+                <div class="row-num">4</div>
+                <div class="row-details">
+                  <div class="row-name">Press Inclinado en Smith con Agarre Cerrado</div>
+                  <div class="row-meta">
+                    <span>6 a 10 reps</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row-right" style="color:var(--text-dim);">
+                0/3
+              </div>
+            </div>
+          </div>
+
+          <!-- Logger Preview -->
+          <div class="logger-preview">
+            <div class="logger-title">
+              <span>2. Press Plano con Barra</span>
+              <span style="font-size:11px; color:var(--accent); font-family:monospace;">Serie 2 de 4</span>
+            </div>
+            <div class="logger-inputs">
+              <div class="input-box">80.0 kg</div>
+              <div class="input-box">6 reps</div>
+            </div>
+            <button class="btn-save-series">✓ Registrar Serie 2</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PROPUESTA C: SEGMENTED DRAWER / FLOATING HEADER                -->
+    <!-- ============================================================== -->
+    <section class="proposal-card" id="card-propuesta-C">
+      <div class="proposal-header">
+        <h3>
+          <span>C. Segmented Drawer Header</span>
+          <span class="tag-highlight">Máximo Enfoque</span>
+        </h3>
+        <p>Barra superior flotante con navegación rápida y Drawer modal táctil categorizado en 1 tap.</p>
+      </div>
+
+      <!-- Mockup Celular -->
+      <div class="mobile-frame">
+        <div class="mobile-notch"><div class="mobile-pill"></div></div>
+        <div class="mobile-header">
+          <div>
+            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
+          </div>
+          <span class="badge badge-primary" style="font-size:9px;">2 / 8</span>
+        </div>
+
+        <div class="mobile-content">
+          <!-- Trigger Barra Flotante -->
+          <div class="drawer-header-trigger">
+            <button class="nav-btn" title="Ejercicio anterior">◀</button>
+            <div class="trigger-left" style="text-align:center;">
+              <span class="trigger-sub">Ejercicio 3 de 8 (Tap para cambiar)</span>
+              <div class="trigger-name">
+                <span>Sentadilla con Barra</span>
+                <span style="font-size:10px; color:var(--accent);">▼</span>
+              </div>
+            </div>
+            <button class="nav-btn" title="Siguiente ejercicio">▶</button>
+          </div>
+
+          <!-- Drawer Abierto Simulado -->
+          <div class="drawer-sheet" id="drawer-slot">
+            <div class="drawer-block-title">🔥 ENTRADA EN CALOR</div>
+            <div class="drawer-list">
+              <div class="row-item done" style="padding:6px 10px; min-height:38px;">
+                <span style="font-size:11px; font-weight:700;">1. Sentadilla isométrica unilateral</span>
+                <span class="badge-done" style="font-size:9px;">✓</span>
+              </div>
+            </div>
+
+            <div class="drawer-block-title">⚡ NÚCLEO DE FUERZA</div>
+            <div class="drawer-list">
+              <div class="row-item done" style="padding:6px 10px; min-height:38px;">
+                <span style="font-size:11px; font-weight:700;">2. Press Plano con Barra</span>
+                <span class="badge-done" style="font-size:9px;">✓</span>
+              </div>
+              <div class="row-item active" style="padding:6px 10px; min-height:38px;">
+                <span style="font-size:11px; font-weight:700; color:var(--accent);">3. Sentadilla con Barra (Actual)</span>
+                <span style="font-size:10px; font-family:monospace; color:var(--accent);">1/4</span>
+              </div>
+              <div class="row-item" style="padding:6px 10px; min-height:38px;">
+                <span style="font-size:11px; font-weight:700;">4. Press Inclinado en Smith</span>
+                <span style="font-size:10px; font-family:monospace; color:var(--text-dim);">0/3</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Logger Preview -->
+          <div class="logger-preview">
+            <div class="logger-title">
+              <span>Serie 2 de 4</span>
+              <span style="font-size:11px; color:var(--warning);">Descanso: 90s</span>
+            </div>
+            <div class="logger-inputs">
+              <div class="input-box">85.0 kg</div>
+              <div class="input-box">5 reps</div>
+            </div>
+            <button class="btn-save-series">✓ Registrar Serie 2</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================== -->
+    <!-- PROPUESTA D: ADAPTIVE SMART MATRIX (HÍBRIDO SEGÚN VOLUMEN)     -->
+    <!-- ============================================================== -->
+    <section class="proposal-card" id="card-propuesta-D">
+      <div class="proposal-header">
+        <h3>
+          <span>D. Adaptive Smart Cards</span>
+          <span class="tag-highlight">Inteligente & Flexible</span>
+        </h3>
+        <p>Se adapta automáticamente: Tarjetas Hero si son ≤ 3 ejercicios, o Píldoras Rápidas si son ≥ 4.</p>
+      </div>
+
+      <!-- Mockup Celular -->
+      <div class="mobile-frame">
+        <div class="mobile-notch"><div class="mobile-pill"></div></div>
+        <div class="mobile-header">
+          <div>
+            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
+          </div>
+          <span class="badge badge-primary" style="font-size:9px;">Adaptativo</span>
+        </div>
+
+        <div class="mobile-content">
+          <!-- Modo según volumen -->
+          <div id="adaptive-slot">
+            <!-- Barra de pills rápidas para 8 ejercicios -->
+            <div style="font-size:10px; color:var(--text-dim); font-weight:700; margin-bottom:4px; text-transform:uppercase;">
+              Saltar a Máquina:
+            </div>
+            <div class="accordion-pill-bar">
+              <div class="pill-num done">✓1</div>
+              <div class="pill-num done">✓2</div>
+              <div class="pill-num active">3*</div>
+              <div class="pill-num">4</div>
+              <div class="pill-num">5</div>
+              <div class="pill-num">6</div>
+              <div class="pill-num">7</div>
+              <div class="pill-num">8</div>
+            </div>
+
+            <!-- Tarjeta expandida del ejercicio actual -->
+            <div class="hero-card active" style="margin-top:8px;">
+              <div class="hero-top">
+                <div>
+                  <span class="badge badge-primary" style="font-size:8px; padding:1px 5px;">Ejercicio #3 Activo</span>
+                  <div style="font-size:13px; font-weight:800; color:#FFFFFF; margin-top:3px;">Sentadilla con Barra</div>
+                </div>
+                <span style="font-size:11px; font-family:monospace; color:var(--accent); font-weight:800;">1/4 series</span>
+              </div>
+              <div class="hero-metrics">
+                <div>
+                  <div class="metric-val">85 kg</div>
+                  <div class="metric-label">Último Peso</div>
+                </div>
+                <div>
+                  <div class="metric-val">4 - 6</div>
+                  <div class="metric-label">Reps Target</div>
+                </div>
+                <div>
+                  <div class="metric-val">120s</div>
+                  <div class="metric-label">Descanso</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Logger Preview -->
+          <div class="logger-preview">
+            <div class="logger-inputs">
+              <div class="input-box">85.0 kg</div>
+              <div class="input-box">5 reps</div>
+            </div>
+            <button class="btn-save-series">✓ Registrar Serie 2</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Tabla Comparativa de Criterios -->
+  <div class="comparison-table-wrapper">
+    <div class="table-title">Matriz Comparativa de Decisiones de Diseño</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Criterio Técnico / UX</th>
+          <th>Propuesta A (Carousel)</th>
+          <th>Propuesta B (Compact Rows)</th>
+          <th>Propuesta C (Drawer Header)</th>
+          <th>Propuesta D (Adaptive)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Espacio Vertical Libre</b></td>
+          <td>⭐⭐⭐⭐⭐ Máximo (ocupa solo ~64px)</td>
+          <td>⭐⭐⭐ Moderado (~180px para 4 ejs)</td>
+          <td>⭐⭐⭐⭐⭐ Máximo (~50px cerrado)</td>
+          <td>⭐⭐⭐⭐ Alto (~90px)</td>
+        </tr>
+        <tr>
+          <td><b>Legibilidad de Nombres Largos</b></td>
+          <td>⭐⭐⭐⭐ Muy Buena (2 líneas)</td>
+          <td>⭐⭐⭐⭐⭐ Excelente (100% ancho)</td>
+          <td>⭐⭐⭐⭐⭐ Excelente en Drawer</td>
+          <td>⭐⭐⭐⭐⭐ Excelente en Card Hero</td>
+        </tr>
+        <tr>
+          <td><b>Rutinas Cortas (2-3 ejs, ej. Gabriel)</b></td>
+          <td>⭐⭐⭐⭐ Pills centradas</td>
+          <td>⭐⭐⭐⭐⭐ 2 filas limpias y directas</td>
+          <td>⭐⭐⭐ Requiere abrir Drawer</td>
+          <td>⭐⭐⭐⭐⭐ Tarjetas Hero detalladas</td>
+        </tr>
+        <tr>
+          <td><b>Rutinas Largas (8 ejs, ej. Fernando)</b></td>
+          <td>⭐⭐⭐⭐⭐ Desliza natural con snap</td>
+          <td>⭐⭐⭐⭐ Escaneo vertical completo</td>
+          <td>⭐⭐⭐⭐⭐ Categorizado por fases</td>
+          <td>⭐⭐⭐⭐⭐ Selector numérico 1-tap</td>
+        </tr>
+        <tr>
+          <td><b>Complejidad de Implementación</b></td>
+          <td>Baja (HTML/CSS Flex puro)</td>
+          <td>Mínima (Listado estándar)</td>
+          <td>Media (Requiere estado modal)</td>
+          <td>Media (Lógica condicional)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // Datos de Atletas Reales extraídos del backend
+    const studentData = {
+      fernando: {
+        name: "Fernando Rosales",
+        routine: "Día 1: F Y H (8 ejs)",
+        count: 8,
+        exercises: [
+          { ord: 1, name: "Sentadilla isométrica unilateral", reps: "15'' x lado", series: 3, done: true, warmup: true },
+          { ord: 2, name: "Press Plano con Barra", reps: "4 a 6 reps", series: 4, done: true, warmup: false },
+          { ord: 3, name: "Sentadilla con Barra", reps: "4 a 6 reps", series: 4, done: false, active: true, warmup: false, countDone: 1 },
+          { ord: 4, name: "Press Inclinado en Smith con Agarre Cerrado", reps: "6 a 10 reps", series: 3, done: false, warmup: false },
+          { ord: 5, name: "Estocadas Caminando con Mancuernas", reps: "8 x lado", series: 3, done: false, warmup: false },
+          { ord: 6, name: "Fondos en Barra Paralelas", reps: "6 a 12 reps", series: 3, done: false, warmup: false },
+          { ord: 7, name: "Sillón de Cuádriceps", reps: "8 a 12 reps", series: 3, done: false, warmup: false },
+          { ord: 8, name: "Extensión de tríceps barra V", reps: "DROP-SET", series: 3, done: false, warmup: false }
+        ]
+      },
+      gabriel: {
+        name: "Gabriel Sánchez (yo, gabi)",
+        routine: "WARM UP: Gabi Agosto (2 ejs)",
+        count: 2,
+        exercises: [
+          { ord: 1, name: "Rotaciones torácicas arrodillado", reps: "6 x lado", series: 2, done: false, active: true, warmup: true, countDone: 1 },
+          { ord: 2, name: "Plancha Toco Hombro", reps: "6 x lado", series: 2, done: false, warmup: true }
+        ]
+      }
+    };
+
+    let currentStudentKey = 'fernando';
+
+    function switchStudent(key) {
+      currentStudentKey = key;
+      const data = studentData[key];
+
+      // Actualizar botones de conmutador
+      const switcher = document.getElementById('student-switcher');
+      const btns = switcher.querySelectorAll('.tab-btn');
+      btns.forEach(b => b.classList.remove('active'));
+      if (key === 'fernando') btns[0].classList.add('active');
+      else btns[1].classList.add('active');
+
+      // Actualizar labels de cabecera en los mockups
+      document.querySelectorAll('.student-name-label').forEach(el => el.textContent = data.name);
+      document.querySelectorAll('.student-routine-label').forEach(el => el.textContent = data.routine);
+
+      renderProposalA(data);
+      renderProposalB(data);
+      renderProposalC(data);
+      renderProposalD(data);
+    }
+
+    function renderProposalA(data) {
+      const container = document.getElementById('carousel-track');
+      if (data.count <= 2) {
+        container.className = "carousel-container carousel-few";
+      } else {
+        container.className = "carousel-container";
+      }
+
+      container.innerHTML = data.exercises.map(ej => `
+        <div class="carousel-item ${ej.active ? 'active' : ''} ${ej.done ? 'done' : ''}">
+          <div class="item-top">
+            <span class="item-ord">#${ej.ord}</span>
+            ${ej.warmup ? '<span class="item-badge badge-warm">Warmup</span>' : ''}
+            ${ej.active ? '<span class="badge badge-primary" style="font-size:8px; padding:1px 4px;">En Curso</span>' : ''}
+          </div>
+          <div class="item-name">${ej.name}</div>
+          <div class="item-bottom">
+            <span class="item-reps">${ej.series}s · ${ej.reps}</span>
+            <span class="item-status ${ej.done ? 'status-done' : 'status-count'}">
+              ${ej.done ? '✓ Hecho' : (ej.active ? (ej.countDone || 0) + '/' + ej.series : '0/' + ej.series)}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderProposalB(data) {
+      const container = document.getElementById('rows-slot');
+      container.innerHTML = data.exercises.map(ej => `
+        <div class="row-item ${ej.active ? 'active' : ''} ${ej.done ? 'done' : ''}">
+          <div class="row-left">
+            <div class="row-num">${ej.done ? '✓' : ej.ord}</div>
+            <div class="row-details">
+              <div class="row-name">${ej.name}</div>
+              <div class="row-meta">
+                ${ej.warmup ? '<span class="item-badge badge-warm">Warmup</span>' : ''}
+                <span>${ej.reps}</span>
+                ${ej.active ? '<span style="color:var(--accent);">• RPE 8</span>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="row-right">
+            ${ej.done ? '<span class="badge-done">Hecho</span>' : `<span style="color:${ej.active ? 'var(--accent)' : 'var(--text-dim)'};">${ej.active ? (ej.countDone || 0) : 0}/${ej.series}</span>`}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderProposalC(data) {
+      const slot = document.getElementById('drawer-slot');
+      if (data.count <= 2) {
+        slot.innerHTML = `
+          <div class="drawer-block-title">🔥 ENTRADA EN CALOR (${data.count} Ejercicios)</div>
+          <div class="drawer-list">
+            ${data.exercises.map(ej => `
+              <div class="row-item ${ej.active ? 'active' : ''}" style="padding:6px 10px; min-height:38px;">
+                <span style="font-size:11px; font-weight:700;">${ej.ord}. ${ej.name}</span>
+                <span style="font-size:10px; font-family:monospace; color:${ej.active ? 'var(--accent)' : 'var(--text-dim)'};">${ej.active ? '1/' + ej.series : '0/' + ej.series}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        slot.innerHTML = `
+          <div class="drawer-block-title">🔥 ENTRADA EN CALOR</div>
+          <div class="drawer-list">
+            <div class="row-item done" style="padding:6px 10px; min-height:38px;">
+              <span style="font-size:11px; font-weight:700;">1. Sentadilla isométrica unilateral</span>
+              <span class="badge-done" style="font-size:9px;">✓</span>
+            </div>
+          </div>
+          <div class="drawer-block-title">⚡ NÚCLEO DE FUERZA (7 Ejercicios)</div>
+          <div class="drawer-list">
+            <div class="row-item done" style="padding:6px 10px; min-height:38px;">
+              <span style="font-size:11px; font-weight:700;">2. Press Plano con Barra</span>
+              <span class="badge-done" style="font-size:9px;">✓</span>
+            </div>
+            <div class="row-item active" style="padding:6px 10px; min-height:38px;">
+              <span style="font-size:11px; font-weight:700; color:var(--accent);">3. Sentadilla con Barra (Actual)</span>
+              <span style="font-size:10px; font-family:monospace; color:var(--accent);">1/4</span>
+            </div>
+            <div class="row-item" style="padding:6px 10px; min-height:38px;">
+              <span style="font-size:11px; font-weight:700;">4. Press Inclinado en Smith con Agarre Cerrado</span>
+              <span style="font-size:10px; font-family:monospace; color:var(--text-dim);">0/3</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function renderProposalD(data) {
+      const slot = document.getElementById('adaptive-slot');
+      if (data.count <= 3) {
+        // MODO POCAS: Tarjetas Hero Split amplias
+        slot.innerHTML = `
+          <div style="font-size:10px; color:var(--accent); font-weight:700; margin-bottom:4px; text-transform:uppercase;">
+            Modo Enfoque Directo (${data.count} ejercicios):
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${data.exercises.map(ej => `
+              <div class="hero-card ${ej.active ? 'active' : ''}">
+                <div class="hero-top">
+                  <div>
+                    <span class="item-badge badge-warm">Warmup</span>
+                    <div style="font-size:12px; font-weight:800; color:#FFFFFF; margin-top:2px;">${ej.ord}. ${ej.name}</div>
+                  </div>
+                  <span style="font-size:11px; font-family:monospace; color:${ej.active ? 'var(--accent)' : 'var(--text-dim)'}; font-weight:800;">
+                    ${ej.active ? '1/' + ej.series : '0/' + ej.series} series
+                  </span>
+                </div>
+                <div class="hero-metrics">
+                  <div>
+                    <div class="metric-val">Corporal</div>
+                    <div class="metric-label">Carga</div>
+                  </div>
+                  <div>
+                    <div class="metric-val">${ej.reps}</div>
+                    <div class="metric-label">Target</div>
+                  </div>
+                  <div>
+                    <div class="metric-val">60s</div>
+                    <div class="metric-label">Pausa</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        // MODO MUCHAS: Barra numérica rápida + Tarjeta Hero Activa
+        slot.innerHTML = `
+          <div style="font-size:10px; color:var(--text-dim); font-weight:700; margin-bottom:4px; text-transform:uppercase;">
+            Saltar a Máquina:
+          </div>
+          <div class="accordion-pill-bar">
+            ${data.exercises.map(ej => `
+              <div class="pill-num ${ej.active ? 'active' : ''} ${ej.done ? 'done' : ''}">${ej.done ? '✓' : ''}${ej.ord}${ej.active ? '*' : ''}</div>
+            `).join('')}
+          </div>
+          <div class="hero-card active" style="margin-top:8px;">
+            <div class="hero-top">
+              <div>
+                <span class="badge badge-primary" style="font-size:8px; padding:1px 5px;">Ejercicio #3 Activo</span>
+                <div style="font-size:13px; font-weight:800; color:#FFFFFF; margin-top:3px;">Sentadilla con Barra</div>
+              </div>
+              <span style="font-size:11px; font-family:monospace; color:var(--accent); font-weight:800;">1/4 series</span>
+            </div>
+            <div class="hero-metrics">
+              <div>
+                <div class="metric-val">85 kg</div>
+                <div class="metric-label">Último Peso</div>
+              </div>
+              <div>
+                <div class="metric-val">4 - 6</div>
+                <div class="metric-label">Reps Target</div>
+              </div>
+              <div>
+                <div class="metric-val">120s</div>
+                <div class="metric-label">Descanso</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function switchView(mode) {
+      const switcher = document.getElementById('view-mode-switcher');
+      switcher.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = Array.from(switcher.querySelectorAll('.tab-btn')).find(b => b.textContent.includes(mode === 'all' ? 'Ver 4' : mode));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const cards = ['A', 'B', 'C', 'D'];
+      cards.forEach(c => {
+        const el = document.getElementById('card-propuesta-' + c);
+        if (mode === 'all' || mode === c) {
+          el.style.display = 'flex';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
