@@ -638,71 +638,88 @@ export function LiveWorkout() {
             ) : null}
 
             {/* ===================================================================
-                SOLAPA 1: ENTRENAR (TODOS LOS EJERCICIOS + ENTRADA EN CALOR ARRIBA)
+                SOLAPA 1: ENTRENAR (OPCIÓN B: 1 COLUMNA COMPLETA SIN TEXTOS REDUNDANTES)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Selector táctil de todos los ejercicios del día */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  <span>Ejercicios del día</span>
-                  <span className="text-[11px] font-normal lowercase">tocá para cambiar de máquina</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {currentSession.ejercicios.map((ej, idx) => {
-                    const isSelected = ej.id === currentExercise?.id;
-                    const isDone = ej.series.every((s) => s.completada);
-                    const completedCount = ej.series.filter((s) => s.completada).length;
-                    const isWarmup =
-                      ej.nombre.toLowerCase().includes("warm up") ||
-                      ej.nombre.toLowerCase().includes("calentamiento");
+              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
+                {currentSession.ejercicios.map((ej, idx) => {
+                  const isSelected = ej.id === currentExercise?.id;
+                  const isDone = ej.series.every((s) => s.completada);
+                  const completedCount = ej.series.filter((s) => s.completada).length;
+                  const isWarmup =
+                    ej.nombre.toLowerCase().includes("warm up") ||
+                    ej.nombre.toLowerCase().includes("calentamiento");
 
-                    return (
-                      <button
-                        key={ej.id}
-                        type="button"
-                        onClick={() => setSelectedExerciseId(ej.id)}
-                        className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
-                          isSelected
-                            ? "border-primary bg-primary/10 shadow-xs"
-                            : isDone
-                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
-                            : "border-border/70 bg-card hover:bg-secondary/40"
-                        }`}
-                      >
-                        <div className="space-y-0.5 pr-2 min-w-0">
+                  return (
+                    <button
+                      key={ej.id}
+                      type="button"
+                      onClick={() => setSelectedExerciseId(ej.id)}
+                      data-testid={`exercise-select-btn-${ej.id}`}
+                      className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                        isSelected
+                          ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                          : isDone
+                          ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                          : "border-border/70 bg-card hover:bg-secondary/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
+                        {/* Ordinal estilizado a la izquierda */}
+                        <div
+                          className={`h-6 w-6 rounded-lg text-xs font-mono font-extrabold flex items-center justify-center shrink-0 transition-colors ${
+                            isDone
+                              ? "bg-emerald-500 text-white"
+                              : isSelected
+                              ? "bg-primary text-white"
+                              : "bg-secondary/70 text-muted-foreground"
+                          }`}
+                        >
+                          {isDone ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : idx + 1}
+                        </div>
+
+                        {/* Detalles del ejercicio (nombre completo + meta) */}
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isWarmup && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0">
                                 Warm up
                               </span>
                             )}
                             <span
-                              className={`text-xs sm:text-sm font-bold truncate block ${
+                              className={`text-xs sm:text-sm font-bold leading-tight ${
                                 isSelected ? "text-primary" : "text-foreground"
                               }`}
                             >
-                              {idx + 1}. {ej.nombre}
+                              {ej.nombre}
                             </span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {ej.series.length} series · {ej.repeticiones_objetivo}
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                            {ej.repeticiones_objetivo}
                           </p>
                         </div>
-                        <div className="shrink-0 flex items-center gap-1">
-                          {isDone ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                              <Check className="h-3 w-3" strokeWidth={3} /> Hecho
-                            </span>
-                          ) : (
-                            <span className="text-xs font-mono font-bold text-muted-foreground">
-                              {completedCount}/{ej.series.length}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+
+                      {/* Estado a la derecha (sin repetir 'series') */}
+                      <div className="shrink-0 flex items-center gap-1 pl-1">
+                        {isDone ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                            <Check className="h-3 w-3" strokeWidth={3} /> Hecho
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-xs font-mono font-bold ${
+                              isSelected ? "text-primary" : "text-muted-foreground"
+                            }`}
+                          >
+                            {completedCount}/{ej.series.length}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               {currentExercise && (
