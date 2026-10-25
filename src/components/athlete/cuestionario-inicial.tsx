@@ -48,9 +48,9 @@ export function CuestionarioInicial({
   } = useAthleteStore();
 
   const effectiveAthleteId =
-    athleteId || currentSession.studentId || "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7";
+    athleteId || currentSession.studentId || "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
   const effectiveAthleteName =
-    athleteName || currentSession.studentName || "Celeste Gerardi";
+    athleteName || currentSession.studentName || "Fernando Rosales";
 
   const [isEditing, setIsEditing] = React.useState(!cuestionarioInicial?.completado_at);
   const [isSaving, setIsSaving] = React.useState(false);
