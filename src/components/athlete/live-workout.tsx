@@ -30,6 +30,8 @@ import {
   Pencil,
   ArrowLeft,
   Trophy,
+  Settings,
+  Trash2,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -53,6 +55,7 @@ export function LiveWorkout() {
     completeSet,
     uncompleteSet,
     editCompletedSet,
+    deleteCompletedSet,
     resetSessionToDefaults,
     loadStudentSession,
     nivelVistaAlumno,
@@ -60,6 +63,8 @@ export function LiveWorkout() {
     vistaElegidaPorAlumno,
     vistaRecomendadaCoach,
     usarVistaRecomendada,
+    pasoIncrementoPeso,
+    setPasoIncrementoPeso,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
@@ -81,28 +86,32 @@ export function LiveWorkout() {
     vistaElegidaPorAlumno && vistaElegidaPorAlumno !== (vistaRecomendadaCoach || "SIMPLE"),
   );
 
+  const pasoPeso = pasoIncrementoPeso || 2.5;
+
   // Switcher de módulo principal: Entrenamiento vs Cuestionario
   const [activeTab, setActiveTab] = React.useState<"workout" | "cuestionario">("workout");
 
   // Pestañas de entrenamiento: Entrenar vs Registro del día
   const [workoutTab, setWorkoutTab] = React.useState<"entrenar" | "registro">("entrenar");
 
+  // Modal de configuración del alumno
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
   // Estado para la confirmación optimista de serie guardada
   const [optimisticBanner, setOptimisticBanner] = React.useState<{
     setNumber: number;
     pesoKg: number;
     reps: number;
-    // Variante récord (§3.2): reemplaza el aviso verde cuando la serie es un nuevo récord.
     record?: { resultado: ResultadoRecord; exerciseName: string; peso_kg: number; reps_hechas: number };
   } | null>(null);
 
-  // Series que resultaron récord en esta sesión (persistente mientras dura): clave `${exerciseId}-${numero_serie}`.
+  // Series que resultaron récord en esta sesión
   const [seriesRecord, setSeriesRecord] = React.useState<Set<string>>(() => new Set());
 
-  // Selección manual de ejercicio activo (por defecto sigue el avance automático)
+  // Selección manual de ejercicio activo
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
 
-  // Edición en línea de serie en "Registro del día"
+  // Edición en línea de serie en "Registro de la sesión"
   const [editingSet, setEditingSet] = React.useState<{
     exerciseId: string;
     exerciseName: string;
@@ -134,7 +143,7 @@ export function LiveWorkout() {
 
   const { syncError, clearSyncError, isOnline } = useOfflineQueueStore();
 
-  // "La última vez": se descarga al abrir la sesión y al volver la conexión (queda persistida para modo avión).
+  // "La última vez": se descarga al abrir la sesión y al volver la conexión
   React.useEffect(() => {
     if (isOnline) void cargarUltimaVez();
   }, [currentSession.id, isOnline, cargarUltimaVez]);
@@ -148,6 +157,13 @@ export function LiveWorkout() {
     (acc, ej) => acc + ej.series.filter((s) => s.completada).length,
     0,
   );
+
+  const completedExercisesCount = currentSession.ejercicios.filter(
+    (ej) => ej.series.length > 0 && ej.series.every((s) => s.completada),
+  ).length;
+
+  const totalExercises = currentSession.ejercicios.length;
+  const progressPercent = totalExercises > 0 ? Math.round((completedExercisesCount / totalExercises) * 100) : 0;
 
   // Tonelaje total (todas las series completadas)
   const totalVolumeKg = currentSession.ejercicios.reduce((acc, ej) => {
@@ -212,7 +228,6 @@ export function LiveWorkout() {
     seriesTocadas.current.add(claveSerie);
     updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoSugerido);
     updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsSugeridas);
-    // Deps a propósito: solo cuando aparece la sugerencia de esa serie, no en cada cambio del stepper.
   }, [claveSerie, pesoSugerido, repsSugeridas]);
 
   // Registrar serie actual
@@ -224,17 +239,14 @@ export function LiveWorkout() {
     const setType = currentSet.set_type;
     const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
 
-    // §3.4: récord con las marcas de ANTES de sumar esta serie (si no, se dominaría a sí misma).
     const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
     completeSet(currentExercise.id, num);
-    // §3.3: la serie recién registrada entra a la frontera para las siguientes series de hoy.
     registrarSerieEnMarcas(ejId, serieCandidata);
 
     if (resultado.esRecord) {
       setSeriesRecord((prev) => new Set(prev).add(`${currentExercise.id}-${num}`));
-      // §3.6: una vibración breve, sin sonido (el beep es del timer de descanso).
       triggerHapticVibration([60, 40, 60]);
       setOptimisticBanner({
         setNumber: num,
@@ -246,7 +258,6 @@ export function LiveWorkout() {
       setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
     }
 
-    // Si completó todas las series del ejercicio actual, avanzar al siguiente ejercicio incompleto
     const remainingInExercise = currentExercise.series.filter(
       (s) => !s.completada && s.numero_serie !== num,
     );
@@ -272,6 +283,18 @@ export function LiveWorkout() {
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
     const newReps = Math.max(1, currentSet.reps_hechas + delta);
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
+  };
+
+  const handleDirectUpdatePeso = (val: number) => {
+    if (!currentExercise || !currentSet) return;
+    seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
+    updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", Math.max(0, val));
+  };
+
+  const handleDirectUpdateReps = (val: number) => {
+    if (!currentExercise || !currentSet) return;
+    seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
   };
 
   const handleAdjustRpe = (delta: number) => {
@@ -306,76 +329,61 @@ export function LiveWorkout() {
     setWorkoutFinished(true);
   };
 
+  const cleanDiaTitle = React.useMemo(() => {
+    const raw = currentSession.nombre_rutina || "";
+    const parts = raw.split(":");
+    if (parts.length > 1) {
+      return parts.slice(1).join(":").trim();
+    }
+    return raw;
+  }, [currentSession.nombre_rutina]);
+
   const isAllWorkoutCompleted = completedSetsCount === totalSets && totalSets > 0;
 
   return (
     <div className="space-y-6 pb-28" data-testid="live-workout-container">
-      {/* Switcher de Módulos del alumno: Entrenamiento y Cuestionario Inicial */}
-      <div className="flex items-center gap-2 border-b border-border/80 pb-2 overflow-x-auto scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setActiveTab("workout")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-            activeTab === "workout"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-secondary/40"
-          }`}
-          data-testid="tab-workout"
-        >
-          <Dumbbell className="h-3.5 w-3.5" />
-          Entrenamiento en Vivo
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("cuestionario")}
-          className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-            activeTab === "cuestionario"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-secondary/40"
-          }`}
-          data-testid="tab-cuestionario"
-        >
-          <ClipboardList className="h-3.5 w-3.5" />
-          Cuestionario Inicial {cuestionarioInicial?.completado_at ? <Check className="h-3.5 w-3.5" /> : "(Opcional)"}
-        </button>
-      </div>
-
-      {activeTab === "cuestionario" && (
-        <CuestionarioInicial
-          athleteId={currentSession.studentId || "66b92b9a-1ce7-4e2e-a47c-7c5600000000"}
-          athleteName={currentSession.studentName || "Fernando Rosales"}
-        />
-      )}
-
-      {activeTab === "workout" && (
-        <>
-          {/* Encabezado de Sesión */}
+      {/* Vista de Cuestionario Inicial si fue activado desde Configuración */}
+      {activeTab === "cuestionario" ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setActiveTab("workout")}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 active:scale-[0.98] transition-all touch-manipulation cursor-pointer"
+              data-testid="tab-workout"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Volver a entrenar</span>
+            </button>
+            <span className="text-xs font-semibold text-muted-foreground">Cuestionario Inicial</span>
+          </div>
+          <CuestionarioInicial
+            athleteId={currentSession.studentId || "66b92b9a-1ce7-4e2e-a47c-7c5600000000"}
+            athleteName={currentSession.studentName || "Fernando Rosales"}
+          />
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Header de la sesión del alumno */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                Entrenamiento en Vivo
-              </span>
-            </div>
-
-            {/* Aviso discreto y NO bloqueante ante fallo definitivo de sincronización */}
+            {/* Aviso de error de sincronización offline */}
             {syncError && (
               <div
-                className="flex items-start justify-between gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+                role="alert"
+                className="flex items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300 animate-in fade-in duration-200"
                 data-testid="sync-error-notice"
-                role="status"
-                aria-live="polite"
               >
-                <span className="flex items-start gap-1.5 font-medium">
-                  <CloudOff className="h-4 w-4 shrink-0 mt-0.5" />
-                  No pudimos guardar en el servidor. Tus datos siguen en el teléfono.
-                </span>
+                <div className="flex items-center gap-2">
+                  <CloudOff className="h-4 w-4 shrink-0 text-rose-500" />
+                  <span>
+                    No pudimos guardar en el servidor. Tus datos siguen en el teléfono.
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={clearSyncError}
-                  className="shrink-0 rounded p-0.5 text-amber-700/70 hover:text-amber-700 dark:text-amber-300/80 dark:hover:text-amber-200"
-                  title="Entendido"
-                  aria-label="Descartar aviso"
+                  className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-500/70 hover:text-rose-500 touch-manipulation cursor-pointer"
+                  aria-label="Cerrar aviso de error"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -387,7 +395,7 @@ export function LiveWorkout() {
                 <button
                   type="button"
                   onClick={volverAlInicio}
-                  className="flex h-11 items-center gap-1.5 px-3 rounded-xl border border-border/80 bg-card text-xs font-bold text-foreground hover:bg-secondary/60 active:scale-[0.97] transition-all"
+                  className="flex h-11 items-center gap-1.5 px-3 rounded-xl border border-border/80 bg-card text-xs font-bold text-foreground hover:bg-secondary/60 active:scale-[0.97] transition-all touch-manipulation cursor-pointer"
                   aria-label="Volver a Mis días"
                   data-testid="volver-a-mis-dias-btn"
                 >
@@ -396,15 +404,15 @@ export function LiveWorkout() {
                 </button>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                    {currentSession.nombre_rutina}
+                    {cleanDiaTitle}
                   </h1>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Fecha: {currentSession.fecha} • Objetivo: Hipertrofia &amp; Fuerza
+                    {currentSession.studentName} · {currentSession.ejercicios.length} ejercicios
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
                 {/* Botón visible de Molestia en la Cabecera de la Sesión */}
                 <Button
                   type="button"
@@ -417,7 +425,7 @@ export function LiveWorkout() {
                       setNumber: 1,
                     })
                   }
-                  className="min-h-11 sm:h-9 gap-1.5 text-xs font-bold border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-xl px-3"
+                  className="min-h-11 sm:h-9 gap-1.5 text-xs font-bold border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-xl px-3 touch-manipulation cursor-pointer"
                   data-testid="header-pain-report-btn"
                   title="Tengo una molestia o dolor articular"
                 >
@@ -425,101 +433,25 @@ export function LiveWorkout() {
                   <span>Tengo una molestia</span>
                 </Button>
 
-                {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div
-                    className="flex items-center gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
-                    data-testid="athlete-view-mode-container"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setNivelVistaAlumno("SIMPLE")}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                        isSimpleView
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      data-testid="athlete-toggle-vista-simple"
-                    >
-                      Vista Simple
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNivelVistaAlumno("TECNICA")}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                        !isSimpleView
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                      data-testid="athlete-toggle-vista-tecnica"
-                    >
-                      Vista Técnica
-                    </button>
-                  </div>
-
-                  <div
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground"
-                    data-testid="athlete-vista-recomendada-info"
-                  >
-                    <span data-testid="athlete-vista-recomendada-texto">
-                      Recomendada por tu coach: {recomendadaTexto}
-                    </span>
-                    {tieneVistaDistinta && (
-                      <button
-                        type="button"
-                        onClick={usarVistaRecomendada}
-                        className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors cursor-pointer"
-                        data-testid="athlete-usar-vista-recomendada-btn"
-                      >
-                        Usar la recomendada
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Selector rápido de Alumno Real GOZS o Rutina Base */}
-            <div
-              className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none"
-              data-testid="student-routine-switcher"
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground whitespace-nowrap">
-                Rutina Real:
-              </span>
-              <button
-                type="button"
-                onClick={resetSessionToDefaults}
-                className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                  !currentSession.studentId || currentSession.studentId === REAL_ALUMNOS[0]?.id
-                    ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-                data-testid="select-default-routine"
-              >
-                Fernando Rosales (F y H)
-              </button>
-              {REAL_ALUMNOS.slice(1, 7).map((al) => (
+                {/* Botón de Configuración (⚙️) que abre el modal con vista Simple/Técnica y cuestionario */}
                 <button
-                  key={al.id}
                   type="button"
-                  onClick={() => loadStudentSession(al.id)}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                    currentSession.studentId === al.id
-                      ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                  data-testid={`select-student-${al.id}`}
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="h-11 w-11 flex items-center justify-center rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                  aria-label="Abrir configuración"
+                  data-testid="athlete-settings-btn"
+                  title="Configuración de la app"
                 >
-                  {al.nombre_completo.split(" ")[0]} (GOZS)
+                  <Settings className="h-5 w-5" />
                 </button>
-              ))}
+              </div>
             </div>
 
             {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
             {stopProtocolActive && (
               <div
-                className="rounded-2xl border-2 border-destructive bg-destructive/15 p-4 text-foreground shadow-lg space-y-2 animate-in fade-in"
+                role="alert"
+                className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 space-y-2 animate-in fade-in duration-300"
                 data-testid="live-workout-stop-protocol-banner"
               >
                 <div className="flex items-center justify-between">
@@ -546,19 +478,21 @@ export function LiveWorkout() {
               </div>
             )}
 
-            {/* Banner de Validación RPE Forzado */}
+            {/* Banner de Validación RPE */}
             {rpeValidationError && (
               <div
-                className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-300 font-semibold flex items-center justify-between"
+                role="alert"
+                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/15 px-3.5 py-2.5 text-xs font-semibold text-amber-200 animate-in fade-in duration-200"
                 data-testid="rpe-validation-banner"
               >
-                <span className="flex items-center gap-1.5">
-                  <TriangleAlert className="h-4 w-4 shrink-0" />
-                  {rpeValidationError}
-                </span>
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                  <span>{rpeValidationError}</span>
+                </div>
                 <button
+                  type="button"
                   onClick={clearRpeValidationError}
-                  className="text-amber-300/80 hover:text-amber-200 px-2"
+                  className="text-amber-300/80 hover:text-amber-200 px-2 touch-manipulation cursor-pointer"
                   aria-label="Descartar aviso"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -566,53 +500,37 @@ export function LiveWorkout() {
               </div>
             )}
 
-            {/* Métricas en vivo de la sesión (Minimalista vs Técnica) */}
-            <div className={`grid gap-2.5 ${isSimpleView ? "grid-cols-2" : "grid-cols-3"}`}>
-              <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Series Hechas</p>
-                <p className="text-xl font-black font-mono tabular-nums text-foreground mt-0.5">
-                  {completedSetsCount} <span className="text-sm font-normal text-muted-foreground">/ {totalSets}</span>
-                </p>
+            {/* Barra azul llenándose con progreso de ejercicios */}
+            <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-foreground">
+                  {completedExercisesCount} de {totalExercises} ejercicios completados
+                </span>
+                <span className="font-mono text-xs font-bold text-primary">
+                  {progressPercent}%
+                </span>
               </div>
-
+              <div className="h-2.5 w-full bg-secondary/80 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
               {!isSimpleView && (
-                <>
-                  {/* Hevy Double Volume */}
-                  <div className="rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-m3-1">
-                    <p className="text-[11px] font-bold text-primary uppercase tracking-wider">
-                      Vol. Efectivo (Hevy)
-                    </p>
-                    <p className="text-xl font-black text-primary font-mono tabular-nums mt-0.5">
-                      {effectiveVolumeKg.toLocaleString()} <span className="text-xs font-semibold">kg</span>
-                    </p>
-                    <span className="text-[9px] text-muted-foreground block mt-0.5">
-                      Excluye calentamiento (W)
-                    </span>
-                  </div>
-
-                  {/* Volumen Bruto */}
-                  <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
-                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Volumen Bruto</p>
-                    <p className="text-xl font-black text-foreground/90 font-mono tabular-nums mt-0.5">
-                      {totalVolumeKg.toLocaleString()} <span className="text-xs font-semibold text-muted-foreground">kg</span>
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {isSimpleView && (
-                <div className="rounded-xl border border-border/80 bg-card p-3.5 shadow-m3-1">
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ejercicios</p>
-                  <p className="text-xl font-black text-foreground font-mono tabular-nums mt-0.5">
-                    {currentSession.ejercicios.length} <span className="text-xs font-normal text-muted-foreground">hoy</span>
-                  </p>
+                <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2">
+                  <span>
+                    Vol. Efectivo (Hevy): <strong className="text-primary font-mono">{effectiveVolumeKg.toLocaleString()} kg</strong>
+                  </span>
+                  <span>
+                    Volumen Bruto: <strong className="text-foreground font-mono">{totalVolumeKg.toLocaleString()} kg</strong>
+                  </span>
                 </div>
               )}
             </div>
           </div>
 
           {/* =====================================================================
-              PESTAÑAS PR2: Entrenar | Registro del día (con contador)
+              PESTAÑAS: Entrenar | Registro de la sesión (con contador)
               ===================================================================== */}
           <Tabs
             value={workoutTab}
@@ -622,17 +540,17 @@ export function LiveWorkout() {
             <TabsList className="grid grid-cols-2 w-full h-11 bg-secondary/80 rounded-xl p-1 mb-4">
               <TabsTrigger
                 value="entrenar"
-                className="h-full rounded-lg text-sm font-bold"
+                className="h-full rounded-lg text-sm font-bold touch-manipulation cursor-pointer"
                 data-testid="tab-entrenar"
               >
                 Entrenar
               </TabsTrigger>
               <TabsTrigger
                 value="registro"
-                className="h-full rounded-lg text-sm font-bold flex items-center justify-center gap-2"
+                className="h-full rounded-lg text-sm font-bold flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
                 data-testid="tab-registro-dia"
               >
-                <span>Registro del día</span>
+                <span>Registro de la sesión</span>
                 {completedSetsCount > 0 && (
                   <span
                     className="font-mono text-xs font-bold rounded-full bg-primary text-primary-foreground px-2 py-0.5"
@@ -675,7 +593,7 @@ export function LiveWorkout() {
                 <button
                   type="button"
                   onClick={() => setOptimisticBanner(null)}
-                  className="-m-2 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-[#047857]/70 hover:text-[#047857] dark:text-emerald-300/70 dark:hover:text-emerald-200 touch-manipulation"
+                  className="-m-2 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-[#047857]/70 hover:text-[#047857] dark:text-emerald-300/70 dark:hover:text-emerald-200 touch-manipulation cursor-pointer"
                   aria-label="Cerrar confirmación"
                 >
                   <X className="h-4 w-4" />
@@ -684,38 +602,75 @@ export function LiveWorkout() {
             ) : null}
 
             {/* ===================================================================
-                SOLAPA 1: ENTRENAR (EJERCICIO DE A UNA SERIE A LA VEZ)
+                SOLAPA 1: ENTRENAR (TODOS LOS EJERCICIOS + ENTRADA EN CALOR ARRIBA)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Barra de progreso de ejercicios (.prog) */}
-              <div
-                className="flex items-center gap-1.5 py-1 px-0.5 overflow-x-auto scrollbar-none"
-                aria-label="Progreso de ejercicios"
-              >
-                {currentSession.ejercicios.map((ej, idx) => {
-                  const isCurrent = ej.id === currentExercise?.id;
-                  const isDone = ej.series.every((s) => s.completada);
-                  return (
-                    <button
-                      key={ej.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ej.id)}
-                      className={`h-1.5 flex-1 min-w-[28px] rounded-full transition-all touch-manipulation cursor-pointer ${
-                        isCurrent
-                          ? "bg-primary ring-2 ring-primary/30"
-                          : isDone
-                          ? "bg-emerald-500"
-                          : "bg-muted"
-                      }`}
-                      title={`${ej.nombre} (${isDone ? "Completado" : isCurrent ? "Actual" : "Pendiente"})`}
-                      aria-label={`Ejercicio ${idx + 1}: ${ej.nombre}`}
-                    />
-                  );
-                })}
+              {/* Selector táctil de todos los ejercicios del día */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                  <span>Ejercicios del día</span>
+                  <span className="text-[11px] font-normal lowercase">tocá para cambiar de máquina</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {currentSession.ejercicios.map((ej, idx) => {
+                    const isSelected = ej.id === currentExercise?.id;
+                    const isDone = ej.series.every((s) => s.completada);
+                    const completedCount = ej.series.filter((s) => s.completada).length;
+                    const isWarmup =
+                      ej.nombre.toLowerCase().includes("warm up") ||
+                      ej.nombre.toLowerCase().includes("calentamiento");
+
+                    return (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => setSelectedExerciseId(ej.id)}
+                        className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          isSelected
+                            ? "border-primary bg-primary/10 shadow-xs"
+                            : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            : "border-border/70 bg-card hover:bg-secondary/40"
+                        }`}
+                      >
+                        <div className="space-y-0.5 pr-2 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {isWarmup && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider">
+                                Warm up
+                              </span>
+                            )}
+                            <span
+                              className={`text-xs sm:text-sm font-bold truncate block ${
+                                isSelected ? "text-primary" : "text-foreground"
+                              }`}
+                            >
+                              {idx + 1}. {ej.nombre}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {ej.series.length} series · {ej.repeticiones_objetivo}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1">
+                          {isDone ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              <Check className="h-3 w-3" strokeWidth={3} /> Hecho
+                            </span>
+                          ) : (
+                            <span className="text-xs font-mono font-bold text-muted-foreground">
+                              {completedCount}/{ej.series.length}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {currentExercise && (
-                <div className="space-y-4" data-testid={`single-exercise-container-${currentExercise.id}`}>
+                <div className="space-y-4 pt-1" data-testid={`single-exercise-container-${currentExercise.id}`}>
                   {/* Encabezado del ejercicio actual */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
@@ -728,102 +683,130 @@ export function LiveWorkout() {
                       )}
                     </div>
 
-                    <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-                      {currentExercise.nombre}
-                    </h2>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                          {currentExercise.nombre}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {currentExercise.musculos_principales.map((m) => (
+                            <span
+                              key={m}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground"
+                            >
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
 
-                    <div className="text-sm font-semibold text-foreground/90">
-                      <span className="font-mono font-bold">{currentExercise.series.length}</span> series ×{" "}
-                      <span className="font-mono font-bold">{currentExercise.repeticiones_objetivo}</span> reps
-                      {!isSimpleView && currentExercise.rpe_objetivo && (
-                        <span className="text-muted-foreground font-normal ml-1">
-                          (RPE ~{currentExercise.rpe_objetivo})
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Chips interactivos: Video, Popover Descanso 90s, Molestia */}
-                    <div className="flex items-center gap-2 pt-1 flex-wrap">
-                      {/* Chip Video */}
-                      <button
-                        type="button"
-                        onClick={() => setVideoExercise(currentExercise)}
-                        className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors touch-manipulation cursor-pointer"
-                        data-testid={`demo-technique-btn-${currentExercise.id}`}
-                        title="Ver video demostrativo de técnica"
-                      >
-                        <Clapperboard className="h-4 w-4 text-primary" />
-                        <span>Video</span>
-                      </button>
-
-                      {/* Chip Popover Descanso 90s */}
-                      <Popover>
-                        <PopoverTrigger asChild>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        {currentExercise.url_video && (
                           <button
                             type="button"
-                            className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-semibold text-foreground hover:bg-secondary/60 transition-colors touch-manipulation cursor-pointer"
-                            data-testid={`descanso-chip-${currentExercise.id}`}
-                            title="Ver recomendación de descanso"
+                            onClick={() => setVideoExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver video explicativo de técnica"
+                            data-testid={`demo-technique-btn-${currentExercise.id}`}
                           >
-                            <Timer className="h-4 w-4 text-primary" />
-                            <span className="font-mono font-bold">{currentExercise.descanso_segundos} s</span>
+                            <Video className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Técnica</span>
                           </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-72 sm:w-80" data-testid="descanso-popover-content">
-                          <div className="space-y-1">
-                            <p className="font-bold text-sm text-white">
-                              Descanso: {currentExercise.descanso_segundos} segundos
-                            </p>
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                              Es el tiempo que tu coach recomienda esperar entre una serie y la siguiente para recuperarte.
-                            </p>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                        )}
 
-                      {/* Chip Molestia */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPainModalData({
-                            exerciseId: currentExercise.id,
-                            exerciseName: currentExercise.nombre,
-                            setNumber: currentSet ? currentSet.numero_serie : 1,
-                          })
-                        }
-                        className="inline-flex min-h-12 items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2 text-sm font-bold text-destructive hover:bg-destructive/20 transition-colors touch-manipulation cursor-pointer"
-                        data-testid={`exercise-pain-report-btn-${ejercicio.id}`}
-                        title="Reportar molestia en este ejercicio"
-                      >
-                        <TriangleAlert className="h-4 w-4" />
-                        <span>Molestia</span>
-                      </button>
-                    </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                              title="Ver recomendación de descanso"
+                              data-testid={`descanso-chip-${currentExercise.id}`}
+                            >
+                              <Timer className="h-4 w-4 text-primary" />
+                              <span className="font-mono">{currentExercise.descanso_segundos}s</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 sm:w-80" data-testid="descanso-popover-content">
+                            <div className="space-y-1.5 text-xs">
+                              <p className="font-bold text-foreground">
+                                Descanso: {currentExercise.descanso_segundos} segundos
+                              </p>
+                              <p className="text-muted-foreground leading-relaxed">
+                                Es el tiempo que tu coach recomienda esperar entre una serie y la siguiente para recuperarte.
+                              </p>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
 
-                    {currentExercise.comentario && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
-                        <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-                        <span className="italic">{currentExercise.comentario}</span>
+                        {/* Botón de notas del coach a demanda (signo de pregunta con popover) */}
+                        {currentExercise.comentario && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="h-10 px-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-1 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                                title="Ver notas del coach"
+                              >
+                                <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-[10px]">?</span>
+                                <span className="hidden sm:inline">Notas</span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 text-xs p-3 space-y-1.5 bg-popover border border-border shadow-md">
+                              <p className="font-bold text-foreground">Indicación del coach:</p>
+                              <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
+                                {currentExercise.comentario}
+                              </p>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPainModalData({
+                              exerciseId: currentExercise.id,
+                              exerciseName: currentExercise.nombre,
+                              setNumber: serie?.numero_serie || 1,
+                            })
+                          }
+                          className="h-10 w-10 rounded-xl border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center justify-center transition-all touch-manipulation cursor-pointer"
+                          title="Reportar molestia en este ejercicio"
+                          data-testid={`exercise-pain-report-btn-${ejercicio.id}`}
+                          aria-label="Reportar molestia en este ejercicio"
+                        >
+                          <TriangleAlert className="h-4 w-4" />
+                        </button>
                       </div>
-                    )}
+                    </div>
                   </div>
 
-                  {/* =================================================================
-                      TARJETA ÚNICA DE SERIE VISIBLE
-                      ================================================================= */}
+                  {/* Tarjeta Única de Serie Actual */}
                   {serie ? (
                     <Card
-                      className="border-2 border-border shadow-md rounded-2xl overflow-hidden bg-card p-4 sm:p-5 space-y-4"
+                      className="border-2 border-primary/40 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4"
                       data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
                     >
-                      {/* Cabecera de la serie */}
-                      <div className="space-y-1 border-b border-border/60 pb-3">
-                        <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-foreground">
-                          Serie <span className="font-mono text-primary">{serie.numero_serie}</span>{" "}
-                          <span className="text-muted-foreground font-semibold text-base">
-                            de <span className="font-mono">{currentExercise.series.length}</span>
+                      <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg">
+                            Serie {serie.numero_serie} de {currentExercise.series.length}
                           </span>
-                        </span>
+                          {currentExercise.repeticiones_objetivo && (
+                            <span className="text-xs text-muted-foreground font-semibold">
+                              Obj: {currentExercise.repeticiones_objetivo}
+                            </span>
+                          )}
+                        </div>
+
+                        {serie.set_type && serie.set_type !== "N" && (
+                          <Badge variant="outline" className="font-mono font-bold text-xs">
+                            {serie.set_type}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* "La última vez" vive en su componente (GOZS-159) */}
+                      <div>
                         <UltimaVez
                           ultima={ultimaVez[currentExercise.ejercicio_id ?? currentExercise.id]}
                           numeroSerie={serie.numero_serie}
@@ -838,7 +821,7 @@ export function LiveWorkout() {
                         repsActuales={serie.reps_hechas}
                       />
 
-                      {/* Stepper Peso (kg) con botones de gran formato 48-64px */}
+                      {/* Stepper Peso (kg) con input libre y botones configurables */}
                       <div className="space-y-1.5">
                         <label
                           htmlFor={`peso-${currentExercise.id}-${serie.numero_serie}`}
@@ -849,26 +832,40 @@ export function LiveWorkout() {
                         <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
                           <button
                             type="button"
-                            disabled={serie.peso_kg <= 2.5}
-                            onClick={() => handleAdjustPeso(-2.5)}
+                            disabled={serie.peso_kg <= 0}
+                            onClick={() => handleAdjustPeso(-pasoPeso)}
                             className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                            aria-label="Restar 2.5 kilos"
+                            aria-label={`Restar ${pasoPeso} kilos`}
                             data-testid="peso-decrement-btn"
                           >
-                            −2.5
+                            −{pasoPeso}
                           </button>
-                          <div className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground">
-                            {serie.peso_kg}
-                            <small className="text-sm font-medium text-muted-foreground ml-1">kg</small>
+                          <div className="relative h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center focus-within:border-primary transition-colors">
+                            <input
+                              id={`peso-${currentExercise.id}-${serie.numero_serie}`}
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={serie.peso_kg}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                handleDirectUpdatePeso(isNaN(val) ? 0 : val);
+                              }}
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8"
+                              aria-label="Peso en kilogramos"
+                            />
+                            <span className="absolute right-3 text-sm font-medium text-muted-foreground pointer-events-none">
+                              kg
+                            </span>
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleAdjustPeso(2.5)}
+                            onClick={() => handleAdjustPeso(pasoPeso)}
                             className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                            aria-label="Sumar 2.5 kilos"
+                            aria-label={`Sumar ${pasoPeso} kilos`}
                             data-testid="peso-increment-btn"
                           >
-                            +2.5
+                            +{pasoPeso}
                           </button>
                         </div>
                       </div>
@@ -892,8 +889,20 @@ export function LiveWorkout() {
                           >
                             −1
                           </button>
-                          <div className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground">
-                            {serie.reps_hechas}
+                          <div className="relative h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center focus-within:border-primary transition-colors">
+                            <input
+                              id={`reps-${currentExercise.id}-${serie.numero_serie}`}
+                              type="number"
+                              step="1"
+                              min="1"
+                              value={serie.reps_hechas}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                handleDirectUpdateReps(isNaN(val) ? 1 : val);
+                              }}
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none"
+                              aria-label="Cantidad de repeticiones"
+                            />
                           </div>
                           <button
                             type="button"
@@ -921,15 +930,15 @@ export function LiveWorkout() {
                                   key={t}
                                   type="button"
                                   onClick={() => updateSetType(currentExercise.id, serie.numero_serie, t)}
-                                  className={`min-w-10 h-9 px-2 text-xs font-black rounded-lg transition-all ${
-                                    (serie.set_type || "N") === t
+                                  className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all ${
+                                    serie.set_type === t || (!serie.set_type && t === "N")
                                       ? t === "W"
-                                        ? "bg-amber-500 text-black shadow-sm"
+                                        ? "bg-amber-500 text-white shadow-xs"
                                         : t === "F"
-                                        ? "bg-rose-600 text-white shadow-sm"
+                                        ? "bg-rose-600 text-white shadow-xs"
                                         : t === "D"
-                                        ? "bg-purple-600 text-white shadow-sm"
-                                        : "bg-primary text-primary-foreground shadow-sm"
+                                        ? "bg-purple-600 text-white shadow-xs"
+                                        : "bg-primary text-primary-foreground shadow-xs"
                                       : "text-muted-foreground hover:text-foreground"
                                   }`}
                                 >
@@ -1014,7 +1023,7 @@ export function LiveWorkout() {
                         <span>Registrar serie {serie.numero_serie}</span>
                       </button>
 
-                      {/* Dots indicadores de progreso de series (.sdots) */}
+                      {/* Dots indicadores de progreso de series */}
                       <div
                         className="flex items-center justify-center gap-2 pt-1"
                         aria-label="Progreso de series del ejercicio"
@@ -1063,7 +1072,7 @@ export function LiveWorkout() {
                           onClick={() => setWorkoutTab("registro")}
                           className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
                         >
-                          Ver Registro del día
+                          Ver Registro de la sesión
                         </Button>
                       )}
                     </div>
@@ -1073,7 +1082,7 @@ export function LiveWorkout() {
             </TabsContent>
 
             {/* ===================================================================
-                SOLAPA 2: REGISTRO DEL DÍA (EDITABLE EN LÍNEA)
+                SOLAPA 2: REGISTRO DE LA SESIÓN (EDITABLE EN LÍNEA + BORRADO)
                 =================================================================== */}
             <TabsContent value="registro" className="space-y-4 m-0 focus-visible:outline-none">
               <div className="space-y-4" data-testid="registro-dia-container">
@@ -1098,64 +1107,66 @@ export function LiveWorkout() {
                               return (
                                 <div
                                   key={s.numero_serie}
-                                  className="p-4 bg-primary/5 border-t border-b border-primary/30 space-y-3"
+                                  className="p-3 sm:p-4 bg-secondary/20 space-y-3"
                                   data-testid={`editing-set-container-${ej.id}-${s.numero_serie}`}
                                 >
-                                  <div className="flex items-center justify-between text-sm font-bold">
-                                    <span className="text-foreground">
-                                      Editando serie {editingSet.setNumber}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground font-normal">
-                                      Antes: <span className="font-mono font-bold">{editingSet.initialPesoKg} kg × {editingSet.initialReps}</span>
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-xs uppercase tracking-wider text-primary">
+                                      Editando Serie {s.numero_serie}
                                     </span>
                                   </div>
 
                                   <div className="grid grid-cols-2 gap-3">
-                                    {/* Mini stepper Peso */}
                                     <div className="space-y-1">
-                                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                                      <label className="text-xs font-semibold text-muted-foreground block">
                                         Peso (kg)
                                       </label>
-                                      <div className="grid grid-cols-[44px_1fr_44px] gap-1 items-center">
+                                      <div className="flex items-center gap-1">
                                         <button
                                           type="button"
-                                          disabled={editingSet.pesoKg <= 2.5}
+                                          disabled={editingSet.pesoKg <= 0}
                                           onClick={() =>
                                             setEditingSet({
                                               ...editingSet,
-                                              pesoKg: Math.max(0, editingSet.pesoKg - 2.5),
+                                              pesoKg: Math.max(0, editingSet.pesoKg - pasoPeso),
                                             })
                                           }
-                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
-                                          aria-label="Restar 2.5 kg"
+                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
-                                        <div className="h-12 rounded-lg border-2 border-primary bg-background font-mono font-extrabold text-xl flex items-center justify-center tabular-nums">
-                                          {editingSet.pesoKg}
-                                        </div>
+                                        <input
+                                          type="number"
+                                          step="any"
+                                          value={editingSet.pesoKg}
+                                          onChange={(e) =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              pesoKg: Math.max(0, parseFloat(e.target.value) || 0),
+                                            })
+                                          }
+                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                        />
                                         <button
                                           type="button"
                                           onClick={() =>
                                             setEditingSet({
                                               ...editingSet,
-                                              pesoKg: editingSet.pesoKg + 2.5,
+                                              pesoKg: editingSet.pesoKg + pasoPeso,
                                             })
                                           }
-                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
-                                          aria-label="Sumar 2.5 kg"
+                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
                                       </div>
                                     </div>
 
-                                    {/* Mini stepper Reps */}
                                     <div className="space-y-1">
-                                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                                        Reps
+                                      <label className="text-xs font-semibold text-muted-foreground block">
+                                        Repeticiones
                                       </label>
-                                      <div className="grid grid-cols-[44px_1fr_44px] gap-1 items-center">
+                                      <div className="flex items-center gap-1">
                                         <button
                                           type="button"
                                           disabled={editingSet.reps <= 1}
@@ -1165,14 +1176,22 @@ export function LiveWorkout() {
                                               reps: Math.max(1, editingSet.reps - 1),
                                             })
                                           }
-                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
-                                          aria-label="Restar 1 rep"
+                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
-                                        <div className="h-12 rounded-lg border-2 border-primary bg-background font-mono font-extrabold text-xl flex items-center justify-center tabular-nums">
-                                          {editingSet.reps}
-                                        </div>
+                                        <input
+                                          type="number"
+                                          step="1"
+                                          value={editingSet.reps}
+                                          onChange={(e) =>
+                                            setEditingSet({
+                                              ...editingSet,
+                                              reps: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                            })
+                                          }
+                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                        />
                                         <button
                                           type="button"
                                           onClick={() =>
@@ -1181,8 +1200,7 @@ export function LiveWorkout() {
                                               reps: editingSet.reps + 1,
                                             })
                                           }
-                                          className="h-12 rounded-lg bg-background border border-primary/30 font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
-                                          aria-label="Sumar 1 rep"
+                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
@@ -1190,24 +1208,26 @@ export function LiveWorkout() {
                                     </div>
                                   </div>
 
-                                  {/* Botones Cancelar / Guardar cambio */}
-                                  <div className="grid grid-cols-2 gap-2 pt-1">
-                                    <button
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    <Button
                                       type="button"
+                                      variant="outline"
+                                      size="sm"
                                       onClick={() => setEditingSet(null)}
-                                      className="min-h-12 h-12 rounded-xl border border-border bg-background text-sm font-bold text-foreground hover:bg-secondary active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                      className="h-9 px-3 text-xs font-bold"
                                       data-testid="cancel-edit-set-btn"
                                     >
                                       Cancelar
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                       type="button"
+                                      size="sm"
                                       onClick={handleSaveEdit}
-                                      className="min-h-12 h-12 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                      className="h-9 px-3 text-xs font-bold bg-primary text-primary-foreground"
                                       data-testid="save-edit-set-btn"
                                     >
                                       Guardar cambio
-                                    </button>
+                                    </Button>
                                   </div>
                                 </div>
                               );
@@ -1216,7 +1236,7 @@ export function LiveWorkout() {
                             return (
                               <div
                                 key={s.numero_serie}
-                                className="flex items-center justify-between p-3.5 sm:px-4"
+                                className="flex items-center justify-between p-3 sm:p-4 hover:bg-secondary/10 transition-colors"
                                 data-testid={`log-row-${ej.id}-${s.numero_serie}`}
                               >
                                 <div className="space-y-0.5">
@@ -1227,7 +1247,6 @@ export function LiveWorkout() {
                                     <span className="font-mono font-bold text-base sm:text-lg text-foreground">
                                       {s.peso_kg} kg × {s.reps_hechas}
                                     </span>
-                                    {/* §3.2: marca de récord persistente durante la sesión. */}
                                     {seriesRecord.has(`${ej.id}-${s.numero_serie}`) && (
                                       <Trophy className="h-4 w-4 text-warning" aria-label="Récord" />
                                     )}
@@ -1245,26 +1264,38 @@ export function LiveWorkout() {
                                   />
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setEditingSet({
-                                      exerciseId: ej.id,
-                                      exerciseName: ej.nombre,
-                                      setNumber: s.numero_serie,
-                                      pesoKg: s.peso_kg,
-                                      reps: s.reps_hechas,
-                                      initialPesoKg: s.peso_kg,
-                                      initialReps: s.reps_hechas,
-                                    })
-                                  }
-                                  className="h-12 w-12 min-h-12 min-w-12 rounded-xl flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all touch-manipulation cursor-pointer"
-                                  aria-label={`Editar serie ${s.numero_serie}`}
-                                  data-testid={`edit-set-btn-${ej.id}-${s.numero_serie}`}
-                                  title="Editar serie"
-                                >
-                                  <Pencil className="h-5 w-5" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingSet({
+                                        exerciseId: ej.id,
+                                        exerciseName: ej.nombre,
+                                        setNumber: s.numero_serie,
+                                        pesoKg: s.peso_kg,
+                                        reps: s.reps_hechas,
+                                        initialPesoKg: s.peso_kg,
+                                        initialReps: s.reps_hechas,
+                                      })
+                                    }
+                                    className="h-12 w-12 min-h-12 min-w-12 rounded-xl flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                    aria-label={`Editar serie ${s.numero_serie}`}
+                                    data-testid={`edit-set-btn-${ej.id}-${s.numero_serie}`}
+                                    title="Editar serie"
+                                  >
+                                    <Pencil className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => uncompleteSet(ej.id, s.numero_serie)}
+                                    className="h-12 w-12 min-h-12 min-w-12 rounded-xl flex items-center justify-center text-destructive hover:bg-destructive/10 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                    aria-label={`Eliminar serie ${s.numero_serie}`}
+                                    data-testid={`delete-set-btn-${ej.id}-${s.numero_serie}`}
+                                    title="Eliminar serie"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -1273,65 +1304,208 @@ export function LiveWorkout() {
                   ))}
 
                 {completedSetsCount === 0 && (
-                  <div className="rounded-2xl border border-dashed border-border p-8 text-center space-y-2">
-                    <p className="font-semibold text-foreground">
-                      Todavía no registraste ninguna serie hoy.
+                  <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center space-y-2">
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      Todavía no guardaste ninguna serie hoy.
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Cambiá a la solapa &ldquo;Entrenar&rdquo; para comenzar tu rutina.
-                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWorkoutTab("entrenar")}
+                      className="font-bold"
+                    >
+                      Empezar a entrenar
+                    </Button>
                   </div>
                 )}
 
-                {/* Pie del Registro del día: Todo guardado + Terminar entrenamiento */}
-                <div className="pt-2 space-y-3">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <Check className="h-4 w-4" strokeWidth={3} />
-                    <span>Todo guardado</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isFinishing || completedSetsCount === 0}
-                    onClick={handleTerminarEntrenamiento}
-                    className="w-full h-14 rounded-[14px] text-[17px] font-bold bg-[#0F172A] text-white hover:bg-slate-800 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50 touch-manipulation cursor-pointer"
-                    data-testid="terminar-entrenamiento-btn"
-                  >
-                    <span>{isFinishing ? "Guardando sesión..." : "Terminar entrenamiento"}</span>
-                  </button>
-
-                  {workoutFinished && (
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-center text-xs font-bold">
-                      ¡Entrenamiento finalizado con éxito! Datos sincronizados.
+                {completedSetsCount > 0 && (
+                  <div className="pt-2 space-y-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                      <span>Todo guardado</span>
+                      <span className="font-mono">
+                        {completedSetsCount} de {totalSets} series registradas
+                      </span>
                     </div>
-                  )}
-                </div>
+
+                    <Button
+                      type="button"
+                      disabled={isFinishing || workoutFinished}
+                      onClick={handleTerminarEntrenamiento}
+                      className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
+                      data-testid="terminar-entrenamiento-btn"
+                    >
+                      {isFinishing
+                        ? "Guardando entrenamiento…"
+                        : workoutFinished
+                        ? "¡Entrenamiento finalizado!"
+                        : "Terminar entrenamiento"}
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
-
-          {/* Botón para reiniciar rutina al estado inicial */}
-          <div className="pt-2 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs text-muted-foreground"
-              onClick={resetSessionToDefaults}
-            >
-              Reiniciar Rutina a Valores por Defecto
-            </Button>
-          </div>
-        </>
+        </div>
       )}
 
-      {/* Modal / Bottom-Sheet de Demostración de Técnica en Video */}
-      <ExerciseVideoModal
-        exercise={videoExercise}
-        isOpen={Boolean(videoExercise)}
-        onClose={() => setVideoExercise(null)}
-      />
+      {/* Modal de Configuración accesible desde el botón de la cabecera (⚙️) */}
+      {isSettingsOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card p-5 shadow-xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                <h2 id="settings-dialog-title" className="text-lg font-bold text-foreground">
+                  Configuración de la app
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(false)}
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                aria-label="Cerrar configuración"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-      {/* Modal Warmup Calculator */}
+            {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Modo de visualización
+              </label>
+              <div
+                className="grid grid-cols-2 gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1"
+                data-testid="athlete-view-mode-container"
+              >
+                <button
+                  type="button"
+                  onClick={() => setNivelVistaAlumno("SIMPLE")}
+                  className={`rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
+                    isSimpleView
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="athlete-toggle-vista-simple"
+                >
+                  Vista Simple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNivelVistaAlumno("TECNICA")}
+                  className={`rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
+                    !isSimpleView
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid="athlete-toggle-vista-tecnica"
+                >
+                  Vista Técnica
+                </button>
+              </div>
+              <div
+                className="flex items-center justify-between text-xs text-muted-foreground pt-1"
+                data-testid="athlete-vista-recomendada-info"
+              >
+                <span data-testid="athlete-vista-recomendada-texto">
+                  Recomendada por tu coach: {recomendadaTexto}
+                </span>
+                {tieneVistaDistinta && (
+                  <button
+                    type="button"
+                    onClick={usarVistaRecomendada}
+                    className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors cursor-pointer"
+                    data-testid="athlete-usar-vista-recomendada-btn"
+                  >
+                    Usar la recomendada
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Selector de Incremento de Peso Rápido */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Paso de incremento de peso (kilos)
+              </label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[1.25, 2.5, 5, 10].map((step) => (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => setPasoIncrementoPeso(step)}
+                    className={`py-2 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      pasoPeso === step
+                        ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                        : "border-border/60 bg-secondary/30 text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    ±{step} kg
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Define cuánto suman o restan los botones en cada toque (por defecto 2.5 kg).
+              </p>
+            </div>
+
+            {/* Acceso a Cuestionario Inicial Opcional */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Perfil del alumno
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("cuestionario");
+                  setIsSettingsOpen(false);
+                }}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-border/80 bg-secondary/30 hover:bg-secondary/60 text-xs font-bold text-foreground transition-all cursor-pointer"
+                data-testid="tab-cuestionario"
+              >
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  <span>Cuestionario Inicial</span>
+                </div>
+                {cuestionarioInicial?.completado_at ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                    Completado
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground">Opcional</span>
+                )}
+              </button>
+            </div>
+
+            <div className="pt-2">
+              <Button
+                type="button"
+                onClick={() => setIsSettingsOpen(false)}
+                className="w-full h-11 rounded-xl font-bold bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modales existentes */}
+      {videoExercise && (
+        <ExerciseVideoModal
+          exercise={videoExercise}
+          isOpen={Boolean(videoExercise)}
+          onClose={() => setVideoExercise(null)}
+        />
+      )}
+
       {warmupModalExercise && (
         <WarmupModal
           isOpen={Boolean(warmupModalExercise)}
@@ -1344,7 +1518,6 @@ export function LiveWorkout() {
         />
       )}
 
-      {/* Modal Plate Calculator */}
       {plateModalWeight !== null && (
         <PlateCalculatorModal
           isOpen={plateModalWeight !== null}
@@ -1353,7 +1526,6 @@ export function LiveWorkout() {
         />
       )}
 
-      {/* Modal Pain Report */}
       {painModalData && (
         <PainReportModal
           isOpen={Boolean(painModalData)}
@@ -1365,13 +1537,14 @@ export function LiveWorkout() {
             if (typeof report === "string") {
               reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
             } else {
-              reportPainEvent(report);
+              reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report.notasAlumno || "");
+              void reportPainEvent(report);
             }
+            setPainModalData(null);
           }}
         />
       )}
 
-      {/* Modal Video Upload Form Check */}
       {videoUploadModalData && (
         <VideoUploadModal
           isOpen={Boolean(videoUploadModalData)}

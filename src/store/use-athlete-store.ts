@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
+import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
@@ -119,6 +120,7 @@ interface AthleteStoreState {
   miProgreso: MiProgresoData | null;
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
+  pasoIncrementoPeso: number;
 
   // Actions
   cargarUltimaVez: () => Promise<void>;
@@ -136,6 +138,8 @@ interface AthleteStoreState {
   deshacerCambioDia: () => void;
   marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
+  setPasoIncrementoPeso: (paso: number) => void;
+  deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
@@ -392,6 +396,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       miProgreso: null,
       miProgresoFecha: null,
       cargandoMiProgreso: false,
+      pasoIncrementoPeso: 2.5,
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -404,6 +409,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
+      setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
+      deleteCompletedSet: (exerciseId, setNumber) => {
+        get().uncompleteSet(exerciseId, setNumber);
+      },
       empezarDia: (diaId) => {
         const state = get();
         const studentId = state.currentSession.studentId || DEFAULT_ATHLETE_ID;
@@ -1232,15 +1241,21 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const mappedExercises: LiveWorkoutExercise[] = ejRutinaList.map((er, idx) => {
           const ejMaestro = REAL_EJERCICIOS.find((e) => e.id === er.ejercicio_id);
           const seriesCount = typeof er.series === "number" && er.series > 0 ? er.series : 3;
+          const ultimaVezEjercicio = get().ultimaVez?.[er.ejercicio_id];
 
-          const sets: LiveWorkoutSet[] = Array.from({ length: seriesCount }, (_, sIdx) => ({
-            numero_serie: sIdx + 1,
-            peso_kg: 20,
-            reps_hechas: 10,
-            rpe_real: er.rpe_objetivo || 7.5,
-            completada: false,
-            estimated1RM: calculateEpley1RM(20, 10),
-          }));
+          const sets: LiveWorkoutSet[] = Array.from({ length: seriesCount }, (_, sIdx) => {
+            const prevSet = ultimaVezEjercicio?.series?.[sIdx] ?? ultimaVezEjercicio?.series?.[0];
+            const defaultPeso = prevSet?.peso_kg ?? 0;
+            const reps = parseDefaultReps(er.repeticiones, sIdx + 1);
+            return {
+              numero_serie: sIdx + 1,
+              peso_kg: defaultPeso,
+              reps_hechas: reps,
+              rpe_real: er.rpe_objetivo || 7.5,
+              completada: false,
+              estimated1RM: calculateEpley1RM(defaultPeso, reps),
+            };
+          });
 
           return {
             id: er.id || `ej-${idx + 1}`,
@@ -1256,11 +1271,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
           };
         });
 
+        const sortedExercises = sortExercisesWithWarmupFirst(mappedExercises);
+
         const newSession: LiveWorkoutSession = {
           id: `session-${student.id}-${selectedDia.id}`,
           nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
           fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-          ejercicios: mappedExercises,
+          ejercicios: sortedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
           dia_id: selectedDia.id,
@@ -1335,6 +1352,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       // No persistir el estado dinámico del temporizador para evitar inconsistencias al recargar
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
+        pasoIncrementoPeso: state.pasoIncrementoPeso,
         currentSession: state.currentSession,
         nivelVistaAlumno: state.nivelVistaAlumno,
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,
