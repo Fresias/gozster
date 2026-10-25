@@ -34,7 +34,7 @@ import {
   calculateEpley1RM,
 } from "@/lib/strength-metrics";
 
-export type CoachStudioTab = "rutina_actual" | "historial_rutinas";
+export type CoachStudioTab = "rutina_actual" | "historial_rutinas" | "registros_sesiones";
 
 export interface ToastNotification {
   id: string;

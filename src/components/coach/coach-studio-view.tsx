@@ -35,6 +35,14 @@ import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import {
+  REAL_ALUMNOS,
+  REAL_PLANES,
+  REAL_DIAS,
+  REAL_EJERCICIOS,
+  REAL_EJERCICIOS_RUTINA,
+  REAL_HISTORIAL_CARGAS,
+} from "@/services/real-mynter-data";
 
 export function CoachStudioView({
   initialDataset,

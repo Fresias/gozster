@@ -491,15 +491,15 @@ export function LiveWorkout() {
                 type="button"
                 onClick={resetSessionToDefaults}
                 className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                  !currentSession.studentId
+                  !currentSession.studentId || currentSession.studentId === REAL_ALUMNOS[0]?.id
                     ? "bg-primary text-primary-foreground font-bold shadow-sm"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
                 data-testid="select-default-routine"
               >
-                Fuerza Base (3 Ejercicios)
+                Fernando Rosales (F y H)
               </button>
-              {REAL_ALUMNOS.slice(0, 6).map((al) => (
+              {REAL_ALUMNOS.slice(1, 7).map((al) => (
                 <button
                   key={al.id}
                   type="button"
