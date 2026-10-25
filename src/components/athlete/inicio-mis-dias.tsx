@@ -41,6 +41,7 @@ export function InicioMisDias() {
     empezarDia,
     elegirOtroDia,
     deshacerCambioDia,
+    loadStudentSession,
   } = useAthleteStore();
 
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
@@ -161,6 +162,37 @@ export function InicioMisDias() {
 
   return (
     <div className="space-y-5 pb-20" data-testid="inicio-mis-dias-container">
+      {/* Conmutador rápido de vista de atleta (Fernando Rosales vs Gabriel Sánchez) */}
+      <div
+        className="flex items-center gap-1.5 p-1 rounded-2xl bg-secondary/60 border border-border/80"
+        data-testid="athlete-switcher-container"
+      >
+        <button
+          type="button"
+          onClick={() => loadStudentSession("66b92b9a-1ce7-4e2e-a47c-7c5600000000")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
+            !currentSession?.studentName?.toLowerCase().includes("gabriel")
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="athlete-switcher-fernando"
+        >
+          <span>Fernando Rosales</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => loadStudentSession("0a7a4dfd-e040-4b92-ac29-9507cbb13215")}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
+            currentSession?.studentName?.toLowerCase().includes("gabriel")
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="athlete-switcher-gabriel"
+        >
+          <span>Gabriel Sánchez (yo, gabi)</span>
+        </button>
+      </div>
+
       {/* Saludo y Plan */}
       <div className="pt-2">
         <p className="text-sm font-medium text-muted-foreground">
