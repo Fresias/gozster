@@ -1292,6 +1292,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         set({
           currentSession: newSession,
+          diaActivoId: get().diaActivoId ? selectedDia.id : null,
+          diaElegidoHoyId: null,
           vistaRecomendadaCoach: coachRecomendada,
           nivelVistaAlumno: vistaEfectiva,
           restTimer: {
@@ -1333,12 +1335,27 @@ export const useAthleteStore = create<AthleteStoreState>()(
       name: "gozster-athlete-store",
       version: 2,
       storage: createJSONStorage(() => safeStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.currentSession) {
+          const studentName = state.currentSession.studentName || "";
+          const isAllowed =
+            studentName.includes("Fernando Rosales") ||
+            studentName.includes("Gabriel");
+          if (!isAllowed) {
+            state.resetSessionToDefaults();
+          }
+        }
+      },
       migrate: (persistedState: any, version: number) => {
         const state = persistedState as Partial<AthleteStoreState>;
+        const studentName = state?.currentSession?.studentName || "";
+        const isAllowed =
+          studentName.includes("Fernando Rosales") ||
+          studentName.includes("Gabriel");
         if (
           version < 2 ||
           !state?.currentSession?.studentId ||
-          state?.currentSession?.studentName !== "Fernando Rosales"
+          !isAllowed
         ) {
           return {
             ...state,
