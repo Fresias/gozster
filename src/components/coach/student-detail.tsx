@@ -1,3 +1,5 @@
+import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import { TrendingUp } from "@/components/athlete/icons";
 import * as React from "react";
 import type {
   AlumnoCuestionarioInicial,
@@ -47,6 +49,7 @@ export interface StudentDetailProps {
   dias: DiaRutina[];
   ejerciciosEnRutina: EjercicioEnRutina[];
   ejerciciosCatalogo: Ejercicio[];
+  historialCargas?: HistoricalLoadEntry[];
   onOpenHistoricalLoads: () => void;
   onClonarUltimaRutina: (alumnoId: string) => Promise<unknown>;
   onExtenderVigencia: (planId: string) => Promise<unknown>;
@@ -81,6 +84,7 @@ export function StudentDetail({
   dias,
   ejerciciosEnRutina,
   ejerciciosCatalogo,
+  historialCargas,
   onOpenHistoricalLoads,
   onClonarUltimaRutina,
   onExtenderVigencia,
@@ -216,7 +220,9 @@ export function StudentDetail({
       try {
         if (!supabase) {
           if (isMounted) {
-            setAdherencia(armarAdherencia([], new Date(), objetivoAdherencia, null));
+            const fallbackSesiones = historialCargas ? historialCargas.map((e) => ({ fecha: e.sesion.fecha })) : [];
+            const primeraSes = fallbackSesiones[fallbackSesiones.length - 1]?.fecha ?? null;
+            setAdherencia(armarAdherencia(fallbackSesiones, new Date(), objetivoAdherencia, primeraSes));
             setEstadoAdherencia("listo");
           }
           return;
@@ -239,9 +245,12 @@ export function StudentDetail({
         ]);
         if (recientes.error || primera.error) throw recientes.error ?? primera.error;
         if (!isMounted) return;
-        const sesiones = (recientes.data ?? []) as { fecha: string }[];
+        let sesiones = (recientes.data ?? []) as { fecha: string }[];
+        if (sesiones.length === 0 && historialCargas && historialCargas.length > 0) {
+          sesiones = historialCargas.map((e) => ({ fecha: e.sesion.fecha }));
+        }
         const primeraSesion =
-          (primera.data?.[0] as { fecha: string } | undefined)?.fecha ?? null;
+          (primera.data?.[0] as { fecha: string } | undefined)?.fecha ?? (sesiones[sesiones.length - 1]?.fecha ?? null);
         setAdherencia(armarAdherencia(sesiones, new Date(), objetivoAdherencia, primeraSesion));
         setEstadoAdherencia("listo");
       } catch {
@@ -1141,6 +1150,20 @@ export function StudentDetail({
         >
           Historial de Rutinas ({historialPlanes.length})
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "registros_sesiones"}
+          onClick={() => onTabChange("registros_sesiones")}
+          className={`flex-1 rounded-md py-2.5 text-center text-xs font-semibold transition-all min-h-11 ${
+            activeTab === "registros_sesiones"
+              ? "bg-secondary text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="tab-registros-sesiones"
+        >
+          Registros ({historialCargas?.length ?? 0})
+        </button>
       </div>
 
       {/* TAB 1: Rutina Actual */}
@@ -1482,6 +1505,99 @@ export function StudentDetail({
           </div>
         </div>
       )}
+      {/* TAB 3: Registros de Sesiones y Cargas */}
+      {activeTab === "registros_sesiones" && (
+        <div className="space-y-4" data-testid="panel-registros-sesiones">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                Registros de Entrenamiento & Cargas
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Sesiones registradas y series ejecutadas con pesos reales
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onOpenHistoricalLoads}
+              className="text-xs gap-1.5"
+            >
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <span>Ver Gráficos 1RM</span>
+            </Button>
+          </div>
+
+          {(!historialCargas || historialCargas.length === 0) ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground text-sm">
+                No hay sesiones de entrenamiento registradas aún para este alumno.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {historialCargas.map((entry, idx) => {
+                const fechaStr = new Date(entry.sesion.fecha).toLocaleDateString("es-AR", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+                return (
+                  <Card key={entry.sesion.id || `ses-${idx}`} className="border-border">
+                    <CardHeader className="py-3 px-4 border-b border-border/50 bg-muted/20">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground capitalize">{fechaStr}</span>
+                          {entry.plan?.nombre && (
+                            <Badge variant="outline" className="text-[11px] font-normal">
+                              {entry.plan.nombre}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+                          {Boolean(entry.sesion.duracion_minutos && entry.sesion.duracion_minutos > 0) && (
+                            <span>{entry.sesion.duracion_minutos} min</span>
+                          )}
+                          <span className="font-semibold text-foreground">
+                            {entry.sesion.volumen_total_kg.toLocaleString("es-AR")} kg
+                          </span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {entry.series.map((s, sIdx) => (
+                          <div
+                            key={s.id || `ser-${sIdx}`}
+                            className="flex items-center justify-between rounded-md bg-secondary/30 px-3 py-2 text-xs"
+                          >
+                            <span className="font-medium text-foreground truncate max-w-[160px]" title={s.ejercicioNombre}>
+                              {s.ejercicioNombre}
+                            </span>
+                            <div className="flex items-center gap-1.5 font-mono text-muted-foreground shrink-0">
+                              <span className="font-semibold text-foreground">
+                                {s.peso_kg} kg × {s.reps_hechas}
+                              </span>
+                              {s.rpe_real ? (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1">
+                                  @{s.rpe_real}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
