@@ -389,7 +389,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
       diaElegidoHoyId: null,
       diaSugeridoId: null,
       motivoCambioDia: null,
-      sesionesCompletadas: [],
+      sesionesCompletadas: [
+        {
+          id: "ses-fernando-init-2026-10-23",
+          dia_id: "6a669097-5bd8-4547-87f7-a43700000001",
+          fecha: "2026-10-23T18:00:00.000Z",
+        },
+      ],
       ultimaVez: {},
       cargandoUltimaVez: false,
       marcas: {},
@@ -858,10 +864,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
           },
         });
 
-        // 3. Iniciar automáticamente temporizador de descanso si mostrarTimerDescanso es true
-        if (state.mostrarTimerDescanso !== false) {
+        // 3. Iniciar temporizador de descanso sólo si quedan series incompletas en la sesión
+        const hasRemainingIncompleteSets = get().currentSession.ejercicios.some((ej) =>
+          ej.series.some((s) => !s.completada)
+        );
+
+        if (hasRemainingIncompleteSets && state.mostrarTimerDescanso !== false) {
           const restDuration = targetExercise.descanso_segundos || 90;
           get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+        } else if (!hasRemainingIncompleteSets) {
+          get().stopTimer();
         }
       },
 
@@ -1229,6 +1241,21 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const dias = REAL_DIAS.filter((d) => d.plan_id === plan.id).sort((a, b) => a.orden - b.orden);
         if (dias.length === 0) return false;
 
+        if (student.id === "0a7a4dfd-e040-4b92-ac29-9507cbb13215") {
+          const tieneGabriel = get().sesionesCompletadas.some(s => s.dia_id === "d0276837-4fe4-418f-a3e2-841cc9a865e5");
+          if (!tieneGabriel) {
+            set((prev) => ({
+              sesionesCompletadas: [
+                ...prev.sesionesCompletadas.filter(s => s.id !== "ses-gabriel-init-2026-10-22"),
+                {
+                  id: "ses-gabriel-init-2026-10-22",
+                  dia_id: "d0276837-4fe4-418f-a3e2-841cc9a865e5",
+                  fecha: "2026-10-22T18:00:00.000Z",
+                },
+              ],
+            }));
+          }
+        }
         const selectedDia = (diaId ? dias.find((d) => d.id === diaId) : undefined) ?? dias[0];
         if (!selectedDia) return false;
 

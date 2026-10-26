@@ -181,3 +181,98 @@ export function calcularEstadosDias({
     totalDias: ordenados.length,
   };
 }
+
+export interface UltimoDiaRealizadoInfo {
+  dia: DiaRutinaItem;
+  fechaIso: string;
+  tiempoRelativo: string;
+  fechaLegible: string;
+}
+
+/**
+ * Formatea la fecha de la última sesión en tiempo relativo ('Hoy', 'Ayer', 'Hace X días')
+ * y fecha legible en español ('24 oct').
+ */
+export function formatearFechaUltimoEntrenamiento(
+  fechaStr: string,
+  fechaReferencia: Date = new Date(),
+): { tiempoRelativo: string; fechaLegible: string } {
+  const f = new Date(fechaStr);
+  if (isNaN(f.getTime())) {
+    return { tiempoRelativo: '', fechaLegible: '' };
+  }
+
+  const fDate = new Date(f.getFullYear(), f.getMonth(), f.getDate());
+  const refDate = new Date(
+    fechaReferencia.getFullYear(),
+    fechaReferencia.getMonth(),
+    fechaReferencia.getDate(),
+  );
+  const diffMs = refDate.getTime() - fDate.getTime();
+  const diffDias = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  let tiempoRelativo = '';
+  if (diffDias === 0) {
+    tiempoRelativo = 'Hoy';
+  } else if (diffDias === 1) {
+    tiempoRelativo = 'Ayer';
+  } else if (diffDias > 1 && diffDias < 7) {
+    tiempoRelativo = `Hace ${diffDias} días`;
+  } else if (diffDias >= 7 && diffDias < 14) {
+    tiempoRelativo = 'Hace 1 semana';
+  } else if (diffDias >= 14) {
+    tiempoRelativo = `Hace ${Math.floor(diffDias / 7)} semanas`;
+  } else {
+    tiempoRelativo = 'Recientemente';
+  }
+
+  const opciones: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  };
+  const fechaLegible = f.toLocaleDateString('es-AR', opciones);
+
+  return { tiempoRelativo, fechaLegible };
+}
+
+/**
+ * Determina el último día de rutina que el atleta completó en base a su historial de sesiones.
+ * Devuelve null si no registra sesiones previas.
+ */
+export function calcularUltimoDiaRealizado(
+  dias: DiaRutinaItem[],
+  sesiones: RegistroSesionSimple[],
+  fechaReferencia: Date = new Date(),
+): UltimoDiaRealizadoInfo | null {
+  if (!dias || dias.length === 0 || !sesiones || sesiones.length === 0) {
+    return null;
+  }
+
+  // Filtrar sesiones con fecha válida y dia_id presente en la lista de días
+  const validas = sesiones
+    .filter((s): s is RegistroSesionSimple & { fecha: string } => Boolean(s.fecha && dias.some((d) => d.id === s.dia_id)))
+    .sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+    );
+
+  const ultima = validas[0];
+  if (!ultima) {
+    return null;
+  }
+
+  const diaEncontrado = dias.find((d) => d.id === ultima.dia_id);
+  if (!diaEncontrado) return null;
+
+  const { tiempoRelativo, fechaLegible } = formatearFechaUltimoEntrenamiento(
+    ultima.fecha,
+    fechaReferencia,
+  );
+
+  return {
+    dia: diaEncontrado,
+    fechaIso: ultima.fecha,
+    tiempoRelativo,
+    fechaLegible,
+  };
+}

@@ -791,27 +791,7 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-                        {/* Botón de notas del coach a demanda (signo de pregunta con popover) */}
-                        {currentExercise.comentario && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="h-10 px-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-1 text-xs font-bold transition-all touch-manipulation cursor-pointer"
-                                title="Ver notas del coach"
-                              >
-                                <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-[10px]">?</span>
-                                <span className="hidden sm:inline">Notas</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 text-xs p-3 space-y-1.5 bg-popover border border-border shadow-md">
-                              <p className="font-bold text-foreground">Indicación del coach:</p>
-                              <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
-                                {currentExercise.comentario}
-                              </p>
-                            </PopoverContent>
-                          </Popover>
-                        )}
+
 
                         <button
                           type="button"
@@ -1106,10 +1086,12 @@ export function LiveWorkout() {
                         <Check className="h-6 w-6" strokeWidth={3} />
                       </div>
                       <h3 className="text-xl font-bold text-foreground">
-                        ¡Ejercicio completado!
+                        {firstIncompleteExercise ? "¡Ejercicio completado!" : "¡Entrenamiento completado!"}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        Guardaste todas las series de {currentExercise.nombre}.
+                        {firstIncompleteExercise
+                          ? `Guardaste todas las series de ${currentExercise.nombre}.`
+                          : "¡Completaste todas las series de tu rutina de hoy!"}
                       </p>
                       {firstIncompleteExercise ? (
                         <Button
@@ -1122,10 +1104,16 @@ export function LiveWorkout() {
                       ) : (
                         <Button
                           type="button"
-                          onClick={() => setWorkoutTab("registro")}
-                          className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
+                          disabled={isFinishing || workoutFinished}
+                          onClick={handleTerminarEntrenamiento}
+                          className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
+                          data-testid="terminar-entrenamiento-btn-entrenar"
                         >
-                          Ver Registro de la sesión
+                          {isFinishing
+                            ? "Guardando entrenamiento…"
+                            : workoutFinished
+                            ? "¡Entrenamiento finalizado!"
+                            : "Terminar entrenamiento"}
                         </Button>
                       )}
                     </div>

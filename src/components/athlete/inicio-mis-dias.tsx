@@ -10,6 +10,7 @@ import {
 } from "@/services/real-mynter-data";
 import {
   calcularEstadosDias,
+  calcularUltimoDiaRealizado,
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
@@ -100,6 +101,10 @@ export function InicioMisDias() {
       { id: "demo-dia-4", orden: 4, nombre: "Movilidad y core", ejerciciosCount: 5, duracionMinutos: 35 },
     ];
   }, [plan?.id]);
+
+  const ultimoDiaRealizado = React.useMemo(() => {
+    return calcularUltimoDiaRealizado(diasItems, sesionesCompletadas);
+  }, [diasItems, sesionesCompletadas]);
 
   // Cálculo puro de estados de los días
   const {
@@ -208,6 +213,38 @@ export function InicioMisDias() {
         </p>
       </div>
 
+      {/* Indicador de Último Entrenamiento Realizado */}
+      {ultimoDiaRealizado && (
+        <div
+          className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-secondary/60 border border-border/80 text-xs shadow-xs"
+          data-testid="ultimo-entrenamiento-card"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500 font-bold">
+              <Check className="h-4 w-4" strokeWidth={3} />
+            </span>
+            <div className="truncate">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Último entrenamiento realizado
+              </p>
+              <p className="text-sm font-bold text-foreground truncate mt-0.5">
+                Día {ultimoDiaRealizado.dia.orden} · {ultimoDiaRealizado.dia.nombre}
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <span
+              className="inline-block px-2.5 py-1 rounded-lg bg-background/80 border border-border/60 text-[11px] font-bold text-foreground"
+              data-testid="ultimo-entrenamiento-fecha"
+            >
+              {ultimoDiaRealizado.tiempoRelativo
+                ? `${ultimoDiaRealizado.tiempoRelativo} · ${ultimoDiaRealizado.fechaLegible}`
+                : ultimoDiaRealizado.fechaLegible}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Hero Oscuro (#0F172A) con el Día activo para hoy */}
       {diaHero && (
         <section
@@ -282,6 +319,7 @@ export function InicioMisDias() {
             const isDone = dia.estado === "DONE";
             const isToday = dia.estado === "TODAY";
             const isSkipped = dia.estado === "PENDING_SKIPPED";
+            const isUltimo = ultimoDiaRealizado?.dia.id === dia.id;
 
             return (
               <div
@@ -329,9 +367,19 @@ export function InicioMisDias() {
 
                 {/* Título y Subtítulo descriptivo */}
                 <div className="flex-1 min-w-0">
-                  <b className="block text-base font-bold text-foreground truncate">
-                    Día {dia.orden} · {dia.nombre}
-                  </b>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <b className="text-base font-bold text-foreground truncate">
+                      Día {dia.orden} · {dia.nombre}
+                    </b>
+                    {isUltimo && (
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500"
+                        data-testid={`badge-ultimo-realizado-${dia.id}`}
+                      >
+                        Último realizado
+                      </span>
+                    )}
+                  </div>
                   <span
                     className={`block text-[13px] truncate ${
                       isToday
