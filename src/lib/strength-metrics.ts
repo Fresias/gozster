@@ -166,6 +166,56 @@ export interface PlateCount {
   count: number;
 }
 
+export type BarbellWeightKg = 20 | 15 | 10;
+
+export interface BarbellOption {
+  id: string;
+  name: string;
+  shortName: string;
+  weightKg: BarbellWeightKg;
+  description: string;
+}
+
+export const BARBELL_OPTIONS: readonly BarbellOption[] = [
+  {
+    id: 'olympic-20',
+    name: 'Olímpica estándar (20 kg)',
+    shortName: 'Olímpica 20 kg',
+    weightKg: 20,
+    description: 'Barra olímpica masculina estándar (2.2 m / 20 kg)',
+  },
+  {
+    id: 'semi-15',
+    name: 'Semi-olímpica / Femenina (15 kg)',
+    shortName: 'Semi-olímpica 15 kg',
+    weightKg: 15,
+    description: 'Barra semi-olímpica o técnica femenina (2.0 m / 15 kg)',
+  },
+  {
+    id: 'short-10',
+    name: 'Barra corta / Estándar común (10 kg)',
+    shortName: 'Barra corta 10 kg',
+    weightKg: 10,
+    description: 'Barra recta estándar de gimnasio comercial (10 kg)',
+  },
+] as const;
+
+/**
+ * Normaliza y asienta el peso total efectivo real levantado en la barra:
+ * Peso Total = Peso Barra + 2 * Peso Por Lado
+ *
+ * Evita registrar falsos PRs o distorsión de tonelaje cuando un atleta entrena
+ * con barras más livianas (ej. tirar 30 kg por lado en barra de 10 kg equivale
+ * a 70 kg totales, lo cual no debe distorsionar récords respecto a una barra de 20 kg).
+ */
+export function calculateEffectiveTotalWeight(
+  barWeightKg: number,
+  perSideWeightKg: number,
+): number {
+  if (barWeightKg < 0 || perSideWeightKg < 0) return 0;
+  return Math.round((barWeightKg + 2 * perSideWeightKg) * 100) / 100;
+}
+
 export interface PlateCalculatorResult {
   barWeightKg: number;
   totalWeightKg: number;
@@ -176,7 +226,7 @@ export interface PlateCalculatorResult {
 
 /**
  * Hevy PlateCalculator:
- * Desglosa visualmente qué discos exactos colocar por lado en la barra olímpica de 20 kg
+ * Desglosa visualmente qué discos exactos colocar por lado en la barra activa (20, 15 o 10 kg)
  * Opciones estándar de discos: 25, 20, 15, 10, 5, 2.5, 1.25 kg.
  */
 export function calculateBarbellPlates(
@@ -184,8 +234,9 @@ export function calculateBarbellPlates(
   barWeightKg: number = 20,
   availablePlates: number[] = [25, 20, 15, 10, 5, 2.5, 1.25],
 ): PlateCalculatorResult {
-  const target = Math.max(barWeightKg, totalWeightKg);
-  let perSideNeeded = (target - barWeightKg) / 2;
+  const safeBarWeight = Math.max(0, barWeightKg);
+  const target = Math.max(safeBarWeight, totalWeightKg);
+  let perSideNeeded = Math.round(((target - safeBarWeight) / 2) * 100) / 100;
   const sortedPlates = [...availablePlates].sort((a, b) => b - a);
 
   const platesPerSide: PlateCount[] = [];
@@ -200,7 +251,7 @@ export function calculateBarbellPlates(
   }
 
   return {
-    barWeightKg,
+    barWeightKg: safeBarWeight,
     totalWeightKg: target,
     perSideWeightKg: perSideNeeded,
     platesPerSide,
