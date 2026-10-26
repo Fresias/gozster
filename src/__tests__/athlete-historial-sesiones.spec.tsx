@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, beforeEach } from "vitest";
 import { HistorialSesiones } from "@/components/athlete/historial-sesiones";
