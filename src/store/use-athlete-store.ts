@@ -11,12 +11,16 @@ import {
   REAL_DIAS,
   REAL_EJERCICIOS,
   REAL_EJERCICIOS_RUTINA,
+  REAL_HISTORIAL_CARGAS,
 } from "@/services/real-mynter-data";
 import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
   MotivoCambioDia,
+  RegistroSerie,
+  RegistroSesion,
 } from "@/types/database.types";
+import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
@@ -121,11 +125,20 @@ interface AthleteStoreState {
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
   pasoIncrementoPeso: number;
+  historialSesiones: HistoricalLoadEntry[];
+  cargandoHistorial: boolean;
 
   // Actions
   cargarUltimaVez: () => Promise<void>;
   // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
   cargarMiProgreso: () => Promise<void>;
+  cargarHistorialSesiones: () => Promise<void>;
+  actualizarSerieHistorial: (
+    sesionId: string,
+    serieId: string,
+    pesoKg: number,
+    repsHechas: number,
+  ) => Promise<void>;
   // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
   empezarDia: (diaId: string) => void;
@@ -408,6 +421,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       miProgreso: null,
       miProgresoFecha: null,
       cargandoMiProgreso: false,
+      historialSesiones: REAL_HISTORIAL_CARGAS[DEFAULT_ATHLETE_ID] || [],
+      cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       rpeValidationError: null,
       stopProtocolActive: false,
@@ -492,18 +507,70 @@ export const useAthleteStore = create<AthleteStoreState>()(
       marcarDiaCompletado: (diaId) =>
         set((state) => {
           const session = state.currentSession;
+          const studentId = session?.studentId || DEFAULT_ATHLETE_ID;
+          const sessionId = session?.id || ("sesion-" + Date.now());
+          const fechaIso = new Date().toISOString();
+
           const nuevasSesiones = [
             ...state.sesionesCompletadas.filter((s) => s.dia_id !== diaId),
             {
-              id: session?.id || `sesion-${Date.now()}`,
+              id: sessionId,
               dia_id: diaId,
               dia_sugerido_id: session?.dia_sugerido_id || state.diaSugeridoId || null,
               motivo_cambio_dia: session?.motivo_cambio_dia || state.motivoCambioDia || null,
-              fecha: new Date().toISOString(),
+              fecha: fechaIso,
             },
           ];
+
+          const allCompletedSets = (session?.ejercicios || []).flatMap((e) =>
+            e.series
+              .filter((s) => s.completada)
+              .map((s) => ({
+                id: "ser-" + sessionId + "-" + (e.ejercicio_id ?? e.id) + "-" + s.numero_serie,
+                sesion_id: sessionId,
+                ejercicio_id: e.ejercicio_id ?? e.id,
+                ejercicioNombre: e.nombre || "Ejercicio",
+                numero_serie: s.numero_serie,
+                peso_kg: s.peso_kg,
+                reps_hechas: s.reps_hechas,
+                rpe_real: s.rpe_real ?? null,
+                completada: true,
+                set_type: (s.set_type === "W" ? "WARMUP" : s.set_type === "F" ? "FAILURE" : s.set_type === "D" ? "DROPSET" : "NORMAL") as any,
+                pain_reported: s.pain_reported || false,
+                pain_notes: s.pain_notes || null,
+                video_url: s.video_url || null,
+                created_at: fechaIso,
+                updated_at: fechaIso,
+              }))
+          );
+
+          const volTotal = allCompletedSets.reduce((acc, s) => acc + s.peso_kg * s.reps_hechas, 0);
+
+          const nuevaEntradaHistorial: HistoricalLoadEntry = {
+            sesion: {
+              id: sessionId,
+              alumno_id: studentId,
+              dia_id: diaId,
+              dia_sugerido_id: session?.dia_sugerido_id || state.diaSugeridoId || null,
+              motivo_cambio_dia: session?.motivo_cambio_dia || state.motivoCambioDia || null,
+              fecha: fechaIso,
+              duracion_minutos: 45,
+              volumen_total_kg: volTotal,
+              effective_volume_kg: volTotal,
+              created_at: fechaIso,
+              updated_at: fechaIso,
+            },
+            series: allCompletedSets,
+          };
+
+          const nuevoHistorial = [
+            nuevaEntradaHistorial,
+            ...state.historialSesiones.filter((h) => h.sesion.id !== sessionId),
+          ];
+
           return {
             sesionesCompletadas: nuevasSesiones,
+            historialSesiones: nuevoHistorial,
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
@@ -1146,6 +1213,144 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }));
       },
 
+      cargarHistorialSesiones: async () => {
+        if (!useOfflineQueueStore.getState().isOnline) return;
+        const session = get().currentSession;
+        const studentId = session.studentId || DEFAULT_ATHLETE_ID;
+        if (!UUID_RE.test(studentId)) return;
+
+        set({ cargandoHistorial: true });
+        try {
+          const { data: sesionesData, error: sesErr } = await supabase
+            .from("registro_sesiones")
+            .select("*")
+            .eq("alumno_id", studentId)
+            .order("fecha", { ascending: false })
+            .limit(100);
+
+          if (sesErr || !sesionesData || sesionesData.length === 0) {
+            return;
+          }
+
+          const sesionIds = sesionesData.map((s) => s.id);
+          const { data: seriesData } = await supabase
+            .from("registro_series")
+            .select("*, ejercicios(id, nombre)")
+            .in("sesion_id", sesionIds)
+            .order("numero_serie", { ascending: true });
+
+          const seriesPorSesion: Record<string, (RegistroSerie & { ejercicioNombre: string })[]> = {};
+          (seriesData || []).forEach((item: any) => {
+            const ejNombre = item.ejercicios?.nombre || REAL_EJERCICIOS.find((e) => e.id === item.ejercicio_id)?.nombre || "Ejercicio";
+            const row: RegistroSerie & { ejercicioNombre: string } = {
+              id: item.id,
+              sesion_id: item.sesion_id,
+              ejercicio_id: item.ejercicio_id,
+              ejercicioNombre: ejNombre,
+              numero_serie: item.numero_serie,
+              peso_kg: item.peso_kg,
+              reps_hechas: item.reps_hechas,
+              rpe_real: item.rpe_real,
+              completada: item.completada,
+              set_type: item.set_type,
+              pain_reported: item.pain_reported,
+              pain_notes: item.pain_notes,
+              video_url: item.video_url,
+              created_at: item.created_at,
+              updated_at: item.updated_at,
+            };
+            if (!seriesPorSesion[item.sesion_id]) seriesPorSesion[item.sesion_id] = [];
+            seriesPorSesion[item.sesion_id]!.push(row);
+          });
+
+          const remotas: HistoricalLoadEntry[] = sesionesData.map((ses) => ({
+            sesion: ses as RegistroSesion,
+            series: seriesPorSesion[ses.id] || [],
+          }));
+
+          set((state) => {
+            const existentes = state.historialSesiones;
+            const idsRemotos = new Set(remotas.map((r) => r.sesion.id));
+            const localesSinRemoto = existentes.filter((e) => !idsRemotos.has(e.sesion.id));
+            return {
+              historialSesiones: [...localesSinRemoto, ...remotas].sort(
+                (a, b) => new Date(b.sesion.fecha).getTime() - new Date(a.sesion.fecha).getTime()
+              ),
+            };
+          });
+        } catch (e) {
+          console.warn("No se pudo descargar el historial de sesiones:", e);
+        } finally {
+          set({ cargandoHistorial: false });
+        }
+      },
+
+      actualizarSerieHistorial: async (sesionId, serieId, pesoKg, repsHechas) => {
+        const pesoValido = Math.max(0, Number(pesoKg) || 0);
+        const repsValidas = Math.max(1, Math.round(Number(repsHechas) || 1));
+
+        // 1. Guardado optimista inmediato en Zustand
+        set((state) => {
+          const nuevasEntradas = state.historialSesiones.map((entry) => {
+            if (entry.sesion.id !== sesionId) return entry;
+            const seriesActualizadas = entry.series.map((s) => {
+              if (s.id !== serieId) return s;
+              return {
+                ...s,
+                peso_kg: pesoValido,
+                reps_hechas: repsValidas,
+                updated_at: new Date().toISOString(),
+              };
+            });
+            const nuevoVolumen = seriesActualizadas.reduce((acc, s) => {
+              if (s.completada === false) return acc;
+              return acc + (Number(s.peso_kg) || 0) * (Number(s.reps_hechas) || 0);
+            }, 0);
+            return {
+              ...entry,
+              sesion: {
+                ...entry.sesion,
+                volumen_total_kg: nuevoVolumen,
+                updated_at: new Date().toISOString(),
+              },
+              series: seriesActualizadas,
+            };
+          });
+          return { historialSesiones: nuevasEntradas };
+        });
+
+        // 2. Acumular evento en cola offline silenciosa
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: "edit-serie-" + serieId + "-" + Date.now(),
+          action: "HISTORIAL_SERIE_UPDATED",
+          payload: {
+            sesionId,
+            serieId,
+            pesoKg: pesoValido,
+            repsHechas: repsValidas,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+
+        // 3. Sincronizar en Supabase si estamos online
+        if (useOfflineQueueStore.getState().isOnline) {
+          try {
+            if (UUID_RE.test(serieId)) {
+              await supabase
+                .from("registro_series")
+                .update({
+                  peso_kg: pesoValido,
+                  reps_hechas: repsValidas,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", serieId);
+            }
+          } catch (err) {
+            console.warn("Aviso al sincronizar edición de serie con Supabase:", err);
+          }
+        }
+      },
+
       syncSessionToSupabase: async () => {
         if (activeSyncSessionPromise) {
           return activeSyncSessionPromise;
@@ -1360,8 +1565,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
                   fecha: "2026-10-22T18:00:00.000Z",
                 },
               ],
+              historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
+            }));
+          } else {
+            set((prev) => ({
+              historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
             }));
           }
+        } else {
+          set((prev) => ({
+            historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
+          }));
         }
         const selectedDia = (diaId ? dias.find((d) => d.id === diaId) : undefined) ?? dias[0];
         if (!selectedDia) return false;
@@ -1519,6 +1733,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaElegidoHoyId: state.diaElegidoHoyId,
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
+        historialSesiones: state.historialSesiones,
       }),
     },
   ),
