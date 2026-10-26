@@ -14,6 +14,7 @@ import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-moda
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
+import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
 import {
   TriangleAlert,
   Timer,
@@ -74,6 +75,7 @@ export function LiveWorkout() {
     diaActivoId,
     volverAlInicio,
     marcarDiaCompletado,
+    sesionesCompletadas,
     ultimaVez,
     cargandoUltimaVez,
     cargarUltimaVez,
@@ -126,6 +128,11 @@ export function LiveWorkout() {
   // Estado para terminar entrenamiento
   const [isFinishing, setIsFinishing] = React.useState(false);
   const [workoutFinished, setWorkoutFinished] = React.useState(false);
+
+  // Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180)
+  const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
+  const [sessionPRs, setSessionPRs] = React.useState<RecordSesionItem[]>([]);
+  const sessionStartTimeRef = React.useRef<number>(Date.now());
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
@@ -257,6 +264,20 @@ export function LiveWorkout() {
         reps,
         record: { resultado, exerciseName: currentExercise.nombre, peso_kg: peso, reps_hechas: reps },
       });
+      setSessionPRs((prev) => [
+        ...prev.filter(
+          (p) => !(p.exerciseName === currentExercise.nombre && p.numero_serie === num)
+        ),
+        {
+          exerciseName: currentExercise.nombre,
+          peso_kg: peso,
+          reps_hechas: reps,
+          tipo: resultado.tipo,
+          epley_kg: resultado.epley_kg,
+          delta_epley_kg: resultado.delta_epley_kg,
+          numero_serie: num,
+        },
+      ]);
     } else {
       setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
     }
@@ -328,6 +349,7 @@ export function LiveWorkout() {
     }
     setIsFinishing(false);
     setWorkoutFinished(true);
+    setShowCelebrationModal(true);
   };
 
   const cleanDiaTitle = React.useMemo(() => {
@@ -1106,8 +1128,12 @@ export function LiveWorkout() {
                       ) : (
                         <Button
                           type="button"
-                          disabled={isFinishing || workoutFinished || isAllWorkoutCompleted}
-                          onClick={handleTerminarEntrenamiento}
+                          disabled={isFinishing}
+                          onClick={
+                            workoutFinished || isAllWorkoutCompleted
+                              ? () => setShowCelebrationModal(true)
+                              : handleTerminarEntrenamiento
+                          }
                           className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
                           data-testid="terminar-entrenamiento-btn-entrenar"
                         >
@@ -1374,8 +1400,12 @@ export function LiveWorkout() {
 
                     <Button
                       type="button"
-                      disabled={isFinishing || workoutFinished}
-                      onClick={handleTerminarEntrenamiento}
+                      disabled={isFinishing}
+                      onClick={
+                        workoutFinished || isAllWorkoutCompleted
+                          ? () => setShowCelebrationModal(true)
+                          : handleTerminarEntrenamiento
+                      }
                       className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
                       data-testid="terminar-entrenamiento-btn"
                     >
@@ -1640,6 +1670,27 @@ export function LiveWorkout() {
           }
         />
       )}
+
+      {/* Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180) */}
+      <CierreDiaModal
+        isOpen={showCelebrationModal}
+        onClose={() => setShowCelebrationModal(false)}
+        onVolverInicio={() => {
+          setShowCelebrationModal(false);
+          volverAlInicio();
+        }}
+        tonelajeKg={totalVolumeKg}
+        seriesCompletadas={completedSetsCount}
+        totalSeries={totalSets}
+        duracionMinutos={Math.max(1, Math.round((Date.now() - sessionStartTimeRef.current) / 60000)) || 45}
+        rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 4)}
+        rachaPrevia={Math.max(0, (sesionesCompletadas?.length || 0) + 3)}
+        metaDiasSemana={4}
+        diasCompletadosSemana={Math.max(1, sesionesCompletadas?.length || 1)}
+        recordsObtenidos={sessionPRs}
+        studentName={currentSession.studentName || "Fernando Rosales"}
+        diaNombre={cleanDiaTitle || "Día 1"}
+      />
     </div>
   );
 }
