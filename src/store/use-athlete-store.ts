@@ -20,8 +20,8 @@ import type {
   RegistroSerie,
   RegistroSesion,
 } from "@/types/database.types";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import type { PainReportData } from "@/components/athlete/pain-report-modal";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -188,6 +188,10 @@ interface AthleteStoreState {
   applyWarmupSetsToExercise: (
     exerciseId: string,
     warmupSets: Array<{ peso_kg: number; reps: number; setNumber: number }>,
+  ) => void;
+  registerWarmupSet: (
+    exerciseId: string,
+    warmup: { peso_kg: number; reps: number; rpe_real?: number },
   ) => void;
   completeSet: (exerciseId: string, setNumber: number) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
@@ -387,6 +391,8 @@ const safeStorage: StateStorage = {
   },
 };
 
+let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
     (set, get) => ({
@@ -567,7 +573,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             historialSesiones: nuevoHistorial,
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
-            diaSugeridoId: state.diaSugeridoId === diaId ? null : state.diaSugeridoId,
+            diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
           };
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
@@ -824,9 +830,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
             ...state.currentSession,
             ejercicios: state.currentSession.ejercicios.map((ej) => {
               if (ej.id !== exerciseId) return ej;
+              // Conservar calentamientos ya completados si los hubiera, descartar calentamientos pendientes previos para evitar duplicación
+              const completedWarmups = ej.series.filter(
+                (s) => (s.set_type === "W" || s.set_type === "WARMUP") && s.completada
+              );
+              const effectiveSets = ej.series.filter(
+                (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+              );
+
               // Crear series de calentamiento con set_type = 'W'
               const wSets: LiveWorkoutSet[] = warmupSets.map((w, idx) => ({
-                numero_serie: idx + 1,
+                numero_serie: completedWarmups.length + idx + 1,
                 peso_kg: w.peso_kg,
                 reps_hechas: w.reps,
                 rpe_real: 6.0,
@@ -834,18 +848,92 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 estimated1RM: calculateEpley1RM(w.peso_kg, w.reps),
                 set_type: "W",
               }));
-              // Re-numerar las series existentes
-              const existingSets = ej.series.map((s, idx) => ({
+
+              const allWarmups = [...completedWarmups, ...wSets];
+              // Re-numerar las series efectivas
+              const existingSets = effectiveSets.map((s, idx) => ({
                 ...s,
-                numero_serie: wSets.length + idx + 1,
+                numero_serie: allWarmups.length + idx + 1,
               }));
+
               return {
                 ...ej,
-                series: [...wSets, ...existingSets],
+                series: [...allWarmups, ...existingSets],
               };
             }),
           },
         }));
+      },
+
+      registerWarmupSet: (exerciseId, warmup) => {
+        const state = get();
+        const targetExercise = state.currentSession.ejercicios.find(
+          (e) => e.id === exerciseId
+        );
+        if (!targetExercise) return;
+
+        const completedAt = new Date().toISOString();
+        const rpeReal = warmup.rpe_real ?? 6.0;
+        const estimated1RM = calculateEpley1RM(warmup.peso_kg, warmup.reps);
+
+        const existingWarmups = targetExercise.series.filter(
+          (s) => s.set_type === "W" || s.set_type === "WARMUP"
+        );
+        const effectiveSets = targetExercise.series.filter(
+          (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+        );
+
+        const newWarmupSet: LiveWorkoutSet = {
+          numero_serie: existingWarmups.length + 1,
+          peso_kg: warmup.peso_kg,
+          reps_hechas: warmup.reps,
+          rpe_real: rpeReal,
+          completada: true,
+          completedAt,
+          estimated1RM,
+          set_type: "W",
+        };
+
+        const allWarmups = [...existingWarmups, newWarmupSet].map((s, idx) => ({
+          ...s,
+          numero_serie: idx + 1,
+        }));
+
+        const renumberedEffective = effectiveSets.map((s, idx) => ({
+          ...s,
+          numero_serie: allWarmups.length + idx + 1,
+        }));
+
+        const updatedSeries = [...allWarmups, ...renumberedEffective];
+
+        set((prevState) => ({
+          currentSession: {
+            ...prevState.currentSession,
+            ejercicios: prevState.currentSession.ejercicios.map((ej) =>
+              ej.id === exerciseId ? { ...ej, series: updatedSeries } : ej
+            ),
+          },
+        }));
+
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `set-warmup-${exerciseId}-${newWarmupSet.numero_serie}-${Date.now()}`,
+          action: "WORKOUT_SET_COMPLETED",
+          payload: {
+            sessionId: state.currentSession.id,
+            exerciseId,
+            exerciseName: targetExercise.nombre,
+            setNumber: newWarmupSet.numero_serie,
+            pesoKg: warmup.peso_kg,
+            reps: warmup.reps,
+            rpe: rpeReal,
+            setType: "W",
+            painReported: false,
+            painNotes: null,
+            videoUrl: null,
+            estimated1RM,
+            completedAt,
+          },
+        });
       },
 
       completeSet: (exerciseId, setNumber) => {
@@ -896,6 +984,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     };
                   }
                   if (s.numero_serie === setNumber + 1 && !s.completada) {
+                    if ((s.set_type === "W" || s.set_type === "WARMUP") && s.peso_kg > 0) {
+                      return s;
+                    }
                     return {
                       ...s,
                       peso_kg: targetSet.peso_kg,
@@ -941,6 +1032,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
           get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
         } else if (!hasRemainingIncompleteSets) {
           get().stopTimer();
+          // Auto-finalización y sincronización automática al completar la última serie de la sesión
+          const currentStore = get();
+          void currentStore.syncSessionToSupabase();
+          if (currentStore.diaActivoId) {
+            currentStore.marcarDiaCompletado(currentStore.diaActivoId);
+          }
         }
       },
 
@@ -1255,80 +1352,90 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       syncSessionToSupabase: async () => {
-        const state = get();
-        const session = state.currentSession;
-        const studentId = session.studentId || DEFAULT_ATHLETE_ID;
+        if (activeSyncSessionPromise) {
+          return activeSyncSessionPromise;
+        }
 
-        // Aplanar todas las series
-        const allSets = session.ejercicios.flatMap((e) =>
-          e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
-        );
+        activeSyncSessionPromise = (async () => {
+          const state = get();
+          const session = state.currentSession;
+          const studentId = session.studentId || DEFAULT_ATHLETE_ID;
 
-        const totalVol = allSets.reduce((acc, s) => {
-          if (!s.completada) return acc;
-          return acc + s.peso_kg * s.reps_hechas;
-        }, 0);
-
-        const effVol = calculateEffectiveVolume(allSets);
-
-        try {
-          // Guardar registro_sesiones en Supabase
-          const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
-            {
-              id: session.id,
-              alumno_id: studentId,
-              dia_id: session.dia_id,
-              dia_sugerido_id: session.dia_sugerido_id || null,
-              motivo_cambio_dia: session.motivo_cambio_dia || null,
-              duracion_minutos: 45,
-              volumen_total_kg: totalVol,
-              effective_volume_kg: effVol,
-            },
-            { onConflict: "id" }
+          // Aplanar todas las series
+          const allSets = session.ejercicios.flatMap((e) =>
+            e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
           );
 
-          if (sesErr) {
-            console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
-          }
+          const totalVol = allSets.reduce((acc, s) => {
+            if (!s.completada) return acc;
+            return acc + s.peso_kg * s.reps_hechas;
+          }, 0);
 
-          // Guardar cada serie en registro_series
-          for (const s of allSets) {
-            if (!s.completada) continue;
-            const mappedType =
-              s.set_type === "W"
-                ? "WARMUP"
-                : s.set_type === "F"
-                ? "FAILURE"
-                : s.set_type === "D"
-                ? "DROPSET"
-                : "NORMAL";
+          const effVol = calculateEffectiveVolume(allSets);
 
-            // Resolver ejercicio_id válido para FK de Supabase
-            const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
-
-            await supabase.from("registro_series").upsert(
+          try {
+            // Guardar registro_sesiones en Supabase
+            const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
               {
-                sesion_id: session.id,
-                ejercicio_id: resolvedEjId,
-                numero_serie: s.numero_serie,
-                peso_kg: s.peso_kg,
-                reps_hechas: s.reps_hechas,
-                rpe_real: s.rpe_real,
-                completada: true,
-                set_type: mappedType,
-                pain_reported: s.pain_reported || false,
-                pain_notes: s.pain_notes || null,
-                video_url: s.video_url || null,
+                id: session.id,
+                alumno_id: studentId,
+                dia_id: session.dia_id,
+                dia_sugerido_id: session.dia_sugerido_id || null,
+                motivo_cambio_dia: session.motivo_cambio_dia || null,
+                duracion_minutos: 45,
+                volumen_total_kg: totalVol,
+                effective_volume_kg: effVol,
               },
-              { onConflict: "sesion_id, ejercicio_id, numero_serie" }
+              { onConflict: "id" }
             );
-          }
 
-          return { success: true };
-        } catch (e: any) {
-          console.error("Error sincronizando sesion con Supabase:", e);
-          return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
-        }
+            if (sesErr) {
+              console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
+            }
+
+            // Guardar cada serie en registro_series
+            for (const s of allSets) {
+              if (!s.completada) continue;
+              const mappedType =
+                s.set_type === "W"
+                  ? "WARMUP"
+                  : s.set_type === "F"
+                  ? "FAILURE"
+                  : s.set_type === "D"
+                  ? "DROPSET"
+                  : "NORMAL";
+
+              // Resolver ejercicio_id válido para FK de Supabase
+              const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
+
+              await supabase.from("registro_series").upsert(
+                {
+                  sesion_id: session.id,
+                  ejercicio_id: resolvedEjId,
+                  numero_serie: s.numero_serie,
+                  peso_kg: s.peso_kg,
+                  reps_hechas: s.reps_hechas,
+                  rpe_real: s.rpe_real,
+                  completada: true,
+                  set_type: mappedType,
+                  pain_reported: s.pain_reported || false,
+                  pain_notes: s.pain_notes || null,
+                  video_url: s.video_url || null,
+                },
+                { onConflict: "sesion_id, ejercicio_id, numero_serie" }
+              );
+            }
+
+            return { success: true };
+          } catch (e: any) {
+            console.error("Error sincronizando sesion con Supabase:", e);
+            return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
+          } finally {
+            activeSyncSessionPromise = null;
+          }
+        })();
+
+        return activeSyncSessionPromise;
       },
 
       uncompleteSet: (exerciseId, setNumber) => {

@@ -82,11 +82,23 @@ export function marcasDeEjercicio(series: SerieHistorica[], ejercicioId: string)
 
 // §3.3: suma una serie recién completada a las marcas en memoria, para que la serie siguiente
 // no festeje un récord que la anterior ya superó. No muta la entrada.
+// Las series de calentamiento (W o WARMUP) quedan excluidas de las marcas de récord.
 export function agregarSerieAMarcas(
   marcas: MarcasEjercicio | null,
   ejercicioId: string,
   serie: SerieCandidata & { fecha: string },
 ): MarcasEjercicio {
+  const tipo = (serie.set_type ?? "NORMAL").toUpperCase();
+  if (tipo === "WARMUP" || tipo === "W" || serie.reps_hechas < 1) {
+    return (
+      marcas ?? {
+        ejercicio_id: ejercicioId,
+        frontera: [],
+        max_peso_kg: 0,
+        max_epley_kg: 0,
+      }
+    );
+  }
   const nuevo: ParFrontera = { peso_kg: serie.peso_kg, reps_hechas: serie.reps_hechas, fecha: serie.fecha };
   const base: MarcasEjercicio = marcas ?? {
     ejercicio_id: ejercicioId,
@@ -140,6 +152,10 @@ export function esNuevoRecord(serie: SerieCandidata, historial: MarcasEjercicio 
   }
 
   return { esRecord: true, tipo: tipoRecord, epley_kg, delta_epley_kg };
+}
+
+export function esRecord(serie: SerieCandidata, historial: MarcasEjercicio | null): boolean {
+  return esNuevoRecord(serie, historial).esRecord;
 }
 
 const kg = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });

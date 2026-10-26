@@ -14,6 +14,7 @@ import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-moda
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
+import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
 import {
   TriangleAlert,
   Timer,
@@ -32,6 +33,7 @@ import {
   Trophy,
   Settings,
   Trash2,
+  Lock,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -52,6 +54,7 @@ export function LiveWorkout() {
     reportPainForSet,
     attachVideoForSet,
     applyWarmupSetsToExercise,
+    registerWarmupSet,
     completeSet,
     uncompleteSet,
     editCompletedSet,
@@ -73,6 +76,7 @@ export function LiveWorkout() {
     diaActivoId,
     volverAlInicio,
     marcarDiaCompletado,
+    sesionesCompletadas,
     ultimaVez,
     cargandoUltimaVez,
     cargarUltimaVez,
@@ -125,6 +129,11 @@ export function LiveWorkout() {
   // Estado para terminar entrenamiento
   const [isFinishing, setIsFinishing] = React.useState(false);
   const [workoutFinished, setWorkoutFinished] = React.useState(false);
+
+  // Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180)
+  const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
+  const [sessionPRs, setSessionPRs] = React.useState<RecordSesionItem[]>([]);
+  const sessionStartTimeRef = React.useRef<number>(Date.now());
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
@@ -242,6 +251,8 @@ export function LiveWorkout() {
     const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
+    const isLastSetOfWorkout = completedSetsCount + 1 === totalSets && totalSets > 0;
+
     completeSet(currentExercise.id, num);
     registrarSerieEnMarcas(ejId, serieCandidata);
 
@@ -254,19 +265,37 @@ export function LiveWorkout() {
         reps,
         record: { resultado, exerciseName: currentExercise.nombre, peso_kg: peso, reps_hechas: reps },
       });
+      setSessionPRs((prev) => [
+        ...prev.filter(
+          (p) => !(p.exerciseName === currentExercise.nombre && p.numero_serie === num)
+        ),
+        {
+          exerciseName: currentExercise.nombre,
+          peso_kg: peso,
+          reps_hechas: reps,
+          tipo: resultado.tipo,
+          epley_kg: resultado.epley_kg,
+          delta_epley_kg: resultado.delta_epley_kg,
+          numero_serie: num,
+        },
+      ]);
     } else {
       setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
     }
 
-    const remainingInExercise = currentExercise.series.filter(
-      (s) => !s.completada && s.numero_serie !== num,
-    );
-    if (remainingInExercise.length === 0) {
-      const nextIncomplete = currentSession.ejercicios.find(
-        (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
+    if (isLastSetOfWorkout) {
+      void handleTerminarEntrenamiento();
+    } else {
+      const remainingInExercise = currentExercise.series.filter(
+        (s) => !s.completada && s.numero_serie !== num,
       );
-      if (nextIncomplete) {
-        setSelectedExerciseId(nextIncomplete.id);
+      if (remainingInExercise.length === 0) {
+        const nextIncomplete = currentSession.ejercicios.find(
+          (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
+        );
+        if (nextIncomplete) {
+          setSelectedExerciseId(nextIncomplete.id);
+        }
       }
     }
   };
@@ -297,12 +326,6 @@ export function LiveWorkout() {
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
   };
 
-  const handleAdjustRpe = (delta: number) => {
-    if (!currentExercise || !currentSet) return;
-    const newRpe = Math.min(10, Math.max(6, currentSet.rpe_real + delta));
-    updateSetField(currentExercise.id, currentSet.numero_serie, "rpe_real", newRpe);
-  };
-
   const handleSaveEdit = () => {
     if (!editingSet) return;
     editCompletedSet(
@@ -327,6 +350,7 @@ export function LiveWorkout() {
     }
     setIsFinishing(false);
     setWorkoutFinished(true);
+    setShowCelebrationModal(true);
   };
 
   const cleanDiaTitle = React.useMemo(() => {
@@ -813,15 +837,97 @@ export function LiveWorkout() {
                     </div>
                   </div>
 
+                  {/* Bloque dedicado: Series de Calentamiento */}
+                  {currentExercise.series.some((s) => s.set_type === "W" || s.set_type === "WARMUP") && (
+                    <div
+                      className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5"
+                      data-testid="warmup-sets-section"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xs">
+                            <Flame className="h-3.5 w-3.5 text-amber-500" />
+                          </span>
+                          <h4 className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider">
+                            Series de Calentamiento
+                          </h4>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 font-mono text-[10px] font-bold"
+                          data-testid="warmup-badge"
+                        >
+                          Calentamiento (W)
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {currentExercise.series
+                          .filter((s) => s.set_type === "W" || s.set_type === "WARMUP")
+                          .map((ws) => {
+                            const isCurrent = serie && serie.numero_serie === ws.numero_serie;
+                            return (
+                              <div
+                                key={ws.numero_serie}
+                                className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between transition-all ${
+                                  ws.completada
+                                    ? "border-emerald-500/40 bg-emerald-500/10"
+                                    : isCurrent
+                                    ? "border-amber-500 bg-amber-500/15 ring-1 ring-amber-500 shadow-sm"
+                                    : "border-border/60 bg-background/60 text-muted-foreground"
+                                }`}
+                                data-testid={`warmup-set-card-${ws.numero_serie}`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-mono text-[11px] font-bold text-amber-500">
+                                    W{ws.numero_serie}
+                                  </span>
+                                  {ws.completada ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-500 stroke-[3]" />
+                                  ) : isCurrent ? (
+                                    <span className="text-[10px] font-bold text-amber-400">Activa</span>
+                                  ) : null}
+                                </div>
+                                <div className="font-bold font-mono text-sm text-foreground">
+                                  {ws.peso_kg} <span className="text-[10px] font-normal text-muted-foreground">kg</span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {ws.reps_hechas} reps
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Separador de Series Efectivas si hay calentamiento */}
+                  {currentExercise.series.some((s) => s.set_type === "W" || s.set_type === "WARMUP") && (
+                    <div className="flex items-center justify-between px-1 pt-1" data-testid="effective-sets-section">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        Series Efectivas
+                      </span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {currentExercise.series.filter((s) => s.set_type !== "W" && s.set_type !== "WARMUP" && s.completada).length} / {currentExercise.series.filter((s) => s.set_type !== "W" && s.set_type !== "WARMUP").length}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Tarjeta Única de Serie Actual */}
-                  {serie ? (
+                  {serie && !currentExercise.series.every((s) => s.completada) && !isAllWorkoutCompleted && !workoutFinished ? (
                     <Card
                       className="border-2 border-primary/40 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4"
                       data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
                     >
                       <div className="flex items-center justify-between border-b border-border/60 pb-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg">
+                          <span
+                            className={`font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${
+                              serie.set_type === "W" || serie.set_type === "WARMUP"
+                                ? "text-amber-500 bg-amber-500/10 border border-amber-500/20"
+                                : "text-primary bg-primary/10"
+                            }`}
+                          >
                             Serie {serie.numero_serie} de {currentExercise.series.length}
                           </span>
                           {currentExercise.repeticiones_objetivo && (
@@ -831,12 +937,27 @@ export function LiveWorkout() {
                           )}
                         </div>
 
-                        {serie.set_type && serie.set_type !== "N" && (
+                        {serie.set_type === "W" || serie.set_type === "WARMUP" ? (
+                          <Badge
+                            variant="outline"
+                            className="font-mono font-bold text-xs border-amber-500/40 bg-amber-500/10 text-amber-500"
+                            data-testid="warmup-badge"
+                          >
+                            Calentamiento (W)
+                          </Badge>
+                        ) : serie.set_type && serie.set_type !== "N" ? (
                           <Badge variant="outline" className="font-mono font-bold text-xs">
                             {serie.set_type}
                           </Badge>
-                        )}
+                        ) : null}
                       </div>
+
+                      {(serie.set_type === "W" || serie.set_type === "WARMUP") && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 font-medium">
+                          <Flame className="h-4 w-4 shrink-0" />
+                          <span>Serie de aproximación: no computa para volumen efectivo ni récord personal (PR).</span>
+                        </div>
+                      )}
 
                       {/* "La última vez" vive en su componente (GOZS-159) */}
                       <div>
@@ -981,39 +1102,40 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Stepper RPE */}
+                          {/* RPE Objetivo prescrito por el entrenador (Solo lectura) */}
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                RPE (6-10)
+                                RPE Objetivo
                               </span>
                               <span className="text-xs font-mono font-bold text-primary">
                                 {serie.estimated1RM.toFixed(1)} kg 1RM
                               </span>
                             </div>
-                            <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
-                              <button
-                                type="button"
-                                disabled={serie.rpe_real <= 6}
-                                onClick={() => handleAdjustRpe(-0.5)}
-                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                              >
-                                −0.5
-                              </button>
-                              <div
-                                className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground"
-                                data-testid="input-rpe"
-                              >
-                                {serie.rpe_real}
+                            <div
+                              className="rounded-xl border border-border/60 bg-secondary/30 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                              data-testid="input-rpe"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg border border-border bg-background font-mono text-2xl font-black text-foreground tabular-nums shadow-2xs">
+                                  {currentExercise.rpe_objetivo ?? serie.rpe_real}
+                                </div>
+                                <div className="space-y-0.5">
+                                  <Badge
+                                    variant="secondary"
+                                    className="inline-flex items-center gap-1.5 border-primary/30 bg-primary/10 text-primary py-0.5 px-2 text-xs font-semibold"
+                                    data-testid="rpe-prescribed-badge"
+                                  >
+                                    <Lock className="h-3 w-3 shrink-0" />
+                                    <span>
+                                      RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador
+                                    </span>
+                                  </Badge>
+                                  <p className="text-[11px] text-muted-foreground pt-0.5">
+                                    Intensidad fija del ejercicio fundamental. Solo lectura para el atleta.
+                                  </p>
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                disabled={serie.rpe_real >= 10}
-                                onClick={() => handleAdjustRpe(0.5)}
-                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                              >
-                                +0.5
-                              </button>
                             </div>
                           </div>
 
@@ -1064,17 +1186,22 @@ export function LiveWorkout() {
                         {currentExercise.series.map((s) => {
                           const isDone = s.completada;
                           const isCurrent = s.numero_serie === serie.numero_serie;
+                          const isWarmup = s.set_type === "W" || s.set_type === "WARMUP";
                           return (
                             <span
                               key={s.numero_serie}
                               className={`h-2 rounded-full transition-all duration-200 ${
                                 isCurrent
-                                  ? "w-8 bg-primary"
+                                  ? isWarmup
+                                    ? "w-8 bg-amber-500"
+                                    : "w-8 bg-primary"
                                   : isDone
-                                  ? "w-8 bg-emerald-500"
+                                  ? isWarmup
+                                    ? "w-8 bg-amber-500/70"
+                                    : "w-8 bg-emerald-500"
                                   : "w-8 bg-muted"
                               }`}
-                              title={`Serie ${s.numero_serie}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
+                              title={`Serie ${s.numero_serie}${isWarmup ? " (Calentamiento)" : ""}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
                             />
                           );
                         })}
@@ -1104,14 +1231,18 @@ export function LiveWorkout() {
                       ) : (
                         <Button
                           type="button"
-                          disabled={isFinishing || workoutFinished}
-                          onClick={handleTerminarEntrenamiento}
+                          disabled={isFinishing}
+                          onClick={
+                            workoutFinished || isAllWorkoutCompleted
+                              ? () => setShowCelebrationModal(true)
+                              : handleTerminarEntrenamiento
+                          }
                           className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
                           data-testid="terminar-entrenamiento-btn-entrenar"
                         >
                           {isFinishing
                             ? "Guardando entrenamiento…"
-                            : workoutFinished
+                            : workoutFinished || isAllWorkoutCompleted
                             ? "¡Entrenamiento finalizado!"
                             : "Terminar entrenamiento"}
                         </Button>
@@ -1136,10 +1267,16 @@ export function LiveWorkout() {
                           {ej.nombre}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="p-0 divide-y divide-border/60">
-                        {ej.series
-                          .filter((s) => s.completada)
-                          .map((s) => {
+                      <CardContent className="p-0">
+                        {(() => {
+                          const completedWarmups = ej.series.filter(
+                            (s) => (s.set_type === "W" || s.set_type === "WARMUP") && s.completada
+                          );
+                          const completedEffectives = ej.series.filter(
+                            (s) => s.set_type !== "W" && s.set_type !== "WARMUP" && s.completada
+                          );
+
+                          const renderLogRow = (s: LiveWorkoutSet, isWarmupRow: boolean) => {
                             const isBeingEdited =
                               editingSet?.exerciseId === ej.id &&
                               editingSet?.setNumber === s.numero_serie;
@@ -1277,17 +1414,28 @@ export function LiveWorkout() {
                             return (
                               <div
                                 key={s.numero_serie}
-                                className="flex items-center justify-between p-3 sm:p-4 hover:bg-secondary/10 transition-colors"
+                                className={`flex items-center justify-between p-3 sm:p-4 hover:bg-secondary/10 transition-colors ${
+                                  isWarmupRow ? "bg-amber-500/5" : ""
+                                }`}
                                 data-testid={`log-row-${ej.id}-${s.numero_serie}`}
                               >
                                 <div className="space-y-0.5">
-                                  <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                                     <span className="text-xs font-semibold text-muted-foreground w-16">
                                       Serie {s.numero_serie}
                                     </span>
                                     <span className="font-mono font-bold text-base sm:text-lg text-foreground">
                                       {s.peso_kg} kg × {s.reps_hechas}
                                     </span>
+                                    {isWarmupRow && (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] sm:text-xs font-bold"
+                                        data-testid="warmup-badge"
+                                      >
+                                        Calentamiento (W)
+                                      </Badge>
+                                    )}
                                     {seriesRecord.has(`${ej.id}-${s.numero_serie}`) && (
                                       <Trophy className="h-4 w-4 text-warning" aria-label="Récord" />
                                     )}
@@ -1339,7 +1487,53 @@ export function LiveWorkout() {
                                 </div>
                               </div>
                             );
-                          })}
+                          };
+
+                          return (
+                            <div>
+                              {completedWarmups.length > 0 && (
+                                <div
+                                  className="bg-amber-500/5 border-b border-border/60"
+                                  data-testid={`registro-warmup-section-${ej.id}`}
+                                >
+                                  <div className="px-3 sm:px-4 py-2 flex items-center justify-between bg-amber-500/10">
+                                    <div className="flex items-center gap-1.5">
+                                      <Flame className="h-4 w-4 text-amber-500" />
+                                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                                        Series de Calentamiento
+                                      </span>
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] font-bold"
+                                      data-testid="warmup-badge"
+                                    >
+                                      Calentamiento (W)
+                                    </Badge>
+                                  </div>
+                                  <div className="divide-y divide-border/40">
+                                    {completedWarmups.map((s) => renderLogRow(s, true))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {completedEffectives.length > 0 && (
+                                <div data-testid={`registro-effective-section-${ej.id}`}>
+                                  {completedWarmups.length > 0 && (
+                                    <div className="px-3 sm:px-4 py-2 bg-secondary/30 border-b border-border/40">
+                                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Series Efectivas
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="divide-y divide-border/60">
+                                    {completedEffectives.map((s) => renderLogRow(s, false))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   ))}
@@ -1372,8 +1566,12 @@ export function LiveWorkout() {
 
                     <Button
                       type="button"
-                      disabled={isFinishing || workoutFinished}
-                      onClick={handleTerminarEntrenamiento}
+                      disabled={isFinishing}
+                      onClick={
+                        workoutFinished || isAllWorkoutCompleted
+                          ? () => setShowCelebrationModal(true)
+                          : handleTerminarEntrenamiento
+                      }
                       className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
                       data-testid="terminar-entrenamiento-btn"
                     >
@@ -1589,10 +1787,28 @@ export function LiveWorkout() {
           isOpen={Boolean(warmupModalExercise)}
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
-          workingWeightKg={warmupModalExercise.series[0]?.peso_kg || 80}
+          workingWeightKg={
+            warmupModalExercise.series.find(
+              (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+            )?.peso_kg ||
+            warmupModalExercise.series[0]?.peso_kg ||
+            80
+          }
           onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)
           }
+          onRegisterWarmupSet={(warmupSet) => {
+            registerWarmupSet(warmupModalExercise.id, {
+              peso_kg: warmupSet.peso_kg,
+              reps: warmupSet.reps,
+              rpe_real: 6.0,
+            });
+            setOptimisticBanner({
+              setNumber: 1,
+              pesoKg: warmupSet.peso_kg,
+              reps: warmupSet.reps,
+            });
+          }}
         />
       )}
 
@@ -1601,6 +1817,10 @@ export function LiveWorkout() {
           isOpen={plateModalWeight !== null}
           onClose={() => setPlateModalWeight(null)}
           targetWeightKg={plateModalWeight}
+          onApplyWeight={(normalizedWeight) => {
+            handleDirectUpdatePeso(normalizedWeight);
+            setPlateModalWeight(null);
+          }}
         />
       )}
 
@@ -1638,6 +1858,27 @@ export function LiveWorkout() {
           }
         />
       )}
+
+      {/* Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180) */}
+      <CierreDiaModal
+        isOpen={showCelebrationModal}
+        onClose={() => setShowCelebrationModal(false)}
+        onVolverInicio={() => {
+          setShowCelebrationModal(false);
+          volverAlInicio();
+        }}
+        tonelajeKg={totalVolumeKg}
+        seriesCompletadas={completedSetsCount}
+        totalSeries={totalSets}
+        duracionMinutos={Math.max(1, Math.round((Date.now() - sessionStartTimeRef.current) / 60000)) || 45}
+        rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 4)}
+        rachaPrevia={Math.max(0, (sesionesCompletadas?.length || 0) + 3)}
+        metaDiasSemana={4}
+        diasCompletadosSemana={Math.max(1, sesionesCompletadas?.length || 1)}
+        recordsObtenidos={sessionPRs}
+        studentName={currentSession.studentName || "Fernando Rosales"}
+        diaNombre={cleanDiaTitle || "Día 1"}
+      />
     </div>
   );
 }
