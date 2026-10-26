@@ -32,6 +32,7 @@ import {
   Trophy,
   Settings,
   Trash2,
+  HelpCircle,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -954,9 +955,93 @@ export function LiveWorkout() {
                         <div className="space-y-3 pt-3 border-t border-border/60">
                           {/* Selector Taxonomía W/N/F/D */}
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                              Tipo de Serie
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Tipo de Serie
+                              </span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                    aria-label="Ayuda sobre tipos de serie"
+                                    title="Explicación de tipos de serie (W, N, F, D)"
+                                    data-testid="set-type-help-btn"
+                                  >
+                                    <HelpCircle className="h-3.5 w-3.5" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-72 sm:w-80 p-3.5 z-50 text-xs shadow-xl"
+                                  align="start"
+                                  data-testid="set-type-popover-content"
+                                >
+                                  <div className="space-y-2.5">
+                                    <div className="font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                      <HelpCircle className="h-4 w-4 text-primary" />
+                                      <span>Taxonomía de Series</span>
+                                    </div>
+                                    <div className="space-y-2 text-left">
+                                      <div className="flex items-start gap-2.5">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-amber-500 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                          W
+                                        </span>
+                                        <div className="leading-tight">
+                                          <p className="font-semibold text-slate-100">
+                                            W (Warm-up / Calentamiento)
+                                          </p>
+                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                            Series de aproximación, no computan al volumen efectivo ni PRs.
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-start gap-2.5">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                          N
+                                        </span>
+                                        <div className="leading-tight">
+                                          <p className="font-semibold text-slate-100">
+                                            N (Normal / Efectiva)
+                                          </p>
+                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                            Serie de trabajo principal programada por el entrenador.
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-start gap-2.5">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-rose-600 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                          F
+                                        </span>
+                                        <div className="leading-tight">
+                                          <p className="font-semibold text-slate-100">
+                                            F (Failure / Al Fallo)
+                                          </p>
+                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                            Esfuerzo máximo absoluto sin repeticiones en reserva (RIR 0 / RPE 10).
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-start gap-2.5">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-purple-600 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                          D
+                                        </span>
+                                        <div className="leading-tight">
+                                          <p className="font-semibold text-slate-100">
+                                            D (Drop Set)
+                                          </p>
+                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                            Reducción inmediata de peso sin pausa previa para extender la fatiga metabólica.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-xl border border-border/40">
                               {(["W", "N", "F", "D"] as const).map((t) => (
                                 <button
