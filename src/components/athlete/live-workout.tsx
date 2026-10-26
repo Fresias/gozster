@@ -32,6 +32,7 @@ import {
   Trophy,
   Settings,
   Trash2,
+  Lock,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -295,12 +296,6 @@ export function LiveWorkout() {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
-  };
-
-  const handleAdjustRpe = (delta: number) => {
-    if (!currentExercise || !currentSet) return;
-    const newRpe = Math.min(10, Math.max(6, currentSet.rpe_real + delta));
-    updateSetField(currentExercise.id, currentSet.numero_serie, "rpe_real", newRpe);
   };
 
   const handleSaveEdit = () => {
@@ -981,39 +976,40 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Stepper RPE */}
+                          {/* RPE Objetivo prescrito por el entrenador (Solo lectura) */}
                           <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                RPE (6-10)
+                                RPE Objetivo
                               </span>
                               <span className="text-xs font-mono font-bold text-primary">
                                 {serie.estimated1RM.toFixed(1)} kg 1RM
                               </span>
                             </div>
-                            <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
-                              <button
-                                type="button"
-                                disabled={serie.rpe_real <= 6}
-                                onClick={() => handleAdjustRpe(-0.5)}
-                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                              >
-                                −0.5
-                              </button>
-                              <div
-                                className="h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground"
-                                data-testid="input-rpe"
-                              >
-                                {serie.rpe_real}
+                            <div
+                              className="rounded-xl border border-border/60 bg-secondary/30 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                              data-testid="input-rpe"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg border border-border bg-background font-mono text-2xl font-black text-foreground tabular-nums shadow-2xs">
+                                  {currentExercise.rpe_objetivo ?? serie.rpe_real}
+                                </div>
+                                <div className="space-y-0.5">
+                                  <Badge
+                                    variant="secondary"
+                                    className="inline-flex items-center gap-1.5 border-primary/30 bg-primary/10 text-primary py-0.5 px-2 text-xs font-semibold"
+                                    data-testid="rpe-prescribed-badge"
+                                  >
+                                    <Lock className="h-3 w-3 shrink-0" />
+                                    <span>
+                                      RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador
+                                    </span>
+                                  </Badge>
+                                  <p className="text-[11px] text-muted-foreground pt-0.5">
+                                    Intensidad fija del ejercicio fundamental. Solo lectura para el atleta.
+                                  </p>
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                disabled={serie.rpe_real >= 10}
-                                onClick={() => handleAdjustRpe(0.5)}
-                                className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                              >
-                                +0.5
-                              </button>
                             </div>
                           </div>
 
