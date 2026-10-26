@@ -9,6 +9,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { ExerciseNotesDrawer } from "@/components/athlete/exercise-notes-drawer";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
@@ -128,6 +129,7 @@ export function LiveWorkout() {
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
+  const [notesExercise, setNotesExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
@@ -791,26 +793,19 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-                        {/* Botón de notas del coach a demanda (signo de pregunta con popover) */}
+                        {/* Botón de notas del coach a demanda (signo de pregunta que abre Bottom Sheet / Drawer táctil) */}
                         {currentExercise.comentario && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="h-10 px-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-1 text-xs font-bold transition-all touch-manipulation cursor-pointer"
-                                title="Ver notas del coach"
-                              >
-                                <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-[10px]">?</span>
-                                <span className="hidden sm:inline">Notas</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 text-xs p-3 space-y-1.5 bg-popover border border-border shadow-md">
-                              <p className="font-bold text-foreground">Indicación del coach:</p>
-                              <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
-                                {currentExercise.comentario}
-                              </p>
-                            </PopoverContent>
-                          </Popover>
+                          <button
+                            type="button"
+                            onClick={() => setNotesExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver notas técnicas del coach"
+                            aria-label="Ver notas del coach"
+                            data-testid={`exercise-notes-btn-${currentExercise.id}`}
+                          >
+                            <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-[10px]">?</span>
+                            <span className="hidden sm:inline">Notas</span>
+                          </button>
                         )}
 
                         <button
@@ -1593,6 +1588,14 @@ export function LiveWorkout() {
           exercise={videoExercise}
           isOpen={Boolean(videoExercise)}
           onClose={() => setVideoExercise(null)}
+        />
+      )}
+
+      {notesExercise && (
+        <ExerciseNotesDrawer
+          exercise={notesExercise}
+          isOpen={Boolean(notesExercise)}
+          onClose={() => setNotesExercise(null)}
         />
       )}
 
