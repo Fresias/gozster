@@ -89,6 +89,8 @@ export function calculateEffectiveVolume(
   }, 0);
 }
 
+export const calcularVolumenEfectivo = calculateEffectiveVolume;
+
 export interface WarmupSetProgression {
   setNumber: number;
   peso_kg: number;
