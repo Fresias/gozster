@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Check,
   X,
+  History,
 } from "@/components/athlete/icons";
 
 export function InicioMisDias() {
@@ -109,6 +110,7 @@ export function InicioMisDias() {
     cambioDeDia,
     diasHechosCount,
     totalDias,
+    ultimoEntrenamiento,
   } = React.useMemo(() => {
     return calcularEstadosDias({
       dias: diasItems,
@@ -207,6 +209,23 @@ export function InicioMisDias() {
           <span className="font-mono font-bold text-foreground">8</span>
         </p>
       </div>
+
+      {/* Sub-header informativo elegante sobre el Hero principal con el último entrenamiento realizado (Opción A) */}
+      {ultimoEntrenamiento && (
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-secondary/50 border border-border/80 text-xs sm:text-sm text-muted-foreground shadow-2xs"
+          data-testid="ultimo-entrenamiento-sub-header"
+        >
+          <History className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <span className="truncate" data-testid="ultimo-entrenamiento-texto">
+            <span className="font-medium text-muted-foreground">Último entrenamiento:</span>{" "}
+            <span className="font-bold text-foreground">{ultimoEntrenamiento.etiquetaDia}</span>{" "}
+            {ultimoEntrenamiento.tiempoRelativo && (
+              <span className="text-muted-foreground">({ultimoEntrenamiento.tiempoRelativo})</span>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Hero Oscuro (#0F172A) con el Día activo para hoy */}
       {diaHero && (
@@ -329,9 +348,19 @@ export function InicioMisDias() {
 
                 {/* Título y Subtítulo descriptivo */}
                 <div className="flex-1 min-w-0">
-                  <b className="block text-base font-bold text-foreground truncate">
-                    Día {dia.orden} · {dia.nombre}
-                  </b>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <b className="block text-base font-bold text-foreground truncate">
+                      Día {dia.orden} · {dia.nombre}
+                    </b>
+                    {dia.esUltimoRealizado && (
+                      <span
+                        className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex-none"
+                        data-testid="badge-ultimo-realizado"
+                      >
+                        Último realizado
+                      </span>
+                    )}
+                  </div>
                   <span
                     className={`block text-[13px] truncate ${
                       isToday
