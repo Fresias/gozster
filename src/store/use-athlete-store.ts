@@ -176,6 +176,10 @@ interface AthleteStoreState {
     exerciseId: string,
     warmupSets: Array<{ peso_kg: number; reps: number; setNumber: number }>,
   ) => void;
+  registerWarmupSet: (
+    exerciseId: string,
+    warmup: { peso_kg: number; reps: number; rpe_real?: number },
+  ) => void;
   completeSet: (exerciseId: string, setNumber: number) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
   editCompletedSet: (
@@ -759,9 +763,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
             ...state.currentSession,
             ejercicios: state.currentSession.ejercicios.map((ej) => {
               if (ej.id !== exerciseId) return ej;
+              // Conservar calentamientos ya completados si los hubiera, descartar calentamientos pendientes previos para evitar duplicación
+              const completedWarmups = ej.series.filter(
+                (s) => (s.set_type === "W" || s.set_type === "WARMUP") && s.completada
+              );
+              const effectiveSets = ej.series.filter(
+                (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+              );
+
               // Crear series de calentamiento con set_type = 'W'
               const wSets: LiveWorkoutSet[] = warmupSets.map((w, idx) => ({
-                numero_serie: idx + 1,
+                numero_serie: completedWarmups.length + idx + 1,
                 peso_kg: w.peso_kg,
                 reps_hechas: w.reps,
                 rpe_real: 6.0,
@@ -769,18 +781,92 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 estimated1RM: calculateEpley1RM(w.peso_kg, w.reps),
                 set_type: "W",
               }));
-              // Re-numerar las series existentes
-              const existingSets = ej.series.map((s, idx) => ({
+
+              const allWarmups = [...completedWarmups, ...wSets];
+              // Re-numerar las series efectivas
+              const existingSets = effectiveSets.map((s, idx) => ({
                 ...s,
-                numero_serie: wSets.length + idx + 1,
+                numero_serie: allWarmups.length + idx + 1,
               }));
+
               return {
                 ...ej,
-                series: [...wSets, ...existingSets],
+                series: [...allWarmups, ...existingSets],
               };
             }),
           },
         }));
+      },
+
+      registerWarmupSet: (exerciseId, warmup) => {
+        const state = get();
+        const targetExercise = state.currentSession.ejercicios.find(
+          (e) => e.id === exerciseId
+        );
+        if (!targetExercise) return;
+
+        const completedAt = new Date().toISOString();
+        const rpeReal = warmup.rpe_real ?? 6.0;
+        const estimated1RM = calculateEpley1RM(warmup.peso_kg, warmup.reps);
+
+        const existingWarmups = targetExercise.series.filter(
+          (s) => s.set_type === "W" || s.set_type === "WARMUP"
+        );
+        const effectiveSets = targetExercise.series.filter(
+          (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+        );
+
+        const newWarmupSet: LiveWorkoutSet = {
+          numero_serie: existingWarmups.length + 1,
+          peso_kg: warmup.peso_kg,
+          reps_hechas: warmup.reps,
+          rpe_real: rpeReal,
+          completada: true,
+          completedAt,
+          estimated1RM,
+          set_type: "W",
+        };
+
+        const allWarmups = [...existingWarmups, newWarmupSet].map((s, idx) => ({
+          ...s,
+          numero_serie: idx + 1,
+        }));
+
+        const renumberedEffective = effectiveSets.map((s, idx) => ({
+          ...s,
+          numero_serie: allWarmups.length + idx + 1,
+        }));
+
+        const updatedSeries = [...allWarmups, ...renumberedEffective];
+
+        set((prevState) => ({
+          currentSession: {
+            ...prevState.currentSession,
+            ejercicios: prevState.currentSession.ejercicios.map((ej) =>
+              ej.id === exerciseId ? { ...ej, series: updatedSeries } : ej
+            ),
+          },
+        }));
+
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `set-warmup-${exerciseId}-${newWarmupSet.numero_serie}-${Date.now()}`,
+          action: "WORKOUT_SET_COMPLETED",
+          payload: {
+            sessionId: state.currentSession.id,
+            exerciseId,
+            exerciseName: targetExercise.nombre,
+            setNumber: newWarmupSet.numero_serie,
+            pesoKg: warmup.peso_kg,
+            reps: warmup.reps,
+            rpe: rpeReal,
+            setType: "W",
+            painReported: false,
+            painNotes: null,
+            videoUrl: null,
+            estimated1RM,
+            completedAt,
+          },
+        });
       },
 
       completeSet: (exerciseId, setNumber) => {
@@ -831,6 +917,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     };
                   }
                   if (s.numero_serie === setNumber + 1 && !s.completada) {
+                    if ((s.set_type === "W" || s.set_type === "WARMUP") && s.peso_kg > 0) {
+                      return s;
+                    }
                     return {
                       ...s,
                       peso_kg: targetSet.peso_kg,
