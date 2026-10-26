@@ -1601,6 +1601,10 @@ export function LiveWorkout() {
           isOpen={plateModalWeight !== null}
           onClose={() => setPlateModalWeight(null)}
           targetWeightKg={plateModalWeight}
+          onApplyWeight={(normalizedWeight) => {
+            handleDirectUpdatePeso(normalizedWeight);
+            setPlateModalWeight(null);
+          }}
         />
       )}
 
