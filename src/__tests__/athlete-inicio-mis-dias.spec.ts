@@ -193,6 +193,45 @@ describe("Athlete App: Inicio Mis días + hacer otro día (GOZS-147)", () => {
       expect(dia2?.esUltimoRealizado).toBe(false);
     });
 
+    it("maneja correctamente casos límite de zona horaria y sesiones desordenadas o con datos parciales", () => {
+      // Caso límite de medianoche en Buenos Aires (UTC-3):
+      // refDate: 26 de octubre a las 00:05 hs (AR)
+      const medianocheBA = new Date("2026-10-26T00:05:00-03:00");
+      // Sesión 10 minutos antes (25 de octubre 23:55 hs AR -> Ayer)
+      expect(formatearTiempoTranscurrido("2026-10-25T23:55:00-03:00", medianocheBA)).toBe("Ayer");
+      // Sesión 4 minutos antes (26 de octubre 00:01 hs AR -> Hoy)
+      expect(formatearTiempoTranscurrido("2026-10-26T00:01:00-03:00", medianocheBA)).toBe("Hoy");
+      // Fecha futura por leve desfasaje de reloj -> "Hoy"
+      expect(formatearTiempoTranscurrido("2026-10-26T00:10:00-03:00", medianocheBA)).toBe("Hoy");
+
+      // Sesiones desordenadas cronológicamente en el array
+      const sesionesDesordenadas = [
+        { id: "s-vieja", dia_id: "dia-1", fecha: "2026-10-15T10:00:00-03:00" },
+        { id: "s-reciente", dia_id: "dia-3", fecha: "2026-10-25T19:00:00-03:00" },
+        { id: "s-media", dia_id: "dia-2", fecha: "2026-10-20T10:00:00-03:00" },
+      ];
+      const ultimo = calcularUltimoEntrenamiento(mockDias, sesionesDesordenadas, medianocheBA);
+      expect(ultimo?.diaId).toBe("dia-3");
+      expect(ultimo?.diaNombre).toBe("Brazos & Hombros");
+      expect(ultimo?.tiempoRelativo).toBe("Ayer");
+
+      // Sesión que referencia a un día eliminado o inexistente en la rutina actual (fallback elegante sin crash)
+      const sesionDiaInexistente = [
+        { id: "s-x", dia_id: "dia-borrado", fecha: "2026-10-25T19:00:00-03:00" },
+      ];
+      const ultimoInexistente = calcularUltimoEntrenamiento(mockDias, sesionDiaInexistente, medianocheBA);
+      expect(ultimoInexistente).not.toBeNull();
+      expect(ultimoInexistente?.diaId).toBe("dia-borrado");
+      expect(ultimoInexistente?.diaNombre).toBe("Entrenamiento");
+      expect(ultimoInexistente?.textoCompleto).toContain("Último entrenamiento:");
+
+      // Sesiones con dia_id vacío o nulo
+      const sesionesVacias = [
+        { id: "s-vacia", dia_id: "", fecha: "2026-10-25T19:00:00-03:00" },
+      ];
+      expect(calcularUltimoEntrenamiento(mockDias, sesionesVacias, medianocheBA)).toBeNull();
+    });
+
     it("si no hay sesiones previas registradas, no se marca ningún día como último realizado", () => {
       const resVacio = calcularEstadosDias({
         dias: mockDias,
