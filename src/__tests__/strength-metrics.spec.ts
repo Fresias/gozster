@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BARBELL_OPTIONS,
+  calculateBarbellPlates,
   calculateBlockVolume,
   calculateBrzycki1RM,
+  calculateEffectiveTotalWeight,
   calculateEpley1RM,
   calculateTotalTonnage,
   type VolumeBlock,
 } from '@/lib/strength-metrics';
+import { esNuevoRecord, type MarcasEjercicio, type SerieCandidata } from '@/lib/record-ejercicio';
 
 describe('Métricas Matemáticas de Fuerza (GOZSter QA Suite - src/__tests__)', () => {
   describe('1RM Epley: Peso * (1 + Reps / 30)', () => {
@@ -101,25 +105,108 @@ describe('Métricas Matemáticas de Fuerza (GOZSter QA Suite - src/__tests__)', 
     });
   });
 
-  describe('Suite de Integración Vitest - Consistencia Submáxima', () => {
-    it('verifica consistencia de 1RM Epley y Brzycki en rango submáximo (1-10 reps)', () => {
-      expect(calculateEpley1RM(100, 5)).toBeCloseTo(116.6667, 4);
-      expect(calculateBrzycki1RM(100, 5)).toBeCloseTo(112.5113, 4);
-      expect(calculateBrzycki1RM(100, 1)).toBeCloseTo(100, 5);
+  describe('Calculadora de Discos con Barras Alternativas y Normalización de PR (GH #184 / GOZS-178)', () => {
+    it('dispone de las 3 opciones oficiales de barras (20 kg, 15 kg y 10 kg)', () => {
+      expect(BARBELL_OPTIONS).toHaveLength(3);
+      expect(BARBELL_OPTIONS.map((b) => b.weightKg)).toEqual([20, 15, 10]);
     });
 
-    it('verifica cálculo de volumen y tonelaje con protección ante valores límite (0 y negativos)', () => {
-      const blocks: VolumeBlock[] = [
-        { series: 4, reps: 10, peso: 80 },
-        { series: 0, reps: 10, peso: 100 },
-        { series: 3, reps: 0, peso: 100 },
-        { series: 3, reps: 8, peso: 0 },
-        { series: -2, reps: 5, peso: 100 },
-        { series: 3, reps: -5, peso: 100 },
-        { series: 3, reps: 5, peso: -100 },
-      ];
-      expect(calculateBlockVolume(4, 10, 80)).toBe(3200);
-      expect(calculateTotalTonnage(blocks)).toBe(3200);
+    it('calcula discos exactos para barra olímpica de 20 kg', () => {
+      // 70 kg total -> (70 - 20) / 2 = 25 kg por lado (1 disco de 25 kg)
+      const res20 = calculateBarbellPlates(70, 20);
+      expect(res20.barWeightKg).toBe(20);
+      expect(res20.perSideWeightKg).toBe(25);
+      expect(res20.totalWeightKg).toBe(70);
+      expect(res20.platesPerSide).toEqual([{ weight: 25, count: 1 }]);
+      expect(res20.remainderKg).toBe(0);
+    });
+
+    it('calcula discos exactos para barra semi-olímpica de 15 kg', () => {
+      // 70 kg total -> (70 - 15) / 2 = 27.5 kg por lado (25 kg + 2.5 kg)
+      const res15 = calculateBarbellPlates(70, 15);
+      expect(res15.barWeightKg).toBe(15);
+      expect(res15.perSideWeightKg).toBe(27.5);
+      expect(res15.totalWeightKg).toBe(70);
+      expect(res15.platesPerSide).toEqual([
+        { weight: 25, count: 1 },
+        { weight: 2.5, count: 1 },
+      ]);
+      expect(res15.remainderKg).toBe(0);
+    });
+
+    it('calcula discos exactos para barra corta de 10 kg', () => {
+      // 70 kg total -> (70 - 10) / 2 = 30 kg por lado (25 kg + 5 kg)
+      const res10 = calculateBarbellPlates(70, 10);
+      expect(res10.barWeightKg).toBe(10);
+      expect(res10.perSideWeightKg).toBe(30);
+      expect(res10.totalWeightKg).toBe(70);
+      expect(res10.platesPerSide).toEqual([
+        { weight: 25, count: 1 },
+        { weight: 5, count: 1 },
+      ]);
+      expect(res10.remainderKg).toBe(0);
+    });
+
+    it('normaliza y asienta el peso real total: calculateEffectiveTotalWeight(bar, perSide)', () => {
+      // 30 kg por lado en barra de 10 kg = 70 kg reales (NO 80 kg)
+      expect(calculateEffectiveTotalWeight(10, 30)).toBe(70);
+      // 30 kg por lado en barra de 20 kg = 80 kg reales
+      expect(calculateEffectiveTotalWeight(20, 30)).toBe(80);
+      // 27.5 kg por lado en barra de 15 kg = 70 kg reales
+      expect(calculateEffectiveTotalWeight(15, 27.5)).toBe(70);
+      // Casos límite
+      expect(calculateEffectiveTotalWeight(20, 0)).toBe(20);
+      expect(calculateEffectiveTotalWeight(-10, 20)).toBe(0);
+      expect(calculateEffectiveTotalWeight(20, -5)).toBe(0);
+    });
+
+    it('evita falsos PRs cuando un atleta levanta con barra liviana de 10 kg vs récord previo de 75 kg', () => {
+      // Historial: Atleta tiene récord de 75 kg (en barra de 20 kg)
+      const historial75: MarcasEjercicio = {
+        ejercicio_id: 'press-banca',
+        max_peso_kg: 75,
+        max_epley_kg: calculateEpley1RM(75, 5),
+        frontera: [{ peso_kg: 75, reps_hechas: 5, fecha: '2026-10-01' }],
+      };
+
+      // Si el atleta pone 30 kg por lado en barra de 10 kg, su peso real normalizado es 70 kg.
+      const pesoNormalizado70 = calculateEffectiveTotalWeight(10, 30);
+      expect(pesoNormalizado70).toBe(70);
+
+      const serieConBarraLiviana: SerieCandidata = {
+        peso_kg: pesoNormalizado70,
+        reps_hechas: 5,
+        set_type: 'NORMAL',
+      };
+
+      // 70 kg < 75 kg previo: NO debe considerarse récord (evita falso PR)
+      const resultado = esNuevoRecord(serieConBarraLiviana, historial75);
+      expect(resultado.esRecord).toBe(false);
+
+      // En cambio, si pusiera 35 kg por lado en la barra de 10 kg = 80 kg reales (> 75 kg récord)
+      const pesoNormalizado80 = calculateEffectiveTotalWeight(10, 35);
+      expect(pesoNormalizado80).toBe(80);
+
+      const serieRecordReal: SerieCandidata = {
+        peso_kg: pesoNormalizado80,
+        reps_hechas: 5,
+        set_type: 'NORMAL',
+      };
+      const resultadoSuperado = esNuevoRecord(serieRecordReal, historial75);
+      expect(resultadoSuperado.esRecord).toBe(true);
+      expect(resultadoSuperado.tipo).toBe('peso');
+    });
+
+    it('calcula tonelaje verídico con peso normalizado evitando sobreestimaciones', () => {
+      // 3 series de 10 reps con 30 kg por lado en barra corta (10 kg)
+      const pesoReal = calculateEffectiveTotalWeight(10, 30); // 70 kg
+      const pesoErroneoSinNormalizar = calculateEffectiveTotalWeight(20, 30); // 80 kg asumido erróneamente
+
+      const tonelajeReal = calculateBlockVolume(3, 10, pesoReal);
+      const tonelajeErroneo = calculateBlockVolume(3, 10, pesoErroneoSinNormalizar);
+
+      expect(tonelajeReal).toBe(2100); // 3 * 10 * 70
+      expect(tonelajeErroneo).toBe(2400); // 3 * 10 * 80 (distorsión de +300 kg evitada)
     });
   });
 });

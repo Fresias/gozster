@@ -13,6 +13,7 @@ interface WarmupModalProps {
   exerciseName: string;
   workingWeightKg: number;
   onApplyWarmupSets: (warmupSets: WarmupSetProgression[]) => void;
+  onRegisterWarmupSet?: (warmupSet: WarmupSetProgression) => void;
 }
 
 export function WarmupModal({
@@ -21,6 +22,7 @@ export function WarmupModal({
   exerciseName,
   workingWeightKg,
   onApplyWarmupSets,
+  onRegisterWarmupSet,
 }: WarmupModalProps) {
   const [targetWeight, setTargetWeight] = React.useState(workingWeightKg || 80);
 
@@ -117,9 +119,26 @@ export function WarmupModal({
                     </span>
                   </div>
                 </div>
-                <span className="font-mono font-semibold text-amber-400 text-xs">
-                  {p.percentage > 0 ? `${p.percentage}%` : "Barra"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-semibold text-amber-400 text-xs">
+                    {p.percentage > 0 ? `${p.percentage}%` : "Barra"}
+                  </span>
+                  {onRegisterWarmupSet && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-[11px] font-bold border-amber-500/40 text-amber-500 hover:bg-amber-500/10 cursor-pointer"
+                      onClick={() => {
+                        onRegisterWarmupSet(p);
+                        onClose();
+                      }}
+                      data-testid={`register-warmup-btn-${p.setNumber}`}
+                    >
+                      Registrar
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
