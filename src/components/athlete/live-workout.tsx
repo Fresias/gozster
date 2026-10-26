@@ -78,6 +78,7 @@ export function LiveWorkout() {
     cargarUltimaVez,
     marcas,
     registrarSerieEnMarcas,
+    stopTimer,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -321,6 +322,7 @@ export function LiveWorkout() {
 
   const handleTerminarEntrenamiento = async () => {
     setIsFinishing(true);
+    stopTimer();
     await syncSessionToSupabase();
     if (diaActivoId) {
       marcarDiaCompletado(diaActivoId);
@@ -642,6 +644,63 @@ export function LiveWorkout() {
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
               {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              {/* Tarjeta destacada al completar todo el entrenamiento (GH #174) */}
+              {isAllWorkoutCompleted && (
+                <div
+                  className="rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-b from-emerald-500/15 via-emerald-500/10 to-card p-4 sm:p-5 shadow-lg space-y-3"
+                  data-testid="terminar-entrenamiento-card-entrenar"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <Check className="h-6 w-6" strokeWidth={3} />
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
+                          ¡Entrenamiento completado!
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Completaste todas las series de tu rutina ({completedSetsCount} de {totalSets}).
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-full">
+                      100%
+                    </span>
+                  </div>
+
+                  <Button
+                    type="button"
+                    disabled={isFinishing || workoutFinished}
+                    onClick={handleTerminarEntrenamiento}
+                    className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
+                    data-testid="terminar-entrenamiento-btn-entrenar"
+                  >
+                    <Check className="h-5 w-5" strokeWidth={3} />
+                    <span>
+                      {isFinishing
+                        ? "Guardando entrenamiento…"
+                        : workoutFinished
+                        ? "¡Entrenamiento finalizado!"
+                        : "Terminar y Guardar Entrenamiento"}
+                    </span>
+                  </Button>
+
+                  {workoutFinished && volverAlInicio && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={volverAlInicio}
+                      className="w-full h-12 rounded-xl text-sm font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                      data-testid="volver-mis-dias-tras-terminar-btn"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Volver a Mis días</span>
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
                 {currentSession.ejercicios.map((ej, idx) => {
                   const isSelected = ej.id === currentExercise?.id;
@@ -1106,10 +1165,12 @@ export function LiveWorkout() {
                         <Check className="h-6 w-6" strokeWidth={3} />
                       </div>
                       <h3 className="text-xl font-bold text-foreground">
-                        ¡Ejercicio completado!
+                        {isAllWorkoutCompleted ? "¡Entrenamiento completado!" : "¡Ejercicio completado!"}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        Guardaste todas las series de {currentExercise.nombre}.
+                        {isAllWorkoutCompleted
+                          ? `Completaste todas las series de tu rutina (${completedSetsCount} de ${totalSets}).`
+                          : `Guardaste todas las series de ${currentExercise.nombre}.`}
                       </p>
                       {firstIncompleteExercise ? (
                         <Button
@@ -1120,13 +1181,33 @@ export function LiveWorkout() {
                           Ir a {firstIncompleteExercise.nombre}
                         </Button>
                       ) : (
-                        <Button
-                          type="button"
-                          onClick={() => setWorkoutTab("registro")}
-                          className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
-                        >
-                          Ver Registro de la sesión
-                        </Button>
+                        <div className="space-y-2 pt-1 w-full max-w-sm mx-auto">
+                          <Button
+                            type="button"
+                            disabled={isFinishing || workoutFinished}
+                            onClick={handleTerminarEntrenamiento}
+                            className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
+                            data-testid="terminar-entrenamiento-btn-entrenar-bottom"
+                          >
+                            <Check className="h-5 w-5" strokeWidth={3} />
+                            <span>
+                              {isFinishing
+                                ? "Guardando entrenamiento…"
+                                : workoutFinished
+                                ? "¡Entrenamiento finalizado!"
+                                : "Terminar y Guardar Entrenamiento"}
+                            </span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setWorkoutTab("registro")}
+                            className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                          >
+                            Ver Registro de la sesión
+                          </Button>
+                        </div>
                       )}
                     </div>
                   )}

@@ -859,7 +859,15 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
 
         // 3. Iniciar automáticamente temporizador de descanso si mostrarTimerDescanso es true
-        if (state.mostrarTimerDescanso !== false) {
+        // y todavía restan series por completar en la sesión (GH #174).
+        const updatedSession = get().currentSession;
+        const hasRemainingSets = updatedSession.ejercicios.some((ej) =>
+          ej.series.some((s) => !s.completada),
+        );
+
+        if (!hasRemainingSets) {
+          get().stopTimer();
+        } else if (state.mostrarTimerDescanso !== false) {
           const restDuration = targetExercise.descanso_segundos || 90;
           get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
         }
