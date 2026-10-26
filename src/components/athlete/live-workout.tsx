@@ -242,6 +242,8 @@ export function LiveWorkout() {
     const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
+    const isLastSetOfWorkout = completedSetsCount + 1 === totalSets && totalSets > 0;
+
     completeSet(currentExercise.id, num);
     registrarSerieEnMarcas(ejId, serieCandidata);
 
@@ -258,15 +260,19 @@ export function LiveWorkout() {
       setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
     }
 
-    const remainingInExercise = currentExercise.series.filter(
-      (s) => !s.completada && s.numero_serie !== num,
-    );
-    if (remainingInExercise.length === 0) {
-      const nextIncomplete = currentSession.ejercicios.find(
-        (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
+    if (isLastSetOfWorkout) {
+      void handleTerminarEntrenamiento();
+    } else {
+      const remainingInExercise = currentExercise.series.filter(
+        (s) => !s.completada && s.numero_serie !== num,
       );
-      if (nextIncomplete) {
-        setSelectedExerciseId(nextIncomplete.id);
+      if (remainingInExercise.length === 0) {
+        const nextIncomplete = currentSession.ejercicios.find(
+          (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
+        );
+        if (nextIncomplete) {
+          setSelectedExerciseId(nextIncomplete.id);
+        }
       }
     }
   };
@@ -814,7 +820,7 @@ export function LiveWorkout() {
                   </div>
 
                   {/* Tarjeta Única de Serie Actual */}
-                  {serie ? (
+                  {serie && !currentExercise.series.every((s) => s.completada) && !isAllWorkoutCompleted && !workoutFinished ? (
                     <Card
                       className="border-2 border-primary/40 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4"
                       data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
@@ -1104,14 +1110,14 @@ export function LiveWorkout() {
                       ) : (
                         <Button
                           type="button"
-                          disabled={isFinishing || workoutFinished}
+                          disabled={isFinishing || workoutFinished || isAllWorkoutCompleted}
                           onClick={handleTerminarEntrenamiento}
                           className="w-full h-14 rounded-2xl text-base font-bold bg-primary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.98] transition-all"
                           data-testid="terminar-entrenamiento-btn-entrenar"
                         >
                           {isFinishing
                             ? "Guardando entrenamiento…"
-                            : workoutFinished
+                            : workoutFinished || isAllWorkoutCompleted
                             ? "¡Entrenamiento finalizado!"
                             : "Terminar entrenamiento"}
                         </Button>

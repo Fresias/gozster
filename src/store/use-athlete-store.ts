@@ -374,6 +374,8 @@ const safeStorage: StateStorage = {
   },
 };
 
+let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
     (set, get) => ({
@@ -874,6 +876,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
           get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
         } else if (!hasRemainingIncompleteSets) {
           get().stopTimer();
+          // Auto-finalización y sincronización automática al completar la última serie de la sesión
+          const currentStore = get();
+          void currentStore.syncSessionToSupabase();
+          if (currentStore.diaActivoId) {
+            currentStore.marcarDiaCompletado(currentStore.diaActivoId);
+          }
         }
       },
 
@@ -1050,80 +1058,90 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       syncSessionToSupabase: async () => {
-        const state = get();
-        const session = state.currentSession;
-        const studentId = session.studentId || DEFAULT_ATHLETE_ID;
+        if (activeSyncSessionPromise) {
+          return activeSyncSessionPromise;
+        }
 
-        // Aplanar todas las series
-        const allSets = session.ejercicios.flatMap((e) =>
-          e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
-        );
+        activeSyncSessionPromise = (async () => {
+          const state = get();
+          const session = state.currentSession;
+          const studentId = session.studentId || DEFAULT_ATHLETE_ID;
 
-        const totalVol = allSets.reduce((acc, s) => {
-          if (!s.completada) return acc;
-          return acc + s.peso_kg * s.reps_hechas;
-        }, 0);
-
-        const effVol = calculateEffectiveVolume(allSets);
-
-        try {
-          // Guardar registro_sesiones en Supabase
-          const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
-            {
-              id: session.id,
-              alumno_id: studentId,
-              dia_id: session.dia_id,
-              dia_sugerido_id: session.dia_sugerido_id || null,
-              motivo_cambio_dia: session.motivo_cambio_dia || null,
-              duracion_minutos: 45,
-              volumen_total_kg: totalVol,
-              effective_volume_kg: effVol,
-            },
-            { onConflict: "id" }
+          // Aplanar todas las series
+          const allSets = session.ejercicios.flatMap((e) =>
+            e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
           );
 
-          if (sesErr) {
-            console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
-          }
+          const totalVol = allSets.reduce((acc, s) => {
+            if (!s.completada) return acc;
+            return acc + s.peso_kg * s.reps_hechas;
+          }, 0);
 
-          // Guardar cada serie en registro_series
-          for (const s of allSets) {
-            if (!s.completada) continue;
-            const mappedType =
-              s.set_type === "W"
-                ? "WARMUP"
-                : s.set_type === "F"
-                ? "FAILURE"
-                : s.set_type === "D"
-                ? "DROPSET"
-                : "NORMAL";
+          const effVol = calculateEffectiveVolume(allSets);
 
-            // Resolver ejercicio_id válido para FK de Supabase
-            const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
-
-            await supabase.from("registro_series").upsert(
+          try {
+            // Guardar registro_sesiones en Supabase
+            const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
               {
-                sesion_id: session.id,
-                ejercicio_id: resolvedEjId,
-                numero_serie: s.numero_serie,
-                peso_kg: s.peso_kg,
-                reps_hechas: s.reps_hechas,
-                rpe_real: s.rpe_real,
-                completada: true,
-                set_type: mappedType,
-                pain_reported: s.pain_reported || false,
-                pain_notes: s.pain_notes || null,
-                video_url: s.video_url || null,
+                id: session.id,
+                alumno_id: studentId,
+                dia_id: session.dia_id,
+                dia_sugerido_id: session.dia_sugerido_id || null,
+                motivo_cambio_dia: session.motivo_cambio_dia || null,
+                duracion_minutos: 45,
+                volumen_total_kg: totalVol,
+                effective_volume_kg: effVol,
               },
-              { onConflict: "sesion_id, ejercicio_id, numero_serie" }
+              { onConflict: "id" }
             );
-          }
 
-          return { success: true };
-        } catch (e: any) {
-          console.error("Error sincronizando sesion con Supabase:", e);
-          return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
-        }
+            if (sesErr) {
+              console.warn("Aviso guardando sesion en Supabase:", sesErr.message);
+            }
+
+            // Guardar cada serie en registro_series
+            for (const s of allSets) {
+              if (!s.completada) continue;
+              const mappedType =
+                s.set_type === "W"
+                  ? "WARMUP"
+                  : s.set_type === "F"
+                  ? "FAILURE"
+                  : s.set_type === "D"
+                  ? "DROPSET"
+                  : "NORMAL";
+
+              // Resolver ejercicio_id válido para FK de Supabase
+              const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";
+
+              await supabase.from("registro_series").upsert(
+                {
+                  sesion_id: session.id,
+                  ejercicio_id: resolvedEjId,
+                  numero_serie: s.numero_serie,
+                  peso_kg: s.peso_kg,
+                  reps_hechas: s.reps_hechas,
+                  rpe_real: s.rpe_real,
+                  completada: true,
+                  set_type: mappedType,
+                  pain_reported: s.pain_reported || false,
+                  pain_notes: s.pain_notes || null,
+                  video_url: s.video_url || null,
+                },
+                { onConflict: "sesion_id, ejercicio_id, numero_serie" }
+              );
+            }
+
+            return { success: true };
+          } catch (e: any) {
+            console.error("Error sincronizando sesion con Supabase:", e);
+            return { success: false, error: e?.message || "Error al sincronizar con Supabase" };
+          } finally {
+            activeSyncSessionPromise = null;
+          }
+        })();
+
+        return activeSyncSessionPromise;
       },
 
       uncompleteSet: (exerciseId, setNumber) => {
