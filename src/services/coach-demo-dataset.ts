@@ -1,4 +1,4 @@
-import type { Clase, Contratacion, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
+import type { ActividadClase, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
 import { diasDeLaSemana } from "@/lib/clases";
@@ -694,90 +694,75 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
   },
 ];
 
+// Horario ficticio (GOZS-194). dia: 0 = lunes ... 4 = viernes.
+const HORARIO_DEMO: Array<{
+  id: string;
+  actividad: ActividadClase;
+  dia: number;
+  hora: string;
+  capacidad: number;
+  cancelada?: boolean;
+}> = [
+  { id: "demo-clase-func-lunes", actividad: "FUNCIONAL", dia: 0, hora: "18:00", capacidad: 3 },
+  { id: "demo-clase-func-martes", actividad: "FUNCIONAL", dia: 1, hora: "18:00", capacidad: 8 },
+  { id: "demo-clase-func-miercoles", actividad: "FUNCIONAL", dia: 2, hora: "18:00", capacidad: 3 },
+  { id: "demo-clase-func-jueves", actividad: "FUNCIONAL", dia: 3, hora: "18:00", capacidad: 8 },
+  { id: "demo-clase-func-viernes", actividad: "FUNCIONAL", dia: 4, hora: "18:00", capacidad: 8, cancelada: true },
+  { id: "demo-clase-func-martes-17", actividad: "FUNCIONAL", dia: 1, hora: "17:00", capacidad: 6 },
+  { id: "demo-clase-func-jueves-17", actividad: "FUNCIONAL", dia: 3, hora: "17:00", capacidad: 6 },
+  { id: "demo-clase-box-lunes", actividad: "BOXEO", dia: 0, hora: "19:30", capacidad: 10 },
+  { id: "demo-clase-box-miercoles", actividad: "BOXEO", dia: 2, hora: "19:30", capacidad: 10 },
+  { id: "demo-clase-box-viernes", actividad: "BOXEO", dia: 4, hora: "19:30", capacidad: 10 },
+];
+
 export function generarDemoClasesSemana(fechaRef: Date = new Date()): Clase[] {
   const dias = diasDeLaSemana(fechaRef);
-  return [
-    {
-      id: "demo-clase-func-lunes",
-      horario_id: "demo-horario-func-lun",
-      actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[0]?.clave}T19:00:00-03:00`).toISOString(),
-      duracion_minutos: 60,
-      capacidad: 3,
-      estado: "PROGRAMADA",
-      motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-clase-func-miercoles",
-      horario_id: "demo-horario-func-mie",
-      actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[2]?.clave}T19:00:00-03:00`).toISOString(),
-      duracion_minutos: 60,
-      capacidad: 3,
-      estado: "PROGRAMADA",
-      motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-clase-func-jueves",
-      horario_id: "demo-horario-func-jue",
-      actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[3]?.clave}T19:00:00-03:00`).toISOString(),
-      duracion_minutos: 60,
-      capacidad: 3,
-      estado: "PROGRAMADA",
-      motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-clase-box-viernes",
-      horario_id: "demo-horario-box-vie",
-      actividad: "BOXEO",
-      inicio: new Date(`${dias[4]?.clave}T20:00:00-03:00`).toISOString(),
-      duracion_minutos: 60,
-      capacidad: 10,
-      estado: "PROGRAMADA",
-      motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ];
+  const ahora = new Date().toISOString();
+  return HORARIO_DEMO.map((h) => ({
+    id: h.id,
+    horario_id: `demo-horario-${h.id.slice("demo-clase-".length)}`,
+    actividad: h.actividad,
+    inicio: new Date(`${dias[h.dia]?.clave}T${h.hora}:00-03:00`).toISOString(),
+    duracion_minutos: 60,
+    capacidad: h.capacidad,
+    estado: h.cancelada ? "CANCELADA" : "PROGRAMADA",
+    motivo_cancelacion: h.cancelada ? "Feriado: el gimnasio no abre" : null,
+    created_at: ahora,
+    updated_at: ahora,
+  }));
 }
 
+// Anotados ficticios: cupo libre (lunes, sin anotados), casi llena (martes 17), llena con espera (miércoles)
+// y una reserva cancelada (jueves 17). Ids fijos: recargar el seed no duplica filas.
+const ANOTADOS_DEMO: Array<[claseId: string, sufijo: string, nombre: string, estado: EstadoReserva]> = [
+  ["demo-clase-func-miercoles", "mie-1", "Camila Navarro", "ANOTADO"],
+  ["demo-clase-func-miercoles", "mie-2", "Lucas Giménez", "ANOTADO"],
+  ["demo-clase-func-miercoles", "mie-3", "Mateo Rossi", "ANOTADO"],
+  ["demo-clase-func-miercoles", "mie-4", "Renata Quiroga", "EN_ESPERA"],
+  ["demo-clase-func-miercoles", "mie-5", "Emilia Castro", "EN_ESPERA"],
+  ["demo-clase-func-martes-17", "mar17-1", "Ignacio Duarte", "ANOTADO"],
+  ["demo-clase-func-martes-17", "mar17-2", "Julieta Sosa", "ANOTADO"],
+  ["demo-clase-func-martes-17", "mar17-3", "Federico Bravo", "ANOTADO"],
+  ["demo-clase-func-martes-17", "mar17-4", "Agustina Peralta", "ANOTADO"],
+  ["demo-clase-func-martes-17", "mar17-5", "Martina Luna", "ANOTADO"],
+  ["demo-clase-func-jueves-17", "jue17-1", "Santiago Vera", "ANOTADO"],
+  ["demo-clase-func-jueves-17", "jue17-2", "Paula Medina", "CANCELADO"],
+  ["demo-clase-box-lunes", "boxlun-1", "Nicolás Herrera", "ANOTADO"],
+  ["demo-clase-box-lunes", "boxlun-2", "Abril Domínguez", "ANOTADO"],
+  ["demo-clase-box-viernes", "boxvie-1", "Diego Molina", "ANOTADO"],
+];
+
 export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre: string }> {
-  return [
-    {
-      id: "demo-res-mie-1",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-1",
-      alumno_nombre: "Camila Navarro",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-res-mie-2",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-2",
-      alumno_nombre: "Lucas Giménez",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-res-mie-3",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-3",
-      alumno_nombre: "Mateo Rossi",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ];
+  const ahora = new Date().toISOString();
+  return ANOTADOS_DEMO.map(([clase_id, sufijo, alumno_nombre, estado]) => ({
+    id: `demo-res-${sufijo}`,
+    clase_id,
+    alumno_id: `demo-alumno-ext-${sufijo}`,
+    alumno_nombre,
+    estado,
+    created_at: ahora,
+    updated_at: ahora,
+  }));
 }
 
 // ============================================================================

@@ -29,7 +29,7 @@ export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
-export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO';
+export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
 
 export interface Database {
