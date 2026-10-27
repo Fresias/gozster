@@ -694,90 +694,311 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
   },
 ];
 
+// ============================================================================
+// Cronograma semanal de clases de Coach Studio (GOZS-189 / GH #189, épica GOZS-181)
+// - Funcional 18:00: lunes a viernes (cupo 15)
+// - Funcional 17:00: martes y jueves turno extra (cupo 15)
+// - Boxeo 19:30: lunes, miércoles y viernes (cupo 15)
+// 10 clases en total, todas con cupo flexible 15.
+// ============================================================================
+
 export function generarDemoClasesSemana(fechaRef: Date = new Date()): Clase[] {
   const dias = diasDeLaSemana(fechaRef);
+  const ahoraIso = new Date().toISOString();
+
   return [
+    // Lunes
     {
       id: "demo-clase-func-lunes",
-      horario_id: "demo-horario-func-lun",
+      horario_id: "demo-horario-func-lun-18",
       actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[0]?.clave}T19:00:00-03:00`).toISOString(),
+      inicio: new Date(`${dias[0]?.clave}T18:00:00-03:00`).toISOString(),
       duracion_minutos: 60,
-      capacidad: 3,
+      capacidad: 15,
       estado: "PROGRAMADA",
       motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
     },
     {
-      id: "demo-clase-func-miercoles",
-      horario_id: "demo-horario-func-mie",
-      actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[2]?.clave}T19:00:00-03:00`).toISOString(),
+      id: "demo-clase-box-lunes",
+      horario_id: "demo-horario-box-lun-1930",
+      actividad: "BOXEO",
+      inicio: new Date(`${dias[0]?.clave}T19:30:00-03:00`).toISOString(),
       duracion_minutos: 60,
-      capacidad: 3,
+      capacidad: 15,
       estado: "PROGRAMADA",
       motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+
+    // Martes
+    {
+      id: "demo-clase-func-martes-17",
+      horario_id: "demo-horario-func-mar-17",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[1]?.clave}T17:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+    {
+      id: "demo-clase-func-martes",
+      horario_id: "demo-horario-func-mar-18",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[1]?.clave}T18:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+
+    // Miércoles
+    {
+      id: "demo-clase-func-miercoles",
+      horario_id: "demo-horario-func-mie-18",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[2]?.clave}T18:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+    {
+      id: "demo-clase-box-miercoles",
+      horario_id: "demo-horario-box-mie-1930",
+      actividad: "BOXEO",
+      inicio: new Date(`${dias[2]?.clave}T19:30:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+
+    // Jueves
+    {
+      id: "demo-clase-func-jueves-17",
+      horario_id: "demo-horario-func-jue-17",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[3]?.clave}T17:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
     },
     {
       id: "demo-clase-func-jueves",
-      horario_id: "demo-horario-func-jue",
+      horario_id: "demo-horario-func-jue-18",
       actividad: "FUNCIONAL",
-      inicio: new Date(`${dias[3]?.clave}T19:00:00-03:00`).toISOString(),
+      inicio: new Date(`${dias[3]?.clave}T18:00:00-03:00`).toISOString(),
       duracion_minutos: 60,
-      capacidad: 3,
+      capacidad: 15,
       estado: "PROGRAMADA",
       motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    },
+
+    // Viernes
+    {
+      id: "demo-clase-func-viernes",
+      horario_id: "demo-horario-func-vie-18",
+      actividad: "FUNCIONAL",
+      inicio: new Date(`${dias[4]?.clave}T18:00:00-03:00`).toISOString(),
+      duracion_minutos: 60,
+      capacidad: 15,
+      estado: "PROGRAMADA",
+      motivo_cancelacion: null,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
     },
     {
       id: "demo-clase-box-viernes",
-      horario_id: "demo-horario-box-vie",
+      horario_id: "demo-horario-box-vie-1930",
       actividad: "BOXEO",
-      inicio: new Date(`${dias[4]?.clave}T20:00:00-03:00`).toISOString(),
+      inicio: new Date(`${dias[4]?.clave}T19:30:00-03:00`).toISOString(),
       duracion_minutos: 60,
-      capacidad: 10,
+      capacidad: 15,
       estado: "PROGRAMADA",
       motivo_cancelacion: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
     },
   ];
 }
 
+/**
+ * Semilla de reservas iniciales en Modo Testeo (GOZS-189).
+ * - Reparto de alumnos con ocupaciones variadas (vacía, con cupo libre, casi llena, llena y sobrecupo).
+ * - Ningún alumno supera 3 clases por semana (consistente con 1x, 2x, 3x o pase libre).
+ * - Alumnos que combinan Funcional y Boxeo en días distintos (ej. Sofía Benítez, Lucas, Celeste).
+ * - Incluye caso de lista de espera / sobrecupo (Boxeo Miércoles: 16/15) y pase libre (Sofía Benítez).
+ */
+const SEED_RESERVAS_DEMO: Array<[claseId: string, alumnoId: string, alumnoNombre: string]> = [
+  // 1. Lunes 18:00 Funcional (0/15 - vacía / cupo libre, preservada para tests de reserva)
+  // (Sin reservas iniciales)
+
+  // 2. Lunes 19:30 Boxeo (11/15 - cupo libre)
+  ["demo-clase-box-lunes", "demo-alumno-01-lucas", "Lucas Giménez"],
+  ["demo-clase-box-lunes", "demo-alumno-03-facundo", "Facundo Medina"],
+  ["demo-clase-box-lunes", "demo-alumno-07-bautista", "Bautista Benítez"],
+  ["demo-clase-box-lunes", "demo-alumno-12-ignacio", "Ignacio Duarte"],
+  ["demo-clase-box-lunes", "demo-alumno-14-franco", "Franco Ibarra"],
+  ["demo-clase-box-lunes", "demo-alumno-17-agustin", "Agustín Molina"],
+  ["demo-clase-box-lunes", "demo-alumno-19-tobias", "Tobías Aguirre"],
+  ["demo-clase-box-lunes", "demo-alumno-21-federico", "Federico Luna"],
+  ["demo-clase-box-lunes", "demo-alumno-23-gonzalo", "Gonzalo Peralta"],
+  ["demo-clase-box-lunes", "demo-alumno-25-santiago", "Santiago Ojeda"],
+  ["demo-clase-box-lunes", "demo-alumno-34-dante", "Dante Quinteros"],
+
+  // 3. Martes 17:00 Funcional turno extra (7/15 - cupo libre)
+  ["demo-clase-func-martes-17", "demo-alumno-02-celeste", "Celeste Gerardi"],
+  ["demo-clase-func-martes-17", "demo-alumno-09-esteban", "Esteban Papic"],
+  ["demo-clase-func-martes-17", "demo-alumno-16-daniela", "Daniela Ponce"],
+  ["demo-clase-func-martes-17", "demo-alumno-22-brenda", "Brenda Acosta"],
+  ["demo-clase-func-martes-17", "demo-alumno-27-emiliano", "Emiliano Correa"],
+  ["demo-clase-func-martes-17", "demo-alumno-32-camino", "Camino Rivas"],
+  ["demo-clase-func-martes-17", "demo-alumno-35-noelia", "Noelia Barrios"],
+
+  // 4. Martes 18:00 Funcional (14/15 - casi llena, 1 cupo restante)
+  ["demo-clase-func-martes", "demo-alumno-sofia", "Sofía Benítez"], // Pase libre
+  ["demo-clase-func-martes", "demo-alumno-04-sofia", "Sofía Albarracín"],
+  ["demo-clase-func-martes", "demo-alumno-06-valentina", "Valentina Quiroga"],
+  ["demo-clase-func-martes", "demo-alumno-08-camila", "Camila Navarro"],
+  ["demo-clase-func-martes", "demo-alumno-10-martina", "Martina Gómez"],
+  ["demo-clase-func-martes", "demo-alumno-11-julieta", "Julieta Sosa"],
+  ["demo-clase-func-martes", "demo-alumno-13-abril", "Abril Figueroa"],
+  ["demo-clase-func-martes", "demo-alumno-15-nahuel", "Nahuel Cabrera"],
+  ["demo-clase-func-martes", "demo-alumno-18-rocio", "Rocío Herrera"],
+  ["demo-clase-func-martes", "demo-alumno-20-micaela", "Micaela Vera"],
+  ["demo-clase-func-martes", "demo-alumno-24-lara", "Lara Domínguez"],
+  ["demo-clase-func-martes", "demo-alumno-26-pilar", "Pilar Sánchez"],
+  ["demo-clase-func-martes", "demo-alumno-28-victoria", "Victoria Maldonado"],
+  ["demo-clase-func-martes", "demo-alumno-30-antonella", "Antonella Bustos"],
+
+  // 5. Miércoles 18:00 Funcional (15/15 - LLENA, sin cupo)
+  // Las primeras 3 conservan los IDs históricos requeridos por specs existentes (demo-res-mie-1/2/3)
+  ["demo-clase-func-miercoles", "demo-alumno-08-camila", "Camila Navarro"], // demo-res-mie-1
+  ["demo-clase-func-miercoles", "demo-alumno-01-lucas", "Lucas Giménez"],   // demo-res-mie-2
+  ["demo-clase-func-miercoles", "demo-alumno-05-mateo", "Mateo Rossi"],     // demo-res-mie-3
+  ["demo-clase-func-miercoles", "demo-alumno-06-valentina", "Valentina Quiroga"],
+  ["demo-clase-func-miercoles", "demo-alumno-10-martina", "Martina Gómez"],
+  ["demo-clase-func-miercoles", "demo-alumno-11-julieta", "Julieta Sosa"],
+  ["demo-clase-func-miercoles", "demo-alumno-13-abril", "Abril Figueroa"],
+  ["demo-clase-func-miercoles", "demo-alumno-16-daniela", "Daniela Ponce"],
+  ["demo-clase-func-miercoles", "demo-alumno-18-rocio", "Rocío Herrera"],
+  ["demo-clase-func-miercoles", "demo-alumno-20-micaela", "Micaela Vera"],
+  ["demo-clase-func-miercoles", "demo-alumno-22-brenda", "Brenda Acosta"],
+  ["demo-clase-func-miercoles", "demo-alumno-24-lara", "Lara Domínguez"],
+  ["demo-clase-func-miercoles", "demo-alumno-26-pilar", "Pilar Sánchez"],
+  ["demo-clase-func-miercoles", "demo-alumno-28-victoria", "Victoria Maldonado"],
+  ["demo-clase-func-miercoles", "demo-alumno-30-antonella", "Antonella Bustos"],
+
+  // 6. Miércoles 19:30 Boxeo (16/15 - LLENA CON LISTA DE ESPERA / SOBRECUPO)
+  ["demo-clase-box-miercoles", "demo-alumno-sofia", "Sofía Benítez"], // Pase libre combinando Boxeo
+  ["demo-clase-box-miercoles", "demo-alumno-02-celeste", "Celeste Gerardi"],
+  ["demo-clase-box-miercoles", "demo-alumno-07-bautista", "Bautista Benítez"],
+  ["demo-clase-box-miercoles", "demo-alumno-09-esteban", "Esteban Papic"],
+  ["demo-clase-box-miercoles", "demo-alumno-12-ignacio", "Ignacio Duarte"],
+  ["demo-clase-box-miercoles", "demo-alumno-14-franco", "Franco Ibarra"],
+  ["demo-clase-box-miercoles", "demo-alumno-17-agustin", "Agustín Molina"],
+  ["demo-clase-box-miercoles", "demo-alumno-19-tobias", "Tobías Aguirre"],
+  ["demo-clase-box-miercoles", "demo-alumno-21-federico", "Federico Luna"],
+  ["demo-clase-box-miercoles", "demo-alumno-23-gonzalo", "Gonzalo Peralta"],
+  ["demo-clase-box-miercoles", "demo-alumno-25-santiago", "Santiago Ojeda"],
+  ["demo-clase-box-miercoles", "demo-alumno-29-ramiro", "Ramiro Cáceres"],
+  ["demo-clase-box-miercoles", "demo-alumno-31-leandro", "Leandro Funes"],
+  ["demo-clase-box-miercoles", "demo-alumno-34-dante", "Dante Quinteros"],
+  ["demo-clase-box-miercoles", "demo-alumno-36-ezequiel", "Ezequiel Soria"],
+  ["demo-clase-box-miercoles", "demo-alumno-37-matias", "Matías Blanco"], // #16 en sobrecupo / lista de espera
+
+  // 7. Jueves 17:00 Funcional turno extra (8/15 - cupo libre)
+  ["demo-clase-func-jueves-17", "demo-alumno-03-facundo", "Facundo Medina"],
+  ["demo-clase-func-jueves-17", "demo-alumno-09-esteban", "Esteban Papic"],
+  ["demo-clase-func-jueves-17", "demo-alumno-22-brenda", "Brenda Acosta"],
+  ["demo-clase-func-jueves-17", "demo-alumno-27-emiliano", "Emiliano Correa"],
+  ["demo-clase-func-jueves-17", "demo-alumno-32-camino", "Camino Rivas"],
+  ["demo-clase-func-jueves-17", "demo-alumno-33-paula", "Paula Medrano"],
+  ["demo-clase-func-jueves-17", "demo-alumno-35-noelia", "Noelia Barrios"],
+  ["demo-clase-func-jueves-17", "demo-alumno-36-ezequiel", "Ezequiel Soria"],
+
+  // 8. Jueves 18:00 Funcional (12/15 - cupo libre)
+  ["demo-clase-func-jueves", "demo-alumno-02-celeste", "Celeste Gerardi"],
+  ["demo-clase-func-jueves", "demo-alumno-04-sofia", "Sofía Albarracín"],
+  ["demo-clase-func-jueves", "demo-alumno-15-nahuel", "Nahuel Cabrera"],
+  ["demo-clase-func-jueves", "demo-alumno-16-daniela", "Daniela Ponce"],
+  ["demo-clase-func-jueves", "demo-alumno-19-tobias", "Tobías Aguirre"],
+  ["demo-clase-func-jueves", "demo-alumno-27-emiliano", "Emiliano Correa"],
+  ["demo-clase-func-jueves", "demo-alumno-29-ramiro", "Ramiro Cáceres"],
+  ["demo-clase-func-jueves", "demo-alumno-31-leandro", "Leandro Funes"],
+  ["demo-clase-func-jueves", "demo-alumno-32-camino", "Camino Rivas"],
+  ["demo-clase-func-jueves", "demo-alumno-33-paula", "Paula Medrano"],
+  ["demo-clase-func-jueves", "demo-alumno-34-dante", "Dante Quinteros"],
+  ["demo-clase-func-jueves", "demo-alumno-35-noelia", "Noelia Barrios"],
+
+  // 9. Viernes 18:00 Funcional (15/15 - LLENA)
+  ["demo-clase-func-viernes", "demo-alumno-sofia", "Sofía Benítez"], // Pase libre
+  ["demo-clase-func-viernes", "demo-alumno-04-sofia", "Sofía Albarracín"],
+  ["demo-clase-func-viernes", "demo-alumno-06-valentina", "Valentina Quiroga"],
+  ["demo-clase-func-viernes", "demo-alumno-08-camila", "Camila Navarro"],
+  ["demo-clase-func-viernes", "demo-alumno-10-martina", "Martina Gómez"],
+  ["demo-clase-func-viernes", "demo-alumno-11-julieta", "Julieta Sosa"],
+  ["demo-clase-func-viernes", "demo-alumno-13-abril", "Abril Figueroa"],
+  ["demo-clase-func-viernes", "demo-alumno-14-franco", "Franco Ibarra"],
+  ["demo-clase-func-viernes", "demo-alumno-15-nahuel", "Nahuel Cabrera"],
+  ["demo-clase-func-viernes", "demo-alumno-18-rocio", "Rocío Herrera"],
+  ["demo-clase-func-viernes", "demo-alumno-20-micaela", "Micaela Vera"],
+  ["demo-clase-func-viernes", "demo-alumno-24-lara", "Lara Domínguez"],
+  ["demo-clase-func-viernes", "demo-alumno-26-pilar", "Pilar Sánchez"],
+  ["demo-clase-func-viernes", "demo-alumno-28-victoria", "Victoria Maldonado"],
+  ["demo-clase-func-viernes", "demo-alumno-30-antonella", "Antonella Bustos"],
+
+  // 10. Viernes 19:30 Boxeo (9/15 - cupo libre)
+  ["demo-clase-box-viernes", "demo-alumno-01-lucas", "Lucas Giménez"],
+  ["demo-clase-box-viernes", "demo-alumno-05-mateo", "Mateo Rossi"],
+  ["demo-clase-box-viernes", "demo-alumno-07-bautista", "Bautista Benítez"],
+  ["demo-clase-box-viernes", "demo-alumno-12-ignacio", "Ignacio Duarte"],
+  ["demo-clase-box-viernes", "demo-alumno-17-agustin", "Agustín Molina"],
+  ["demo-clase-box-viernes", "demo-alumno-21-federico", "Federico Luna"],
+  ["demo-clase-box-viernes", "demo-alumno-23-gonzalo", "Gonzalo Peralta"],
+  ["demo-clase-box-viernes", "demo-alumno-25-santiago", "Santiago Ojeda"],
+  ["demo-clase-box-viernes", "demo-alumno-29-ramiro", "Ramiro Cáceres"],
+];
+
 export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre: string }> {
-  return [
-    {
-      id: "demo-res-mie-1",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-1",
-      alumno_nombre: "Camila Navarro",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-res-mie-2",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-2",
-      alumno_nombre: "Lucas Giménez",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "demo-res-mie-3",
-      clase_id: "demo-clase-func-miercoles",
-      alumno_id: "demo-alumno-ext-3",
-      alumno_nombre: "Mateo Rossi",
-      estado: "ANOTADO",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ];
+  const ahoraIso = new Date().toISOString();
+  let mieCount = 0;
+
+  return SEED_RESERVAS_DEMO.map(([clase_id, alumno_id, alumno_nombre], idx) => {
+    let id = `demo-res-${clase_id.replace("demo-clase-", "")}-${idx + 1}`;
+    if (clase_id === "demo-clase-func-miercoles") {
+      mieCount++;
+      if (mieCount === 1) id = "demo-res-mie-1";
+      else if (mieCount === 2) id = "demo-res-mie-2";
+      else if (mieCount === 3) id = "demo-res-mie-3";
+    }
+    return {
+      id,
+      clase_id,
+      alumno_id,
+      alumno_nombre,
+      estado: "ANOTADO" as const,
+      created_at: ahoraIso,
+      updated_at: ahoraIso,
+    };
+  });
 }
 
 // ============================================================================
