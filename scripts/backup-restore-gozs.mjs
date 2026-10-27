@@ -84,6 +84,9 @@ export const TABLAS = [
   { nombre: "clases", fks: { horario_id: "clases_horario" } },
   { nombre: "clases_profesores", fks: { clase_id: "clases", profesor_id: "perfiles" } },
   { nombre: "reservas", fks: { alumno_id: "perfiles", clase_id: "clases" } },
+  { nombre: "suscripciones", fks: { alumno_id: "perfiles", entrenador_id: "perfiles" } },
+  { nombre: "cobros", fks: { alumno_id: "perfiles", entrenador_id: "perfiles", suscripcion_id: "suscripciones" } },
+  { nombre: "pagos_cobro", fks: { alumno_id: "perfiles", cobro_id: "cobros", confirmado_por: "perfiles" } },
 ];
 
 /** JSON estable: claves ordenadas, para que el hash no dependa del orden de columnas. */

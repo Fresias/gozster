@@ -1415,11 +1415,200 @@ export interface Database {
           },
         ];
       };
+      suscripciones: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          entrenador_id: string;
+          servicio: 'RUTINA' | 'FUNCIONAL' | 'BOXEO' | null;
+          veces_por_semana: number | null;
+          precio_pactado: number;
+          estado: 'ACTIVA' | 'PAUSADA' | 'CANCELADA';
+          dia_vencimiento: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          entrenador_id: string;
+          servicio?: 'RUTINA' | 'FUNCIONAL' | 'BOXEO' | null;
+          veces_por_semana?: number | null;
+          precio_pactado: number;
+          estado?: 'ACTIVA' | 'PAUSADA' | 'CANCELADA';
+          dia_vencimiento?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          entrenador_id?: string;
+          servicio?: 'RUTINA' | 'FUNCIONAL' | 'BOXEO' | null;
+          veces_por_semana?: number | null;
+          precio_pactado?: number;
+          estado?: 'ACTIVA' | 'PAUSADA' | 'CANCELADA';
+          dia_vencimiento?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'suscripciones_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'suscripciones_entrenador_id_fkey';
+            columns: ['entrenador_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      cobros: {
+        Row: {
+          id: string;
+          suscripcion_id: string;
+          alumno_id: string;
+          entrenador_id: string;
+          periodo: string;
+          monto: number;
+          fecha_vencimiento: string;
+          estado: 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          suscripcion_id: string;
+          alumno_id: string;
+          entrenador_id: string;
+          periodo: string;
+          monto: number;
+          fecha_vencimiento: string;
+          estado?: 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          suscripcion_id?: string;
+          alumno_id?: string;
+          entrenador_id?: string;
+          periodo?: string;
+          monto?: number;
+          fecha_vencimiento?: string;
+          estado?: 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cobros_suscripcion_id_fkey';
+            columns: ['suscripcion_id'];
+            isOneToOne: false;
+            referencedRelation: 'suscripciones';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cobros_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cobros_entrenador_id_fkey';
+            columns: ['entrenador_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      pagos_cobro: {
+        Row: {
+          id: string;
+          cobro_id: string;
+          alumno_id: string;
+          monto: number;
+          fecha: string;
+          metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          confirmado_por: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          cobro_id: string;
+          alumno_id: string;
+          monto: number;
+          fecha?: string;
+          metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          confirmado_por: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          cobro_id?: string;
+          alumno_id?: string;
+          monto?: number;
+          fecha?: string;
+          metodo?: 'TRANSFERENCIA' | 'EFECTIVO';
+          confirmado_por?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pagos_cobro_cobro_id_fkey';
+            columns: ['cobro_id'];
+            isOneToOne: false;
+            referencedRelation: 'cobros';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pagos_cobro_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pagos_cobro_confirmado_por_fkey';
+            columns: ['confirmado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generar_cobros_mensuales: {
+        Args: {
+          p_periodo?: string;
+        };
+        Returns: number;
+      };
+      registrar_pago_cobro: {
+        Args: {
+          p_cobro_id: string;
+          p_monto: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_fecha?: string;
+        };
+        Returns: string;
+      };
+      marcar_cobros_vencidos: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       es_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
