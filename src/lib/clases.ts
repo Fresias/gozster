@@ -1,4 +1,4 @@
-import type { Clase, Contratacion, Reserva } from "@/types/database.types";
+import type { Clase, Contratacion, Perfil, PlanMembresia, Reserva } from "@/types/database.types";
 
 // Reglas de UI de clases presenciales (#113 / GH #122). Todo en hora argentina,
 // igual que las RPC del backend (supabase/migrations/20261021120000_membresias_clases_reservas.sql).
@@ -185,4 +185,216 @@ export function inicioPeriodoRenovacion(
 ): string | null {
   if (!membresia || membresia.estado !== "POR_VENCER") return null;
   return claveDia(clase.inicio) > membresia.fecha_fin ? diaSiguienteCorto(membresia.fecha_fin) : null;
+}
+
+
+export interface DiaMes {
+  clave: string; // "YYYY-MM-DD"
+  numero: number;
+  esMesActual: boolean;
+  esHoy: boolean;
+  diaSemana: number; // 1 = lun ... 7 = dom
+}
+
+/**
+ * Matriz de días para la vista de mes (calendario de 35 o 42 celdas),
+ * alineado lunes a domingo con hora de Buenos Aires (Ponytail: solo Date / Intl).
+ */
+export function diasDelMes(fechaRef: Date = new Date()): DiaMes[] {
+  const p = partesLocales(fechaRef);
+  const primerDiaMes = medianocheLocal(p.anio, p.mes, 1);
+  const pPrimer = partesLocales(primerDiaMes);
+
+  // Lunes de la primera semana del mes
+  const offsetInicio = pPrimer.diaSemana - 1;
+  const fechaInicioGrid = new Date(primerDiaMes.getTime() - offsetInicio * 86_400_000);
+
+  const hoyClave = claveDia(new Date());
+  const dias: DiaMes[] = [];
+
+  // Siempre generamos 35 o 42 celdas (5 o 6 semanas completas)
+  const totalCeldas = offsetInicio + new Date(Date.UTC(p.anio, p.mes, 0)).getUTCDate() > 35 ? 42 : 35;
+
+  for (let i = 0; i < totalCeldas; i++) {
+    const instante = new Date(fechaInicioGrid.getTime() + i * 86_400_000 + 12 * 3_600_000);
+    const pDia = partesLocales(instante);
+    const clave = `${pDia.anio}-${String(pDia.mes).padStart(2, "0")}-${String(pDia.dia).padStart(2, "0")}`;
+    dias.push({
+      clave,
+      numero: pDia.dia,
+      esMesActual: pDia.mes === p.mes && pDia.anio === p.anio,
+      esHoy: clave === hoyClave,
+      diaSemana: pDia.diaSemana,
+    });
+  }
+
+  return dias;
+}
+
+export interface InfoSolape {
+  columna: number;
+  totalColumnas: number;
+}
+
+/**
+ * Detecta solapes temporales de clases en el mismo día para acomodarlas
+ * visualmente lado a lado (estilo Google Calendar / Calender App Design).
+ */
+export function detectarSolapes(
+  clases: Pick<Clase, "id" | "inicio" | "duracion_minutos">[],
+): Map<string, InfoSolape> {
+  const resultado = new Map<string, InfoSolape>();
+  if (clases.length === 0) return resultado;
+
+  // Agrupar por clave de día
+  const porDia = new Map<string, typeof clases>();
+  for (const c of clases) {
+    const dia = claveDia(c.inicio);
+    const lista = porDia.get(dia) ?? [];
+    lista.push(c);
+    porDia.set(dia, lista);
+  }
+
+  for (const lista of porDia.values()) {
+    // Ordenar por inicio ascendente
+    const ordenadas = [...lista].sort(
+      (a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime(),
+    );
+
+    // Identificar grupos de solape
+    const grupos: (typeof clases)[] = [];
+    let grupoActual: typeof clases = [];
+    let finMaxGrupo = 0;
+
+    for (const c of ordenadas) {
+      const ini = new Date(c.inicio).getTime();
+      const fin = ini + (c.duracion_minutos || 60) * 60_000;
+
+      if (grupoActual.length === 0 || ini < finMaxGrupo) {
+        grupoActual.push(c);
+        finMaxGrupo = Math.max(finMaxGrupo, fin);
+      } else {
+        grupos.push(grupoActual);
+        grupoActual = [c];
+        finMaxGrupo = fin;
+      }
+    }
+    if (grupoActual.length > 0) grupos.push(grupoActual);
+
+    // Asignar columnas dentro de cada grupo
+    for (const grupo of grupos) {
+      const columnas: number[] = [];
+      for (const c of grupo) {
+        const ini = new Date(c.inicio).getTime();
+        const fin = ini + (c.duracion_minutos || 60) * 60_000;
+
+        let colIdx = columnas.findIndex((colFin) => colFin <= ini);
+        if (colIdx === -1) {
+          colIdx = columnas.length;
+          columnas.push(fin);
+        } else {
+          columnas[colIdx] = fin;
+        }
+
+        resultado.set(c.id, {
+          columna: colIdx,
+          totalColumnas: Math.max(grupo.length > 1 ? grupo.length : 1, columnas.length),
+        });
+      }
+      const total = columnas.length;
+      for (const c of grupo) {
+        const prev = resultado.get(c.id);
+        if (prev) resultado.set(c.id, { ...prev, totalColumnas: total });
+      }
+    }
+  }
+
+  return resultado;
+}
+
+export type TipoAvisoAnotacion =
+  | "NINGUNO"
+  | "SIN_SUSCRIPCION"
+  | "LIMITE_SEMANAL"
+  | "ACTIVIDAD_DISTINTA"
+  | "SOBRECUPO";
+
+export interface ResultadoValidacionAnotacion {
+  valida: boolean;
+  advertencia?: string;
+  requiereConfirmacion: boolean;
+  tipoAviso: TipoAvisoAnotacion;
+}
+
+/**
+ * Valida la anotación manual de un alumno por parte del entrenador en Coach Studio.
+ * Criterio Gherkin:
+ * - GIVEN una clase con cupo N WHEN el coach anota un alumno sin suscripción vigente
+ *   THEN se le avisa y puede forzar con confirmación.
+ * También contempla cupo flexible (sobrecupo permitido con aviso) y límite semanal.
+ */
+export function validarAnotacionCoach(args: {
+  clase: Pick<Clase, "id" | "actividad" | "capacidad" | "inicio">;
+  alumno: Pick<Perfil, "id" | "nombre_completo">;
+  contratacion: Pick<Contratacion, "estado" | "fecha_inicio" | "fecha_fin" | "actividad"> | null;
+  plan: Pick<PlanMembresia, "limite_semanal" | "cantidad_actividades"> | null;
+  anotadosClaseActual: number;
+  usadasSemanaAlumno: number;
+  ahora?: Date;
+}): ResultadoValidacionAnotacion {
+  const { clase, alumno, contratacion, plan, anotadosClaseActual, usadasSemanaAlumno, ahora = new Date() } = args;
+  const hoyStr = claveDia(ahora);
+
+  // 1. Validación de suscripción vigente
+  const sinSuscripcion =
+    !contratacion ||
+    contratacion.estado === "VENCIDA" ||
+    (contratacion.fecha_fin && contratacion.fecha_fin < hoyStr) ||
+    (contratacion.fecha_inicio && contratacion.fecha_inicio > hoyStr);
+
+  if (sinSuscripcion) {
+    const estado = contratacion ? contratacion.estado : "SIN_SUSCRIPCION";
+    return {
+      valida: false,
+      requiereConfirmacion: true,
+      tipoAviso: "SIN_SUSCRIPCION",
+      advertencia: `${alumno.nombre_completo} no tiene una suscripción vigente (Estado: ${estado}). Podés forzar la anotación con confirmación.`,
+    };
+  }
+
+  // 2. Cobertura de la actividad por el plan
+  if (plan && plan.cantidad_actividades === 1 && contratacion?.actividad && contratacion.actividad !== clase.actividad) {
+    return {
+      valida: false,
+      requiereConfirmacion: true,
+      tipoAviso: "ACTIVIDAD_DISTINTA",
+      advertencia: `El plan de ${alumno.nombre_completo} cubre ${contratacion.actividad}, pero esta clase es de ${clase.actividad}. Podés forzar la anotación con confirmación.`,
+    };
+  }
+
+  // 3. Límite semanal de clases
+  if (plan && plan.limite_semanal !== null && usadasSemanaAlumno >= plan.limite_semanal) {
+    return {
+      valida: false,
+      requiereConfirmacion: true,
+      tipoAviso: "LIMITE_SEMANAL",
+      advertencia: `${alumno.nombre_completo} ya usó sus ${plan.limite_semanal} clases de esta semana (${usadasSemanaAlumno}/${plan.limite_semanal}). Podés forzar sobrecupo.`,
+    };
+  }
+
+  // 4. Cupo flexible de la clase (sobrecupo)
+  if (clase.capacidad !== null && anotadosClaseActual >= clase.capacidad) {
+    return {
+      valida: true,
+      requiereConfirmacion: true,
+      tipoAviso: "SOBRECUPO",
+      advertencia: `La clase está completa (${anotadosClaseActual}/${clase.capacidad} cupos). Como el cupo es flexible, podés anotar al alumno como sobrecupo.`,
+    };
+  }
+
+  return {
+    valida: true,
+    requiereConfirmacion: false,
+    tipoAviso: "NINGUNO",
+  };
 }
