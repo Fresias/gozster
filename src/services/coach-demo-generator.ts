@@ -368,6 +368,7 @@ export function generarDemoGimnasio(base: DemoGimnasioBase, ahora: Date): DemoGi
         fecha_fin: fin,
         estado: diasHastaFin < 0 ? "VENCIDA" : diasHastaFin <= 3 ? "POR_VENCER" : "VIGENTE",
         dias_aviso_previo: 5,
+        precio_pactado: null,
         created_at: a.created_at,
         updated_at: a.updated_at,
       };
@@ -383,6 +384,7 @@ export function generarDemoGimnasio(base: DemoGimnasioBase, ahora: Date): DemoGi
         id: `demo-pago-${a.id}`,
         contratacion_id: contrato.id,
         alumno_id: a.id,
+        cobro_id: null,
         monto: plan.precio,
         medio_pago: (["TRANSFERENCIA", "EFECTIVO", "PASARELA_ONLINE"] as const)[i % 3]!,
         estado: "CONFIRMADO",

@@ -639,6 +639,8 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
     fecha_fin: getRelativeDateStr(20),
     estado: "VIGENTE",
     dias_aviso_previo: 5,
+
+    precio_pactado: null,
     created_at: getRelativeIsoStr(-10),
     updated_at: getRelativeIsoStr(-10),
   },
@@ -653,6 +655,8 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
     fecha_fin: getRelativeDateStr(15),
     estado: "VIGENTE",
     dias_aviso_previo: 5,
+
+    precio_pactado: null,
     created_at: getRelativeIsoStr(-15),
     updated_at: getRelativeIsoStr(-15),
   },
@@ -667,6 +671,8 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
     fecha_fin: getRelativeDateStr(60),
     estado: "VIGENTE",
     dias_aviso_previo: 5,
+
+    precio_pactado: null,
     created_at: getRelativeIsoStr(-2),
     updated_at: getRelativeIsoStr(-2),
   },
@@ -681,6 +687,8 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
     fecha_fin: getRelativeDateStr(-10),
     estado: "VENCIDA",
     dias_aviso_previo: 5,
+
+    precio_pactado: null,
     created_at: getRelativeIsoStr(-40),
     updated_at: getRelativeIsoStr(-10),
   },

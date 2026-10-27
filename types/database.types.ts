@@ -837,6 +837,7 @@ export interface Database {
           updated_at: string;
           plan_membresia_id: string | null;
           actividad: ActividadClase | null;
+          precio_pactado: number | null;
         };
         Insert: {
           id?: string;
@@ -851,6 +852,7 @@ export interface Database {
           updated_at?: string;
           plan_membresia_id?: string | null;
           actividad?: ActividadClase | null;
+          precio_pactado?: number | null;
         };
         Update: {
           id?: string;
@@ -865,6 +867,7 @@ export interface Database {
           updated_at?: string;
           plan_membresia_id?: string | null;
           actividad?: ActividadClase | null;
+          precio_pactado?: number | null;
         };
         Relationships: [
           {
@@ -888,6 +891,7 @@ export interface Database {
           id: string;
           contratacion_id: string;
           alumno_id: string;
+          cobro_id: string | null;
           monto: number;
           medio_pago: MedioPago;
           estado: EstadoPago;
@@ -901,6 +905,7 @@ export interface Database {
           id?: string;
           contratacion_id: string;
           alumno_id: string;
+          cobro_id?: string | null;
           monto: number;
           medio_pago: MedioPago;
           estado?: EstadoPago;
@@ -914,6 +919,7 @@ export interface Database {
           id?: string;
           contratacion_id?: string;
           alumno_id?: string;
+          cobro_id?: string | null;
           monto?: number;
           medio_pago?: MedioPago;
           estado?: EstadoPago;
@@ -941,6 +947,57 @@ export interface Database {
           {
             foreignKeyName: 'pagos_confirmado_por_fkey';
             columns: ['confirmado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      cobros: {
+        Row: {
+          id: string;
+          contratacion_id: string;
+          alumno_id: string;
+          periodo: string;
+          monto: number;
+          fecha_vencimiento: string;
+          estado: EstadoCobro;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contratacion_id: string;
+          alumno_id: string;
+          periodo: string;
+          monto: number;
+          fecha_vencimiento: string;
+          estado?: EstadoCobro;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contratacion_id?: string;
+          alumno_id?: string;
+          periodo?: string;
+          monto?: number;
+          fecha_vencimiento?: string;
+          estado?: EstadoCobro;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cobros_contratacion_id_fkey';
+            columns: ['contratacion_id'];
+            isOneToOne: false;
+            referencedRelation: 'contrataciones';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cobros_alumno_id_fkey';
+            columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
             referencedColumns: ['id'];
@@ -1417,7 +1474,18 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never;
+      v_morosos: {
+        Row: {
+          cobro_id: string;
+          alumno_id: string;
+          contratacion_id: string;
+          periodo: string;
+          monto: number;
+          fecha_vencimiento: string;
+          dias_atraso: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       es_admin: {
@@ -1581,6 +1649,31 @@ export interface Database {
         };
         Returns: boolean;
       };
+      registrar_pago: {
+        Args: {
+          p_cobro_id: string;
+          p_monto: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+        };
+        Returns: Database['public']['Tables']['cobros']['Row'];
+      };
+      anotar_alumno: {
+        Args: {
+          p_clase_id: string;
+          p_alumno_id: string;
+        };
+        Returns: {
+          reserva_id: string;
+          sobrecupo: boolean;
+          aviso: string | null;
+        }[];
+      };
+      ingresos_mes: {
+        Args: {
+          p_mes?: string;
+        };
+        Returns: number;
+      };
       reservar_clase: {
         Args: {
           p_clase_id: string;
@@ -1734,6 +1827,9 @@ export type AlumnoHistorialDolorUpdate = TablesUpdate<'alumno_historial_dolor'>;
 export type Contratacion = Tables<'contrataciones'>;
 export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
+export type EstadoCobro = 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
+export type Cobro = Tables<'cobros'>;
+export type CobroInsert = TablesInsert<'cobros'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
 export type AuditoriaCambioInsert = TablesInsert<'auditoria_cambios'>;
