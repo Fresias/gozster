@@ -114,6 +114,7 @@ export function derivarContratacionDesdePerfil(
     fecha_inicio: inicio,
     fecha_fin: toDateOnly(fechaFin).toISOString().slice(0, 10),
     dias_aviso_previo: 5,
+    precio_pactado: null,
     plan_membresia_id: null,
     actividad: null,
     created_at: alumno.created_at,
