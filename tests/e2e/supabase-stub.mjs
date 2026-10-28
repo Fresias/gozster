@@ -28,6 +28,21 @@ http
     if (req.method === "OPTIONS") return send(204, {});
     if (url === "/health") return send(200, { ok: true });
     if (url.startsWith("/auth/v1/user")) return send(200, USER);
+    if (url.startsWith("/auth/v1/token")) {
+      // Login (GOZS-206): solo la clave "e2e-ok" entra; cualquier otra devuelve invalid_grant como GoTrue.
+      let raw = "";
+      req.on("data", (c) => (raw += c));
+      return req.on("end", () => {
+        let ok = false;
+        try {
+          ok = JSON.parse(raw).password === "e2e-ok";
+        } catch {}
+        if (!ok) return send(400, { error: "invalid_grant", error_description: "Invalid login credentials" });
+        const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+        const access_token = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: USER.id, exp: 4102444800, role: "authenticated" })}.sig`;
+        send(200, { access_token, refresh_token: "e2e-refresh", expires_in: 3600, expires_at: 4102444800, token_type: "bearer", user: USER });
+      });
+    }
     if (url.startsWith("/rest/v1/perfiles")) {
       // Solo la consulta del propio perfil (id=eq.<uid>) devuelve fila; el listado de alumnos queda vacío.
       const row = { id: USER.id, rol: "ENTRENADOR" };

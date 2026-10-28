@@ -18,8 +18,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "desktop", grepInvert: /@mobile/, use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+    { name: "desktop", grepInvert: /@mobile|@demo/, use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
     { name: "mobile", grep: /@mobile/, use: { ...devices["Pixel 7"] } },
+    // Recorrido de demo del Coach Studio (GOZS-206): solo los tests @demo corren en estos viewports.
+    { name: "desktop-1366", grep: /@demo/, use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } } },
+    { name: "tablet", grep: /@demo/, use: { ...devices["iPad (gen 7)"], defaultBrowserType: "chromium", viewport: { width: 768, height: 1024 } } },
   ],
   webServer: [
     {
