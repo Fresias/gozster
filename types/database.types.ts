@@ -28,6 +28,7 @@ export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type ActividadAlumno = ActividadClase | 'RUTINAS';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
@@ -1004,6 +1005,44 @@ export interface Database {
           },
         ];
       };
+      alumno_actividades: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana: number | null;
+          pase_libre: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          actividad?: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_actividades_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       auditoria_cambios: {
         Row: {
           id: string;
@@ -1430,6 +1469,45 @@ export interface Database {
           },
         ];
       };
+      clases_fijas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          horario_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_fijas_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clases_fijas_horario_id_fkey';
+            columns: ['horario_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases_horario';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       reservas: {
         Row: {
           id: string;
@@ -1850,3 +1928,5 @@ export type ClaseHorario = Tables<'clases_horario'>;
 export type Clase = Tables<'clases'>;
 export type ClaseProfesor = Tables<'clases_profesores'>;
 export type Reserva = Tables<'reservas'>;
+export type AlumnoActividad = Tables<'alumno_actividades'>;
+export type ClaseFija = Tables<'clases_fijas'>;
