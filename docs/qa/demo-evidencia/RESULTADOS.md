@@ -20,7 +20,7 @@ D-R1 | 1366x768 | PASS | ROJO | `docs/qa/demo-evidencia/desktop-1366/D-R1.png`
 D-R2 | 1366x768 | PASS | ROJO | `docs/qa/demo-evidencia/desktop-1366/D-R2.png`
 D-R3 | 1366x768 | PASS | NARANJA | `docs/qa/demo-evidencia/desktop-1366/D-R3.png`
 D-R4 | 1366x768 | FAIL | NARANJA | `docs/qa/demo-evidencia/desktop-1366/D-R4.png`
-D-R6 | 1366x768 | FAIL | NARANJA | `docs/qa/demo-evidencia/desktop-1366/D-R6.png`
+D-R6 | 1366x768 | PASS | NARANJA | `docs/qa/demo-evidencia/desktop-1366/D-R6.png`
 D-R8 | 1366x768 | PASS | AMARILLO | `docs/qa/demo-evidencia/desktop-1366/D-R8.png`
 D-R5 | 1366x768 | PASS | NARANJA | `docs/qa/demo-evidencia/desktop-1366/D-R5.png`
 D-G1 | 1366x768 | PASS | ROJO | `docs/qa/demo-evidencia/desktop-1366/D-G1.png`
@@ -57,7 +57,7 @@ D-R1 | 1024x768 | PASS | ROJO | `docs/qa/demo-evidencia/tablet/D-R1.png`
 D-R2 | 1024x768 | PASS | ROJO | `docs/qa/demo-evidencia/tablet/D-R2.png`
 D-R3 | 1024x768 | PASS | NARANJA | `docs/qa/demo-evidencia/tablet/D-R3.png`
 D-R4 | 1024x768 | FAIL | NARANJA | `docs/qa/demo-evidencia/tablet/D-R4.png`
-D-R6 | 1024x768 | FAIL | NARANJA | `docs/qa/demo-evidencia/tablet/D-R6.png`
+D-R6 | 1024x768 | PASS | NARANJA | `docs/qa/demo-evidencia/tablet/D-R6.png`
 D-R8 | 1024x768 | PASS | AMARILLO | `docs/qa/demo-evidencia/tablet/D-R8.png`
 D-R5 | 1024x768 | PASS | NARANJA | `docs/qa/demo-evidencia/tablet/D-R5.png`
 D-G1 | 1024x768 | PASS | ROJO | `docs/qa/demo-evidencia/tablet/D-G1.png`

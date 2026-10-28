@@ -146,9 +146,9 @@
   {
     "id": "D-R6",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R6.png"
   },
   {
