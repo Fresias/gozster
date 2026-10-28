@@ -49,6 +49,7 @@ export interface LiveWorkoutSet {
   video_url?: string;
   last_session_weight_kg?: number;
   last_session_reps?: number;
+  atipica?: boolean;
 }
 
 export interface LiveWorkoutExercise {
@@ -138,6 +139,7 @@ interface AthleteStoreState {
     serieId: string,
     pesoKg: number,
     repsHechas: number,
+    atipica?: boolean,
   ) => Promise<void>;
   // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
@@ -193,13 +195,14 @@ interface AthleteStoreState {
     exerciseId: string,
     warmup: { peso_kg: number; reps: number; rpe_real?: number },
   ) => void;
-  completeSet: (exerciseId: string, setNumber: number) => void;
+  completeSet: (exerciseId: string, setNumber: number, atipica?: boolean) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
   editCompletedSet: (
     exerciseId: string,
     setNumber: number,
     pesoKg: number,
     reps: number,
+    atipica?: boolean,
   ) => void;
   syncSessionToSupabase: () => Promise<{ success: boolean; error?: string }>;
 
@@ -936,7 +939,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
       },
 
-      completeSet: (exerciseId, setNumber) => {
+      completeSet: (exerciseId, setNumber, atipica) => {
         const state = get();
         const targetExercise = state.currentSession.ejercicios.find(
           (e) => e.id === exerciseId,
@@ -979,6 +982,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     return {
                       ...s,
                       completada: true,
+                      atipica: Boolean(atipica),
                       estimated1RM,
                       completedAt,
                     };
@@ -1019,6 +1023,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             videoUrl: targetSet.video_url || null,
             estimated1RM,
             completedAt,
+            atipica: Boolean(atipica),
           },
         });
 
@@ -1046,6 +1051,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         setNumber: number,
         pesoKg: number,
         reps: number,
+        atipica?: boolean,
       ) => {
         const state = get();
         const targetExercise = state.currentSession.ejercicios.find(
@@ -1074,6 +1080,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     peso_kg: pesoKg,
                     reps_hechas: reps,
                     estimated1RM,
+                    ...(atipica !== undefined ? { atipica } : {}),
                   };
                 }),
               };
@@ -1093,6 +1100,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             reps,
             estimated1RM,
             updatedAt,
+            ...(atipica !== undefined ? { atipica } : {}),
           },
         });
       },
@@ -1285,7 +1293,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
-      actualizarSerieHistorial: async (sesionId, serieId, pesoKg, repsHechas) => {
+      actualizarSerieHistorial: async (sesionId, serieId, pesoKg, repsHechas, atipica) => {
         const pesoValido = Math.max(0, Number(pesoKg) || 0);
         const repsValidas = Math.max(1, Math.round(Number(repsHechas) || 1));
 
@@ -1299,6 +1307,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ...s,
                 peso_kg: pesoValido,
                 reps_hechas: repsValidas,
+                ...(atipica !== undefined ? { atipica } : {}),
                 updated_at: new Date().toISOString(),
               };
             });
@@ -1329,6 +1338,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             pesoKg: pesoValido,
             repsHechas: repsValidas,
             updatedAt: new Date().toISOString(),
+            ...(atipica !== undefined ? { atipica } : {}),
           },
         });
 
