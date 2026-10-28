@@ -43,6 +43,8 @@ import { SugerenciaCarga } from "@/components/athlete/sugerencia-carga";
 import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
+import { serieDeReferencia } from "@/lib/historial-ejercicio";
+import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
 
 export function LiveWorkout() {
@@ -130,6 +132,24 @@ export function LiveWorkout() {
   // Estado para terminar entrenamiento
   const [isFinishing, setIsFinishing] = React.useState(false);
   const [workoutFinished, setWorkoutFinished] = React.useState(false);
+
+  // Guardas de plausibilidad (GOZS-200)
+  const [plausibilityError, setPlausibilityError] = React.useState<string | null>(null);
+  const [atypicalPrompt, setAtypicalPrompt] = React.useState<{
+    mensaje: string;
+    peso: number;
+    reps: number;
+    isEditing?: boolean;
+  } | null>(null);
+  const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (atypicalPrompt) {
+      if (!atypicalDialogRef.current?.open) atypicalDialogRef.current?.showModal();
+    } else {
+      if (atypicalDialogRef.current?.open) atypicalDialogRef.current?.close();
+    }
+  }, [atypicalPrompt]);
 
   // Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180)
   const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
@@ -241,23 +261,85 @@ export function LiveWorkout() {
   }, [claveSerie, pesoSugerido, repsSugeridas]);
 
   // Registrar serie actual
-  const handleRegistrarSerie = () => {
+  const handleRegistrarSerie = (confirmarAtipica = false) => {
     if (!currentExercise || !currentSet) return;
+    setPlausibilityError(null);
+
     const num = currentSet.numero_serie;
     const peso = currentSet.peso_kg;
     const reps = currentSet.reps_hechas;
     const setType = currentSet.set_type;
     const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
 
-    const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
+    if (!confirmarAtipica) {
+      const prevPesos: number[] = [];
+      if (ultimaVez[ejId]?.series) {
+        for (const s of ultimaVez[ejId].series) {
+          if (typeof s.peso_kg === "number") prevPesos.push(s.peso_kg);
+        }
+      }
+      for (const s of currentExercise.series) {
+        if (s.completada && typeof s.peso_kg === "number" && s.numero_serie !== num) {
+          prevPesos.push(s.peso_kg);
+        }
+      }
+      if (prevPesos.length === 0 && marcas[ejId]?.frontera) {
+        for (const f of marcas[ejId].frontera) {
+          if (typeof f.peso_kg === "number") prevPesos.push(f.peso_kg);
+        }
+      }
+
+      let ultPeso: number | null = null;
+      const prevCompletadasHoy = currentExercise.series.filter(
+        (s) => s.completada && s.numero_serie < num,
+      );
+      if (prevCompletadasHoy.length > 0) {
+        ultPeso = prevCompletadasHoy[prevCompletadasHoy.length - 1]!.peso_kg;
+      } else if (ultimaVez[ejId]?.series?.length) {
+        const ref = serieDeReferencia(ultimaVez[ejId]!, num);
+        ultPeso = ref ? ref.peso_kg : ultimaVez[ejId]!.series[ultimaVez[ejId]!.series.length - 1]!.peso_kg;
+      } else if (typeof currentSet.last_session_weight_kg === "number" && currentSet.last_session_weight_kg > 0) {
+        ultPeso = currentSet.last_session_weight_kg;
+      }
+
+      const evalRes = evaluarPlausibilidadSerie({
+        peso,
+        reps,
+        rpe: currentSet.rpe_real,
+        historialPesos: prevPesos,
+        ultimoPeso: ultPeso,
+        musculos: currentExercise.musculos_principales,
+        nombreEjercicio: currentExercise.nombre,
+      });
+
+      if (evalRes.estado === "bloqueado") {
+        setPlausibilityError(evalRes.error);
+        return;
+      }
+
+      if (evalRes.estado === "requiere_confirmacion") {
+        setAtypicalPrompt({
+          mensaje: evalRes.mensaje,
+          peso: evalRes.peso,
+          reps: evalRes.reps,
+          isEditing: false,
+        });
+        return;
+      }
+    }
+
+    const esAtipica = Boolean(confirmarAtipica);
+    const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType, atipica: esAtipica };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
     const isLastSetOfWorkout = completedSetsCount + 1 === totalSets && totalSets > 0;
 
-    completeSet(currentExercise.id, num);
-    registrarSerieEnMarcas(ejId, serieCandidata);
+    completeSet(currentExercise.id, num, esAtipica);
+    if (!esAtipica) {
+      registrarSerieEnMarcas(ejId, serieCandidata);
+    }
 
-    if (resultado.esRecord) {
+    if (resultado.esRecord && !esAtipica) {
       setSeriesRecord((prev) => new Set(prev).add(`${currentExercise.id}-${num}`));
       triggerHapticVibration([60, 40, 60]);
       setOptimisticBanner({
@@ -324,16 +406,48 @@ export function LiveWorkout() {
   const handleDirectUpdateReps = (val: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(0, val));
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = (confirmarAtipica = false) => {
     if (!editingSet) return;
+    setPlausibilityError(null);
+
+    const ej = currentSession.ejercicios.find((e) => e.id === editingSet.exerciseId);
+    const ejId = ej?.ejercicio_id ?? editingSet.exerciseId;
+
+    if (!confirmarAtipica) {
+      const prevPesos = (ultimaVez[ejId]?.series ?? []).map((s) => s.peso_kg);
+      const evalRes = evaluarPlausibilidadSerie({
+        peso: editingSet.pesoKg,
+        reps: editingSet.reps,
+        historialPesos: prevPesos,
+        musculos: ej?.musculos_principales,
+        nombreEjercicio: ej?.nombre,
+      });
+
+      if (evalRes.estado === "bloqueado") {
+        setPlausibilityError(evalRes.error);
+        return;
+      }
+
+      if (evalRes.estado === "requiere_confirmacion") {
+        setAtypicalPrompt({
+          mensaje: evalRes.mensaje,
+          peso: evalRes.peso,
+          reps: evalRes.reps,
+          isEditing: true,
+        });
+        return;
+      }
+    }
+
     editCompletedSet(
       editingSet.exerciseId,
       editingSet.setNumber,
       editingSet.pesoKg,
       editingSet.reps,
+      Boolean(confirmarAtipica),
     );
     setOptimisticBanner({
       setNumber: editingSet.setNumber,
@@ -536,6 +650,28 @@ export function LiveWorkout() {
                 <p className="text-xs text-muted-foreground">
                   Se ha emitido una alerta CRÍTICA a tu entrenador. Tu salud articular es prioritaria; no continúes levantando carga ante síntomas de alarma o dolor agudo.
                 </p>
+              </div>
+            )}
+
+            {/* Banner de Validación de Plausibilidad (GOZS-200) */}
+            {plausibilityError && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/15 px-3.5 py-2.5 text-xs font-semibold text-destructive animate-in fade-in duration-200"
+                data-testid="plausibility-validation-banner"
+              >
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" />
+                  <span>{plausibilityError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPlausibilityError(null)}
+                  className="text-destructive/80 hover:text-destructive px-2 touch-manipulation cursor-pointer"
+                  aria-label="Descartar aviso de plausibilidad"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
 
@@ -1001,12 +1137,19 @@ export function LiveWorkout() {
                               type="number"
                               step="any"
                               min="0"
+                              max="500"
+                              inputMode="decimal"
                               value={serie.peso_kg}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value);
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDirectUpdatePeso(0);
+                                  return;
+                                }
+                                const val = parseFloat(raw.replace(",", "."));
                                 handleDirectUpdatePeso(isNaN(val) ? 0 : val);
                               }}
-                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8"
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8 min-h-[44px]"
                               aria-label="Peso en kilogramos"
                             />
                             <span className="absolute right-3 text-sm font-medium text-muted-foreground pointer-events-none">
@@ -1049,13 +1192,20 @@ export function LiveWorkout() {
                               id={`reps-${currentExercise.id}-${serie.numero_serie}`}
                               type="number"
                               step="1"
-                              min="1"
+                              min="0"
+                              max="100"
+                              inputMode="numeric"
                               value={serie.reps_hechas}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                handleDirectUpdateReps(isNaN(val) ? 1 : val);
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDirectUpdateReps(0);
+                                  return;
+                                }
+                                const val = parseInt(raw, 10);
+                                handleDirectUpdateReps(isNaN(val) ? 0 : val);
                               }}
-                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none"
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none min-h-[44px]"
                               aria-label="Cantidad de repeticiones"
                             />
                           </div>
@@ -1255,7 +1405,7 @@ export function LiveWorkout() {
                       {/* Botón principal de registro de serie */}
                       <button
                         type="button"
-                        onClick={handleRegistrarSerie}
+                        onClick={() => handleRegistrarSerie(false)}
                         className="w-full mt-4 h-14 rounded-[14px] text-[17px] font-bold bg-primary text-primary-foreground shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
                         data-testid="registrar-serie-btn"
                       >
@@ -1394,21 +1544,26 @@ export function LiveWorkout() {
                                               pesoKg: Math.max(0, editingSet.pesoKg - pasoPeso),
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
                                         <input
                                           type="number"
                                           step="any"
+                                          min="0"
+                                          max="500"
+                                          inputMode="decimal"
                                           value={editingSet.pesoKg}
-                                          onChange={(e) =>
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            const val = parseFloat(raw.replace(",", "."));
                                             setEditingSet({
                                               ...editingSet,
-                                              pesoKg: Math.max(0, parseFloat(e.target.value) || 0),
-                                            })
-                                          }
-                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                              pesoKg: isNaN(val) ? 0 : val,
+                                            });
+                                          }}
+                                          className="h-11 min-h-[44px] flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
                                           type="button"
@@ -1418,7 +1573,7 @@ export function LiveWorkout() {
                                               pesoKg: editingSet.pesoKg + pasoPeso,
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
@@ -1436,24 +1591,29 @@ export function LiveWorkout() {
                                           onClick={() =>
                                             setEditingSet({
                                               ...editingSet,
-                                              reps: Math.max(1, editingSet.reps - 1),
+                                              reps: Math.max(0, editingSet.reps - 1),
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
                                         <input
                                           type="number"
                                           step="1"
+                                          min="0"
+                                          max="100"
+                                          inputMode="numeric"
                                           value={editingSet.reps}
-                                          onChange={(e) =>
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            const val = parseInt(raw, 10);
                                             setEditingSet({
                                               ...editingSet,
-                                              reps: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                            })
-                                          }
-                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                              reps: isNaN(val) ? 0 : val,
+                                            });
+                                          }}
+                                          className="h-11 min-h-[44px] flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
                                           type="button"
@@ -1463,7 +1623,7 @@ export function LiveWorkout() {
                                               reps: editingSet.reps + 1,
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
@@ -1477,7 +1637,7 @@ export function LiveWorkout() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setEditingSet(null)}
-                                      className="h-9 px-3 text-xs font-bold"
+                                      className="min-h-[44px] px-3 text-xs font-bold"
                                       data-testid="cancel-edit-set-btn"
                                     >
                                       Cancelar
@@ -1485,8 +1645,8 @@ export function LiveWorkout() {
                                     <Button
                                       type="button"
                                       size="sm"
-                                      onClick={handleSaveEdit}
-                                      className="h-9 px-3 text-xs font-bold bg-primary text-primary-foreground"
+                                      onClick={() => handleSaveEdit(false)}
+                                      className="min-h-[44px] px-3 text-xs font-bold bg-primary text-primary-foreground"
                                       data-testid="save-edit-set-btn"
                                     >
                                       Guardar cambio
@@ -1964,6 +2124,53 @@ export function LiveWorkout() {
         studentName={currentSession.studentName || "Fernando Rosales"}
         diaNombre={cleanDiaTitle || "Día 1"}
       />
+
+      {/* Diálogo HTML5 nativo para confirmación de serie atípica (GOZS-200) */}
+      <dialog
+        ref={atypicalDialogRef}
+        className="fixed inset-0 m-auto z-50 rounded-2xl bg-card p-6 text-card-foreground shadow-2xl backdrop:bg-black/60 max-w-sm w-[90%] border border-border space-y-4"
+        data-testid="atypical-confirmation-dialog"
+        onClose={() => setAtypicalPrompt(null)}
+      >
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
+            <TriangleAlert className="h-5 w-5" />
+            <span>Carga atípica</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            {atypicalPrompt?.mensaje}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Ingresaste {atypicalPrompt?.peso} kg ({atypicalPrompt?.reps} reps). ¿Deseas confirmarlo como serie atípica o corregir el valor?
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setAtypicalPrompt(null)}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-all touch-manipulation cursor-pointer"
+            data-testid="atypical-corregir-btn"
+          >
+            Corregir
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const isEditing = atypicalPrompt?.isEditing;
+              setAtypicalPrompt(null);
+              if (isEditing) {
+                handleSaveEdit(true);
+              } else {
+                handleRegistrarSerie(true);
+              }
+            }}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:brightness-105 active:scale-95 transition-all touch-manipulation cursor-pointer"
+            data-testid="atypical-confirmar-btn"
+          >
+            Confirmar
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }

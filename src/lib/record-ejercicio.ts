@@ -29,6 +29,7 @@ export interface SerieCandidata {
   peso_kg: number;
   reps_hechas: number;
   set_type?: string | null;
+  atipica?: boolean;
 }
 
 export type TipoRecord = "peso" | "reps";
@@ -89,7 +90,7 @@ export function agregarSerieAMarcas(
   serie: SerieCandidata & { fecha: string },
 ): MarcasEjercicio {
   const tipo = (serie.set_type ?? "NORMAL").toUpperCase();
-  if (tipo === "WARMUP" || tipo === "W" || serie.reps_hechas < 1) {
+  if (serie.atipica || tipo === "WARMUP" || tipo === "W" || serie.reps_hechas < 1) {
     return (
       marcas ?? {
         ejercicio_id: ejercicioId,
@@ -124,9 +125,9 @@ export function esNuevoRecord(serie: SerieCandidata, historial: MarcasEjercicio 
   const peso = serie.peso_kg;
   const reps = serie.reps_hechas;
 
-  // §0.1: calentamiento o sin reps no es una marca.
+  // §0.1: calentamiento, serie atípica o sin reps no es una marca.
   const tipo = (serie.set_type ?? "NORMAL").toUpperCase();
-  if (tipo === "WARMUP" || tipo === "W" || reps < 1) return SIN_RECORD;
+  if (serie.atipica || tipo === "WARMUP" || tipo === "W" || reps < 1) return SIN_RECORD;
 
   const esPesoCorporal = peso === 0;
 
