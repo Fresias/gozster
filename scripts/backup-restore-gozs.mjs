@@ -64,6 +64,7 @@ export const TABLAS = [
   { nombre: "planes_membresia", fks: {} },
   { nombre: "planes_membresia_precios", fks: { plan_membresia_id: "planes_membresia", creado_por: "perfiles" } },
   { nombre: "contrataciones", fks: { alumno_id: "perfiles", plan_membresia_id: "planes_membresia" } },
+  { nombre: "alumno_actividades", fks: { alumno_id: "perfiles" } },
   { nombre: "cobros", fks: { alumno_id: "perfiles", contratacion_id: "contrataciones" } },
   {
     nombre: "pagos",
