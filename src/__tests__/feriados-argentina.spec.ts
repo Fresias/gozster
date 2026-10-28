@@ -56,6 +56,9 @@ describe("GOZS-229: feriados", () => {
       await aplicar(fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf-8"));
     }
     await aplicar(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    const seedPath = path.resolve(__dirname, "../../supabase/seed_data/feriados_ar_2026.sql");
+    await db.exec(fs.readFileSync(seedPath, "utf-8"));
+    await db.exec(fs.readFileSync(seedPath, "utf-8")); // idempotente
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES ('${COACH}','c@t'),('${ALUMNO}','a@t');
       INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES

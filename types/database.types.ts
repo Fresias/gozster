@@ -955,6 +955,7 @@ export interface Database {
       };
       feriados: {
         Row: {
+          id: string;
           fecha: string;
           nombre: string;
           tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
@@ -964,6 +965,7 @@ export interface Database {
           updated_at: string;
         };
         Insert: {
+          id?: string;
           fecha: string;
           nombre: string;
           tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
@@ -973,6 +975,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
           fecha?: string;
           nombre?: string;
           tipo?: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';

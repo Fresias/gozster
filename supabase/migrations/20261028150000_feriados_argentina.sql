@@ -1,10 +1,12 @@
 -- GOZS-229: feriados de Argentina y flag de clases.
 -- Fuente oficial: argentina.gob.ar/interior/feriados-nacionales-2026 (Ley 27.399, Decreto 1027/2024
 -- de dias no laborables con fines turisticos 2026). Revisar contra la fuente al cargar otros anios.
+-- Los datos de 2026 se cargan con supabase/seed_data/feriados_ar_2026.sql (idempotente).
 -- Por defecto no hay clases en feriado (hay_clases = false); un coach/admin puede habilitarlas.
 
 CREATE TABLE IF NOT EXISTS public.feriados (
-  fecha DATE PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fecha DATE NOT NULL UNIQUE,
   nombre TEXT NOT NULL,
   tipo TEXT NOT NULL CHECK (tipo IN ('INAMOVIBLE', 'TRASLADABLE', 'PUENTE')),
   hay_clases BOOLEAN NOT NULL DEFAULT false,
@@ -31,28 +33,6 @@ CREATE POLICY "feriados_write_entrenador_o_admin"
   USING (public.es_entrenador_o_admin())
   WITH CHECK (public.es_entrenador_o_admin());
 
-INSERT INTO public.feriados (fecha, nombre, tipo) VALUES
-  ('2026-01-01', 'Año Nuevo', 'INAMOVIBLE'),
-  ('2026-02-16', 'Carnaval', 'INAMOVIBLE'),
-  ('2026-02-17', 'Carnaval', 'INAMOVIBLE'),
-  ('2026-03-23', 'Día no laborable con fines turísticos', 'PUENTE'),
-  ('2026-03-24', 'Día Nacional de la Memoria por la Verdad y la Justicia', 'INAMOVIBLE'),
-  ('2026-04-02', 'Día del Veterano y de los Caídos en la Guerra de Malvinas', 'INAMOVIBLE'),
-  ('2026-04-03', 'Viernes Santo', 'INAMOVIBLE'),
-  ('2026-05-01', 'Día del Trabajador', 'INAMOVIBLE'),
-  ('2026-05-25', 'Día de la Revolución de Mayo', 'INAMOVIBLE'),
-  ('2026-06-15', 'Paso a la Inmortalidad del General Güemes (trasladado)', 'TRASLADABLE'),
-  ('2026-06-20', 'Paso a la Inmortalidad del General Belgrano', 'INAMOVIBLE'),
-  ('2026-07-09', 'Día de la Independencia', 'INAMOVIBLE'),
-  ('2026-07-10', 'Día no laborable con fines turísticos', 'PUENTE'),
-  ('2026-08-17', 'Paso a la Inmortalidad del General San Martín', 'TRASLADABLE'),
-  ('2026-10-12', 'Día del Respeto a la Diversidad Cultural', 'TRASLADABLE'),
-  ('2026-11-23', 'Día de la Soberanía Nacional (trasladado)', 'TRASLADABLE'),
-  ('2026-12-07', 'Día no laborable con fines turísticos', 'PUENTE'),
-  ('2026-12-08', 'Inmaculada Concepción de María', 'INAMOVIBLE'),
-  ('2026-12-25', 'Navidad', 'INAMOVIBLE')
-ON CONFLICT (fecha) DO NOTHING;
-
 -- Feriados de un rango (inclusive), ordenados por fecha.
 CREATE OR REPLACE FUNCTION public.feriados_en_rango(p_desde DATE, p_hasta DATE)
 RETURNS SETOF public.feriados
@@ -76,3 +56,50 @@ REVOKE ALL ON FUNCTION public.feriados_en_rango(DATE, DATE) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.fecha_habilita_clases(DATE) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.feriados_en_rango(DATE, DATE) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.fecha_habilita_clases(DATE) TO authenticated, service_role;
+
+-- Respaldo: feriados pasa a ser restaurable (misma funcion, un nombre mas en la lista).
+CREATE OR REPLACE FUNCTION public.restaurar_filas_respaldo(p_tabla TEXT, p_filas JSONB)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_insertadas INT;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Solo service_role puede restaurar respaldos'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_tabla NOT IN (
+    'perfiles', 'ejercicios', 'ejercicios_alternativas', 'entrenador_alumnos', 'planes_entrenamiento', 'dias_rutina',
+    'ejercicios_en_rutina', 'registro_sesiones', 'registro_series', 'conversaciones',
+    'mensajes', 'habitos_registros', 'nutricion_registros', 'alertas_entrenador',
+    'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'planes_membresia', 'planes_membresia_precios',
+    'contrataciones', 'cobros', 'pagos', 'feriados',
+    'auditoria_cambios', 'sustituciones_ejercicios', 'clases_horario', 'clases', 'clases_profesores', 'reservas'
+  ) THEN
+    RAISE EXCEPTION 'Tabla no restaurable: %', p_tabla
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_filas IS NULL OR jsonb_typeof(p_filas) <> 'array' THEN
+    RAISE EXCEPTION 'p_filas debe ser un array JSON'
+      USING ERRCODE = '22023';
+  END IF;
+
+  EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER USER', p_tabla);
+  EXECUTE format(
+    'INSERT INTO public.%1$I SELECT * FROM jsonb_populate_recordset(NULL::public.%1$I, $1) ON CONFLICT (id) DO NOTHING',
+    p_tabla
+  ) USING p_filas;
+  GET DIAGNOSTICS v_insertadas = ROW_COUNT;
+  EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER USER', p_tabla);
+
+  RETURN v_insertadas;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.restaurar_filas_respaldo(TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restaurar_filas_respaldo(TEXT, JSONB) TO service_role;
