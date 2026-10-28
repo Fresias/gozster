@@ -1004,6 +1004,74 @@ export interface Database {
           },
         ];
       };
+      ranking_prs: {
+        Row: {
+          id: string;
+          clase_id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          fecha: string;
+          peso_kg: number;
+          reps: number;
+          registrado_por: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          fecha?: string;
+          peso_kg: number;
+          reps: number;
+          registrado_por?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          alumno_id?: string;
+          ejercicio_id?: string;
+          fecha?: string;
+          peso_kg?: number;
+          reps?: number;
+          registrado_por?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ranking_prs_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_ejercicio_id_fkey';
+            columns: ['ejercicio_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_registrado_por_fkey';
+            columns: ['registrado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       auditoria_cambios: {
         Row: {
           id: string;
