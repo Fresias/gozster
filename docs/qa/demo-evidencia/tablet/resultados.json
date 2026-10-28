@@ -154,9 +154,9 @@
   {
     "id": "D-R6",
     "viewport": "1024x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-R6.png"
   },
   {

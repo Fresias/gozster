@@ -73,3 +73,18 @@ export function sortExercisesWithWarmupFirst<T extends { nombre: string }>(exerc
 
   return [...warmups, ...regulars];
 }
+
+export const MIN_SERIES_PER_EXERCISE = 1;
+export const MAX_SERIES_PER_EXERCISE = 10;
+
+/**
+ * Limita el número de series al rango permitido [1, 10] (D-R6).
+ * Rechaza valores disparatados (como 9999) o negativos manteniéndolos en un rango fisiológico y seguro.
+ */
+export function clampSeries(value: number | string | undefined | null): number {
+  const num = typeof value === "number" ? value : parseInt(String(value ?? ""), 10);
+  if (Number.isNaN(num) || num < MIN_SERIES_PER_EXERCISE) return MIN_SERIES_PER_EXERCISE;
+  if (num > MAX_SERIES_PER_EXERCISE) return MAX_SERIES_PER_EXERCISE;
+  return Math.trunc(num);
+}
+

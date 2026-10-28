@@ -4,6 +4,7 @@ import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -521,17 +522,29 @@ export function RoutineBuilderModal({
                         <input
                           type="number"
                           min="1"
-                          max="10"
+                          max={MAX_SERIES_PER_EXERCISE}
                           value={ej.series}
                           onChange={(e) =>
                             handleUpdateExercise(
                               ej.id,
                               "series",
-                              parseInt(e.target.value, 10) || 1
+                              clampSeries(e.target.value)
                             )
                           }
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
+                        <span
+                          className={`text-[9px] block text-center mt-0.5 font-medium ${
+                            ej.series >= MAX_SERIES_PER_EXERCISE
+                              ? "text-amber-500 dark:text-amber-400"
+                              : "text-muted-foreground"
+                          }`}
+                          aria-live="polite"
+                        >
+                          {ej.series >= MAX_SERIES_PER_EXERCISE
+                            ? "Límite máximo: 10 series"
+                            : "Máximo: 10 series"}
+                        </span>
                       </div>
 
                       <div>
