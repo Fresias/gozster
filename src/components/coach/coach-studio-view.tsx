@@ -241,9 +241,16 @@ export function CoachStudioView({
 
   // Filtering students
   const filteredAlumnos = alumnos.filter((a) => {
+    const planActivo =
+      planes.find((p) => p.alumno_id === a.id && p.estado === "ACTIVO") ??
+      getRutinaActivaAlumno(a.id);
+    const nombrePlan = (planActivo as { nombre?: string; nombre_rutina?: string } | null)?.nombre ??
+      (planActivo as { nombre?: string; nombre_rutina?: string } | null)?.nombre_rutina;
     const matchQuery =
       a.nombre_completo.toLowerCase().includes(filterQuery.toLowerCase()) ||
-      (a.email?.toLowerCase().includes(filterQuery.toLowerCase()) ?? false);
+      (a.email?.toLowerCase().includes(filterQuery.toLowerCase()) ?? false) ||
+      (nombrePlan?.toLowerCase().includes(filterQuery.toLowerCase()) ?? false) ||
+      (filterQuery.toLowerCase().trim() === "gabi" && a.nombre_completo.toLowerCase().includes("gabriel"));
 
     let matchPayment = true;
     if (effectivePaymentFilter === "ACTIVA") {

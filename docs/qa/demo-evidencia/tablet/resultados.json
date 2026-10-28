@@ -26,9 +26,9 @@
   {
     "id": "D-L4",
     "viewport": "768x1024",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-L4.png"
   },
   {
@@ -66,9 +66,9 @@
   {
     "id": "D-D5",
     "viewport": "768x1024",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-D5.png"
   },
   {
@@ -92,7 +92,7 @@
     "viewport": "768x1024",
     "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-A2.png"
   },
   {
@@ -146,17 +146,17 @@
   {
     "id": "D-R4",
     "viewport": "1024x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-R4.png"
   },
   {
     "id": "D-R6",
     "viewport": "1024x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-R6.png"
   },
   {
@@ -194,9 +194,9 @@
   {
     "id": "D-G3",
     "viewport": "1024x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "ningún alumno/clase del seed dispara el aviso de suscripción",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-G3.png"
   },
   {
@@ -218,49 +218,49 @@
   {
     "id": "D-C1",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "",
+    "detalle": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3100/studio/cobros",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-C1.png"
   },
   {
     "id": "D-C4",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "NARANJA",
-    "detalle": "",
+    "detalle": "locator.click: Timeout 8000ms exceeded.",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-C4.png"
   },
   {
     "id": "D-C2",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "NARANJA",
-    "detalle": "",
+    "detalle": "locator.fill: Timeout 8000ms exceeded.",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-C2.png"
   },
   {
     "id": "D-C5",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "AMARILLO",
-    "detalle": "",
+    "detalle": "locator.innerText: Timeout 8000ms exceeded.",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-C5.png"
   },
   {
     "id": "D-DOC1",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "",
+    "detalle": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3100/studio/documentacion",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-DOC1.png"
   },
   {
     "id": "D-DOC2",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "NARANJA",
-    "detalle": "",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeGreaterThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-DOC2.png"
   },
   {
@@ -274,9 +274,9 @@
   {
     "id": "D-T2",
     "viewport": "1024x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "",
+    "detalle": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3100/studio",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-T2.png"
   },
   {
@@ -284,7 +284,7 @@
     "viewport": "1024x768",
     "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "controles < 44 px: G",
+    "detalle": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3100/studio",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-T1.png"
   },
   {
@@ -292,7 +292,7 @@
     "viewport": "1024x768",
     "estado": "FAIL",
     "sev": "NARANJA",
-    "detalle": "[console] Cannot update a component (`%s`) while rendering a different component (`%s`). To locate the bad setState() call inside `%s`, follow the stack trace as describe | [pageerror] Hydration failed because the server",
+    "detalle": "[console] Failed to load resource: net::ERR_CONNECTION_REFUSED | [console] WebSocket connection to 'ws://localhost:3100/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED | [pageerr",
     "evidencia": "docs/qa/demo-evidencia/tablet/D-CONSOLA.png"
   }
 ]

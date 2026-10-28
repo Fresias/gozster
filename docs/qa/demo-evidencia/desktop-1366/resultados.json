@@ -18,17 +18,17 @@
   {
     "id": "D-L2",
     "viewport": "1366x768",
-    "estado": "PASS",
+    "estado": "FAIL",
     "sev": "ROJO",
-    "detalle": "",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThan\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L2.png"
   },
   {
     "id": "D-L4",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L4.png"
   },
   {
@@ -66,9 +66,9 @@
   {
     "id": "D-D5",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D5.png"
   },
   {
