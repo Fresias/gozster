@@ -309,13 +309,15 @@ export function RoutineBuilderModal({
 
     try {
       // 1. Guardar o actualizar Plan en Supabase
-      const planId = `plan-${Date.now()}`;
+      const planId = crypto.randomUUID();
       const nowIso = new Date().toISOString();
+      const { data: authData } = await supabase.auth.getUser();
 
       const { data: planData, error: planErr } = await supabase
         .from("planes_entrenamiento")
         .insert({
           id: planId,
+          profesor_id: authData.user?.id ?? null,
           nombre: planName,
           comentarios,
           estado: "ACTIVO",
@@ -333,7 +335,7 @@ export function RoutineBuilderModal({
       // 2. Guardar Días en Supabase
       for (let i = 0; i < days.length; i++) {
         const d = days[i]!;
-        const diaId = `dia-${Date.now()}-${i + 1}`;
+        const diaId = crypto.randomUUID();
 
         const { error: diaErr } = await supabase.from("dias_rutina").insert({
           id: diaId,
