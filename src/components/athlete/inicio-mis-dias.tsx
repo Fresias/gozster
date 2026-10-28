@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useAthleteStore } from "@/store/use-athlete-store";
+import { useChatStore } from "@/store/use-chat-store";
 import {
   REAL_ALUMNOS,
   REAL_PLANES,
@@ -43,7 +44,17 @@ export function InicioMisDias() {
     elegirOtroDia,
     deshacerCambioDia,
     loadStudentSession,
+    rpeReminderNotification,
   } = useAthleteStore();
+
+  const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
+  const latestUnreadStaffMessage = getLatestUnreadStaffMessage();
+  const pendingRpeExercise = currentSession.ejercicios.find(
+    (ej) =>
+      ej.force_rpe_required &&
+      ej.series.some((s) => !s.rpe_real || s.rpe_real < 6 || s.rpe_real > 10),
+  );
+  const hasSuperserie = currentSession.ejercicios.some((e) => e.es_superserie);
 
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [sheetSelectedDiaId, setSheetSelectedDiaId] = React.useState<string | null>(null);
@@ -245,6 +256,65 @@ export function InicioMisDias() {
         </div>
       )}
 
+      {/* Aviso prominente de mensaje no leído del Coach */}
+      {latestUnreadStaffMessage && (
+        <div
+          role="status"
+          onClick={() => setAthleteChatOpen(true)}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs"
+          data-testid="unread-coach-message-banner"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
+              💬
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-primary">Mensaje nuevo del Coach</span>
+                <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+                  No leído
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                {latestUnreadStaffMessage.contenido}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAthleteChatOpen(true);
+            }}
+            className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8"
+          >
+            Ver mensaje
+          </button>
+        </div>
+      )}
+
+      {/* Recordatorio de RPE obligatorio sin bloqueo */}
+      {(rpeReminderNotification || pendingRpeExercise) && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200"
+          data-testid="rpe-reminder-banner"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">
+              ⚡
+            </span>
+            <div className="min-w-0">
+              <span className="font-bold text-amber-300">RPE obligatorio (sin bloqueo):</span>{" "}
+              <span className="text-amber-200/90 text-[11px]">
+                {rpeReminderNotification ||
+                  `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Oscuro (#0F172A) con el Día activo para hoy */}
       {diaHero && (
         <section
@@ -252,7 +322,7 @@ export function InicioMisDias() {
           className="rounded-[20px] bg-[#0F172A] p-5 text-[#F8FAFC] shadow-xl border border-slate-800"
           data-testid="hero-dia-hoy"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {cambioDeDia ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
@@ -268,6 +338,14 @@ export function InicioMisDias() {
             ) : (
               <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
                 Te toca hoy
+              </span>
+            )}
+            {hasSuperserie && (
+              <span
+                data-testid="hero-superserie-badge"
+                className="inline-flex items-center gap-1 rounded-full border border-purple-400/40 bg-purple-500/20 px-2 py-0.5 text-[11px] font-bold text-purple-300"
+              >
+                <span>🔗</span> Circuito Violeta
               </span>
             )}
           </div>
