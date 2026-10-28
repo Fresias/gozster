@@ -42,3 +42,7 @@ supabase/.temp/
 
 # exports del sistema anterior (datos personales, nunca al repo)
 mynter-*.json
+
+# Playwright
+/test-results/
+/playwright-report/
