@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { supabase } from "@/lib/supabase/client";
 import {
   calculateStudentHealthScore,
@@ -169,6 +170,9 @@ export function StudentDetail({
 
   const storeSustituciones = useCoachStudioStore((s) => s.sustituciones);
   const catalogoCompleto = useCoachStudioStore((s) => s.ejercicios);
+  const isWhatsAppEnabled = useCoachStudioStore((s) => s.isWhatsAppEnabled);
+  const openChatForAlumno = useCoachStudioStore((s) => s.openChatForAlumno);
+  const isTestMode = useWorkspaceModeStore((s) => s.mode === "TESTEO");
   const alumnoSustituciones = storeSustituciones.filter((s) => {
     if (rutinaActiva && s.plan_id === rutinaActiva.id) return true;
     return historialPlanes.some((p) => p.id === s.plan_id);
@@ -504,16 +508,32 @@ export function StudentDetail({
               Modo Offline • Acciones en cola
             </Badge>
           )}
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
-            data-testid="whatsapp-direct-btn"
+          <Button
+            type="button"
+            variant="default"
+            size="default"
+            onClick={() => {
+              onOpenChat?.();
+              openChatForAlumno(alumno.id);
+            }}
+            className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold"
+            data-testid="enviar-mensaje-btn"
+            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
           >
-            <span>💬 WhatsApp 1-Clic</span>
-          </a>
+            <span>💬 Enviar mensaje</span>
+          </Button>
+          {(isWhatsAppEnabled || isTestMode) && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+              data-testid="whatsapp-direct-btn"
+            >
+              <span>💬 WhatsApp 1-Clic</span>
+            </a>
+          )}
         </div>
       </div>
 

@@ -26,6 +26,7 @@ import {
   type HistoricalLoadEntry,
 } from "@/services/coach-mock-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import { DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import {
@@ -95,9 +96,11 @@ interface CoachStudioState {
   sustituciones: SustitucionEjercicio[];
 
   selectedAlumnoId: string | null;
+  chatAlumnoId: string | null;
   activeTab: CoachStudioTab;
   isHistoricalLoadsOpen: boolean;
   isChatOpen: boolean;
+  isWhatsAppEnabled: boolean;
   isRoutineBuilderOpen: boolean;
   toast: ToastNotification | null;
 
@@ -110,9 +113,13 @@ interface CoachStudioState {
 
   // Actions
   selectAlumno: (alumnoId: string | null) => void;
+  setChatAlumnoId: (alumnoId: string | null) => void;
   setActiveTab: (tab: CoachStudioTab) => void;
   setHistoricalLoadsOpen: (open: boolean) => void;
   setChatOpen: (open: boolean) => void;
+  setWhatsAppEnabled: (enabled: boolean) => void;
+  toggleWhatsAppEnabled: () => void;
+  openChatForAlumno: (alumnoId: string) => void;
   setCurrentPage: (page: number) => void;
   setRoutineBuilderOpen: (open: boolean) => void;
   dismissToast: () => void;
@@ -206,9 +213,11 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ],
 
     selectedAlumnoId: null,
+    chatAlumnoId: null,
     activeTab: "rutina_actual",
     isHistoricalLoadsOpen: false,
     isChatOpen: false,
+    isWhatsAppEnabled: false,
     isRoutineBuilderOpen: false,
     toast: null,
 
@@ -244,12 +253,24 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         isHistoricalLoadsOpen: false,
       }),
 
+    setChatAlumnoId: (chatAlumnoId) => set({ chatAlumnoId }),
+
     setActiveTab: (activeTab) => set({ activeTab }),
 
     setHistoricalLoadsOpen: (isHistoricalLoadsOpen) =>
       set({ isHistoricalLoadsOpen }),
 
     setChatOpen: (isChatOpen) => set({ isChatOpen }),
+
+    setWhatsAppEnabled: (isWhatsAppEnabled) => set({ isWhatsAppEnabled }),
+
+    toggleWhatsAppEnabled: () =>
+      set((state) => ({ isWhatsAppEnabled: !state.isWhatsAppEnabled })),
+
+    openChatForAlumno: (alumnoId) => {
+      useChatStore.getState().setSelectedAlumnoId(alumnoId);
+      set({ chatAlumnoId: alumnoId, isChatOpen: true });
+    },
 
     setCurrentPage: (currentPage) => set({ currentPage }),
 
