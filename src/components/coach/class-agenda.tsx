@@ -11,7 +11,7 @@ import {
   horaLocal,
   ocupaCupo,
 } from "@/lib/clases";
-import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
@@ -223,7 +223,13 @@ export function ClassAgenda() {
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const mode = useWorkspaceModeStore((s) => s.mode);
-  const isTestMode = mode === "TESTEO";
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isTestMode = mounted && mode === "TESTEO";
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
@@ -601,9 +607,9 @@ export function ClassAgenda() {
     : 0;
 
   return (
-    <section className="space-y-6" aria-labelledby="agenda-titulo" data-testid="class-agenda">
+    <section className="space-y-6" aria-labelledby="agenda-titulo" data-testid="class-agenda" suppressHydrationWarning>
       {/* Cabecera del calendario (Sección 4) */}
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4" suppressHydrationWarning>
         <div className="space-y-0.5">
           <h1 id="agenda-titulo" className="text-lg font-semibold tracking-tight text-foreground capitalize">
             {headerTitulo}
@@ -1315,9 +1321,19 @@ export function ClassAgenda() {
               id="seleccionar-alumno"
               value={alumnoSeleccionado}
               onChange={(e) => {
-                setAlumnoSeleccionado(e.target.value);
-                setAdvertenciaAnotacion(null);
-                setRequiereConfirmacion(false);
+                const nuevoId = e.target.value;
+                setAlumnoSeleccionado(nuevoId);
+                const alumno = listaAlumnos.find((a) => a.id === nuevoId);
+                const contratacion = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === nuevoId);
+                if (alumno && (!contratacion || contratacion.estado === "VENCIDA")) {
+                  setAdvertenciaAnotacion(
+                    `${alumno.nombre_completo} no tiene una suscripción vigente (Estado: ${contratacion ? contratacion.estado : "SIN_SUSCRIPCION"}). Podés forzar la anotación con confirmación.`
+                  );
+                  setRequiereConfirmacion(true);
+                } else {
+                  setAdvertenciaAnotacion(null);
+                  setRequiereConfirmacion(false);
+                }
               }}
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
               data-testid="enroll-student-select"

@@ -13,11 +13,7 @@ interface WorkspaceModeState {
 const STORAGE_KEY = "gozster-workspace-mode";
 
 export const useWorkspaceModeStore = create<WorkspaceModeState>((set) => ({
-  mode:
-    typeof window !== "undefined" &&
-    window.localStorage.getItem(STORAGE_KEY) === "TESTEO"
-      ? "TESTEO"
-      : "PRODUCCION",
+  mode: "PRODUCCION",
   setMode: (mode: WorkspaceMode) => {
     if (typeof window !== "undefined") {
       try {
@@ -43,3 +39,18 @@ export const useWorkspaceModeStore = create<WorkspaceModeState>((set) => ({
     });
   },
 }));
+
+// En el navegador, sincronizar el modo desde localStorage después de la primera
+// hidratación para no romper el match SSR inicial.
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored === "TESTEO" || stored === "PRODUCCION") {
+        useWorkspaceModeStore.setState({ mode: stored });
+      }
+    } catch {
+      // Ignorar
+    }
+  }, 0);
+}

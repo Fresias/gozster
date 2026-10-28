@@ -50,14 +50,17 @@ export function CoachDashboardView({
 
   React.useEffect(() => {
     if (initialDataset && initialDataset.alumnos.length > 0) {
-      useCoachStudioStore.setState({
-        alumnos: initialDataset.alumnos,
-        planes: initialDataset.planes,
-        dias: initialDataset.dias,
-        ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
-        ejercicios: initialDataset.ejercicios,
-        isLiveDatabase: true,
-      });
+      const timer = setTimeout(() => {
+        useCoachStudioStore.setState({
+          alumnos: initialDataset.alumnos,
+          planes: initialDataset.planes,
+          dias: initialDataset.dias,
+          ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
+          ejercicios: initialDataset.ejercicios,
+          isLiveDatabase: true,
+        });
+      }, 0);
+      return () => clearTimeout(timer);
     } else {
       loadLiveSupabaseData();
     }

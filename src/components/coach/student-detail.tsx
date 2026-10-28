@@ -27,6 +27,8 @@ import {
   ESTADO_CONTRATACION_LABEL,
   computeAnchoredRenewalDate,
   derivarContratacionDesdePerfil,
+  derivarEstadoContratacion,
+  toDateOnly,
 } from "@/lib/contrataciones";
 import {
   AVAILABLE_COACH_SENDERS,
@@ -307,7 +309,13 @@ export function StudentDetail({
     }
   };
 
-  const getPlanBadge = (estado: PlanEntrenamiento["estado"]) => {
+  const getPlanBadge = (
+    estado: PlanEntrenamiento["estado"],
+    fechaFin?: string | null,
+  ) => {
+    if (fechaFin && new Date(fechaFin).getTime() < Date.now()) {
+      return <Badge variant="destructive">VENCIDO</Badge>;
+    }
     switch (estado) {
       case "ACTIVO":
         return <Badge variant="success">ACTIVO</Badge>;
@@ -353,10 +361,21 @@ export function StudentDetail({
 
   // Contratación (ADR-001): si el padre no la inyecta, se deriva del perfil sin
   // inventar datos fuera del esquema generado por @backend-eng.
-  const contratacion = React.useMemo(
-    () => contratacionProp ?? derivarContratacionDesdePerfil(alumno),
-    [contratacionProp, alumno],
-  );
+  const contratacion = React.useMemo(() => {
+    if (contratacionProp) return contratacionProp;
+    const base = derivarContratacionDesdePerfil(alumno);
+    // Si el alumno no tiene fecha_vencimiento_cuota explícita pero tiene rutinaActiva con fecha_fin, sincronizar
+    if (!alumno.fecha_vencimiento_cuota && rutinaActiva?.fecha_fin) {
+      const finDate = rutinaActiva.fecha_fin.slice(0, 10);
+      return {
+        ...base,
+        fecha_fin: finDate,
+        dia_vencimiento: toDateOnly(finDate).getUTCDate(),
+        estado: derivarEstadoContratacion(finDate, 5),
+      };
+    }
+    return base;
+  }, [contratacionProp, alumno, rutinaActiva]);
 
   const estadoCuenta: EstadoCuenta =
     alumno.estado_cuenta ??
@@ -781,7 +800,7 @@ export function StudentDetail({
               </p>
               <div className="mt-1.5" data-testid="estado-rutina">
                 {rutinaActiva ? (
-                  getPlanBadge(rutinaActiva.estado)
+                  getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)
                 ) : (
                   <Badge variant="outline">Sin rutina</Badge>
                 )}
@@ -1177,7 +1196,7 @@ export function StudentDetail({
                     <CardTitle className="text-lg">
                       {rutinaActiva.nombre}
                     </CardTitle>
-                    {getPlanBadge(rutinaActiva.estado)}
+                    {getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Creado el{" "}
@@ -1474,7 +1493,7 @@ export function StudentDetail({
                             <h4 className="text-base font-bold text-foreground">
                               {plan.nombre}
                             </h4>
-                            {getPlanBadge(plan.estado)}
+                            {getPlanBadge(plan.estado, plan.fecha_fin)}
                             {index === 0 && (
                               <Badge variant="outline" className="text-[10px]">
                                 Más Reciente
