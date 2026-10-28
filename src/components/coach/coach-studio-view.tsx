@@ -8,6 +8,7 @@ import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
+import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
 import { StudentCard } from "@/components/coach/student-card";
@@ -117,6 +118,7 @@ export function CoachStudioView({
     clonarUltimaRutina,
     extenderVigenciaPlan,
     asignarPlanUrgente,
+    asignarPlanDesdePlantilla,
     obtenerMetricasRetencion,
     isLoading,
     loadLiveSupabaseData,
@@ -172,6 +174,7 @@ export function CoachStudioView({
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
 
@@ -1290,10 +1293,10 @@ export function CoachStudioView({
                                   {!planActivo && (
                                     <button
                                       type="button"
-                                      onClick={() => handleAssignPlan(alumno.id)}
+                                      onClick={() => setAssignRoutineTarget(alumno)}
                                       className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
-                                      title="Asignar Plan Urgente en 1-Clic"
-                                      aria-label={`Asignar plan urgente a ${alumno.nombre_completo}`}
+                                      title="Asignar rutina"
+                                      aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
                                       data-testid={`btn-asignar-plan-${alumno.id}`}
                                     >
                                       <svg
@@ -1450,6 +1453,21 @@ export function CoachStudioView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={(id) => selectAlumno(id)}
+        onOpenAssignRoutine={(alumno) => {
+          setIsAssignModalOpen(false);
+          setAssignRoutineTarget(alumno);
+        }}
+      />
+
+      {/* Modal de Previsualización y Confirmación de Rutinas Genéricas (GOZS-245) */}
+      <AssignRoutinePreviewModal
+        isOpen={!!assignRoutineTarget}
+        onClose={() => setAssignRoutineTarget(null)}
+        alumno={assignRoutineTarget}
+        onConfirmAssign={async (alumnoId, plantillaId) => {
+          await asignarPlanDesdePlantilla(alumnoId, plantillaId);
+          setAssignRoutineTarget(null);
+        }}
       />
 
       {/* Modal "Alta de alumno": alta directa + tarjeta de contingencia + recarga de alumnos */}
