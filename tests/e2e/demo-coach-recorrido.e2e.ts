@@ -232,12 +232,10 @@ test("@demo recorrido Coach Studio con GABI AGOSTO", async ({ page }, info: Test
       await expect(page.getByTestId("class-detail")).toBeVisible();
       if (!(await page.getByTestId("enroll-student-dialog-btn").isEnabled())) continue;
       await page.getByTestId("enroll-student-dialog-btn").click();
-      const sel = page.getByTestId("enroll-student-select");
-      const opciones = await sel.locator("option").evaluateAll((o) => o.map((x) => (x as HTMLOptionElement).value).filter(Boolean));
-      for (const v of opciones) {
-        await sel.selectOption(v);
-        if (await page.getByTestId("enroll-warning-banner").isVisible().catch(() => false)) { aviso = true; break; }
-      }
+      // El aviso se calcula al pulsar Confirmar, no al elegir: Tomás tiene la contratación VENCIDA en el seed.
+      await page.getByTestId("enroll-student-select").selectOption("demo-alumno-tomas");
+      await page.getByTestId("confirm-enroll-student-btn").click();
+      aviso = await page.getByTestId("enroll-warning-banner").isVisible();
       await page.keyboard.press("Escape");
     }
     expect(aviso, "ningún alumno/clase del seed dispara el aviso de suscripción").toBe(true);
