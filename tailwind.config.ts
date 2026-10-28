@@ -53,6 +53,17 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        /* Tokens de actividades (GOZS-190) */
+        "act-funcional": {
+          bg: "hsl(var(--act-funcional-bg))",
+          fg: "hsl(var(--act-funcional-fg))",
+          bar: "hsl(var(--act-funcional-bar))",
+        },
+        "act-boxeo": {
+          bg: "hsl(var(--act-boxeo-bg))",
+          fg: "hsl(var(--act-boxeo-fg))",
+          bar: "hsl(var(--act-boxeo-bar))",
+        },
       },
       borderRadius: {
         sm: "calc(var(--radius) - 4px)",

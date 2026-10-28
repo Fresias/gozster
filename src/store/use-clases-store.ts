@@ -176,8 +176,9 @@ export const useClasesStore = create<ClasesState>()(
       cargarClasesAlumno: async () => {
         if (esModoTesteo()) {
           const { inicio } = semanaEnCurso();
-          const clases = get().clases.length ? get().clases : generarDemoClasesSemana();
-          const agendaReservas = get().agendaReservas.length ? get().agendaReservas : generarDemoReservasIniciales();
+          const tieneNuevoSeed = get().clases.some((c) => c.id === "demo-clase-func-martes-17");
+          const clases = tieneNuevoSeed ? get().clases : generarDemoClasesSemana();
+          const agendaReservas = tieneNuevoSeed ? get().agendaReservas : generarDemoReservasIniciales();
           const alumnoId = get().demoAlumnoId || "demo-alumno-valentina";
           const contratacion = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumnoId) ?? null;
           const plan = contratacion?.plan_membresia_id
@@ -441,8 +442,9 @@ export const useClasesStore = create<ClasesState>()(
       cargarAgenda: async () => {
         if (esModoTesteo()) {
           const { inicio } = semanaEnCurso();
-          const clases = get().clases.length ? get().clases : generarDemoClasesSemana();
-          const agendaReservas = get().agendaReservas.length ? get().agendaReservas : generarDemoReservasIniciales();
+          const tieneNuevoSeed = get().clases.some((c) => c.id === "demo-clase-func-martes-17");
+          const clases = tieneNuevoSeed ? get().clases : generarDemoClasesSemana();
+          const agendaReservas = tieneNuevoSeed ? get().agendaReservas : generarDemoReservasIniciales();
           set({
             semanaInicio: inicio.toISOString(),
             clases,
