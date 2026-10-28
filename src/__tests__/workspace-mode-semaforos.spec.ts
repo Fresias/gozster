@@ -39,6 +39,13 @@ describe("Sprint Demo INDEC: Conmutador Modo Producción vs Testeo y Semáforos 
       expect(useWorkspaceModeStore.getState().mode).toBe("TESTEO");
     });
 
+    it("D-CONSOLA / GOZS-212: no crashea si localStorage no está disponible o lanza error", () => {
+      expect(() => {
+        useWorkspaceModeStore.getState().setMode("TESTEO");
+        useWorkspaceModeStore.getState().toggleMode();
+      }).not.toThrow();
+    });
+
     it("el componente WorkspaceModeToggle existe y define los controles accesibles", () => {
       const toggleFile = path.resolve(
         __dirname,

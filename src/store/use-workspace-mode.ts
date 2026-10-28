@@ -15,7 +15,13 @@ const STORAGE_KEY = "gozster-workspace-mode";
 export const useWorkspaceModeStore = create<WorkspaceModeState>((set) => ({
   mode:
     typeof window !== "undefined" &&
-    window.localStorage.getItem(STORAGE_KEY) === "TESTEO"
+    (() => {
+      try {
+        return window.localStorage.getItem(STORAGE_KEY) === "TESTEO";
+      } catch {
+        return false;
+      }
+    })()
       ? "TESTEO"
       : "PRODUCCION",
   setMode: (mode: WorkspaceMode) => {
