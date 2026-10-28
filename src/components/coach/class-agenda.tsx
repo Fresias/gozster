@@ -400,13 +400,14 @@ export function ClassAgenda() {
     : false;
 
   const listaAlumnos = React.useMemo(() => {
+    if (!isTestMode) return [];
     const combinados = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
     const unicos = new Map<string, (typeof combinados)[0]>();
     for (const a of combinados) {
       if (!unicos.has(a.id)) unicos.set(a.id, a);
     }
     return [...unicos.values()].sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
-  }, []);
+  }, [isTestMode]);
 
   const confirmarCancelacion = async () => {
     if (!seleccionada) return;

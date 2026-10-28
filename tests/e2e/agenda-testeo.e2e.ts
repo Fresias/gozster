@@ -62,6 +62,19 @@ test.describe("Agenda en Modo Testeo", () => {
     await expect(page.getByTestId("class-detail")).toContainText("Camila Navarro");
   });
 
+  test("selector Anotar alumno sigue listando los alumnos del seed", async ({ page }) => {
+    await abrirStudio(page, "TESTEO");
+    await page.getByTestId("view-week-btn").click();
+    await bloques(page, "Funcional", "18:00").first().click();
+    await expect(page.getByTestId("class-detail")).toBeVisible();
+    await page.getByTestId("enroll-student-dialog-btn").click();
+    await expect(page.getByTestId("enroll-student-dialog")).toBeVisible();
+    const select = page.getByTestId("enroll-student-select");
+    await expect(select).toBeVisible();
+    await expect(select.locator("option")).not.toHaveCount(0);
+    await expect(select).toContainText("Camila Navarro");
+  });
+
   test("@mobile vista móvil: la agenda carga sin desborde horizontal de la página", async ({ page }) => {
     await abrirStudio(page, "TESTEO");
     await expect(page.getByTestId("class-agenda")).toBeVisible();
@@ -80,5 +93,16 @@ test.describe("Modo Producción", () => {
     // Nombres que solo existen en el seed de reservas (no en DEMO_ALUMNOS).
     await expect(page.locator("body")).not.toContainText("Renata Quiroga");
     await expect(page.locator("body")).not.toContainText("Ignacio Duarte");
+    await expect(page.locator("body")).not.toContainText("Camila Navarro");
+  });
+
+  test("selector Anotar alumno no muestra alumnos ficticios en Producción", async ({ page }) => {
+    await abrirStudio(page, "PRODUCCION");
+    await page.locator('[data-testid="enroll-student-dialog"]').evaluate((el: HTMLDialogElement) => el.showModal());
+    await expect(page.getByTestId("enroll-student-dialog")).toBeVisible();
+    const select = page.getByTestId("enroll-student-select");
+    await expect(select).toBeVisible();
+    await expect(select.locator("option")).toHaveCount(0);
+    await expect(select).not.toContainText("Camila Navarro");
   });
 });
