@@ -953,6 +953,36 @@ export interface Database {
           },
         ];
       };
+      feriados: {
+        Row: {
+          fecha: string;
+          nombre: string;
+          tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases: boolean;
+          fuente: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          fecha: string;
+          nombre: string;
+          tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases?: boolean;
+          fuente?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          fecha?: string;
+          nombre?: string;
+          tipo?: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases?: boolean;
+          fuente?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       cobros: {
         Row: {
           id: string;
@@ -1488,6 +1518,14 @@ export interface Database {
       };
     };
     Functions: {
+      feriados_en_rango: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: Database['public']['Tables']['feriados']['Row'][];
+      };
+      fecha_habilita_clases: {
+        Args: { p_fecha: string };
+        Returns: boolean;
+      };
       es_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
@@ -1848,5 +1886,6 @@ export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_
 export type PlanMembresia = Tables<'planes_membresia'>;
 export type ClaseHorario = Tables<'clases_horario'>;
 export type Clase = Tables<'clases'>;
+export type Feriado = Tables<'feriados'>;
 export type ClaseProfesor = Tables<'clases_profesores'>;
 export type Reserva = Tables<'reservas'>;
