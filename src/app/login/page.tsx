@@ -88,7 +88,8 @@ function LoginForm() {
       const destino = perfil?.rol === "ALUMNO" ? "/athlete" : redirectTo;
 
       // Navegación dura: garantiza que las cookies de sesión viajen a SSR y el middleware valide el rol.
-      window.location.assign(destino);
+      // Usa replace para que el botón "Atrás" del navegador no vuelva a la pantalla de login (D-L4).
+      window.location.replace(destino);
     } catch {
       setError("No pudimos conectar con el servidor. Revisá tu conexión e intentá otra vez.");
       setLoading(false);
