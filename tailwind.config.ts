@@ -53,6 +53,16 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        "act-funcional": {
+          bg: "hsl(var(--act-funcional-bg) / <alpha-value>)",
+          fg: "hsl(var(--act-funcional-fg) / <alpha-value>)",
+          bar: "hsl(var(--act-funcional-bar) / <alpha-value>)",
+        },
+        "act-boxeo": {
+          bg: "hsl(var(--act-boxeo-bg) / <alpha-value>)",
+          fg: "hsl(var(--act-boxeo-fg) / <alpha-value>)",
+          bar: "hsl(var(--act-boxeo-bar) / <alpha-value>)",
+        },
       },
       borderRadius: {
         sm: "calc(var(--radius) - 4px)",

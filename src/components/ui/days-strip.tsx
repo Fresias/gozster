@@ -50,8 +50,8 @@ export function DaysStrip({
 }
 
 export const COLOR_ACTIVIDAD: Record<"FUNCIONAL" | "BOXEO", string> = {
-  FUNCIONAL: "border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:bg-cyan-950/80 dark:text-cyan-300",
-  BOXEO: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300",
+  FUNCIONAL: "border-act-funcional-bar/30 bg-act-funcional-bg text-act-funcional-fg",
+  BOXEO: "border-act-boxeo-bar/30 bg-act-boxeo-bg text-act-boxeo-fg",
 };
 
 export const NOMBRE_ACTIVIDAD: Record<"FUNCIONAL" | "BOXEO", string> = {

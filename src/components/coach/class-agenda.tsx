@@ -15,13 +15,189 @@ import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
-import type { ActividadClase } from "@/types/database.types";
+import type { ActividadClase, Clase } from "@/types/database.types";
 
 const MOTIVO_MINIMO = 5;
 
-// Coach Studio · Agenda de Clases (#113 / GH #122 / GOZS-184):
-// Vistas semana/día/mes, creación, movimiento y redimensión de clases con cupo flexible,
-// solapes lado a lado y anotación manual con validación de suscripción y sobrecupo.
+const MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+const MESES_CORTOS = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+
+function numeroSemanaIso(fecha: Date): number {
+  const target = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const dayNum = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function parseHoraMinutoLocal(fechaIso: string): { hora: number; minuto: number } {
+  const [hStr, mStr] = horaLocal(fechaIso).split(":");
+  return { hora: Number(hStr) || 0, minuto: Number(mStr) || 0 };
+}
+
+interface GapInfo {
+  inicio: number;
+  fin: number;
+  count: number;
+}
+
+interface ClaseBlockProps {
+  clase: Clase;
+  ocupados: number;
+  activa: boolean;
+  ahoraMs: number;
+  solape?: { columna: number; totalColumnas: number };
+  vista: VistaAgenda;
+  top: number;
+  height: number;
+  onSelect: (id: string) => void;
+}
+
+export function ClaseBlock({
+  clase,
+  ocupados,
+  activa,
+  ahoraMs,
+  solape,
+  vista,
+  top,
+  height,
+  onSelect,
+}: ClaseBlockProps) {
+  const cancelada = clase.estado === "CANCELADA";
+  const finClaseMs = new Date(clase.inicio).getTime() + (clase.duracion_minutos || 60) * 60_000;
+  const finalizada = !cancelada && finClaseMs < ahoraMs;
+  const capacidad = clase.capacidad;
+  const llena = !cancelada && !finalizada && capacidad !== null && ocupados === capacidad;
+  const sobrecupo = !cancelada && !finalizada && capacidad !== null && ocupados > capacidad;
+
+  let colorClasses = "";
+  let barClasses = "";
+
+  if (cancelada) {
+    colorClasses = "bg-card border-dashed border-slate-400 text-muted-foreground";
+    barClasses = "";
+  } else if (finalizada) {
+    colorClasses = "bg-muted text-slate-600 border-border dark:text-slate-400 dark:border-border";
+    barClasses = "bg-slate-300 dark:bg-slate-600";
+  } else if (clase.actividad === "FUNCIONAL") {
+    colorClasses = "bg-act-funcional-bg text-act-funcional-fg border-act-funcional-bar/30";
+    barClasses = "bg-act-funcional-bar";
+  } else {
+    colorClasses = "bg-act-boxeo-bg text-act-boxeo-fg border-act-boxeo-bar/30";
+    barClasses = "bg-act-boxeo-bar";
+  }
+
+  let leftStyle = "4px";
+  let widthStyle = "calc(100% - 8px)";
+  if (solape && solape.totalColumnas > 1) {
+    const colAncho = 100 / solape.totalColumnas;
+    leftStyle = `calc(${solape.columna * colAncho}% + 2px)`;
+    widthStyle = `calc(${colAncho}% - 4px)`;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(clase.id)}
+      aria-label={`${NOMBRE_ACTIVIDAD[clase.actividad]}, ${horaLocal(clase.inicio)}, ${ocupados} de ${capacidad ?? "sin límite"} cupos${cancelada ? ", Cancelada" : ""}`}
+      className={`absolute rounded-md border overflow-hidden pl-2.5 pr-1.5 py-1.5 text-left transition-all z-10 hover:brightness-[0.98] focus-visible:ring-2 focus-visible:ring-ring ${
+        activa ? "ring-2 ring-primary ring-offset-1 z-20" : ""
+      } ${colorClasses}`}
+      style={{
+        top: `${top}px`,
+        height: `${Math.max(44, height)}px`,
+        left: leftStyle,
+        width: widthStyle,
+      }}
+      data-testid="class-block-card"
+    >
+      {!cancelada && barClasses && (
+        <span className={`absolute inset-y-0 left-0 w-[3px] ${barClasses}`} aria-hidden="true" />
+      )}
+
+      {/* Línea 1 */}
+      <div className="flex items-center justify-between gap-1">
+        <span
+          className={`text-[13px] font-semibold truncate ${
+            cancelada ? "line-through text-muted-foreground" : ""
+          }`}
+        >
+          {NOMBRE_ACTIVIDAD[clase.actividad]}
+        </span>
+        {llena && (
+          <span className="ml-auto shrink-0 rounded bg-foreground px-1 text-[10px] font-semibold text-background">
+            Llena
+          </span>
+        )}
+        {sobrecupo && (
+          <span className="ml-auto shrink-0 rounded bg-amber-400 px-1 font-mono text-[10px] font-semibold text-amber-950">
+            +{ocupados - capacidad!}
+          </span>
+        )}
+      </div>
+
+      {/* Línea 2 */}
+      <div className="font-mono text-[11px] font-medium leading-tight">
+        {cancelada ? (
+          <span className="text-muted-foreground">Cancelada</span>
+        ) : (
+          <span className="opacity-90">
+            {horaLocal(clase.inicio)} ·{" "}
+            {capacidad !== null ? `${ocupados}/${capacidad}` : `${ocupados} anot.`}
+          </span>
+        )}
+      </div>
+
+      {/* Línea 3 (Solo en Vista Día) */}
+      {vista === "dia" && capacidad !== null && !cancelada && (
+        <div
+          className="mt-1 h-1.5 w-full rounded-full bg-secondary/80 overflow-hidden"
+          aria-hidden="true"
+        >
+          <div
+            className={`h-full rounded-full transition-all ${
+              ocupados > capacidad ? "bg-amber-500" : "bg-primary"
+            }`}
+            style={{
+              width: `${Math.min(100, (ocupados / capacidad) * 100)}%`,
+            }}
+          />
+        </div>
+      )}
+    </button>
+  );
+}
+
+// Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191):
+// Tokens de actividad, cabecera con navegación, atajos de teclado y grilla horaria semanal/diaria.
 export function ClassAgenda() {
   const {
     vista,
@@ -51,9 +227,13 @@ export function ClassAgenda() {
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
-  const dias = React.useMemo(() => diasDeLaSemana(new Date(ahoraMs)), [ahoraMs]);
+
+  const [fechaBase, setFechaBase] = React.useState<Date>(() => new Date(ahoraMs));
   const [dia, setDia] = React.useState(hoy);
   const [claseId, setClaseId] = React.useState<string | null>(null);
+
+  // Gaps colapsados (tramos >= 3h sin clases)
+  const [expandedGaps, setExpandedGaps] = React.useState<Set<number>>(new Set());
 
   // Estados de modales y formularios
   const [motivo, setMotivo] = React.useState("");
@@ -86,14 +266,134 @@ export function ClassAgenda() {
     if (isOnline || isTestMode) void cargarAgenda();
   }, [isOnline, isTestMode, cargarAgenda]);
 
-  const delDia = clases.filter((c) => claveDia(c.inicio) === dia);
-  const seleccionada = delDia.find((c) => c.id === claseId) ?? delDia[0] ?? null;
+  // Días de la semana en curso
+  const diasSemana = React.useMemo(() => diasDeLaSemana(fechaBase), [fechaBase]);
+  const lunesDate = React.useMemo(
+    () => new Date(diasSemana[0]?.clave + "T12:00:00-03:00"),
+    [diasSemana]
+  );
+  const domingoDate = React.useMemo(
+    () => new Date(diasSemana[6]?.clave + "T12:00:00-03:00"),
+    [diasSemana]
+  );
+  const numSemana = React.useMemo(() => numeroSemanaIso(lunesDate), [lunesDate]);
+
+  // Navegación de período (Hoy, Flechas unidas y atajos)
+  const navegarFecha = React.useCallback(
+    (delta: number) => {
+      setFechaBase((prev) => {
+        const d = new Date(prev);
+        if (vista === "dia") {
+          d.setDate(d.getDate() + delta);
+          setDia(claveDia(d));
+        } else if (vista === "semana") {
+          d.setDate(d.getDate() + delta * 7);
+          const diasNuevos = diasDeLaSemana(d);
+          if (!diasNuevos.some((item) => item.clave === dia)) {
+            setDia(diasNuevos[0]?.clave ?? claveDia(d));
+          }
+        } else if (vista === "mes") {
+          d.setMonth(d.getMonth() + delta);
+          setDia(claveDia(d));
+        }
+        return d;
+      });
+    },
+    [vista, dia]
+  );
+
+  const irAHoy = React.useCallback(() => {
+    setFechaBase(new Date(ahoraMs));
+    setDia(hoy);
+  }, [ahoraMs, hoy]);
+
+  // Atajos de teclado (Sección 4)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (
+        createDialogRef.current?.open ||
+        enrollDialogRef.current?.open ||
+        cancelDialogRef.current?.open
+      ) {
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+      if (key === "T") {
+        e.preventDefault();
+        irAHoy();
+      } else if (key === "D") {
+        e.preventDefault();
+        setVista("dia");
+      } else if (key === "S") {
+        e.preventDefault();
+        setVista("semana");
+      } else if (key === "M") {
+        e.preventDefault();
+        setVista("mes");
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        navegarFecha(-1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        navegarFecha(1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [irAHoy, navegarFecha, setVista]);
+
+  // Clases relevantes para la semana y para el día
+  const setClavesSemana = React.useMemo(
+    () => new Set(diasSemana.map((d) => d.clave)),
+    [diasSemana]
+  );
+  const clasesSemana = React.useMemo(
+    () => clases.filter((c) => setClavesSemana.has(claveDia(c.inicio))),
+    [clases, setClavesSemana]
+  );
+
+  const delDia = React.useMemo(
+    () => clases.filter((c) => claveDia(c.inicio) === dia),
+    [clases, dia]
+  );
+
+  const seleccionada = React.useMemo(() => {
+    if (claseId) {
+      const encontrada = clases.find((c) => c.id === claseId);
+      if (encontrada) return encontrada;
+    }
+    return delDia[0] ?? clasesSemana[0] ?? null;
+  }, [claseId, clases, delDia, clasesSemana]);
+
   const anotados = seleccionada ? agendaReservas.filter((r) => r.clase_id === seleccionada.id) : [];
 
-  const ocupacion = (id: string) =>
-    agendaReservas.filter((r) => r.clase_id === id && ocupaCupo(r)).length;
+  const ocupacion = React.useCallback(
+    (id: string) => agendaReservas.filter((r) => r.clase_id === id && ocupaCupo(r)).length,
+    [agendaReservas]
+  );
 
-  const solapes = React.useMemo(() => detectarSolapes(delDia), [delDia]);
+  const solapesSemanaPorDia = React.useMemo(() => {
+    const mapa = new Map<string, ReturnType<typeof detectarSolapes>>();
+    for (const d of diasSemana) {
+      const clasesDelDia = clasesSemana.filter((c) => claveDia(c.inicio) === d.clave);
+      mapa.set(d.clave, detectarSolapes(clasesDelDia));
+    }
+    return mapa;
+  }, [diasSemana, clasesSemana]);
+
+  const solapesDia = React.useMemo(() => detectarSolapes(delDia), [delDia]);
 
   const claseIniciada = seleccionada
     ? new Date(seleccionada.inicio).getTime() <= ahoraMs
@@ -164,34 +464,196 @@ export function ClassAgenda() {
     setEditandoHora(false);
   };
 
-  const diasMes = React.useMemo(() => diasDelMes(new Date(ahoraMs)), [ahoraMs]);
+  // Cálculo de rango horario para la grilla
+  const { horaMin, horaMax } = React.useMemo(() => {
+    let minH = 7;
+    let maxH = 21;
+    const lista = vista === "dia" ? delDia : clasesSemana;
+    for (const c of lista) {
+      const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
+      const durH = (c.duracion_minutos || 60) / 60;
+      const finH = Math.ceil(hora + minuto / 60 + durH);
+      minH = Math.min(minH, hora);
+      maxH = Math.max(maxH, finH);
+    }
+    return { horaMin: Math.max(0, minH), horaMax: Math.min(24, maxH) };
+  }, [vista, delDia, clasesSemana]);
+
+  // Detección de tramos >= 3h sin clases para banda colapsada (Sección 5)
+  const gaps = React.useMemo(() => {
+    const lista = vista === "dia" ? delDia : clasesSemana;
+    const result: GapInfo[] = [];
+    let gapStart: number | null = null;
+    let count = 0;
+
+    for (let h = horaMin; h < horaMax; h++) {
+      const ocupada = lista.some((c) => {
+        const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
+        const ini = hora + minuto / 60;
+        const fin = ini + (c.duracion_minutos || 60) / 60;
+        return Math.max(ini, h) < Math.min(fin, h + 1);
+      });
+
+      if (!ocupada) {
+        if (gapStart === null) gapStart = h;
+        count++;
+      } else {
+        if (gapStart !== null && count >= 3) {
+          result.push({ inicio: gapStart, fin: h, count });
+        }
+        gapStart = null;
+        count = 0;
+      }
+    }
+
+    if (gapStart !== null && count >= 3) {
+      result.push({ inicio: gapStart, fin: horaMax, count });
+    }
+
+    return result;
+  }, [vista, delDia, clasesSemana, horaMin, horaMax]);
+
+  const toggleGap = (inicio: number) => {
+    setExpandedGaps((prev) => {
+      const next = new Set(prev);
+      if (next.has(inicio)) next.delete(inicio);
+      else next.add(inicio);
+      return next;
+    });
+  };
+
+  type SlotItem = { tipo: "hora"; hora: number } | { tipo: "gap"; gap: GapInfo };
+
+  const slots = React.useMemo(() => {
+    const items: SlotItem[] = [];
+    let h = horaMin;
+    while (h < horaMax) {
+      const gap = gaps.find((g) => g.inicio === h);
+      if (gap && !expandedGaps.has(gap.inicio)) {
+        items.push({ tipo: "gap", gap });
+        h = gap.fin;
+      } else {
+        items.push({ tipo: "hora", hora: h });
+        h++;
+      }
+    }
+    return items;
+  }, [horaMin, horaMax, gaps, expandedGaps]);
+
+  const totalAlturaGrid = React.useMemo(() => {
+    return slots.reduce((acc, slot) => acc + (slot.tipo === "gap" ? 36 : 56), 0);
+  }, [slots]);
+
+  const calcularTop = React.useCallback(
+    (hora: number, minuto: number) => {
+      let top = 0;
+      for (let h = horaMin; h < hora; h++) {
+        const gap = gaps.find((g) => h >= g.inicio && h < g.fin);
+        if (gap && !expandedGaps.has(gap.inicio)) {
+          if (h === gap.inicio) {
+            top += 36;
+          }
+        } else {
+          top += 56;
+        }
+      }
+      top += (minuto / 60) * 56;
+      return top;
+    },
+    [horaMin, gaps, expandedGaps]
+  );
+
+  const diasMes = React.useMemo(() => diasDelMes(fechaBase), [fechaBase]);
+
+  // Formato cabecera del calendario
+  const headerTitulo = React.useMemo(() => {
+    if (vista === "mes") {
+      return `${MESES[fechaBase.getMonth()]} ${fechaBase.getFullYear()}`;
+    }
+    return `${MESES[lunesDate.getMonth()]} ${lunesDate.getFullYear()}`;
+  }, [vista, fechaBase, lunesDate]);
+
+  const headerSubtitulo = React.useMemo(() => {
+    if (vista === "mes") {
+      return "Calendario mensual · Todas las clases del mes";
+    }
+    const mesL = lunesDate.getMonth();
+    const mesD = domingoDate.getMonth();
+    const rango =
+      mesL === mesD
+        ? `${diasSemana[0]?.numero} – ${diasSemana[6]?.numero} ${MESES_CORTOS[mesL]}`
+        : `${diasSemana[0]?.numero} ${MESES_CORTOS[mesL]} – ${diasSemana[6]?.numero} ${MESES_CORTOS[mesD]}`;
+
+    return (
+      <>
+        Semana {numSemana} · <span className="font-mono tabular-nums">{rango}</span>
+      </>
+    );
+  }, [vista, diasSemana, lunesDate, domingoDate, numSemana]);
+
+  // Posición de la línea de ahora (solo en columna de hoy)
+  const ahoraLocal = parseHoraMinutoLocal(new Date(ahoraMs).toISOString());
+  const mostrarLineaAhora =
+    ahoraLocal.hora >= horaMin && ahoraLocal.hora < horaMax;
+  const topAhora = mostrarLineaAhora
+    ? calcularTop(ahoraLocal.hora, ahoraLocal.minuto)
+    : 0;
 
   return (
     <section className="space-y-6" aria-labelledby="agenda-titulo" data-testid="class-agenda">
-      {/* Cabecera y selectores */}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 id="agenda-titulo" className="text-2xl font-black tracking-tight">
-            Agenda de clases
+      {/* Cabecera del calendario (Sección 4) */}
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4">
+        <div className="space-y-0.5">
+          <h1 id="agenda-titulo" className="text-lg font-semibold tracking-tight text-foreground capitalize">
+            {headerTitulo}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Coach Studio · Gestión de clases presenciales, cupos flexibles y reservas.
-          </p>
+          <p className="text-sm text-muted-foreground">{headerSubtitulo}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Selector de vistas */}
+          {/* Botón Hoy */}
+          <button
+            type="button"
+            onClick={irAHoy}
+            className="h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+          >
+            Hoy
+          </button>
+
+          {/* Flechas unidas */}
+          <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => navegarFecha(-1)}
+              className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Período anterior"
+              title="Anterior (←)"
+            >
+              <span className="text-sm font-bold">‹</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navegarFecha(1)}
+              className="-ml-px flex h-9 w-9 items-center justify-center border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Período siguiente"
+              title="Siguiente (→)"
+            >
+              <span className="text-sm font-bold">›</span>
+            </button>
+          </div>
+
+          {/* Segmented Día/Semana/Mes */}
           <div
-            className="flex items-center rounded-xl border border-border/80 bg-secondary/50 p-1"
+            className="inline-flex h-9 items-center rounded-lg bg-muted p-1 gap-1"
             role="group"
             aria-label="Vistas de agenda"
           >
             <button
               type="button"
               onClick={() => setVista("dia")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
                 vista === "dia"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="view-day-btn"
@@ -201,9 +663,9 @@ export function ClassAgenda() {
             <button
               type="button"
               onClick={() => setVista("semana")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
                 vista === "semana"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="view-week-btn"
@@ -213,9 +675,9 @@ export function ClassAgenda() {
             <button
               type="button"
               onClick={() => setVista("mes")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
                 vista === "mes"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="view-month-btn"
@@ -224,10 +686,14 @@ export function ClassAgenda() {
             </button>
           </div>
 
+          {/* CTA Crear Clase */}
           <Button
             type="button"
-            onClick={() => createDialogRef.current?.showModal()}
-            className="gap-1.5 font-bold"
+            onClick={() => {
+              setCrearFecha(dia);
+              createDialogRef.current?.showModal();
+            }}
+            className="h-9 gap-1.5 font-bold"
             size="sm"
             data-testid="create-class-btn"
           >
@@ -352,12 +818,202 @@ export function ClassAgenda() {
         </div>
       )}
 
-      {/* VISTA SEMANA / DÍA */}
-      {vista !== "mes" && (
-        <>
+      {/* VISTA SEMANA (Sección 5: Grilla Horaria) */}
+      {vista === "semana" && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+            {/* Header de días: LUN 26 (hoy con pill bg-primary) */}
+            <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border/80 bg-muted/20">
+              <div className="h-14 border-r border-border/40" aria-hidden="true" />
+              {diasSemana.map((d) => {
+                const esHoy = d.clave === hoy;
+                const esSeleccionado = d.clave === dia;
+                return (
+                  <button
+                    key={d.clave}
+                    type="button"
+                    onClick={() => setDia(d.clave)}
+                    className={`h-14 border-r last:border-r-0 border-border/40 p-2 text-center flex flex-col items-center justify-center gap-0.5 transition-colors hover:bg-muted/40 ${
+                      esHoy ? "bg-primary/5" : esSeleccionado ? "bg-secondary/40" : ""
+                    }`}
+                  >
+                    <span
+                      className={`text-xs uppercase tracking-wider ${
+                        esHoy ? "text-primary font-bold" : "text-muted-foreground font-semibold"
+                      }`}
+                    >
+                      {d.etiqueta}
+                    </span>
+                    {esHoy ? (
+                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1 font-mono text-xs font-bold text-primary-foreground shadow-xs">
+                        {d.numero}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-sm font-semibold text-foreground">
+                        {d.numero}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Grilla horaria con slots y posicionamiento absoluto */}
+            <div className="relative overflow-x-auto">
+              <div className="grid grid-cols-[56px_repeat(7,1fr)] min-w-[700px] relative select-none">
+                {slots.map((slot) => {
+                  if (slot.tipo === "gap") {
+                    return (
+                      <React.Fragment key={`gap-${slot.gap.inicio}`}>
+                        <div className="h-[36px] border-t border-border/40 pr-1 flex flex-col justify-center text-right">
+                          <button
+                            type="button"
+                            onClick={() => toggleGap(slot.gap.inicio)}
+                            className="text-[10px] font-mono font-bold text-muted-foreground hover:text-foreground leading-tight"
+                            title="Clic para expandir horario"
+                          >
+                            +{slot.gap.count}h
+                            <span className="block text-[8px] font-sans font-normal opacity-75">
+                              sin clases
+                            </span>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleGap(slot.gap.inicio)}
+                          className="col-span-7 h-[36px] border-t border-b border-dashed border-border bg-[repeating-linear-gradient(135deg,hsl(var(--muted))_0_6px,hsl(var(--card))_6px_12px)] flex items-center justify-center text-xs text-muted-foreground hover:bg-muted/40 transition-colors"
+                          title="Clic para ver horario completo"
+                        >
+                          <span className="font-mono text-[11px] font-semibold tracking-tight text-muted-foreground/90">
+                            + {slot.gap.count} h / sin clases (clic para expandir)
+                          </span>
+                        </button>
+                      </React.Fragment>
+                    );
+                  }
+
+                  return (
+                    <React.Fragment key={`hora-${slot.hora}`}>
+                      <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                        {String(slot.hora).padStart(2, "0")}:00
+                      </div>
+                      {diasSemana.map((d) => {
+                        const esHoy = d.clave === hoy;
+                        const esDomingo = d.etiqueta === "DOM";
+                        const sinClases =
+                          clasesSemana.filter((c) => claveDia(c.inicio) === d.clave).length === 0;
+
+                        return (
+                          <div
+                            key={`${d.clave}-${slot.hora}`}
+                            className={`h-[56px] border-t border-r last:border-r-0 border-border/40 ${
+                              esHoy
+                                ? "bg-primary/5"
+                                : esDomingo || sinClases
+                                  ? "bg-muted/30"
+                                  : "bg-card"
+                            }`}
+                          />
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+
+                {/* Layer 2: Capa de clases absolutas y línea de ahora */}
+                <div
+                  className="absolute inset-y-0 left-[56px] right-0 pointer-events-none grid grid-cols-7"
+                  style={{ height: `${totalAlturaGrid}px` }}
+                >
+                  {diasSemana.map((d) => {
+                    const esHoy = d.clave === hoy;
+                    const clasesDia = clasesSemana.filter((c) => claveDia(c.inicio) === d.clave);
+                    const solapesMap = solapesSemanaPorDia.get(d.clave);
+
+                    return (
+                      <div key={`layer-${d.clave}`} className="relative h-full pointer-events-auto">
+                        {/* Línea de "ahora": solo en columna de hoy */}
+                        {esHoy && mostrarLineaAhora && (
+                          <div
+                            className="absolute left-0 right-0 z-20 pointer-events-none"
+                            style={{ top: `${topAhora}px` }}
+                          >
+                            <div className="relative w-full h-0.5 bg-primary">
+                              <div className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-primary" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bloques de clases del día */}
+                        {clasesDia.map((c) => {
+                          const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
+                          const topPx = calcularTop(hora, minuto);
+                          const heightPx = ((c.duracion_minutos || 60) / 60) * 56;
+                          const solape = solapesMap?.get(c.id);
+
+                          return (
+                            <ClaseBlock
+                              key={c.id}
+                              clase={c}
+                              ocupados={ocupacion(c.id)}
+                              activa={seleccionada?.id === c.id}
+                              ahoraMs={ahoraMs}
+                              solape={solape}
+                              vista="semana"
+                              top={topPx}
+                              height={heightPx}
+                              onSelect={(id) => {
+                                setClaseId(id);
+                                setDia(claveDia(c.inicio));
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Panel de detalle de la clase seleccionada en vista semanal */}
+          {seleccionada && (
+            <div className="max-w-2xl">
+              {renderDetalleClase(
+                seleccionada,
+                anotados,
+                claseIniciada,
+                isOnline,
+                isTestMode,
+                abrirAnotarAlumno,
+                cancelDialogRef,
+                redimensionarClase,
+                editandoHora,
+                nuevaHora,
+                setNuevaHora,
+                guardarNuevaHora,
+                setEditandoHora,
+                editandoCupo,
+                nuevoCupo,
+                setNuevoCupo,
+                guardarNuevoCupo,
+                setEditandoCupo,
+                marcarAusente,
+                accionEnCurso,
+                quitarAnotadoCoach
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VISTA DÍA (Sección 7: Grilla en 1 columna + panel de detalle) */}
+      {vista === "dia" && (
+        <div className="space-y-6">
           <div className="max-w-xl">
             <DaysStrip
-              dias={dias}
+              dias={diasSemana}
               seleccionado={dia}
               hoy={hoy}
               onSeleccionar={(c) => {
@@ -367,395 +1023,154 @@ export function ClassAgenda() {
             />
           </div>
 
-          {cargando && clases.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">Cargando agenda…</p>
-          ) : delDia.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground space-y-3">
-              <p>No hay clases programadas para este día.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCrearFecha(dia);
-                  createDialogRef.current?.showModal();
-                }}
-              >
-                + Crear clase el {dia}
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)]">
-              {/* Lista de clases del día con soporte para solapes */}
-              <div className="space-y-3" aria-label="Clases del día">
-                <div className="flex items-center justify-between px-1">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)]">
+            {/* Grilla horaria en 1 columna */}
+            <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+              <div className="grid grid-cols-[56px_1fr] border-b border-border/80 bg-muted/20">
+                <div className="h-12 border-r border-border/40" aria-hidden="true" />
+                <div className="h-12 p-2 flex items-center justify-between px-4">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Clases ({delDia.length})
+                    {diasSemana.find((d) => d.clave === dia)?.etiqueta} {dia}
                   </span>
-                  {delDia.some((c) => (solapes.get(c.id)?.totalColumnas ?? 1) > 1) && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                      ⚡ Clases con solape horario
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    {delDia.length} clases
+                  </span>
                 </div>
-
-                <ul className="space-y-2.5">
-                  {delDia.map((clase) => {
-                    const ocupados = ocupacion(clase.id);
-                    const activa = seleccionada?.id === clase.id;
-                    const cancelada = clase.estado === "CANCELADA";
-                    const solape = solapes.get(clase.id);
-                    const tieneSolape = solape && solape.totalColumnas > 1;
-
-                    return (
-                      <li key={clase.id}>
-                        <button
-                          type="button"
-                          onClick={() => setClaseId(clase.id)}
-                          aria-pressed={activa}
-                          className={`w-full rounded-2xl border bg-card p-4 text-left transition-all ${
-                            activa
-                              ? "border-primary ring-2 ring-primary/30"
-                              : "border-border/80 hover:border-primary/40"
-                          } ${cancelada ? "opacity-60" : ""} ${
-                            tieneSolape ? "border-l-4 border-l-amber-500" : ""
-                          }`}
-                          data-testid="class-block-card"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl font-black tabular-nums">
-                                {horaLocal(clase.inicio)}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                ({clase.duracion_minutos} min)
-                              </span>
-                            </div>
-                            <span
-                              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[clase.actividad]}`}
-                            >
-                              {NOMBRE_ACTIVIDAD[clase.actividad]}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex items-center justify-between text-sm">
-                            <p className="font-semibold tabular-nums">
-                              {cancelada
-                                ? "Cancelada"
-                                : clase.capacidad !== null
-                                  ? `${ocupados}/${clase.capacidad} cupos${
-                                      ocupados > clase.capacidad
-                                        ? " · Sobrecupo"
-                                        : ocupados === clase.capacidad
-                                          ? " · Lleno"
-                                          : ""
-                                    }`
-                                  : `${ocupados} anotados · sin límite de cupo`}
-                            </p>
-                            {tieneSolape && (
-                              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                                Solape Col {solape.columna + 1}/{solape.totalColumnas}
-                              </span>
-                            )}
-                          </div>
-
-                          {!cancelada && clase.capacidad ? (
-                            <div className="mt-2 h-1.5 rounded-full bg-secondary" aria-hidden="true">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  ocupados > clase.capacidad ? "bg-amber-500" : "bg-primary"
-                                }`}
-                                style={{
-                                  width: `${Math.min(100, (ocupados / clase.capacidad) * 100)}%`,
-                                }}
-                              />
-                            </div>
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
               </div>
 
-              {/* Detalle y gestión de clase seleccionada */}
-              {seleccionada && (
-                <div
-                  className="rounded-2xl border border-border/80 bg-card p-5 space-y-5"
-                  data-testid="class-detail"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[seleccionada.actividad]}`}
-                        >
-                          {NOMBRE_ACTIVIDAD[seleccionada.actividad]}
-                        </span>
-                        <h2 className="text-xl font-black">
-                          {horaLocal(seleccionada.inicio)}
-                        </h2>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Duración: {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {seleccionada.estado === "PROGRAMADA" && (
-                        <>
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={abrirAnotarAlumno}
-                            data-testid="enroll-student-dialog-btn"
-                          >
-                            + Anotar alumno
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!isOnline && !isTestMode}
-                            onClick={() => cancelDialogRef.current?.showModal()}
-                            data-testid="cancel-class-dialog-btn"
-                          >
-                            Cancelar clase
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {seleccionada.estado === "CANCELADA" && (
-                    <p
-                      className="rounded-xl bg-secondary/60 p-3 text-sm text-rose-600 dark:text-rose-400 font-semibold"
-                      data-testid="class-canceled-banner"
-                    >
-                      Clase cancelada
-                      {seleccionada.motivo_cancelacion
-                        ? `: ${seleccionada.motivo_cancelacion}`
-                        : "."}
-                    </p>
-                  )}
-
-                  {/* Panel de Controles: Mover, Redimensionar y Cupo flexible */}
-                  {seleccionada.estado === "PROGRAMADA" && (
-                    <div className="rounded-xl bg-secondary/30 border border-border/60 p-3 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-foreground">
-                          Controles de Clase (Cupo flexible &amp; Horario)
-                        </span>
-                      </div>
-
-                      {/* Redimensión rápida de duración */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-muted-foreground font-semibold">Duración:</span>
-                        <button
-                          type="button"
-                          onClick={() => void redimensionarClase(seleccionada.id, 45)}
-                          className={`px-2.5 py-1 rounded-lg border font-bold ${
-                            seleccionada.duracion_minutos === 45
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "border-border hover:bg-secondary/60"
-                          }`}
-                          data-testid="resize-class-45-btn"
-                        >
-                          45m
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void redimensionarClase(seleccionada.id, 60)}
-                          className={`px-2.5 py-1 rounded-lg border font-bold ${
-                            seleccionada.duracion_minutos === 60
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "border-border hover:bg-secondary/60"
-                          }`}
-                          data-testid="resize-class-60-btn"
-                        >
-                          60m
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void redimensionarClase(seleccionada.id, 90)}
-                          className={`px-2.5 py-1 rounded-lg border font-bold ${
-                            seleccionada.duracion_minutos === 90
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : "border-border hover:bg-secondary/60"
-                          }`}
-                          data-testid="resize-class-90-btn"
-                        >
-                          90m
-                        </button>
-                      </div>
-
-                      {/* Mover horario */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-muted-foreground font-semibold">Horario:</span>
-                        {editandoHora ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="time"
-                              value={nuevaHora}
-                              onChange={(e) => setNuevaHora(e.target.value)}
-                              className="rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
-                              data-testid="move-class-time"
-                            />
-                            <Button size="sm" onClick={guardarNuevaHora} data-testid="save-move-class-btn">
-                              Guardar
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setEditandoHora(false)}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setNuevaHora(horaLocal(seleccionada.inicio));
-                              setEditandoHora(true);
-                            }}
-                            data-testid="move-class-btn"
-                          >
-                            Mover horario ({horaLocal(seleccionada.inicio)})
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Editar cupo flexible */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="text-muted-foreground font-semibold">Cupo flexible:</span>
-                        {editandoCupo ? (
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              min="1"
-                              max="50"
-                              value={nuevoCupo}
-                              onChange={(e) => setNuevoCupo(Number(e.target.value))}
-                              className="w-16 rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
-                              data-testid="edit-capacity-input"
-                            />
-                            <Button size="sm" onClick={guardarNuevoCupo} data-testid="save-capacity-btn">
-                              Guardar
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setEditandoCupo(false)}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setNuevoCupo(seleccionada.capacidad ?? 6);
-                              setEditandoCupo(true);
-                            }}
-                            data-testid="edit-capacity-btn"
-                          >
-                            Editar cupo ({seleccionada.capacidad ?? "Sin límite"})
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Listado de Anotados */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold">
-                        Anotados ({anotados.length}
-                        {seleccionada.capacidad ? ` / ${seleccionada.capacidad}` : ""})
-                      </h3>
-                      {anotados.length > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {anotados.filter((r) => r.estado === "ANOTADO").length} presentes
-                        </span>
-                      )}
-                    </div>
-
-                    {anotados.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
-                        Todavía no hay alumnos anotados en esta clase.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-border/60" aria-label="Anotados">
-                        {anotados.map((r) => (
-                          <li
-                            key={r.id}
-                            className="flex items-center justify-between gap-3 py-2.5"
-                            data-testid="student-row"
-                          >
-                            <div>
-                              <span className="text-sm font-semibold">{r.alumno_nombre}</span>
-                              <span className="text-[11px] text-muted-foreground block">
-                                {r.estado}
+              <div className="relative overflow-x-auto">
+                <div className="grid grid-cols-[56px_1fr] relative select-none">
+                  {slots.map((slot) => {
+                    if (slot.tipo === "gap") {
+                      return (
+                        <React.Fragment key={`dia-gap-${slot.gap.inicio}`}>
+                          <div className="h-[36px] border-t border-border/40 pr-1 flex flex-col justify-center text-right">
+                            <button
+                              type="button"
+                              onClick={() => toggleGap(slot.gap.inicio)}
+                              className="text-[10px] font-mono font-bold text-muted-foreground hover:text-foreground leading-tight"
+                              title="Clic para expandir horario"
+                            >
+                              +{slot.gap.count}h
+                              <span className="block text-[8px] font-sans font-normal opacity-75">
+                                sin clases
                               </span>
-                            </div>
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleGap(slot.gap.inicio)}
+                            className="h-[36px] border-t border-b border-dashed border-border bg-[repeating-linear-gradient(135deg,hsl(var(--muted))_0_6px,hsl(var(--card))_6px_12px)] flex items-center justify-center text-xs text-muted-foreground hover:bg-muted/40 transition-colors"
+                            title="Clic para ver horario completo"
+                          >
+                            <span className="font-mono text-[11px] font-semibold tracking-tight text-muted-foreground/90">
+                              + {slot.gap.count} h / sin clases (clic para expandir)
+                            </span>
+                          </button>
+                        </React.Fragment>
+                      );
+                    }
 
-                            <div className="flex items-center gap-2">
-                              {r.estado === "ANOTADO" ? (
-                                <div
-                                  className="flex rounded-xl border border-border/80 p-0.5"
-                                  role="group"
-                                  aria-label={`Asistencia de ${r.alumno_nombre}`}
-                                >
-                                  <span className="flex min-h-11 items-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white">
-                                    Presente
-                                  </span>
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      (!isOnline && !isTestMode) ||
-                                      accionEnCurso === r.id ||
-                                      !claseIniciada
-                                    }
-                                    title={
-                                      !claseIniciada
-                                        ? "Disponible solo después del inicio de la clase"
-                                        : undefined
-                                    }
-                                    onClick={() => void marcarAusente(r.id)}
-                                    className="min-h-11 rounded-lg px-3 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed dark:text-rose-400"
-                                    data-testid="mark-absent-btn"
-                                  >
-                                    Ausente
-                                  </button>
-                                </div>
-                              ) : (
-                                <span
-                                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                                    r.estado === "AUSENTE"
-                                      ? "bg-rose-600/15 text-rose-600 dark:text-rose-400"
-                                      : "bg-secondary text-muted-foreground"
-                                  }`}
-                                  data-testid="reservation-state-badge"
-                                >
-                                  {r.estado === "AUSENTE"
-                                    ? "Ausente · consume cupo"
-                                    : "Anulada"}
-                                </span>
-                              )}
+                    return (
+                      <React.Fragment key={`dia-hora-${slot.hora}`}>
+                        <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                          {String(slot.hora).padStart(2, "0")}:00
+                        </div>
+                        <div
+                          className={`h-[56px] border-t border-l border-border/40 ${
+                            dia === hoy ? "bg-primary/5" : "bg-card"
+                          }`}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
 
-                              <button
-                                type="button"
-                                title="Quitar de la clase"
-                                onClick={() => void quitarAnotadoCoach(r.id)}
-                                className="min-h-9 px-2 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors"
-                                data-testid="remove-reservation-btn"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  {/* Layer 2: Capa de clases absolutas en 1 columna */}
+                  <div
+                    className="absolute inset-y-0 left-[56px] right-0 pointer-events-none"
+                    style={{ height: `${totalAlturaGrid}px` }}
+                  >
+                    <div className="relative h-full pointer-events-auto">
+                      {dia === hoy && mostrarLineaAhora && (
+                        <div
+                          className="absolute left-0 right-0 z-20 pointer-events-none"
+                          style={{ top: `${topAhora}px` }}
+                        >
+                          <div className="relative w-full h-0.5 bg-primary">
+                            <div className="absolute -left-1 -top-[3px] h-2 w-2 rounded-full bg-primary" />
+                          </div>
+                        </div>
+                      )}
+
+                      {delDia.map((c) => {
+                        const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
+                        const topPx = calcularTop(hora, minuto);
+                        const heightPx = ((c.duracion_minutos || 60) / 60) * 56;
+                        const solape = solapesDia.get(c.id);
+
+                        return (
+                          <ClaseBlock
+                            key={c.id}
+                            clase={c}
+                            ocupados={ocupacion(c.id)}
+                            activa={seleccionada?.id === c.id}
+                            ahoraMs={ahoraMs}
+                            solape={solape}
+                            vista="dia"
+                            top={topPx}
+                            height={heightPx}
+                            onSelect={(id) => setClaseId(id)}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
-          )}
-        </>
+
+            {/* Panel de detalle/gestión existente a la derecha */}
+            {seleccionada ? (
+              renderDetalleClase(
+                seleccionada,
+                anotados,
+                claseIniciada,
+                isOnline,
+                isTestMode,
+                abrirAnotarAlumno,
+                cancelDialogRef,
+                redimensionarClase,
+                editandoHora,
+                nuevaHora,
+                setNuevaHora,
+                guardarNuevaHora,
+                setEditandoHora,
+                editandoCupo,
+                nuevoCupo,
+                setNuevoCupo,
+                guardarNuevoCupo,
+                setEditandoCupo,
+                marcarAusente,
+                accionEnCurso,
+                quitarAnotadoCoach
+              )
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-3">
+                <p>No hay clases programadas para este día.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCrearFecha(dia);
+                    createDialogRef.current?.showModal();
+                  }}
+                >
+                  + Crear clase el {dia}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* DIÁLOGO: CREAR NUEVA CLASE */}
@@ -770,103 +1185,116 @@ export function ClassAgenda() {
             Crear nueva clase
           </h2>
 
-          <label className="block space-y-1.5 text-sm font-semibold">
-            Actividad / Servicio
+          <div className="space-y-1">
+            <label htmlFor="crear-actividad" className="text-xs font-bold text-muted-foreground">
+              Actividad
+            </label>
             <select
+              id="crear-actividad"
               value={crearActividad}
               onChange={(e) => setCrearActividad(e.target.value as ActividadClase)}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
               data-testid="create-class-activity"
             >
               <option value="FUNCIONAL">Funcional</option>
               <option value="BOXEO">Boxeo</option>
             </select>
-          </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block space-y-1.5 text-sm font-semibold">
-              Fecha
-              <input
-                type="date"
-                required
-                value={crearFecha}
-                onChange={(e) => setCrearFecha(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-sm"
-                data-testid="create-class-date"
-              />
-            </label>
-
-            <label className="block space-y-1.5 text-sm font-semibold">
-              Hora de inicio
-              <input
-                type="time"
-                required
-                value={crearHora}
-                onChange={(e) => setCrearHora(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-sm"
-                data-testid="create-class-time"
-              />
-            </label>
           </div>
 
-          <label className="block space-y-1.5 text-sm font-semibold">
-            Duración (minutos)
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label htmlFor="crear-fecha" className="text-xs font-bold text-muted-foreground">
+                Fecha
+              </label>
+              <input
+                id="crear-fecha"
+                type="date"
+                value={crearFecha}
+                onChange={(e) => setCrearFecha(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                data-testid="create-class-date"
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="crear-hora" className="text-xs font-bold text-muted-foreground">
+                Hora de inicio
+              </label>
+              <input
+                id="crear-hora"
+                type="time"
+                value={crearHora}
+                onChange={(e) => setCrearHora(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                data-testid="create-class-time"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="crear-duracion" className="text-xs font-bold text-muted-foreground">
+              Duración
+            </label>
             <select
+              id="crear-duracion"
               value={crearDuracion}
               onChange={(e) => setCrearDuracion(Number(e.target.value))}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
               data-testid="create-class-duration"
             >
-              <option value={30}>30 minutos</option>
               <option value={45}>45 minutos</option>
-              <option value={60}>60 minutos (1 hora)</option>
-              <option value={90}>90 minutos (1.5 horas)</option>
+              <option value={60}>60 minutos (estándar)</option>
+              <option value={90}>90 minutos</option>
             </select>
-          </label>
+          </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
-              <input
-                type="checkbox"
-                checked={crearSinLimite}
-                onChange={(e) => setCrearSinLimite(e.target.checked)}
-                className="rounded border-border"
-              />
-              Sin límite de cupo
-            </label>
-
-            {!crearSinLimite && (
-              <label className="block space-y-1 text-xs font-semibold text-muted-foreground">
-                Cupo flexible (capacidad recomendada)
-                <input
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={crearCapacidad ?? 6}
-                  onChange={(e) => setCrearCapacidad(Number(e.target.value))}
-                  className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-normal text-foreground"
-                  data-testid="create-class-capacity"
-                />
+            <div className="flex items-center justify-between">
+              <label htmlFor="crear-capacidad" className="text-xs font-bold text-muted-foreground">
+                Cupo flexible
               </label>
+              <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={crearSinLimite}
+                  onChange={(e) => setCrearSinLimite(e.target.checked)}
+                  className="rounded"
+                />
+                Sin límite
+              </label>
+            </div>
+            {!crearSinLimite && (
+              <input
+                id="crear-capacidad"
+                type="number"
+                min="1"
+                max="50"
+                value={crearCapacidad ?? 6}
+                onChange={(e) => setCrearCapacidad(Number(e.target.value))}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                data-testid="create-class-capacity"
+                required
+              />
             )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="ghost"
               type="button"
+              variant="outline"
               onClick={() => createDialogRef.current?.close()}
             >
               Cancelar
             </Button>
             <Button type="submit" data-testid="create-class-submit">
-              Crear clase
+              Guardar clase
             </Button>
           </div>
         </form>
       </dialog>
 
-      {/* DIÁLOGO: ANOTAR ALUMNO (VALIDACIÓN Y FORZADO) */}
+      {/* DIÁLOGO: ANOTAR ALUMNO */}
       <dialog
         ref={enrollDialogRef}
         className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
@@ -875,60 +1303,58 @@ export function ClassAgenda() {
       >
         <div className="space-y-4">
           <h2 id="anotar-alumno-titulo" className="text-lg font-black">
-            Anotar alumno a la clase
+            Anotar alumno en la clase
           </h2>
-          <p className="text-xs text-muted-foreground">
-            {seleccionada ? `${NOMBRE_ACTIVIDAD[seleccionada.actividad]} · ${horaLocal(seleccionada.inicio)}` : ""}
-          </p>
 
-          <label className="block space-y-1.5 text-sm font-semibold">
-            Seleccionar alumno
+          <div className="space-y-1">
+            <label htmlFor="seleccionar-alumno" className="text-xs font-bold text-muted-foreground">
+              Seleccionar alumno
+            </label>
             <select
+              id="seleccionar-alumno"
               value={alumnoSeleccionado}
               onChange={(e) => {
                 setAlumnoSeleccionado(e.target.value);
                 setAdvertenciaAnotacion(null);
                 setRequiereConfirmacion(false);
               }}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
               data-testid="enroll-student-select"
             >
               {listaAlumnos.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.nombre_completo} ({a.estado_membresia})
+                  {a.nombre_completo}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
-          {/* Banner de advertencia (Suscripción vencida, límite semanal o sobrecupo) */}
           {advertenciaAnotacion && (
             <div
-              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1"
-              role="alert"
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300 space-y-1"
               data-testid="enroll-warning-banner"
             >
-              <p className="font-bold">⚠️ Atención del Coach:</p>
+              <p className="font-bold">Advertencia de suscripción / cupo:</p>
               <p>{advertenciaAnotacion}</p>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button
-              variant="ghost"
               type="button"
+              variant="outline"
               onClick={() => enrollDialogRef.current?.close()}
             >
-              Volver
+              Cancelar
             </Button>
             {requiereConfirmacion ? (
               <Button
-                variant="destructive"
                 type="button"
+                variant="destructive"
                 onClick={() => void handleVerificarAnotar(true)}
                 data-testid="confirm-enroll-student-btn"
               >
-                Forzar anotación con confirmación
+                Forzar anotación
               </Button>
             ) : (
               <Button
@@ -936,7 +1362,7 @@ export function ClassAgenda() {
                 onClick={() => void handleVerificarAnotar(false)}
                 data-testid="confirm-enroll-student-btn"
               >
-                Anotar alumno
+                Confirmar
               </Button>
             )}
           </div>
@@ -946,53 +1372,347 @@ export function ClassAgenda() {
       {/* DIÁLOGO: CANCELAR CLASE */}
       <dialog
         ref={cancelDialogRef}
-        onClose={() => setMotivo("")}
         className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
         aria-labelledby="cancelar-clase-titulo"
       >
-        <form
-          method="dialog"
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void confirmarCancelacion();
-          }}
-        >
+        <div className="space-y-4">
           <h2 id="cancelar-clase-titulo" className="text-lg font-black">
-            ¿Cancelar la clase?
+            Cancelar clase
           </h2>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            <li>Se anulan las reservas activas ({seleccionada ? ocupacion(seleccionada.id) : 0}).</li>
-            <li>A los alumnos no les cuenta en el límite semanal.</li>
-          </ul>
-          <label className="block space-y-1.5 text-sm font-semibold">
-            Motivo
+          <p className="text-sm text-muted-foreground">
+            Al cancelar, se anularán las reservas de todos los alumnos anotados y se les
+            restituirá el crédito semanal.
+          </p>
+
+          <div className="space-y-1">
+            <label htmlFor="motivo-cancelacion" className="text-xs font-bold text-muted-foreground">
+              Motivo de la cancelación (mínimo {MOTIVO_MINIMO} caracteres)
+            </label>
             <textarea
+              id="motivo-cancelacion"
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
-              required
               minLength={MOTIVO_MINIMO}
               rows={3}
-              className="w-full rounded-xl border border-border bg-background p-3 text-sm font-normal"
-              placeholder="Ej.: corte de luz en el gimnasio"
+              className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-hidden"
+              placeholder="Ej.: Feriado nacional, indisposición del coach..."
               data-testid="cancel-class-reason"
             />
-          </label>
+          </div>
+
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" type="button" onClick={() => cancelDialogRef.current?.close()}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => cancelDialogRef.current?.close()}
+            >
               Volver
             </Button>
             <Button
-              type="submit"
+              type="button"
               variant="destructive"
-              disabled={motivo.trim().length < MOTIVO_MINIMO || accionEnCurso === seleccionada?.id}
+              disabled={motivo.trim().length < MOTIVO_MINIMO}
+              onClick={() => void confirmarCancelacion()}
               data-testid="confirm-cancel-class-btn"
             >
-              Cancelar clase
+              Confirmar cancelación
             </Button>
           </div>
-        </form>
+        </div>
       </dialog>
     </section>
+  );
+}
+
+// Subcomponente: Panel de detalle y gestión de clase seleccionada
+function renderDetalleClase(
+  seleccionada: Clase,
+  anotados: ReturnType<typeof useClasesStore.getState>["agendaReservas"],
+  claseIniciada: boolean,
+  isOnline: boolean,
+  isTestMode: boolean,
+  abrirAnotarAlumno: () => void,
+  cancelDialogRef: React.RefObject<HTMLDialogElement | null>,
+  redimensionarClase: (id: string, duracion: number) => Promise<boolean>,
+  editandoHora: boolean,
+  nuevaHora: string,
+  setNuevaHora: (h: string) => void,
+  guardarNuevaHora: () => Promise<void>,
+  setEditandoHora: (b: boolean) => void,
+  editandoCupo: boolean,
+  nuevoCupo: number,
+  setNuevoCupo: (n: number) => void,
+  guardarNuevoCupo: () => Promise<void>,
+  setEditandoCupo: (b: boolean) => void,
+  marcarAusente: (reservaId: string) => Promise<void | boolean>,
+  accionEnCurso: string | null,
+  quitarAnotadoCoach: (reservaId: string) => Promise<void | boolean>
+) {
+  return (
+    <div
+      className="rounded-2xl border border-border/80 bg-card p-5 space-y-5"
+      data-testid="class-detail"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[seleccionada.actividad]}`}
+            >
+              {NOMBRE_ACTIVIDAD[seleccionada.actividad]}
+            </span>
+            <h2 className="text-xl font-black">{horaLocal(seleccionada.inicio)}</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Duración: {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {seleccionada.estado === "PROGRAMADA" && (
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={abrirAnotarAlumno}
+                data-testid="enroll-student-dialog-btn"
+              >
+                + Anotar alumno
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!isOnline && !isTestMode}
+                onClick={() => cancelDialogRef.current?.showModal()}
+                data-testid="cancel-class-dialog-btn"
+              >
+                Cancelar clase
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {seleccionada.estado === "CANCELADA" && (
+        <p
+          className="rounded-xl bg-secondary/60 p-3 text-sm text-rose-600 dark:text-rose-400 font-semibold"
+          data-testid="class-canceled-banner"
+        >
+          Clase cancelada
+          {seleccionada.motivo_cancelacion ? `: ${seleccionada.motivo_cancelacion}` : "."}
+        </p>
+      )}
+
+      {/* Controles de Clase (Cupo flexible & Horario) */}
+      {seleccionada.estado === "PROGRAMADA" && (
+        <div className="rounded-xl bg-secondary/30 border border-border/60 p-3 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-foreground">
+              Controles de Clase (Cupo flexible &amp; Horario)
+            </span>
+          </div>
+
+          {/* Redimensión rápida de duración */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground font-semibold">Duración:</span>
+            <button
+              type="button"
+              onClick={() => void redimensionarClase(seleccionada.id, 45)}
+              className={`px-2.5 py-1 rounded-lg border font-bold ${
+                seleccionada.duracion_minutos === 45
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border hover:bg-secondary/60"
+              }`}
+              data-testid="resize-class-45-btn"
+            >
+              45m
+            </button>
+            <button
+              type="button"
+              onClick={() => void redimensionarClase(seleccionada.id, 60)}
+              className={`px-2.5 py-1 rounded-lg border font-bold ${
+                seleccionada.duracion_minutos === 60
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border hover:bg-secondary/60"
+              }`}
+              data-testid="resize-class-60-btn"
+            >
+              60m
+            </button>
+            <button
+              type="button"
+              onClick={() => void redimensionarClase(seleccionada.id, 90)}
+              className={`px-2.5 py-1 rounded-lg border font-bold ${
+                seleccionada.duracion_minutos === 90
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border hover:bg-secondary/60"
+              }`}
+              data-testid="resize-class-90-btn"
+            >
+              90m
+            </button>
+          </div>
+
+          {/* Mover horario */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground font-semibold">Horario:</span>
+            {editandoHora ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={nuevaHora}
+                  onChange={(e) => setNuevaHora(e.target.value)}
+                  className="rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
+                  data-testid="move-class-time"
+                />
+                <Button size="sm" onClick={guardarNuevaHora} data-testid="save-move-class-btn">
+                  Guardar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditandoHora(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNuevaHora(horaLocal(seleccionada.inicio));
+                  setEditandoHora(true);
+                }}
+                data-testid="move-class-btn"
+              >
+                Mover horario ({horaLocal(seleccionada.inicio)})
+              </Button>
+            )}
+          </div>
+
+          {/* Editar cupo flexible */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground font-semibold">Cupo flexible:</span>
+            {editandoCupo ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={nuevoCupo}
+                  onChange={(e) => setNuevoCupo(Number(e.target.value))}
+                  className="w-16 rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
+                  data-testid="edit-capacity-input"
+                />
+                <Button size="sm" onClick={guardarNuevoCupo} data-testid="save-capacity-btn">
+                  Guardar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditandoCupo(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setNuevoCupo(seleccionada.capacidad ?? 6);
+                  setEditandoCupo(true);
+                }}
+                data-testid="edit-capacity-btn"
+              >
+                Editar cupo ({seleccionada.capacidad ?? "Sin límite"})
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Listado de Anotados */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold">
+            Anotados ({anotados.length}
+            {seleccionada.capacidad ? ` / ${seleccionada.capacidad}` : ""})
+          </h3>
+          {anotados.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {anotados.filter((r) => r.estado === "ANOTADO").length} presentes
+            </span>
+          )}
+        </div>
+
+        {anotados.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
+            Todavía no hay alumnos anotados en esta clase.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60" aria-label="Anotados">
+            {anotados.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 py-2.5"
+                data-testid="student-row"
+              >
+                <div>
+                  <span className="text-sm font-semibold">{r.alumno_nombre}</span>
+                  <span className="text-[11px] text-muted-foreground block">{r.estado}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {r.estado === "ANOTADO" ? (
+                    <div
+                      className="flex rounded-xl border border-border/80 p-0.5"
+                      role="group"
+                      aria-label={`Asistencia de ${r.alumno_nombre}`}
+                    >
+                      <span className="flex min-h-11 items-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white">
+                        Presente
+                      </span>
+                      <button
+                        type="button"
+                        disabled={
+                          (!isOnline && !isTestMode) ||
+                          accionEnCurso === r.id ||
+                          !claseIniciada
+                        }
+                        title={
+                          !claseIniciada
+                            ? "Disponible solo después del inicio de la clase"
+                            : undefined
+                        }
+                        onClick={() => void marcarAusente(r.id)}
+                        className="min-h-11 rounded-lg px-3 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed dark:text-rose-400"
+                        data-testid="mark-absent-btn"
+                      >
+                        Ausente
+                      </button>
+                    </div>
+                  ) : (
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        r.estado === "AUSENTE"
+                          ? "bg-rose-600/15 text-rose-600 dark:text-rose-400"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                      data-testid="reservation-state-badge"
+                    >
+                      {r.estado === "AUSENTE" ? "Ausente · consume cupo" : "Anulada"}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    title="Quitar de la clase"
+                    onClick={() => void quitarAnotadoCoach(r.id)}
+                    className="min-h-9 px-2 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors"
+                    data-testid="remove-reservation-btn"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
