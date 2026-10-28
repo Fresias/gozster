@@ -10,7 +10,6 @@ import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
-import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
@@ -22,7 +21,6 @@ import {
   Flame,
   Clapperboard,
   Video,
-  Dumbbell,
   ClipboardList,
   OctagonAlert,
   X,
@@ -159,7 +157,6 @@ export function LiveWorkout() {
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
-  const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
     exerciseId: string;
     exerciseName: string;
@@ -1374,29 +1371,18 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Auxiliares técnicos: Calentamiento y Discos */}
-                          <div className="flex items-center gap-2 pt-1">
+                          {/* Auxiliar técnico: Calentamiento */}
+                          <div className="pt-1">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
+                              className="w-full min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
                             >
                               <Flame className="h-4 w-4" />
                               <span>Calentamiento</span>
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 min-h-11 border-border font-bold text-xs"
-                              onClick={() => setPlateModalWeight(serie.peso_kg)}
-                            >
-                              <Dumbbell className="h-4 w-4" />
-                              <span>Discos</span>
                             </Button>
                           </div>
                         </div>
@@ -2053,18 +2039,6 @@ export function LiveWorkout() {
               pesoKg: warmupSet.peso_kg,
               reps: warmupSet.reps,
             });
-          }}
-        />
-      )}
-
-      {plateModalWeight !== null && (
-        <PlateCalculatorModal
-          isOpen={plateModalWeight !== null}
-          onClose={() => setPlateModalWeight(null)}
-          targetWeightKg={plateModalWeight}
-          onApplyWeight={(normalizedWeight) => {
-            handleDirectUpdatePeso(normalizedWeight);
-            setPlateModalWeight(null);
           }}
         />
       )}

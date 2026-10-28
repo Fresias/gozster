@@ -596,7 +596,7 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
       expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
       expect(liveWorkoutCode).toContain("setWarmupModalExercise");
-      expect(liveWorkoutCode).toContain("setPlateModalWeight");
+      expect(liveWorkoutCode).not.toContain("setPlateModalWeight");
       expect(liveWorkoutCode).toContain("Vol. Efectivo (Hevy)");
     });
 

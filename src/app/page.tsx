@@ -177,9 +177,6 @@ export default function HomePage() {
                   Cronómetro Inteligente
                 </span>
                 <span className="rounded-lg bg-secondary/80 px-2.5 py-1 text-[11px] font-semibold text-foreground border border-border/60">
-                  Calculadora de Discos
-                </span>
-                <span className="rounded-lg bg-secondary/80 px-2.5 py-1 text-[11px] font-semibold text-foreground border border-border/60">
                   Calentamiento Específico
                 </span>
               </div>
