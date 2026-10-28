@@ -3,7 +3,7 @@
 -- Ganador = más completo (url_video, luego comentario), desempate: más antiguo, luego id.
 -- Idempotente: sin duplicados no hace nada. Reporte vía RAISE NOTICE (visible en logs de la migración).
 
-CREATE TEMP TABLE _ej_dedup ON COMMIT DROP AS
+CREATE TEMP TABLE _ej_dedup AS
 WITH k AS (
   SELECT id, nombre, url_video, comentario, created_at,
     btrim(regexp_replace(
@@ -75,3 +75,4 @@ END $$;
 -- Las filas de ejercicios_alternativas que no pudieron repuntarse caen por ON DELETE CASCADE.
 -- Cualquier otra referencia sin repuntar (p. ej. colisión en registro_series) aborta por RESTRICT.
 DELETE FROM public.ejercicios WHERE id IN (SELECT perdedor_id FROM _ej_dedup);
+DROP TABLE _ej_dedup;
