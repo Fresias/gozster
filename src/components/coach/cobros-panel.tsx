@@ -10,10 +10,20 @@ import {
 } from "@/store/use-cobros-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import {
+  type ActividadPlanOpcion,
+  type PlanMembresiaConVigencia,
+  AVISO_VIGENCIA_FUTURA,
+  formatearActividadPlan,
+  formatearDuracionPlan,
+  getMananaFechaString,
+  validarVigenciaFutura,
+} from "@/lib/planes";
 
 export function CobrosPanel() {
   const {
     cobros,
+    planes,
     filtroEstado,
     busqueda,
     cargando,
@@ -29,11 +39,95 @@ export function CobrosPanel() {
     registrarPago,
     obtenerComprobante,
     metricas,
+    crearPlan,
+    modificarPlan,
   } = useCobrosStore();
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const mode = useWorkspaceModeStore((s) => s.mode);
   const isTestMode = mode === "TESTEO";
+
+  // Modales de planes
+  const planesDialogRef = React.useRef<HTMLDialogElement>(null);
+  const planFormDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  // Formulario crear/editar plan
+  const [planEnEdicion, setPlanEnEdicion] = React.useState<PlanMembresiaConVigencia | null>(null);
+  const [planNombre, setPlanNombre] = React.useState("");
+  const [planActividad, setPlanActividad] = React.useState<ActividadPlanOpcion>("FUNCIONAL");
+  const [planDuracion, setPlanDuracion] = React.useState<1 | 3 | 6 | 12>(1);
+  const [planLimiteSemanal, setPlanLimiteSemanal] = React.useState<number | null>(null);
+  const [planPrecio, setPlanPrecio] = React.useState<number>(30000);
+  const [planFechaVigencia, setPlanFechaVigencia] = React.useState<string>("");
+  const [errorFechaVigencia, setErrorFechaVigencia] = React.useState<string | null>(null);
+
+  const fechaMinimaManana = React.useMemo(() => getMananaFechaString(), []);
+
+  const abrirModalGestionPlanes = () => {
+    planesDialogRef.current?.showModal();
+  };
+
+  const abrirModalCrearPlan = () => {
+    setPlanEnEdicion(null);
+    setPlanNombre("");
+    setPlanActividad("FUNCIONAL");
+    setPlanDuracion(1);
+    setPlanLimiteSemanal(null);
+    setPlanPrecio(30000);
+    setPlanFechaVigencia(getMananaFechaString());
+    setErrorFechaVigencia(null);
+    planFormDialogRef.current?.showModal();
+  };
+
+  const abrirModalEditarPlan = (plan: PlanMembresiaConVigencia) => {
+    setPlanEnEdicion(plan);
+    setPlanNombre(plan.nombre);
+    setPlanActividad(
+      plan.actividad_tipo ?? (plan.cantidad_actividades === 2 ? "FUNCIONAL_BOXEO" : "FUNCIONAL")
+    );
+    setPlanDuracion((plan.duracion_meses as 1 | 3 | 6 | 12) || 1);
+    setPlanLimiteSemanal(plan.limite_semanal);
+    setPlanPrecio(plan.precio);
+    setPlanFechaVigencia(getMananaFechaString());
+    setErrorFechaVigencia(null);
+    planFormDialogRef.current?.showModal();
+  };
+
+  const handleGuardarPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validacion = validarVigenciaFutura(planFechaVigencia);
+    if (!validacion.valida) {
+      setErrorFechaVigencia(validacion.error ?? "La fecha de vigencia debe ser posterior a hoy.");
+      return;
+    }
+
+    try {
+      if (planEnEdicion) {
+        await modificarPlan({
+          planId: planEnEdicion.id,
+          nombre: planNombre.trim(),
+          precio: Number(planPrecio),
+          fechaVigencia: planFechaVigencia,
+          duracionMeses: planDuracion,
+          limiteSemanal: planLimiteSemanal,
+        });
+      } else {
+        await crearPlan({
+          nombre: planNombre.trim(),
+          actividad: planActividad,
+          duracionMeses: planDuracion,
+          limiteSemanal: planLimiteSemanal,
+          precio: Number(planPrecio),
+          fechaVigencia: planFechaVigencia,
+        });
+      }
+      planFormDialogRef.current?.close();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorFechaVigencia(err.message);
+      }
+    }
+  };
 
   // Modal registrar pago
   const [cobroSeleccionado, setCobroSeleccionado] = React.useState<CobroItem | null>(null);
@@ -128,7 +222,7 @@ export function CobrosPanel() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isTestMode && (
             <span
               className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
@@ -142,6 +236,23 @@ export function CobrosPanel() {
               Sin conexión · cobros guardados
             </span>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={abrirModalGestionPlanes}
+            data-testid="btn-gestionar-planes"
+            className="min-h-[44px] gap-2 font-bold shadow-xs border-primary/30 hover:border-primary text-foreground"
+          >
+            <span>🏷️</span> Planes &amp; Precios
+          </Button>
+          <Button
+            type="button"
+            onClick={abrirModalCrearPlan}
+            data-testid="btn-nuevo-plan"
+            className="min-h-[44px] gap-2 font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+          >
+            <span>➕</span> Nuevo Plan
+          </Button>
         </div>
       </header>
 
@@ -663,6 +774,271 @@ export function CobrosPanel() {
             </div>
           </div>
         )}
+      </dialog>
+
+      {/* DIÁLOGO: GESTIÓN DE PLANES */}
+      <dialog
+        ref={planesDialogRef}
+        className="m-auto w-[min(94vw,52rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="gestion-planes-titulo"
+        data-testid="gestion-planes-dialog"
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+            <div>
+              <h2 id="gestion-planes-titulo" className="text-xl font-black">
+                Planes de Membresía &amp; Precios
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Configuración de aranceles por actividad (Funcional, Boxeo, Rutinas) y períodos (Mensual, Trimestral, Semestral, Anual).
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={abrirModalCrearPlan}
+              data-testid="btn-crear-plan"
+              className="min-h-[44px] gap-1.5 font-bold bg-primary text-primary-foreground shadow-xs"
+            >
+              <span>➕</span> Crear Nuevo Plan
+            </Button>
+          </div>
+
+          {/* Aviso regla vigencia futura */}
+          <div
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200 space-y-1"
+            data-testid="aviso-vigencia-futura-banner"
+          >
+            <p className="font-bold flex items-center gap-1.5">
+              <span>⚠️</span> Regla de vigencia futura
+            </p>
+            <p>
+              {AVISO_VIGENCIA_FUTURA}
+            </p>
+          </div>
+
+          {/* Tabla de planes */}
+          <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-border/70">
+            <table className="w-full text-left text-xs" data-testid="planes-table">
+              <thead className="sticky top-0 bg-secondary/80 backdrop-blur-xs text-muted-foreground font-semibold border-b border-border/60">
+                <tr>
+                  <th className="p-3">Plan</th>
+                  <th className="p-3">Actividad</th>
+                  <th className="p-3">Duración</th>
+                  <th className="p-3">Límite</th>
+                  <th className="p-3">Precio Vigente</th>
+                  <th className="p-3">Vigencia</th>
+                  <th className="p-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {planes.map((p) => (
+                  <tr key={p.id} className="hover:bg-muted/40 transition-colors" data-testid={`plan-row-${p.id}`}>
+                    <td className="p-3 font-bold text-foreground">
+                      {p.nombre}
+                    </td>
+                    <td className="p-3">
+                      <span className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+                        {formatearActividadPlan(p.actividad_tipo)}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className="rounded-md bg-primary/10 text-primary px-2 py-0.5 text-[11px] font-bold">
+                        {formatearDuracionPlan(p.duracion_meses)}
+                      </span>
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {p.limite_semanal ? `${p.limite_semanal}x/sem` : "Pase Libre"}
+                    </td>
+                    <td className="p-3 font-black text-foreground tabular-nums">
+                      {formatearDinero(p.precio)}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {p.vigente_desde ? `Desde ${formatearFecha(p.vigente_desde)}` : "Actual"}
+                    </td>
+                    <td className="p-3 text-right">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => abrirModalEditarPlan(p)}
+                        data-testid={`btn-editar-plan-${p.id}`}
+                        className="min-h-[36px] px-2.5 text-xs font-semibold hover:border-primary"
+                      >
+                        Modificar
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => planesDialogRef.current?.close()}
+              className="min-h-[44px]"
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      </dialog>
+
+      {/* DIÁLOGO: CREAR O MODIFICAR PLAN */}
+      <dialog
+        ref={planFormDialogRef}
+        className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="plan-form-titulo"
+        data-testid="plan-form-dialog"
+      >
+        <form onSubmit={handleGuardarPlan} className="space-y-4">
+          <h2 id="plan-form-titulo" className="text-lg font-black">
+            {planEnEdicion ? `Modificar Plan: ${planEnEdicion.nombre}` : "Crear Nuevo Plan de Membresía"}
+          </h2>
+
+          {/* Cartel de aviso de vigencia futura */}
+          <div
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200 space-y-1"
+            data-testid="aviso-vigencia-futura"
+          >
+            <p className="font-bold flex items-center gap-1.5">
+              <span>⚠️</span> Regla de vigencia futura
+            </p>
+            <p>
+              El nuevo precio solo se aplicará a cuotas generadas a partir de la fecha de vigencia. <strong>No altera pagos ya cobrados ni cuotas vencidas.</strong>
+            </p>
+          </div>
+
+          {/* Nombre */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Nombre del Plan
+            <input
+              type="text"
+              required
+              value={planNombre}
+              onChange={(e) => setPlanNombre(e.target.value)}
+              placeholder="Ej: Funcional Trimestral, Boxeo 3x, Rutinas Anual"
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="input-plan-nombre"
+            />
+          </label>
+
+          {/* Actividad / Disciplina */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Actividad / Disciplina
+            <select
+              value={planActividad}
+              onChange={(e) => setPlanActividad(e.target.value as ActividadPlanOpcion)}
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="select-plan-actividad"
+            >
+              <option value="FUNCIONAL">Funcional</option>
+              <option value="BOXEO">Boxeo</option>
+              <option value="RUTINAS">Rutinas Online (Asesoría)</option>
+              <option value="FUNCIONAL_BOXEO">Funcional + Boxeo (Pase Libre 2 actividades)</option>
+            </select>
+          </label>
+
+          {/* Duración (Mensual, Trimestral, Semestral, Anual) */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Duración del Plan
+            <select
+              value={planDuracion}
+              onChange={(e) => setPlanDuracion(Number(e.target.value) as 1 | 3 | 6 | 12)}
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="select-plan-duracion"
+            >
+              <option value={1}>Mensual (1 mes)</option>
+              <option value={3}>Trimestral (3 meses)</option>
+              <option value={6}>Semestral (6 meses)</option>
+              <option value={12}>Anual (12 meses)</option>
+            </select>
+          </label>
+
+          {/* Límite semanal */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Límite Semanal de Clases
+            <select
+              value={planLimiteSemanal === null ? "LIBRE" : String(planLimiteSemanal)}
+              onChange={(e) => setPlanLimiteSemanal(e.target.value === "LIBRE" ? null : Number(e.target.value))}
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="select-plan-limite"
+            >
+              <option value="LIBRE">Pase Libre (sin límite semanal)</option>
+              <option value="1">1 vez por semana</option>
+              <option value="2">2 veces por semana</option>
+              <option value="3">3 veces por semana</option>
+              <option value="4">4 veces por semana</option>
+              <option value="5">5 veces por semana</option>
+            </select>
+          </label>
+
+          {/* Precio */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Precio de Lista ($ ARS)
+            <input
+              type="number"
+              required
+              min="1"
+              step="500"
+              value={planPrecio}
+              onChange={(e) => setPlanPrecio(Number(e.target.value))}
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="input-plan-precio"
+            />
+          </label>
+
+          {/* Fecha de vigencia futura */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Fecha de Vigencia Futura
+            <input
+              type="date"
+              required
+              min={fechaMinimaManana}
+              value={planFechaVigencia}
+              onChange={(e) => {
+                setPlanFechaVigencia(e.target.value);
+                setErrorFechaVigencia(null);
+              }}
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
+              data-testid="input-plan-fecha-vigencia"
+            />
+            <span className="block text-[11px] text-muted-foreground">
+              Solo se aceptan fechas posteriores a hoy (mínimo: {formatearFecha(fechaMinimaManana)}).
+            </span>
+          </label>
+
+          {errorFechaVigencia && (
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300"
+              data-testid="error-plan-fecha-vigencia"
+            >
+              {errorFechaVigencia}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => planFormDialogRef.current?.close()}
+              data-testid="btn-cancelar-plan"
+              className="min-h-[44px]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              data-testid="btn-guardar-plan"
+              className="min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Guardar Plan
+            </Button>
+          </div>
+        </form>
       </dialog>
     </section>
   );
