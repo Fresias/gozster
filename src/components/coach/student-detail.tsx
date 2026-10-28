@@ -41,6 +41,13 @@ import { StudentPainAlerts } from "@/components/coach/student-pain-alerts";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-data";
 import { AdherenciaCard, type EstadoAdherencia } from "@/components/coach/adherencia-card";
 import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
+import { useCobrosStore } from "@/store/use-cobros-store";
+import {
+  derivarActividadFrecuencia,
+  derivarEstadoPagoAlumno,
+  derivarMontoSuscripcion,
+  formatearDinero,
+} from "@/lib/alumno-ficha";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -403,6 +410,99 @@ export function StudentDetail({
   const [extMotivo, setExtMotivo] = React.useState("");
   const [isExtendiendoExc, setIsExtendiendoExc] = React.useState(false);
 
+  // GOZS-247: Integración con Cobros Store y suscripción
+  const cobros = useCobrosStore((s) => s.cobros);
+  const registrarPagoStore = useCobrosStore((s) => s.registrarPago);
+
+  const cobroItem = React.useMemo(() => {
+    return (
+      cobros.find(
+        (c) => c.alumnoId === alumno.id || c.contratacionId === contratacion.id,
+      ) ?? null
+    );
+  }, [cobros, alumno.id, contratacion.id]);
+
+  const [pagoRegistradoEnSesion, setPagoRegistradoEnSesion] = React.useState(false);
+  const [isRegistrandoPago, setIsRegistrandoPago] = React.useState(false);
+  const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
+
+  const actividadFrecuencia = React.useMemo(() => {
+    return derivarActividadFrecuencia({
+      contratacion,
+      rutinaActiva,
+      cobroItem,
+    });
+  }, [contratacion, rutinaActiva, cobroItem]);
+
+  const estadoPagoInfo = React.useMemo(() => {
+    return derivarEstadoPagoAlumno({
+      cobroItem,
+      contratacion,
+      alumno,
+      pagoRegistradoEnSesion,
+    });
+  }, [cobroItem, contratacion, alumno, pagoRegistradoEnSesion]);
+
+  const montoSuscripcion = React.useMemo(() => {
+    return derivarMontoSuscripcion({
+      cobroItem,
+      contratacion,
+    });
+  }, [cobroItem, contratacion]);
+
+  const dialogoPagoRef = React.useRef<HTMLDialogElement>(null);
+  const [modalMonto, setModalMonto] = React.useState<number>(montoSuscripcion.monto);
+  const [modalMedio, setModalMedio] = React.useState<MedioPago>("TRANSFERENCIA");
+  const [modalNota, setModalNota] = React.useState<string>("");
+
+  React.useEffect(() => {
+    setModalMonto(montoSuscripcion.monto);
+  }, [montoSuscripcion.monto]);
+
+  const handleAbrirDialogoPago = () => {
+    setModalMonto(montoSuscripcion.monto);
+    setModalMedio("TRANSFERENCIA");
+    setModalNota("");
+    dialogoPagoRef.current?.showModal();
+  };
+
+  const handleCerrarDialogoPago = () => {
+    dialogoPagoRef.current?.close();
+  };
+
+  const handleConfirmarRegistroPago = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsRegistrandoPago(true);
+    setAvisoPago(null);
+    try {
+      if (cobroItem) {
+        await registrarPagoStore({
+          contratacionId: cobroItem.contratacionId,
+          monto: modalMonto,
+          montoLista: cobroItem.montoLista,
+          medioPago: modalMedio === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
+          notas: modalNota.trim() || undefined,
+        });
+      }
+
+      if (onRegistrarRenovacion) {
+        await onRegistrarRenovacion({
+          contratacion,
+          monto: modalMonto,
+          medioPago: modalMedio,
+        });
+      }
+
+      setPagoRegistradoEnSesion(true);
+      setAvisoPago(`Pago de ${formatearDinero(modalMonto)} registrado con éxito.`);
+      dialogoPagoRef.current?.close();
+    } catch {
+      setAvisoPago("No se pudo registrar el pago. Intentá nuevamente.");
+    } finally {
+      setIsRegistrandoPago(false);
+    }
+  };
+
   const formatFecha = (iso: string) => {
     const parsed = new Date(iso);
     if (Number.isNaN(parsed.getTime())) return iso;
@@ -595,6 +695,112 @@ export function StudentDetail({
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Resumen Comercial y Estado de Pago (GOZS-247) */}
+      <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
+              {/* 1. Actividad y frecuencia */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Actividad y Frecuencia
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-sm font-black text-foreground"
+                    data-testid="ficha-actividad-frecuencia"
+                  >
+                    {actividadFrecuencia.etiqueta}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground" data-testid="ficha-actividad-detalle">
+                  {actividadFrecuencia.detalle}
+                </p>
+              </div>
+
+              {/* 2. Estado de pago (si pagó o no) */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Estado de Pago
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black border ${
+                      estadoPagoInfo.pago
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : estadoPagoInfo.estado === "VENCIDO"
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                    }`}
+                    data-testid="ficha-estado-pago"
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        estadoPagoInfo.pago
+                          ? "bg-emerald-500"
+                          : estadoPagoInfo.estado === "VENCIDO"
+                          ? "bg-rose-500"
+                          : "bg-amber-500"
+                      }`}
+                    />
+                    {estadoPagoInfo.etiquetaPrincipal} • {estadoPagoInfo.etiquetaDetalle}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {estadoPagoInfo.pago
+                    ? "Cuota vigente al día"
+                    : estadoPagoInfo.estado === "VENCIDO"
+                    ? "Cuota vencida impaga"
+                    : "Esperando confirmación de cobro"}
+                </p>
+              </div>
+
+              {/* 3. Monto de la suscripción */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Monto de la Suscripción
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className="text-lg font-black text-foreground tabular-nums"
+                    data-testid="ficha-monto-sub"
+                  >
+                    {montoSuscripcion.formateado}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">/mes</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Día {contratacion.dia_vencimiento} anclado • Vence {formatFecha(contratacion.fecha_fin)}
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Botón para registrar el pago */}
+            <div className="flex items-center justify-end pt-1 lg:pt-0">
+              <Button
+                variant={estadoPagoInfo.pago ? "outline" : "default"}
+                size="default"
+                onClick={handleAbrirDialogoPago}
+                className="min-h-11 w-full gap-2 text-xs font-bold sm:w-auto px-5 shadow-sm"
+                data-testid="btn-registrar-pago"
+                aria-label={`Registrar pago para ${alumno.nombre_completo}`}
+              >
+                <span>💳 Registrar pago</span>
+              </Button>
+            </div>
+          </div>
+
+          {avisoPago && (
+            <div
+              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 font-medium"
+              data-testid="aviso-pago-exitoso"
+            >
+              ✓ {avisoPago}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1636,6 +1842,124 @@ export function StudentDetail({
           )}
         </div>
       )}
+
+      {/* DIÁLOGO ACCESIBLE PARA REGISTRAR PAGO (GOZS-247) */}
+      <dialog
+        ref={dialogoPagoRef}
+        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="dialog-registrar-pago-titulo"
+        data-testid="dialog-registrar-pago"
+      >
+        <form onSubmit={handleConfirmarRegistroPago} className="space-y-4">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3">
+            <h3 id="dialog-registrar-pago-titulo" className="text-base font-black text-foreground">
+              Registrar Pago de Cuota
+            </h3>
+            <button
+              type="button"
+              onClick={handleCerrarDialogoPago}
+              className="text-muted-foreground hover:text-foreground text-sm font-bold"
+              aria-label="Cerrar diálogo"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs space-y-1">
+            <p>
+              <span className="font-bold">Alumno:</span> {alumno.nombre_completo}
+            </p>
+            <p>
+              <span className="font-bold">Actividad:</span> {actividadFrecuencia.etiqueta}
+            </p>
+            <p className="text-muted-foreground text-[11px]">
+              Ciclo anclado al día {contratacion.dia_vencimiento} de cada mes.
+            </p>
+          </div>
+
+          <label className="block space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Monto a abonar ($ ARS)</span>
+            <input
+              type="number"
+              required
+              min="0"
+              step="100"
+              value={modalMonto}
+              onChange={(e) => setModalMonto(Number(e.target.value) || 0)}
+              className="w-full min-h-11 rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums"
+              data-testid="input-monto-pago"
+            />
+          </label>
+
+          <div className="space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Medio de Pago</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setModalMedio("TRANSFERENCIA")}
+                className={`rounded-xl border p-2.5 text-left transition-all ${
+                  modalMedio === "TRANSFERENCIA"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                    : "border-border/80 hover:bg-secondary/40"
+                }`}
+                data-testid="btn-medio-transferencia"
+              >
+                <p className="text-xs font-bold text-foreground">Transferencia</p>
+                <p className="text-[10px] text-muted-foreground">CBU / MP</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalMedio("EFECTIVO")}
+                className={`rounded-xl border p-2.5 text-left transition-all ${
+                  modalMedio === "EFECTIVO"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                    : "border-border/80 hover:bg-secondary/40"
+                }`}
+                data-testid="btn-medio-efectivo"
+              >
+                <p className="text-xs font-bold text-foreground">Efectivo</p>
+                <p className="text-[10px] text-muted-foreground">En gimnasio</p>
+              </button>
+            </div>
+          </div>
+
+          <label className="block space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Nota de pago o descuento (opcional)</span>
+            <input
+              type="text"
+              value={modalNota}
+              onChange={(e) => setModalNota(e.target.value)}
+              placeholder="Ej: Descuento 20% acordado"
+              className="w-full min-h-11 rounded-xl border border-border bg-background p-2.5 text-xs"
+              data-testid="input-nota-pago"
+            />
+          </label>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={handleCerrarDialogoPago}
+              className="flex-1 min-h-11 text-xs font-semibold"
+              data-testid="btn-cancelar-pago"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              size="default"
+              disabled={isRegistrandoPago}
+              className="flex-1 min-h-11 text-xs font-bold"
+              data-testid="btn-confirmar-pago"
+            >
+              {isRegistrandoPago ? "Guardando…" : "Confirmar pago"}
+            </Button>
+          </div>
+        </form>
+      </dialog>
 
     </div>
   );
