@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   calcularMediana,
@@ -189,5 +191,79 @@ describe("Guardas de plausibilidad de series (GOZS-200)", () => {
       });
       expect(res.estado).toBe("valido");
     });
+  });
+
+  describe("Auditoría estricta de límites matemáticos y representación numérica (Infinity, -Infinity, 1e999)", () => {
+    it.each([
+      // [desc, peso, reps, rpe]
+      ["peso Infinity numérico", Infinity, 10, 8],
+      ["peso -Infinity numérico", -Infinity, 10, 8],
+      ["peso 1e999 numérico (desborde a Infinity)", 1e999, 10, 8],
+      ["peso 'Infinity' string", "Infinity", 10, 8],
+      ["peso '-Infinity' string", "-Infinity", 10, 8],
+      ["peso '1e999' string (notación científica)", "1e999", 10, 8],
+      ["reps Infinity numérico", 20, Infinity, 8],
+      ["reps -Infinity numérico", 20, -Infinity, 8],
+      ["reps 1e999 numérico", 20, 1e999, 8],
+      ["reps 'Infinity' string", 20, "Infinity", 8],
+      ["reps '1e999' string", 20, "1e999", 8],
+      ["rpe Infinity numérico", 20, 10, Infinity],
+      ["rpe -Infinity numérico", 20, 10, -Infinity],
+      ["rpe 1e999 numérico", 20, 10, 1e999],
+      ["rpe 'Infinity' string", 20, 10, "Infinity"],
+      ["rpe '1e999' string", 20, 10, "1e999"],
+    ])("rechaza %s en normalizarEntradaSerie", (_desc, peso, reps, rpe) => {
+      const res = normalizarEntradaSerie(peso, reps, rpe);
+      expect(res.valido).toBe(false);
+      expect(res.error).toBeDefined();
+    });
+
+    it("evaluarPlausibilidadSerie bloquea inmediatamente entradas con Infinity o desborde", () => {
+      expect(evaluarPlausibilidadSerie({ peso: Infinity, reps: 10 }).estado).toBe("bloqueado");
+      expect(evaluarPlausibilidadSerie({ peso: 1e999, reps: 10 }).estado).toBe("bloqueado");
+      expect(evaluarPlausibilidadSerie({ peso: 20, reps: Infinity }).estado).toBe("bloqueado");
+      expect(evaluarPlausibilidadSerie({ peso: 20, reps: 10, rpe: Infinity }).estado).toBe("bloqueado");
+    });
+  });
+
+  describe("Auditoría estricta de coma decimal y formatos locales", () => {
+    it.each([
+      ["12,5", 12.5],
+      ["0,5", 0.5],
+      ["100,25", 100.25],
+      ["75,0", 75],
+    ])("normaliza coma decimal '%s' a número flotante %s", (rawPeso, esperado) => {
+      const res = normalizarEntradaSerie(rawPeso, 10);
+      expect(res.valido).toBe(true);
+      expect(res.peso).toBe(esperado);
+    });
+
+    it.each([
+      ["12,5,3", "múltiples comas"],
+      [",5", "sin cero antes de la coma"],
+      ["12..5", "doble punto"],
+    ])("rechaza formato de coma decimal corrupto (%s: %s)", (rawPeso) => {
+      const res = normalizarEntradaSerie(rawPeso, 10);
+      expect(res.valido).toBe(false);
+    });
+  });
+
+  describe("Auditoría de rescate de GOZS-203: Renderizado literal de texto (cero dangerouslySetInnerHTML)", () => {
+    const athleteFiles = [
+      "live-workout.tsx",
+      "historial-sesiones.tsx",
+      "athlete-chat.tsx",
+      "cuestionario-inicial.tsx",
+      "pain-report-modal.tsx",
+    ];
+
+    it.each(athleteFiles)(
+      "componente %s no utiliza dangerouslySetInnerHTML para renderizar entradas de usuario",
+      (fileName) => {
+        const filePath = path.resolve(__dirname, `../components/athlete/${fileName}`);
+        const code = fs.readFileSync(filePath, "utf-8");
+        expect(code).not.toContain("dangerouslySetInnerHTML");
+      },
+    );
   });
 });
