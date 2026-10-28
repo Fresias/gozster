@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { sanearTexto } from "@/lib/plausibilidad";
 
 export interface PainReportData {
   exerciseId?: string;
@@ -92,7 +93,7 @@ export function PainReportModal({
       momentoAparicion,
       sintomasAlarma,
       esSintomaAlarma: isRedFlag,
-      notasAlumno: notasAlumno.trim(),
+      notasAlumno: sanearTexto(notasAlumno),
     };
 
     onSavePainReport(data);

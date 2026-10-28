@@ -44,6 +44,7 @@ import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { triggerHapticVibration } from "@/lib/sound";
+import { validarInputSerie, evaluarPlausibilidadSerie } from "@/lib/plausibilidad";
 
 export function LiveWorkout() {
   const {
@@ -112,6 +113,41 @@ export function LiveWorkout() {
 
   // Series que resultaron récord en esta sesión
   const [seriesRecord, setSeriesRecord] = React.useState<Set<string>>(() => new Set());
+
+  // Validación de entrada y confirmación explícita de plausibilidad (GOZS-203)
+  const [inputValidationError, setInputValidationError] = React.useState<string | null>(null);
+  const [editModalError, setEditModalError] = React.useState<string | null>(null);
+  const [plausibilityModal, setPlausibilityModal] = React.useState<{
+    advertencia: string | null;
+    onConfirm: () => void;
+  } | null>(null);
+  const plausibilityDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    const dialog = plausibilityDialogRef.current;
+    if (!dialog) return;
+    if (plausibilityModal) {
+      if (typeof dialog.showModal === "function") {
+        try {
+          if (!dialog.open) dialog.showModal();
+        } catch {
+          dialog.open = true;
+        }
+      } else {
+        dialog.open = true;
+      }
+    } else {
+      if (typeof dialog.close === "function") {
+        try {
+          if (dialog.open) dialog.close();
+        } catch {
+          dialog.open = false;
+        }
+      } else {
+        dialog.open = false;
+      }
+    }
+  }, [plausibilityModal]);
 
   // Selección manual de ejercicio activo
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
@@ -240,15 +276,15 @@ export function LiveWorkout() {
     updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsSugeridas);
   }, [claveSerie, pesoSugerido, repsSugeridas]);
 
-  // Registrar serie actual
-  const handleRegistrarSerie = () => {
-    if (!currentExercise || !currentSet) return;
-    const num = currentSet.numero_serie;
-    const peso = currentSet.peso_kg;
-    const reps = currentSet.reps_hechas;
-    const setType = currentSet.set_type;
-    const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
-
+  // Ejecutar el guardado real de la serie tras superar validaciones y plausibilidad
+  const ejecutarRegistroSerie = (
+    num: number,
+    peso: number,
+    reps: number,
+    setType: string | null | undefined,
+    ejId: string,
+  ) => {
+    if (!currentExercise) return;
     const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
@@ -301,34 +337,90 @@ export function LiveWorkout() {
     }
   };
 
+  // Registrar serie actual con validación dura y control de plausibilidad
+  const handleRegistrarSerie = () => {
+    if (!currentExercise || !currentSet) return;
+    const num = currentSet.numero_serie;
+    const peso = currentSet.peso_kg;
+    const reps = currentSet.reps_hechas;
+    const setType = currentSet.set_type;
+    const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
+
+    // 1. Validación dura: peso negativo, NaN, reps 0 o >100, RPE fuera de 1-10
+    const validacion = validarInputSerie(peso, reps, currentSet.rpe_real);
+    if (!validacion.esValido) {
+      setInputValidationError(validacion.error);
+      return;
+    }
+    setInputValidationError(null);
+
+    // 2. Control de plausibilidad: >~3x del máximo histórico o reps absurdas
+    const maxPesoHist =
+      marcas[ejId]?.max_peso_kg ??
+      ultimaVez[ejId]?.series?.reduce((m, s) => Math.max(m, s.peso_kg), 0) ??
+      0;
+    const maxRepsHist =
+      marcas[ejId]?.frontera?.reduce((m, p) => Math.max(m, p.reps_hechas), 0) ??
+      ultimaVez[ejId]?.series?.reduce((m, s) => Math.max(m, s.reps_hechas), 0) ??
+      0;
+
+    const plausibilidad = evaluarPlausibilidadSerie(
+      { peso_kg: peso, reps_hechas: reps },
+      { max_peso_kg: maxPesoHist, max_reps: maxRepsHist },
+    );
+
+    if (plausibilidad.requiereConfirmacion) {
+      setPlausibilityModal({
+        advertencia: plausibilidad.advertencia,
+        onConfirm: () => {
+          setPlausibilityModal(null);
+          ejecutarRegistroSerie(num, peso, reps, setType, ejId);
+        },
+      });
+      return;
+    }
+
+    ejecutarRegistroSerie(num, peso, reps, setType, ejId);
+  };
+
   const handleAdjustPeso = (delta: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
     const newWeight = Math.max(0, currentSet.peso_kg + delta);
     updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", newWeight);
+    if (inputValidationError) setInputValidationError(null);
   };
 
   const handleAdjustReps = (delta: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    const newReps = Math.max(1, currentSet.reps_hechas + delta);
+    const newReps = Math.min(100, Math.max(1, currentSet.reps_hechas + delta));
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
+    if (inputValidationError) setInputValidationError(null);
   };
 
   const handleDirectUpdatePeso = (val: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", Math.max(0, val));
+    updateSetField(currentExercise.id, currentSet.numero_serie, "peso_kg", val);
+    if (inputValidationError) setInputValidationError(null);
   };
 
   const handleDirectUpdateReps = (val: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", val);
+    if (inputValidationError) setInputValidationError(null);
   };
 
   const handleSaveEdit = () => {
     if (!editingSet) return;
+    const validacion = validarInputSerie(editingSet.pesoKg, editingSet.reps);
+    if (!validacion.esValido) {
+      setEditModalError(validacion.error);
+      return;
+    }
+    setEditModalError(null);
     editCompletedSet(
       editingSet.exerciseId,
       editingSet.setNumber,
@@ -1001,10 +1093,11 @@ export function LiveWorkout() {
                               type="number"
                               step="any"
                               min="0"
-                              value={serie.peso_kg}
+                              max="1000"
+                              value={Number.isNaN(serie.peso_kg) ? "" : serie.peso_kg}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value);
-                                handleDirectUpdatePeso(isNaN(val) ? 0 : val);
+                                handleDirectUpdatePeso(isNaN(val) ? (e.target.value === "" ? 0 : NaN) : val);
                               }}
                               className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8"
                               aria-label="Peso en kilogramos"
@@ -1050,10 +1143,11 @@ export function LiveWorkout() {
                               type="number"
                               step="1"
                               min="1"
-                              value={serie.reps_hechas}
+                              max="100"
+                              value={Number.isNaN(serie.reps_hechas) ? "" : serie.reps_hechas}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value, 10);
-                                handleDirectUpdateReps(isNaN(val) ? 1 : val);
+                                handleDirectUpdateReps(isNaN(val) ? (e.target.value === "" ? 1 : NaN) : val);
                               }}
                               className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none"
                               aria-label="Cantidad de repeticiones"
@@ -1252,6 +1346,18 @@ export function LiveWorkout() {
                         </div>
                       )}
 
+                      {/* Mensaje de error de validación clara ante datos imposibles (GOZS-203) */}
+                      {inputValidationError && (
+                        <div
+                          data-testid="error-validacion-serie"
+                          role="alert"
+                          className="mt-3 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-semibold flex items-center gap-2"
+                        >
+                          <OctagonAlert className="h-4 w-4 shrink-0" />
+                          <span>{inputValidationError}</span>
+                        </div>
+                      )}
+
                       {/* Botón principal de registro de serie */}
                       <button
                         type="button"
@@ -1401,13 +1507,17 @@ export function LiveWorkout() {
                                         <input
                                           type="number"
                                           step="any"
-                                          value={editingSet.pesoKg}
-                                          onChange={(e) =>
+                                          min="0"
+                                          max="1000"
+                                          value={Number.isNaN(editingSet.pesoKg) ? "" : editingSet.pesoKg}
+                                          onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
                                             setEditingSet({
                                               ...editingSet,
-                                              pesoKg: Math.max(0, parseFloat(e.target.value) || 0),
-                                            })
-                                          }
+                                              pesoKg: isNaN(val) ? (e.target.value === "" ? 0 : NaN) : val,
+                                            });
+                                            if (editModalError) setEditModalError(null);
+                                          }}
                                           className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
@@ -1446,13 +1556,17 @@ export function LiveWorkout() {
                                         <input
                                           type="number"
                                           step="1"
-                                          value={editingSet.reps}
-                                          onChange={(e) =>
+                                          min="1"
+                                          max="100"
+                                          value={Number.isNaN(editingSet.reps) ? "" : editingSet.reps}
+                                          onChange={(e) => {
+                                            const val = parseInt(e.target.value);
                                             setEditingSet({
                                               ...editingSet,
-                                              reps: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                            })
-                                          }
+                                              reps: isNaN(val) ? (e.target.value === "" ? 1 : NaN) : val,
+                                            });
+                                            if (editModalError) setEditModalError(null);
+                                          }}
                                           className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
@@ -1471,12 +1585,21 @@ export function LiveWorkout() {
                                     </div>
                                   </div>
 
+                                  {editModalError && (
+                                    <p className="text-xs text-destructive font-semibold" data-testid="edit-modal-error">
+                                      {editModalError}
+                                    </p>
+                                  )}
+
                                   <div className="flex items-center justify-end gap-2 pt-1">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => setEditingSet(null)}
+                                      onClick={() => {
+                                        setEditModalError(null);
+                                        setEditingSet(null);
+                                      }}
                                       className="h-9 px-3 text-xs font-bold"
                                       data-testid="cancel-edit-set-btn"
                                     >
@@ -1964,6 +2087,58 @@ export function LiveWorkout() {
         studentName={currentSession.studentName || "Fernando Rosales"}
         diaNombre={cleanDiaTitle || "Día 1"}
       />
+
+      {/* Diálogo nativo HTML5 para confirmación explícita de plausibilidad (GOZS-203) */}
+      <dialog
+        ref={plausibilityDialogRef}
+        data-testid="dialog-confirmacion-plausibilidad"
+        aria-labelledby="dialog-plausibilidad-title"
+        aria-describedby="dialog-plausibilidad-desc"
+        className="fixed inset-0 m-auto z-50 rounded-2xl border border-border bg-card p-6 shadow-2xl backdrop:bg-black/60 max-w-sm w-[90%] text-card-foreground"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
+              <TriangleAlert className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 id="dialog-plausibilidad-title" className="text-base font-bold text-foreground">
+                Confirmar valor inusual
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Control de plausibilidad
+              </p>
+            </div>
+          </div>
+
+          <p
+            id="dialog-plausibilidad-desc"
+            className="text-xs text-foreground/90 leading-relaxed"
+            data-testid="plausibility-warning-text"
+          >
+            {plausibilityModal?.advertencia}
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setPlausibilityModal(null)}
+              className="min-h-11 px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-secondary active:scale-95 transition-all cursor-pointer"
+              data-testid="btn-cancelar-plausibilidad"
+            >
+              Corregir
+            </button>
+            <button
+              type="button"
+              onClick={() => plausibilityModal?.onConfirm()}
+              className="min-h-11 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+              data-testid="btn-confirmar-plausibilidad"
+            >
+              Confirmar y guardar
+            </button>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }

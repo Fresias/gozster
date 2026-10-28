@@ -9,6 +9,7 @@ import {
   normalizarSesionesDetalladas,
   generarContratoMiniDashboard,
 } from "@/lib/historial-sesiones";
+import { validarInputSerie } from "@/lib/plausibilidad";
 import type {
   SesionHistoricaDetalle,
   SerieHistoricaDetalle,
@@ -87,7 +88,10 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
 
   const [guardadoExitoso, setGuardadoExitoso] = React.useState<string | null>(null);
 
+  const [editError, setEditError] = React.useState<string | null>(null);
+
   const handleStartEdit = (sesionId: string, s: SerieHistoricaDetalle) => {
+    setEditError(null);
     setEditingSerie({
       sesionId,
       serieId: s.id,
@@ -97,12 +101,19 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
   };
 
   const handleCancelEdit = () => {
+    setEditError(null);
     setEditingSerie(null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingSerie) return;
     const { sesionId, serieId, peso, reps } = editingSerie;
+    const validacion = validarInputSerie(peso, reps);
+    if (!validacion.esValido) {
+      setEditError(validacion.error);
+      return;
+    }
+    setEditError(null);
     await actualizarSerieHistorial(sesionId, serieId, peso, reps);
     setGuardadoExitoso(`Serie guardada (${peso} kg × ${reps} reps)`);
     setEditingSerie(null);
@@ -377,6 +388,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                               type="number"
                                               step="1"
                                               min="1"
+                                              max="100"
                                               value={editingSerie.reps}
                                               onChange={(e) =>
                                                 setEditingSerie((prev) =>
@@ -419,6 +431,11 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                             <X className="h-4 w-4" />
                                           </button>
                                         </div>
+                                        {editError && (
+                                          <p className="w-full text-[11px] font-semibold text-destructive mt-1">
+                                            {editError}
+                                          </p>
+                                        )}
                                       </div>
                                     ) : (
                                       /* VISTA NORMAL DE SERIE */

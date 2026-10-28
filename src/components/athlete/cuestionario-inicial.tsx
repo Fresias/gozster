@@ -6,6 +6,7 @@ import { useAthleteStore } from "@/store/use-athlete-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { sanearTexto } from "@/lib/plausibilidad";
 import type { AlumnoCuestionarioInicial } from "@/types/database.types";
 
 interface CuestionarioInicialProps {
@@ -133,10 +134,10 @@ export function CuestionarioInicial({
       objetivo_principal: objetivo,
       experiencia_previa: experiencia,
       dias_disponibles_semana: dias,
-      molestias_o_lesiones_previas: molestias.trim() || "Ninguna reportada",
+      molestias_o_lesiones_previas: sanearTexto(molestias) || "Ninguna reportada",
       equipamiento_disponible: equipamiento,
       respuestas_extra: {
-        comentarios: comentarios.trim(),
+        comentarios: sanearTexto(comentarios),
         completado_por: effectiveAthleteName,
         fuente: "athlete_app_demo",
       },

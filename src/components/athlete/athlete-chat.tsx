@@ -8,6 +8,7 @@ import {
 } from "@/store/use-chat-store";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { sanearTexto } from "@/lib/plausibilidad";
 
 export interface AthleteChatProps {
   athleteId?: string;
@@ -50,7 +51,8 @@ export function AthleteChat({
   }, [isOpen, messages.length, athleteId, markAsRead]);
 
   const handleSend = (textToSend?: string) => {
-    const text = (textToSend ?? message).trim();
+    const raw = textToSend ?? message;
+    const text = sanearTexto(raw);
     if (!text) return;
 
     sendMessage({

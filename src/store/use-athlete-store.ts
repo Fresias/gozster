@@ -30,6 +30,7 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
+import { validarInputSerie, sanearTexto } from "@/lib/plausibilidad";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -94,6 +95,7 @@ interface AthleteStoreState {
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
   rpeValidationError: string | null;
+  serieValidationError: string | null;
   stopProtocolActive: boolean;
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
@@ -163,6 +165,7 @@ interface AthleteStoreState {
     data: Partial<AlumnoCuestionarioInicial>,
   ) => Promise<{ success: boolean; error?: string }>;
   clearRpeValidationError: () => void;
+  clearSerieValidationError: () => void;
   updateSetField: (
     exerciseId: string,
     setNumber: number,
@@ -225,7 +228,7 @@ interface AthleteStoreState {
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
 export const DEFAULT_ATHLETE_NAME = "Fernando Rosales";
 
-const defaultSession: LiveWorkoutSession = {
+const createDefaultSession = (): LiveWorkoutSession => ({
   id: "session-today-001",
   nombre_rutina: "Fernando Rosales: DIA 1 (F Y H FER ROSALES)",
   fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
@@ -364,7 +367,9 @@ const defaultSession: LiveWorkoutSession = {
       ],
     },
   ],
-};
+});
+
+const defaultSession = createDefaultSession();
 
 const memoryFallback: Record<string, string> = {};
 
@@ -425,6 +430,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       rpeValidationError: null,
+      serieValidationError: null,
       stopProtocolActive: false,
       restTimer: {
         isActive: false,
@@ -665,6 +671,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         return { success: true };
       },
       clearRpeValidationError: () => set({ rpeValidationError: null }),
+      clearSerieValidationError: () => set({ serieValidationError: null }),
 
       updateSetField: (exerciseId, setNumber, field, value) => {
         set((state) => {
@@ -710,6 +717,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       reportPainForSet: (exerciseId, setNumber, notes) => {
+        const cleanNotes = sanearTexto(notes);
         set((state) => ({
           currentSession: {
             ...state.currentSession,
@@ -719,7 +727,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ...ej,
                 series: ej.series.map((s) =>
                   s.numero_serie === setNumber
-                    ? { ...s, pain_reported: true, pain_notes: notes }
+                    ? { ...s, pain_reported: true, pain_notes: cleanNotes }
                     : s
                 ),
               };
@@ -960,6 +968,18 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         set({ rpeValidationError: null });
 
+        // Validación de plausibilidad y límites duros (GOZS-203)
+        const validacionSerie = validarInputSerie(
+          targetSet.peso_kg,
+          targetSet.reps_hechas,
+          targetSet.rpe_real ?? undefined,
+        );
+        if (!validacionSerie.esValido) {
+          set({ serieValidationError: validacionSerie.error });
+          return;
+        }
+        set({ serieValidationError: null });
+
         const completedAt = new Date().toISOString();
         const estimated1RM = calculateEpley1RM(
           targetSet.peso_kg,
@@ -1056,6 +1076,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
         );
 
         if (!targetExercise || !targetSet) return;
+
+        const validacionSerie = validarInputSerie(pesoKg, reps);
+        if (!validacionSerie.esValido) {
+          set({ serieValidationError: validacionSerie.error });
+          return;
+        }
+        set({ serieValidationError: null });
 
         const estimated1RM = calculateEpley1RM(pesoKg, reps);
         const updatedAt = new Date().toISOString();
@@ -1660,7 +1687,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       resetSessionToDefaults: () => {
         const eleccionAlumno = get().vistaElegidaPorAlumno;
         set({
-          currentSession: defaultSession,
+          currentSession: createDefaultSession(),
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
@@ -1707,7 +1734,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         ) {
           return {
             ...state,
-            currentSession: defaultSession,
+            currentSession: createDefaultSession(),
             diaActivoId: null,
             diaElegidoHoyId: null,
           };
