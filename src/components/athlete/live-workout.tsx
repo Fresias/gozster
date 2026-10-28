@@ -12,6 +12,7 @@ import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -74,6 +75,8 @@ export function LiveWorkout() {
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
+    activePainBanner,
+    clearActivePainBanner,
     reportPainEvent,
     syncSessionToSupabase,
     diaActivoId,
@@ -621,6 +624,14 @@ export function LiveWorkout() {
                 </button>
               </div>
             </div>
+
+            {/* Cartel de Reporte de Dolor por Rango (GOZS-278) */}
+            {activePainBanner && (
+              <PainReportBanner
+                banner={activePainBanner}
+                onDismiss={clearActivePainBanner}
+              />
+            )}
 
             {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
             {stopProtocolActive && (
