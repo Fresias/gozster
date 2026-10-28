@@ -279,13 +279,6 @@ export const useChatStore = create<ChatStoreState>()(
           estado: "ABIERTA",
         };
 
-        set((state) => ({
-          conversations: {
-            ...state.conversations,
-            [alumnoId]: newConv,
-          },
-        }));
-
         return newConv;
       },
 

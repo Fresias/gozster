@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,10 +23,17 @@ function debeCambiarPassword(
 }
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/studio";
   // El middleware redirige a /login?forceChange=1 a quien ya tiene sesión pero aún no cambió su clave.
   const forceChangeParam = searchParams.get("forceChange");
+
+  // Calentar la ruta de destino para compilación en dev y transiciones rápidas
+  React.useEffect(() => {
+    router.prefetch(redirectTo);
+    fetch(redirectTo).catch(() => {});
+  }, [router, redirectTo]);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");

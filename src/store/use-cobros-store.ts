@@ -203,7 +203,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
 export const useCobrosStore = create<CobrosState>()(
   persist(
     (set, get) => ({
-      cobros: [],
+      cobros: generarDemoCobrosIniciales(),
       filtroEstado: "TODOS",
       busqueda: "",
       cargando: false,

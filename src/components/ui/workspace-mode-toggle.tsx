@@ -20,7 +20,7 @@ export function WorkspaceModeToggle({
   if (!mounted) {
     return (
       <div
-        className={`inline-flex h-9 items-center rounded-xl bg-secondary/80 p-0.5 border border-border/60 ${className}`}
+        className={`inline-flex min-h-[44px] items-center rounded-xl bg-secondary/80 p-0.5 border border-border/60 ${className}`}
         aria-hidden="true"
       >
         <div className="h-7 w-20 rounded-lg bg-card/60 animate-pulse" />
@@ -35,7 +35,7 @@ export function WorkspaceModeToggle({
       <div
         role="radiogroup"
         aria-label="Conmutador de Entorno: Modo Producción vs Modo Testeo"
-        className="inline-flex h-9 items-center rounded-xl bg-secondary/80 p-1 border border-border/60 shadow-xs backdrop-blur-xs select-none"
+        className="inline-flex min-h-[44px] items-center rounded-xl bg-secondary/80 p-0.5 border border-border/60 shadow-xs backdrop-blur-xs select-none"
         data-testid="workspace-mode-toggle"
       >
         <button
@@ -43,7 +43,7 @@ export function WorkspaceModeToggle({
           role="radio"
           aria-checked={!isTest}
           onClick={() => setMode("PRODUCCION")}
-          className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all ${
+          className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all ${
             !isTest
               ? "bg-card text-foreground shadow-xs border border-border/40"
               : "text-muted-foreground hover:text-foreground"
@@ -64,7 +64,7 @@ export function WorkspaceModeToggle({
           role="radio"
           aria-checked={isTest}
           onClick={() => setMode("TESTEO")}
-          className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all ${
+          className={`flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all ${
             isTest
               ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 shadow-xs border border-amber-500/40"
               : "text-muted-foreground hover:text-foreground"

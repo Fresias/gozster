@@ -21,8 +21,10 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
   const { mode } = useWorkspaceModeStore();
+  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
+    setMounted(true);
     setOnlineStatus(navigator.onLine);
     const handleOnline = () => setOnlineStatus(true);
     const handleOffline = () => setOnlineStatus(false);
@@ -35,13 +37,15 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     };
   }, [setOnlineStatus]);
 
+  const isTestMode = mounted && mode === "TESTEO";
+
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[280px_1fr] bg-background text-foreground transition-colors duration-150">
       <aside className="border-b border-border/80 bg-card/95 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-6 backdrop-blur-md">
         <div className="flex flex-col gap-4 lg:gap-8">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-sm">
+            <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-2.5">
+              <span className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-sm">
                 G
               </span>
               <div>
