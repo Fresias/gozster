@@ -1,0 +1,298 @@
+[
+  {
+    "id": "D-L1",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-L1.png"
+  },
+  {
+    "id": "D-L3",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-L3.png"
+  },
+  {
+    "id": "D-L2",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-L2.png"
+  },
+  {
+    "id": "D-L4",
+    "viewport": "768x1024",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-L4.png"
+  },
+  {
+    "id": "D-L5",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-L5.png"
+  },
+  {
+    "id": "D-D1",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-D1.png"
+  },
+  {
+    "id": "D-D2",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-D2.png"
+  },
+  {
+    "id": "D-D3",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-D3.png"
+  },
+  {
+    "id": "D-D5",
+    "viewport": "768x1024",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-D5.png"
+  },
+  {
+    "id": "D-D6",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-D6.png"
+  },
+  {
+    "id": "D-A1",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-A1.png"
+  },
+  {
+    "id": "D-A2",
+    "viewport": "768x1024",
+    "estado": "FAIL",
+    "sev": "ROJO",
+    "detalle": "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-A2.png"
+  },
+  {
+    "id": "D-A3",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-A3.png"
+  },
+  {
+    "id": "D-A5",
+    "viewport": "768x1024",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-A5.png"
+  },
+  {
+    "id": "D-T3",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-T3.png"
+  },
+  {
+    "id": "D-R1",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R1.png"
+  },
+  {
+    "id": "D-R2",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R2.png"
+  },
+  {
+    "id": "D-R3",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R3.png"
+  },
+  {
+    "id": "D-R4",
+    "viewport": "1024x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R4.png"
+  },
+  {
+    "id": "D-R6",
+    "viewport": "1024x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R6.png"
+  },
+  {
+    "id": "D-R8",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R8.png"
+  },
+  {
+    "id": "D-R5",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-R5.png"
+  },
+  {
+    "id": "D-G1",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-G1.png"
+  },
+  {
+    "id": "D-G2",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-G2.png"
+  },
+  {
+    "id": "D-G3",
+    "viewport": "1024x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "ningún alumno/clase del seed dispara el aviso de suscripción",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-G3.png"
+  },
+  {
+    "id": "D-G4",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-G4.png"
+  },
+  {
+    "id": "D-G5",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-G5.png"
+  },
+  {
+    "id": "D-C1",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-C1.png"
+  },
+  {
+    "id": "D-C4",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-C4.png"
+  },
+  {
+    "id": "D-C2",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-C2.png"
+  },
+  {
+    "id": "D-C5",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-C5.png"
+  },
+  {
+    "id": "D-DOC1",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-DOC1.png"
+  },
+  {
+    "id": "D-DOC2",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-DOC2.png"
+  },
+  {
+    "id": "D-DOC3",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-DOC3.png"
+  },
+  {
+    "id": "D-T2",
+    "viewport": "1024x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-T2.png"
+  },
+  {
+    "id": "D-T1",
+    "viewport": "1024x768",
+    "estado": "FAIL",
+    "sev": "ROJO",
+    "detalle": "controles < 44 px: G",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-T1.png"
+  },
+  {
+    "id": "D-CONSOLA",
+    "viewport": "1024x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "[console] Cannot update a component (`%s`) while rendering a different component (`%s`). To locate the bad setState() call inside `%s`, follow the stack trace as describe | [pageerror] Hydration failed because the server",
+    "evidencia": "docs/qa/demo-evidencia/tablet/D-CONSOLA.png"
+  }
+]

@@ -1,0 +1,290 @@
+[
+  {
+    "id": "D-L1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L1.png"
+  },
+  {
+    "id": "D-L3",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L3.png"
+  },
+  {
+    "id": "D-L2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L2.png"
+  },
+  {
+    "id": "D-L4",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L4.png"
+  },
+  {
+    "id": "D-L5",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L5.png"
+  },
+  {
+    "id": "D-D1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D1.png"
+  },
+  {
+    "id": "D-D2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D2.png"
+  },
+  {
+    "id": "D-D3",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D3.png"
+  },
+  {
+    "id": "D-D5",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D5.png"
+  },
+  {
+    "id": "D-D6",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D6.png"
+  },
+  {
+    "id": "D-A1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-A1.png"
+  },
+  {
+    "id": "D-A2",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "ROJO",
+    "detalle": "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-A2.png"
+  },
+  {
+    "id": "D-A3",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-A3.png"
+  },
+  {
+    "id": "D-A5",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-A5.png"
+  },
+  {
+    "id": "D-R1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R1.png"
+  },
+  {
+    "id": "D-R2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R2.png"
+  },
+  {
+    "id": "D-R3",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R3.png"
+  },
+  {
+    "id": "D-R4",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R4.png"
+  },
+  {
+    "id": "D-R6",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R6.png"
+  },
+  {
+    "id": "D-R8",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R8.png"
+  },
+  {
+    "id": "D-R5",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R5.png"
+  },
+  {
+    "id": "D-G1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G1.png"
+  },
+  {
+    "id": "D-G2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G2.png"
+  },
+  {
+    "id": "D-G3",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "ningún alumno/clase del seed dispara el aviso de suscripción",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G3.png"
+  },
+  {
+    "id": "D-G4",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G4.png"
+  },
+  {
+    "id": "D-G5",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G5.png"
+  },
+  {
+    "id": "D-C1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-C1.png"
+  },
+  {
+    "id": "D-C4",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-C4.png"
+  },
+  {
+    "id": "D-C2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-C2.png"
+  },
+  {
+    "id": "D-C5",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-C5.png"
+  },
+  {
+    "id": "D-DOC1",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-DOC1.png"
+  },
+  {
+    "id": "D-DOC2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "NARANJA",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-DOC2.png"
+  },
+  {
+    "id": "D-DOC3",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "AMARILLO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-DOC3.png"
+  },
+  {
+    "id": "D-T2",
+    "viewport": "1366x768",
+    "estado": "PASS",
+    "sev": "ROJO",
+    "detalle": "",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-T2.png"
+  },
+  {
+    "id": "D-T1",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "ROJO",
+    "detalle": "controles < 44 px: G",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-T1.png"
+  },
+  {
+    "id": "D-CONSOLA",
+    "viewport": "1366x768",
+    "estado": "FAIL",
+    "sev": "NARANJA",
+    "detalle": "[console] Cannot update a component (`%s`) while rendering a different component (`%s`). To locate the bad setState() call inside `%s`, follow the stack trace as describe | [pageerror] Hydration failed because the server",
+    "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-CONSOLA.png"
+  }
+]
