@@ -22,6 +22,7 @@ import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
+import { getRutinaVigenciaInfo } from "@/lib/rutina-vigencia";
 import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
@@ -989,29 +990,10 @@ export function CoachStudioView({
                               : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
 
                           // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
-                          // 🟢 < 30 días, 🟡 30-60 días, 🔴 > 60 días o sin plan
-                          let rutinaPillColor = "bg-rose-500";
-                          let rutinaTooltip = "Sin plan asignado (> 60 días)";
-
-                          if (planActivo) {
-                            const planDate = new Date(
-                              planActivo.fecha_inicio || planActivo.created_at,
-                            ).getTime();
-                            const diffDays = Math.floor(
-                              (Date.now() - planDate) / (1000 * 60 * 60 * 24),
-                            );
-
-                            if (diffDays < 30) {
-                              rutinaPillColor = "bg-emerald-500";
-                              rutinaTooltip = `Rutina vigente (< 30 días)`;
-                            } else if (diffDays <= 60) {
-                              rutinaPillColor = "bg-amber-500";
-                              rutinaTooltip = `Rutina por renovar (30-60 días)`;
-                            } else {
-                              rutinaPillColor = "bg-rose-500";
-                              rutinaTooltip = `Rutina vencida (> 60 días)`;
-                            }
-                          }
+                          // 🟢 0-15 días, 🟡 16-21 días, 🔴 22+ días o sin plan (GOZS-242)
+                          const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
+                          const rutinaPillColor = vigenciaInfo.pillColorClass;
+                          const rutinaTooltip = vigenciaInfo.tooltip;
 
                           // Cálculo Actividad / Recencia (Dot de último entreno/login)
                           // 🟢 < 7 días, 🟡 7-14 días, 🔴 > 14 días

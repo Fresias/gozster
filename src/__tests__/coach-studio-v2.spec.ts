@@ -53,25 +53,8 @@ export function evaluateCuotaSemaphore(
   return "RED";
 }
 
-export function evaluateRutinaVigenciaSemaphore(
-  fechaInicioOPlan: string | Date | null | undefined,
-  referenceDate: Date = new Date(),
-): "GREEN" | "YELLOW" | "RED" {
-  if (!fechaInicioOPlan) return "RED";
-  const inicio = new Date(fechaInicioOPlan);
-  if (Number.isNaN(inicio.getTime())) return "RED";
-
-  const msPorDia = 1000 * 60 * 60 * 24;
-  const diasAntiguedad = (referenceDate.getTime() - inicio.getTime()) / msPorDia;
-
-  if (diasAntiguedad < 30) {
-    return "GREEN";
-  }
-  if (diasAntiguedad >= 30 && diasAntiguedad <= 60) {
-    return "YELLOW";
-  }
-  return "RED";
-}
+import { evaluateRutinaVigenciaSemaphore } from "@/lib/rutina-vigencia";
+export { evaluateRutinaVigenciaSemaphore };
 
 export function evaluateActividadSemaphore(
   ultimoEntreno: string | Date | null | undefined,
@@ -186,32 +169,36 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
       });
     });
 
-    describe("Semáforo de Vigencia de Rutina", () => {
-      it("Verde: plan creado hace < 30 días", () => {
+    describe("Semáforo de Vigencia de Rutina (GOZS-242)", () => {
+      it("Verde: plan creado hace 0 a 15 días (borde 15)", () => {
         const hoy = new Date("2026-10-17T12:00:00Z"); // 0 días
-        const hace15Dias = new Date("2026-10-02T12:00:00Z"); // 15 días
-        const hace29Dias = new Date("2026-09-18T12:00:00Z"); // 29 días
+        const hace10Dias = new Date("2026-10-07T12:00:00Z"); // 10 días
+        const hace15Dias = new Date("2026-10-02T12:00:00Z"); // 15 días exactos (borde)
 
         expect(evaluateRutinaVigenciaSemaphore(hoy, baseNow)).toBe("GREEN");
+        expect(evaluateRutinaVigenciaSemaphore(hace10Dias, baseNow)).toBe("GREEN");
         expect(evaluateRutinaVigenciaSemaphore(hace15Dias, baseNow)).toBe("GREEN");
-        expect(evaluateRutinaVigenciaSemaphore(hace29Dias, baseNow)).toBe("GREEN");
       });
 
-      it("Amarillo: plan creado hace 30 a 60 días", () => {
-        const hace30Dias = new Date("2026-09-17T12:00:00Z"); // 30 días exactos
-        const hace45Dias = new Date("2026-09-02T12:00:00Z"); // 45 días
-        const hace60Dias = new Date("2026-08-18T12:00:00Z"); // 60 días exactos
+      it("Amarillo: plan creado hace 16 a 21 días (bordes 16 y 21)", () => {
+        const hace16Dias = new Date("2026-10-01T12:00:00Z"); // 16 días exactos (borde)
+        const hace18Dias = new Date("2026-09-29T12:00:00Z"); // 18 días
+        const hace21Dias = new Date("2026-09-26T12:00:00Z"); // 21 días exactos (borde)
 
-        expect(evaluateRutinaVigenciaSemaphore(hace30Dias, baseNow)).toBe("YELLOW");
-        expect(evaluateRutinaVigenciaSemaphore(hace45Dias, baseNow)).toBe("YELLOW");
-        expect(evaluateRutinaVigenciaSemaphore(hace60Dias, baseNow)).toBe("YELLOW");
+        expect(evaluateRutinaVigenciaSemaphore(hace16Dias, baseNow)).toBe("YELLOW");
+        expect(evaluateRutinaVigenciaSemaphore(hace18Dias, baseNow)).toBe("YELLOW");
+        expect(evaluateRutinaVigenciaSemaphore(hace21Dias, baseNow)).toBe("YELLOW");
       });
 
-      it("Rojo: plan creado hace > 60 días o sin plan activo", () => {
-        const hace61Dias = new Date("2026-08-17T12:00:00Z"); // 61 días
+      it("Rojo: plan creado hace 22+ días (borde 22) o sin plan activo", () => {
+        const hace22Dias = new Date("2026-09-25T12:00:00Z"); // 22 días exactos (borde)
+        const hace30Dias = new Date("2026-09-17T12:00:00Z"); // 30 días
+        const hace60Dias = new Date("2026-08-18T12:00:00Z"); // 60 días
         const hace90Dias = new Date("2026-07-19T12:00:00Z"); // 90 días
 
-        expect(evaluateRutinaVigenciaSemaphore(hace61Dias, baseNow)).toBe("RED");
+        expect(evaluateRutinaVigenciaSemaphore(hace22Dias, baseNow)).toBe("RED");
+        expect(evaluateRutinaVigenciaSemaphore(hace30Dias, baseNow)).toBe("RED");
+        expect(evaluateRutinaVigenciaSemaphore(hace60Dias, baseNow)).toBe("RED");
         expect(evaluateRutinaVigenciaSemaphore(hace90Dias, baseNow)).toBe("RED");
         expect(evaluateRutinaVigenciaSemaphore(null, baseNow)).toBe("RED");
         expect(evaluateRutinaVigenciaSemaphore(undefined, baseNow)).toBe("RED");
