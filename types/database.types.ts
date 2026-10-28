@@ -1430,6 +1430,45 @@ export interface Database {
           },
         ];
       };
+      clases_fijas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          horario_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_fijas_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clases_fijas_horario_id_fkey';
+            columns: ['horario_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases_horario';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       reservas: {
         Row: {
           id: string;
@@ -1488,6 +1527,25 @@ export interface Database {
       };
     };
     Functions: {
+      asignar_clase_fija: {
+        Args: {
+          p_horario_id: string;
+          p_alumno_id?: string | null;
+        };
+        Returns: string;
+      };
+      quitar_clase_fija: {
+        Args: {
+          p_clase_fija_id: string;
+        };
+        Returns: undefined;
+      };
+      puede_gestionar_clases_fijas: {
+        Args: {
+          p_alumno_id: string;
+        };
+        Returns: boolean;
+      };
       es_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
