@@ -34,6 +34,14 @@
   --warning-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;           /* #EF4444 Rosa Coral */
   --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de actividad deportiva (Agenda de Clases, GOZS-190 / GOZS-191) */
+  --act-funcional-bg: 204 94% 94%;    /* sky-100 */
+  --act-funcional-fg: 204 80% 16%;    /* sky-950 */
+  --act-funcional-bar: 199 89% 48%;   /* sky-500 */
+  --act-boxeo-bg: 34 100% 92%;        /* orange-100 */
+  --act-boxeo-fg: 15 75% 15%;         /* orange-950 */
+  --act-boxeo-bar: 25 95% 53%;        /* orange-500 */
 }
 
 /* MODO NOCHE REFINADO (Dark Mode Pulido y Suave) */
@@ -67,6 +75,14 @@
   --warning-foreground: 222 47% 11%;
   --destructive: 0 72% 51%;           /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de actividad deportiva noche */
+  --act-funcional-bg: 204 80% 16%;
+  --act-funcional-fg: 204 94% 94%;
+  --act-funcional-bar: 199 89% 48%;
+  --act-boxeo-bg: 15 75% 15%;
+  --act-boxeo-fg: 34 100% 92%;
+  --act-boxeo-bar: 25 95% 53%;
 }
 
   * {
