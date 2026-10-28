@@ -7,6 +7,8 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
+import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
+import type { Perfil } from "@/types/database.types";
 import { ProgressiveOverloadFeed } from "@/components/coach/progressive-overload-feed";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
@@ -43,6 +45,7 @@ export function CoachDashboardView({
     obtenerMetricasRetencion,
     getAlertasSobrecargaProgresiva,
     asignarPlanUrgente,
+    asignarPlanDesdePlantilla,
     getSelectedAlumno,
     getHistorialCargasAlumno,
     loadLiveSupabaseData,
@@ -68,6 +71,7 @@ export function CoachDashboardView({
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
 
   // Retention metrics from RPC
   const metricas = obtenerMetricasRetencion();
@@ -183,6 +187,21 @@ export function CoachDashboardView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={handleSelectAlumno}
+        onOpenAssignRoutine={(alumno) => {
+          setIsAssignModalOpen(false);
+          setAssignRoutineTarget(alumno);
+        }}
+      />
+
+      {/* Modal de Previsualización y Confirmación de Rutinas Genéricas (GOZS-245) */}
+      <AssignRoutinePreviewModal
+        isOpen={!!assignRoutineTarget}
+        onClose={() => setAssignRoutineTarget(null)}
+        alumno={assignRoutineTarget}
+        onConfirmAssign={async (alumnoId, plantillaId) => {
+          await asignarPlanDesdePlantilla(alumnoId, plantillaId);
+          setAssignRoutineTarget(null);
+        }}
       />
 
       {/* Drawer Lateral de Cargas Históricas */}
