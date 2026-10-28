@@ -47,6 +47,8 @@ export const TABLAS = [
   { nombre: "registro_series", fks: { ejercicio_id: "ejercicios", sesion_id: "registro_sesiones" } },
   { nombre: "conversaciones", fks: { alumno_id: "perfiles", responsable_id: "perfiles" } },
   { nombre: "mensajes", fks: { conversacion_id: "conversaciones", remitente_id: "perfiles" } },
+  { nombre: "push_suscripciones", fks: { usuario_id: "perfiles" } },
+  { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes" } },
   { nombre: "habitos_registros", fks: { alumno_id: "perfiles" } },
   { nombre: "nutricion_registros", fks: { alumno_id: "perfiles" } },
   {
