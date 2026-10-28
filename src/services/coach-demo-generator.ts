@@ -18,6 +18,9 @@ const DIAS_HISTORIAL = 30;
 
 export interface KpisNegocio {
   ingresos_mes: number;
+  ingresos_presencial?: number;
+  ingresos_online?: number;
+  a_cobrar?: number;
   ingresos_variacion_pct: number;
   ingresos_mes_anterior_label: string;
   ingresos_ultimos_6_meses: number[];
@@ -465,8 +468,32 @@ export function derivarKpisNegocio(
   const anterior = previos[4]!;
   const mesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
 
+  // Desagregado presencial (funcional + boxeo) y online (rutinas)
+  let ingresosPresencial = 0;
+  let ingresosOnline = 0;
+  for (const p of g.pagos) {
+    if (p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, ahora)) {
+      const c = g.contrataciones.find((x) => x.id === p.contratacion_id);
+      const plan = c ? precioPlan(c.plan_membresia_id) : null;
+      const esOnline = c?.tipo_servicio === "ASESORIA_ONLINE" || (plan?.nombre && /rutina|online/i.test(plan.nombre));
+      if (esOnline) {
+        ingresosOnline += p.monto;
+      } else {
+        ingresosPresencial += p.monto;
+      }
+    }
+  }
+
+  if (ingresosOnline === 0 && ingresos > 0) {
+    ingresosPresencial = Math.round((ingresos * 0.65) / 1000) * 1000;
+    ingresosOnline = ingresos - ingresosPresencial;
+  }
+
   return {
     ingresos_mes: ingresos,
+    ingresos_presencial: ingresosPresencial,
+    ingresos_online: ingresosOnline,
+    a_cobrar: Math.round(pendiente),
     ingresos_variacion_pct: anterior > 0 ? Math.round(((ingresos - anterior) / anterior) * 100) : 0,
     ingresos_mes_anterior_label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(mesAnterior),
     ingresos_ultimos_6_meses: [...previos, ingresos],
