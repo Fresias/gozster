@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import type { DiaSemana } from "@/lib/clases";
 
 // Selector lunes a domingo con objetivos táctiles grandes (Agenda y Clases, #113).

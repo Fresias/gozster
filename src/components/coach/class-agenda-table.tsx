@@ -136,7 +136,7 @@ export function ClassAgendaTable({
           <div
             role="tablist"
             aria-label="Filtro de reservas por estado"
-            className="flex h-8 items-center rounded-lg bg-muted p-0.5 text-xs"
+            className="flex h-9 items-center rounded-lg bg-muted p-0.5 text-xs overflow-x-auto max-w-full [scrollbar-width:none]"
           >
             <button
               type="button"
@@ -234,8 +234,125 @@ export function ClassAgendaTable({
         </div>
       </div>
 
-      {/* Tabla con scroll horizontal suave */}
-      <div className="overflow-x-auto">
+      {/* Vista Móvil: Lista de Tarjetas de Reservas (<1024px) */}
+      <div className="block lg:hidden p-4 space-y-3" data-testid="mobile-reservations-cards">
+        {filasFiltradas.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">Sin reservas encontradas</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {busqueda
+                ? `No hay coincidencias para "${busqueda}".`
+                : "No hay reservas registradas con el filtro seleccionado."}
+            </p>
+            {onAbrirAnotar && (
+              <button
+                type="button"
+                onClick={onAbrirAnotar}
+                className="mt-3 min-h-[48px] inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted touch-manipulation"
+              >
+                Anotar alumno
+              </button>
+            )}
+          </div>
+        ) : (
+          filasFiltradas.map(({ reserva, alumnoNombre, clase }) => {
+            if (!clase) return null;
+            const inicioDate = new Date(clase.inicio);
+            const finDate = new Date(inicioDate.getTime() + (clase.duracion_minutos || 60) * 60 * 1000);
+            const diaStr = inicioDate.toLocaleDateString("es-AR", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+            const horarioStr = `${inicioDate.toLocaleTimeString("es-AR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })} – ${finDate.toLocaleTimeString("es-AR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}`;
+            const cupoStr = clase.capacidad === null ? "Libre" : `${clase.capacidad} max`;
+
+            let nota = "";
+            if (reserva.estado === "EN_ESPERA") {
+              nota = "En lista de espera";
+            } else if (reserva.estado === "AUSENTE") {
+              nota = "Inasistencia registrada";
+            } else if (clase.estado === "CANCELADA") {
+              nota = clase.motivo_cancelacion || "Clase cancelada";
+            }
+
+            return (
+              <div
+                key={reserva.id}
+                data-testid="reservation-mobile-card"
+                className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 shadow-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-sm text-foreground truncate">
+                    {alumnoNombre}
+                  </span>
+                  {getBadge(reserva.estado)}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Clase</span>
+                    <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          clase.actividad === "FUNCIONAL" ? "bg-sky-500" : "bg-orange-500"
+                        }`}
+                      />
+                      {NOMBRE_ACTIVIDAD[clase.actividad] || clase.actividad}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Horario</span>
+                    <span className="font-mono text-xs font-semibold text-foreground tabular-nums">
+                      {diaStr} · {horarioStr}
+                    </span>
+                  </div>
+                </div>
+
+                {nota && (
+                  <p className="text-[11px] text-muted-foreground italic bg-muted/30 rounded px-2 py-1">
+                    {nota}
+                  </p>
+                )}
+
+                {/* Acciones móviles con targets >= 48px */}
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/60">
+                  {reserva.estado === "ANOTADO" && onMarcarAusente && (
+                    <button
+                      type="button"
+                      onClick={() => onMarcarAusente(reserva.id)}
+                      className="min-h-[48px] px-3 flex items-center justify-center rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 touch-manipulation"
+                      data-testid="mobile-mark-absent-btn"
+                    >
+                      Marcar ausente
+                    </button>
+                  )}
+                  {onQuitarReserva && (
+                    <button
+                      type="button"
+                      onClick={() => onQuitarReserva(reserva.id)}
+                      className="min-h-[48px] px-3 flex items-center justify-center rounded-lg text-xs font-semibold text-muted-foreground hover:bg-muted touch-manipulation"
+                    >
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Vista Desktop: Tabla con scroll horizontal suave (>=1024px) */}
+      <div className="hidden lg:block overflow-x-auto">
         <table className="w-full text-sm text-left border-collapse">
           <thead className="border-b border-border bg-muted/30 text-xs font-medium text-muted-foreground">
             <tr>

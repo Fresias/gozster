@@ -12,6 +12,7 @@ export interface ClaseBlockProps {
   ahoraMs?: number;
   solape?: { columna: number; totalColumnas: number };
   mostrarProgreso?: boolean;
+  variant?: "absolute" | "relative";
   style?: React.CSSProperties;
   onSelect?: (clase: Clase) => void;
   className?: string;
@@ -25,6 +26,7 @@ export function ClaseBlock({
   ahoraMs = Date.now(),
   solape,
   mostrarProgreso = false,
+  variant = "absolute",
   style,
   onSelect,
   className = "",
@@ -90,13 +92,16 @@ export function ClaseBlock({
 
   const actividadNombre = NOMBRE_ACTIVIDAD[clase.actividad] || clase.actividad;
 
+  const isRelative = variant === "relative" || className.includes("relative");
+  const posClass = isRelative ? "relative w-full" : "absolute left-1 right-1";
+
   return (
     <button
       type="button"
       onClick={() => onSelect?.(clase)}
       style={{ ...solapeStyle, ...style }}
       aria-label={`${actividadNombre}, ${fechaStr}, ${horaInicio} a ${horaFin}, ${cupoTexto}`}
-      className={`group absolute left-1 right-1 rounded-md border overflow-hidden pl-2.5 pr-1.5 py-1.5 text-left transition-all duration-150 touch-manipulation hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+      className={`group ${posClass} rounded-md border overflow-hidden pl-2.5 pr-1.5 py-1.5 text-left transition-all duration-150 touch-manipulation hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         activa ? "ring-2 ring-primary ring-offset-1 z-20 shadow-xs" : "z-10"
       } ${themeClass} ${className}`}
     >

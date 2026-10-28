@@ -252,8 +252,8 @@ export function ClassAgenda() {
         </div>
       )}
 
-      {/* Cabecera del calendario (Spec Section 4) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border rounded-xl px-4 sm:px-5 py-3.5 shadow-xs">
+      {/* Cabecera del calendario (Spec Section 4 - Desktop) */}
+      <div className="hidden lg:flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border rounded-xl px-4 sm:px-5 py-3.5 shadow-xs">
         <div>
           <h2 id="agenda-titulo" className="text-lg font-bold tracking-tight text-foreground">
             {mesCapitalizado}
@@ -390,6 +390,14 @@ export function ClassAgenda() {
           setVista("dia");
         }}
         onAbrirCrear={() => createDialogRef.current?.showModal()}
+        fechaRef={fechaReferencia}
+        onIrHoy={() => {
+          setDesplazamientoMs(0);
+          setDia(hoy);
+        }}
+        onNavegarSemana={(delta) => {
+          setDesplazamientoMs((prev) => prev + delta * 7 * 24 * 3600 * 1000);
+        }}
       />
 
       {/* Vista Desktop (≥ 1024px): Layout de 3 Zonas */}

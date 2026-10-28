@@ -17,6 +17,7 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
 import type { Clase, Reserva } from "@/types/database.types";
+import { ClaseBlock } from "@/components/coach/clase-block";
 
 // Athlete App · Clases (#113 / GH #122): semana en curso, contador semanal y anotarse/cancelar.
 export function AthleteClasses() {
@@ -217,55 +218,56 @@ export function AthleteClasses() {
             return (
               <li
                 key={clase.id}
-                className={`rounded-2xl border bg-card p-4 transition-all ${
+                className={`rounded-2xl border bg-card p-4 transition-all space-y-3 ${
                   estado === "RESERVADA" ? "border-emerald-500/60 ring-1 ring-emerald-500/30" : "border-border/80"
                 }`}
                 data-testid="class-booking-card"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-black tabular-nums">{horaLocal(clase.inicio)}</p>
-                    <p className="text-xs text-muted-foreground font-medium" data-testid="class-spots">
-                      {clase.duracion_minutos} min
-                      {clase.capacidad !== null ? ` · ${cuposLibres} de ${clase.capacidad} cupos libres` : " · Cupo libre"}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[clase.actividad]}`}>
-                      {NOMBRE_ACTIVIDAD[clase.actividad]}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                          : estado === "CANCELADA"
-                          ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
-                          : estado === "INICIADA"
-                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-                          : "bg-secondary text-muted-foreground"
-                      }`}
-                      data-testid="class-status"
-                    >
-                      {estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
-                        ? "Anotado"
+                {/* Reutilización del bloque de clase oficial con tokens act-* y diseño consistente */}
+                <ClaseBlock
+                  clase={clase}
+                  ocupados={ocupados}
+                  variant="relative"
+                  mostrarProgreso
+                  className="pointer-events-none"
+                />
+
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground pt-0.5">
+                  <span data-testid="class-spots">
+                    {clase.duracion_minutos} min
+                    {clase.capacidad !== null ? ` · ${cuposLibres} de ${clase.capacidad} cupos libres` : " · Cupo libre"}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                         : estado === "CANCELADA"
-                        ? "Cancelada"
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
                         : estado === "INICIADA"
-                        ? "Comenzada"
-                        : estado === "SIN_CUPO"
-                        ? "Sin cupo"
-                        : "Disponible"}
-                    </span>
-                  </div>
+                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                    data-testid="class-status"
+                  >
+                    {estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
+                      ? "Anotado"
+                      : estado === "CANCELADA"
+                      ? "Cancelada"
+                      : estado === "INICIADA"
+                      ? "Comenzada"
+                      : estado === "SIN_CUPO"
+                      ? "Sin cupo"
+                      : "Disponible"}
+                  </span>
                 </div>
 
                 {renovacion && estado === "DISPONIBLE" && (
-                  <p className="mt-3 rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300" data-testid="renewal-period-banner">
+                  <p className="rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300" data-testid="renewal-period-banner">
                     Esta clase corresponde a tu período de renovación a partir del {renovacion}.
                   </p>
                 )}
 
-                <div className="mt-3">
+                <div>
                   {estado === "DISPONIBLE" && (
                     <Button
                       size="touch"

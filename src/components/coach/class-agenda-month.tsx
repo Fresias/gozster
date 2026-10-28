@@ -54,15 +54,27 @@ export function ClassAgendaMonth({
           return (
             <div
               key={d.clave}
+              role="button"
+              tabIndex={0}
+              data-testid={esHoy ? "month-today-cell" : "month-day-cell"}
               onClick={() => onSelectDia(d.clave)}
-              className={`min-h-[108px] sm:min-h-[120px] p-1.5 sm:p-2 flex flex-col justify-between transition-colors hover:bg-muted/40 cursor-pointer ${
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectDia(d.clave);
+                }
+              }}
+              className={`min-h-[108px] sm:min-h-[120px] p-1.5 sm:p-2 flex flex-col justify-between transition-colors hover:bg-muted/40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 d.esMesActual ? "bg-card" : "bg-muted/20 opacity-60"
               } ${esHoy ? "bg-primary/[0.04]" : ""}`}
             >
               {/* Encabezado del día: Número */}
               <div className="flex items-center justify-between">
                 {esHoy ? (
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1 font-mono font-bold text-xs text-primary-foreground shadow-xs">
+                  <span
+                    data-testid="month-today-pill"
+                    className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1 font-mono font-bold text-xs text-primary-foreground shadow-xs"
+                  >
                     {d.numero}
                   </span>
                 ) : (
@@ -94,11 +106,13 @@ export function ClassAgendaMonth({
                     <button
                       key={c.id}
                       type="button"
+                      data-testid="month-class-chip"
+                      aria-label={`${NOMBRE_ACTIVIDAD[c.actividad] || c.actividad}, ${horaStr}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectClase(c);
                       }}
-                      className={`w-full flex items-center justify-between rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight truncate text-left transition-all hover:brightness-95 ${themeClass}`}
+                      className={`w-full flex h-5 items-center justify-between rounded px-1.5 text-[11px] font-medium leading-tight truncate text-left transition-all hover:brightness-95 ${themeClass}`}
                     >
                       <span className="truncate">
                         {NOMBRE_ACTIVIDAD[c.actividad] || c.actividad}
@@ -111,7 +125,10 @@ export function ClassAgendaMonth({
                 })}
 
                 {restantes > 0 && (
-                  <p className="text-[10px] font-semibold text-primary font-mono pt-0.5">
+                  <p
+                    data-testid="month-more-chips"
+                    className="text-[10px] font-semibold text-primary font-mono pt-0.5"
+                  >
                     +{restantes} más
                   </p>
                 )}
