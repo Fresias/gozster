@@ -52,6 +52,7 @@ export const REAL_ALUMNOS: Perfil[] = [
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
     "fecha_baja": null,
+    "fecha_vencimiento_cuota": "2026-10-25",
     "created_at": "2026-09-25T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.557Z"
   },

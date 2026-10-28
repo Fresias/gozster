@@ -34,8 +34,123 @@ interface RoutineBuilderModalProps {
   onClose: () => void;
   alumnoId?: string;
   alumnoNombre?: string;
+  planInicial?: PlanEntrenamiento | null;
+  diasIniciales?: DiaRutina[];
+  ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
+}
+
+const DEFAULT_BUILDER_DAYS: BuilderDay[] = [
+  {
+    id: "builder-day-1",
+    nombre: "Día 1: Torso Pesado (Empuje / Tirón)",
+    orden: 1,
+    ejercicios: [
+      {
+        id: "be-1",
+        ejercicio_id: "e2222222-2222-4222-8222-222222222202",
+        nombre: "Press de Banca Plano con Barra",
+        series: 4,
+        repeticiones: "6-8",
+        descanso_segundos: 120,
+        rpe_objetivo: 8.5,
+        tempo: "3-0-1-0",
+        force_rpe_required: true,
+        notas: "Retracción escapular firme y pausa de 1s en el pecho.",
+        es_superserie: false,
+        grupo_superserie: null,
+        url_video: "rT7DgCr-3pg",
+      },
+      {
+        id: "be-2",
+        ejercicio_id: "e5555555-5555-4555-8555-555555555505",
+        nombre: "Remo con Barra",
+        series: 4,
+        repeticiones: "8-10",
+        descanso_segundos: 90,
+        rpe_objetivo: 8.0,
+        tempo: "2-0-1-1",
+        force_rpe_required: false,
+        notas: "Traccionar llevando los codos hacia la cadera.",
+        es_superserie: false,
+        grupo_superserie: null,
+        url_video: "G8l_8chR5BE",
+      },
+    ],
+  },
+  {
+    id: "builder-day-2",
+    nombre: "Día 2: Piernas & Core",
+    orden: 2,
+    ejercicios: [
+      {
+        id: "be-3",
+        ejercicio_id: "e1111111-1111-4111-8111-111111111101",
+        nombre: "Sentadilla Trasera con Barra",
+        series: 4,
+        repeticiones: "6-8",
+        descanso_segundos: 150,
+        rpe_objetivo: 8.5,
+        tempo: "3-1-1-0",
+        force_rpe_required: true,
+        notas: "Profundidad rompiendo el paralelo con torso erguido.",
+        es_superserie: false,
+        grupo_superserie: null,
+        url_video: "bEv6CCg2BC8",
+      },
+    ],
+  },
+];
+
+function mapPlanToBuilderDays(
+  planId: string,
+  dias: DiaRutina[],
+  ejerciciosEnRutina: EjercicioEnRutina[],
+  catalogo: Ejercicio[],
+): BuilderDay[] {
+  const planDias = dias
+    .filter((d) => d.plan_id === planId)
+    .sort((a, b) => a.orden - b.orden);
+
+  if (planDias.length === 0) return DEFAULT_BUILDER_DAYS;
+
+  return planDias.map((d) => {
+    const dEjercicios = ejerciciosEnRutina
+      .filter((er) => er.dia_id === d.id)
+      .sort((a, b) => a.orden - b.orden)
+      .map((er) => {
+        const ej = catalogo.find((e) => e.id === er.ejercicio_id);
+        const grupoNum =
+          typeof er.grupo_superserie === "number"
+            ? er.grupo_superserie
+            : typeof er.grupo_superserie === "string"
+            ? parseInt((er.grupo_superserie as string).replace(/\D/g, ""), 10) || null
+            : null;
+        return {
+          id: er.id,
+          ejercicio_id: er.ejercicio_id ?? "",
+          nombre: (er as any).nombre_ejercicio_custom || ej?.nombre || "Ejercicio",
+          series: er.series,
+          repeticiones: er.repeticiones,
+          descanso_segundos: er.descanso_segundos,
+          rpe_objetivo: er.rpe_objetivo ?? 8,
+          tempo: er.tempo ?? "2-0-1-0",
+          force_rpe_required: Boolean((er as any).force_rpe_required),
+          notas: er.notas ?? "",
+          es_superserie: Boolean(er.es_superserie),
+          grupo_superserie: grupoNum,
+          url_video: ej?.url_video ?? null,
+        };
+      });
+
+    return {
+      id: d.id,
+      nombre: d.nombre,
+      orden: d.orden,
+      ejercicios: dEjercicios,
+    };
+  });
 }
 
 export function RoutineBuilderModal({
@@ -43,72 +158,34 @@ export function RoutineBuilderModal({
   onClose,
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
+  planInicial,
+  diasIniciales,
+  ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
   onRoutineSaved,
 }: RoutineBuilderModalProps) {
   const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
-  const [days, setDays] = React.useState<BuilderDay[]>([
-    {
-      id: "builder-day-1",
-      nombre: "Día 1: Torso Pesado (Empuje / Tirón)",
-      orden: 1,
-      ejercicios: [
-        {
-          id: "be-1",
-          ejercicio_id: "e2222222-2222-4222-8222-222222222202",
-          nombre: "Press de Banca Plano con Barra",
-          series: 4,
-          repeticiones: "6-8",
-          descanso_segundos: 120,
-          rpe_objetivo: 8.5,
-          tempo: "3-0-1-0",
-          force_rpe_required: true,
-          notas: "Retracción escapular firme y pausa de 1s en el pecho.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "rT7DgCr-3pg",
-        },
-        {
-          id: "be-2",
-          ejercicio_id: "e5555555-5555-4555-8555-555555555505",
-          nombre: "Remo con Barra",
-          series: 4,
-          repeticiones: "8-10",
-          descanso_segundos: 90,
-          rpe_objetivo: 8.0,
-          tempo: "2-0-1-1",
-          force_rpe_required: false,
-          notas: "Traccionar llevando los codos hacia la cadera.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "G8l_8chR5BE",
-        },
-      ],
-    },
-    {
-      id: "builder-day-2",
-      nombre: "Día 2: Piernas & Core",
-      orden: 2,
-      ejercicios: [
-        {
-          id: "be-3",
-          ejercicio_id: "e1111111-1111-4111-8111-111111111101",
-          nombre: "Sentadilla Trasera con Barra",
-          series: 4,
-          repeticiones: "6-8",
-          descanso_segundos: 150,
-          rpe_objetivo: 8.5,
-          tempo: "3-1-1-0",
-          force_rpe_required: true,
-          notas: "Profundidad rompiendo el paralelo con torso erguido.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "bEv6CCg2BC8",
-        },
-      ],
-    },
-  ]);
+  const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (planInicial) {
+      setPlanName(planInicial.nombre);
+      setComentarios(planInicial.comentarios ?? "");
+      const mapped = mapPlanToBuilderDays(
+        planInicial.id,
+        diasIniciales ?? [],
+        ejerciciosEnRutinaIniciales ?? [],
+        catalogoEjercicios,
+      );
+      setDays(mapped);
+    } else {
+      setPlanName("Bloque de Hipertrofia & Fuerza");
+      setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
+      setDays(DEFAULT_BUILDER_DAYS);
+    }
+  }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
   const [showCatalogModal, setShowCatalogModal] = React.useState(false);
@@ -521,17 +598,20 @@ export function RoutineBuilderModal({
                         <input
                           type="number"
                           min="1"
-                          max="10"
+                          max="20"
                           value={ej.series}
-                          onChange={(e) =>
-                            handleUpdateExercise(
-                              ej.id,
-                              "series",
-                              parseInt(e.target.value, 10) || 1
-                            )
-                          }
+                          onChange={(e) => {
+                            const parsed = parseInt(e.target.value, 10);
+                            const clamped = isNaN(parsed) ? 1 : Math.min(Math.max(parsed, 1), 20);
+                            handleUpdateExercise(ej.id, "series", clamped);
+                          }}
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
+                        {ej.series >= 20 && (
+                          <span className="text-[9px] text-amber-500 font-bold block mt-0.5">
+                            Límite: máximo 20 series
+                          </span>
+                        )}
                       </div>
 
                       <div>

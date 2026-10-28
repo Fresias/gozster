@@ -127,12 +127,12 @@ test("@demo recorrido Coach Studio con GABI AGOSTO", async ({ page }, info: Test
     await expect(page.getByTestId("estado-rutina")).toBeVisible();
     await sinBasura(page);
   });
-  await paso("D-A2", "ROJO", "Plan GABI AGOSTO activo con fechas coherentes", async () => {
+  await paso("D-A2", "ROJO", "Plan GABI AGOSTO con estado vencido y fechas coherentes", async () => {
     await expect(page.getByText("GABI AGOSTO", { exact: true }).first()).toBeVisible();
-    await expect(page.getByTestId("estado-rutina")).toContainText(/ACTIVO/i);
-    // Plan 25/09 → 25/10/2026: si hoy ya pasó el fin del plan, "activo" no es coherente con las fechas.
-    const fin = new Date("2026-10-25T02:59:00Z");
-    expect(new Date() <= fin, "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó").toBe(true);
+    // D-A2: GABI AGOSTO con fecha_fin 25/10/2026 (hoy 28/10): el estado no es ACTIVO (VENCIDO)
+    // y el vencimiento mostrado coincide con fecha_fin (25 de oct)
+    await expect(page.getByTestId("estado-rutina")).toContainText(/VENCIDO/i);
+    await expect(page.getByTestId("fecha-vencimiento")).toContainText(/25 de oct/i);
   });
   await paso("D-A3", "NARANJA", "Historial de cargas abre y cierra", async () => {
     await page.getByText("Ver Cargas & RPE").click();

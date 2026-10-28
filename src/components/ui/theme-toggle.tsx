@@ -121,7 +121,7 @@ export function ThemeToggle({ className = "", showLabel = false }: ThemeTogglePr
       title={isDark ? "Cambiar a Modo Día (Blanco Cálido)" : "Cambiar a Modo Noche (Carbón Suave)"}
       data-testid="theme-toggle"
       data-theme={isDark ? "dark" : "light"}
-      className={`group relative inline-flex items-center justify-center gap-2 rounded-xl border border-border/80 bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-xs transition-all hover:bg-secondary hover:border-border active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring ${className}`}
+      className={`group relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-xl border border-border/80 bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-xs transition-all hover:bg-secondary hover:border-border active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring ${className}`}
     >
       <div className="relative flex h-5 w-5 items-center justify-center">
         {/* Sol (Light Mode) */}

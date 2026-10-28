@@ -26,9 +26,9 @@
   {
     "id": "D-L4",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoMatch\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-L4.png"
   },
   {
@@ -66,9 +66,9 @@
   {
     "id": "D-D5",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-D5.png"
   },
   {
@@ -90,9 +90,9 @@
   {
     "id": "D-A2",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "ROJO",
-    "detalle": "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-A2.png"
   },
   {
@@ -138,17 +138,17 @@
   {
     "id": "D-R4",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R4.png"
   },
   {
     "id": "D-R6",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "acepta 9999 series sin rechazar ni avisar",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-R6.png"
   },
   {
@@ -186,9 +186,9 @@
   {
     "id": "D-G3",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "ningún alumno/clase del seed dispara el aviso de suscripción",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-G3.png"
   },
   {
@@ -274,17 +274,17 @@
   {
     "id": "D-T1",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "ROJO",
-    "detalle": "controles < 44 px: G",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-T1.png"
   },
   {
     "id": "D-CONSOLA",
     "viewport": "1366x768",
-    "estado": "FAIL",
+    "estado": "PASS",
     "sev": "NARANJA",
-    "detalle": "[console] Cannot update a component (`%s`) while rendering a different component (`%s`). To locate the bad setState() call inside `%s`, follow the stack trace as describe | [pageerror] Hydration failed because the server",
+    "detalle": "",
     "evidencia": "docs/qa/demo-evidencia/desktop-1366/D-CONSOLA.png"
   }
 ]

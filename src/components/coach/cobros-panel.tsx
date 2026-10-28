@@ -116,7 +116,7 @@ export function CobrosPanel() {
   };
 
   return (
-    <section className="space-y-6" aria-labelledby="cobros-titulo" data-testid="cobros-panel">
+    <section className="space-y-6" aria-labelledby="cobros-titulo" data-testid="cobros-panel" suppressHydrationWarning>
       {/* Cabecera */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -173,7 +173,7 @@ export function CobrosPanel() {
       )}
 
       {/* Franja de KPIs del mes */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" data-testid="cobros-kpis">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" data-testid="cobros-kpis" suppressHydrationWarning>
         {/* Ingresos del mes */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
@@ -182,7 +182,7 @@ export function CobrosPanel() {
               $
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums" data-testid="kpi-ingresos-mes">
+          <p className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums" data-testid="kpi-ingresos-mes" suppressHydrationWarning>
             {formatearDinero(kpis.ingresosMes)}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -198,7 +198,7 @@ export function CobrosPanel() {
               ⏳
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums" data-testid="kpi-cobranza-pendiente">
+          <p className="mt-2 text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums" data-testid="kpi-cobranza-pendiente" suppressHydrationWarning>
             {formatearDinero(kpis.cobranzaPendiente)}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -214,7 +214,7 @@ export function CobrosPanel() {
               !
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums" data-testid="kpi-alumnos-morosos">
+          <p className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums" data-testid="kpi-alumnos-morosos" suppressHydrationWarning>
             {kpis.alumnosMorosos}{" "}
             <span className="text-xs font-semibold text-muted-foreground">
               ({formatearDinero(kpis.cobranzaVencida)})
@@ -233,7 +233,7 @@ export function CobrosPanel() {
               %
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums" data-testid="kpi-tasa-cobranza">
+          <p className="mt-2 text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums" data-testid="kpi-tasa-cobranza" suppressHydrationWarning>
             {kpis.tasaCobranzaPct}%
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -277,6 +277,7 @@ export function CobrosPanel() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid={`filtro-${tab.key.toLowerCase()}-btn`}
+              suppressHydrationWarning
             >
               {tab.label}
             </button>

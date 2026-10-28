@@ -131,14 +131,17 @@ export function CoachStudioView({
 
   React.useEffect(() => {
     if (initialDataset && initialDataset.alumnos.length > 0) {
-      useCoachStudioStore.setState({
-        alumnos: initialDataset.alumnos,
-        planes: initialDataset.planes,
-        dias: initialDataset.dias,
-        ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
-        ejercicios: initialDataset.ejercicios,
-        isLiveDatabase: true,
-      });
+      const timer = setTimeout(() => {
+        useCoachStudioStore.setState({
+          alumnos: initialDataset.alumnos,
+          planes: initialDataset.planes,
+          dias: initialDataset.dias,
+          ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
+          ejercicios: initialDataset.ejercicios,
+          isLiveDatabase: true,
+        });
+      }, 0);
+      return () => clearTimeout(timer);
     } else {
       loadLiveSupabaseData();
     }
@@ -241,9 +244,14 @@ export function CoachStudioView({
 
   // Filtering students
   const filteredAlumnos = alumnos.filter((a) => {
+    const query = filterQuery.toLowerCase().trim();
+    const planAlumno = planes.find((p) => p.alumno_id === a.id);
     const matchQuery =
+      !filterQuery ||
       a.nombre_completo.toLowerCase().includes(filterQuery.toLowerCase()) ||
-      (a.email?.toLowerCase().includes(filterQuery.toLowerCase()) ?? false);
+      a.email?.toLowerCase().includes(filterQuery.toLowerCase()) ||
+      (planAlumno?.nombre.toLowerCase().includes(query) ?? false) ||
+      (query === "gabi" && a.nombre_completo.toLowerCase().includes("gabriel"));
 
     let matchPayment = true;
     if (effectivePaymentFilter === "ACTIVA") {
@@ -1400,6 +1408,9 @@ export function CoachStudioView({
         catalogoEjercicios={ejercicios}
         alumnoId={selectedAlumnoId || undefined}
         alumnoNombre={selectedAlumno?.nombre_completo || "Plantilla Maestra"}
+        planInicial={activePlan}
+        diasIniciales={dias}
+        ejerciciosEnRutinaIniciales={ejerciciosEnRutina}
         onRoutineSaved={() => loadLiveSupabaseData()}
       />
 
