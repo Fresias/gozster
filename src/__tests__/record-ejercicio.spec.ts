@@ -130,6 +130,10 @@ describe("esNuevoRecord (§3.4, §3.7)", () => {
     expect(esNuevoRecord(serie(200, 1, "W"), marcasAC).esRecord).toBe(false);
   });
 
+  it("una serie marcada como atípica nunca es récord (GOZS-200)", () => {
+    expect(esNuevoRecord({ peso_kg: 200, reps_hechas: 5, atipica: true }, marcasAC).esRecord).toBe(false);
+  });
+
   it("DROPSET y FAILURE cuentan como serie efectiva (§3.4.5)", () => {
     expect(esNuevoRecord(serie(105, 2, "DROPSET"), marcasAC).esRecord).toBe(true);
     expect(esNuevoRecord(serie(105, 2, "FAILURE"), marcasAC).esRecord).toBe(true);
@@ -163,6 +167,23 @@ describe("agregarSerieAMarcas (§3.3: serie 3 no repite el récord de la serie 2
     const m = agregarSerieAMarcas(null, EJ, { peso_kg: 50, reps_hechas: 10, fecha: "2026-10-24T13:00:00Z" });
     expect(m.frontera).toHaveLength(1);
     expect(m.max_peso_kg).toBe(50);
+  });
+
+  it("una serie marcada como atípica no se agrega a marcas de récord (GOZS-200)", () => {
+    const marcas: MarcasEjercicio = {
+      ejercicio_id: EJ,
+      frontera: [par(80, 5)],
+      max_peso_kg: 80,
+      max_epley_kg: 80 * (1 + 5 / 30),
+    };
+    const actualizadas = agregarSerieAMarcas(marcas, EJ, {
+      peso_kg: 200,
+      reps_hechas: 5,
+      fecha: "2026-10-24T13:00:00Z",
+      atipica: true,
+    });
+    expect(actualizadas.max_peso_kg).toBe(80);
+    expect(actualizadas.frontera).toHaveLength(1);
   });
 });
 

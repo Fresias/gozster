@@ -13,6 +13,7 @@ export interface SerieHistorica {
   rpe_real: number | null;
   completada: boolean;
   set_type?: string | null;
+  atipica?: boolean;
 }
 
 export interface SerieUltimaVez {
@@ -28,9 +29,9 @@ export interface UltimaVezEjercicio {
   series: SerieUltimaVez[];
 }
 
-// §0.1: completada, no calentamiento y al menos una rep.
+// §0.1: completada, no atípica, no calentamiento y al menos una rep.
 export function esSerieValida(s: SerieHistorica): boolean {
-  return s.completada && s.set_type !== "WARMUP" && s.set_type !== "W" && s.reps_hechas >= 1;
+  return s.completada && !s.atipica && s.set_type !== "WARMUP" && s.set_type !== "W" && s.reps_hechas >= 1;
 }
 
 // Última sesión (anterior a `antesDe`) con al menos una serie válida de ese ejercicio. null = sin historial.

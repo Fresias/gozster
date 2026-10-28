@@ -44,6 +44,7 @@ describe("esSerieValida (§0.1)", () => {
     expect(esSerieValida(serie({ set_type: "WARMUP" }))).toBe(false);
     expect(esSerieValida(serie({ set_type: "W" }))).toBe(false);
     expect(esSerieValida(serie({ reps_hechas: 0 }))).toBe(false);
+    expect(esSerieValida(serie({ atipica: true }))).toBe(false);
   });
 });
 
