@@ -43,65 +43,7 @@ interface RoutineBuilderModalProps {
 }
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [
-  {
-    id: "builder-day-1",
-    nombre: "Día 1: Torso Pesado (Empuje / Tirón)",
-    orden: 1,
-    ejercicios: [
-      {
-        id: "be-1",
-        ejercicio_id: "e2222222-2222-4222-8222-222222222202",
-        nombre: "Press de Banca Plano con Barra",
-        series: 4,
-        repeticiones: "6-8",
-        descanso_segundos: 120,
-        rpe_objetivo: 8.5,
-        tempo: "3-0-1-0",
-        force_rpe_required: true,
-        notas: "Retracción escapular firme y pausa de 1s en el pecho.",
-        es_superserie: false,
-        grupo_superserie: null,
-        url_video: "rT7DgCr-3pg",
-      },
-      {
-        id: "be-2",
-        ejercicio_id: "e5555555-5555-4555-8555-555555555505",
-        nombre: "Remo con Barra",
-        series: 4,
-        repeticiones: "8-10",
-        descanso_segundos: 90,
-        rpe_objetivo: 8.0,
-        tempo: "2-0-1-1",
-        force_rpe_required: false,
-        notas: "Traccionar llevando los codos hacia la cadera.",
-        es_superserie: false,
-        grupo_superserie: null,
-        url_video: "G8l_8chR5BE",
-      },
-    ],
-  },
-  {
-    id: "builder-day-2",
-    nombre: "Día 2: Piernas & Core",
-    orden: 2,
-    ejercicios: [
-      {
-        id: "be-3",
-        ejercicio_id: "e1111111-1111-4111-8111-111111111101",
-        nombre: "Sentadilla Trasera con Barra",
-        series: 4,
-        repeticiones: "6-8",
-        descanso_segundos: 150,
-        rpe_objetivo: 8.5,
-        tempo: "3-1-1-0",
-        force_rpe_required: true,
-        notas: "Profundidad rompiendo el paralelo con torso erguido.",
-        es_superserie: false,
-        grupo_superserie: null,
-        url_video: "bEv6CCg2BC8",
-      },
-    ],
-  },
+  { id: "builder-day-1", nombre: "Día 1", orden: 1, ejercicios: [] },
 ];
 
 function mapPlanToBuilderDays(
