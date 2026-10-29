@@ -5,12 +5,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { getMananaFechaString } from "@/lib/planes";
 
 describe("UI Coach Studio / Cobros: Botones y diálogos para crear/modificar planes (GOZS-255)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useClasesStore } from "@/store/use-clases-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   detectarSolapes,
   diasDelMes,
@@ -12,7 +11,6 @@ import type { Clase } from "@/types/database.types";
 
 describe("Agenda de Clases en Coach Studio (GOZS-184 / GH #181)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useClasesStore.getState().resetDemoDataset();
   });
 

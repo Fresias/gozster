@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { computeAnchoredRenewalDate, derivarEstadoContratacion } from "@/lib/contrataciones";
-import { supabase } from "@/lib/supabase/client";
 import {
   DEMO_ALUMNOS,
   DEMO_ALUMNOS_CLASES,
@@ -9,8 +8,7 @@ import {
   DEMO_GIMNASIO,
   DEMO_PLANES_MEMBRESIA,
 } from "@/services/coach-demo-dataset";
-import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { safeStorage } from "@/store/use-offline-queue";
 import type { Contratacion, MedioPago, Pago } from "@/types/database.types";
 import {
   type ActividadPlanOpcion,
@@ -158,8 +156,6 @@ interface CobrosState {
   }) => Promise<PlanMembresiaConVigencia>;
 }
 
-const enLinea = () => useOfflineQueueStore.getState().isOnline;
-const esModoTesteo = () => useWorkspaceModeStore.getState().mode === "TESTEO";
 
 export function generarDemoPlanesIniciales(): PlanMembresiaConVigencia[] {
   const now = new Date().toISOString();
@@ -472,92 +468,8 @@ export const useCobrosStore = create<CobrosState>()(
       },
 
       cargarCobros: async () => {
-        if (esModoTesteo()) {
-          if (get().cobros.length === 0) {
-            set({ cobros: generarDemoCobrosIniciales(), cargando: false });
-          }
-          return;
-        }
-
-        if (!enLinea()) {
-          set({ error: "Sin conexión: mostramos los cobros guardados localmente." });
-          return;
-        }
-
-        set({ cargando: true, error: null });
-        try {
-          const { data: contrataciones, error: errC } = await supabase
-            .from("contrataciones")
-            .select("*, perfiles(id, nombre_completo, email, telefono), planes_membresia(nombre, precio)")
-            .order("fecha_fin", { ascending: false });
-
-          if (errC) throw errC;
-
-          const hoyStr = new Date().toISOString().slice(0, 10);
-          const { data: pagos } = await supabase
-            .from("pagos")
-            .select("*")
-            .eq("estado", "CONFIRMADO")
-            .order("created_at", { ascending: false });
-
-          const items: CobroItem[] = (contrataciones ?? []).map((row: any) => {
-            const perfil = row.perfiles;
-            const plan = row.planes_membresia;
-            const pago = pagos?.find((p) => p.contratacion_id === row.id);
-
-            let estado: EstadoCobro = "PENDIENTE";
-            let ultimoPago: CobroItem["ultimoPago"] | undefined = undefined;
-
-            if (pago) {
-              estado = "PAGADO";
-              ultimoPago = {
-                id: pago.id,
-                monto: pago.monto,
-                medioPago: pago.medio_pago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
-                fechaPago: pago.confirmado_at ?? pago.created_at,
-                confirmadoPor: "Coach",
-              };
-            } else if (row.estado === "VENCIDA" || row.fecha_fin < hoyStr) {
-              estado = "VENCIDO";
-            }
-
-            return {
-              id: `cobro-${row.id}`,
-              alumnoId: row.alumno_id,
-              alumnoNombre: perfil?.nombre_completo ?? "Alumno",
-              alumnoEmail: perfil?.email ?? "",
-              alumnoTelefono: perfil?.telefono ?? null,
-              contratacionId: row.id,
-              servicioNombre: plan?.nombre ?? (row.actividad ? `Presencial ${row.actividad}` : "Servicio"),
-              monto: plan?.precio ?? 25000,
-              actividad: row.actividad,
-              diaVencimiento: row.dia_vencimiento,
-              fechaVencimiento: row.fecha_fin,
-              estado,
-              ultimoPago,
-            };
-          });
-
-          const historialMapeado: PagoMensualInput[] = (pagos ?? []).map((p: any) => {
-            const contratacion = (contrataciones ?? []).find((c: any) => c.id === p.contratacion_id);
-            return {
-              id: p.id,
-              monto: Number(p.monto_cobrado ?? p.monto ?? 0),
-              montoCobrado: Number(p.monto_cobrado ?? p.monto ?? 0),
-              fechaPago: p.confirmado_at ?? p.created_at,
-              actividad: contratacion?.actividad ?? null,
-              servicioNombre: contratacion?.planes_membresia?.nombre ?? null,
-              tipoServicio: contratacion?.tipo_servicio ?? null,
-              notas: p.nota,
-            };
-          });
-
-          set({ cobros: items, pagosHistorial: historialMapeado, cargando: false });
-        } catch {
-          set({
-            error: "No pudimos cargar los cobros desde el servidor. Mostramos datos locales.",
-            cargando: false,
-          });
+        if (get().cobros.length === 0) {
+          set({ cobros: generarDemoCobrosIniciales(), cargando: false });
         }
       },
 
@@ -594,115 +506,52 @@ export const useCobrosStore = create<CobrosState>()(
           notas,
         };
 
-        if (esModoTesteo()) {
-          // Actualización en memoria y estado local
-          const cobrosActualizados = get().cobros.map((c) => {
-            if (c.contratacionId === contratacionId) {
-              return {
-                ...c,
-                estado: "PAGADO" as const,
+        // Actualización en memoria y estado local
+        const cobrosActualizados = get().cobros.map((c) => {
+          if (c.contratacionId === contratacionId) {
+            return {
+              ...c,
+              estado: "PAGADO" as const,
+              monto,
+              montoLista: precioLista,
+              descuento,
+              notaDescuento: notas,
+              fechaVencimiento: nuevaFechaFin,
+              ultimoPago: {
+                id: pagoId,
                 monto,
                 montoLista: precioLista,
                 descuento,
-                notaDescuento: notas,
-                fechaVencimiento: nuevaFechaFin,
-                ultimoPago: {
-                  id: pagoId,
-                  monto,
-                  montoLista: precioLista,
-                  descuento,
-                  medioPago,
-                  fechaPago: ahoraIso,
-                  confirmadoPor: "Lucía Ferraro",
-                  notas,
-                },
-              };
-            }
-            return c;
-          });
-
-          const nuevoPagoRegistro: PagoMensualInput = {
-            id: pagoId,
-            monto,
-            montoCobrado: monto,
-            fechaPago: ahoraIso,
-            actividad: item.actividad,
-            servicioNombre: item.servicioNombre,
-            tipoServicio: item.actividad ? "PRESENCIAL" : "ASESORIA_ONLINE",
-            notas,
-          };
-
-          set({
-            cobros: cobrosActualizados,
-            pagosHistorial: [...(get().pagosHistorial ?? []), nuevoPagoRegistro],
-            accionEnCurso: null,
-            comprobanteActivo: comprobante,
-            aviso: `Pago de $${monto.toLocaleString("es-AR")} (${medioPago}) confirmado exitosamente.`,
-          });
-
-          return comprobante;
-        }
-
-        // Modo Producción
-        try {
-          if (enLinea()) {
-            const idempotencyKey = `pago-${contratacionId}-${nuevaFechaFin}`;
-            const { error: rpcErr } = await supabase.rpc("registrar_y_confirmar_renovacion", {
-              p_contratacion_id: contratacionId,
-              p_monto: monto,
-              p_medio_pago: medioPago,
-              p_idempotency_key: idempotencyKey,
-            });
-            if (rpcErr) throw rpcErr;
-          } else {
-            // Guardar en cola offline
-            useOfflineQueueStore.getState().enqueueEvent({
-              id: `offline-pago-${Date.now()}`,
-              action: "registrar_pago",
-              payload: { contratacionId, monto, medioPago, notas, nuevaFechaFin },
-            });
+                medioPago,
+                fechaPago: ahoraIso,
+                confirmadoPor: "Lucía Ferraro",
+                notas,
+              },
+            };
           }
+          return c;
+        });
 
-          const cobrosActualizados = get().cobros.map((c) => {
-            if (c.contratacionId === contratacionId) {
-              return {
-                ...c,
-                estado: "PAGADO" as const,
-                monto,
-                montoLista: precioLista,
-                descuento,
-                notaDescuento: notas,
-                fechaVencimiento: nuevaFechaFin,
-                ultimoPago: {
-                  id: pagoId,
-                  monto,
-                  montoLista: precioLista,
-                  descuento,
-                  medioPago,
-                  fechaPago: ahoraIso,
-                  confirmadoPor: "Coach",
-                  notas,
-                },
-              };
-            }
-            return c;
-          });
+        const nuevoPagoRegistro: PagoMensualInput = {
+          id: pagoId,
+          monto,
+          montoCobrado: monto,
+          fechaPago: ahoraIso,
+          actividad: item.actividad,
+          servicioNombre: item.servicioNombre,
+          tipoServicio: item.actividad ? "PRESENCIAL" : "ASESORIA_ONLINE",
+          notas,
+        };
 
-          set({
-            cobros: cobrosActualizados,
-            accionEnCurso: null,
-            comprobanteActivo: comprobante,
-            aviso: `Pago registrado correctamente.`,
-          });
+        set({
+          cobros: cobrosActualizados,
+          pagosHistorial: [...(get().pagosHistorial ?? []), nuevoPagoRegistro],
+          accionEnCurso: null,
+          comprobanteActivo: comprobante,
+          aviso: `Pago de $${monto.toLocaleString("es-AR")} (${medioPago}) confirmado exitosamente.`,
+        });
 
-          return comprobante;
-        } catch (err: any) {
-          set({
-            accionEnCurso: null,
-            error: err.message || "Error registrando pago en el servidor.",
-          });
-          throw err;
-        }
+        return comprobante;
       },
 
       recuperarMontoOriginal: (contratacionId: string) => {
@@ -932,24 +781,6 @@ export const useCobrosStore = create<CobrosState>()(
           updated_at: now,
         };
 
-        if (!esModoTesteo() && enLinea()) {
-          try {
-            const { error: errInsert } = await supabase.from("planes_membresia").insert({
-              id: nuevoPlanId,
-              nombre: nuevoPlan.nombre,
-              limite_semanal: nuevoPlan.limite_semanal,
-              cantidad_actividades: nuevoPlan.cantidad_actividades,
-              duracion_meses: nuevoPlan.duracion_meses,
-              precio: nuevoPlan.precio,
-              activo: true,
-            });
-            if (errInsert) {
-              console.warn("Error insertando plan en Supabase, guardando local:", errInsert);
-            }
-          } catch (e) {
-            console.warn("Excepción al insertar plan en Supabase:", e);
-          }
-        }
 
         const aviso = `Plan '${nuevoPlan.nombre}' creado con éxito con vigencia desde ${fechaVigencia}. No altera cobros realizados ni cuotas vencidas.`;
         set((state) => ({
@@ -989,20 +820,6 @@ export const useCobrosStore = create<CobrosState>()(
           updated_at: new Date().toISOString(),
         };
 
-        if (!esModoTesteo() && enLinea()) {
-          try {
-            const { error: errPrecio } = await supabase.from("planes_membresia_precios").insert({
-              plan_membresia_id: planId,
-              precio,
-              vigente_desde: fechaVigencia,
-            });
-            if (errPrecio) {
-              console.warn("Error registrando precio futuro en Supabase:", errPrecio);
-            }
-          } catch (e) {
-            console.warn("Excepción al registrar precio futuro en Supabase:", e);
-          }
-        }
 
         const aviso = `Plan '${planActualizado.nombre}' modificado ($${precio.toLocaleString("es-AR")}) con vigencia desde ${fechaVigencia}. Los cobros anteriores y cuotas vencidas no se modifican.`;
         set((state) => ({

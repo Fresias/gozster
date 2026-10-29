@@ -160,15 +160,12 @@ describe("GOZS-139: dataset demo de ~40 alumnos con un mes de historia", () => {
   });
 });
 
-describe("GOZS-139: visibilidad de la franja por modo y rol", () => {
+describe("GOZS-139: visibilidad de la franja por rol", () => {
   const view = fs.readFileSync(path.resolve(__dirname, "../components/coach/coach-studio-view.tsx"), "utf-8");
 
-  it("en Testeo la ve cualquier usuario del middleware de /studio, sin condición de rol", () => {
-    expect(view).toContain("const showKpiStrip = isTestMode || esAdmin;");
+  it("la ve cualquier usuario del middleware de /studio, sin condición de rol", () => {
+    expect(view).toContain("<BusinessKpiStrip");
+    expect(view).not.toContain("esAdmin");
     expect(view).not.toMatch(/rolActual|useRolActual/);
-  });
-
-  it("en Producción, quien no es ADMIN mantiene el banner de retención", () => {
-    expect(view).toMatch(/\{showKpiStrip \? \(\s*isTestMode \? \(\s*<BusinessKpiStrip[\s\S]*?\) : \(\s*<RetentionKpiCards/);
   });
 });

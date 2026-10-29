@@ -3,12 +3,10 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it, beforeEach } from "vitest";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
 describe("GOZS-238: FE Studio - KPI ingresos del mes desagregado y subtítulo 'a cobrar'; borrar KPI cobranza", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 
@@ -125,7 +123,7 @@ describe("GOZS-238: FE Studio - KPI ingresos del mes desagregado y subtítulo 'a
       };
 
       const html = renderToString(
-        React.createElement(BusinessKpiStrip, { kpis, isTestMode: true }),
+        React.createElement(BusinessKpiStrip, { kpis }),
       );
       const clean = html.replace(/<!--.*?-->/g, "");
 
@@ -152,14 +150,14 @@ describe("GOZS-238: FE Studio - KPI ingresos del mes desagregado y subtítulo 'a
     });
   });
 
-  describe("Derivación desde useCobrosStore en Modo Testeo", () => {
+  describe("Derivación desde useCobrosStore", () => {
     it("deriva presencial, online y cuotas en rojo directamente del store de cobros", () => {
       const metricas = useCobrosStore.getState().metricas();
       expect(metricas.ingresosMes).toBeGreaterThan(0);
       expect(metricas.cobranzaVencida).toBeGreaterThan(0);
 
       const html = renderToString(
-        React.createElement(BusinessKpiStrip, { isTestMode: true }),
+        React.createElement(BusinessKpiStrip, {}),
       );
       const clean = html.replace(/<!--.*?-->/g, "");
 

@@ -7,11 +7,10 @@ import {
   REAL_HISTORIAL_CARGAS,
 } from "@/services/real-mynter-data";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import * as fs from "fs";
 import * as path from "path";
 
-describe("GH #165 / GOZS-166: Rutina de Fernando Rosales por defecto y dataset real en Modo Testeo", () => {
+describe("GH #165 / GOZS-166: Rutina de Fernando Rosales por defecto y dataset real", () => {
   beforeEach(() => {
     useAthleteStore.getState().resetSessionToDefaults();
   });

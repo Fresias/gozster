@@ -10,7 +10,7 @@ import type {
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import { esSinEntrenar7d } from "@/lib/sin-entrenar";
 
-// Generador del gimnasio demo de Modo Testeo (GOZS-139): ~40 alumnos con un mes de historia.
+// Generador del gimnasio demo (GOZS-139): ~40 alumnos con un mes de historia.
 // Funciones puras, relativas a `ahora` y deterministas (PRNG con semilla fija, nunca Math.random).
 
 const DIA_MS = 86_400_000;

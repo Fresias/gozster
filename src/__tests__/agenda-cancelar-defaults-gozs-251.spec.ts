@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { useClasesStore, type ReservaAgenda } from "@/store/use-clases-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { useChatStore, STAFF_COACH_PRINCIPAL } from "@/store/use-chat-store";
 import type { Clase } from "@/types/database.types";
 
@@ -11,7 +10,6 @@ const readSource = (relPath: string) =>
 
 describe("GOZS-251: FE Studio/agenda: cancelar clase (avisa solo si hay inscriptos) y defaults sin cupo y 60 min", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useClasesStore.getState().resetDemoDataset(new Date("2026-10-28T12:00:00-03:00"));
     useChatStore.getState().resetToDefaults?.();
   });
