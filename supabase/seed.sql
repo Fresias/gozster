@@ -205,4 +205,51 @@ ON CONFLICT (id) DO UPDATE SET
   grupo_superserie = EXCLUDED.grupo_superserie,
   updated_at = now();
 
+-- 5. Plantilla global de adaptación (primer día de gimnasio). Idempotente.
+-- 5.1 Ejercicios del catálogo (si ya existen por nombre, se respetan)
+INSERT INTO public.ejercicios (nombre, comentario, musculos_principales, musculos_secundarios)
+VALUES
+  ('Prensa de Piernas', 'Pies al ancho de hombros, rango cómodo y control en la bajada.', ARRAY['Cuádriceps', 'Glúteos'], ARRAY['Isquiotibiales']),
+  ('Jalón al Pecho', 'Agarre prono algo más ancho que hombros; llevar la barra a la clavícula.', ARRAY['Dorsales'], ARRAY['Bíceps']),
+  ('Press de Pecho en Máquina', 'Espalda apoyada, empujar sin bloquear codos.', ARRAY['Pectorales'], ARRAY['Tríceps', 'Deltoides anterior']),
+  ('Remo en Máquina', 'Pecho apoyado, juntar escápulas al final del recorrido.', ARRAY['Dorsales', 'Romboides'], ARRAY['Bíceps']),
+  ('Plancha', 'Cuerpo en línea recta, abdomen activo, respiración continua.', ARRAY['Core'], ARRAY['Glúteos'])
+ON CONFLICT (nombre) DO NOTHING;
+
+-- 5.2 Plan plantilla global (alumno_id NULL)
+INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios)
+VALUES (
+  '22222222-2222-4222-8222-2222222222a1',
+  NULL,
+  NULL,
+  'Adaptación - Primer día de gimnasio',
+  'ACTIVO',
+  'Rutina genérica de adaptación: cargas livianas, técnica primero, RPE 5-6 (4-5 repeticiones en recámara).'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 5.3 Día único
+INSERT INTO public.dias_rutina (id, plan_id, nombre, orden)
+VALUES (
+  '33333333-3333-4333-8333-3333333333a1',
+  '22222222-2222-4222-8222-2222222222a1',
+  'Día 1: Adaptación Full Body',
+  1
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 5.4 Ejercicios del día
+INSERT INTO public.ejercicios_en_rutina
+  (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas)
+SELECT v.id::uuid, '33333333-3333-4333-8333-3333333333a1', e.id, v.orden, v.series, v.reps, v.descanso, v.rpe, v.notas
+FROM (VALUES
+  ('44444444-4444-4444-8444-4444444444a1', 'Prensa de Piernas',          1, 2, '12',      90, 5.0, 'Carga liviana, aprender el movimiento.'),
+  ('44444444-4444-4444-8444-4444444444a2', 'Jalón al Pecho',             2, 2, '12',      90, 5.0, NULL),
+  ('44444444-4444-4444-8444-4444444444a3', 'Press de Pecho en Máquina',  3, 2, '12',      90, 5.0, NULL),
+  ('44444444-4444-4444-8444-4444444444a4', 'Remo en Máquina',            4, 2, '12',      90, 5.0, NULL),
+  ('44444444-4444-4444-8444-4444444444a5', 'Plancha',                    5, 2, '20-30 s', 60, 5.0, 'Mantener la posición con buena técnica.')
+) AS v(id, nombre, orden, series, reps, descanso, rpe, notas)
+JOIN public.ejercicios e ON e.nombre = v.nombre
+ON CONFLICT (id) DO NOTHING;
+
 COMMIT;

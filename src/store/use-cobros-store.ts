@@ -17,13 +17,19 @@ import {
   type PlanMembresiaConVigencia,
   validarVigenciaFutura,
 } from "@/lib/planes";
+import {
+  type ActividadKpi,
+  type PagoMensualInput,
+  type KpiAnualResultado,
+  calcularKpiAnualIngresos,
+} from "@/lib/kpi-anual";
 
 // Store de Cobros y Pagos en Coach Studio (GOZS-184 / GOZS-181).
 // Gestiona cobros pendientes, vencidos, registro manual de pagos (Transferencia/Efectivo)
 // y comprobantes internos no fiscales, con persistencia y soporte Offline-First.
 
 export type EstadoCobro = "PENDIENTE" | "VENCIDO" | "PAGADO";
-export type FiltroCobros = "TODOS" | "PENDIENTES" | "VENCIDOS" | "PAGADOS";
+export type FiltroCobros = "TODOS" | "PENDIENTES" | "VENCIDOS" | "PAGADOS" | "DESCUENTOS";
 
 export interface CobroItem {
   id: string; // id de la contratación / cobro
@@ -35,27 +41,49 @@ export interface CobroItem {
   servicioNombre: string;
   actividad: string | null;
   monto: number;
+  montoLista?: number;
+  descuento?: number;
+  notaDescuento?: string;
   diaVencimiento: number;
   fechaVencimiento: string;
   estado: EstadoCobro;
   ultimoPago?: {
     id: string;
     monto: number;
+    montoLista?: number;
+    descuento?: number;
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     fechaPago: string;
     confirmadoPor: string;
     notas?: string;
   };
+  pagos?: Array<PagoMensualInput>;
+}
+
+/** Una sola fila por alumno: su suscripción más reciente (mayor vencimiento). */
+export function ultimaSuscripcionPorAlumno(items: CobroItem[]): CobroItem[] {
+  const porAlumno = new Map<string, CobroItem>();
+  for (const item of items) {
+    const actual = porAlumno.get(item.alumnoId);
+    if (!actual || item.fechaVencimiento > actual.fechaVencimiento) {
+      porAlumno.set(item.alumnoId, item);
+    }
+  }
+  return [...porAlumno.values()];
 }
 
 export interface CobrosMetricas {
   ingresosMes: number;
+  ingresosPresencial?: number;
+  ingresosOnline?: number;
   cobranzaPendiente: number;
   cobranzaVencida: number;
   alumnosMorosos: number;
   alumnosAlDia: number;
   totalCobros: number;
   tasaCobranzaPct: number;
+  totalDescuentos: number;
+  cobrosConDescuento: number;
 }
 
 export interface ComprobanteInterno {
@@ -65,6 +93,8 @@ export interface ComprobanteInterno {
   alumnoEmail: string;
   servicio: string;
   monto: number;
+  montoLista?: number;
+  descuento?: number;
   medioPago: "TRANSFERENCIA" | "EFECTIVO";
   fechaPago: string;
   confirmadoPor: string;
@@ -75,7 +105,10 @@ export interface ComprobanteInterno {
 interface CobrosState {
   cobros: CobroItem[];
   planes: PlanMembresiaConVigencia[];
+  pagosHistorial?: PagoMensualInput[];
   filtroEstado: FiltroCobros;
+  filtroActividadKpiAnual: ActividadKpi;
+  kpiAnualAbierto: boolean;
   busqueda: string;
   cargando: boolean;
   accionEnCurso: string | null;
@@ -84,6 +117,8 @@ interface CobrosState {
   comprobanteActivo: ComprobanteInterno | null;
 
   setFiltroEstado: (filtro: FiltroCobros) => void;
+  setFiltroActividadKpiAnual: (filtro: ActividadKpi) => void;
+  setKpiAnualAbierto: (abierto: boolean) => void;
   setBusqueda: (busqueda: string) => void;
   setComprobanteActivo: (comprobante: ComprobanteInterno | null) => void;
   limpiarMensajes: () => void;
@@ -92,10 +127,15 @@ interface CobrosState {
   registrarPago: (params: {
     contratacionId: string;
     monto: number;
+    montoLista?: number;
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     notas?: string;
   }) => Promise<ComprobanteInterno>;
+  recuperarMontoOriginal: (contratacionId: string) => void;
+  obtenerDescuentos: () => CobroItem[];
   obtenerComprobante: (contratacionId: string) => ComprobanteInterno | null;
+  obtenerPagosAnuales: () => PagoMensualInput[];
+  kpiIngresosAnual: (anio?: number, actividad?: ActividadKpi) => KpiAnualResultado;
   metricas: () => CobrosMetricas;
   resetDemoDataset: () => void;
 
@@ -225,6 +265,10 @@ function generarDemoCobrosIniciales(): CobroItem[] {
 
     let estado: EstadoCobro = "PENDIENTE";
     let ultimoPago: CobroItem["ultimoPago"] | undefined = undefined;
+    let montoCobrado = monto;
+    let montoLista = monto;
+    let descuento: number | undefined = undefined;
+    let notaDescuento: string | undefined = undefined;
 
     if (c.estado === "VENCIDA" || (c.fecha_fin && c.fecha_fin < hoyStr)) {
       estado = "VENCIDO";
@@ -234,10 +278,28 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       ultimoPago = {
         id: `pago-demo-val-${c.id}`,
         monto,
+        montoLista: monto,
         medioPago: "TRANSFERENCIA",
         fechaPago: new Date(Date.now() - 5 * 86_400_000).toISOString(),
         confirmadoPor: "Lucía Ferraro",
         notas: "Transferencia Banco Galicia",
+      };
+    } else if (c.alumno_id === "demo-alumno-sofia") {
+      // GOZS-253: El pago de Sofía (40k lista, 32k cobrado) cuenta 32k y muestra 'N' con la nota
+      estado = "PAGADO";
+      montoCobrado = 32000;
+      montoLista = 40000;
+      descuento = 8000;
+      notaDescuento = "Descuento 20% acordado con el coach";
+      ultimoPago = {
+        id: `pago-demo-sofia-${c.id}`,
+        monto: 32000,
+        montoLista: 40000,
+        descuento: 8000,
+        medioPago: "TRANSFERENCIA",
+        fechaPago: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+        confirmadoPor: "Lucía Ferraro",
+        notas: "Descuento 20% acordado con el coach",
       };
     }
 
@@ -250,7 +312,10 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       contratacionId: c.id,
       servicioNombre,
       actividad: c.actividad,
-      monto,
+      monto: montoCobrado,
+      montoLista,
+      descuento,
+      notaDescuento,
       diaVencimiento: c.dia_vencimiento,
       fechaVencimiento: c.fecha_fin ?? hoyStr,
       estado,
@@ -262,16 +327,20 @@ function generarDemoCobrosIniciales(): CobroItem[] {
   const gimnasio = DEMO_GIMNASIO;
   const idsYaAgregados = new Set(items.map((i) => i.alumnoId));
 
-  for (const c of gimnasio.contrataciones) {
+  for (let i = 0; i < gimnasio.contrataciones.length; i++) {
+    const c = gimnasio.contrataciones[i]!;
     if (idsYaAgregados.has(c.alumno_id)) continue;
     idsYaAgregados.add(c.alumno_id);
 
     const alumno = gimnasio.alumnos.find((a) => a.id === c.alumno_id);
     if (!alumno || alumno.rol !== "ALUMNO" || alumno.estado_membresia === "INACTIVA") continue;
 
-    const plan = DEMO_PLANES_MEMBRESIA.find((p) => p.id === c.plan_membresia_id);
-    const monto = plan?.precio ?? 28000;
-    const servicioNombre = plan?.nombre ?? "Asesoría & Rutina";
+    // Distribuir entre presencial (funcional + boxeo) y online (rutinas)
+    const esOnline = i % 3 === 0;
+    const plan = esOnline ? null : DEMO_PLANES_MEMBRESIA.find((p) => p.id === c.plan_membresia_id);
+    const monto = esOnline ? 20000 : (plan?.precio ?? 28000);
+    const servicioNombre = esOnline ? "Rutina online" : (plan?.nombre ?? "Funcional 2x semana");
+    const actividad = esOnline ? null : c.actividad;
 
     // Buscar si hay pago confirmado en los últimos 30 días
     const pagoReciente = gimnasio.pagos.find(
@@ -286,6 +355,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       ultimoPago = {
         id: pagoReciente.id,
         monto: pagoReciente.monto,
+        montoLista: monto,
         medioPago: pagoReciente.medio_pago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
         fechaPago: pagoReciente.confirmado_at ?? pagoReciente.created_at,
         confirmadoPor: "Lucía Ferraro",
@@ -302,8 +372,9 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       alumnoTelefono: alumno.telefono ?? null,
       contratacionId: c.id,
       servicioNombre,
-      actividad: c.actividad,
+      actividad,
       monto,
+      montoLista: monto,
       diaVencimiento: c.dia_vencimiento,
       fechaVencimiento: c.fecha_fin ?? hoyStr,
       estado,
@@ -314,12 +385,60 @@ function generarDemoCobrosIniciales(): CobroItem[] {
   return items;
 }
 
+function generarDemoPagosHistorial(): PagoMensualInput[] {
+  const anio = 2026;
+  const meses = [
+    { mes: "01", func: 25000, box: 30000, rut: 18000 },
+    { mes: "02", func: 25000, box: 30000, rut: 18000 },
+    { mes: "03", func: 25000, box: 32000, rut: 18000 },
+    { mes: "04", func: 28000, box: 32000, rut: 20000 },
+    { mes: "05", func: 28000, box: 35000, rut: 20000 },
+    { mes: "06", func: 28000, box: 35000, rut: 20000 },
+    { mes: "07", func: 30000, box: 35000, rut: 22000 },
+    { mes: "08", func: 30000, box: 38000, rut: 22000 },
+    { mes: "09", func: 30000, box: 38000, rut: 22000 },
+    { mes: "10", func: 32000, box: 38000, rut: 22000 },
+  ];
+
+  const pagos: PagoMensualInput[] = [];
+  for (const m of meses) {
+    pagos.push({
+      id: `demo-pago-func-${m.mes}`,
+      monto: m.func,
+      montoCobrado: m.func,
+      fechaPago: `${anio}-${m.mes}-10T10:00:00Z`,
+      actividad: "FUNCIONAL",
+      servicioNombre: "Funcional 2x semana",
+    });
+    pagos.push({
+      id: `demo-pago-box-${m.mes}`,
+      monto: m.box,
+      montoCobrado: m.box,
+      fechaPago: `${anio}-${m.mes}-15T12:00:00Z`,
+      actividad: "BOXEO",
+      servicioNombre: "Boxeo recreativo",
+    });
+    pagos.push({
+      id: `demo-pago-rut-${m.mes}`,
+      monto: m.rut,
+      montoCobrado: m.rut,
+      fechaPago: `${anio}-${m.mes}-05T14:00:00Z`,
+      actividad: "RUTINAS",
+      servicioNombre: "Rutina online personalizada",
+    });
+  }
+  return pagos;
+}
+
 export const useCobrosStore = create<CobrosState>()(
   persist(
     (set, get) => ({
       cobros: generarDemoCobrosIniciales(),
       planes: generarDemoPlanesIniciales(),
+      pagosHistorial: generarDemoPagosHistorial(),
       filtroEstado: "TODOS",
+      filtroActividadKpiAnual: "TODAS",
+      kpiAnualAbierto: false,
       busqueda: "",
       cargando: false,
       accionEnCurso: null,
@@ -328,6 +447,8 @@ export const useCobrosStore = create<CobrosState>()(
       comprobanteActivo: null,
 
       setFiltroEstado: (filtroEstado) => set({ filtroEstado }),
+      setFiltroActividadKpiAnual: (filtroActividadKpiAnual) => set({ filtroActividadKpiAnual }),
+      setKpiAnualAbierto: (kpiAnualAbierto) => set({ kpiAnualAbierto }),
       setBusqueda: (busqueda) => set({ busqueda }),
       setComprobanteActivo: (comprobanteActivo) => set({ comprobanteActivo }),
       limpiarMensajes: () => set({ error: null, aviso: null }),
@@ -335,10 +456,14 @@ export const useCobrosStore = create<CobrosState>()(
       resetDemoDataset: () => {
         const demo = generarDemoCobrosIniciales();
         const demoPlanes = generarDemoPlanesIniciales();
+        const demoPagos = generarDemoPagosHistorial();
         set({
           cobros: demo,
           planes: demoPlanes,
+          pagosHistorial: demoPagos,
           filtroEstado: "TODOS",
+          filtroActividadKpiAnual: "TODAS",
+          kpiAnualAbierto: false,
           busqueda: "",
           error: null,
           aviso: null,
@@ -413,7 +538,21 @@ export const useCobrosStore = create<CobrosState>()(
             };
           });
 
-          set({ cobros: items, cargando: false });
+          const historialMapeado: PagoMensualInput[] = (pagos ?? []).map((p: any) => {
+            const contratacion = (contrataciones ?? []).find((c: any) => c.id === p.contratacion_id);
+            return {
+              id: p.id,
+              monto: Number(p.monto_cobrado ?? p.monto ?? 0),
+              montoCobrado: Number(p.monto_cobrado ?? p.monto ?? 0),
+              fechaPago: p.confirmado_at ?? p.created_at,
+              actividad: contratacion?.actividad ?? null,
+              servicioNombre: contratacion?.planes_membresia?.nombre ?? null,
+              tipoServicio: contratacion?.tipo_servicio ?? null,
+              notas: p.nota,
+            };
+          });
+
+          set({ cobros: items, pagosHistorial: historialMapeado, cargando: false });
         } catch {
           set({
             error: "No pudimos cargar los cobros desde el servidor. Mostramos datos locales.",
@@ -422,13 +561,16 @@ export const useCobrosStore = create<CobrosState>()(
         }
       },
 
-      registrarPago: async ({ contratacionId, monto, medioPago, notas }) => {
+      registrarPago: async ({ contratacionId, monto, montoLista, medioPago, notas }) => {
         const item = get().cobros.find((c) => c.contratacionId === contratacionId);
         if (!item) {
           throw new Error("Contratación no encontrada");
         }
 
         set({ accionEnCurso: contratacionId, error: null, aviso: null });
+
+        const precioLista = montoLista ?? item.montoLista ?? item.monto;
+        const descuento = precioLista > monto ? precioLista - monto : undefined;
 
         // Regla ADR-001: anclaje de fecha (vence 10/10, paga 18/10 -> vence 10/11)
         const nuevaFechaFin = computeAnchoredRenewalDate(item.fechaVencimiento, item.diaVencimiento);
@@ -443,6 +585,8 @@ export const useCobrosStore = create<CobrosState>()(
           alumnoEmail: item.alumnoEmail,
           servicio: item.servicioNombre,
           monto,
+          montoLista: precioLista,
+          descuento,
           medioPago,
           fechaPago: ahoraIso,
           confirmadoPor: "Lucía Ferraro",
@@ -457,10 +601,16 @@ export const useCobrosStore = create<CobrosState>()(
               return {
                 ...c,
                 estado: "PAGADO" as const,
+                monto,
+                montoLista: precioLista,
+                descuento,
+                notaDescuento: notas,
                 fechaVencimiento: nuevaFechaFin,
                 ultimoPago: {
                   id: pagoId,
                   monto,
+                  montoLista: precioLista,
+                  descuento,
                   medioPago,
                   fechaPago: ahoraIso,
                   confirmadoPor: "Lucía Ferraro",
@@ -471,8 +621,20 @@ export const useCobrosStore = create<CobrosState>()(
             return c;
           });
 
+          const nuevoPagoRegistro: PagoMensualInput = {
+            id: pagoId,
+            monto,
+            montoCobrado: monto,
+            fechaPago: ahoraIso,
+            actividad: item.actividad,
+            servicioNombre: item.servicioNombre,
+            tipoServicio: item.actividad ? "PRESENCIAL" : "ASESORIA_ONLINE",
+            notas,
+          };
+
           set({
             cobros: cobrosActualizados,
+            pagosHistorial: [...(get().pagosHistorial ?? []), nuevoPagoRegistro],
             accionEnCurso: null,
             comprobanteActivo: comprobante,
             aviso: `Pago de $${monto.toLocaleString("es-AR")} (${medioPago}) confirmado exitosamente.`,
@@ -506,10 +668,16 @@ export const useCobrosStore = create<CobrosState>()(
               return {
                 ...c,
                 estado: "PAGADO" as const,
+                monto,
+                montoLista: precioLista,
+                descuento,
+                notaDescuento: notas,
                 fechaVencimiento: nuevaFechaFin,
                 ultimoPago: {
                   id: pagoId,
                   monto,
+                  montoLista: precioLista,
+                  descuento,
                   medioPago,
                   fechaPago: ahoraIso,
                   confirmadoPor: "Coach",
@@ -537,6 +705,46 @@ export const useCobrosStore = create<CobrosState>()(
         }
       },
 
+      recuperarMontoOriginal: (contratacionId: string) => {
+        const item = get().cobros.find((c) => c.contratacionId === contratacionId);
+        if (!item) return;
+
+        const precioLista = item.montoLista ?? item.monto;
+        const cobrosActualizados = get().cobros.map((c) => {
+          if (c.contratacionId === contratacionId) {
+            return {
+              ...c,
+              monto: precioLista,
+              descuento: 0,
+              notaDescuento: undefined,
+              ultimoPago: c.ultimoPago
+                ? {
+                    ...c.ultimoPago,
+                    monto: precioLista,
+                    descuento: 0,
+                  }
+                : undefined,
+            };
+          }
+          return c;
+        });
+
+        set({
+          cobros: cobrosActualizados,
+          aviso: `Monto de suscripción ($${precioLista.toLocaleString("es-AR")}) recuperado para ${item.alumnoNombre}.`,
+        });
+      },
+
+      obtenerDescuentos: () => {
+        return get().cobros.filter(
+          (c) =>
+            (c.montoLista && c.monto < c.montoLista) ||
+            (c.ultimoPago?.montoLista && c.ultimoPago.monto < c.ultimoPago.montoLista) ||
+            Boolean(c.descuento && c.descuento > 0) ||
+            Boolean(c.ultimoPago?.descuento && c.ultimoPago.descuento > 0),
+        );
+      },
+
       obtenerComprobante: (contratacionId) => {
         const item = get().cobros.find((c) => c.contratacionId === contratacionId);
         if (!item || !item.ultimoPago) return null;
@@ -548,6 +756,8 @@ export const useCobrosStore = create<CobrosState>()(
           alumnoEmail: item.alumnoEmail,
           servicio: item.servicioNombre,
           monto: item.ultimoPago.monto,
+          montoLista: item.ultimoPago.montoLista ?? item.montoLista,
+          descuento: item.ultimoPago.descuento ?? item.descuento,
           medioPago: item.ultimoPago.medioPago,
           fechaPago: item.ultimoPago.fechaPago,
           confirmadoPor: item.ultimoPago.confirmadoPor,
@@ -556,17 +766,117 @@ export const useCobrosStore = create<CobrosState>()(
         };
       },
 
+      obtenerPagosAnuales: () => {
+        const pagos: PagoMensualInput[] = [];
+        const idsVistos = new Set<string>();
+
+        // 1. Pagos del historial
+        if (get().pagosHistorial && get().pagosHistorial!.length > 0) {
+          for (const p of get().pagosHistorial!) {
+            if (p.id) idsVistos.add(p.id);
+            pagos.push(p);
+          }
+        }
+
+        // 2. Pagos anidados en cobros
+        for (const cobro of get().cobros) {
+          if (cobro.pagos && cobro.pagos.length > 0) {
+            for (const p of cobro.pagos) {
+              const pid = p.id ?? `pago-${cobro.id}-${p.fechaPago}`;
+              if (idsVistos.has(pid)) continue;
+              idsVistos.add(pid);
+              pagos.push({
+                id: pid,
+                monto: p.monto,
+                montoCobrado: p.montoCobrado ?? p.monto,
+                fechaPago: p.fechaPago,
+                actividad: p.actividad ?? cobro.actividad,
+                servicioNombre: p.servicioNombre ?? cobro.servicioNombre,
+                notas: p.notas,
+              });
+            }
+          }
+
+          if (cobro.ultimoPago) {
+            const up = cobro.ultimoPago;
+            if (!idsVistos.has(up.id)) {
+              idsVistos.add(up.id);
+              pagos.push({
+                id: up.id,
+                monto: up.monto,
+                montoCobrado: up.monto,
+                fechaPago: up.fechaPago,
+                actividad: cobro.actividad,
+                servicioNombre: cobro.servicioNombre,
+                notas: up.notas,
+              });
+            }
+          } else if (cobro.estado === "PAGADO") {
+            const fauxId = `pago-auto-${cobro.id}`;
+            if (!idsVistos.has(fauxId)) {
+              idsVistos.add(fauxId);
+              pagos.push({
+                id: fauxId,
+                monto: cobro.monto,
+                montoCobrado: cobro.monto,
+                fechaPago: cobro.fechaVencimiento,
+                actividad: cobro.actividad,
+                servicioNombre: cobro.servicioNombre,
+              });
+            }
+          }
+        }
+
+        return pagos;
+      },
+
+      kpiIngresosAnual: (anio?: number, actividad?: ActividadKpi) => {
+        const pagos = get().obtenerPagosAnuales();
+        const filtro = actividad ?? get().filtroActividadKpiAnual ?? "TODAS";
+        return calcularKpiAnualIngresos(pagos, anio, filtro);
+      },
+
       metricas: () => {
         const lista = get().cobros;
         let ingresosMes = 0;
+        let ingresosPresencial = 0;
+        let ingresosOnline = 0;
         let cobranzaPendiente = 0;
         let cobranzaVencida = 0;
         let alumnosMorosos = 0;
         let alumnosAlDia = 0;
+        let totalDescuentos = 0;
+        let cobrosConDescuento = 0;
 
         for (const item of lista) {
+          const monto = item.ultimoPago?.monto ?? item.monto;
+          const esPresencial =
+            item.actividad === "FUNCIONAL" ||
+            item.actividad === "BOXEO" ||
+            (item.servicioNombre && /funcional|boxeo|presencial/i.test(item.servicioNombre));
+          const tieneDescuento =
+            (item.montoLista && item.monto < item.montoLista) ||
+            (item.ultimoPago?.montoLista && item.ultimoPago.monto < item.ultimoPago.montoLista) ||
+            Boolean(item.descuento && item.descuento > 0) ||
+            Boolean(item.ultimoPago?.descuento && item.ultimoPago.descuento > 0);
+
+          if (tieneDescuento) {
+            cobrosConDescuento++;
+            const desc =
+              item.descuento ??
+              (item.montoLista && item.montoLista > item.monto
+                ? item.montoLista - item.monto
+                : (item.ultimoPago?.descuento ?? 0));
+            totalDescuentos += desc;
+          }
+
           if (item.estado === "PAGADO") {
-            ingresosMes += item.ultimoPago?.monto ?? item.monto;
+            ingresosMes += monto;
+            if (esPresencial) {
+              ingresosPresencial += monto;
+            } else {
+              ingresosOnline += monto;
+            }
             alumnosAlDia++;
           } else if (item.estado === "PENDIENTE") {
             cobranzaPendiente += item.monto;
@@ -582,12 +892,16 @@ export const useCobrosStore = create<CobrosState>()(
 
         return {
           ingresosMes,
+          ingresosPresencial,
+          ingresosOnline,
           cobranzaPendiente,
           cobranzaVencida,
           alumnosMorosos,
           alumnosAlDia,
           totalCobros: lista.length,
           tasaCobranzaPct,
+          totalDescuentos,
+          cobrosConDescuento,
         };
       },
 

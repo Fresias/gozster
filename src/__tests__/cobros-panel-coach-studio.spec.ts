@@ -130,4 +130,86 @@ describe("Panel de Cobros en Coach Studio (GOZS-184 / GH #181)", () => {
       expect(useCobrosStore.getState().busqueda).toBe("Valentina");
     });
   });
+
+  describe("GOZS-253: Pagos con descuento, nota 'N', total de ingresos y recuperación de montos", () => {
+    it("GIVEN el pago de Sofía (40k lista, 32k cobrado) WHEN se inicializa el panel THEN cuenta 32k en ingresos, tiene nota 'N' y registra el descuento", () => {
+      const store = useCobrosStore.getState();
+      const sofia = store.cobros.find((c) => c.alumnoId === "demo-alumno-sofia");
+      expect(sofia).toBeDefined();
+
+      // Debe registrar 32k cobrado y 40k de lista
+      expect(sofia?.monto).toBe(32000);
+      expect(sofia?.montoLista).toBe(40000);
+      expect(sofia?.descuento).toBe(8000);
+      expect(sofia?.estado).toBe("PAGADO");
+
+      // Debe contener la nota justificativa para mostrar la 'N'
+      expect(sofia?.ultimoPago?.notas).toContain("Descuento 20%");
+      expect(sofia?.notaDescuento).toContain("Descuento 20%");
+
+      // El total de ingresos del mes debe sumar 32k (el cobrado), no 40k
+      const metricas = store.metricas();
+      expect(metricas.ingresosMes).toBeGreaterThanOrEqual(32000);
+      expect(metricas.totalDescuentos).toBeGreaterThanOrEqual(8000);
+      expect(metricas.cobrosConDescuento).toBeGreaterThanOrEqual(1);
+    });
+
+    it("GIVEN un cobro pendiente WHEN el coach registra pago con descuento THEN persiste monto cobrado, monto lista y nota", async () => {
+      const store = useCobrosStore.getState();
+      const joaquin = store.cobros.find((c) => c.alumnoId === "demo-alumno-joaquin");
+      expect(joaquin).toBeDefined();
+
+      const montoListaOriginal = joaquin!.montoLista ?? joaquin!.monto;
+      const montoConDescuento = montoListaOriginal - 5000;
+      const notaDescuento = "Descuento por pago adelantado en efectivo";
+
+      const comprobante = await store.registrarPago({
+        contratacionId: joaquin!.contratacionId,
+        monto: montoConDescuento,
+        montoLista: montoListaOriginal,
+        medioPago: "EFECTIVO",
+        notas: notaDescuento,
+      });
+
+      expect(comprobante.monto).toBe(montoConDescuento);
+      expect(comprobante.montoLista).toBe(montoListaOriginal);
+      expect(comprobante.descuento).toBe(5000);
+      expect(comprobante.notas).toBe(notaDescuento);
+
+      const actualizado = useCobrosStore
+        .getState()
+        .cobros.find((c) => c.contratacionId === joaquin!.contratacionId);
+      expect(actualizado?.estado).toBe("PAGADO");
+      expect(actualizado?.monto).toBe(montoConDescuento);
+      expect(actualizado?.montoLista).toBe(montoListaOriginal);
+      expect(actualizado?.descuento).toBe(5000);
+      expect(actualizado?.ultimoPago?.notas).toBe(notaDescuento);
+      expect(actualizado?.notaDescuento).toBe(notaDescuento);
+    });
+
+    it("GIVEN cuotas con descuento WHEN se consultan THEN permite filtrar montos menores a la sub y recuperar el monto original de lista", () => {
+      const store = useCobrosStore.getState();
+
+      // Consulta de montos menores a la sub
+      const descuentos = store.obtenerDescuentos();
+      expect(descuentos.length).toBeGreaterThanOrEqual(1);
+      const sofiaEnDescuentos = descuentos.find((d) => d.alumnoId === "demo-alumno-sofia");
+      expect(sofiaEnDescuentos).toBeDefined();
+      expect(sofiaEnDescuentos?.monto).toBe(32000);
+      expect(sofiaEnDescuentos?.montoLista).toBe(40000);
+
+      // Filtro de estado DESCUENTOS
+      store.setFiltroEstado("DESCUENTOS");
+      expect(useCobrosStore.getState().filtroEstado).toBe("DESCUENTOS");
+
+      // Recuperar monto original de suscripción (volver a 40k)
+      store.recuperarMontoOriginal(sofiaEnDescuentos!.contratacionId);
+      const sofiaRecuperada = useCobrosStore
+        .getState()
+        .cobros.find((c) => c.alumnoId === "demo-alumno-sofia");
+      expect(sofiaRecuperada?.monto).toBe(40000);
+      expect(sofiaRecuperada?.descuento).toBe(0);
+      expect(useCobrosStore.getState().aviso).toContain("40.000");
+    });
+  });
 });

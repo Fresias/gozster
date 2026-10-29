@@ -243,6 +243,69 @@ export function PainReportModal({
             className="w-full accent-destructive cursor-pointer h-2 bg-secondary rounded-lg"
             aria-label="Escala de dolor de 1 a 10"
           />
+
+          {/* Cartel según rango de intensidad (GOZS-278) */}
+          <div className="pt-1" data-testid="pain-modal-range-guidance">
+            {intensidad <= 3 && (
+              <div
+                className="rounded-xl border border-border/80 bg-secondary/40 p-3 text-xs space-y-0.5 text-foreground animate-in fade-in"
+                data-testid="pain-modal-cartel-1-3"
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  <span>ℹ️</span>
+                  <span>Aviso Neutro (Rango 1-3)</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Aviso neutro de que se notifica al coach, sin colores de alerta. Puedes continuar con precaución según tus sensaciones.
+                </p>
+              </div>
+            )}
+
+            {intensidad >= 4 && intensidad <= 6 && (
+              <div
+                className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 p-3 text-xs space-y-0.5 text-amber-500 dark:text-amber-400 animate-in fade-in"
+                data-testid="pain-modal-cartel-4-6"
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  <span>⚠️</span>
+                  <span>Cartel Amarillo (Rango 4-6)</span>
+                </div>
+                <p className="text-[11px] font-semibold text-foreground leading-relaxed">
+                  Cartel amarillo, recomienda reducir peso si continúa la molestia en las siguientes series.
+                </p>
+              </div>
+            )}
+
+            {intensidad >= 7 && intensidad <= 9 && (
+              <div
+                className="rounded-xl border-2 border-destructive bg-destructive/15 p-3 text-xs space-y-0.5 text-destructive animate-in fade-in"
+                data-testid="pain-modal-cartel-7-9"
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  <span>🛑</span>
+                  <span>Cartel Rojo a Prueba de Errores (Rango 7-9)</span>
+                </div>
+                <p className="text-[11px] font-bold text-foreground leading-relaxed">
+                  Cartel rojo a prueba de errores: suspender ese ejercicio y cualquiera que acentúe el dolor, seguir con lo que no moleste; no debe invitar a seguir.
+                </p>
+              </div>
+            )}
+
+            {intensidad === 10 && (
+              <div
+                className="rounded-xl border-2 border-destructive bg-destructive/20 p-3 text-xs space-y-0.5 text-destructive animate-in fade-in"
+                data-testid="pain-modal-cartel-10"
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  <span>🚨</span>
+                  <span>Cartel Rojo: Parada Total (Rango 10)</span>
+                </div>
+                <p className="text-[11px] font-bold text-foreground leading-relaxed">
+                  Cartel rojo, cesar el entrenamiento y contactar al entrenador de inmediato.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Checkboxes de Síntomas de Alarma (Red Flags) */}

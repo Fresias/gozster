@@ -1,6 +1,8 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";

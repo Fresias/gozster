@@ -8,6 +8,7 @@ import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
+import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
 import { StudentCard } from "@/components/coach/student-card";
@@ -22,14 +23,21 @@ import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
-import { calculateStudentHealthScore } from "@/lib/strength-metrics";
+import { getRutinaVigenciaInfo } from "@/lib/rutina-vigencia";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
 import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 import {
   DEMO_GIMNASIO,
+  DEMO_ALUMNO_ACTIVIDADES,
   getDemoAlumnoAlerts,
 } from "@/services/coach-demo-dataset";
+import {
+  ETIQUETAS_FILTRO_ACTIVIDAD,
+  ETIQUETAS_ACTIVIDAD,
+  alumnoTieneActividad,
+  obtenerActividadesAlumno,
+} from "@/lib/alumno-actividades";
 import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
@@ -96,14 +104,18 @@ export function CoachStudioView({
 
   const {
     selectedAlumnoId,
+    chatAlumnoId,
     activeTab,
     isHistoricalLoadsOpen,
     isChatOpen,
+    isWhatsAppEnabled,
     isRoutineBuilderOpen,
     toast,
     currentPage,
     itemsPerPage,
     selectAlumno,
+    openChatForAlumno,
+    setWhatsAppEnabled,
     setActiveTab,
     setHistoricalLoadsOpen,
     setChatOpen,
@@ -113,6 +125,7 @@ export function CoachStudioView({
     clonarUltimaRutina,
     extenderVigenciaPlan,
     asignarPlanUrgente,
+    asignarPlanDesdePlantilla,
     obtenerMetricasRetencion,
     isLoading,
     loadLiveSupabaseData,
@@ -168,6 +181,7 @@ export function CoachStudioView({
   const [viewMode, setViewMode] = React.useState<"table" | "cards">("table");
   const [tableDensity, setTableDensity] = React.useState<"compact" | "standard">("compact");
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
 
@@ -283,6 +297,12 @@ export function CoachStudioView({
   const selectedAlumno = selectedAlumnoId
     ? alumnos.find((a) => a.id === selectedAlumnoId) ?? getSelectedAlumno()
     : null;
+  const chatAlumno = React.useMemo(() => {
+    if (chatAlumnoId) {
+      return alumnos.find((a) => a.id === chatAlumnoId) ?? null;
+    }
+    return selectedAlumno;
+  }, [chatAlumnoId, alumnos, selectedAlumno]);
   const activePlan = selectedAlumno
     ? planes.find((p) => p.alumno_id === selectedAlumno.id && p.estado === "ACTIVO") ??
       getRutinaActivaAlumno(selectedAlumno.id)
@@ -548,7 +568,7 @@ export function CoachStudioView({
                     </span>
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Exhibiendo todos los semáforos M3 (Cuota, Score Salud, Vigencia, Actividad) y alertas simultáneas para pruebas táctiles.
+                    Exhibiendo todos los semáforos M3 (Cuota, Vigencia, Actividad) y alertas simultáneas para pruebas táctiles.
                   </p>
                 </div>
               </div>
@@ -845,7 +865,7 @@ export function CoachStudioView({
                     )}
                     {!isTestMode && (
                       <span className="text-xs text-muted-foreground">
-                        — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
+                        — Matriz Operativa Semáforos M3: Estado Cuota, Vigencia y Alertas
                       </span>
                     )}
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
@@ -879,6 +899,24 @@ export function CoachStudioView({
                       </button>
                     </div>
                   </div>)}
+
+                  {/* Toggle Config: WhatsApp Opcional (Apagado por defecto) */}
+                  <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 border border-border/60 px-2.5 py-1 text-xs">
+                    <label
+                      htmlFor="toggle-whatsapp-config"
+                      className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer flex items-center gap-1.5"
+                    >
+                      <input
+                        id="toggle-whatsapp-config"
+                        type="checkbox"
+                        checked={isWhatsAppEnabled}
+                        onChange={(e) => setWhatsAppEnabled(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-border accent-emerald-500 cursor-pointer"
+                        data-testid="toggle-whatsapp-config"
+                      />
+                      <span>WhatsApp en acciones</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Tabla Matriz con Semáforos M3 (Cero Texto Redundante) */}
@@ -890,7 +928,6 @@ export function CoachStudioView({
                           Atleta (Columna Matriz)
                         </th>
                         <th className="py-2.5 px-3 text-center w-24">Cuota</th>
-                        <th className="py-2.5 px-3 text-center w-24">Score Salud [SH]</th>
                         <th className="py-2.5 px-3 text-center w-28">Vigencia Rutina</th>
                         <th className="py-2.5 px-3 text-center w-24">Actividad</th>
                         <th className="py-2.5 px-3 text-left min-w-[130px] max-w-[190px]">Alertas</th>
@@ -900,7 +937,7 @@ export function CoachStudioView({
                     <tbody className="divide-y divide-border/60 text-foreground">
                       {paginatedAlumnos.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="py-8 text-center text-muted-foreground">
                             No se encontraron atletas con los criterios seleccionados.
                           </td>
                         </tr>
@@ -951,67 +988,11 @@ export function CoachStudioView({
                             ? "bg-amber-500 border border-amber-600/30"
                             : "bg-rose-500 border border-rose-600/30";
 
-                          // Cálculo Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ])
-                          let shScore: number;
-                          if (isTestMode) {
-                            const nl = alumno.nombre_completo.toLowerCase();
-                            if (nl.includes("mateo")) shScore = 96;
-                            else if (nl.includes("esteban")) shScore = 91;
-                            else if (nl.includes("lucas")) shScore = 88;
-                            else if (nl.includes("valentina")) shScore = 82;
-                            else if (nl.includes("celeste")) shScore = 76;
-                            else if (nl.includes("camila")) shScore = 71;
-                            else if (nl.includes("facundo")) shScore = 64;
-                            else if (nl.includes("martina")) shScore = 58;
-                            else if (nl.includes("sofia")) shScore = 48;
-                            else if (nl.includes("bautista")) shScore = 35;
-                            else shScore = 80;
-                          } else {
-                            const cuotaScore = isAlDia ? 100 : isPendiente ? 50 : 15;
-                            const planScore = planActivo ? 90 : 35;
-                            shScore = Math.round(
-                              calculateStudentHealthScore({
-                                adherencia: planScore,
-                                frecuencia: planActivo ? 85 : 40,
-                                interaccionChat: 75,
-                                estadoCuota: cuotaScore,
-                              }).score,
-                            );
-                          }
-
-                          const healthScore = { score: shScore };
-
-                          const shColorClass =
-                            healthScore.score >= 80
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                              : healthScore.score >= 60
-                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
-
                           // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
-                          // 🟢 < 30 días, 🟡 30-60 días, 🔴 > 60 días o sin plan
-                          let rutinaPillColor = "bg-rose-500";
-                          let rutinaTooltip = "Sin plan asignado (> 60 días)";
-
-                          if (planActivo) {
-                            const planDate = new Date(
-                              planActivo.fecha_inicio || planActivo.created_at,
-                            ).getTime();
-                            const diffDays = Math.floor(
-                              (Date.now() - planDate) / (1000 * 60 * 60 * 24),
-                            );
-
-                            if (diffDays < 30) {
-                              rutinaPillColor = "bg-emerald-500";
-                              rutinaTooltip = `Rutina vigente (< 30 días)`;
-                            } else if (diffDays <= 60) {
-                              rutinaPillColor = "bg-amber-500";
-                              rutinaTooltip = `Rutina por renovar (30-60 días)`;
-                            } else {
-                              rutinaPillColor = "bg-rose-500";
-                              rutinaTooltip = `Rutina vencida (> 60 días)`;
-                            }
-                          }
+                          // 🟢 0-15 días, 🟡 16-21 días, 🔴 22+ días o sin plan (GOZS-242)
+                          const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
+                          const rutinaPillColor = vigenciaInfo.pillColorClass;
+                          const rutinaTooltip = vigenciaInfo.tooltip;
 
                           // Cálculo Actividad / Recencia (Dot de último entreno/login)
                           // 🟢 < 7 días, 🟡 7-14 días, 🔴 > 14 días
@@ -1107,21 +1088,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 3. Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ]) */}
-                              <td
-                                className={`${rowPaddingClass} px-3 text-center font-mono font-bold tabular-nums`}
-                              >
-                                <div className="flex items-center justify-center">
-                                  <span
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${shColorClass}`}
-                                    title={`Score Salud: ${Math.round(healthScore.score)} / 100`}
-                                  >
-                                    [ {Math.round(healthScore.score)} ]
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* 4. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
+                              {/* 3. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center">
                                   <span
@@ -1133,7 +1100,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 5. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
+                              {/* 4. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center">
                                   <span
@@ -1145,7 +1112,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 6. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
+                              {/* 5. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
                               <td className={`${rowPaddingClass} px-3 text-left`}>
                                 <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
                                   {badges.length === 0 ? (
@@ -1184,27 +1151,54 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 7. Acciones Táctiles "Fat-Finger Friendly" (Touch targets de 48 × 48 px y separación ≥ 8px) */}
+                              {/* 6. Acciones Táctiles "Fat-Finger Friendly" (Touch targets de 48 × 48 px y separación ≥ 8px) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center gap-2">
-                                  {/* Botón WhatsApp directo con integración wa.me y templates argentinos */}
+                                  {/* Botón Chat por la App (Enviar mensaje) */}
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenWhatsAppModal(alumno)}
-                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
-                                    title="Enviar WhatsApp (Templates Argentinos)"
-                                    aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
-                                    data-testid={`btn-whatsapp-${alumno.id}`}
+                                    onClick={() => openChatForAlumno(alumno.id)}
+                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 active:scale-95 transition-all shadow-xs"
+                                    title="Enviar mensaje"
+                                    aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+                                    data-testid={`btn-enviar-mensaje-${alumno.id}`}
                                   >
                                     <svg
                                       className="h-5 w-5"
-                                      fill="currentColor"
+                                      fill="none"
                                       viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
                                       aria-hidden="true"
                                     >
-                                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                      />
                                     </svg>
                                   </button>
+
+                                  {/* Botón WhatsApp directo con integración wa.me y templates argentinos (solo si está habilitado en config) */}
+                                  {isWhatsAppEnabled && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenWhatsAppModal(alumno)}
+                                      className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
+                                      title="Enviar WhatsApp (Templates Argentinos)"
+                                      aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
+                                      data-testid={`btn-whatsapp-${alumno.id}`}
+                                    >
+                                      <svg
+                                        className="h-5 w-5"
+                                        fill="currentColor"
+                                        viewBox="0 0 24 24"
+                                        aria-hidden="true"
+                                      >
+                                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
+                                      </svg>
+                                    </button>
+                                  )}
 
                                   {/* Botón Ver Ficha / Detalle */}
                                   <button
@@ -1235,10 +1229,10 @@ export function CoachStudioView({
                                   {!planActivo && (
                                     <button
                                       type="button"
-                                      onClick={() => handleAssignPlan(alumno.id)}
+                                      onClick={() => setAssignRoutineTarget(alumno)}
                                       className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
-                                      title="Asignar Plan Urgente en 1-Clic"
-                                      aria-label={`Asignar plan urgente a ${alumno.nombre_completo}`}
+                                      title="Asignar rutina"
+                                      aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
                                       data-testid={`btn-asignar-plan-${alumno.id}`}
                                     >
                                       <svg
@@ -1395,6 +1389,21 @@ export function CoachStudioView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={(id) => selectAlumno(id)}
+        onOpenAssignRoutine={(alumno) => {
+          setIsAssignModalOpen(false);
+          setAssignRoutineTarget(alumno);
+        }}
+      />
+
+      {/* Modal de Previsualización y Confirmación de Rutinas Genéricas (GOZS-245) */}
+      <AssignRoutinePreviewModal
+        isOpen={!!assignRoutineTarget}
+        onClose={() => setAssignRoutineTarget(null)}
+        alumno={assignRoutineTarget}
+        onConfirmAssign={async (alumnoId, plantillaId) => {
+          await asignarPlanDesdePlantilla(alumnoId, plantillaId);
+          setAssignRoutineTarget(null);
+        }}
       />
 
       {/* Modal "Alta de alumno": alta directa + tarjeta de contingencia + recarga de alumnos */}
@@ -1427,7 +1436,7 @@ export function CoachStudioView({
 
       {/* Floating Action Button (FAB) of Chat */}
       <ChatFab
-        alumno={selectedAlumno}
+        alumno={chatAlumno || selectedAlumno}
         isOpen={isChatOpen}
         onToggle={() => setChatOpen(!isChatOpen)}
       />
