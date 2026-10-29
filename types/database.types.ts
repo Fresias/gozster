@@ -1879,6 +1879,19 @@ export interface Database {
           hubo_sobrecarga: boolean;
         }[];
       };
+      guardar_rutina: {
+        Args: {
+          p_payload: Json;
+        };
+        Returns: string;
+      };
+      asignar_rutina_a_alumno: {
+        Args: {
+          p_plan_id: string;
+          p_alumno_id: string;
+        };
+        Returns: string;
+      };
       clonar_plan_entrenamiento: {
         Args: {
           p_plan_id: string;
