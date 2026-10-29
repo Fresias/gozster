@@ -25,6 +25,19 @@ export interface CriticalAlert {
   momentoAparicion?: string;
 }
 
+/** Prioridad de la alerta: 0 = roja (crítica / síntoma de alarma, incl. dolor >= 7), 1 = amarilla, 2 = resto. */
+export function prioridadAlerta(a: Pick<CriticalAlert, "severidad" | "esSintomaAlarma">): 0 | 1 | 2 {
+  if (a.severidad === "CRITICA" || a.esSintomaAlarma) return 0;
+  return a.severidad === "BAJA" ? 2 : 1;
+}
+
+/** Ordena rojas, amarillas y resto; conserva el orden original (más recientes primero) dentro de cada nivel. */
+export function ordenarAlertasPorPrioridad<T extends Pick<CriticalAlert, "severidad" | "esSintomaAlarma">>(
+  alerts: T[]
+): T[] {
+  return [...alerts].sort((x, y) => prioridadAlerta(x) - prioridadAlerta(y));
+}
+
 /** Alertas de dolor desde Supabase (alertas_entrenador → registro_series → fallback demo). */
 export async function fetchCriticalAlerts(): Promise<CriticalAlert[]> {
   // 1. Intentar consultar alertas_entrenador y alumno_historial_dolor

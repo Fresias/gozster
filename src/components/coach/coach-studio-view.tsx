@@ -29,8 +29,15 @@ import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critic
 import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 import {
   DEMO_GIMNASIO,
+  DEMO_ALUMNO_ACTIVIDADES,
   getDemoAlumnoAlerts,
 } from "@/services/coach-demo-dataset";
+import {
+  ETIQUETAS_FILTRO_ACTIVIDAD,
+  ETIQUETAS_ACTIVIDAD,
+  alumnoTieneActividad,
+  obtenerActividadesAlumno,
+} from "@/lib/alumno-actividades";
 import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
