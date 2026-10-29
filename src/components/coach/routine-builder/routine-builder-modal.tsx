@@ -4,6 +4,7 @@ import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -15,10 +16,12 @@ interface BuilderExercise {
   descanso_segundos: number;
   rpe_objetivo: number;
   tempo: string;
+  tempo_activo: boolean;
   force_rpe_required: boolean;
   notas: string;
   es_superserie: boolean;
   grupo_superserie: number | null;
+  tipo_serie: "NORMAL" | "WARMUP" | "DROPSET";
   url_video?: string | null;
 }
 
@@ -34,8 +37,65 @@ interface RoutineBuilderModalProps {
   onClose: () => void;
   alumnoId?: string;
   alumnoNombre?: string;
+  planInicial?: PlanEntrenamiento | null;
+  diasIniciales?: DiaRutina[];
+  ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
+}
+
+const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
+
+function mapPlanToBuilderDays(
+  planId: string,
+  dias: DiaRutina[],
+  ejerciciosEnRutina: EjercicioEnRutina[],
+  catalogo: Ejercicio[],
+): BuilderDay[] {
+  const planDias = dias
+    .filter((d) => d.plan_id === planId)
+    .sort((a, b) => a.orden - b.orden);
+
+  if (planDias.length === 0) return DEFAULT_BUILDER_DAYS;
+
+  return planDias.map((d) => {
+    const dEjercicios = ejerciciosEnRutina
+      .filter((er) => er.dia_id === d.id)
+      .sort((a, b) => a.orden - b.orden)
+      .map((er) => {
+        const ej = catalogo.find((e) => e.id === er.ejercicio_id);
+        const grupoNum =
+          typeof er.grupo_superserie === "number"
+            ? er.grupo_superserie
+            : typeof er.grupo_superserie === "string"
+            ? parseInt((er.grupo_superserie as string).replace(/\D/g, ""), 10) || null
+            : null;
+        return {
+          id: er.id,
+          ejercicio_id: er.ejercicio_id ?? "",
+          nombre: (er as any).nombre_ejercicio_custom || ej?.nombre || "Ejercicio",
+          series: er.series,
+          repeticiones: er.repeticiones,
+          descanso_segundos: er.descanso_segundos,
+          rpe_objetivo: er.rpe_objetivo ?? 8,
+          tempo: er.tempo ?? "2-0-1-0",
+          tempo_activo: Boolean((er as any).tempo_activo),
+          force_rpe_required: Boolean((er as any).force_rpe_required),
+          notas: er.notas ?? "",
+          es_superserie: Boolean(er.es_superserie),
+          grupo_superserie: grupoNum,
+          tipo_serie: er.tipo_serie ?? "NORMAL",
+          url_video: ej?.url_video ?? null,
+        };
+      });
+
+    return {
+      id: d.id,
+      nombre: d.nombre,
+      orden: d.orden,
+      ejercicios: dEjercicios,
+    };
+  });
 }
 
 export function RoutineBuilderModal({
@@ -43,74 +103,38 @@ export function RoutineBuilderModal({
   onClose,
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
+  planInicial,
+  diasIniciales,
+  ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
   onRoutineSaved,
 }: RoutineBuilderModalProps) {
   const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
-  const [days, setDays] = React.useState<BuilderDay[]>([
-    {
-      id: "builder-day-1",
-      nombre: "Día 1: Torso Pesado (Empuje / Tirón)",
-      orden: 1,
-      ejercicios: [
-        {
-          id: "be-1",
-          ejercicio_id: "e2222222-2222-4222-8222-222222222202",
-          nombre: "Press de Banca Plano con Barra",
-          series: 4,
-          repeticiones: "6-8",
-          descanso_segundos: 120,
-          rpe_objetivo: 8.5,
-          tempo: "3-0-1-0",
-          force_rpe_required: true,
-          notas: "Retracción escapular firme y pausa de 1s en el pecho.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "rT7DgCr-3pg",
-        },
-        {
-          id: "be-2",
-          ejercicio_id: "e5555555-5555-4555-8555-555555555505",
-          nombre: "Remo con Barra",
-          series: 4,
-          repeticiones: "8-10",
-          descanso_segundos: 90,
-          rpe_objetivo: 8.0,
-          tempo: "2-0-1-1",
-          force_rpe_required: false,
-          notas: "Traccionar llevando los codos hacia la cadera.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "G8l_8chR5BE",
-        },
-      ],
-    },
-    {
-      id: "builder-day-2",
-      nombre: "Día 2: Piernas & Core",
-      orden: 2,
-      ejercicios: [
-        {
-          id: "be-3",
-          ejercicio_id: "e1111111-1111-4111-8111-111111111101",
-          nombre: "Sentadilla Trasera con Barra",
-          series: 4,
-          repeticiones: "6-8",
-          descanso_segundos: 150,
-          rpe_objetivo: 8.5,
-          tempo: "3-1-1-0",
-          force_rpe_required: true,
-          notas: "Profundidad rompiendo el paralelo con torso erguido.",
-          es_superserie: false,
-          grupo_superserie: null,
-          url_video: "bEv6CCg2BC8",
-        },
-      ],
-    },
-  ]);
+  const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (planInicial) {
+      setPlanName(planInicial.nombre);
+      setComentarios(planInicial.comentarios ?? "");
+      const mapped = mapPlanToBuilderDays(
+        planInicial.id,
+        diasIniciales ?? [],
+        ejerciciosEnRutinaIniciales ?? [],
+        catalogoEjercicios,
+      );
+      setDays(mapped);
+    } else {
+      setPlanName("Bloque de Hipertrofia & Fuerza");
+      setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
+      setDays(DEFAULT_BUILDER_DAYS);
+    }
+  }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
+  // Grupo del circuito de superserie abierto: los ejercicios nuevos entran hasta cerrarlo
+  const [openCircuit, setOpenCircuit] = React.useState<number | null>(null);
   const [showCatalogModal, setShowCatalogModal] = React.useState(false);
   const [catalogSearch, setCatalogSearch] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
@@ -125,7 +149,7 @@ export function RoutineBuilderModal({
     const nextOrder = days.length + 1;
     const newDay: BuilderDay = {
       id: `builder-day-${Date.now()}`,
-      nombre: `Día ${nextOrder}: Nueva Estación`,
+      nombre: `Día ${nextOrder}`,
       orden: nextOrder,
       ejercicios: [],
     };
@@ -139,15 +163,17 @@ export function RoutineBuilderModal({
       id: `be-${Date.now()}`,
       ejercicio_id: ej.id,
       nombre: ej.nombre,
-      series: 3,
-      repeticiones: "8-10",
+      series: 0,
+      repeticiones: "0",
       descanso_segundos: 90,
-      rpe_objetivo: 8.0,
-      tempo: "3-0-1-0",
+      rpe_objetivo: 0,
+      tempo: "0",
+      tempo_activo: false,
       force_rpe_required: false,
-      notas: ej.comentario || "",
-      es_superserie: false,
-      grupo_superserie: null,
+      notas: "",
+      es_superserie: openCircuit !== null,
+      grupo_superserie: openCircuit,
+      tipo_serie: "NORMAL",
       url_video: ej.url_video,
     };
 
@@ -210,18 +236,34 @@ export function RoutineBuilderModal({
     );
   };
 
-  // Toggle Superserie (A1 / A2)
+  // Superserie como circuito: tocar abre uno nuevo, tocar de nuevo lo cierra
   const handleToggleSuperset = (exId: string) => {
     if (!currentDay) return;
     const ex = currentDay.ejercicios.find((e) => e.id === exId);
     if (!ex) return;
 
-    const willBeSuperset = !ex.es_superserie;
-    // Si no tiene grupo asignado, asignar 1 por defecto
-    const nextGroup = willBeSuperset ? ex.grupo_superserie || 1 : null;
+    if (openCircuit !== null) {
+      setOpenCircuit(null);
+      return;
+    }
+    if (ex.es_superserie) {
+      handleUpdateExercise(exId, "es_superserie", false);
+      handleUpdateExercise(exId, "grupo_superserie", null);
+      return;
+    }
+    const maxGroup = Math.max(
+      0,
+      ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))
+    );
+    const group = maxGroup + 1;
+    handleUpdateExercise(exId, "es_superserie", true);
+    handleUpdateExercise(exId, "grupo_superserie", group);
+    setOpenCircuit(group);
+  };
 
-    handleUpdateExercise(exId, "es_superserie", willBeSuperset);
-    handleUpdateExercise(exId, "grupo_superserie", nextGroup);
+  const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
+    const ex = currentDay?.ejercicios.find((e) => e.id === exId);
+    handleUpdateExercise(exId, "tipo_serie", ex?.tipo_serie === tipo ? "NORMAL" : tipo);
   };
 
   // Guardar de verdad en Supabase (0 hardcodeado)
@@ -231,13 +273,15 @@ export function RoutineBuilderModal({
 
     try {
       // 1. Guardar o actualizar Plan en Supabase
-      const planId = `plan-${Date.now()}`;
+      const planId = crypto.randomUUID();
       const nowIso = new Date().toISOString();
+      const { data: authData } = await supabase.auth.getUser();
 
       const { data: planData, error: planErr } = await supabase
         .from("planes_entrenamiento")
         .insert({
           id: planId,
+          profesor_id: authData.user?.id ?? null,
           nombre: planName,
           comentarios,
           estado: "ACTIVO",
@@ -255,7 +299,7 @@ export function RoutineBuilderModal({
       // 2. Guardar Días en Supabase
       for (let i = 0; i < days.length; i++) {
         const d = days[i]!;
-        const diaId = `dia-${Date.now()}-${i + 1}`;
+        const diaId = crypto.randomUUID();
 
         const { error: diaErr } = await supabase.from("dias_rutina").insert({
           id: diaId,
@@ -283,11 +327,13 @@ export function RoutineBuilderModal({
               repeticiones: ej.repeticiones,
               descanso_segundos: ej.descanso_segundos,
               rpe_objetivo: ej.rpe_objetivo,
-              tempo: ej.tempo || "3-0-1-0",
+              tempo: ej.tempo ?? "0",
+              tempo_activo: Boolean(ej.tempo_activo),
               force_rpe_required: ej.force_rpe_required || false,
               notas: ej.notas || null,
               es_superserie: ej.es_superserie,
               grupo_superserie: ej.grupo_superserie,
+              tipo_serie: ej.tipo_serie,
               created_at: nowIso,
               updated_at: nowIso,
             });
@@ -403,34 +449,61 @@ export function RoutineBuilderModal({
 
         {/* Contenido del Día Seleccionado */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="flex items-center justify-between pb-1">
-            <input
-              type="text"
-              value={currentDay?.nombre || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDays((prev) =>
-                  prev.map((d, idx) =>
-                    idx === selectedDayIdx ? { ...d, nombre: val } : d
-                  )
-                );
-              }}
-              className="text-sm font-bold text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1"
-            />
-            <Button
-              size="sm"
-              onClick={() => setShowCatalogModal(true)}
-              className="bg-primary text-primary-foreground font-bold text-xs"
-              data-testid="open-exercise-catalog-btn"
+          {days.length === 0 ? (
+            <div
+              className="rounded-xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center space-y-3 my-auto"
+              data-testid="no-days-message"
             >
-              + Añadir Ejercicio del Catálogo
-            </Button>
-          </div>
-
-          {currentDay?.ejercicios.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-              No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
+              <p className="text-sm font-medium text-foreground">No hay días precargados en la rutina.</p>
+              <p className="text-xs text-muted-foreground">Crea un día para comenzar a diseñar las sesiones de entrenamiento.</p>
+              <Button
+                size="sm"
+                onClick={handleAddDay}
+                className="bg-primary text-primary-foreground font-bold text-xs"
+                data-testid="add-first-day-btn"
+              >
+                + Agregar Día
+              </Button>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between pb-1 gap-3">
+                <div className="flex items-center gap-2 flex-1 max-w-sm">
+                  <label htmlFor="day-name-input" className="text-xs font-bold text-muted-foreground shrink-0">
+                    Nombre del día:
+                  </label>
+                  <input
+                    id="day-name-input"
+                    type="text"
+                    value={currentDay?.nombre || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDays((prev) =>
+                        prev.map((d, idx) =>
+                          idx === selectedDayIdx ? { ...d, nombre: val } : d
+                        )
+                      );
+                    }}
+                    placeholder="Ej. Día 1 - Torso"
+                    data-testid="day-name-input"
+                    aria-label="Nombre del día"
+                    className="text-sm font-bold text-foreground bg-transparent border-b border-input hover:border-foreground/50 focus:border-primary focus:outline-none px-1 py-0.5 w-full transition-colors"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setShowCatalogModal(true)}
+                  className="bg-primary text-primary-foreground font-bold text-xs"
+                  data-testid="open-exercise-catalog-btn"
+                >
+                  + Añadir Ejercicio del Catálogo
+                </Button>
+              </div>
+
+              {currentDay?.ejercicios.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+                  No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
+                </div>
           ) : (
             <div className="space-y-3">
               {currentDay?.ejercicios.map((ej, index) => {
@@ -444,7 +517,7 @@ export function RoutineBuilderModal({
                     key={ej.id}
                     className={`rounded-xl border p-3.5 space-y-3 transition-colors ${
                       isSuperset
-                        ? "border-purple-500/40 bg-purple-500/5"
+                        ? "border-purple-500/40 bg-purple-500/5 border-l-4 border-l-purple-500"
                         : "border-border bg-card"
                     }`}
                   >
@@ -461,9 +534,31 @@ export function RoutineBuilderModal({
                             {groupLabel}
                           </Badge>
                         )}
+                        {ej.tipo_serie !== "NORMAL" && (
+                          <Badge
+                            className={`text-white text-[10px] font-bold ${
+                              ej.tipo_serie === "DROPSET" ? "bg-rose-600" : "bg-amber-600"
+                            }`}
+                          >
+                            {ej.tipo_serie === "DROPSET" ? "Dropset" : "Warmup"}
+                          </Badge>
+                        )}
+                        {ej.tempo_activo && (
+                          <Badge
+                            variant="outline"
+                            className="border-sky-500 text-sky-400 text-[10px] font-bold"
+                            data-testid={`tempo-badge-${ej.id}`}
+                          >
+                            Tempo {ej.tempo || "3-0-1-0"}
+                          </Badge>
+                        )}
                         {ej.force_rpe_required && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-400 text-[10px] font-bold">
-                            RPE Forzado
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500 text-amber-400 text-[10px] font-bold"
+                            data-testid={`rpe-badge-${ej.id}`}
+                          >
+                            RPE Obligatorio
                           </Badge>
                         )}
                         {ej.url_video && (
@@ -520,18 +615,33 @@ export function RoutineBuilderModal({
                         </label>
                         <input
                           type="number"
-                          min="1"
-                          max="10"
+                          min="0"
+                          max={MAX_SERIES_PER_EXERCISE}
                           value={ej.series}
-                          onChange={(e) =>
-                            handleUpdateExercise(
-                              ej.id,
-                              "series",
-                              parseInt(e.target.value, 10) || 1
-                            )
-                          }
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const num = parseInt(raw, 10);
+                            if (isNaN(num) || num <= 0) {
+                              handleUpdateExercise(ej.id, "series", 0);
+                            } else {
+                              handleUpdateExercise(ej.id, "series", clampSeries(num));
+                            }
+                          }}
+                          data-testid="exercise-series-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
+                        <span
+                          className={`text-[9px] block text-center mt-0.5 font-medium ${
+                            ej.series >= MAX_SERIES_PER_EXERCISE
+                              ? "text-amber-500 dark:text-amber-400"
+                              : "text-muted-foreground"
+                          }`}
+                          aria-live="polite"
+                        >
+                          {ej.series >= MAX_SERIES_PER_EXERCISE
+                            ? "Límite máximo: 10 series"
+                            : "Máximo: 10 series"}
+                        </span>
                       </div>
 
                       <div>
@@ -544,6 +654,7 @@ export function RoutineBuilderModal({
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "repeticiones", e.target.value)
                           }
+                          data-testid="exercise-reps-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -557,13 +668,15 @@ export function RoutineBuilderModal({
                           step="15"
                           min="0"
                           value={ej.descanso_segundos}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
                             handleUpdateExercise(
                               ej.id,
                               "descanso_segundos",
-                              parseInt(e.target.value, 10) || 0
-                            )
-                          }
+                              isNaN(val) ? 0 : val
+                            );
+                          }}
+                          data-testid="exercise-rest-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -575,32 +688,55 @@ export function RoutineBuilderModal({
                         <input
                           type="number"
                           step="0.5"
-                          min="6"
+                          min="0"
                           max="10"
                           value={ej.rpe_objetivo}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
                             handleUpdateExercise(
                               ej.id,
                               "rpe_objetivo",
-                              parseFloat(e.target.value) || 8.0
-                            )
-                          }
+                              isNaN(val) ? 0 : val
+                            );
+                          }}
+                          data-testid="exercise-rpe-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
-                          Tempo:
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                            Tempo:
+                          </label>
+                          <label className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={ej.tempo_activo}
+                              onChange={(e) =>
+                                handleUpdateExercise(ej.id, "tempo_activo", e.target.checked)
+                              }
+                              className="rounded accent-primary h-3 w-3"
+                              data-testid={`tempo-active-checkbox-${ej.id}`}
+                              aria-label={`Activar tempo para ${ej.nombre}`}
+                            />
+                            <span>On</span>
+                          </label>
+                        </div>
                         <input
                           type="text"
-                          placeholder="3-0-1-0"
+                          placeholder="0"
                           value={ej.tempo}
+                          disabled={!ej.tempo_activo}
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "tempo", e.target.value)
                           }
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          data-testid={`tempo-input-${ej.id}`}
+                          className={`w-full min-h-[38px] rounded-xl border border-input px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary ${
+                            !ej.tempo_activo
+                              ? "opacity-40 bg-muted cursor-not-allowed"
+                              : "bg-background"
+                          }`}
                         />
                       </div>
 
@@ -614,12 +750,35 @@ export function RoutineBuilderModal({
                               : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
                           }`}
                         >
-                          {isSuperset ? "✓ Superserie A" : "+ Superserie"}
+                          {openCircuit !== null && openCircuit === ej.grupo_superserie
+                            ? "Cerrar circuito"
+                            : isSuperset
+                            ? "✓ Superserie A"
+                            : "+ Superserie"}
                         </button>
+                        <div className="flex gap-1 mt-1">
+                          {(["WARMUP", "DROPSET"] as const).map((tipo) => (
+                            <button
+                              key={tipo}
+                              type="button"
+                              aria-pressed={ej.tipo_serie === tipo}
+                              onClick={() => handleToggleTipoSerie(ej.id, tipo)}
+                              className={`flex-1 min-h-[30px] text-[10px] font-bold rounded-lg border cursor-pointer ${
+                                ej.tipo_serie === tipo
+                                  ? tipo === "DROPSET"
+                                    ? "bg-rose-600 text-white border-rose-500"
+                                    : "bg-amber-600 text-white border-amber-500"
+                                  : "bg-secondary text-secondary-foreground border-border"
+                              }`}
+                            >
+                              {tipo === "DROPSET" ? "Dropset" : "Warmup"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Fila inferior: Notas del coach y switch de RPE forzado */}
+                    {/* Fila inferior: Notas del coach, switch de Tempo y switch de RPE obligatorio */}
                     <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-border/40 text-xs">
                       <div className="flex-1 w-full">
                         <input
@@ -633,26 +792,48 @@ export function RoutineBuilderModal({
                         />
                       </div>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={ej.force_rpe_required}
-                          onChange={(e) =>
-                            handleUpdateExercise(
-                              ej.id,
-                              "force_rpe_required",
-                              e.target.checked
-                            )
-                          }
-                          className="rounded accent-primary h-3.5 w-3.5"
-                        />
-                        <span>Obligar registro de RPE</span>
-                      </label>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={ej.tempo_activo}
+                            onChange={(e) =>
+                              handleUpdateExercise(
+                                ej.id,
+                                "tempo_activo",
+                                e.target.checked
+                              )
+                            }
+                            data-testid={`tempo-toggle-${ej.id}`}
+                            className="rounded accent-primary h-3.5 w-3.5"
+                          />
+                          <span>Activar Tempo</span>
+                        </label>
+
+                        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={ej.force_rpe_required}
+                            onChange={(e) =>
+                              handleUpdateExercise(
+                                ej.id,
+                                "force_rpe_required",
+                                e.target.checked
+                              )
+                            }
+                            data-testid={`force-rpe-checkbox-${ej.id}`}
+                            className="rounded accent-primary h-3.5 w-3.5"
+                          />
+                          <span>RPE obligatorio</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+          )}
+            </>
           )}
         </div>
 

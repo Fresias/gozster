@@ -7,17 +7,25 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
+import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
+import type { Perfil } from "@/types/database.types";
 import { ProgressiveOverloadFeed } from "@/components/coach/progressive-overload-feed";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
 import { Button } from "@/components/ui/button";
+import {
+  ETIQUETAS_FILTRO_ACTIVIDAD,
+  alumnoTieneActividad,
+} from "@/lib/alumno-actividades";
 
-import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+import type { AlumnoEstancado, LiveSupabaseDataset } from "@/services/alumnos-service";
 
 export function CoachDashboardView({
   initialDataset,
+  estancados = [],
 }: {
   initialDataset?: LiveSupabaseDataset | null;
+  estancados?: AlumnoEstancado[];
 } = {}) {
   const router = useRouter();
   const store = useCoachStudioStore();
@@ -43,21 +51,27 @@ export function CoachDashboardView({
     obtenerMetricasRetencion,
     getAlertasSobrecargaProgresiva,
     asignarPlanUrgente,
+    asignarPlanDesdePlantilla,
     getSelectedAlumno,
     getHistorialCargasAlumno,
     loadLiveSupabaseData,
+    filtroActividad,
+    setFiltroActividad,
   } = store;
 
   React.useEffect(() => {
     if (initialDataset && initialDataset.alumnos.length > 0) {
-      useCoachStudioStore.setState({
-        alumnos: initialDataset.alumnos,
-        planes: initialDataset.planes,
-        dias: initialDataset.dias,
-        ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
-        ejercicios: initialDataset.ejercicios,
-        isLiveDatabase: true,
-      });
+      const timer = setTimeout(() => {
+        useCoachStudioStore.setState({
+          alumnos: initialDataset.alumnos,
+          planes: initialDataset.planes,
+          dias: initialDataset.dias,
+          ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
+          ejercicios: initialDataset.ejercicios,
+          isLiveDatabase: true,
+        });
+      }, 0);
+      return () => clearTimeout(timer);
     } else {
       loadLiveSupabaseData();
     }
@@ -65,9 +79,10 @@ export function CoachDashboardView({
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
 
   // Retention metrics from RPC
-  const metricas = obtenerMetricasRetencion();
+  const metricas = obtenerMetricasRetencion(null, filtroActividad);
 
   // Progressive overload alerts from RPC
   const alertas = getAlertasSobrecargaProgresiva();
@@ -77,6 +92,17 @@ export function CoachDashboardView({
     if (a.rol !== "ALUMNO") return false;
     const isActiva = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
     if (!isActiva) return false;
+    if (filtroActividad !== "TODAS") {
+      const tiene = alumnoTieneActividad({
+        alumnoId: a.id,
+        actividad: filtroActividad,
+        alumnoActividades: store.alumnoActividades,
+        contrataciones: store.contrataciones,
+        planes,
+        alumno: a,
+      });
+      if (!tiene) return false;
+    }
     const planActivo = planes.find((p) => p.alumno_id === a.id && p.estado === "ACTIVO");
     return !planActivo;
   });
@@ -158,11 +184,71 @@ export function CoachDashboardView({
         </div>
       </div>
 
+      {/* Selector de Filtro por Actividad */}
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="filtro-actividad-container"
+      >
+        <span className="text-xs text-muted-foreground font-semibold">Actividad:</span>
+        {(["TODAS", "FUNCIONAL", "BOXEO", "RUTINAS"] as const).map((act) => {
+          const isActive = filtroActividad === act;
+          const label = ETIQUETAS_FILTRO_ACTIVIDAD[act];
+          const count = act === "TODAS"
+            ? alumnos.length
+            : alumnos.filter((a) =>
+                alumnoTieneActividad({
+                  alumnoId: a.id,
+                  actividad: act,
+                  alumnoActividades: store.alumnoActividades,
+                  contrataciones: store.contrataciones,
+                  planes,
+                  alumno: a,
+                })
+              ).length;
+
+          return (
+            <button
+              key={act}
+              type="button"
+              data-testid={`filtro-actividad-${act.toLowerCase()}`}
+              onClick={() => setFiltroActividad(act)}
+              className={`min-h-11 sm:min-h-9 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-border"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion) */}
       <RetentionKpiCards
         metricas={metricas}
         onAssignPlanClick={() => setIsAssignModalOpen(true)}
       />
+
+      {/* Alerta de estancamiento: 30+ días sin PR (GOZS-226) */}
+      {estancados.length > 0 && (
+        <section
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4"
+          data-testid="alerta-estancamiento"
+        >
+          <h2 className="text-sm font-bold text-amber-300">Alumnos estancados (30+ días sin PR)</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {estancados.map((e) => (
+              <li key={e.alumnoId}>
+                <button type="button" onClick={() => handleSelectAlumno(e.alumnoId)} className="hover:underline">
+                  {alumnos.find((a) => a.id === e.alumnoId)?.nombre_completo ?? "Alumno"}
+                </button>{" "}
+                <span className="text-muted-foreground">· {e.diasSinPR} días sin PR</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Feed de Alertas de Sobrecarga Progresiva (RPC: detectar_sobrecarga_progresiva y 1RM) */}
       <div className="pt-2">
@@ -180,6 +266,21 @@ export function CoachDashboardView({
         alumnosSinPlan={alumnosSinPlan}
         onAssignPlan={handleAssignPlan}
         onSelectAlumno={handleSelectAlumno}
+        onOpenAssignRoutine={(alumno) => {
+          setIsAssignModalOpen(false);
+          setAssignRoutineTarget(alumno);
+        }}
+      />
+
+      {/* Modal de Previsualización y Confirmación de Rutinas Genéricas (GOZS-245) */}
+      <AssignRoutinePreviewModal
+        isOpen={!!assignRoutineTarget}
+        onClose={() => setAssignRoutineTarget(null)}
+        alumno={assignRoutineTarget}
+        onConfirmAssign={async (alumnoId, plantillaId) => {
+          await asignarPlanDesdePlantilla(alumnoId, plantillaId);
+          setAssignRoutineTarget(null);
+        }}
       />
 
       {/* Drawer Lateral de Cargas Históricas */}

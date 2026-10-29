@@ -15,7 +15,7 @@ import type {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Normaliza a medianoche UTC para comparar sólo por fecha (sin hora). */
-function toDateOnly(value: string | Date): Date {
+export function toDateOnly(value: string | Date): Date {
   const d = value instanceof Date ? value : new Date(value);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }

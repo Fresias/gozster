@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
+import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { supabase } from "@/lib/supabase/client";
 import {
   calculateStudentHealthScore,
@@ -27,6 +28,8 @@ import {
   ESTADO_CONTRATACION_LABEL,
   computeAnchoredRenewalDate,
   derivarContratacionDesdePerfil,
+  derivarEstadoContratacion,
+  toDateOnly,
 } from "@/lib/contrataciones";
 import {
   AVAILABLE_COACH_SENDERS,
@@ -38,6 +41,13 @@ import { StudentPainAlerts } from "@/components/coach/student-pain-alerts";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-data";
 import { AdherenciaCard, type EstadoAdherencia } from "@/components/coach/adherencia-card";
 import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
+import { useCobrosStore } from "@/store/use-cobros-store";
+import {
+  derivarActividadFrecuencia,
+  derivarEstadoPagoAlumno,
+  derivarMontoSuscripcion,
+  formatearDinero,
+} from "@/lib/alumno-ficha";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -167,6 +177,9 @@ export function StudentDetail({
 
   const storeSustituciones = useCoachStudioStore((s) => s.sustituciones);
   const catalogoCompleto = useCoachStudioStore((s) => s.ejercicios);
+  const isWhatsAppEnabled = useCoachStudioStore((s) => s.isWhatsAppEnabled);
+  const openChatForAlumno = useCoachStudioStore((s) => s.openChatForAlumno);
+  const isTestMode = useWorkspaceModeStore((s) => s.mode === "TESTEO");
   const alumnoSustituciones = storeSustituciones.filter((s) => {
     if (rutinaActiva && s.plan_id === rutinaActiva.id) return true;
     return historialPlanes.some((p) => p.id === s.plan_id);
@@ -307,7 +320,13 @@ export function StudentDetail({
     }
   };
 
-  const getPlanBadge = (estado: PlanEntrenamiento["estado"]) => {
+  const getPlanBadge = (
+    estado: PlanEntrenamiento["estado"],
+    fechaFin?: string | null,
+  ) => {
+    if (fechaFin && new Date(fechaFin).getTime() < Date.now()) {
+      return <Badge variant="destructive">VENCIDO</Badge>;
+    }
     switch (estado) {
       case "ACTIVO":
         return <Badge variant="success">ACTIVO</Badge>;
@@ -353,10 +372,21 @@ export function StudentDetail({
 
   // Contratación (ADR-001): si el padre no la inyecta, se deriva del perfil sin
   // inventar datos fuera del esquema generado por @backend-eng.
-  const contratacion = React.useMemo(
-    () => contratacionProp ?? derivarContratacionDesdePerfil(alumno),
-    [contratacionProp, alumno],
-  );
+  const contratacion = React.useMemo(() => {
+    if (contratacionProp) return contratacionProp;
+    const base = derivarContratacionDesdePerfil(alumno);
+    // Si el alumno no tiene fecha_vencimiento_cuota explícita pero tiene rutinaActiva con fecha_fin, sincronizar
+    if (!alumno.fecha_vencimiento_cuota && rutinaActiva?.fecha_fin) {
+      const finDate = rutinaActiva.fecha_fin.slice(0, 10);
+      return {
+        ...base,
+        fecha_fin: finDate,
+        dia_vencimiento: toDateOnly(finDate).getUTCDate(),
+        estado: derivarEstadoContratacion(finDate, 5),
+      };
+    }
+    return base;
+  }, [contratacionProp, alumno, rutinaActiva]);
 
   const estadoCuenta: EstadoCuenta =
     alumno.estado_cuenta ??
@@ -379,6 +409,107 @@ export function StudentDetail({
   const [extFecha, setExtFecha] = React.useState("");
   const [extMotivo, setExtMotivo] = React.useState("");
   const [isExtendiendoExc, setIsExtendiendoExc] = React.useState(false);
+
+  // GOZS-247: Integración con Cobros Store y suscripción
+  const cobros = useCobrosStore((s) => s.cobros);
+  const registrarPagoStore = useCobrosStore((s) => s.registrarPago);
+
+  const cobroItem = React.useMemo(() => {
+    return (
+      cobros.find(
+        (c) => c.alumnoId === alumno.id || c.contratacionId === contratacion.id,
+      ) ?? null
+    );
+  }, [cobros, alumno.id, contratacion.id]);
+
+  const historialCobros = React.useMemo(
+    () =>
+      cobros
+        .filter((c) => c.alumnoId === alumno.id)
+        .sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento)),
+    [cobros, alumno.id],
+  );
+
+  const [pagoRegistradoEnSesion, setPagoRegistradoEnSesion] = React.useState(false);
+  const [isRegistrandoPago, setIsRegistrandoPago] = React.useState(false);
+  const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
+
+  const actividadFrecuencia = React.useMemo(() => {
+    return derivarActividadFrecuencia({
+      contratacion,
+      rutinaActiva,
+      cobroItem,
+    });
+  }, [contratacion, rutinaActiva, cobroItem]);
+
+  const estadoPagoInfo = React.useMemo(() => {
+    return derivarEstadoPagoAlumno({
+      cobroItem,
+      contratacion,
+      alumno,
+      pagoRegistradoEnSesion,
+    });
+  }, [cobroItem, contratacion, alumno, pagoRegistradoEnSesion]);
+
+  const montoSuscripcion = React.useMemo(() => {
+    return derivarMontoSuscripcion({
+      cobroItem,
+      contratacion,
+    });
+  }, [cobroItem, contratacion]);
+
+  const dialogoPagoRef = React.useRef<HTMLDialogElement>(null);
+  const [modalMonto, setModalMonto] = React.useState<number>(montoSuscripcion.monto);
+  const [modalMedio, setModalMedio] = React.useState<MedioPago>("TRANSFERENCIA");
+  const [modalNota, setModalNota] = React.useState<string>("");
+
+  React.useEffect(() => {
+    setModalMonto(montoSuscripcion.monto);
+  }, [montoSuscripcion.monto]);
+
+  const handleAbrirDialogoPago = () => {
+    setModalMonto(montoSuscripcion.monto);
+    setModalMedio("TRANSFERENCIA");
+    setModalNota("");
+    dialogoPagoRef.current?.showModal();
+  };
+
+  const handleCerrarDialogoPago = () => {
+    dialogoPagoRef.current?.close();
+  };
+
+  const handleConfirmarRegistroPago = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsRegistrandoPago(true);
+    setAvisoPago(null);
+    try {
+      if (cobroItem) {
+        await registrarPagoStore({
+          contratacionId: cobroItem.contratacionId,
+          monto: modalMonto,
+          montoLista: cobroItem.montoLista,
+          medioPago: modalMedio === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
+          notas: modalNota.trim() || undefined,
+        });
+      }
+
+      if (onRegistrarRenovacion) {
+        await onRegistrarRenovacion({
+          contratacion,
+          monto: modalMonto,
+          medioPago: modalMedio,
+        });
+      }
+
+      setPagoRegistradoEnSesion(true);
+      setAvisoPago(`Pago de ${formatearDinero(modalMonto)} registrado con éxito.`);
+      dialogoPagoRef.current?.close();
+    } catch {
+      setAvisoPago("No se pudo registrar el pago. Intentá nuevamente.");
+    } finally {
+      setIsRegistrandoPago(false);
+    }
+  };
 
   const formatFecha = (iso: string) => {
     const parsed = new Date(iso);
@@ -485,16 +616,32 @@ export function StudentDetail({
               Modo Offline • Acciones en cola
             </Badge>
           )}
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
-            data-testid="whatsapp-direct-btn"
+          <Button
+            type="button"
+            variant="default"
+            size="default"
+            onClick={() => {
+              onOpenChat?.();
+              openChatForAlumno(alumno.id);
+            }}
+            className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold"
+            data-testid="enviar-mensaje-btn"
+            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
           >
-            <span>💬 WhatsApp 1-Clic</span>
-          </a>
+            <span>💬 Enviar mensaje</span>
+          </Button>
+          {(isWhatsAppEnabled || isTestMode) && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+              data-testid="whatsapp-direct-btn"
+            >
+              <span>💬 WhatsApp 1-Clic</span>
+            </a>
+          )}
         </div>
       </div>
 
@@ -556,6 +703,142 @@ export function StudentDetail({
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Resumen Comercial y Estado de Pago (GOZS-247) */}
+      <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
+              {/* 1. Actividad y frecuencia */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Actividad y Frecuencia
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-sm font-black text-foreground"
+                    data-testid="ficha-actividad-frecuencia"
+                  >
+                    {actividadFrecuencia.etiqueta}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground" data-testid="ficha-actividad-detalle">
+                  {actividadFrecuencia.detalle}
+                </p>
+              </div>
+
+              {/* 2. Estado de pago (si pagó o no) */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Estado de Pago
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black border ${
+                      estadoPagoInfo.pago
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : estadoPagoInfo.estado === "VENCIDO"
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                    }`}
+                    data-testid="ficha-estado-pago"
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        estadoPagoInfo.pago
+                          ? "bg-emerald-500"
+                          : estadoPagoInfo.estado === "VENCIDO"
+                          ? "bg-rose-500"
+                          : "bg-amber-500"
+                      }`}
+                    />
+                    {estadoPagoInfo.etiquetaPrincipal} • {estadoPagoInfo.etiquetaDetalle}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {estadoPagoInfo.pago
+                    ? "Cuota vigente al día"
+                    : estadoPagoInfo.estado === "VENCIDO"
+                    ? "Cuota vencida impaga"
+                    : "Esperando confirmación de cobro"}
+                </p>
+              </div>
+
+              {/* 3. Monto de la suscripción */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Monto de la Suscripción
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className="text-lg font-black text-foreground tabular-nums"
+                    data-testid="ficha-monto-sub"
+                  >
+                    {montoSuscripcion.formateado}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">/mes</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Día {contratacion.dia_vencimiento} anclado • Vence {formatFecha(contratacion.fecha_fin)}
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Botón para registrar el pago */}
+            <div className="flex items-center justify-end pt-1 lg:pt-0">
+              <Button
+                variant={estadoPagoInfo.pago ? "outline" : "default"}
+                size="default"
+                onClick={handleAbrirDialogoPago}
+                className="min-h-11 w-full gap-2 text-xs font-bold sm:w-auto px-5 shadow-sm"
+                data-testid="btn-registrar-pago"
+                aria-label={`Registrar pago para ${alumno.nombre_completo}`}
+              >
+                <span>💳 Registrar pago</span>
+              </Button>
+            </div>
+          </div>
+
+          {avisoPago && (
+            <div
+              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 font-medium"
+              data-testid="aviso-pago-exitoso"
+            >
+              ✓ {avisoPago}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GOZS-257: historial completo de cuotas/pagos del alumno */}
+      <Card data-testid="historial-pagos-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold text-foreground">Historial de pagos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {historialCobros.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Sin cuotas registradas.</p>
+          ) : (
+            <ul className="divide-y divide-border/60 text-xs">
+              {historialCobros.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 py-2"
+                  data-testid="historial-pago-item"
+                >
+                  <span className="font-semibold">
+                    {c.servicioNombre} · vence {formatFecha(c.fechaVencimiento)}
+                  </span>
+                  <span className="tabular-nums">
+                    ${(c.ultimoPago?.monto ?? c.monto).toLocaleString("es-AR")} ·{" "}
+                    {c.estado === "PAGADO" ? "Pagado" : c.estado === "VENCIDO" ? "Vencido" : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
@@ -781,7 +1064,7 @@ export function StudentDetail({
               </p>
               <div className="mt-1.5" data-testid="estado-rutina">
                 {rutinaActiva ? (
-                  getPlanBadge(rutinaActiva.estado)
+                  getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)
                 ) : (
                   <Badge variant="outline">Sin rutina</Badge>
                 )}
@@ -1177,7 +1460,7 @@ export function StudentDetail({
                     <CardTitle className="text-lg">
                       {rutinaActiva.nombre}
                     </CardTitle>
-                    {getPlanBadge(rutinaActiva.estado)}
+                    {getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Creado el{" "}
@@ -1262,6 +1545,22 @@ export function StudentDetail({
                                           className="text-[10px]"
                                         >
                                           Superserie G{item.grupo_superserie}
+                                        </Badge>
+                                      )}
+                                      {item.tempo_activo && item.tempo && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-sky-500 text-sky-400 text-[10px]"
+                                        >
+                                          Tempo {item.tempo}
+                                        </Badge>
+                                      )}
+                                      {item.force_rpe_required && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-amber-500 text-amber-400 text-[10px]"
+                                        >
+                                          RPE Obligatorio
                                         </Badge>
                                       )}
                                     </div>
@@ -1474,7 +1773,7 @@ export function StudentDetail({
                             <h4 className="text-base font-bold text-foreground">
                               {plan.nombre}
                             </h4>
-                            {getPlanBadge(plan.estado)}
+                            {getPlanBadge(plan.estado, plan.fecha_fin)}
                             {index === 0 && (
                               <Badge variant="outline" className="text-[10px]">
                                 Más Reciente
@@ -1597,6 +1896,124 @@ export function StudentDetail({
           )}
         </div>
       )}
+
+      {/* DIÁLOGO ACCESIBLE PARA REGISTRAR PAGO (GOZS-247) */}
+      <dialog
+        ref={dialogoPagoRef}
+        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="dialog-registrar-pago-titulo"
+        data-testid="dialog-registrar-pago"
+      >
+        <form onSubmit={handleConfirmarRegistroPago} className="space-y-4">
+          <div className="flex items-center justify-between border-b border-border/80 pb-3">
+            <h3 id="dialog-registrar-pago-titulo" className="text-base font-black text-foreground">
+              Registrar Pago de Cuota
+            </h3>
+            <button
+              type="button"
+              onClick={handleCerrarDialogoPago}
+              className="text-muted-foreground hover:text-foreground text-sm font-bold"
+              aria-label="Cerrar diálogo"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs space-y-1">
+            <p>
+              <span className="font-bold">Alumno:</span> {alumno.nombre_completo}
+            </p>
+            <p>
+              <span className="font-bold">Actividad:</span> {actividadFrecuencia.etiqueta}
+            </p>
+            <p className="text-muted-foreground text-[11px]">
+              Ciclo anclado al día {contratacion.dia_vencimiento} de cada mes.
+            </p>
+          </div>
+
+          <label className="block space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Monto a abonar ($ ARS)</span>
+            <input
+              type="number"
+              required
+              min="0"
+              step="100"
+              value={modalMonto}
+              onChange={(e) => setModalMonto(Number(e.target.value) || 0)}
+              className="w-full min-h-11 rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums"
+              data-testid="input-monto-pago"
+            />
+          </label>
+
+          <div className="space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Medio de Pago</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setModalMedio("TRANSFERENCIA")}
+                className={`rounded-xl border p-2.5 text-left transition-all ${
+                  modalMedio === "TRANSFERENCIA"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                    : "border-border/80 hover:bg-secondary/40"
+                }`}
+                data-testid="btn-medio-transferencia"
+              >
+                <p className="text-xs font-bold text-foreground">Transferencia</p>
+                <p className="text-[10px] text-muted-foreground">CBU / MP</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalMedio("EFECTIVO")}
+                className={`rounded-xl border p-2.5 text-left transition-all ${
+                  modalMedio === "EFECTIVO"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                    : "border-border/80 hover:bg-secondary/40"
+                }`}
+                data-testid="btn-medio-efectivo"
+              >
+                <p className="text-xs font-bold text-foreground">Efectivo</p>
+                <p className="text-[10px] text-muted-foreground">En gimnasio</p>
+              </button>
+            </div>
+          </div>
+
+          <label className="block space-y-1.5 text-xs font-semibold text-foreground">
+            <span>Nota de pago o descuento (opcional)</span>
+            <input
+              type="text"
+              value={modalNota}
+              onChange={(e) => setModalNota(e.target.value)}
+              placeholder="Ej: Descuento 20% acordado"
+              className="w-full min-h-11 rounded-xl border border-border bg-background p-2.5 text-xs"
+              data-testid="input-nota-pago"
+            />
+          </label>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={handleCerrarDialogoPago}
+              className="flex-1 min-h-11 text-xs font-semibold"
+              data-testid="btn-cancelar-pago"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              size="default"
+              disabled={isRegistrandoPago}
+              className="flex-1 min-h-11 text-xs font-bold"
+              data-testid="btn-confirmar-pago"
+            >
+              {isRegistrandoPago ? "Guardando…" : "Confirmar pago"}
+            </Button>
+          </div>
+        </form>
+      </dialog>
 
     </div>
   );

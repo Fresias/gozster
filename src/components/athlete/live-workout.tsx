@@ -9,9 +9,11 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -35,6 +37,7 @@ import {
   Trash2,
   Lock,
   HelpCircle,
+  ChevronDown,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -43,6 +46,8 @@ import { SugerenciaCarga } from "@/components/athlete/sugerencia-carga";
 import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
+import { serieDeReferencia } from "@/lib/historial-ejercicio";
+import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
 
 export function LiveWorkout() {
@@ -69,9 +74,13 @@ export function LiveWorkout() {
     usarVistaRecomendada,
     pasoIncrementoPeso,
     setPasoIncrementoPeso,
+    colapsarRutina,
+    setColapsarRutina,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
+    activePainBanner,
+    clearActivePainBanner,
     reportPainEvent,
     syncSessionToSupabase,
     diaActivoId,
@@ -102,6 +111,9 @@ export function LiveWorkout() {
   // Modal de configuración del alumno
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
+  // Estado local para expandir la rutina manualmente cuando colapsarRutina está activo
+  const [rutinaDesplegadaManual, setRutinaDesplegadaManual] = React.useState(false);
+
   // Estado para la confirmación optimista de serie guardada
   const [optimisticBanner, setOptimisticBanner] = React.useState<{
     setNumber: number;
@@ -131,6 +143,24 @@ export function LiveWorkout() {
   const [isFinishing, setIsFinishing] = React.useState(false);
   const [workoutFinished, setWorkoutFinished] = React.useState(false);
 
+  // Guardas de plausibilidad (GOZS-200)
+  const [plausibilityError, setPlausibilityError] = React.useState<string | null>(null);
+  const [atypicalPrompt, setAtypicalPrompt] = React.useState<{
+    mensaje: string;
+    peso: number;
+    reps: number;
+    isEditing?: boolean;
+  } | null>(null);
+  const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (atypicalPrompt) {
+      if (!atypicalDialogRef.current?.open) atypicalDialogRef.current?.showModal();
+    } else {
+      if (atypicalDialogRef.current?.open) atypicalDialogRef.current?.close();
+    }
+  }, [atypicalPrompt]);
+
   // Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180)
   const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
   const [sessionPRs, setSessionPRs] = React.useState<RecordSesionItem[]>([]);
@@ -138,6 +168,7 @@ export function LiveWorkout() {
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
+  const [notesExercise, setNotesExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
@@ -241,23 +272,85 @@ export function LiveWorkout() {
   }, [claveSerie, pesoSugerido, repsSugeridas]);
 
   // Registrar serie actual
-  const handleRegistrarSerie = () => {
+  const handleRegistrarSerie = (confirmarAtipica = false) => {
     if (!currentExercise || !currentSet) return;
+    setPlausibilityError(null);
+
     const num = currentSet.numero_serie;
     const peso = currentSet.peso_kg;
     const reps = currentSet.reps_hechas;
     const setType = currentSet.set_type;
     const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
 
-    const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType };
+    if (!confirmarAtipica) {
+      const prevPesos: number[] = [];
+      if (ultimaVez[ejId]?.series) {
+        for (const s of ultimaVez[ejId].series) {
+          if (typeof s.peso_kg === "number") prevPesos.push(s.peso_kg);
+        }
+      }
+      for (const s of currentExercise.series) {
+        if (s.completada && typeof s.peso_kg === "number" && s.numero_serie !== num) {
+          prevPesos.push(s.peso_kg);
+        }
+      }
+      if (prevPesos.length === 0 && marcas[ejId]?.frontera) {
+        for (const f of marcas[ejId].frontera) {
+          if (typeof f.peso_kg === "number") prevPesos.push(f.peso_kg);
+        }
+      }
+
+      let ultPeso: number | null = null;
+      const prevCompletadasHoy = currentExercise.series.filter(
+        (s) => s.completada && s.numero_serie < num,
+      );
+      if (prevCompletadasHoy.length > 0) {
+        ultPeso = prevCompletadasHoy[prevCompletadasHoy.length - 1]!.peso_kg;
+      } else if (ultimaVez[ejId]?.series?.length) {
+        const ref = serieDeReferencia(ultimaVez[ejId]!, num);
+        ultPeso = ref ? ref.peso_kg : ultimaVez[ejId]!.series[ultimaVez[ejId]!.series.length - 1]!.peso_kg;
+      } else if (typeof currentSet.last_session_weight_kg === "number" && currentSet.last_session_weight_kg > 0) {
+        ultPeso = currentSet.last_session_weight_kg;
+      }
+
+      const evalRes = evaluarPlausibilidadSerie({
+        peso,
+        reps,
+        rpe: currentSet.rpe_real,
+        historialPesos: prevPesos,
+        ultimoPeso: ultPeso,
+        musculos: currentExercise.musculos_principales,
+        nombreEjercicio: currentExercise.nombre,
+      });
+
+      if (evalRes.estado === "bloqueado") {
+        setPlausibilityError(evalRes.error);
+        return;
+      }
+
+      if (evalRes.estado === "requiere_confirmacion") {
+        setAtypicalPrompt({
+          mensaje: evalRes.mensaje,
+          peso: evalRes.peso,
+          reps: evalRes.reps,
+          isEditing: false,
+        });
+        return;
+      }
+    }
+
+    const esAtipica = Boolean(confirmarAtipica);
+    const serieCandidata = { peso_kg: peso, reps_hechas: reps, set_type: setType, atipica: esAtipica };
     const resultado = esNuevoRecord(serieCandidata, marcas[ejId] ?? null);
 
     const isLastSetOfWorkout = completedSetsCount + 1 === totalSets && totalSets > 0;
 
-    completeSet(currentExercise.id, num);
-    registrarSerieEnMarcas(ejId, serieCandidata);
+    completeSet(currentExercise.id, num, esAtipica);
+    if (!esAtipica) {
+      registrarSerieEnMarcas(ejId, serieCandidata);
+    }
 
-    if (resultado.esRecord) {
+    if (resultado.esRecord && !esAtipica) {
       setSeriesRecord((prev) => new Set(prev).add(`${currentExercise.id}-${num}`));
       triggerHapticVibration([60, 40, 60]);
       setOptimisticBanner({
@@ -324,16 +417,48 @@ export function LiveWorkout() {
   const handleDirectUpdateReps = (val: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(1, val));
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(0, val));
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = (confirmarAtipica = false) => {
     if (!editingSet) return;
+    setPlausibilityError(null);
+
+    const ej = currentSession.ejercicios.find((e) => e.id === editingSet.exerciseId);
+    const ejId = ej?.ejercicio_id ?? editingSet.exerciseId;
+
+    if (!confirmarAtipica) {
+      const prevPesos = (ultimaVez[ejId]?.series ?? []).map((s) => s.peso_kg);
+      const evalRes = evaluarPlausibilidadSerie({
+        peso: editingSet.pesoKg,
+        reps: editingSet.reps,
+        historialPesos: prevPesos,
+        musculos: ej?.musculos_principales,
+        nombreEjercicio: ej?.nombre,
+      });
+
+      if (evalRes.estado === "bloqueado") {
+        setPlausibilityError(evalRes.error);
+        return;
+      }
+
+      if (evalRes.estado === "requiere_confirmacion") {
+        setAtypicalPrompt({
+          mensaje: evalRes.mensaje,
+          peso: evalRes.peso,
+          reps: evalRes.reps,
+          isEditing: true,
+        });
+        return;
+      }
+    }
+
     editCompletedSet(
       editingSet.exerciseId,
       editingSet.setNumber,
       editingSet.pesoKg,
       editingSet.reps,
+      Boolean(confirmarAtipica),
     );
     setOptimisticBanner({
       setNumber: editingSet.setNumber,
@@ -508,6 +633,14 @@ export function LiveWorkout() {
               </div>
             </div>
 
+            {/* Cartel de Reporte de Dolor por Rango (GOZS-278) */}
+            {activePainBanner && (
+              <PainReportBanner
+                banner={activePainBanner}
+                onDismiss={clearActivePainBanner}
+              />
+            )}
+
             {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
             {stopProtocolActive && (
               <div
@@ -536,6 +669,28 @@ export function LiveWorkout() {
                 <p className="text-xs text-muted-foreground">
                   Se ha emitido una alerta CRÍTICA a tu entrenador. Tu salud articular es prioritaria; no continúes levantando carga ante síntomas de alarma o dolor agudo.
                 </p>
+              </div>
+            )}
+
+            {/* Banner de Validación de Plausibilidad (GOZS-200) */}
+            {plausibilityError && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-2 rounded-xl border border-destructive/40 bg-destructive/15 px-3.5 py-2.5 text-xs font-semibold text-destructive animate-in fade-in duration-200"
+                data-testid="plausibility-validation-banner"
+              >
+                <div className="flex items-center gap-2">
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" />
+                  <span>{plausibilityError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPlausibilityError(null)}
+                  className="text-destructive/80 hover:text-destructive px-2 touch-manipulation cursor-pointer"
+                  aria-label="Descartar aviso de plausibilidad"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
 
@@ -666,30 +821,69 @@ export function LiveWorkout() {
                 SOLAPA 1: ENTRENAR (OPCIÓN B: 1 COLUMNA COMPLETA SIN TEXTOS REDUNDANTES)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
-              <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
-                {currentSession.ejercicios.map((ej, idx) => {
-                  const isSelected = ej.id === currentExercise?.id;
-                  const isDone = ej.series.every((s) => s.completada);
-                  const completedCount = ej.series.filter((s) => s.completada).length;
-                  const isWarmup =
-                    ej.nombre.toLowerCase().includes("warm up") ||
-                    ej.nombre.toLowerCase().includes("calentamiento");
-
-                  return (
-                    <button
-                      key={ej.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ej.id)}
-                      data-testid={`exercise-select-btn-${ej.id}`}
-                      className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
-                        isSelected
-                          ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                          : isDone
-                          ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
-                          : "border-border/70 bg-card hover:bg-secondary/40"
-                      }`}
+              {/* Cabecera / Conmutador de Rutina en Cascada (GOZS-277) */}
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <span className="uppercase tracking-wider font-bold">Rutina</span>
+                  {colapsarRutina && (
+                    <span
+                      data-testid="badge-rutina-colapsada"
+                      className="text-[10px] lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
                     >
+                      colapsada ({currentSession.ejercicios.length} ejercicios)
+                    </span>
+                  )}
+                </div>
+                {colapsarRutina && (
+                  <button
+                    type="button"
+                    onClick={() => setRutinaDesplegadaManual(!rutinaDesplegadaManual)}
+                    data-testid="btn-toggle-rutina-colapsada"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
+                    aria-expanded={rutinaDesplegadaManual}
+                  >
+                    <span>{rutinaDesplegadaManual ? "Colapsar rutina" : `Ver todos (${currentSession.ejercicios.length})`}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${rutinaDesplegadaManual ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+
+              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              <div
+                className="flex flex-col gap-1.5"
+                data-testid="exercise-selector-column"
+                data-rutina-colapsada={colapsarRutina && !rutinaDesplegadaManual ? "true" : "false"}
+              >
+                {currentSession.ejercicios
+                  .filter((ej) => !colapsarRutina || rutinaDesplegadaManual || ej.id === (currentExercise?.id ?? currentSession.ejercicios[0]?.id))
+                  .map((ej) => {
+                    const idx = currentSession.ejercicios.findIndex((e) => e.id === ej.id);
+                    const isSelected = ej.id === currentExercise?.id;
+                    const isDone = ej.series.every((s) => s.completada);
+                    const completedCount = ej.series.filter((s) => s.completada).length;
+                    const isWarmup =
+                      ej.nombre.toLowerCase().includes("warm up") ||
+                      ej.nombre.toLowerCase().includes("calentamiento");
+
+                    return (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExerciseId(ej.id);
+                          if (colapsarRutina && rutinaDesplegadaManual) {
+                            setRutinaDesplegadaManual(false);
+                          }
+                        }}
+                        data-testid={`exercise-select-btn-${ej.id}`}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          isSelected
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                            : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            : "border-border/70 bg-card hover:bg-secondary/40"
+                        }`}
+                      >
                       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
                         {/* Ordinal estilizado a la izquierda */}
                         <div
@@ -756,8 +950,10 @@ export function LiveWorkout() {
                         Ejercicio <span className="font-mono">{currentExerciseIndex + 1}</span> de{" "}
                         <span className="font-mono">{currentSession.ejercicios.length}</span>
                       </span>
-                      {currentExercise.tempo && (
-                        <span>Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span></span>
+                      {Boolean(currentExercise.tempo_activo && currentExercise.tempo) && (
+                        <span data-testid={`tempo-indicator-${currentExercise.id}`}>
+                          Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span>
+                        </span>
                       )}
                     </div>
 
@@ -775,6 +971,14 @@ export function LiveWorkout() {
                               {m}
                             </span>
                           ))}
+                          {currentExercise.force_rpe_required && (
+                            <span
+                              data-testid={`force-rpe-badge-${currentExercise.id}`}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1"
+                            >
+                              RPE obligatorio
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -816,7 +1020,19 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-
+                        {Boolean(currentExercise.notas?.trim() || currentExercise.comentario?.trim()) && (
+                          <button
+                            type="button"
+                            onClick={() => setNotesExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver notas del ejercicio"
+                            data-testid={`exercise-notes-btn-${currentExercise.id}`}
+                            aria-label="Ver notas del ejercicio"
+                          >
+                            <ClipboardList className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Notas</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -1001,12 +1217,19 @@ export function LiveWorkout() {
                               type="number"
                               step="any"
                               min="0"
+                              max="500"
+                              inputMode="decimal"
                               value={serie.peso_kg}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value);
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDirectUpdatePeso(0);
+                                  return;
+                                }
+                                const val = parseFloat(raw.replace(",", "."));
                                 handleDirectUpdatePeso(isNaN(val) ? 0 : val);
                               }}
-                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8"
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none pr-8 min-h-[44px]"
                               aria-label="Peso en kilogramos"
                             />
                             <span className="absolute right-3 text-sm font-medium text-muted-foreground pointer-events-none">
@@ -1049,13 +1272,20 @@ export function LiveWorkout() {
                               id={`reps-${currentExercise.id}-${serie.numero_serie}`}
                               type="number"
                               step="1"
-                              min="1"
+                              min="0"
+                              max="100"
+                              inputMode="numeric"
                               value={serie.reps_hechas}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                handleDirectUpdateReps(isNaN(val) ? 1 : val);
+                                const raw = e.target.value;
+                                if (raw === "") {
+                                  handleDirectUpdateReps(0);
+                                  return;
+                                }
+                                const val = parseInt(raw, 10);
+                                handleDirectUpdateReps(isNaN(val) ? 0 : val);
                               }}
-                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none"
+                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none min-h-[44px]"
                               aria-label="Cantidad de repeticiones"
                             />
                           </div>
@@ -1224,7 +1454,7 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Auxiliares técnicos: Calentamiento y Discos */}
+                          {/* Auxiliares técnicos: Aproximación y Discos */}
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               type="button"
@@ -1233,9 +1463,10 @@ export function LiveWorkout() {
                               className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
+                              aria-label="Aproximación"
                             >
                               <Flame className="h-4 w-4" />
-                              <span>Calentamiento</span>
+                              <span data-testid={`aproximacion-btn-${currentExercise.id}`}>Aproximación</span>
                             </Button>
 
                             <Button
@@ -1255,7 +1486,7 @@ export function LiveWorkout() {
                       {/* Botón principal de registro de serie */}
                       <button
                         type="button"
-                        onClick={handleRegistrarSerie}
+                        onClick={() => handleRegistrarSerie(false)}
                         className="w-full mt-4 h-14 rounded-[14px] text-[17px] font-bold bg-primary text-primary-foreground shadow-md hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer"
                         data-testid="registrar-serie-btn"
                       >
@@ -1394,21 +1625,26 @@ export function LiveWorkout() {
                                               pesoKg: Math.max(0, editingSet.pesoKg - pasoPeso),
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
                                         <input
                                           type="number"
                                           step="any"
+                                          min="0"
+                                          max="500"
+                                          inputMode="decimal"
                                           value={editingSet.pesoKg}
-                                          onChange={(e) =>
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            const val = parseFloat(raw.replace(",", "."));
                                             setEditingSet({
                                               ...editingSet,
-                                              pesoKg: Math.max(0, parseFloat(e.target.value) || 0),
-                                            })
-                                          }
-                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                              pesoKg: isNaN(val) ? 0 : val,
+                                            });
+                                          }}
+                                          className="h-11 min-h-[44px] flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
                                           type="button"
@@ -1418,7 +1654,7 @@ export function LiveWorkout() {
                                               pesoKg: editingSet.pesoKg + pasoPeso,
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
@@ -1436,24 +1672,29 @@ export function LiveWorkout() {
                                           onClick={() =>
                                             setEditingSet({
                                               ...editingSet,
-                                              reps: Math.max(1, editingSet.reps - 1),
+                                              reps: Math.max(0, editingSet.reps - 1),
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 disabled:opacity-30 touch-manipulation cursor-pointer"
                                         >
                                           −
                                         </button>
                                         <input
                                           type="number"
                                           step="1"
+                                          min="0"
+                                          max="100"
+                                          inputMode="numeric"
                                           value={editingSet.reps}
-                                          onChange={(e) =>
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            const val = parseInt(raw, 10);
                                             setEditingSet({
                                               ...editingSet,
-                                              reps: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                            })
-                                          }
-                                          className="h-10 flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
+                                              reps: isNaN(val) ? 0 : val,
+                                            });
+                                          }}
+                                          className="h-11 min-h-[44px] flex-1 rounded-lg border border-border bg-background text-center font-mono font-bold text-lg"
                                         />
                                         <button
                                           type="button"
@@ -1463,7 +1704,7 @@ export function LiveWorkout() {
                                               reps: editingSet.reps + 1,
                                             })
                                           }
-                                          className="h-10 w-10 rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
+                                          className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg bg-secondary font-mono font-bold text-sm flex items-center justify-center hover:bg-secondary/80 touch-manipulation cursor-pointer"
                                         >
                                           +
                                         </button>
@@ -1477,7 +1718,7 @@ export function LiveWorkout() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() => setEditingSet(null)}
-                                      className="h-9 px-3 text-xs font-bold"
+                                      className="min-h-[44px] px-3 text-xs font-bold"
                                       data-testid="cancel-edit-set-btn"
                                     >
                                       Cancelar
@@ -1485,8 +1726,8 @@ export function LiveWorkout() {
                                     <Button
                                       type="button"
                                       size="sm"
-                                      onClick={handleSaveEdit}
-                                      className="h-9 px-3 text-xs font-bold bg-primary text-primary-foreground"
+                                      onClick={() => handleSaveEdit(false)}
+                                      className="min-h-[44px] px-3 text-xs font-bold bg-primary text-primary-foreground"
                                       data-testid="save-edit-set-btn"
                                     >
                                       Guardar cambio
@@ -1867,17 +2108,28 @@ export function LiveWorkout() {
         />
       )}
 
+      {notesExercise && (
+        <ExerciseNotesModal
+          exercise={notesExercise}
+          isOpen={Boolean(notesExercise)}
+          onClose={() => setNotesExercise(null)}
+        />
+      )}
+
       {warmupModalExercise && (
         <WarmupModal
           isOpen={Boolean(warmupModalExercise)}
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
+          marcas={marcas[warmupModalExercise.ejercicio_id || warmupModalExercise.id] ?? null}
+          rpeObjetivo={warmupModalExercise.rpe_objetivo}
+          repsObjetivo={warmupModalExercise.repeticiones_objetivo}
           workingWeightKg={
             warmupModalExercise.series.find(
               (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
             )?.peso_kg ||
             warmupModalExercise.series[0]?.peso_kg ||
-            80
+            0
           }
           onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)
@@ -1964,6 +2216,53 @@ export function LiveWorkout() {
         studentName={currentSession.studentName || "Fernando Rosales"}
         diaNombre={cleanDiaTitle || "Día 1"}
       />
+
+      {/* Diálogo HTML5 nativo para confirmación de serie atípica (GOZS-200) */}
+      <dialog
+        ref={atypicalDialogRef}
+        className="fixed inset-0 m-auto z-50 rounded-2xl bg-card p-6 text-card-foreground shadow-2xl backdrop:bg-black/60 max-w-sm w-[90%] border border-border space-y-4"
+        data-testid="atypical-confirmation-dialog"
+        onClose={() => setAtypicalPrompt(null)}
+      >
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
+            <TriangleAlert className="h-5 w-5" />
+            <span>Carga atípica</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            {atypicalPrompt?.mensaje}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Ingresaste {atypicalPrompt?.peso} kg ({atypicalPrompt?.reps} reps). ¿Deseas confirmarlo como serie atípica o corregir el valor?
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setAtypicalPrompt(null)}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-all touch-manipulation cursor-pointer"
+            data-testid="atypical-corregir-btn"
+          >
+            Corregir
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const isEditing = atypicalPrompt?.isEditing;
+              setAtypicalPrompt(null);
+              if (isEditing) {
+                handleSaveEdit(true);
+              } else {
+                handleRegistrarSerie(true);
+              }
+            }}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:brightness-105 active:scale-95 transition-all touch-manipulation cursor-pointer"
+            data-testid="atypical-confirmar-btn"
+          >
+            Confirmar
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }

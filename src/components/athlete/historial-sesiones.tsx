@@ -26,7 +26,9 @@ import {
   TrendingUp,
   Trophy,
   CloudOff,
+  TriangleAlert,
 } from "@/components/athlete/icons";
+import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 
 export interface HistorialSesionesProps {
   offline?: boolean;
@@ -86,8 +88,24 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
   } | null>(null);
 
   const [guardadoExitoso, setGuardadoExitoso] = React.useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [atypicalPrompt, setAtypicalPrompt] = React.useState<{
+    mensaje: string;
+    peso: number;
+    reps: number;
+  } | null>(null);
+  const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (atypicalPrompt) {
+      if (!atypicalDialogRef.current?.open) atypicalDialogRef.current?.showModal();
+    } else {
+      if (atypicalDialogRef.current?.open) atypicalDialogRef.current?.close();
+    }
+  }, [atypicalPrompt]);
 
   const handleStartEdit = (sesionId: string, s: SerieHistoricaDetalle) => {
+    setErrorMessage(null);
     setEditingSerie({
       sesionId,
       serieId: s.id,
@@ -98,14 +116,54 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
 
   const handleCancelEdit = () => {
     setEditingSerie(null);
+    setErrorMessage(null);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (confirmarAtipica = false) => {
     if (!editingSerie) return;
+    setErrorMessage(null);
     const { sesionId, serieId, peso, reps } = editingSerie;
-    await actualizarSerieHistorial(sesionId, serieId, peso, reps);
+
+    if (!confirmarAtipica) {
+      const entradaActual = historialSesiones.find((h) => h.sesion.id === sesionId);
+      const serieActual = entradaActual?.series.find((s) => s.id === serieId);
+      const ejId = serieActual?.ejercicio_id;
+
+      const historialPesos: number[] = [];
+      if (ejId) {
+        for (const entry of historialSesiones) {
+          for (const s of entry.series) {
+            if (s.ejercicio_id === ejId && s.id !== serieId) {
+              historialPesos.push(s.peso_kg);
+            }
+          }
+        }
+      }
+
+      const evalRes = evaluarPlausibilidadSerie({
+        peso,
+        reps,
+        historialPesos,
+      });
+
+      if (evalRes.estado === "bloqueado") {
+        setErrorMessage(evalRes.error);
+        return;
+      }
+      if (evalRes.estado === "requiere_confirmacion") {
+        setAtypicalPrompt({
+          mensaje: evalRes.mensaje,
+          peso: evalRes.peso,
+          reps: evalRes.reps,
+        });
+        return;
+      }
+    }
+
+    await actualizarSerieHistorial(sesionId, serieId, peso, reps, Boolean(confirmarAtipica));
     setGuardadoExitoso(`Serie guardada (${peso} kg × ${reps} reps)`);
     setEditingSerie(null);
+    setAtypicalPrompt(null);
     setTimeout(() => setGuardadoExitoso(null), 3000);
   };
 
@@ -364,7 +422,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                                 )
                                               }
                                               aria-label="Peso en kilogramos"
-                                              className="h-10 w-20 rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
+                                              className="h-11 w-20 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
                                               data-testid={`input-peso-${s.id}`}
                                             />
                                             <span className="text-[11px] text-muted-foreground">
@@ -376,20 +434,23 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                             <input
                                               type="number"
                                               step="1"
-                                              min="1"
+                                              min="0"
+                                              max="100"
+                                              inputMode="numeric"
                                               value={editingSerie.reps}
-                                              onChange={(e) =>
+                                              onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
                                                 setEditingSerie((prev) =>
                                                   prev
                                                     ? {
                                                         ...prev,
-                                                        reps: Number(e.target.value) || 1,
+                                                        reps: isNaN(val) ? 0 : val,
                                                       }
                                                     : null,
-                                                )
-                                              }
+                                                );
+                                              }}
                                               aria-label="Repeticiones realizadas"
-                                              className="h-10 w-16 rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
+                                              className="h-11 w-16 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
                                               data-testid={`input-reps-${s.id}`}
                                             />
                                             <span className="text-[11px] text-muted-foreground">
@@ -401,7 +462,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                         <div className="flex items-center gap-1">
                                           <button
                                             type="button"
-                                            onClick={handleSaveEdit}
+                                            onClick={() => handleSaveEdit(false)}
                                             aria-label="Guardar corrección"
                                             className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-transform"
                                             data-testid={`btn-guardar-serie-${s.id}`}
@@ -419,6 +480,16 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                             <X className="h-4 w-4" />
                                           </button>
                                         </div>
+                                        {errorMessage && (
+                                          <div
+                                            role="alert"
+                                            className="w-full text-xs text-destructive font-semibold flex items-center gap-1.5 pt-1"
+                                            data-testid="historial-edit-error"
+                                          >
+                                            <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                                            <span>{errorMessage}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
                                       /* VISTA NORMAL DE SERIE */
@@ -621,6 +692,45 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
           )}
         </div>
       )}
+
+      {/* Diálogo HTML5 nativo para confirmación de serie atípica (GOZS-200) */}
+      <dialog
+        ref={atypicalDialogRef}
+        className="fixed inset-0 m-auto z-50 rounded-2xl bg-card p-6 text-card-foreground shadow-2xl backdrop:bg-black/60 max-w-sm w-[90%] border border-border space-y-4"
+        data-testid="historial-atypical-dialog"
+        onClose={() => setAtypicalPrompt(null)}
+      >
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
+            <TriangleAlert className="h-5 w-5" />
+            <span>Carga atípica</span>
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            {atypicalPrompt?.mensaje}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Ingresaste {atypicalPrompt?.peso} kg ({atypicalPrompt?.reps} reps). ¿Deseas confirmarlo como serie atípica o corregir el valor?
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setAtypicalPrompt(null)}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-all touch-manipulation cursor-pointer"
+            data-testid="historial-atypical-corregir-btn"
+          >
+            Corregir
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSaveEdit(true)}
+            className="min-h-[44px] px-4 py-2 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:brightness-105 active:scale-95 transition-all touch-manipulation cursor-pointer"
+            data-testid="historial-atypical-confirmar-btn"
+          >
+            Confirmar
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }

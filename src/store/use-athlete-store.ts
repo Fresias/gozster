@@ -22,6 +22,10 @@ import type {
 } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
+import {
+  getPainBannerConfig,
+  type PainBannerData,
+} from "@/components/athlete/pain-banner";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -49,6 +53,7 @@ export interface LiveWorkoutSet {
   video_url?: string;
   last_session_weight_kg?: number;
   last_session_reps?: number;
+  atipica?: boolean;
 }
 
 export interface LiveWorkoutExercise {
@@ -62,7 +67,9 @@ export interface LiveWorkoutExercise {
   series: LiveWorkoutSet[];
   url_video?: string | null;
   comentario?: string | null;
+  notas?: string | null;
   tempo?: string;
+  tempo_activo?: boolean;
   force_rpe_required?: boolean;
   es_superserie?: boolean;
   grupo_superserie?: number | null;
@@ -95,6 +102,7 @@ interface AthleteStoreState {
   restTimer: RestTimerState;
   rpeValidationError: string | null;
   stopProtocolActive: boolean;
+  activePainBanner: PainBannerData | null;
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
@@ -125,6 +133,7 @@ interface AthleteStoreState {
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
   pasoIncrementoPeso: number;
+  colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
 
@@ -138,6 +147,7 @@ interface AthleteStoreState {
     serieId: string,
     pesoKg: number,
     repsHechas: number,
+    atipica?: boolean,
   ) => Promise<void>;
   // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
@@ -152,8 +162,11 @@ interface AthleteStoreState {
   marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setPasoIncrementoPeso: (paso: number) => void;
+  setColapsarRutina: (colapsar: boolean) => void;
   deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
+  setActivePainBanner: (banner: PainBannerData | null) => void;
+  clearActivePainBanner: () => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
   setOnboardingCompletado: (completado: boolean) => void;
@@ -193,13 +206,14 @@ interface AthleteStoreState {
     exerciseId: string,
     warmup: { peso_kg: number; reps: number; rpe_real?: number },
   ) => void;
-  completeSet: (exerciseId: string, setNumber: number) => void;
+  completeSet: (exerciseId: string, setNumber: number, atipica?: boolean) => void;
   uncompleteSet: (exerciseId: string, setNumber: number) => void;
   editCompletedSet: (
     exerciseId: string,
     setNumber: number,
     pesoKg: number,
     reps: number,
+    atipica?: boolean,
   ) => void;
   syncSessionToSupabase: () => Promise<{ success: boolean; error?: string }>;
 
@@ -243,6 +257,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "4 a 6 (descendente)",
       url_video: "bEv6CCg2BC8",
       comentario: "Serie 1: 4 a 6 @ RPE 8. Serie 2-3: 2 a 4 @ RPE 9. Serie 4: 1 a 2 @ RPE 10. Mantener el pecho erguido y descenso controlado.",
+      notas: "Serie 1: 4 a 6 @ RPE 8. Serie 2-3: 2 a 4 @ RPE 9. Serie 4: 1 a 2 @ RPE 10. Mantener el pecho erguido y descenso controlado.",
       series: [
         { numero_serie: 1, peso_kg: 120, reps_hechas: 5, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(120, 5) },
         { numero_serie: 2, peso_kg: 130, reps_hechas: 4, rpe_real: 9, completada: false, estimated1RM: calculateEpley1RM(130, 4) },
@@ -260,6 +275,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "4 a 6 (descendente)",
       url_video: "rT7DgCr-3pg",
       comentario: "Serie 1: 4 a 6 @ RPE 8. Serie 2-3: 2 a 4 @ RPE 9. Serie 4: 1 a 2 @ RPE 10. Retracción escapular activa.",
+      notas: "Serie 1: 4 a 6 @ RPE 8. Serie 2-3: 2 a 4 @ RPE 9. Serie 4: 1 a 2 @ RPE 10. Retracción escapular activa.",
       series: [
         { numero_serie: 1, peso_kg: 90, reps_hechas: 6, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(90, 6) },
         { numero_serie: 2, peso_kg: 95, reps_hechas: 4, rpe_real: 9, completada: false, estimated1RM: calculateEpley1RM(95, 4) },
@@ -277,6 +293,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "15'' x lado",
       url_video: "Sz2LLBq_Krs",
       comentario: "Calentamiento específico: 3 series de 15 segundos por pierna.",
+      notas: "Calentamiento específico: 3 series de 15 segundos por pierna.",
       series: [
         { numero_serie: 1, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0 },
         { numero_serie: 2, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0 },
@@ -293,6 +310,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "6 a 10",
       url_video: "8urE8Z8AMQ4",
       comentario: "3 series de 6 a 10 repeticiones a RPE 8.",
+      notas: "3 series de 6 a 10 repeticiones a RPE 8.",
       series: [
         { numero_serie: 1, peso_kg: 60, reps_hechas: 10, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(60, 10) },
         { numero_serie: 2, peso_kg: 65, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(65, 8) },
@@ -309,6 +327,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "8 x lado",
       url_video: "eFWCn5iEbTU",
       comentario: "3 series de 8 pasos por pierna a RPE 8.",
+      notas: "3 series de 8 pasos por pierna a RPE 8.",
       series: [
         { numero_serie: 1, peso_kg: 20, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(20, 8) },
         { numero_serie: 2, peso_kg: 22, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(22, 8) },
@@ -325,6 +344,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "6 a 12",
       url_video: "eERwCQHZqfA",
       comentario: "3 series de 6 a 12 al fallo técnico (RPE 10).",
+      notas: "3 series de 6 a 12 al fallo técnico (RPE 10).",
       series: [
         { numero_serie: 1, peso_kg: 0, reps_hechas: 12, rpe_real: 9.5, completada: false, estimated1RM: 0 },
         { numero_serie: 2, peso_kg: 10, reps_hechas: 10, rpe_real: 10, completada: false, estimated1RM: calculateEpley1RM(10, 10) },
@@ -341,6 +361,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "8 a 12",
       url_video: "MpEydcQ1oDw",
       comentario: "3 series de 8 a 12 al fallo (RPE 10). Pausa de 1s en contracción máxima.",
+      notas: "3 series de 8 a 12 al fallo (RPE 10). Pausa de 1s en contracción máxima.",
       series: [
         { numero_serie: 1, peso_kg: 65, reps_hechas: 12, rpe_real: 9.5, completada: false, estimated1RM: calculateEpley1RM(65, 12) },
         { numero_serie: 2, peso_kg: 70, reps_hechas: 10, rpe_real: 10, completada: false, estimated1RM: calculateEpley1RM(70, 10) },
@@ -357,6 +378,7 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "DROP-SET",
       url_video: "v7f6PjSAO-4",
       comentario: "3 series con DROP-SET: primer serie al fallo, reducir peso sin descanso y continuar al fallo.",
+      notas: "3 series con DROP-SET: primer serie al fallo, reducir peso sin descanso y continuar al fallo.",
       series: [
         { numero_serie: 1, peso_kg: 40, reps_hechas: 12, rpe_real: 10, completada: false, estimated1RM: calculateEpley1RM(40, 12) },
         { numero_serie: 2, peso_kg: 30, reps_hechas: 10, rpe_real: 10, completada: false, estimated1RM: calculateEpley1RM(30, 10) },
@@ -424,8 +446,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
       historialSesiones: REAL_HISTORIAL_CARGAS[DEFAULT_ATHLETE_ID] || [],
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
+      colapsarRutina: false,
       rpeValidationError: null,
       stopProtocolActive: false,
+      activePainBanner: null,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -437,6 +461,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
+      setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -577,6 +602,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           };
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
+      setActivePainBanner: (banner) => set({ activePainBanner: banner }),
+      clearActivePainBanner: () => set({ activePainBanner: null }),
       setNivelVistaAlumno: (nivel) =>
         set({
           vistaElegidaPorAlumno: nivel,
@@ -765,7 +792,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
           }));
         }
 
-        // 2. Activar protocolo de freno si hay Red Flags o dolor agudo
+        // 2. Generar cartel del reporte de dolor por rango (GOZS-278)
+        const painBanner = getPainBannerConfig(report.intensidadNumerica, {
+          exerciseName: report.exerciseName,
+          sintomasAlarma: report.sintomasAlarma,
+        });
+        set({ activePainBanner: painBanner });
+
+        // 3. Activar protocolo de freno si hay Red Flags o dolor agudo
         if (esSintomaAlarma || severidad === "AGUDO") {
           set({ stopProtocolActive: true });
         }
@@ -936,7 +970,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         });
       },
 
-      completeSet: (exerciseId, setNumber) => {
+      completeSet: (exerciseId, setNumber, atipica) => {
         const state = get();
         const targetExercise = state.currentSession.ejercicios.find(
           (e) => e.id === exerciseId,
@@ -979,6 +1013,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     return {
                       ...s,
                       completada: true,
+                      atipica: Boolean(atipica),
                       estimated1RM,
                       completedAt,
                     };
@@ -1019,6 +1054,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             videoUrl: targetSet.video_url || null,
             estimated1RM,
             completedAt,
+            atipica: Boolean(atipica),
           },
         });
 
@@ -1046,6 +1082,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         setNumber: number,
         pesoKg: number,
         reps: number,
+        atipica?: boolean,
       ) => {
         const state = get();
         const targetExercise = state.currentSession.ejercicios.find(
@@ -1074,6 +1111,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     peso_kg: pesoKg,
                     reps_hechas: reps,
                     estimated1RM,
+                    ...(atipica !== undefined ? { atipica } : {}),
                   };
                 }),
               };
@@ -1093,6 +1131,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             reps,
             estimated1RM,
             updatedAt,
+            ...(atipica !== undefined ? { atipica } : {}),
           },
         });
       },
@@ -1285,7 +1324,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
-      actualizarSerieHistorial: async (sesionId, serieId, pesoKg, repsHechas) => {
+      actualizarSerieHistorial: async (sesionId, serieId, pesoKg, repsHechas, atipica) => {
         const pesoValido = Math.max(0, Number(pesoKg) || 0);
         const repsValidas = Math.max(1, Math.round(Number(repsHechas) || 1));
 
@@ -1299,6 +1338,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ...s,
                 peso_kg: pesoValido,
                 reps_hechas: repsValidas,
+                ...(atipica !== undefined ? { atipica } : {}),
                 updated_at: new Date().toISOString(),
               };
             });
@@ -1329,6 +1369,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             pesoKg: pesoValido,
             repsHechas: repsValidas,
             updatedAt: new Date().toISOString(),
+            ...(atipica !== undefined ? { atipica } : {}),
           },
         });
 
@@ -1615,7 +1656,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
             repeticiones_objetivo: er.repeticiones || "10-12",
             series: sets,
             url_video: ejMaestro?.url_video || null,
-            comentario: ejMaestro?.comentario || er.notas || null,
+            comentario: er.notas || ejMaestro?.comentario || null,
+            notas: er.notas || ejMaestro?.comentario || null,
+            tempo: er.tempo || undefined,
+            tempo_activo: Boolean((er as any).tempo_activo),
+            force_rpe_required: Boolean((er as any).force_rpe_required),
+            es_superserie: Boolean(er.es_superserie),
+            grupo_superserie: er.grupo_superserie ?? null,
           };
         });
 
@@ -1664,6 +1711,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
+          activePainBanner: null,
           diaActivoId: null,
           diaElegidoHoyId: null,
           diaSugeridoId: null,
@@ -1718,6 +1766,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
         pasoIncrementoPeso: state.pasoIncrementoPeso,
+        colapsarRutina: state.colapsarRutina,
         currentSession: state.currentSession,
         nivelVistaAlumno: state.nivelVistaAlumno,
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,

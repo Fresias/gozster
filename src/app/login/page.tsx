@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,10 +23,17 @@ function debeCambiarPassword(
 }
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/studio";
   // El middleware redirige a /login?forceChange=1 a quien ya tiene sesión pero aún no cambió su clave.
   const forceChangeParam = searchParams.get("forceChange");
+
+  // Calentar la ruta de destino para compilación en dev y transiciones rápidas
+  React.useEffect(() => {
+    router.prefetch(redirectTo);
+    fetch(redirectTo).catch(() => {});
+  }, [router, redirectTo]);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -88,7 +95,8 @@ function LoginForm() {
       const destino = perfil?.rol === "ALUMNO" ? "/athlete" : redirectTo;
 
       // Navegación dura: garantiza que las cookies de sesión viajen a SSR y el middleware valide el rol.
-      window.location.assign(destino);
+      // Usa replace para que el botón "Atrás" del navegador no vuelva a la pantalla de login (D-L4).
+      window.location.replace(destino);
     } catch {
       setError("No pudimos conectar con el servidor. Revisá tu conexión e intentá otra vez.");
       setLoading(false);

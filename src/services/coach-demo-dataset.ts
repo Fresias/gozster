@@ -1,4 +1,4 @@
-import type { ActividadClase, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
+import type { ActividadClase, AlumnoActividad, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
 import { diasDeLaSemana } from "@/lib/clases";
@@ -44,7 +44,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 3. Facundo Medina:
  *    - Cuota: 🟡 PENDIENTE (vence en 2 días, ≤ 3d)
  *    - Score Salud [SH]: 🟡 [ 64 ]
- *    - Vigencia Rutina: 🟡 Por renovar (hace 42 días, 30-60d)
+ *    - Vigencia Rutina: 🟡 Por renovar (hace 18 días, 16-21d)
  *    - Actividad: 🟡 Advertencia (hace 9 días, 7-14d)
  *    - Alertas: [ 🚨 Lumbar ]
  *
@@ -65,7 +65,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 6. Valentina Quiroga:
  *    - Cuota: 🟡 PENDIENTE (vence en 1 día, ≤ 3d)
  *    - Score Salud [SH]: 🟢 [ 82 ]
- *    - Vigencia Rutina: 🟢 Vigente (hace 20 días, < 30d)
+ *    - Vigencia Rutina: 🟢 Vigente (hace 10 días, 0-15d)
  *    - Actividad: 🟢 Reciente (hace 3 días, < 7d)
  *    - Alertas: [ ⚡ PR Peso Muerto ] (140 kg)
  *
@@ -79,7 +79,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 8. Camila Navarro:
  *    - Cuota: 🟢 AL DÍA (vence en 18 días)
  *    - Score Salud [SH]: 🟡 [ 71 ]
- *    - Vigencia Rutina: 🟡 Por renovar (hace 49 días, 30-60d)
+ *    - Vigencia Rutina: 🟡 Por renovar (hace 19 días, 16-21d)
  *    - Actividad: 🟢 Reciente (hace 4 días, < 7d)
  *    - Alertas: [ 🚨 Codo ] (molestia en tríceps)
  *
@@ -106,6 +106,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 4589-2101",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 78.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(20),
@@ -120,6 +122,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 5123-4567",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 58.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(15),
@@ -134,6 +138,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 6789-0123",
     rol: "ALUMNO",
     estado_membresia: "PENDIENTE",
+    peso_corporal_kg: 82.5,
+    sexo: "M",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(2),
@@ -148,6 +154,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 7890-1234",
     rol: "ALUMNO",
     estado_membresia: "INACTIVA",
+    peso_corporal_kg: 60.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(-12),
@@ -162,6 +170,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 8901-2345",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 85.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(25),
@@ -176,6 +186,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 9012-3456",
     rol: "ALUMNO",
     estado_membresia: "PENDIENTE",
+    peso_corporal_kg: 64.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(1),
@@ -190,6 +202,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 2345-6789",
     rol: "ALUMNO",
     estado_membresia: "INACTIVA",
+    peso_corporal_kg: 74.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(-5),
@@ -204,6 +218,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 3456-7890",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 55.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(18),
@@ -218,6 +234,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 4567-8901",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 80.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(22),
@@ -232,6 +250,8 @@ export const DEMO_ALUMNOS: Perfil[] = [
     telefono: "+54 9 11 5678-9012",
     rol: "ALUMNO",
     estado_membresia: "PENDIENTE",
+    peso_corporal_kg: 62.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_PROFESOR_ID,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(1),
@@ -272,11 +292,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-03-facundo",
     nombre: "Potencia & Acondicionamiento Físico",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-42),
-    fecha_fin: getRelativeDateStr(18),
+    fecha_inicio: getRelativeDateStr(-18),
+    fecha_fin: getRelativeDateStr(42),
     comentarios: "Semana de deload previa a nuevo mesociclo.",
-    created_at: getRelativeIsoStr(-42),
-    updated_at: getRelativeIsoStr(-42),
+    created_at: getRelativeIsoStr(-18),
+    updated_at: getRelativeIsoStr(-18),
   },
   {
     id: "demo-plan-sofia",
@@ -308,11 +328,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-06-valentina",
     nombre: "Empuje-Tracción-Pierna Pro",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-20),
-    fecha_fin: getRelativeDateStr(40),
+    fecha_inicio: getRelativeDateStr(-10),
+    fecha_fin: getRelativeDateStr(50),
     comentarios: "Sobrecarga lineal semanal.",
-    created_at: getRelativeIsoStr(-20),
-    updated_at: getRelativeIsoStr(-20),
+    created_at: getRelativeIsoStr(-10),
+    updated_at: getRelativeIsoStr(-10),
   },
   // Bautista Benítez no tiene plan asignado (alumno huérfano / Sin Plan)
   {
@@ -321,11 +341,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-08-camila",
     nombre: "Tren Superior & Core Avanzado",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-49),
-    fecha_fin: getRelativeDateStr(11),
+    fecha_inicio: getRelativeDateStr(-19),
+    fecha_fin: getRelativeDateStr(41),
     comentarios: "Ajustar variantes de tríceps si persiste molestia.",
-    created_at: getRelativeIsoStr(-49),
-    updated_at: getRelativeIsoStr(-49),
+    created_at: getRelativeIsoStr(-19),
+    updated_at: getRelativeIsoStr(-19),
   },
   {
     id: "demo-plan-esteban",
@@ -576,6 +596,8 @@ export const DEMO_ALUMNOS_CLASES: Perfil[] = [
     telefono: "+54 9 11 4123-1111",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 62.0,
+    sexo: "F",
     profesor_asignado_id: DEMO_COACH_LUCIA.id,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(20),
@@ -590,6 +612,8 @@ export const DEMO_ALUMNOS_CLASES: Perfil[] = [
     telefono: "+54 9 11 4123-2222",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 56.5,
+    sexo: "F",
     profesor_asignado_id: DEMO_COACH_LUCIA.id,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(15),
@@ -604,6 +628,8 @@ export const DEMO_ALUMNOS_CLASES: Perfil[] = [
     telefono: "+54 9 11 4123-3333",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
+    peso_corporal_kg: 78.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_COACH_LUCIA.id,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(30),
@@ -618,6 +644,8 @@ export const DEMO_ALUMNOS_CLASES: Perfil[] = [
     telefono: "+54 9 11 4123-4444",
     rol: "ALUMNO",
     estado_membresia: "INACTIVA",
+    peso_corporal_kg: 84.0,
+    sexo: "M",
     profesor_asignado_id: DEMO_COACH_LUCIA.id,
     fecha_baja: null,
     fecha_vencimiento_cuota: getRelativeDateStr(-10),
@@ -694,6 +722,153 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
   },
 ];
 
+export const DEMO_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
+  {
+    id: "demo-act-valentina",
+    alumno_id: "demo-alumno-valentina",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-60),
+    updated_at: getRelativeIsoStr(-1),
+  },
+  {
+    id: "demo-act-sofia-func",
+    alumno_id: "demo-alumno-sofia",
+    actividad: "FUNCIONAL",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-45),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-sofia-box",
+    alumno_id: "demo-alumno-sofia",
+    actividad: "BOXEO",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-45),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-joaquin",
+    alumno_id: "demo-alumno-joaquin",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-5),
+    updated_at: getRelativeIsoStr(-5),
+  },
+  {
+    id: "demo-act-tomas",
+    alumno_id: "demo-alumno-tomas",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-40),
+    updated_at: getRelativeIsoStr(-10),
+  },
+  {
+    id: "demo-act-lucas",
+    alumno_id: "demo-alumno-01-lucas",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-120),
+    updated_at: getRelativeIsoStr(-1),
+  },
+  {
+    id: "demo-act-celeste",
+    alumno_id: "demo-alumno-02-celeste",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-90),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-facundo",
+    alumno_id: "demo-alumno-03-facundo",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-60),
+    updated_at: getRelativeIsoStr(-9),
+  },
+  {
+    id: "demo-act-sofia-alb",
+    alumno_id: "demo-alumno-04-sofia",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-150),
+    updated_at: getRelativeIsoStr(-18),
+  },
+  {
+    id: "demo-act-mateo-box",
+    alumno_id: "demo-alumno-05-mateo",
+    actividad: "BOXEO",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-80),
+    updated_at: getRelativeIsoStr(-2),
+  },
+  {
+    id: "demo-act-mateo-alias",
+    alumno_id: "demo-alumno-mateo",
+    actividad: "BOXEO",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-80),
+    updated_at: getRelativeIsoStr(-2),
+  },
+  {
+    id: "demo-act-val-quiroga",
+    alumno_id: "demo-alumno-06-valentina",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-75),
+    updated_at: getRelativeIsoStr(-3),
+  },
+  {
+    id: "demo-act-bautista",
+    alumno_id: "demo-alumno-07-bautista",
+    actividad: "BOXEO",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-180),
+    updated_at: getRelativeIsoStr(-25),
+  },
+  {
+    id: "demo-act-camila",
+    alumno_id: "demo-alumno-08-camila",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-80),
+    updated_at: getRelativeIsoStr(-4),
+  },
+  {
+    id: "demo-act-esteban",
+    alumno_id: "demo-alumno-09-esteban",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 3,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-100),
+    updated_at: getRelativeIsoStr(-2),
+  },
+  {
+    id: "demo-act-martina",
+    alumno_id: "demo-alumno-10-martina",
+    actividad: "BOXEO",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-70),
+    updated_at: getRelativeIsoStr(-1),
+  },
+];
+
 // Horario ficticio (GOZS-194). dia: 0 = lunes ... 4 = viernes.
 const HORARIO_DEMO: Array<{
   id: string;
@@ -752,12 +927,18 @@ const ANOTADOS_DEMO: Array<[claseId: string, sufijo: string, nombre: string, est
   ["demo-clase-box-viernes", "boxvie-1", "Diego Molina", "ANOTADO"],
 ];
 
+const MAPA_ALUMNO_ID_DEMO: Record<string, string> = {
+  "Camila Navarro": "demo-alumno-08-camila",
+  "Lucas Giménez": "demo-alumno-01-lucas",
+  "Mateo Rossi": "demo-alumno-05-mateo",
+};
+
 export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre: string }> {
   const ahora = new Date().toISOString();
   return ANOTADOS_DEMO.map(([clase_id, sufijo, alumno_nombre, estado]) => ({
     id: `demo-res-${sufijo}`,
     clase_id,
-    alumno_id: `demo-alumno-ext-${sufijo}`,
+    alumno_id: MAPA_ALUMNO_ID_DEMO[alumno_nombre] ?? `demo-alumno-ext-${sufijo}`,
     alumno_nombre,
     estado,
     created_at: ahora,

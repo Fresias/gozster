@@ -33,6 +33,7 @@ export interface SerieHistoricaDetalle {
   estimated1RM: number;
   painReported?: boolean;
   painNotes?: string | null;
+  atipica?: boolean;
 }
 
 export interface EjercicioEnSesionHistorial {
@@ -287,6 +288,7 @@ export function editarSerieEnHistorial(
   serieId: string,
   nuevoPesoKg: number,
   nuevasReps: number,
+  atipica?: boolean,
 ): HistoricalLoadEntry[] {
   return entradas.map((entry) => {
     if (entry.sesion.id !== sesionId) return entry;
@@ -297,6 +299,7 @@ export function editarSerieEnHistorial(
         ...s,
         peso_kg: Math.max(0, nuevoPesoKg),
         reps_hechas: Math.max(1, Math.round(nuevasReps)),
+        ...(atipica !== undefined ? { atipica } : {}),
         updated_at: new Date().toISOString(),
       };
     });
@@ -354,11 +357,13 @@ export function generarContratoMiniDashboard(
         rpeReal: s.rpeReal,
         setType: s.setType,
         estimated1RM: s.estimated1RM,
+        atipica: s.atipica,
       }));
 
-      const maxPeso = Math.max(0, ...seriesPuntos.map((s) => s.pesoKg));
-      const maxReps = Math.max(0, ...seriesPuntos.map((s) => s.repsHechas));
-      const best1RM = Math.max(0, ...seriesPuntos.map((s) => s.estimated1RM));
+      const validasAnalytics = seriesPuntos.filter((s) => !s.atipica);
+      const maxPeso = Math.max(0, ...validasAnalytics.map((s) => s.pesoKg));
+      const maxReps = Math.max(0, ...validasAnalytics.map((s) => s.repsHechas));
+      const best1RM = Math.max(0, ...validasAnalytics.map((s) => s.estimated1RM));
       const volumenEj = seriesPuntos.reduce((acc, s) => acc + s.pesoKg * s.repsHechas, 0);
 
       volumenTotalAcumuladoKg += volumenEj;
