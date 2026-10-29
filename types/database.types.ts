@@ -894,6 +894,9 @@ export interface Database {
           alumno_id: string;
           cobro_id: string | null;
           monto: number;
+          monto_lista: number | null;
+          monto_cobrado: number;
+          nota: string | null;
           medio_pago: MedioPago;
           estado: EstadoPago;
           idempotency_key: string;
@@ -908,6 +911,8 @@ export interface Database {
           alumno_id: string;
           cobro_id?: string | null;
           monto: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago: MedioPago;
           estado?: EstadoPago;
           idempotency_key: string;
@@ -922,6 +927,8 @@ export interface Database {
           alumno_id?: string;
           cobro_id?: string | null;
           monto?: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago?: MedioPago;
           estado?: EstadoPago;
           idempotency_key?: string;
@@ -1513,6 +1520,19 @@ export interface Database {
       };
     };
     Views: {
+      v_descuentos_otorgados: {
+        Row: {
+          pago_id: string;
+          alumno_id: string;
+          cobro_id: string | null;
+          confirmado_at: string | null;
+          monto_lista: number;
+          monto_cobrado: number;
+          descuento: number;
+          nota: string | null;
+        };
+        Relationships: [];
+      };
       v_morosos: {
         Row: {
           cobro_id: string;
@@ -1691,6 +1711,15 @@ export interface Database {
       obtener_ficha_alumno_actividades: {
         Args: { p_alumno_id: string };
         Returns: FichaAlumnoActividades;
+      };
+      registrar_pago_con_descuento: {
+        Args: {
+          p_cobro_id: string;
+          p_monto_cobrado: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_nota: string;
+        };
+        Returns: Database['public']['Tables']['cobros']['Row'];
       };
       registrar_pago: {
         Args: {
