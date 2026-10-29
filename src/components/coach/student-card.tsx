@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import {
-  calculateStudentHealthScore,
   generateWhatsAppReactivationUrl,
 } from "@/lib/strength-metrics";
 
@@ -46,20 +45,7 @@ export function StudentCard({
       .toUpperCase();
   };
 
-  // Cálculo del Semáforo de Salud del Alumno (SH in [0, 100])
-  const cuotaScore =
-    alumno.estado_membresia === "ACTIVA"
-      ? 100
-      : alumno.estado_membresia === "PENDIENTE"
-      ? 50
-      : 15;
-  const planScore = rutinaActiva ? 90 : 35;
-  const healthScore = calculateStudentHealthScore({
-    adherencia: planScore,
-    frecuencia: rutinaActiva ? 85 : 40,
-    interaccionChat: 75,
-    estadoCuota: cuotaScore,
-  });
+
 
   const whatsappUrl = generateWhatsAppReactivationUrl({
     phone: alumno.telefono,
@@ -84,14 +70,6 @@ export function StudentCard({
                 <h3 className="truncate text-base font-bold text-foreground">
                   {alumno.nombre_completo}
                 </h3>
-                {/* Semáforo de Salud (SH) */}
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${healthScore.colorClass}`}
-                  title={`Semáforo de Salud: ${healthScore.score} / 100`}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                  SH: {healthScore.score}
-                </span>
               </div>
               <p className="truncate text-xs text-muted-foreground mt-0.5">
                 {alumno.email ?? "Sin email registrado"}
@@ -108,9 +86,6 @@ export function StudentCard({
               {rutinaActiva ? rutinaActiva.nombre : "Sin rutina asignada"}
             </span>
           </div>
-          <span className="text-[10px] font-mono font-bold text-muted-foreground shrink-0">
-            {healthScore.badgeLabel}
-          </span>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">

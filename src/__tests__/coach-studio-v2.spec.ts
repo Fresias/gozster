@@ -291,10 +291,10 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
       expect(viewContent).toContain("aria-label={recenciaTooltip}");
     });
 
-    it("comprueba que el Score Salud [SH] se renderice como micro-badge numérico tonal compacto: [ 88 ]", () => {
-      expect(viewContent).toContain("Score Salud [SH]");
-      expect(viewContent).toContain("shColorClass");
-      expect(viewContent).toMatch(/\[\s*\{\s*Math\.round\(healthScore\.score\)\s*\}\s*\]/);
+    it("comprueba que no haya rastro del proxy de Score Salud [SH] en la tabla ni código muerto (GOZS-240)", () => {
+      expect(viewContent).not.toContain("Score Salud [SH]");
+      expect(viewContent).not.toContain("shColorClass");
+      expect(viewContent).not.toMatch(/\[\s*\{\s*Math\.round\(healthScore\.score\)\s*\}\s*\]/);
     });
   });
 
