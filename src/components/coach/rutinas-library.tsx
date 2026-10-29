@@ -71,7 +71,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             <Badge variant={plan.estado === "ACTIVO" ? "success" : "warning"}>{plan.estado}</Badge>
           )}
         </div>
-        {opciones.alumno && <p className="text-sm text-muted-foreground">{nombreAlumno(plan.alumno_id)}</p>}
+        {plan.alumno_id && <p className="text-sm text-muted-foreground">{nombreAlumno(plan.alumno_id)}</p>}
         {opciones.archivada && (
           <p className="text-sm text-muted-foreground">
             {formatFecha(plan.fecha_inicio)} → {formatFecha(plan.fecha_fin)}
