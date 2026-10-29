@@ -178,12 +178,14 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
   });
 
   describe("5. Vista Técnica conserva extras dentro de la tarjeta única", () => {
-    it("conserva RPE, taxonomía de series, calentamiento y discos en Vista Técnica", () => {
+    it("conserva RPE, taxonomía de series y calentamiento en Vista Técnica (sin calculadora de discos)", () => {
       expect(liveWorkoutCode).toContain("!isSimpleView && (");
       expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
       expect(liveWorkoutCode).toContain("Tipo de Serie");
       expect(liveWorkoutCode).toContain('data-testid={`warmup-btn-${currentExercise.id}`}');
-      expect(liveWorkoutCode).toContain("Discos");
+      expect(liveWorkoutCode).not.toContain("setPlateModalWeight");
+      expect(liveWorkoutCode).not.toContain("PlateCalculatorModal");
+      expect(liveWorkoutCode).not.toContain("<span>Discos</span>");
       expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
     });
   });
