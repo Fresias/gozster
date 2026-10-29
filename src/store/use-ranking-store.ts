@@ -1,9 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { supabase } from "@/lib/supabase/client";
-import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
-import type { Perfil, RankingPR, RankingPRInsert, Reserva } from "@/types/database.types";
+import { safeStorage } from "@/store/use-offline-queue";
+import type { Perfil, RankingPR, Reserva } from "@/types/database.types";
 
 export interface RankingCalculadoItem {
   alumno_id: string;
@@ -58,9 +56,6 @@ export interface RankingState {
   }) => ResultadoRanking;
   limpiarAviso: () => void;
 }
-
-const enLinea = () => useOfflineQueueStore.getState().isOnline;
-const esModoTesteo = () => useWorkspaceModeStore.getState().mode === "TESTEO";
 
 export const DEMO_RANKING_PRS_INICIALES: RankingPR[] = [
   {
@@ -222,38 +217,8 @@ export const useRankingStore = create<RankingState>()(
 
       limpiarAviso: () => set({ aviso: null, error: null }),
 
-      cargarPrsClase: async (claseId, ejercicioId) => {
-        if (esModoTesteo()) {
-          // En modo testeo usamos la lista local persistida
-          return;
-        }
-
-        if (!enLinea()) {
-          set({ aviso: "Modo sin conexión: visualizando PRs almacenados localmente." });
-          return;
-        }
-
-        set({ cargando: true, error: null });
-        try {
-          let query = supabase.from("ranking_prs").select("*").eq("clase_id", claseId);
-          if (ejercicioId) {
-            query = query.eq("ejercicio_id", ejercicioId);
-          }
-          const { data, error } = await query.order("peso_kg", { ascending: false });
-
-          if (error) {
-            set({ error: `Error cargando PRs: ${error.message}`, cargando: false });
-            return;
-          }
-
-          if (data) {
-            // Fusionar con los existentes sin duplicar
-            const existentes = get().prs.filter((p) => p.clase_id !== claseId);
-            set({ prs: [...existentes, ...(data as RankingPR[])], cargando: false });
-          }
-        } catch (err: any) {
-          set({ error: err?.message || "Error al cargar PRs", cargando: false });
-        }
+      cargarPrsClase: async () => {
+        // Los PRs viven en la lista local persistida.
       },
 
       registrarPr: async (datos) => {
@@ -276,58 +241,21 @@ export const useRankingStore = create<RankingState>()(
           updated_at: new Date().toISOString(),
         };
 
-        if (esModoTesteo() || !enLinea()) {
-          // Actualización optimista local
-          const prsActuales = get().prs.filter(
-            (p) =>
-              !(
-                p.clase_id === datos.clase_id &&
-                p.alumno_id === datos.alumno_id &&
-                p.ejercicio_id === datos.ejercicio_id
-              ),
-          );
-          set({
-            prs: [...prsActuales, nuevoPr],
-            guardandoPrId: null,
-            aviso: "PR guardado con éxito.",
-          });
-          return { ok: true, pr: nuevoPr };
-        }
-
-        try {
-          const insertPayload: RankingPRInsert = {
-            clase_id: datos.clase_id,
-            alumno_id: datos.alumno_id,
-            ejercicio_id: datos.ejercicio_id,
-            peso_kg: datos.peso_kg,
-            reps,
-            fecha,
-          };
-
-          const { data, error } = await supabase
-            .from("ranking_prs")
-            .insert(insertPayload)
-            .select()
-            .single();
-
-          if (error) {
-            set({ error: `Error al guardar PR: ${error.message}`, guardandoPrId: null });
-            return { ok: false, error: error.message };
-          }
-
-          const prGuardado = (data as RankingPR) ?? nuevoPr;
-          const prsActuales = get().prs.filter((p) => p.id !== prGuardado.id);
-          set({
-            prs: [...prsActuales, prGuardado],
-            guardandoPrId: null,
-            aviso: "PR registrado exitosamente en el ranking.",
-          });
-          return { ok: true, pr: prGuardado };
-        } catch (err: any) {
-          const msg = err?.message || "Excepción al registrar PR";
-          set({ error: msg, guardandoPrId: null });
-          return { ok: false, error: msg };
-        }
+        // Actualización optimista local
+        const prsActuales = get().prs.filter(
+          (p) =>
+            !(
+              p.clase_id === datos.clase_id &&
+              p.alumno_id === datos.alumno_id &&
+              p.ejercicio_id === datos.ejercicio_id
+            ),
+        );
+        set({
+          prs: [...prsActuales, nuevoPr],
+          guardandoPrId: null,
+          aviso: "PR guardado con éxito.",
+        });
+        return { ok: true, pr: nuevoPr };
       },
 
       actualizarPerfilAlumno: async (alumnoId, peso_corporal_kg, sexo) => {
@@ -338,24 +266,8 @@ export const useRankingStore = create<RankingState>()(
           return { ok: false, error: "El sexo debe ser 'M' o 'F'." };
         }
 
-        if (esModoTesteo() || !enLinea()) {
-          set({ aviso: "Datos de peso y sexo guardados en el perfil del alumno." });
-          return { ok: true };
-        }
-
-        try {
-          const { error } = await supabase
-            .from("perfiles")
-            .update({ peso_corporal_kg, sexo, updated_at: new Date().toISOString() })
-            .eq("id", alumnoId);
-
-          if (error) {
-            return { ok: false, error: error.message };
-          }
-          return { ok: true };
-        } catch (err: any) {
-          return { ok: false, error: err?.message || "Error al actualizar perfil" };
-        }
+        set({ aviso: "Datos de peso y sexo guardados en el perfil del alumno." });
+        return { ok: true };
       },
 
       calcularRanking: (params) => {

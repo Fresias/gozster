@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { generateWhatsAppReactivationUrl } from "@/lib/strength-metrics";
 
 // GOZS-205 — gaps del Coach Studio no cubiertos por QA previos.
 describe("QA Coach Studio GOZS-205 — cobros: métricas y registro de pago", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

@@ -225,7 +225,7 @@ export async function fetchCriticalAlerts(): Promise<CriticalAlert[]> {
   ];
 }
 
-/** Alertas de dolor del dataset demo (Modo Testeo), con estados y severidad normalizados. */
+/** Alertas de dolor del dataset demo, con estados y severidad normalizados. */
 export function getDemoCriticalAlerts(): CriticalAlert[] {
   const mappedDemo: CriticalAlert[] = DEMO_CRITICAL_ALERTS.map((d, idx) => ({
     ...d,

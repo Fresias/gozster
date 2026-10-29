@@ -17,7 +17,6 @@ import {
   type AltaExitosa,
 } from "@/components/coach/invite-student-modal";
 import { useClasesStore } from "@/store/use-clases-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
@@ -106,7 +105,6 @@ describe("GOZS-246: Alta de alumno con actividades, frecuencia y clases fijas (i
 
   describe("3. Store de clases: asignación y consulta de clases fijas (Zustand)", () => {
     beforeEach(() => {
-      useWorkspaceModeStore.getState().setMode("TESTEO");
       useClasesStore.getState().resetDemoDataset();
     });
 

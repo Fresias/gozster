@@ -14,7 +14,6 @@ import {
 } from "@/lib/clases";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
 import type { Clase, Reserva } from "@/types/database.types";
 
@@ -41,8 +40,6 @@ export function AthleteClasses() {
   } = useClasesStore();
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
-  const mode = useWorkspaceModeStore((s) => s.mode);
-  const isTestMode = mode === "TESTEO";
 
   const hoy = claveDia(new Date());
   const dias = React.useMemo(() => diasDeLaSemana(), []);
@@ -51,8 +48,8 @@ export function AthleteClasses() {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   React.useEffect(() => {
-    if (isOnline || isTestMode) void cargarClasesAlumno();
-  }, [isOnline, isTestMode, cargarClasesAlumno]);
+    void cargarClasesAlumno();
+  }, [cargarClasesAlumno]);
 
   React.useEffect(() => {
     if (porCancelar) dialogRef.current?.showModal();
@@ -95,42 +92,40 @@ export function AthleteClasses() {
         )}
       </div>
 
-      {/* Selector de alumno demo en modo testeo (GH #122) */}
-      {isTestMode && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3 space-y-2" data-testid="demo-athlete-selector">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-foreground">
-              Modo Testeo · Alumno activo
-            </p>
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Dataset Demo
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {DEMO_ALUMNOS_CLASES.map((a) => {
-              const activo = demoAlumnoId === a.id;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => {
-                    setDemoAlumnoId(a.id);
-                    void cargarClasesAlumno();
-                  }}
-                  className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all touch-manipulation ${
-                    activo
-                      ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                      : "bg-background/80 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/60"
-                  }`}
-                  data-testid={`select-demo-${a.id}`}
-                >
-                  {a.nombre_completo}
-                </button>
-              );
-            })}
-          </div>
+      {/* Selector de alumno demo (GH #122) */}
+      <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3 space-y-2" data-testid="demo-athlete-selector">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-foreground">
+            Alumno activo
+          </p>
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Dataset Demo
+          </span>
         </div>
-      )}
+        <div className="flex flex-wrap gap-1.5">
+          {DEMO_ALUMNOS_CLASES.map((a) => {
+            const activo = demoAlumnoId === a.id;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => {
+                  setDemoAlumnoId(a.id);
+                  void cargarClasesAlumno();
+                }}
+                className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all touch-manipulation ${
+                  activo
+                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                    : "bg-background/80 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/60"
+                }`}
+                data-testid={`select-demo-${a.id}`}
+              >
+                {a.nombre_completo}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Contador semanal o Pase Libre */}
       <div className="rounded-2xl border border-border/80 bg-card p-4" data-testid="weekly-allowance">
@@ -270,11 +265,11 @@ export function AthleteClasses() {
                     <Button
                       size="touch"
                       className="w-full"
-                      disabled={(!isOnline && !isTestMode) || ocupado}
+                      disabled={ocupado}
                       onClick={() => void reservar(clase.id)}
                       data-testid="book-class-btn"
                     >
-                      {ocupado ? "Reservando…" : isOnline || isTestMode ? "Reservar cupo" : "Reservá al reconectar"}
+                      {ocupado ? "Reservando…" : "Reservar cupo"}
                     </Button>
                   )}
                   {estado === "RESERVADA" && reserva && (
@@ -284,7 +279,7 @@ export function AthleteClasses() {
                         variant="outline"
                         size="touch"
                         className="w-full"
-                        disabled={(!isOnline && !isTestMode) || ocupado}
+                        disabled={ocupado}
                         onClick={() => setPorCancelar({ clase, reserva })}
                         data-testid="cancel-booking-btn"
                       >
@@ -308,34 +303,30 @@ export function AthleteClasses() {
                   {estado === "SIN_CUPO" && (
                     <div className="space-y-2">
                       <EstadoFijo>Cupo agotado</EstadoFijo>
-                      {/* En modo testeo permitir click para verificar mensaje de error GZ001 */}
-                      {isTestMode && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-xs text-muted-foreground"
-                          onClick={() => void reservar(clase.id)}
-                          data-testid="attempt-booked-class-btn"
-                        >
-                          Intentar reservar (probar regla)
-                        </Button>
-                      )}
+                      {/* Permitir click para verificar mensaje de error GZ001 */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs text-muted-foreground"
+                        onClick={() => void reservar(clase.id)}
+                        data-testid="attempt-booked-class-btn"
+                      >
+                        Intentar reservar (probar regla)
+                      </Button>
                     </div>
                   )}
                   {estado === "LIMITE" && (
                     <div className="space-y-2">
                       <EstadoFijo>Límite semanal alcanzado ({usadas}/{limite})</EstadoFijo>
-                      {isTestMode && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-xs text-muted-foreground"
-                          onClick={() => void reservar(clase.id)}
-                          data-testid="attempt-limit-class-btn"
-                        >
-                          Intentar reservar (probar límite)
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs text-muted-foreground"
+                        onClick={() => void reservar(clase.id)}
+                        data-testid="attempt-limit-class-btn"
+                      >
+                        Intentar reservar (probar límite)
+                      </Button>
                     </div>
                   )}
                 </div>

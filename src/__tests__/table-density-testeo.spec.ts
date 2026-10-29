@@ -7,15 +7,13 @@ const view = fs.readFileSync(
   "utf-8",
 );
 
-describe("GOZS-129: densidad fija en 48 px en Modo Testeo", () => {
-  it("el selector de densidad solo se renderiza fuera de Testeo", () => {
-    expect(view).toContain("{!isTestMode && (<div");
-    expect(view).toContain("Compacto (34px)");
+describe("GOZS-129: densidad fija en 48 px", () => {
+  it("no hay selector de densidad", () => {
+    expect(view).not.toContain("Compacto (34px)");
+    expect(view).not.toContain("tableDensity");
   });
 
-  it("la fila es compacta solo en Producción y conserva el estado inicial", () => {
-    expect(view).toContain('const isCompact = !isTestMode && tableDensity === "compact";');
-    expect(view).toContain('React.useState<"compact" | "standard">("compact")');
-    expect(view).toContain('"min-h-[48px] py-2.5"');
+  it("la fila usa siempre la altura táctil de 48 px", () => {
+    expect(view).toContain('const rowPaddingClass = "min-h-[48px] py-2.5";');
   });
 });
