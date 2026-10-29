@@ -69,6 +69,8 @@ export function ultimaSuscripcionPorAlumno(items: CobroItem[]): CobroItem[] {
 
 export interface CobrosMetricas {
   ingresosMes: number;
+  ingresosPresencial?: number;
+  ingresosOnline?: number;
   cobranzaPendiente: number;
   cobranzaVencida: number;
   alumnosMorosos: number;
@@ -211,16 +213,20 @@ function generarDemoCobrosIniciales(): CobroItem[] {
   const gimnasio = DEMO_GIMNASIO;
   const idsYaAgregados = new Set(items.map((i) => i.alumnoId));
 
-  for (const c of gimnasio.contrataciones) {
+  for (let i = 0; i < gimnasio.contrataciones.length; i++) {
+    const c = gimnasio.contrataciones[i]!;
     if (idsYaAgregados.has(c.alumno_id)) continue;
     idsYaAgregados.add(c.alumno_id);
 
     const alumno = gimnasio.alumnos.find((a) => a.id === c.alumno_id);
     if (!alumno || alumno.rol !== "ALUMNO" || alumno.estado_membresia === "INACTIVA") continue;
 
-    const plan = DEMO_PLANES_MEMBRESIA.find((p) => p.id === c.plan_membresia_id);
-    const monto = plan?.precio ?? 28000;
-    const servicioNombre = plan?.nombre ?? "Asesoría & Rutina";
+    // Distribuir entre presencial (funcional + boxeo) y online (rutinas)
+    const esOnline = i % 3 === 0;
+    const plan = esOnline ? null : DEMO_PLANES_MEMBRESIA.find((p) => p.id === c.plan_membresia_id);
+    const monto = esOnline ? 20000 : (plan?.precio ?? 28000);
+    const servicioNombre = esOnline ? "Rutina online" : (plan?.nombre ?? "Funcional 2x semana");
+    const actividad = esOnline ? null : c.actividad;
 
     // Buscar si hay pago confirmado en los últimos 30 días
     const pagoReciente = gimnasio.pagos.find(
@@ -252,7 +258,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       alumnoTelefono: alumno.telefono ?? null,
       contratacionId: c.id,
       servicioNombre,
-      actividad: c.actividad,
+      actividad,
       monto,
       montoLista: monto,
       diaVencimiento: c.dia_vencimiento,
@@ -716,6 +722,8 @@ export const useCobrosStore = create<CobrosState>()(
       metricas: () => {
         const lista = get().cobros;
         let ingresosMes = 0;
+        let ingresosPresencial = 0;
+        let ingresosOnline = 0;
         let cobranzaPendiente = 0;
         let cobranzaVencida = 0;
         let alumnosMorosos = 0;
@@ -724,6 +732,11 @@ export const useCobrosStore = create<CobrosState>()(
         let cobrosConDescuento = 0;
 
         for (const item of lista) {
+          const monto = item.ultimoPago?.monto ?? item.monto;
+          const esPresencial =
+            item.actividad === "FUNCIONAL" ||
+            item.actividad === "BOXEO" ||
+            (item.servicioNombre && /funcional|boxeo|presencial/i.test(item.servicioNombre));
           const tieneDescuento =
             (item.montoLista && item.monto < item.montoLista) ||
             (item.ultimoPago?.montoLista && item.ultimoPago.monto < item.ultimoPago.montoLista) ||
@@ -741,7 +754,12 @@ export const useCobrosStore = create<CobrosState>()(
           }
 
           if (item.estado === "PAGADO") {
-            ingresosMes += item.ultimoPago?.monto ?? item.monto;
+            ingresosMes += monto;
+            if (esPresencial) {
+              ingresosPresencial += monto;
+            } else {
+              ingresosOnline += monto;
+            }
             alumnosAlDia++;
           } else if (item.estado === "PENDIENTE") {
             cobranzaPendiente += item.monto;
@@ -757,6 +775,8 @@ export const useCobrosStore = create<CobrosState>()(
 
         return {
           ingresosMes,
+          ingresosPresencial,
+          ingresosOnline,
           cobranzaPendiente,
           cobranzaVencida,
           alumnosMorosos,
