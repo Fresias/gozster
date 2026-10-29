@@ -391,8 +391,8 @@ export const useChatStore = create<ChatStoreState>()(
               (k) => updated[k]?.id === conversacionId,
             );
           }
-          if (foundKey && updated[foundKey]) {
-            const current = updated[foundKey]!;
+          if (foundKey) {
+            const current = updated[foundKey] || get().getConversation(foundKey);
             updated[foundKey] = {
               ...current,
               responsable_id: nuevoResponsableId,
