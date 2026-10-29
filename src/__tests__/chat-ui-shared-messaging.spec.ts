@@ -342,5 +342,21 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
       expect(updated?.unreadCount).toBe(0);
       expect(updated?.mensajes.every((m) => m.leido)).toBe(true);
     });
+
+    it("D-CONSOLA / GOZS-212: getConversation es una función pura que no actualiza estado ni notifica suscriptores", () => {
+      let listenerCalls = 0;
+      const unsubscribe = useChatStore.subscribe(() => {
+        listenerCalls++;
+      });
+
+      const unknownId = "test-pure-getter-0000-000000000001";
+      const conv = useChatStore.getState().getConversation(unknownId, "Gabi Test");
+
+      expect(conv.alumno_id).toBe(unknownId);
+      expect(conv.alumno_nombre).toBe("Gabi Test");
+      expect(listenerCalls).toBe(0); // Cero llamadas a suscriptores, cero setState en render
+
+      unsubscribe();
+    });
   });
 });

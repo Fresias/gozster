@@ -11,6 +11,7 @@ import {
 } from "@/lib/clases";
 import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { useChatStore, STAFF_COACH_PRINCIPAL } from "@/store/use-chat-store";
 import {
   DEMO_ALUMNOS,
   DEMO_ALUMNOS_CLASES,
@@ -21,6 +22,11 @@ import {
 } from "@/services/coach-demo-dataset";
 import type { ActividadClase, Clase, Contratacion, PlanMembresia, Reserva } from "@/types/database.types";
 
+const NOMBRE_ACTIVIDAD: Record<string, string> = {
+  FUNCIONAL: "Funcional",
+  BOXEO: "Boxeo",
+};
+
 // Clases presenciales y reservas (#113 / GH #122 / GOZS-184).
 // En modo producción las escrituras van por RPC y API Supabase.
 // En modo testeo opera sobre el dataset demo (Lucía Ferraro, Valentina, Sofía, Joaquín, Tomás).
@@ -28,6 +34,16 @@ import type { ActividadClase, Clase, Contratacion, PlanMembresia, Reserva } from
 
 export interface ReservaAgenda extends Reserva {
   alumno_nombre: string;
+}
+
+export interface ClaseFijaItem {
+  id: string;
+  alumno_id: string;
+  horario_id: string;
+  actividad?: ActividadClase;
+  dia_semana?: number;
+  hora_inicio?: string;
+  created_at?: string;
 }
 
 export type VistaAgenda = "semana" | "dia" | "mes";
@@ -39,6 +55,7 @@ interface ClasesState {
   semanaInicio: string | null;
   clases: Clase[];
   misReservas: Reserva[];
+  clasesFijas: ClaseFijaItem[];
   membresia: Contratacion | null;
   plan: PlanMembresia | null;
   sinCupo: string[];
@@ -68,8 +85,8 @@ interface ClasesState {
   crearClase: (datos: {
     actividad: ActividadClase;
     inicio: string;
-    duracion_minutos: number;
-    capacidad: number | null;
+    duracion_minutos?: number;
+    capacidad?: number | null;
   }) => Promise<Clase>;
   moverClase: (claseId: string, nuevoInicio: string) => Promise<boolean>;
   redimensionarClase: (claseId: string, nuevaDuracionMinutos: number) => Promise<boolean>;
@@ -80,6 +97,11 @@ interface ClasesState {
     forzar?: boolean,
   ) => Promise<{ ok: boolean; advertencia?: string; requiereConfirmacion?: boolean }>;
   quitarAnotadoCoach: (reservaId: string) => Promise<boolean>;
+
+  // Métodos Clases Fijas (GOZS-225 / GOZS-246)
+  asignarClaseFija: (horarioId: string, alumnoId: string) => Promise<boolean>;
+  quitarClaseFija: (claseFijaId: string) => Promise<boolean>;
+  obtenerClasesFijasAlumno: (alumnoId: string) => ClaseFijaItem[];
 
   limpiarMensajes: () => void;
 }
@@ -110,6 +132,7 @@ export const useClasesStore = create<ClasesState>()(
       semanaInicio: null,
       clases: [],
       misReservas: [],
+      clasesFijas: [],
       membresia: null,
       plan: null,
       sinCupo: [],
@@ -159,6 +182,10 @@ export const useClasesStore = create<ClasesState>()(
           clases: demoClases,
           agendaReservas: demoReservas,
           misReservas,
+          clasesFijas: [
+            { id: "demo-fija-valentina-1", alumno_id: "demo-alumno-valentina", horario_id: "demo-horario-func-lunes" },
+            { id: "demo-fija-valentina-2", alumno_id: "demo-alumno-valentina", horario_id: "demo-horario-func-miercoles" },
+          ],
           membresia: contratacion,
           plan,
           sinCupo,
@@ -535,9 +562,26 @@ export const useClasesStore = create<ClasesState>()(
             set({ error: MENSAJES_ERROR.GZ007 });
             return false;
           }
+
+          const inscriptos = get().agendaReservas.filter(
+            (r) => r.clase_id === claseId && ocupaCupo(r),
+          );
+
+          if (inscriptos.length === 0) {
+            // Sin inscriptos: se borra sin avisar y sin mensajes
+            set({
+              clases: get().clases.filter((c) => c.id !== claseId),
+              agendaReservas: get().agendaReservas.filter((r) => r.clase_id !== claseId),
+              misReservas: get().misReservas.filter((r) => r.clase_id !== claseId),
+              error: null,
+            });
+            return true;
+          }
+
+          // Con inscriptos: notifica a todos los inscriptos por el chat y pasa la clase a CANCELADA
           set({
             clases: get().clases.map((c) =>
-              c.id === claseId ? { ...c, estado: "CANCELADA" as const, motivo_cancelacion: motivo } : c,
+              c.id === claseId ? { ...c, estado: "CANCELADA" as const, motivo_cancelacion: motivo || null } : c,
             ),
             agendaReservas: get().agendaReservas.map((r) =>
               r.clase_id === claseId ? { ...r, estado: "ANULADO" as const } : r,
@@ -547,6 +591,37 @@ export const useClasesStore = create<ClasesState>()(
             ),
             error: null,
           });
+
+          // Notificar por chat a cada alumno inscripto
+          const alumnoIds = Array.from(new Set(inscriptos.map((r) => r.alumno_id)));
+          const remitente = useChatStore.getState().activeCoachSender || STAFF_COACH_PRINCIPAL;
+          const fechaObj = new Date(clase.inicio);
+          const horaStr = fechaObj.toLocaleTimeString("es-AR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+          const diaStr = fechaObj.toLocaleDateString("es-AR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          });
+          const actividadNombre = NOMBRE_ACTIVIDAD[clase.actividad] || clase.actividad;
+          const motivoTexto = motivo?.trim() ? ` Motivo: ${motivo.trim()}` : "";
+          const mensajeTexto = `Tu clase de ${actividadNombre} del ${diaStr} ${horaStr} fue cancelada.${motivoTexto}`;
+
+          for (const alumnoId of alumnoIds) {
+            try {
+              useChatStore.getState().sendMessage({
+                alumnoId,
+                remitente,
+                contenido: mensajeTexto,
+              });
+            } catch {
+              // si falla o se encola offline, no interrumpe
+            }
+          }
+
           return true;
         }
 
@@ -555,11 +630,49 @@ export const useClasesStore = create<ClasesState>()(
           return false;
         }
         set({ accionEnCurso: claseId, error: null });
+
         const { error } = await supabase.rpc("cancelar_clase", { p_clase_id: claseId, p_motivo: motivo });
         if (error) {
           set({ accionEnCurso: null, error: mensajeErrorReserva(error) });
           return false;
         }
+
+        // Notificar en producción si había inscriptos
+        const inscriptosProd = get().agendaReservas.filter(
+          (r) => r.clase_id === claseId && ocupaCupo(r),
+        );
+        const clase = get().clases.find((c) => c.id === claseId);
+        if (clase && inscriptosProd.length > 0) {
+          const alumnoIds: string[] = Array.from(new Set(inscriptosProd.map((r) => r.alumno_id)));
+          const remitente = useChatStore.getState().activeCoachSender || STAFF_COACH_PRINCIPAL;
+          const fechaObj = new Date(clase.inicio);
+          const horaStr = fechaObj.toLocaleTimeString("es-AR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+          const diaStr = fechaObj.toLocaleDateString("es-AR", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+          });
+          const actividadNombre = NOMBRE_ACTIVIDAD[clase.actividad] || clase.actividad;
+          const motivoTexto = motivo?.trim() ? ` Motivo: ${motivo.trim()}` : "";
+          const mensajeTexto = `Tu clase de ${actividadNombre} del ${diaStr} ${horaStr} fue cancelada.${motivoTexto}`;
+
+          for (const alumnoId of alumnoIds) {
+            try {
+              useChatStore.getState().sendMessage({
+                alumnoId,
+                remitente,
+                contenido: mensajeTexto,
+              });
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         await get().cargarAgenda();
         set({ accionEnCurso: null });
         return true;
@@ -567,14 +680,17 @@ export const useClasesStore = create<ClasesState>()(
 
       // Métodos Coach Studio (GOZS-184)
       crearClase: async (datos) => {
+        const duracion = datos.duracion_minutos ?? 60;
+        const capacidad = datos.capacidad !== undefined ? datos.capacidad : null;
+
         if (esModoTesteo()) {
           const nuevaClase: Clase = {
             id: `demo-clase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             horario_id: null,
             actividad: datos.actividad,
             inicio: datos.inicio,
-            duracion_minutos: datos.duracion_minutos,
-            capacidad: datos.capacidad,
+            duracion_minutos: duracion,
+            capacidad: capacidad,
             estado: "PROGRAMADA",
             motivo_cancelacion: null,
             created_at: new Date().toISOString(),
@@ -594,8 +710,8 @@ export const useClasesStore = create<ClasesState>()(
           .insert({
             actividad: datos.actividad,
             inicio: datos.inicio,
-            duracion_minutos: datos.duracion_minutos,
-            capacidad: datos.capacidad,
+            duracion_minutos: duracion,
+            capacidad: capacidad,
             estado: "PROGRAMADA",
           })
           .select()
@@ -822,6 +938,67 @@ export const useClasesStore = create<ClasesState>()(
         return true;
       },
 
+      asignarClaseFija: async (horarioId, alumnoId) => {
+        if (!horarioId || !alumnoId) return false;
+        const nuevaFija: ClaseFijaItem = {
+          id: `demo-fija-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          alumno_id: alumnoId,
+          horario_id: horarioId,
+          created_at: new Date().toISOString(),
+        };
+
+        if (esModoTesteo() || !enLinea()) {
+          set((state) => ({
+            clasesFijas: [
+              ...state.clasesFijas.filter((f) => !(f.alumno_id === alumnoId && f.horario_id === horarioId)),
+              nuevaFija,
+            ],
+          }));
+          return true;
+        }
+
+        try {
+          const { error } = await supabase.rpc("asignar_clase_fija" as any, {
+            p_horario_id: horarioId,
+            p_alumno_id: alumnoId,
+          });
+          if (error) {
+            await supabase.from("clases_fijas" as any).insert({
+              alumno_id: alumnoId,
+              horario_id: horarioId,
+            });
+          }
+        } catch {
+          // fallback
+        }
+
+        set((state) => ({
+          clasesFijas: [
+            ...state.clasesFijas.filter((f) => !(f.alumno_id === alumnoId && f.horario_id === horarioId)),
+            nuevaFija,
+          ],
+        }));
+        return true;
+      },
+
+      quitarClaseFija: async (claseFijaId) => {
+        set((state) => ({
+          clasesFijas: state.clasesFijas.filter((f) => f.id !== claseFijaId),
+        }));
+        if (!esModoTesteo() && enLinea()) {
+          try {
+            await supabase.rpc("quitar_clase_fija" as any, { p_clase_fija_id: claseFijaId });
+          } catch {
+            // best-effort
+          }
+        }
+        return true;
+      },
+
+      obtenerClasesFijasAlumno: (alumnoId) => {
+        return get().clasesFijas.filter((f) => f.alumno_id === alumnoId);
+      },
+
       limpiarMensajes: () => set({ error: null, aviso: null }),
     }),
     {
@@ -832,6 +1009,7 @@ export const useClasesStore = create<ClasesState>()(
         semanaInicio: s.semanaInicio,
         clases: s.clases,
         misReservas: s.misReservas,
+        clasesFijas: s.clasesFijas,
         membresia: s.membresia,
         plan: s.plan,
         sinCupo: s.sinCupo,

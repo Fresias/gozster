@@ -37,6 +37,9 @@ export type RpcKpiRow = Database["public"]["Functions"]["obtener_kpis_negocio"][
 
 export interface KpisNegocioDatos {
   ingresos_mes: number;
+  ingresos_presencial?: number;
+  ingresos_online?: number;
+  a_cobrar?: number;
   ingresos_variacion_pct: number | null;
   ingresos_mes_anterior_label: string;
   ingresos_ultimos_6_meses: number[];
@@ -61,6 +64,14 @@ export function mapearRpcAKpis(row: RpcKpiRow, mesAnteriorLabel: string): KpisNe
   const bajas = Number(row.bajas ?? 0);
   const ultimos6 = Array.isArray(row.ingresos_6m) ? row.ingresos_6m.map(Number) : [];
 
+  const rowAny = row as Record<string, unknown>;
+  const presencial =
+    rowAny.ingresos_presencial !== undefined ? Number(rowAny.ingresos_presencial) : undefined;
+  const online =
+    rowAny.ingresos_online !== undefined ? Number(rowAny.ingresos_online) : undefined;
+  const aCobrar =
+    rowAny.a_cobrar !== undefined ? Number(rowAny.a_cobrar) : Math.round(pendiente);
+
   // Variación de ingresos: (ingresos − anterior) / anterior. Si anterior = 0, mostrar "—".
   const ingresosVariacionPct =
     anterior > 0 ? Math.round(((ingresos - anterior) / anterior) * 100) : null;
@@ -71,6 +82,9 @@ export function mapearRpcAKpis(row: RpcKpiRow, mesAnteriorLabel: string): KpisNe
 
   return {
     ingresos_mes: ingresos,
+    ingresos_presencial: presencial,
+    ingresos_online: online,
+    a_cobrar: aCobrar,
     ingresos_variacion_pct: ingresosVariacionPct,
     ingresos_mes_anterior_label: mesAnteriorLabel,
     ingresos_ultimos_6_meses: ultimos6,

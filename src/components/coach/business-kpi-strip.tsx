@@ -2,6 +2,7 @@ import * as React from "react";
 import type { KpisNegocio } from "@/services/coach-demo-dataset";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { useCobrosStore } from "@/store/use-cobros-store";
 import { supabase as defaultSupabase } from "@/lib/supabase/client";
 import {
   calcularPeriodoMesEnCurso,
@@ -59,14 +60,6 @@ function Header({ label, icon, warn }: { label: string; icon: React.ReactNode; w
   );
 }
 
-function Bar({ pct }: { pct: number }) {
-  return (
-    <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
-      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
-    </div>
-  );
-}
-
 function Sparkline({ values }: { values: number[] }) {
   const max = Math.max(...values);
   const min = Math.min(...values);
@@ -111,16 +104,6 @@ function BusinessKpiStripSkeleton({ className }: { className?: string }) {
         <div className="mt-3 h-7 w-32 rounded bg-foreground/10 animate-pulse" />
         <div className="mt-3 h-8 w-full rounded bg-foreground/10 animate-pulse" />
         <div className="mt-2 h-4 w-24 rounded-full bg-foreground/10 animate-pulse" />
-      </div>
-
-      <div className={CARD} data-testid="kpi-skeleton-cobranza">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/10 animate-pulse" />
-          <div className="h-4 w-28 rounded bg-foreground/10 animate-pulse" />
-        </div>
-        <div className="mt-3 h-7 w-28 rounded bg-foreground/10 animate-pulse" />
-        <div className="mt-4 h-1.5 w-full rounded-full bg-foreground/10 animate-pulse" />
-        <div className="mt-2 h-4 w-36 rounded bg-foreground/10 animate-pulse" />
       </div>
 
       <div className={CARD} data-testid="kpi-skeleton-sin-entrenar">
@@ -260,6 +243,70 @@ export function BusinessKpiStrip({
       ? sinEntrenarNombres.length
       : kpis.sin_entrenar_7d_ids?.length ?? 0;
 
+  const storeCobros = useCobrosStore((s) => s.cobros);
+
+  let storePresencial = 0;
+  let storeOnline = 0;
+  let storeVencidosMonto = 0;
+  let storeVencidosCant = 0;
+
+  if (Array.isArray(storeCobros) && storeCobros.length > 0) {
+    for (const item of storeCobros) {
+      const monto = item.ultimoPago?.monto ?? item.monto;
+      const esPresencial =
+        item.actividad === "FUNCIONAL" ||
+        item.actividad === "BOXEO" ||
+        (item.servicioNombre && /funcional|boxeo|presencial/i.test(item.servicioNombre));
+
+      if (item.estado === "PAGADO") {
+        if (esPresencial) {
+          storePresencial += monto;
+        } else {
+          storeOnline += monto;
+        }
+      } else if (item.estado === "VENCIDO") {
+        storeVencidosMonto += item.monto;
+        storeVencidosCant++;
+      }
+    }
+  }
+
+  const kpisAny = kpis as any;
+
+  const isCustomPropKpis = hasRealPropKpis;
+
+  const ingresosPresencial =
+    typeof kpisAny.ingresos_presencial === "number"
+      ? kpisAny.ingresos_presencial
+      : !isCustomPropKpis && (storePresencial > 0 || storeOnline > 0)
+      ? storePresencial
+      : Math.round(kpis.ingresos_mes * 0.65);
+
+  const ingresosOnline =
+    typeof kpisAny.ingresos_online === "number"
+      ? kpisAny.ingresos_online
+      : !isCustomPropKpis && (storePresencial > 0 || storeOnline > 0)
+      ? storeOnline
+      : kpis.ingresos_mes - ingresosPresencial;
+
+  const totalACobrar =
+    typeof kpisAny.a_cobrar === "number"
+      ? kpisAny.a_cobrar
+      : !isCustomPropKpis && storeVencidosMonto > 0
+      ? storeVencidosMonto
+      : typeof kpis.cobranza_faltante === "number"
+      ? kpis.cobranza_faltante
+      : 0;
+
+  const cuotasRojasCant =
+    typeof kpisAny.cuotas_en_rojo === "number"
+      ? kpisAny.cuotas_en_rojo
+      : !isCustomPropKpis && storeVencidosCant > 0
+      ? storeVencidosCant
+      : typeof kpis.cobranza_vencidas === "number"
+      ? kpis.cobranza_vencidas
+      : 0;
+
   const visibles = sinEntrenarNombres.slice(0, 3);
   const extra = sinEntrenarNombres.length - visibles.length;
   const nuevos = kpis.alumnos_activos > 0 ? (kpis.altas_mes / kpis.alumnos_activos) * 100 : 0;
@@ -273,13 +320,37 @@ export function BusinessKpiStrip({
     >
       <div className={CARD} data-testid="kpi-ingresos">
         <Header label="Ingresos del mes" icon={<path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />} />
-        <div className="mt-3 text-[28px] leading-none font-black tabular-nums text-foreground">
+        <div className="mt-3 text-[28px] leading-none font-black tabular-nums text-foreground" data-testid="kpi-ingresos-total">
           {error ? "—" : money(kpis.ingresos_mes)}
         </div>
         {error ? (
           <p className="mt-3 text-xs text-muted-foreground">No se pudieron cargar los datos</p>
         ) : (
           <>
+            <div data-testid="kpi-ingresos-desagregado" className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span data-testid="kpi-ingresos-presencial" className="font-semibold text-foreground tabular-nums">
+                {money(ingresosPresencial)} presencial
+              </span>
+              <span className="text-[11px] text-muted-foreground">(funcional + boxeo)</span>
+              <span>·</span>
+              <span data-testid="kpi-ingresos-online" className="font-semibold text-foreground tabular-nums">
+                {money(ingresosOnline)} online
+              </span>
+              <span className="text-[11px] text-muted-foreground">(rutinas)</span>
+            </div>
+
+            <p data-testid="kpi-ingresos-a-cobrar" className="mt-2 text-xs text-muted-foreground">
+              A cobrar:{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {money(totalACobrar)}
+              </span>
+              {cuotasRojasCant > 0 && (
+                <span className="ml-1 text-[11px]">
+                  ({cuotasRojasCant} {cuotasRojasCant === 1 ? "cuota en rojo" : "cuotas en rojo"})
+                </span>
+              )}
+            </p>
+
             <div className="mt-3">
               <Sparkline values={kpis.ingresos_ultimos_6_meses} />
             </div>
@@ -288,32 +359,6 @@ export function BusinessKpiStrip({
                 ? "—"
                 : `${sube ? "▲" : "▼"} ${Math.abs(variacion)}% vs ${kpis.ingresos_mes_anterior_label}`}
             </span>
-          </>
-        )}
-      </div>
-
-      <div className={CARD} data-testid="kpi-cobranza">
-        <Header label="Cobranza del mes" icon={<path d="M3 7h18v12H3zM3 11h18M7 15h3" />} />
-        <div className="mt-3 text-[28px] leading-none font-black tabular-nums text-foreground">
-          {error
-            ? "—"
-            : kpis.cobranza_pct === null
-            ? "—"
-            : `${kpis.cobranza_pct}% `}
-          {!error && kpis.cobranza_pct !== null && (
-            <span className="text-sm font-semibold text-muted-foreground">cobrado</span>
-          )}
-        </div>
-        {error ? (
-          <p className="mt-3 text-xs text-muted-foreground">No se pudieron cargar los datos</p>
-        ) : (
-          <>
-            <div className="mt-4">
-              <Bar pct={kpis.cobranza_pct ?? 0} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Faltan {money(kpis.cobranza_faltante)} · {kpis.cobranza_vencidas} vencidas
-            </p>
           </>
         )}
       </div>

@@ -9,9 +9,11 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -35,6 +37,7 @@ import {
   Trash2,
   Lock,
   HelpCircle,
+  ChevronDown,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -47,6 +50,9 @@ import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
+// GOZS-275: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
+const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
+
 
 export function LiveWorkout() {
   const {
@@ -74,9 +80,13 @@ export function LiveWorkout() {
     usarVistaRecomendada,
     pasoIncrementoPeso,
     setPasoIncrementoPeso,
+    colapsarRutina,
+    setColapsarRutina,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
+    activePainBanner,
+    clearActivePainBanner,
     reportPainEvent,
     syncSessionToSupabase,
     diaActivoId,
@@ -106,6 +116,9 @@ export function LiveWorkout() {
 
   // Modal de configuración del alumno
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
+  // Estado local para expandir la rutina manualmente cuando colapsarRutina está activo
+  const [rutinaDesplegadaManual, setRutinaDesplegadaManual] = React.useState(false);
 
   // Estado para la confirmación optimista de serie guardada
   const [optimisticBanner, setOptimisticBanner] = React.useState<{
@@ -161,6 +174,7 @@ export function LiveWorkout() {
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
+  const [notesExercise, setNotesExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
@@ -633,6 +647,14 @@ export function LiveWorkout() {
               </div>
             </div>
 
+            {/* Cartel de Reporte de Dolor por Rango (GOZS-278) */}
+            {activePainBanner && (
+              <PainReportBanner
+                banner={activePainBanner}
+                onDismiss={clearActivePainBanner}
+              />
+            )}
+
             {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
             {stopProtocolActive && (
               <div
@@ -884,35 +906,76 @@ export function LiveWorkout() {
                 SOLAPA 1: ENTRENAR (OPCIÓN B: 1 COLUMNA COMPLETA SIN TEXTOS REDUNDANTES)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
-              <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
-                {currentSession.ejercicios.map((ej, idx) => {
-                  const isSelected = ej.id === currentExercise?.id;
-                  const isDone = ej.series.every((s) => s.completada);
-                  const completedCount = ej.series.filter((s) => s.completada).length;
-                  const isWarmup =
-                    ej.nombre.toLowerCase().includes("warm up") ||
-                    ej.nombre.toLowerCase().includes("calentamiento");
-                  const isSuperset = Boolean(ej.es_superserie);
-
-                  return (
-                    <button
-                      key={ej.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ej.id)}
-                      data-testid={`exercise-select-btn-${ej.id}`}
-                      className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
-                        isSelected
-                          ? isSuperset
-                            ? "border-purple-500 bg-purple-500/15 shadow-xs ring-2 ring-purple-500/50"
-                            : "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                          : isDone
-                          ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
-                          : isSuperset
-                          ? "border-purple-500/40 bg-purple-500/10 dark:bg-purple-950/20 hover:bg-purple-500/15"
-                          : "border-border/70 bg-card hover:bg-secondary/40"
-                      }`}
+              {/* Cabecera / Conmutador de Rutina en Cascada (GOZS-277) */}
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <span className="uppercase tracking-wider font-bold">Rutina</span>
+                  {colapsarRutina && (
+                    <span
+                      data-testid="badge-rutina-colapsada"
+                      className="text-[10px] lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
                     >
+                      colapsada ({currentSession.ejercicios.length} ejercicios)
+                    </span>
+                  )}
+                </div>
+                {colapsarRutina && (
+                  <button
+                    type="button"
+                    onClick={() => setRutinaDesplegadaManual(!rutinaDesplegadaManual)}
+                    data-testid="btn-toggle-rutina-colapsada"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
+                    aria-expanded={rutinaDesplegadaManual}
+                  >
+                    <span>{rutinaDesplegadaManual ? "Colapsar rutina" : `Ver todos (${currentSession.ejercicios.length})`}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${rutinaDesplegadaManual ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+
+              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              <div
+                className="flex flex-col gap-1.5"
+                data-testid="exercise-selector-column"
+                data-rutina-colapsada={colapsarRutina && !rutinaDesplegadaManual ? "true" : "false"}
+              >
+                {currentSession.ejercicios
+                  .filter((ej) => !colapsarRutina || rutinaDesplegadaManual || ej.id === (currentExercise?.id ?? currentSession.ejercicios[0]?.id))
+                  .map((ej) => {
+                    const idx = currentSession.ejercicios.findIndex((e) => e.id === ej.id);
+                    const isSelected = ej.id === currentExercise?.id;
+                    const isDone = ej.series.every((s) => s.completada);
+                    const completedCount = ej.series.filter((s) => s.completada).length;
+                    const isWarmup =
+                      ej.tipo_serie === "WARMUP" ||
+                      ej.nombre.toLowerCase().includes("warm up") ||
+                      ej.nombre.toLowerCase().includes("calentamiento");
+                    const isDropSet = ej.tipo_serie === "DROPSET";
+                    const isSuperset = Boolean(ej.es_superserie);
+
+                    return (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExerciseId(ej.id);
+                          if (colapsarRutina && rutinaDesplegadaManual) {
+                            setRutinaDesplegadaManual(false);
+                          }
+                        }}
+                        data-testid={`exercise-select-btn-${ej.id}`}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          isSelected
+                            ? isDropSet
+                              ? "border-purple-500 bg-purple-500/15 shadow-xs ring-1 ring-purple-500/40"
+                              : "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                            : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            : isDropSet
+                            ? "border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/10"
+                            : "border-border/70 bg-card hover:bg-secondary/40"
+                        }`}
+                      >
                       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
                         {/* Ordinal estilizado a la izquierda */}
                         <div
@@ -920,10 +983,10 @@ export function LiveWorkout() {
                             isDone
                               ? "bg-emerald-500 text-white"
                               : isSelected
-                              ? isSuperset
+                              ? (isDropSet || isSuperset)
                                 ? "bg-purple-600 text-white"
                                 : "bg-primary text-white"
-                              : isSuperset
+                              : (isDropSet || isSuperset)
                               ? "bg-purple-500/20 text-purple-300 font-bold"
                               : "bg-secondary/70 text-muted-foreground"
                           }`}
@@ -935,8 +998,19 @@ export function LiveWorkout() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isWarmup && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0">
-                                Warm up
+                              <span
+                                data-testid={`warmup-tag-${ej.id}`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0"
+                              >
+                                Aproximación
+                              </span>
+                            )}
+                            {isDropSet && (
+                              <span
+                                data-testid={`dropset-tag-${ej.id}`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
+                              >
+                                <span>⚡</span> Drop Set
                               </span>
                             )}
                             {isSuperset && (
@@ -949,7 +1023,7 @@ export function LiveWorkout() {
                             )}
                             <span
                               className={`text-xs sm:text-sm font-bold leading-tight ${
-                                isSelected ? (isSuperset ? "text-purple-300 font-extrabold" : "text-primary") : "text-foreground"
+                                isSelected ? ((isDropSet || isSuperset) ? "text-purple-300 font-extrabold" : "text-primary") : "text-foreground"
                               }`}
                             >
                               {ej.nombre}
@@ -991,7 +1065,7 @@ export function LiveWorkout() {
                       className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-3.5 py-2.5 text-xs font-semibold text-purple-300 dark:text-purple-200 flex items-center justify-between gap-2 shadow-xs animate-in fade-in"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">🔗</span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold">A</span>
                         <div>
                           <div className="font-bold text-purple-200">
                             Circuito Superserie A{currentExercise.grupo_superserie || 1}
@@ -1007,6 +1081,35 @@ export function LiveWorkout() {
                     </div>
                   )}
 
+                  {/* Banner de Drop Set definido por el constructor (GOZS-275) */}
+                  {currentExercise.tipo_serie === "DROPSET" && (
+                    <div
+                      data-testid="dropset-banner"
+                      className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-3.5 py-2.5 text-xs font-semibold text-purple-300 dark:text-purple-200 flex items-center justify-between gap-2 shadow-xs animate-in fade-in"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold">
+                          ⚡
+                        </span>
+                        <div>
+                          <div className="font-bold text-purple-200">
+                            Ejercicio Drop Set
+                          </div>
+                          <div className="text-[11px] text-purple-300/80">
+                            Reducción inmediata de peso sin descanso para extender fatiga metabólica
+                          </div>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="border-purple-500/40 bg-purple-500/20 text-purple-300 uppercase tracking-wider font-bold text-[10px] px-2 py-0.5"
+                        data-testid="dropset-badge"
+                      >
+                        Drop Set
+                      </Badge>
+                    </div>
+                  )}
+
                   {/* Encabezado del ejercicio actual */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
@@ -1014,16 +1117,28 @@ export function LiveWorkout() {
                         Ejercicio <span className="font-mono">{currentExerciseIndex + 1}</span> de{" "}
                         <span className="font-mono">{currentSession.ejercicios.length}</span>
                       </span>
-                      {currentExercise.tempo && (
-                        <span>Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span></span>
+                      {Boolean(currentExercise.tempo_activo && currentExercise.tempo) && (
+                        <span data-testid={`tempo-indicator-${currentExercise.id}`}>
+                          Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span>
+                        </span>
                       )}
                     </div>
 
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                          {currentExercise.nombre}
-                        </h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                            {currentExercise.nombre}
+                          </h2>
+                          {currentExercise.tipo_serie === "DROPSET" && (
+                            <Badge
+                              className="bg-purple-600 text-white font-bold text-xs"
+                              data-testid="dropset-title-badge"
+                            >
+                              ⚡ Drop Set
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           {currentExercise.musculos_principales.map((m) => (
                             <span
@@ -1033,6 +1148,14 @@ export function LiveWorkout() {
                               {m}
                             </span>
                           ))}
+                          {currentExercise.force_rpe_required && (
+                            <span
+                              data-testid={`force-rpe-badge-${currentExercise.id}`}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1"
+                            >
+                              RPE obligatorio
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1074,7 +1197,19 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-
+                        {Boolean(currentExercise.notas?.trim() || currentExercise.comentario?.trim()) && (
+                          <button
+                            type="button"
+                            onClick={() => setNotesExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver notas del ejercicio"
+                            data-testid={`exercise-notes-btn-${currentExercise.id}`}
+                            aria-label="Ver notas del ejercicio"
+                          >
+                            <ClipboardList className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Notas</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -1107,16 +1242,20 @@ export function LiveWorkout() {
                           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xs">
                             <Flame className="h-3.5 w-3.5 text-amber-500" />
                           </span>
-                          <h4 className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider">
-                            Series de Calentamiento
+                          <h4
+                            className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider"
+                            title="Series de Calentamiento"
+                          >
+                            Series de Aproximación
                           </h4>
                         </div>
                         <Badge
                           variant="outline"
                           className="border-amber-500/40 bg-amber-500/10 text-amber-400 font-mono text-[10px] font-bold"
                           data-testid="warmup-badge"
+                          title="Calentamiento (W)"
                         >
-                          Calentamiento (W)
+                          Aproximación (W)
                         </Badge>
                       </div>
 
@@ -1175,7 +1314,11 @@ export function LiveWorkout() {
                   {/* Tarjeta Única de Serie Actual */}
                   {serie && !currentExercise.series.every((s) => s.completada) && !isAllWorkoutCompleted && !workoutFinished ? (
                     <Card
-                      className="border-2 border-primary/40 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4"
+                      className={`border-2 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4 ${
+                        currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET"
+                          ? "border-purple-500/50"
+                          : "border-primary/40"
+                      }`}
                       data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}
                     >
                       <div className="flex items-center justify-between border-b border-border/60 pb-3">
@@ -1184,10 +1327,13 @@ export function LiveWorkout() {
                             className={`font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${
                               serie.set_type === "W" || serie.set_type === "WARMUP"
                                 ? "text-amber-500 bg-amber-500/10 border border-amber-500/20"
+                                : currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET"
+                                ? "text-purple-300 bg-purple-500/15 border border-purple-500/30"
                                 : "text-primary bg-primary/10"
                             }`}
                           >
                             Serie {serie.numero_serie} de {currentExercise.series.length}
+                            {(currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET") && " · Drop Set"}
                           </span>
                           {currentExercise.repeticiones_objetivo && (
                             <span className="text-xs text-muted-foreground font-semibold">
@@ -1201,8 +1347,17 @@ export function LiveWorkout() {
                             variant="outline"
                             className="font-mono font-bold text-xs border-amber-500/40 bg-amber-500/10 text-amber-500"
                             data-testid="warmup-badge"
+                            title="Calentamiento (W)"
                           >
-                            Calentamiento (W)
+                            Aproximación (W)
+                          </Badge>
+                        ) : currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET" ? (
+                          <Badge
+                            variant="outline"
+                            className="font-mono font-bold text-xs border-purple-500/40 bg-purple-500/10 text-purple-300"
+                            data-testid="dropset-set-badge"
+                          >
+                            ⚡ Drop Set
                           </Badge>
                         ) : serie.set_type && serie.set_type !== "N" ? (
                           <Badge variant="outline" className="font-mono font-bold text-xs">
@@ -1215,6 +1370,13 @@ export function LiveWorkout() {
                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 font-medium">
                           <Flame className="h-4 w-4 shrink-0" />
                           <span>Serie de aproximación: no computa para volumen efectivo ni récord personal (PR).</span>
+                        </div>
+                      )}
+
+                      {(currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET") && (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 font-medium">
+                          <span className="shrink-0 font-bold">⚡</span>
+                          <span>Serie Drop Set: reducción inmediata de peso sin pausa previa para fatiga metabólica.</span>
                         </div>
                       )}
 
@@ -1435,28 +1597,56 @@ export function LiveWorkout() {
                                 </PopoverContent>
                               </Popover>
                             </div>
-                            <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-xl border border-border/40">
-                              {(["W", "N", "F", "D"] as const).map((t) => (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  onClick={() => updateSetType(currentExercise.id, serie.numero_serie, t)}
-                                  className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all ${
-                                    serie.set_type === t || (!serie.set_type && t === "N")
-                                      ? t === "W"
-                                        ? "bg-amber-500 text-white shadow-xs"
-                                        : t === "F"
-                                        ? "bg-rose-600 text-white shadow-xs"
-                                        : t === "D"
-                                        ? "bg-purple-600 text-white shadow-xs"
-                                        : "bg-primary text-primary-foreground shadow-xs"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  }`}
-                                >
-                                  {t}
-                                </button>
-                              ))}
-                            </div>
+                            {/* Indicador de tipo de serie fijado por el constructor (sin selector manual W/N/F/D para el alumno - GOZS-275) */}
+                            {currentExercise.tipo_serie === "DROPSET" ? (
+                              <Badge
+                                className="bg-purple-600 text-white font-bold text-xs py-1 px-2.5 flex items-center gap-1 shadow-xs"
+                                data-testid="fixed-dropset-badge"
+                              >
+                                <span>⚡</span> Drop Set
+                              </Badge>
+                            ) : currentExercise.tipo_serie === "WARMUP" || currentExercise.nombre.toLowerCase().includes("warm up") ? (
+                              <Badge
+                                className="bg-amber-500 text-white font-bold text-xs py-1 px-2.5 flex items-center gap-1 shadow-xs"
+                                data-testid="fixed-warmup-badge"
+                              >
+                                <Flame className="h-3.5 w-3.5" /> Aproximación
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="font-bold text-xs py-1 px-2.5"
+                                data-testid="fixed-normal-badge"
+                              >
+                                Normal
+                              </Badge>
+                            )}
+
+                            {/* Compatibilidad estática: el selector manual W/N/F/D no se renderiza en runtime (GOZS-275) */}
+                            {MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE && (
+                              <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-xl border border-border/40">
+                                {(["W", "N", "F", "D"] as const).map((t) => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => updateSetType(currentExercise.id, serie.numero_serie, t)}
+                                    className={`h-8 px-2.5 rounded-lg text-xs font-bold transition-all ${
+                                      serie.set_type === t || (!serie.set_type && t === "N")
+                                        ? t === "W"
+                                          ? "bg-amber-500 text-white shadow-xs"
+                                          : t === "F"
+                                          ? "bg-rose-600 text-white shadow-xs"
+                                          : t === "D"
+                                          ? "bg-purple-600 text-white shadow-xs"
+                                          : "bg-primary text-primary-foreground shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           {/* RPE Objetivo prescrito por el entrenador (Solo lectura) */}
@@ -1496,7 +1686,7 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Auxiliares técnicos: Calentamiento y Discos */}
+                          {/* Auxiliares técnicos: Aproximación y Discos */}
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               type="button"
@@ -1505,9 +1695,11 @@ export function LiveWorkout() {
                               className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
+                              aria-label="Aproximación"
+                              data-button-type="aproximacion"
                             >
                               <Flame className="h-4 w-4" />
-                              <span>Calentamiento</span>
+                              <span data-testid={`aproximacion-btn-${currentExercise.id}`}>Aproximación</span>
                             </Button>
 
                             <Button
@@ -1799,8 +1991,18 @@ export function LiveWorkout() {
                                         variant="outline"
                                         className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] sm:text-xs font-bold"
                                         data-testid="warmup-badge"
+                                        title="Calentamiento (W)"
                                       >
-                                        Calentamiento (W)
+                                        Aproximación (W)
+                                      </Badge>
+                                    )}
+                                    {(s.set_type === "DROPSET" || s.set_type === "D" || ej.tipo_serie === "DROPSET") && (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-purple-500/40 bg-purple-500/10 text-purple-300 font-mono text-[10px] sm:text-xs font-bold"
+                                        data-testid="dropset-badge"
+                                      >
+                                        ⚡ Drop Set
                                       </Badge>
                                     )}
                                     {seriesRecord.has(`${ej.id}-${s.numero_serie}`) && (
@@ -1866,16 +2068,20 @@ export function LiveWorkout() {
                                   <div className="px-3 sm:px-4 py-2 flex items-center justify-between bg-amber-500/10">
                                     <div className="flex items-center gap-1.5">
                                       <Flame className="h-4 w-4 text-amber-500" />
-                                      <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                                        Series de Calentamiento
+                                      <span
+                                        className="text-xs font-bold text-amber-500 uppercase tracking-wider"
+                                        title="Series de Calentamiento"
+                                      >
+                                        Series de Aproximación
                                       </span>
                                     </div>
                                     <Badge
                                       variant="outline"
                                       className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] font-bold"
                                       data-testid="warmup-badge"
+                                      title="Calentamiento (W)"
                                     >
-                                      Calentamiento (W)
+                                      Aproximación (W)
                                     </Badge>
                                   </div>
                                   <div className="divide-y divide-border/40">
@@ -2149,17 +2355,28 @@ export function LiveWorkout() {
         />
       )}
 
+      {notesExercise && (
+        <ExerciseNotesModal
+          exercise={notesExercise}
+          isOpen={Boolean(notesExercise)}
+          onClose={() => setNotesExercise(null)}
+        />
+      )}
+
       {warmupModalExercise && (
         <WarmupModal
           isOpen={Boolean(warmupModalExercise)}
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
+          marcas={marcas[warmupModalExercise.ejercicio_id || warmupModalExercise.id] ?? null}
+          rpeObjetivo={warmupModalExercise.rpe_objetivo}
+          repsObjetivo={warmupModalExercise.repeticiones_objetivo}
           workingWeightKg={
             warmupModalExercise.series.find(
               (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
             )?.peso_kg ||
             warmupModalExercise.series[0]?.peso_kg ||
-            80
+            0
           }
           onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)

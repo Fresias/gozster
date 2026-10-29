@@ -266,7 +266,7 @@ export function InicioMisDias() {
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
-              💬
+              !
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export function InicioMisDias() {
                 data-testid="hero-superserie-badge"
                 className="inline-flex items-center gap-1 rounded-full border border-purple-400/40 bg-purple-500/20 px-2 py-0.5 text-[11px] font-bold text-purple-300"
               >
-                <span>🔗</span> Circuito Violeta
+                Circuito Violeta
               </span>
             )}
           </div>

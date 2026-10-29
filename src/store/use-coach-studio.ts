@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type {
+  ActividadAlumno,
+  AlumnoActividad,
   Contratacion,
   DiaRutina,
   Ejercicio,
@@ -17,6 +19,7 @@ import {
 } from "@/lib/contrataciones";
 import {
   MOCK_ALUMNOS,
+  MOCK_ALUMNO_ACTIVIDADES,
   MOCK_DIAS,
   MOCK_EJERCICIOS,
   MOCK_EJERCICIOS_RUTINA,
@@ -25,15 +28,25 @@ import {
   MOCK_PROFESOR_ID,
   type HistoricalLoadEntry,
 } from "@/services/coach-mock-data";
+import {
+  type FiltroActividad,
+  obtenerActividadesAlumno,
+  alumnoTieneActividad,
+} from "@/lib/alumno-actividades";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
-import { DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_CONTRATACIONES_CLASES, DEMO_ALUMNO_ACTIVIDADES } from "@/services/coach-demo-dataset";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
   calculateEpley1RM,
 } from "@/lib/strength-metrics";
+import {
+  PLANTILLA_ADAPTACION_ID,
+  PLANTILLAS_GENERICAS,
+  obtenerPlantillaGenericaPorId,
+} from "@/services/plantillas-genericas";
 
 export type CoachStudioTab = "rutina_actual" | "historial_rutinas" | "registros_sesiones";
 
@@ -94,6 +107,8 @@ interface CoachStudioState {
   historialCargas: Record<string, HistoricalLoadEntry[]>;
   contrataciones: Contratacion[];
   sustituciones: SustitucionEjercicio[];
+  alumnoActividades: AlumnoActividad[];
+  filtroActividad: FiltroActividad;
 
   selectedAlumnoId: string | null;
   chatAlumnoId: string | null;
@@ -120,6 +135,8 @@ interface CoachStudioState {
   setWhatsAppEnabled: (enabled: boolean) => void;
   toggleWhatsAppEnabled: () => void;
   openChatForAlumno: (alumnoId: string) => void;
+  setFiltroActividad: (filtro: FiltroActividad) => void;
+  setAlumnoActividades: (actividades: AlumnoActividad[]) => void;
   setCurrentPage: (page: number) => void;
   setRoutineBuilderOpen: (open: boolean) => void;
   dismissToast: () => void;
@@ -132,6 +149,10 @@ interface CoachStudioState {
   asignarPlanUrgente: (
     alumnoId: string,
     nombrePlan?: string,
+  ) => Promise<PlanEntrenamiento>;
+  asignarPlanDesdePlantilla: (
+    alumnoId: string,
+    plantillaId?: string,
   ) => Promise<PlanEntrenamiento>;
 
   // Contrataciones y Pagos (ADR-001)
@@ -174,8 +195,12 @@ interface CoachStudioState {
   getHistorialCargasAlumno: (alumnoId: string) => HistoricalLoadEntry[];
   getSustitucionesPlan: (planId: string) => SustitucionEjercicio[];
   getSustitucionesAlumno: (alumnoId: string) => SustitucionEjercicio[];
+  getActividadesAlumno: (alumnoId: string) => ActividadAlumno[];
 
-  obtenerMetricasRetencion: (profesorId?: string | null) => MetricasRetencion;
+  obtenerMetricasRetencion: (
+    profesorId?: string | null,
+    actividad?: FiltroActividad,
+  ) => MetricasRetencion;
   detectarSobrecargaProgresiva: (
     alumnoId: string,
     ejercicioId: string,
@@ -197,7 +222,9 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
     ejercicios: MOCK_EJERCICIOS,
     historialCargas: MOCK_HISTORIAL_CARGAS,
-    contrataciones: [],
+    contrataciones: DEMO_CONTRATACIONES_CLASES,
+    alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
+    filtroActividad: "TODAS",
     sustituciones: [
       {
         id: "sust-demo-001",
@@ -272,6 +299,11 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       set({ chatAlumnoId: alumnoId, isChatOpen: true });
     },
 
+    setFiltroActividad: (filtroActividad) =>
+      set({ filtroActividad, currentPage: 1 }),
+
+    setAlumnoActividades: (alumnoActividades) => set({ alumnoActividades }),
+
     setCurrentPage: (currentPage) => set({ currentPage }),
 
     setRoutineBuilderOpen: (isRoutineBuilderOpen) => set({ isRoutineBuilderOpen }),
@@ -335,6 +367,17 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const state = get();
       const planIds = state.planes.filter((p) => p.alumno_id === alumnoId).map((p) => p.id);
       return state.sustituciones.filter((s) => planIds.includes(s.plan_id));
+    },
+
+    getActividadesAlumno: (alumnoId: string) => {
+      const { alumnoActividades, contrataciones, planes, alumnos } = get();
+      return obtenerActividadesAlumno({
+        alumnoId,
+        alumnoActividades,
+        contrataciones,
+        planes,
+        alumno: alumnos.find((a) => a.id === alumnoId),
+      });
     },
 
     registrarSustitucion: async (input) => {
@@ -815,11 +858,116 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       return nuevoPlan;
     },
 
-    obtenerMetricasRetencion: (profesorId?: string | null) => {
-      const { alumnos, planes } = get();
-      const alumnosFiltrados = profesorId
+    asignarPlanDesdePlantilla: async (
+      alumnoId: string,
+      plantillaId: string = PLANTILLA_ADAPTACION_ID,
+    ) => {
+      const plantilla =
+        obtenerPlantillaGenericaPorId(plantillaId) || PLANTILLAS_GENERICAS[0]!;
+      const alumno = get().alumnos.find((a) => a.id === alumnoId);
+      const nowIso = new Date().toISOString();
+      const planId = `plan-gen-${Date.now()}`;
+
+      const nuevoPlan: PlanEntrenamiento = {
+        id: planId,
+        profesor_id: MOCK_PROFESOR_ID,
+        alumno_id: alumnoId,
+        nombre: plantilla.nombre,
+        estado: "ACTIVO",
+        comentarios: plantilla.comentarios,
+        fecha_inicio: nowIso,
+        fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      const nuevosDias: DiaRutina[] = [];
+      const nuevosEjercicios: EjercicioEnRutina[] = [];
+
+      plantilla.dias.forEach((dia, dIdx) => {
+        const diaId = `dia-gen-${Date.now()}-${dIdx + 1}`;
+        nuevosDias.push({
+          id: diaId,
+          plan_id: planId,
+          nombre: dia.nombre,
+          orden: dia.orden,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+        dia.ejercicios.forEach((ej, eIdx) => {
+          const matched = get().ejercicios.find(
+            (cat) => cat.nombre.toLowerCase() === ej.nombre.toLowerCase(),
+          );
+          const ejercicioId = matched?.id || `e-gen-${Date.now()}-${eIdx + 1}`;
+
+          nuevosEjercicios.push({
+            id: `er-gen-${Date.now()}-${dIdx + 1}-${eIdx + 1}`,
+            dia_id: diaId,
+            ejercicio_id: ejercicioId,
+            orden: ej.orden,
+            series: ej.series,
+            repeticiones: ej.repeticiones,
+            descanso_segundos: ej.descanso_segundos,
+            rpe_objetivo: ej.rpe_objetivo ?? null,
+            notas: ej.notas ?? null,
+            es_superserie: false,
+            grupo_superserie: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+        });
+      });
+
+      set((state) => ({
+        planes: [nuevoPlan, ...state.planes],
+        dias: [...state.dias, ...nuevosDias],
+        ejerciciosEnRutina: [...state.ejerciciosEnRutina, ...nuevosEjercicios],
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: "¡Rutina Asignada con Éxito!",
+          message: `Se asignó "${nuevoPlan.nombre}" a ${alumno?.nombre_completo ?? "alumno"}.`,
+        },
+      }));
+
+      useOfflineQueueStore.getState().enqueueEvent({
+        id: `rpc-asignar-plantilla-${Date.now()}`,
+        action: "RPC_ASIGNAR_PLAN_URGENTE",
+        payload: {
+          alumnoId,
+          planId: nuevoPlan.id,
+          nombre: nuevoPlan.nombre,
+          plantillaId: plantilla.id,
+        },
+      });
+
+      return nuevoPlan;
+    },
+
+    obtenerMetricasRetencion: (
+      profesorId?: string | null,
+      actividad?: FiltroActividad,
+    ) => {
+      const { alumnos, planes, filtroActividad, alumnoActividades, contrataciones } = get();
+      const actividadFiltro = actividad ?? filtroActividad ?? "TODAS";
+
+      let alumnosFiltrados = profesorId
         ? alumnos.filter((a) => a.profesor_asignado_id === profesorId)
         : alumnos;
+
+      if (actividadFiltro !== "TODAS") {
+        alumnosFiltrados = alumnosFiltrados.filter((a) =>
+          alumnoTieneActividad({
+            alumnoId: a.id,
+            actividad: actividadFiltro,
+            alumnoActividades,
+            contrataciones,
+            planes,
+            alumno: a,
+          }),
+        );
+      }
 
       // cantActivas: rol = 'ALUMNO' y estado_membresia IN ('ACTIVA', 'ACTIVE')
       const activas = alumnosFiltrados.filter(

@@ -125,14 +125,14 @@ export function ExerciseVideoModal({
         )}
 
         {/* Notas y comentarios de ejecución técnica */}
-        {exercise.comentario && (
+        {(exercise.notas || exercise.comentario) && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
             <p className="font-semibold text-primary mb-1 flex items-center gap-1">
               <span>💡</span>
               <span>Indicaciones del Entrenador:</span>
             </p>
             <p className="text-foreground/90 leading-relaxed">
-              {exercise.comentario}
+              {exercise.notas || exercise.comentario}
             </p>
           </div>
         )}
