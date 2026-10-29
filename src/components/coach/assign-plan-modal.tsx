@@ -9,6 +9,7 @@ export interface AssignPlanModalProps {
   alumnosSinPlan: Perfil[];
   onAssignPlan: (alumnoId: string) => Promise<void>;
   onSelectAlumno: (alumnoId: string) => void;
+  onOpenAssignRoutine?: (alumno: Perfil) => void;
 }
 
 export function AssignPlanModal({
@@ -17,15 +18,20 @@ export function AssignPlanModal({
   alumnosSinPlan,
   onAssignPlan,
   onSelectAlumno,
+  onOpenAssignRoutine,
 }: AssignPlanModalProps) {
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleAssign = async (alumnoId: string) => {
-    setLoadingId(alumnoId);
+  const handleAssign = async (alumno: Perfil) => {
+    if (onOpenAssignRoutine) {
+      onOpenAssignRoutine(alumno);
+      return;
+    }
+    setLoadingId(alumno.id);
     try {
-      await onAssignPlan(alumnoId);
+      await onAssignPlan(alumno.id);
     } finally {
       setLoadingId(null);
     }
@@ -128,10 +134,10 @@ export function AssignPlanModal({
                     variant="default"
                     size="sm"
                     disabled={loadingId === alumno.id}
-                    onClick={() => handleAssign(alumno.id)}
+                    onClick={() => handleAssign(alumno)}
                     className="min-h-11 flex-1 sm:flex-none text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-black active:scale-95"
                   >
-                    {loadingId === alumno.id ? "Asignando..." : "Asignar Plan Base"}
+                    {loadingId === alumno.id ? "Asignando..." : "Asignar Rutina"}
                   </Button>
                   <Button
                     type="button"
