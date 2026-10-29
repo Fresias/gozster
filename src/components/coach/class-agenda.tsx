@@ -251,8 +251,8 @@ export function ClassAgenda() {
   const [crearFecha, setCrearFecha] = React.useState(hoy);
   const [crearHora, setCrearHora] = React.useState("18:00");
   const [crearDuracion, setCrearDuracion] = React.useState(60);
-  const [crearCapacidad, setCrearCapacidad] = React.useState<number | null>(6);
-  const [crearSinLimite, setCrearSinLimite] = React.useState(false);
+  const [crearCapacidad, setCrearCapacidad] = React.useState<number | null>(null);
+  const [crearSinLimite, setCrearSinLimite] = React.useState(true);
 
   // Modal Anotar Alumno
   const enrollDialogRef = React.useRef<HTMLDialogElement>(null);
@@ -384,6 +384,9 @@ export function ClassAgenda() {
   }, [claseId, clases, delDia, clasesSemana]);
 
   const anotados = seleccionada ? agendaReservas.filter((r) => r.clase_id === seleccionada.id) : [];
+  const inscriptosClase = seleccionada
+    ? agendaReservas.filter((r) => r.clase_id === seleccionada.id && ocupaCupo(r))
+    : [];
 
   const ocupacion = React.useCallback(
     (id: string) => agendaReservas.filter((r) => r.clase_id === id && ocupaCupo(r)).length,
@@ -419,6 +422,7 @@ export function ClassAgenda() {
     if (!seleccionada) return;
     if (await cancelarClase(seleccionada.id, motivo.trim())) {
       setMotivo("");
+      setClaseId(null);
       cancelDialogRef.current?.close();
     }
   };
@@ -429,11 +433,14 @@ export function ClassAgenda() {
     const nueva = await crearClase({
       actividad: crearActividad,
       inicio: new Date(fechaHora).toISOString(),
-      duracion_minutos: crearDuracion,
-      capacidad: crearSinLimite ? null : crearCapacidad,
+      duracion_minutos: crearDuracion || 60,
+      capacidad: crearSinLimite ? null : (crearCapacidad ?? null),
     });
     setDia(crearFecha);
     setClaseId(nueva.id);
+    setCrearDuracion(60);
+    setCrearSinLimite(true);
+    setCrearCapacidad(null);
     createDialogRef.current?.close();
   };
 
@@ -698,6 +705,9 @@ export function ClassAgenda() {
             type="button"
             onClick={() => {
               setCrearFecha(dia);
+              setCrearDuracion(60);
+              setCrearSinLimite(true);
+              setCrearCapacidad(null);
               createDialogRef.current?.showModal();
             }}
             className="h-9 gap-1.5 font-bold"
@@ -1169,6 +1179,9 @@ export function ClassAgenda() {
                   size="sm"
                   onClick={() => {
                     setCrearFecha(dia);
+                    setCrearDuracion(60);
+                    setCrearSinLimite(true);
+                    setCrearCapacidad(null);
                     createDialogRef.current?.showModal();
                   }}
                 >
@@ -1265,8 +1278,15 @@ export function ClassAgenda() {
                 <input
                   type="checkbox"
                   checked={crearSinLimite}
-                  onChange={(e) => setCrearSinLimite(e.target.checked)}
+                  onChange={(e) => {
+                    const sinLimite = e.target.checked;
+                    setCrearSinLimite(sinLimite);
+                    if (!sinLimite && !crearCapacidad) {
+                      setCrearCapacidad(6);
+                    }
+                  }}
                   className="rounded"
+                  data-testid="create-class-unlimited-checkbox"
                 />
                 Sin límite
               </label>
@@ -1394,16 +1414,19 @@ export function ClassAgenda() {
       >
         <div className="space-y-4">
           <h2 id="cancelar-clase-titulo" className="text-lg font-black">
-            Cancelar clase
+            {inscriptosClase.length === 0 ? "Eliminar clase" : "Cancelar clase"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Al cancelar, se anularán las reservas de todos los alumnos anotados y se les
-            restituirá el crédito semanal.
+            {inscriptosClase.length === 0
+              ? "Esta clase no tiene alumnos inscriptos. Se eliminará de la agenda sin enviar mensajes."
+              : "Al cancelar, se anularán las reservas de todos los alumnos anotados y se les notificará por chat."}
           </p>
 
           <div className="space-y-1">
             <label htmlFor="motivo-cancelacion" className="text-xs font-bold text-muted-foreground">
-              Motivo de la cancelación (mínimo {MOTIVO_MINIMO} caracteres)
+              {inscriptosClase.length === 0
+                ? "Motivo o nota (opcional)"
+                : `Motivo de la cancelación (mínimo ${MOTIVO_MINIMO} caracteres)`}
             </label>
             <textarea
               id="motivo-cancelacion"
@@ -1412,7 +1435,11 @@ export function ClassAgenda() {
               minLength={MOTIVO_MINIMO}
               rows={3}
               className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-hidden"
-              placeholder="Ej.: Feriado nacional, indisposición del coach..."
+              placeholder={
+                inscriptosClase.length === 0
+                  ? "Opcional: motivo o nota..."
+                  : "Ej.: Feriado nacional, indisposición del coach..."
+              }
               data-testid="cancel-class-reason"
             />
           </div>
@@ -1428,11 +1455,11 @@ export function ClassAgenda() {
             <Button
               type="button"
               variant="destructive"
-              disabled={motivo.trim().length < MOTIVO_MINIMO}
+              disabled={inscriptosClase.length > 0 && motivo.trim().length < MOTIVO_MINIMO}
               onClick={() => void confirmarCancelacion()}
               data-testid="confirm-cancel-class-btn"
             >
-              Confirmar cancelación
+              {inscriptosClase.length === 0 ? "Confirmar eliminación" : "Confirmar cancelación"}
             </Button>
           </div>
         </div>

@@ -18,7 +18,7 @@ import type { Contratacion, MedioPago, Pago } from "@/types/database.types";
 // y comprobantes internos no fiscales, con persistencia y soporte Offline-First.
 
 export type EstadoCobro = "PENDIENTE" | "VENCIDO" | "PAGADO";
-export type FiltroCobros = "TODOS" | "PENDIENTES" | "VENCIDOS" | "PAGADOS";
+export type FiltroCobros = "TODOS" | "PENDIENTES" | "VENCIDOS" | "PAGADOS" | "DESCUENTOS";
 
 export interface CobroItem {
   id: string; // id de la contratación / cobro
@@ -30,12 +30,17 @@ export interface CobroItem {
   servicioNombre: string;
   actividad: string | null;
   monto: number;
+  montoLista?: number;
+  descuento?: number;
+  notaDescuento?: string;
   diaVencimiento: number;
   fechaVencimiento: string;
   estado: EstadoCobro;
   ultimoPago?: {
     id: string;
     monto: number;
+    montoLista?: number;
+    descuento?: number;
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     fechaPago: string;
     confirmadoPor: string;
@@ -51,6 +56,8 @@ export interface CobrosMetricas {
   alumnosAlDia: number;
   totalCobros: number;
   tasaCobranzaPct: number;
+  totalDescuentos: number;
+  cobrosConDescuento: number;
 }
 
 export interface ComprobanteInterno {
@@ -60,6 +67,8 @@ export interface ComprobanteInterno {
   alumnoEmail: string;
   servicio: string;
   monto: number;
+  montoLista?: number;
+  descuento?: number;
   medioPago: "TRANSFERENCIA" | "EFECTIVO";
   fechaPago: string;
   confirmadoPor: string;
@@ -86,9 +95,12 @@ interface CobrosState {
   registrarPago: (params: {
     contratacionId: string;
     monto: number;
+    montoLista?: number;
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     notas?: string;
   }) => Promise<ComprobanteInterno>;
+  recuperarMontoOriginal: (contratacionId: string) => void;
+  obtenerDescuentos: () => CobroItem[];
   obtenerComprobante: (contratacionId: string) => ComprobanteInterno | null;
   metricas: () => CobrosMetricas;
   resetDemoDataset: () => void;
@@ -111,6 +123,10 @@ function generarDemoCobrosIniciales(): CobroItem[] {
 
     let estado: EstadoCobro = "PENDIENTE";
     let ultimoPago: CobroItem["ultimoPago"] | undefined = undefined;
+    let montoCobrado = monto;
+    let montoLista = monto;
+    let descuento: number | undefined = undefined;
+    let notaDescuento: string | undefined = undefined;
 
     if (c.estado === "VENCIDA" || (c.fecha_fin && c.fecha_fin < hoyStr)) {
       estado = "VENCIDO";
@@ -120,10 +136,28 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       ultimoPago = {
         id: `pago-demo-val-${c.id}`,
         monto,
+        montoLista: monto,
         medioPago: "TRANSFERENCIA",
         fechaPago: new Date(Date.now() - 5 * 86_400_000).toISOString(),
         confirmadoPor: "Lucía Ferraro",
         notas: "Transferencia Banco Galicia",
+      };
+    } else if (c.alumno_id === "demo-alumno-sofia") {
+      // GOZS-253: El pago de Sofía (40k lista, 32k cobrado) cuenta 32k y muestra 'N' con la nota
+      estado = "PAGADO";
+      montoCobrado = 32000;
+      montoLista = 40000;
+      descuento = 8000;
+      notaDescuento = "Descuento 20% acordado con el coach";
+      ultimoPago = {
+        id: `pago-demo-sofia-${c.id}`,
+        monto: 32000,
+        montoLista: 40000,
+        descuento: 8000,
+        medioPago: "TRANSFERENCIA",
+        fechaPago: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+        confirmadoPor: "Lucía Ferraro",
+        notas: "Descuento 20% acordado con el coach",
       };
     }
 
@@ -136,7 +170,10 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       contratacionId: c.id,
       servicioNombre,
       actividad: c.actividad,
-      monto,
+      monto: montoCobrado,
+      montoLista,
+      descuento,
+      notaDescuento,
       diaVencimiento: c.dia_vencimiento,
       fechaVencimiento: c.fecha_fin ?? hoyStr,
       estado,
@@ -172,6 +209,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       ultimoPago = {
         id: pagoReciente.id,
         monto: pagoReciente.monto,
+        montoLista: monto,
         medioPago: pagoReciente.medio_pago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
         fechaPago: pagoReciente.confirmado_at ?? pagoReciente.created_at,
         confirmadoPor: "Lucía Ferraro",
@@ -190,6 +228,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       servicioNombre,
       actividad: c.actividad,
       monto,
+      montoLista: monto,
       diaVencimiento: c.dia_vencimiento,
       fechaVencimiento: c.fecha_fin ?? hoyStr,
       estado,
@@ -305,13 +344,16 @@ export const useCobrosStore = create<CobrosState>()(
         }
       },
 
-      registrarPago: async ({ contratacionId, monto, medioPago, notas }) => {
+      registrarPago: async ({ contratacionId, monto, montoLista, medioPago, notas }) => {
         const item = get().cobros.find((c) => c.contratacionId === contratacionId);
         if (!item) {
           throw new Error("Contratación no encontrada");
         }
 
         set({ accionEnCurso: contratacionId, error: null, aviso: null });
+
+        const precioLista = montoLista ?? item.montoLista ?? item.monto;
+        const descuento = precioLista > monto ? precioLista - monto : undefined;
 
         // Regla ADR-001: anclaje de fecha (vence 10/10, paga 18/10 -> vence 10/11)
         const nuevaFechaFin = computeAnchoredRenewalDate(item.fechaVencimiento, item.diaVencimiento);
@@ -326,6 +368,8 @@ export const useCobrosStore = create<CobrosState>()(
           alumnoEmail: item.alumnoEmail,
           servicio: item.servicioNombre,
           monto,
+          montoLista: precioLista,
+          descuento,
           medioPago,
           fechaPago: ahoraIso,
           confirmadoPor: "Lucía Ferraro",
@@ -340,10 +384,16 @@ export const useCobrosStore = create<CobrosState>()(
               return {
                 ...c,
                 estado: "PAGADO" as const,
+                monto,
+                montoLista: precioLista,
+                descuento,
+                notaDescuento: notas,
                 fechaVencimiento: nuevaFechaFin,
                 ultimoPago: {
                   id: pagoId,
                   monto,
+                  montoLista: precioLista,
+                  descuento,
                   medioPago,
                   fechaPago: ahoraIso,
                   confirmadoPor: "Lucía Ferraro",
@@ -389,10 +439,16 @@ export const useCobrosStore = create<CobrosState>()(
               return {
                 ...c,
                 estado: "PAGADO" as const,
+                monto,
+                montoLista: precioLista,
+                descuento,
+                notaDescuento: notas,
                 fechaVencimiento: nuevaFechaFin,
                 ultimoPago: {
                   id: pagoId,
                   monto,
+                  montoLista: precioLista,
+                  descuento,
                   medioPago,
                   fechaPago: ahoraIso,
                   confirmadoPor: "Coach",
@@ -420,6 +476,46 @@ export const useCobrosStore = create<CobrosState>()(
         }
       },
 
+      recuperarMontoOriginal: (contratacionId: string) => {
+        const item = get().cobros.find((c) => c.contratacionId === contratacionId);
+        if (!item) return;
+
+        const precioLista = item.montoLista ?? item.monto;
+        const cobrosActualizados = get().cobros.map((c) => {
+          if (c.contratacionId === contratacionId) {
+            return {
+              ...c,
+              monto: precioLista,
+              descuento: 0,
+              notaDescuento: undefined,
+              ultimoPago: c.ultimoPago
+                ? {
+                    ...c.ultimoPago,
+                    monto: precioLista,
+                    descuento: 0,
+                  }
+                : undefined,
+            };
+          }
+          return c;
+        });
+
+        set({
+          cobros: cobrosActualizados,
+          aviso: `Monto de suscripción ($${precioLista.toLocaleString("es-AR")}) recuperado para ${item.alumnoNombre}.`,
+        });
+      },
+
+      obtenerDescuentos: () => {
+        return get().cobros.filter(
+          (c) =>
+            (c.montoLista && c.monto < c.montoLista) ||
+            (c.ultimoPago?.montoLista && c.ultimoPago.monto < c.ultimoPago.montoLista) ||
+            Boolean(c.descuento && c.descuento > 0) ||
+            Boolean(c.ultimoPago?.descuento && c.ultimoPago.descuento > 0),
+        );
+      },
+
       obtenerComprobante: (contratacionId) => {
         const item = get().cobros.find((c) => c.contratacionId === contratacionId);
         if (!item || !item.ultimoPago) return null;
@@ -431,6 +527,8 @@ export const useCobrosStore = create<CobrosState>()(
           alumnoEmail: item.alumnoEmail,
           servicio: item.servicioNombre,
           monto: item.ultimoPago.monto,
+          montoLista: item.ultimoPago.montoLista ?? item.montoLista,
+          descuento: item.ultimoPago.descuento ?? item.descuento,
           medioPago: item.ultimoPago.medioPago,
           fechaPago: item.ultimoPago.fechaPago,
           confirmadoPor: item.ultimoPago.confirmadoPor,
@@ -446,8 +544,26 @@ export const useCobrosStore = create<CobrosState>()(
         let cobranzaVencida = 0;
         let alumnosMorosos = 0;
         let alumnosAlDia = 0;
+        let totalDescuentos = 0;
+        let cobrosConDescuento = 0;
 
         for (const item of lista) {
+          const tieneDescuento =
+            (item.montoLista && item.monto < item.montoLista) ||
+            (item.ultimoPago?.montoLista && item.ultimoPago.monto < item.ultimoPago.montoLista) ||
+            Boolean(item.descuento && item.descuento > 0) ||
+            Boolean(item.ultimoPago?.descuento && item.ultimoPago.descuento > 0);
+
+          if (tieneDescuento) {
+            cobrosConDescuento++;
+            const desc =
+              item.descuento ??
+              (item.montoLista && item.montoLista > item.monto
+                ? item.montoLista - item.monto
+                : (item.ultimoPago?.descuento ?? 0));
+            totalDescuentos += desc;
+          }
+
           if (item.estado === "PAGADO") {
             ingresosMes += item.ultimoPago?.monto ?? item.monto;
             alumnosAlDia++;
@@ -471,6 +587,8 @@ export const useCobrosStore = create<CobrosState>()(
           alumnosAlDia,
           totalCobros: lista.length,
           tasaCobranzaPct,
+          totalDescuentos,
+          cobrosConDescuento,
         };
       },
     }),
