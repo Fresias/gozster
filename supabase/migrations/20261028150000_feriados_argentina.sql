@@ -75,10 +75,10 @@ BEGIN
   IF p_tabla NOT IN (
     'perfiles', 'ejercicios', 'ejercicios_alternativas', 'entrenador_alumnos', 'planes_entrenamiento', 'dias_rutina',
     'ejercicios_en_rutina', 'registro_sesiones', 'registro_series', 'conversaciones',
-    'mensajes', 'habitos_registros', 'nutricion_registros', 'alertas_entrenador',
-    'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'planes_membresia', 'planes_membresia_precios',
-    'contrataciones', 'cobros', 'pagos', 'feriados',
-    'auditoria_cambios', 'sustituciones_ejercicios', 'clases_horario', 'clases', 'clases_profesores', 'reservas'
+    'mensajes', 'push_suscripciones', 'push_cola', 'habitos_registros', 'nutricion_registros', 'alertas_entrenador',
+    'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'feriados', 'planes_membresia', 'planes_membresia_precios',
+    'contrataciones', 'alumno_actividades', 'cobros', 'pagos',
+    'auditoria_cambios', 'sustituciones_ejercicios', 'clases_horario', 'clases_fijas', 'clases', 'clases_profesores', 'reservas', 'ranking_prs'
   ) THEN
     RAISE EXCEPTION 'Tabla no restaurable: %', p_tabla
       USING ERRCODE = '22023';
