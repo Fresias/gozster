@@ -64,6 +64,7 @@ export interface LiveWorkoutExercise {
   url_video?: string | null;
   comentario?: string | null;
   tempo?: string;
+  tempo_activo?: boolean;
   force_rpe_required?: boolean;
   es_superserie?: boolean;
   grupo_superserie?: number | null;
@@ -1630,6 +1631,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
             series: sets,
             url_video: ejMaestro?.url_video || null,
             comentario: ejMaestro?.comentario || er.notas || null,
+            tempo: er.tempo || undefined,
+            tempo_activo: Boolean((er as any).tempo_activo),
+            force_rpe_required: Boolean((er as any).force_rpe_required),
+            es_superserie: Boolean(er.es_superserie),
+            grupo_superserie: er.grupo_superserie ?? null,
           };
         });
 
