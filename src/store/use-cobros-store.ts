@@ -13,6 +13,11 @@ import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import type { Contratacion, MedioPago, Pago } from "@/types/database.types";
 import {
+  type ActividadPlanOpcion,
+  type PlanMembresiaConVigencia,
+  validarVigenciaFutura,
+} from "@/lib/planes";
+import {
   type ActividadKpi,
   type PagoMensualInput,
   type KpiAnualResultado,
@@ -99,6 +104,7 @@ export interface ComprobanteInterno {
 
 interface CobrosState {
   cobros: CobroItem[];
+  planes: PlanMembresiaConVigencia[];
   pagosHistorial?: PagoMensualInput[];
   filtroEstado: FiltroCobros;
   filtroActividadKpiAnual: ActividadKpi;
@@ -132,10 +138,118 @@ interface CobrosState {
   kpiIngresosAnual: (anio?: number, actividad?: ActividadKpi) => KpiAnualResultado;
   metricas: () => CobrosMetricas;
   resetDemoDataset: () => void;
+
+  crearPlan: (params: {
+    nombre: string;
+    actividad: ActividadPlanOpcion;
+    duracionMeses: 1 | 3 | 6 | 12;
+    limiteSemanal: number | null;
+    precio: number;
+    fechaVigencia: string;
+  }) => Promise<PlanMembresiaConVigencia>;
+
+  modificarPlan: (params: {
+    planId: string;
+    nombre?: string;
+    precio: number;
+    fechaVigencia: string;
+    duracionMeses?: 1 | 3 | 6 | 12;
+    limiteSemanal?: number | null;
+  }) => Promise<PlanMembresiaConVigencia>;
 }
 
 const enLinea = () => useOfflineQueueStore.getState().isOnline;
 const esModoTesteo = () => useWorkspaceModeStore.getState().mode === "TESTEO";
+
+export function generarDemoPlanesIniciales(): PlanMembresiaConVigencia[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: "demo-plan-funcional-2x",
+      nombre: "Funcional 2x semana",
+      limite_semanal: 2,
+      cantidad_actividades: 1,
+      duracion_meses: 1,
+      precio: 25000,
+      activo: true,
+      actividad_tipo: "FUNCIONAL",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-pase-libre",
+      nombre: "Pase libre Funcional + Boxeo",
+      limite_semanal: null,
+      cantidad_actividades: 2,
+      duracion_meses: 1,
+      precio: 40000,
+      activo: true,
+      actividad_tipo: "FUNCIONAL_BOXEO",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-boxeo-3x",
+      nombre: "Boxeo 3x semana",
+      limite_semanal: 3,
+      cantidad_actividades: 1,
+      duracion_meses: 1,
+      precio: 30000,
+      activo: true,
+      actividad_tipo: "BOXEO",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-rutinas-online",
+      nombre: "Rutinas Online (Asesoría)",
+      limite_semanal: null,
+      cantidad_actividades: 1,
+      duracion_meses: 1,
+      precio: 28000,
+      activo: true,
+      actividad_tipo: "RUTINAS",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-funcional-trimestral",
+      nombre: "Funcional Trimestral (3x)",
+      limite_semanal: 3,
+      cantidad_actividades: 1,
+      duracion_meses: 3,
+      precio: 75000,
+      activo: true,
+      actividad_tipo: "FUNCIONAL",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-boxeo-semestral",
+      nombre: "Boxeo Semestral Pase Libre",
+      limite_semanal: null,
+      cantidad_actividades: 1,
+      duracion_meses: 6,
+      precio: 160000,
+      activo: true,
+      actividad_tipo: "BOXEO",
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      id: "demo-plan-rutinas-anual",
+      nombre: "Rutinas Online Anual",
+      limite_semanal: null,
+      cantidad_actividades: 1,
+      duracion_meses: 12,
+      precio: 280000,
+      activo: true,
+      actividad_tipo: "RUTINAS",
+      created_at: now,
+      updated_at: now,
+    },
+  ];
+}
 
 function generarDemoCobrosIniciales(): CobroItem[] {
   const hoyStr = new Date().toISOString().slice(0, 10);
@@ -320,6 +434,7 @@ export const useCobrosStore = create<CobrosState>()(
   persist(
     (set, get) => ({
       cobros: generarDemoCobrosIniciales(),
+      planes: generarDemoPlanesIniciales(),
       pagosHistorial: generarDemoPagosHistorial(),
       filtroEstado: "TODOS",
       filtroActividadKpiAnual: "TODAS",
@@ -340,9 +455,11 @@ export const useCobrosStore = create<CobrosState>()(
 
       resetDemoDataset: () => {
         const demo = generarDemoCobrosIniciales();
+        const demoPlanes = generarDemoPlanesIniciales();
         const demoPagos = generarDemoPagosHistorial();
         set({
           cobros: demo,
+          planes: demoPlanes,
           pagosHistorial: demoPagos,
           filtroEstado: "TODOS",
           filtroActividadKpiAnual: "TODAS",
@@ -787,6 +904,115 @@ export const useCobrosStore = create<CobrosState>()(
           cobrosConDescuento,
         };
       },
+
+      crearPlan: async (params) => {
+        const { nombre, actividad, duracionMeses, limiteSemanal, precio, fechaVigencia } = params;
+        const validacion = validarVigenciaFutura(fechaVigencia);
+        if (!validacion.valida) {
+          const errorMsg = validacion.error ?? "La fecha de vigencia debe ser posterior a hoy (fecha futura)";
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
+        }
+
+        const cantidadActividades = actividad === "FUNCIONAL_BOXEO" ? 2 : 1;
+        const nuevoPlanId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `plan-${Date.now()}`;
+        const now = new Date().toISOString();
+
+        const nuevoPlan: PlanMembresiaConVigencia = {
+          id: nuevoPlanId,
+          nombre: nombre.trim(),
+          limite_semanal: limiteSemanal,
+          cantidad_actividades: cantidadActividades,
+          duracion_meses: duracionMeses,
+          precio,
+          activo: true,
+          actividad_tipo: actividad,
+          vigente_desde: fechaVigencia,
+          created_at: now,
+          updated_at: now,
+        };
+
+        if (!esModoTesteo() && enLinea()) {
+          try {
+            const { error: errInsert } = await supabase.from("planes_membresia").insert({
+              id: nuevoPlanId,
+              nombre: nuevoPlan.nombre,
+              limite_semanal: nuevoPlan.limite_semanal,
+              cantidad_actividades: nuevoPlan.cantidad_actividades,
+              duracion_meses: nuevoPlan.duracion_meses,
+              precio: nuevoPlan.precio,
+              activo: true,
+            });
+            if (errInsert) {
+              console.warn("Error insertando plan en Supabase, guardando local:", errInsert);
+            }
+          } catch (e) {
+            console.warn("Excepción al insertar plan en Supabase:", e);
+          }
+        }
+
+        const aviso = `Plan '${nuevoPlan.nombre}' creado con éxito con vigencia desde ${fechaVigencia}. No altera cobros realizados ni cuotas vencidas.`;
+        set((state) => ({
+          planes: [nuevoPlan, ...state.planes],
+          aviso,
+          error: null,
+        }));
+
+        return nuevoPlan;
+      },
+
+      modificarPlan: async (params) => {
+        const { planId, nombre, precio, fechaVigencia, duracionMeses, limiteSemanal } = params;
+        const validacion = validarVigenciaFutura(fechaVigencia);
+        if (!validacion.valida) {
+          const errorMsg = validacion.error ?? "La fecha de vigencia debe ser posterior a hoy (fecha futura)";
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
+        }
+
+        const planExistente = get().planes.find((p) => p.id === planId);
+        if (!planExistente) {
+          const errorMsg = `Plan con id ${planId} no encontrado`;
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
+        }
+
+        const precioAnterior = planExistente.precio;
+        const planActualizado: PlanMembresiaConVigencia = {
+          ...planExistente,
+          nombre: nombre ? nombre.trim() : planExistente.nombre,
+          precio,
+          vigente_desde: fechaVigencia,
+          precio_anterior: precioAnterior,
+          duracion_meses: duracionMeses ?? planExistente.duracion_meses,
+          limite_semanal: limiteSemanal !== undefined ? limiteSemanal : planExistente.limite_semanal,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (!esModoTesteo() && enLinea()) {
+          try {
+            const { error: errPrecio } = await supabase.from("planes_membresia_precios").insert({
+              plan_membresia_id: planId,
+              precio,
+              vigente_desde: fechaVigencia,
+            });
+            if (errPrecio) {
+              console.warn("Error registrando precio futuro en Supabase:", errPrecio);
+            }
+          } catch (e) {
+            console.warn("Excepción al registrar precio futuro en Supabase:", e);
+          }
+        }
+
+        const aviso = `Plan '${planActualizado.nombre}' modificado ($${precio.toLocaleString("es-AR")}) con vigencia desde ${fechaVigencia}. Los cobros anteriores y cuotas vencidas no se modifican.`;
+        set((state) => ({
+          planes: state.planes.map((p) => (p.id === planId ? planActualizado : p)),
+          aviso,
+          error: null,
+        }));
+
+        return planActualizado;
+      },
     }),
     {
       name: "gozster-cobros",
@@ -794,6 +1020,7 @@ export const useCobrosStore = create<CobrosState>()(
       partialize: (s) => ({
         cobros: s.cobros,
         filtroEstado: s.filtroEstado,
+        planes: s.planes,
       }),
     },
   ),
