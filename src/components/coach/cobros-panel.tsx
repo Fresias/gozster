@@ -1,20 +1,37 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   useCobrosStore,
   type CobroItem,
   type ComprobanteInterno,
   type FiltroCobros,
+  ultimaSuscripcionPorAlumno,
 } from "@/store/use-cobros-store";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
+import { type ActividadKpi } from "@/lib/kpi-anual";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
-export function CobrosPanel() {
+export interface CobrosPanelProps {
+  initialKpiAnualAbierto?: boolean;
+  initialFiltroActividad?: ActividadKpi;
+}
+
+export function CobrosPanel({
+  initialKpiAnualAbierto,
+  initialFiltroActividad,
+}: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros,
     filtroEstado,
+    filtroActividadKpiAnual,
+    kpiAnualAbierto: storeKpiAnualAbierto,
+    setFiltroActividadKpiAnual,
+    setKpiAnualAbierto: storeSetKpiAnualAbierto,
+    kpiIngresosAnual,
     busqueda,
     cargando,
     accionEnCurso,
@@ -27,9 +44,13 @@ export function CobrosPanel() {
     limpiarMensajes,
     cargarCobros,
     registrarPago,
+    recuperarMontoOriginal,
     obtenerComprobante,
     metricas,
   } = useCobrosStore();
+
+  const router = useRouter();
+  const selectAlumno = useCoachStudioStore((s) => s.selectAlumno);
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const mode = useWorkspaceModeStore((s) => s.mode);
@@ -45,18 +66,78 @@ export function CobrosPanel() {
   // Modal recibo
   const reciboDialogRef = React.useRef<HTMLDialogElement>(null);
 
+  // Modal KPI Anual (Enero a Diciembre y desagregado por actividad)
+  const [localKpiAnualAbierto, setLocalKpiAnualAbierto] = React.useState<boolean>(
+    initialKpiAnualAbierto ?? false
+  );
+  const kpiAnualAbierto = localKpiAnualAbierto || Boolean(storeKpiAnualAbierto);
+  const setKpiAnualAbierto = (val: boolean) => {
+    setLocalKpiAnualAbierto(val);
+    storeSetKpiAnualAbierto(val);
+  };
+
+  const [filtroActividad, setFiltroActividad] = React.useState<ActividadKpi>(
+    initialFiltroActividad ?? filtroActividadKpiAnual ?? "TODAS"
+  );
+  const handleCambiarFiltroActividad = (act: ActividadKpi) => {
+    setFiltroActividad(act);
+    setFiltroActividadKpiAnual(act);
+  };
+
+  const kpiAnualDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (kpiAnualAbierto) {
+      if (kpiAnualDialogRef.current && !kpiAnualDialogRef.current.open) {
+        try {
+          kpiAnualDialogRef.current.showModal();
+        } catch {
+          // Fallback para entornos donde showModal no esté implementado
+        }
+      }
+    } else {
+      if (kpiAnualDialogRef.current?.open) {
+        try {
+          kpiAnualDialogRef.current.close();
+        } catch {}
+      }
+    }
+  }, [kpiAnualAbierto]);
+
+  const kpiAnualResultado = React.useMemo(() => {
+    return kpiIngresosAnual(undefined, filtroActividad);
+  }, [kpiIngresosAnual, filtroActividad, cobros]);
+
   React.useEffect(() => {
     void cargarCobros();
   }, [cargarCobros]);
 
   const kpis = metricas();
 
+  const cobrosConDescuento = React.useMemo(() => {
+    return cobros.filter(
+      (c) =>
+        (c.montoLista && c.monto < c.montoLista) ||
+        (c.ultimoPago?.montoLista && c.ultimoPago.monto < c.ultimoPago.montoLista) ||
+        Boolean(c.descuento && c.descuento > 0) ||
+        Boolean(c.ultimoPago?.descuento && c.ultimoPago.descuento > 0),
+    );
+  }, [cobros]);
+
   const cobrosFiltrados = React.useMemo(() => {
-    return cobros.filter((c) => {
+    return ultimaSuscripcionPorAlumno(cobros).filter((c) => {
       // Filtro de estado
       if (filtroEstado === "PENDIENTES" && c.estado !== "PENDIENTE") return false;
       if (filtroEstado === "VENCIDOS" && c.estado !== "VENCIDO") return false;
       if (filtroEstado === "PAGADOS" && c.estado !== "PAGADO") return false;
+      if (filtroEstado === "DESCUENTOS") {
+        const tieneDesc =
+          (c.montoLista && c.monto < c.montoLista) ||
+          (c.ultimoPago?.montoLista && c.ultimoPago.monto < c.ultimoPago.montoLista) ||
+          Boolean(c.descuento && c.descuento > 0) ||
+          Boolean(c.ultimoPago?.descuento && c.ultimoPago.descuento > 0);
+        if (!tieneDesc) return false;
+      }
 
       // Filtro de búsqueda
       if (busqueda.trim()) {
@@ -87,6 +168,7 @@ export function CobrosPanel() {
       const comprobante = await registrarPago({
         contratacionId: cobroSeleccionado.contratacionId,
         monto: pagoMonto,
+        montoLista: cobroSeleccionado.montoLista ?? cobroSeleccionado.monto,
         medioPago: pagoMedio,
         notas: pagoNotas.trim() || undefined,
       });
@@ -96,6 +178,11 @@ export function CobrosPanel() {
     } catch {
       // Error manejado en store
     }
+  };
+
+  const verHistorial = (alumnoId: string) => {
+    selectAlumno(alumnoId);
+    router.push("/studio");
   };
 
   const abrirComprobante = (contratacionId: string) => {
@@ -185,9 +272,21 @@ export function CobrosPanel() {
           <p className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums" data-testid="kpi-ingresos-mes" suppressHydrationWarning>
             {formatearDinero(kpis.ingresosMes)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Recaudado en el ciclo actual
-          </p>
+          <div className="flex items-center justify-between gap-1 mt-1">
+            <p className="text-[11px] text-muted-foreground">
+              Recaudado en el ciclo actual
+            </p>
+            <button
+              type="button"
+              onClick={() => setKpiAnualAbierto(true)}
+              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+              data-testid="btn-abrir-kpi-anual"
+              aria-label="Ver KPI anual"
+            >
+              <span data-testid="abrir-kpi-anual">Ver año</span>
+              <span data-testid="kpi-anual-trigger" aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
 
         {/* Cobranza Pendiente */}
@@ -244,44 +343,64 @@ export function CobrosPanel() {
 
       {/* Controles de Filtros y Búsqueda */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Pestañas de estado */}
-        <div
-          className="flex items-center rounded-xl border border-border/80 bg-secondary/40 p-1"
-          role="group"
-          aria-label="Filtro de estados"
-        >
-          {(
-            [
-              { key: "TODOS", label: `Todos (${cobros.length})` },
-              {
-                key: "PENDIENTES",
-                label: `Pendientes (${cobros.filter((c) => c.estado === "PENDIENTE").length})`,
-              },
-              {
-                key: "VENCIDOS",
-                label: `Vencidos (${cobros.filter((c) => c.estado === "VENCIDO").length})`,
-              },
-              {
-                key: "PAGADOS",
-                label: `Pagados (${cobros.filter((c) => c.estado === "PAGADO").length})`,
-              },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setFiltroEstado(tab.key)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                filtroEstado === tab.key
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              data-testid={`filtro-${tab.key.toLowerCase()}-btn`}
-              suppressHydrationWarning
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Pestañas de estado */}
+          <div
+            className="flex items-center rounded-xl border border-border/80 bg-secondary/40 p-1"
+            role="group"
+            aria-label="Filtro de estados"
+          >
+            {(
+              [
+                { key: "TODOS", label: `Todos (${cobros.length})` },
+                {
+                  key: "PENDIENTES",
+                  label: `Pendientes (${cobros.filter((c) => c.estado === "PENDIENTE").length})`,
+                },
+                {
+                  key: "VENCIDOS",
+                  label: `Vencidos (${cobros.filter((c) => c.estado === "VENCIDO").length})`,
+                },
+                {
+                  key: "PAGADOS",
+                  label: `Pagados (${cobros.filter((c) => c.estado === "PAGADO").length})`,
+                },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFiltroEstado(tab.key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                  filtroEstado === tab.key
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                data-testid={`filtro-${tab.key.toLowerCase()}-btn`}
+                suppressHydrationWarning
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Botón de Filtro / Vista de Descuentos */}
+          <button
+            type="button"
+            onClick={() => setFiltroEstado(filtroEstado === "DESCUENTOS" ? "TODOS" : "DESCUENTOS")}
+            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filtroEstado === "DESCUENTOS"
+                ? "border-amber-500/80 bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/40"
+                : "border-border/80 bg-secondary/40 text-muted-foreground hover:text-foreground"
+            }`}
+            data-testid="filtro-descuentos-btn"
+            title="Consultar y recuperar montos menores a la suscripción"
+          >
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-black font-black text-[10px]">
+              N
+            </span>
+            <span>Descuentos ({cobrosConDescuento.length})</span>
+          </button>
         </div>
 
         {/* Input de búsqueda */}
@@ -305,6 +424,103 @@ export function CobrosPanel() {
           )}
         </div>
       </div>
+
+      {/* VISTA PARA RECUPERAR DESCUENTOS / MONTOS MENORES A LA SUB */}
+      {cobrosConDescuento.length > 0 && (
+        <div
+          className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3"
+          data-testid="vista-recuperar-descuentos"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500 text-black font-black text-xs shadow-xs">
+                N
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-foreground">
+                  Descuentos y Montos Menores a la Suscripción
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Consulta de cuotas con monto menor a la suscripción con opción para recuperar el valor de lista.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <div className="rounded-lg bg-background/90 border border-border/60 px-2.5 py-1">
+                <span className="text-muted-foreground mr-1 text-[11px]">Total descuentos:</span>
+                <span className="font-black text-amber-600 dark:text-amber-400 tabular-nums">
+                  {formatearDinero(kpis.totalDescuentos)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {cobrosConDescuento.map((itemDesc) => {
+              const lista = itemDesc.montoLista ?? itemDesc.monto;
+              const cobrado = itemDesc.monto;
+              const diferencia = lista > cobrado ? lista - cobrado : (itemDesc.descuento ?? 0);
+              const nota = itemDesc.ultimoPago?.notas ?? itemDesc.notaDescuento ?? "Descuento acordado";
+
+              return (
+                <div
+                  key={itemDesc.id}
+                  className="rounded-xl border border-border/60 bg-card p-3 space-y-2 text-xs shadow-xs hover:border-amber-500/40 transition-colors"
+                  data-testid="item-descuento-recuperable"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-foreground text-sm">{itemDesc.alumnoNombre}</p>
+                      <p className="text-[11px] text-muted-foreground">{itemDesc.servicioNombre}</p>
+                    </div>
+                    <span
+                      className="inline-flex items-center gap-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 px-1.5 py-0.5 text-[10px] font-black"
+                      title={nota}
+                    >
+                      N
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg bg-secondary/40 p-2 space-y-1 tabular-nums">
+                    <div className="flex justify-between text-muted-foreground text-[11px]">
+                      <span>Monto de lista:</span>
+                      <span className="line-through">{formatearDinero(lista)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-foreground">
+                      <span>Monto cobrado:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                        {formatearDinero(cobrado)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
+                      <span>Descuento:</span>
+                      <span>-{formatearDinero(diferencia)}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-muted-foreground">
+                    <span className="font-semibold text-foreground">Nota: </span>
+                    <span className="italic">{nota}</span>
+                  </div>
+
+                  <div className="pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs h-7 font-bold border-amber-500/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      onClick={() => recuperarMontoOriginal(itemDesc.contratacionId)}
+                      data-testid="recuperar-monto-btn"
+                    >
+                      Recuperar monto lista ({formatearDinero(lista)})
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tabla de Cobros */}
       <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
@@ -376,8 +592,41 @@ export function CobrosPanel() {
                       </td>
 
                       {/* Monto */}
-                      <td className="px-4 py-3 tabular-nums font-black text-sm text-foreground">
-                        {formatearDinero(item.monto)}
+                      <td className="px-4 py-3 tabular-nums text-sm text-foreground">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-black text-foreground" data-testid="cobro-monto">
+                            {formatearDinero(item.monto)}
+                          </span>
+                          {(item.ultimoPago?.notas || item.notaDescuento) && (
+                            <span
+                              className="inline-flex items-center justify-center rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black px-1.5 py-0.5 text-[11px] border border-amber-500/40 cursor-help"
+                              title={`Nota: ${item.ultimoPago?.notas || item.notaDescuento}`}
+                              data-testid="cobro-nota-n"
+                              aria-label={`Nota: ${item.ultimoPago?.notas || item.notaDescuento}`}
+                            >
+                              N
+                            </span>
+                          )}
+                        </div>
+
+                        {item.montoLista && item.montoLista > item.monto && (
+                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                            <span className="line-through">{formatearDinero(item.montoLista)}</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
+                              (-{formatearDinero(item.montoLista - item.monto)})
+                            </span>
+                          </div>
+                        )}
+
+                        {(item.ultimoPago?.notas || item.notaDescuento) && (
+                          <p
+                            className="text-[11px] text-muted-foreground font-medium italic mt-0.5 max-w-[200px] truncate"
+                            title={item.ultimoPago?.notas || item.notaDescuento}
+                            data-testid="cobro-nota-texto"
+                          >
+                            Nota: {item.ultimoPago?.notas || item.notaDescuento}
+                          </p>
+                        )}
                       </td>
 
                       {/* Estado */}
@@ -427,6 +676,14 @@ export function CobrosPanel() {
 
                       {/* Acciones */}
                       <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => verHistorial(item.alumnoId)}
+                          data-testid="ver-historial-btn"
+                        >
+                          Historial
+                        </Button>{" "}
                         {esPagado ? (
                           <Button
                             variant="outline"
@@ -495,6 +752,25 @@ export function CobrosPanel() {
                 data-testid="input-pago-monto"
               />
             </label>
+
+            {pagoMonto > 0 && pagoMonto < (cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) && (
+              <div
+                className="rounded-xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-xs text-amber-800 dark:text-amber-200 space-y-1"
+                data-testid="aviso-descuento-detectado"
+              >
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-black font-black text-[10px]">
+                    N
+                  </span>
+                  <span>
+                    Descuento detectado: -{formatearDinero((cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) - pagoMonto)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  El monto a abonar es menor al precio de lista ({formatearDinero(cobroSeleccionado.montoLista ?? cobroSeleccionado.monto)}). Se registrará con indicador &apos;N&apos; y la nota en el listado.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1.5 text-sm font-semibold">
               <span>Medio de Pago</span>
@@ -622,6 +898,18 @@ export function CobrosPanel() {
                   {formatearFecha(comprobanteActivo.proximoVencimiento)}
                 </span>
               </div>
+              {comprobanteActivo.montoLista && comprobanteActivo.montoLista > comprobanteActivo.monto && (
+                <div className="flex justify-between border-t border-border/40 pt-2 text-[11px]">
+                  <span className="text-muted-foreground">Precio de lista:</span>
+                  <span className="line-through tabular-nums">{formatearDinero(comprobanteActivo.montoLista)}</span>
+                </div>
+              )}
+              {comprobanteActivo.descuento && comprobanteActivo.descuento > 0 && (
+                <div className="flex justify-between text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                  <span>Descuento aplicado:</span>
+                  <span className="tabular-nums">-{formatearDinero(comprobanteActivo.descuento)}</span>
+                </div>
+              )}
               {comprobanteActivo.notas && (
                 <div className="flex justify-between border-t border-border/40 pt-2 text-[11px]">
                   <span className="text-muted-foreground">Notas:</span>
@@ -657,6 +945,278 @@ export function CobrosPanel() {
                   setComprobanteActivo(null);
                   reciboDialogRef.current?.close();
                 }}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+      </dialog>
+
+      {/* DIÁLOGO: KPI ANUAL DE INGRESOS (Enero a Diciembre y desagregado por actividad) */}
+      <dialog
+        ref={kpiAnualDialogRef}
+        open={kpiAnualAbierto}
+        className="m-auto w-[min(96vw,56rem)] max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="kpi-anual-titulo"
+        data-testid="kpi-anual-dialog"
+      >
+        {kpiAnualAbierto && (
+          <div className="space-y-6" data-testid="kpi-anual-contenedor">
+            {/* Header del modal */}
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-sm">
+                    $
+                  </span>
+                  <h2
+                    id="kpi-anual-titulo"
+                    className="text-xl font-black tracking-tight"
+                    data-testid="kpi-anual-titulo"
+                  >
+                    KPI Ingresos Anuales ({kpiAnualResultado.anio})
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ingresos cobrados de enero a diciembre y desagregado por actividad (funcional, boxeo, rutinas)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Total Facturado
+                  </span>
+                  <span
+                    className="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+                    data-testid="kpi-anual-total"
+                  >
+                    {formatearDinero(kpiAnualResultado.totalAnual)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setKpiAnualAbierto(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                  data-testid="btn-cerrar-kpi-anual"
+                  aria-label="Cerrar KPI anual"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Selector de Filtro por Actividad */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary/30 rounded-2xl p-3 border border-border/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">
+                  Filtrar por actividad:
+                </span>
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  role="group"
+                  aria-label="Filtro de actividades anual"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("TODAS")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "TODAS"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-todas"
+                  >
+                    Todas ({formatearDinero(kpiAnualResultado.totalAnual)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("FUNCIONAL")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "FUNCIONAL"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-funcional"
+                  >
+                    Funcional ({formatearDinero(kpiAnualResultado.desagregadoAnual.funcional)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("BOXEO")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "BOXEO"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-boxeo"
+                  >
+                    <span data-testid="filtro-actividad-box" className="sr-only">Box</span>
+                    Boxeo ({formatearDinero(kpiAnualResultado.desagregadoAnual.boxeo)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("RUTINAS")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "RUTINAS"
+                        ? "bg-sky-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-rutinas"
+                  >
+                    <span data-testid="filtro-actividad-rutina" className="sr-only">Rutinas</span>
+                    Rutinas ({formatearDinero(kpiAnualResultado.desagregadoAnual.rutinas)})
+                  </button>
+                </div>
+              </div>
+
+              {/* Select nativo accesible sincronizado */}
+              <select
+                value={filtroActividad}
+                onChange={(e) => handleCambiarFiltroActividad(e.target.value as any)}
+                className="h-8 rounded-lg border border-border bg-background px-2 text-xs font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+                data-testid="select-filtro-actividad"
+                aria-label="Seleccionar actividad"
+              >
+                <option value="TODAS">Todas las actividades</option>
+                <option value="FUNCIONAL">Funcional</option>
+                <option value="BOXEO">Boxeo</option>
+                <option value="RUTINAS">Rutinas online</option>
+              </select>
+            </div>
+
+            {/* Grilla de Enero a Diciembre (12 meses) */}
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+              data-testid="kpi-anual-meses"
+            >
+              {kpiAnualResultado.meses.map((mes) => {
+                const maxIngreso = Math.max(...kpiAnualResultado.meses.map((m) => m.ingresos), 1);
+                const porcentaje = Math.round((mes.ingresos / maxIngreso) * 100);
+
+                return (
+                  <div
+                    key={mes.mesNumero}
+                    className="rounded-2xl border border-border/70 bg-card/60 p-3 flex flex-col justify-between transition-all hover:border-primary/40 hover:bg-card shadow-2xs"
+                    data-testid={`kpi-mes-${mes.mesNumero}`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                        <span className="font-bold text-foreground" data-testid={`kpi-mes-${mes.mesNombre.toLowerCase()}`}>
+                          {mes.mesNombre}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground uppercase" data-testid={`kpi-mes-${mes.mesClave}`}>
+                          {mes.mesCorto}
+                        </span>
+                      </div>
+                      <p
+                        className="mt-2 text-base font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+                        data-testid={`kpi-ingreso-${mes.mesClave}`}
+                      >
+                        {formatearDinero(mes.ingresos)}
+                      </p>
+                    </div>
+
+                    <div
+                      className="mt-3 space-y-1.5 pt-2 border-t border-border/40 text-[10px] text-muted-foreground"
+                      data-testid={`kpi-desagregado-${mes.mesClave}`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Func:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.funcional)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Box:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.boxeo)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sky-600 dark:text-sky-400 font-medium">Rut:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.rutinas)}
+                        </span>
+                      </div>
+
+                      {/* Mini barra de progreso relativa */}
+                      <div className="w-full bg-secondary rounded-full h-1 mt-1 overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-1 rounded-full transition-all"
+                          style={{ width: `${porcentaje}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desglose resumido por actividad al pie */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block">
+                    Total Funcional
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Clases presenciales
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums"
+                  data-testid="total-actividad-funcional"
+                >
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.funcional)}
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-amber-800 dark:text-amber-300 block">
+                    Total Boxeo
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Clases presenciales
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums"
+                  data-testid="total-actividad-boxeo"
+                >
+                  <span data-testid="total-actividad-box" className="sr-only">Box</span>
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.boxeo)}
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-sky-500/10 border border-sky-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-sky-800 dark:text-sky-300 block">
+                    Total Rutinas
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Asesoría y entrenamiento online
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-sky-700 dark:text-sky-300 tabular-nums"
+                  data-testid="total-actividad-rutinas"
+                >
+                  <span data-testid="total-actividad-rutina" className="sr-only">Rutina</span>
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.rutinas)}
+                </span>
+              </div>
+            </div>
+
+            {/* Botón cerrar modal */}
+            <div className="flex justify-end pt-2">
+              <Button
+                type="button"
+                onClick={() => setKpiAnualAbierto(false)}
+                className="rounded-xl px-6"
+                data-testid="btn-cerrar-modal-kpi-anual"
               >
                 Cerrar
               </Button>
