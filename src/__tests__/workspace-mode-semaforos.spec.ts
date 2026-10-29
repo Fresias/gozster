@@ -126,15 +126,15 @@ describe("Sprint Demo INDEC: Conmutador Modo Producción vs Testeo y Semáforos 
       const rojos = resultados.filter((r) => r.semaphore === "RED");
       const sinPlan = resultados.filter((r) => !r.tienePlan);
 
-      expect(verdes.length).toBeGreaterThanOrEqual(3); // < 30 días
-      expect(amarillos.length).toBeGreaterThanOrEqual(2); // 30-60 días
-      expect(rojos.length).toBeGreaterThanOrEqual(2); // > 60 días o sin plan
+      expect(verdes.length).toBeGreaterThanOrEqual(3); // 0-15 días
+      expect(amarillos.length).toBeGreaterThanOrEqual(2); // 16-21 días
+      expect(rojos.length).toBeGreaterThanOrEqual(2); // 22+ días o sin plan
       expect(sinPlan.length).toBe(1); // Bautista Benítez sin plan
       expect(sinPlan[0]?.nombre).toContain("Bautista");
       expect(rojos.some((r) => r.nombre.includes("Sofía"))).toBe(true); // 70 días
       expect(rojos.some((r) => r.nombre.includes("Martina"))).toBe(true); // 65 días
-      expect(amarillos.some((r) => r.nombre.includes("Facundo"))).toBe(true); // 42 días
-      expect(amarillos.some((r) => r.nombre.includes("Camila"))).toBe(true); // 49 días
+      expect(amarillos.some((r) => r.nombre.includes("Facundo"))).toBe(true); // 18 días
+      expect(amarillos.some((r) => r.nombre.includes("Camila"))).toBe(true); // 19 días
       expect(verdes.some((r) => r.nombre.includes("Lucas"))).toBe(true); // 10 días
     });
 

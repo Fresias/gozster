@@ -28,6 +28,7 @@ export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type ActividadAlumno = ActividadClase | 'RUTINAS';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
@@ -1011,6 +1012,44 @@ export interface Database {
           },
         ];
       };
+      alumno_actividades: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana: number | null;
+          pase_libre: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          actividad?: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_actividades_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       auditoria_cambios: {
         Row: {
           id: string;
@@ -1669,13 +1708,9 @@ export interface Database {
         };
         Returns: boolean;
       };
-      registrar_pago: {
-        Args: {
-          p_cobro_id: string;
-          p_monto: number;
-          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
-        };
-        Returns: Database['public']['Tables']['cobros']['Row'];
+      obtener_ficha_alumno_actividades: {
+        Args: { p_alumno_id: string };
+        Returns: FichaAlumnoActividades;
       };
       registrar_pago_con_descuento: {
         Args: {
@@ -1683,6 +1718,14 @@ export interface Database {
           p_monto_cobrado: number;
           p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
           p_nota: string;
+        };
+        Returns: Database['public']['Tables']['cobros']['Row'];
+      };
+      registrar_pago: {
+        Args: {
+          p_cobro_id: string;
+          p_monto: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
       };
@@ -1858,6 +1901,18 @@ export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
 export type EstadoCobro = 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
 export type Cobro = Tables<'cobros'>;
+export type AlumnoActividad = Tables<'alumno_actividades'>;
+export type FichaAlumnoActividades = {
+  alumno_id: string;
+  actividades: Pick<AlumnoActividad, 'actividad' | 'veces_por_semana' | 'pase_libre'>[];
+  ultima_suscripcion: {
+    contratacion_id: string;
+    estado: Contratacion['estado'];
+    fecha_fin: string;
+    monto: number | null;
+    ultimo_cobro: { periodo: string; monto: number; estado: EstadoCobro } | null;
+  } | null;
+};
 export type CobroInsert = TablesInsert<'cobros'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
