@@ -22,6 +22,10 @@ import type {
 } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { PainReportData } from "@/components/athlete/pain-report-modal";
+import {
+  getPainBannerConfig,
+  type PainBannerData,
+} from "@/components/athlete/pain-banner";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -65,6 +69,7 @@ export interface LiveWorkoutExercise {
   comentario?: string | null;
   notas?: string | null;
   tempo?: string;
+  tempo_activo?: boolean;
   force_rpe_required?: boolean;
   es_superserie?: boolean;
   grupo_superserie?: number | null;
@@ -97,6 +102,7 @@ interface AthleteStoreState {
   restTimer: RestTimerState;
   rpeValidationError: string | null;
   stopProtocolActive: boolean;
+  activePainBanner: PainBannerData | null;
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
@@ -127,6 +133,7 @@ interface AthleteStoreState {
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
   pasoIncrementoPeso: number;
+  colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
 
@@ -155,8 +162,11 @@ interface AthleteStoreState {
   marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setPasoIncrementoPeso: (paso: number) => void;
+  setColapsarRutina: (colapsar: boolean) => void;
   deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
+  setActivePainBanner: (banner: PainBannerData | null) => void;
+  clearActivePainBanner: () => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
   setOnboardingCompletado: (completado: boolean) => void;
@@ -436,8 +446,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
       historialSesiones: REAL_HISTORIAL_CARGAS[DEFAULT_ATHLETE_ID] || [],
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
+      colapsarRutina: false,
       rpeValidationError: null,
       stopProtocolActive: false,
+      activePainBanner: null,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -449,6 +461,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
+      setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -589,6 +602,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           };
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
+      setActivePainBanner: (banner) => set({ activePainBanner: banner }),
+      clearActivePainBanner: () => set({ activePainBanner: null }),
       setNivelVistaAlumno: (nivel) =>
         set({
           vistaElegidaPorAlumno: nivel,
@@ -777,7 +792,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
           }));
         }
 
-        // 2. Activar protocolo de freno si hay Red Flags o dolor agudo
+        // 2. Generar cartel del reporte de dolor por rango (GOZS-278)
+        const painBanner = getPainBannerConfig(report.intensidadNumerica, {
+          exerciseName: report.exerciseName,
+          sintomasAlarma: report.sintomasAlarma,
+        });
+        set({ activePainBanner: painBanner });
+
+        // 3. Activar protocolo de freno si hay Red Flags o dolor agudo
         if (esSintomaAlarma || severidad === "AGUDO") {
           set({ stopProtocolActive: true });
         }
@@ -1636,6 +1658,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
             url_video: ejMaestro?.url_video || null,
             comentario: er.notas || ejMaestro?.comentario || null,
             notas: er.notas || ejMaestro?.comentario || null,
+            tempo: er.tempo || undefined,
+            tempo_activo: Boolean((er as any).tempo_activo),
+            force_rpe_required: Boolean((er as any).force_rpe_required),
+            es_superserie: Boolean(er.es_superserie),
+            grupo_superserie: er.grupo_superserie ?? null,
           };
         });
 
@@ -1684,6 +1711,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
+          activePainBanner: null,
           diaActivoId: null,
           diaElegidoHoyId: null,
           diaSugeridoId: null,
@@ -1738,6 +1766,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
         pasoIncrementoPeso: state.pasoIncrementoPeso,
+        colapsarRutina: state.colapsarRutina,
         currentSession: state.currentSession,
         nivelVistaAlumno: state.nivelVistaAlumno,
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,

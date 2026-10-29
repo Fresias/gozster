@@ -28,6 +28,7 @@ export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type ActividadAlumno = ActividadClase | 'RUTINAS';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
@@ -48,8 +49,11 @@ export interface Database {
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at: string;
           updated_at: string;
         };
@@ -65,8 +69,11 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -82,8 +89,11 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -245,6 +255,8 @@ export interface Database {
           grupo_superserie: number | null;
           tempo?: string | null;
           force_rpe_required?: boolean | null;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           created_at: string;
           updated_at: string;
         };
@@ -261,6 +273,8 @@ export interface Database {
           es_superserie?: boolean;
           grupo_superserie?: number | null;
           tempo?: string;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -278,6 +292,8 @@ export interface Database {
           es_superserie?: boolean;
           grupo_superserie?: number | null;
           tempo?: string;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -518,6 +534,57 @@ export interface Database {
             referencedColumns: ['id'];
           },
         ];
+      };
+      push_suscripciones: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          usuario_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      push_cola: {
+        Row: {
+          id: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          destinatario_id?: string;
+          mensaje_id?: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       mensajes: {
         Row: {
@@ -893,6 +960,9 @@ export interface Database {
           alumno_id: string;
           cobro_id: string | null;
           monto: number;
+          monto_lista: number | null;
+          monto_cobrado: number;
+          nota: string | null;
           medio_pago: MedioPago;
           estado: EstadoPago;
           idempotency_key: string;
@@ -907,6 +977,8 @@ export interface Database {
           alumno_id: string;
           cobro_id?: string | null;
           monto: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago: MedioPago;
           estado?: EstadoPago;
           idempotency_key: string;
@@ -921,6 +993,8 @@ export interface Database {
           alumno_id?: string;
           cobro_id?: string | null;
           monto?: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago?: MedioPago;
           estado?: EstadoPago;
           idempotency_key?: string;
@@ -952,6 +1026,39 @@ export interface Database {
             referencedColumns: ['id'];
           },
         ];
+      };
+      feriados: {
+        Row: {
+          id: string;
+          fecha: string;
+          nombre: string;
+          tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases: boolean;
+          fuente: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          fecha: string;
+          nombre: string;
+          tipo: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases?: boolean;
+          fuente?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          fecha?: string;
+          nombre?: string;
+          tipo?: 'INAMOVIBLE' | 'TRASLADABLE' | 'PUENTE';
+          hay_clases?: boolean;
+          fuente?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       cobros: {
         Row: {
@@ -997,6 +1104,112 @@ export interface Database {
           },
           {
             foreignKeyName: 'cobros_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      ranking_prs: {
+        Row: {
+          id: string;
+          clase_id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          fecha: string;
+          peso_kg: number;
+          reps: number;
+          registrado_por: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          clase_id: string;
+          alumno_id: string;
+          ejercicio_id: string;
+          fecha?: string;
+          peso_kg: number;
+          reps: number;
+          registrado_por?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          clase_id?: string;
+          alumno_id?: string;
+          ejercicio_id?: string;
+          fecha?: string;
+          peso_kg?: number;
+          reps?: number;
+          registrado_por?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ranking_prs_clase_id_fkey';
+            columns: ['clase_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_ejercicio_id_fkey';
+            columns: ['ejercicio_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'ranking_prs_registrado_por_fkey';
+            columns: ['registrado_por'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      alumno_actividades: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana: number | null;
+          pase_libre: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          actividad?: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_actividades_alumno_id_fkey';
             columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
@@ -1430,6 +1643,45 @@ export interface Database {
           },
         ];
       };
+      clases_fijas: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          horario_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          horario_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clases_fijas_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'clases_fijas_horario_id_fkey';
+            columns: ['horario_id'];
+            isOneToOne: false;
+            referencedRelation: 'clases_horario';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       reservas: {
         Row: {
           id: string;
@@ -1474,6 +1726,19 @@ export interface Database {
       };
     };
     Views: {
+      v_descuentos_otorgados: {
+        Row: {
+          pago_id: string;
+          alumno_id: string;
+          cobro_id: string | null;
+          confirmado_at: string | null;
+          monto_lista: number;
+          monto_cobrado: number;
+          descuento: number;
+          nota: string | null;
+        };
+        Relationships: [];
+      };
       v_morosos: {
         Row: {
           cobro_id: string;
@@ -1488,6 +1753,37 @@ export interface Database {
       };
     };
     Functions: {
+      contar_mensajes_no_leidos: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      asignar_clase_fija: {
+        Args: {
+          p_horario_id: string;
+          p_alumno_id?: string | null;
+        };
+        Returns: string;
+      };
+      quitar_clase_fija: {
+        Args: {
+          p_clase_fija_id: string;
+        };
+        Returns: undefined;
+      };
+      puede_gestionar_clases_fijas: {
+        Args: {
+          p_alumno_id: string;
+        };
+        Returns: boolean;
+      };
+      feriados_en_rango: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: Database['public']['Tables']['feriados']['Row'][];
+      };
+      fecha_habilita_clases: {
+        Args: { p_fecha: string };
+        Returns: boolean;
+      };
       es_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
@@ -1554,6 +1850,20 @@ export interface Database {
           peso_max_kg: number;
           mejor_1rm_epley: number;
           mejor_1rm_brzycki: number;
+        }[];
+      };
+      obtener_ranking_ejercicio: {
+        Args: {
+          p_ejercicio_id: string;
+        };
+        Returns: {
+          alumno_id: string;
+          nombre_completo: string;
+          sexo: 'M' | 'F' | null;
+          pr_kg: number;
+          ratio_pr_peso_corporal: number | null;
+          posicion_en_sexo: number | null;
+          motivo_exclusion: string | null;
         }[];
       };
       detectar_sobrecarga_progresiva: {
@@ -1648,6 +1958,19 @@ export interface Database {
           p_clase_id: string;
         };
         Returns: boolean;
+      };
+      obtener_ficha_alumno_actividades: {
+        Args: { p_alumno_id: string };
+        Returns: FichaAlumnoActividades;
+      };
+      registrar_pago_con_descuento: {
+        Args: {
+          p_cobro_id: string;
+          p_monto_cobrado: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_nota: string;
+        };
+        Returns: Database['public']['Tables']['cobros']['Row'];
       };
       registrar_pago: {
         Args: {
@@ -1829,6 +2152,18 @@ export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
 export type EstadoCobro = 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
 export type Cobro = Tables<'cobros'>;
+export type AlumnoActividad = Tables<'alumno_actividades'>;
+export type FichaAlumnoActividades = {
+  alumno_id: string;
+  actividades: Pick<AlumnoActividad, 'actividad' | 'veces_por_semana' | 'pase_libre'>[];
+  ultima_suscripcion: {
+    contratacion_id: string;
+    estado: Contratacion['estado'];
+    fecha_fin: string;
+    monto: number | null;
+    ultimo_cobro: { periodo: string; monto: number; estado: EstadoCobro } | null;
+  } | null;
+};
 export type CobroInsert = TablesInsert<'cobros'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
@@ -1848,5 +2183,9 @@ export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_
 export type PlanMembresia = Tables<'planes_membresia'>;
 export type ClaseHorario = Tables<'clases_horario'>;
 export type Clase = Tables<'clases'>;
+export type Feriado = Tables<'feriados'>;
 export type ClaseProfesor = Tables<'clases_profesores'>;
 export type Reserva = Tables<'reservas'>;
+export type RankingPR = Tables<'ranking_prs'>;
+export type RankingPRInsert = TablesInsert<'ranking_prs'>;
+export type RankingPRUpdate = TablesUpdate<'ranking_prs'>;
