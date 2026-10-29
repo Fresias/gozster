@@ -1,4 +1,5 @@
 import type {
+  AlumnoActividad,
   Conversacion,
   DiaRutina,
   Ejercicio,
@@ -703,3 +704,51 @@ export const MOCK_HISTORIAL_CARGAS: Record<string, HistoricalLoadEntry[]> = {
     },
   ],
 };
+
+export const MOCK_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
+  {
+    id: "mock-act-lucas-rutinas",
+    alumno_id: "a1111111-1111-4111-8111-111111111101",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: "2026-01-10T12:00:00Z",
+    updated_at: "2026-01-10T12:00:00Z",
+  },
+  {
+    id: "mock-act-sofia-funcional",
+    alumno_id: "a2222222-2222-4222-8222-222222222202",
+    actividad: "FUNCIONAL",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: "2026-02-14T10:00:00Z",
+    updated_at: "2026-02-14T10:00:00Z",
+  },
+  {
+    id: "mock-act-sofia-boxeo",
+    alumno_id: "a2222222-2222-4222-8222-222222222202",
+    actividad: "BOXEO",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: "2026-02-14T10:00:00Z",
+    updated_at: "2026-02-14T10:00:00Z",
+  },
+  {
+    id: "mock-act-mateo-boxeo",
+    alumno_id: "a3333333-3333-4333-8333-333333333303",
+    actividad: "BOXEO",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: "2026-03-01T08:00:00Z",
+    updated_at: "2026-03-01T08:00:00Z",
+  },
+  {
+    id: "mock-act-valentina-funcional",
+    alumno_id: "a4444444-4444-4444-8444-444444444404",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: "2026-04-05T09:00:00Z",
+    updated_at: "2026-04-05T09:00:00Z",
+  },
+];
