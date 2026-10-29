@@ -152,7 +152,7 @@ interface CoachStudioState {
   asignarPlanDesdePlantilla: (
     alumnoId: string,
     plantillaId?: string,
-  ) => Promise<PlanEntrenamiento>;
+  ) => Promise<PlanEntrenamiento | null>;
 
   // Contrataciones y Pagos (ADR-001)
   getContratacionAlumno: (alumno: Perfil) => Contratacion;
@@ -863,9 +863,22 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ) => {
       const nuevoPlanId = await asignarRutinaAAlumno(plantillaId, alumnoId);
       const dataset = await fetchLiveDatasetFromSupabase();
-      const nuevoPlan = dataset.planes.find((p) => p.id === nuevoPlanId);
-      if (!nuevoPlan) throw new Error("No pudimos asignar la rutina. Intenta de nuevo.");
+      const nuevoPlan = dataset.planes.find((p) => p.id === nuevoPlanId) ?? null;
       const alumno = get().alumnos.find((a) => a.id === alumnoId);
+      const nombreAlumno = alumno?.nombre_completo ?? "alumno";
+
+      // La RPC ya asignó: si la recarga no trae el clon (dataset de respaldo) no se pisa el estado.
+      if (!nuevoPlan) {
+        set({
+          toast: {
+            id: `toast-${Date.now()}`,
+            type: "success",
+            title: "¡Rutina Asignada con Éxito!",
+            message: `Se asignó la rutina a ${nombreAlumno}. Recarga la página para verla.`,
+          },
+        });
+        return null;
+      }
 
       set({
         planes: dataset.planes,
@@ -875,7 +888,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           id: `toast-${Date.now()}`,
           type: "success",
           title: "¡Rutina Asignada con Éxito!",
-          message: `Se asignó "${nuevoPlan.nombre}" a ${alumno?.nombre_completo ?? "alumno"}.`,
+          message: `Se asignó "${nuevoPlan.nombre}" a ${nombreAlumno}.`,
         },
       });
 

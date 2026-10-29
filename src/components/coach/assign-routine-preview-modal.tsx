@@ -37,6 +37,7 @@ export function AssignRoutinePreviewModal({
   );
   const [showConfirmation, setShowConfirmation] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [errorAsignacion, setErrorAsignacion] = React.useState<string | null>(null);
 
   // Sincronizar selección inicial al abrir el modal
   React.useEffect(() => {
@@ -44,6 +45,7 @@ export function AssignRoutinePreviewModal({
       setSelectedPlantillaId(plantillas[0]?.id || "");
       setShowConfirmation(false);
       setIsSubmitting(false);
+      setErrorAsignacion(null);
     }
   }, [isOpen, plantillas]);
 
@@ -63,9 +65,14 @@ export function AssignRoutinePreviewModal({
   const handleEjecutarAsignacion = async () => {
     if (!plantillaSeleccionada) return;
     setIsSubmitting(true);
+    setErrorAsignacion(null);
     try {
       await onConfirmAssign(alumno.id, plantillaSeleccionada.id);
       onClose();
+    } catch (err) {
+      setErrorAsignacion(
+        err instanceof Error ? err.message : "No pudimos asignar la rutina. Intenta de nuevo.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -304,6 +311,12 @@ export function AssignRoutinePreviewModal({
             </div>
           )}
         </div>
+
+        {errorAsignacion && (
+          <p role="alert" className="border-t border-border px-4 py-2 text-sm text-rose-300 sm:px-5">
+            {errorAsignacion}
+          </p>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between border-t border-border bg-card/80 p-4 sm:p-5">

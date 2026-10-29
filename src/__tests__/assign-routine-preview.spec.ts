@@ -122,14 +122,36 @@ describe("GOZS-245: 'Asignar rutina' abre preview de rutinas genéricas con conf
       const nuevoPlan = await store.asignarPlanDesdePlantilla(alumnoId, PLANTILLA_ADAPTACION_ID);
 
       expect(asignarRutinaAAlumno).toHaveBeenCalledWith(PLANTILLA_ADAPTACION_ID, alumnoId);
-      expect(nuevoPlan.id).toBe(plan.id);
-      expect(nuevoPlan.estado).toBe("ACTIVO");
-      expect(nuevoPlan.plan_origen_id).toBe(PLANTILLA_ADAPTACION_ID);
+      expect(nuevoPlan?.id).toBe(plan.id);
+      expect(nuevoPlan?.estado).toBe("ACTIVO");
+      expect(nuevoPlan?.plan_origen_id).toBe(PLANTILLA_ADAPTACION_ID);
 
       const statePost = useCoachStudioStore.getState();
       expect(statePost.planes.some((p) => p.id === plan.id)).toBe(true);
       expect(statePost.toast?.type).toBe("success");
       expect(statePost.toast?.message).toContain(mockAlumnoSinRutina.nombre_completo);
+    });
+
+    it("RPC ok pero la recarga no trae el clon: éxito con aviso y sin pisar el estado", async () => {
+      const alumnoId = mockAlumnoSinRutina.id;
+      vi.mocked(asignarRutinaAAlumno).mockResolvedValue("plan-que-no-llega");
+      vi.mocked(fetchLiveDatasetFromSupabase).mockResolvedValue({
+        alumnos: [],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      });
+      const planesAntes = [{ id: "previo" }] as never;
+      useCoachStudioStore.setState({ alumnos: [mockAlumnoSinRutina], planes: planesAntes });
+
+      const res = await useCoachStudioStore.getState().asignarPlanDesdePlantilla(alumnoId, PLANTILLA_ADAPTACION_ID);
+
+      expect(res).toBeNull();
+      const st = useCoachStudioStore.getState();
+      expect(st.planes).toBe(planesAntes);
+      expect(st.toast?.type).toBe("success");
+      expect(st.toast?.message).toContain("Recarga la página");
     });
 
     it("propaga el error humano de la RPC sin tocar el estado", async () => {
