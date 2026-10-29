@@ -140,9 +140,8 @@ describe("GOZS-141: planes_membresia_precios (PGlite)", () => {
 
   it("un aumento cargado hoy no cambia la cobranza pendiente de cuotas vencidas antes", async () => {
     expect(await pendiente()).toBe(20000);
-    await como(
-      "authenticated",
-      ADMIN,
+    // Carga retroactiva solo posible con rol privilegiado (la API la rechaza, ver GOZS-223).
+    await db.exec(
       `INSERT INTO public.planes_membresia_precios (plan_membresia_id, precio, vigente_desde)
        VALUES ('${PLAN}', 22000, ${HOY_AR} - 1)`
     );
@@ -190,12 +189,16 @@ describe("GOZS-141: planes_membresia_precios (PGlite)", () => {
   });
 
   it("no permite dos precios para el mismo plan y fecha", async () => {
+    await db.exec(
+      `INSERT INTO public.planes_membresia_precios (plan_membresia_id, precio, vigente_desde)
+       VALUES ('${PLAN_ANTIGUO}', 23000, '2027-01-01')`
+    );
     await expect(
       como(
         "authenticated",
         ADMIN,
         `INSERT INTO public.planes_membresia_precios (plan_membresia_id, precio, vigente_desde)
-         VALUES ('${PLAN_ANTIGUO}', 1, '2026-10-24')`
+         VALUES ('${PLAN_ANTIGUO}', 1, '2027-01-01')`
       )
     ).rejects.toThrow(/duplicate key|unique/);
   });
@@ -218,5 +221,35 @@ describe("GOZS-141: planes_membresia_precios (PGlite)", () => {
       `SELECT public.restaurar_filas_respaldo('planes_membresia_precios', '[]'::jsonb) AS n`
     );
     expect(r.rows[0]!.n).toBe(0);
+  });
+
+  it("GOZS-223: la API rechaza un precio con vigencia hoy o pasada y acepta una futura", async () => {
+    const ins = (d: string) =>
+      como(
+        "authenticated",
+        ADMIN,
+        `INSERT INTO public.planes_membresia_precios (plan_membresia_id, precio, vigente_desde)
+         VALUES ('${PLAN_ANTIGUO}', 30000, ${d})`
+      );
+    await expect(ins(HOY_AR)).rejects.toThrow(/posterior a hoy/);
+    await expect(ins(`${HOY_AR} - 1`)).rejects.toThrow(/posterior a hoy/);
+    await expect(ins(`${HOY_AR} + 1`)).resolves.toBeDefined();
+  });
+
+  it("GOZS-223: un pago multi-mes cuenta completo en el mes del cobro", async () => {
+    await db.exec(`
+      INSERT INTO public.planes_membresia (id, nombre, cantidad_actividades, duracion_meses, precio)
+        VALUES ('20000000-0000-0000-0000-000000000003','Trimestral',1,3,60000);
+      INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin, estado, plan_membresia_id, actividad)
+        VALUES ('10000000-0000-0000-0000-000000000003','${ALUMNO}',5,${HOY_AR},${HOY_AR} + 90,'VIGENTE','20000000-0000-0000-0000-000000000003','FUNCIONAL');
+      INSERT INTO public.pagos (contratacion_id, alumno_id, monto, medio_pago, estado, idempotency_key, confirmado_at)
+        VALUES ('10000000-0000-0000-0000-000000000003','${ALUMNO}',60000,'EFECTIVO','CONFIRMADO','k3', now());
+    `);
+    const r = await como<{ i: string }>(
+      "authenticated",
+      ADMIN,
+      `SELECT ingresos::text AS i FROM public.obtener_kpis_negocio(date_trunc('month', ${HOY_AR})::date, ${HOY_AR})`
+    );
+    expect(Number(r.rows[0]!.i)).toBe(80000);
   });
 });
