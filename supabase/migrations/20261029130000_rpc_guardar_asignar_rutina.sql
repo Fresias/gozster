@@ -112,12 +112,14 @@ BEGIN
     v_ej_n := 0;
     FOR v_ej IN SELECT * FROM jsonb_array_elements(COALESCE(v_dia -> 'ejercicios', '[]'::JSONB)) LOOP
       v_ej_n := v_ej_n + 1;
-      v_ej_nombre := COALESCE(
-        NULLIF(v_ej ->> 'nombre', ''),
-        (SELECT e.nombre FROM public.ejercicios e WHERE e.id = NULLIF(v_ej ->> 'ejercicio_id', '')::UUID),
-        'ejercicio ' || v_ej_n
-      );
+      v_ej_nombre := COALESCE(NULLIF(v_ej ->> 'nombre', ''), 'ejercicio ' || v_ej_n);
       BEGIN
+        -- el cast a UUID va dentro del bloque: un id mal formado también da mensaje humano
+        v_ej_nombre := COALESCE(
+          NULLIF(v_ej ->> 'nombre', ''),
+          (SELECT e.nombre FROM public.ejercicios e WHERE e.id = (v_ej ->> 'ejercicio_id')::UUID),
+          v_ej_nombre
+        );
         INSERT INTO public.ejercicios_en_rutina (
           dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo,
           notas, es_superserie, grupo_superserie, tempo, tempo_activo, tipo_serie, force_rpe_required
