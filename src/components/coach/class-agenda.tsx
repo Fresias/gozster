@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import {
@@ -1523,6 +1524,17 @@ function renderDetalleClase(
               >
                 + Anotar alumno
               </Button>
+              <Link href={`/studio/ranking-funcional?claseId=${seleccionada.id}`}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="class-ranking-btn"
+                  className="font-bold flex items-center gap-1.5"
+                >
+                  <span aria-hidden="true">🏆</span>
+                  <span>Ranking PRs</span>
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"
