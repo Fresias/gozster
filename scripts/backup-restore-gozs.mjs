@@ -40,7 +40,10 @@ export const TABLAS = [
     fks: { ejercicio_alternativo_id: "ejercicios", ejercicio_origen_id: "ejercicios" },
   },
   { nombre: "entrenador_alumnos", fks: { alumno_id: "perfiles", entrenador_id: "perfiles" } },
-  { nombre: "planes_entrenamiento", fks: { alumno_id: "perfiles", profesor_id: "perfiles" } },
+  {
+    nombre: "planes_entrenamiento",
+    fks: { alumno_id: "perfiles", plan_origen_id: "planes_entrenamiento", profesor_id: "perfiles" },
+  },
   { nombre: "dias_rutina", fks: { plan_id: "planes_entrenamiento" } },
   { nombre: "ejercicios_en_rutina", fks: { dia_id: "dias_rutina", ejercicio_id: "ejercicios" } },
   { nombre: "registro_sesiones", fks: { alumno_id: "perfiles", dia_id: "dias_rutina", dia_sugerido_id: "dias_rutina" } },
