@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { diasSinPR, estaEstancado } from "@/lib/estancamiento";
+import type { SerieHistorica } from "@/lib/historial-ejercicio";
 import { supabase } from "@/lib/supabase/client";
 import {
   REAL_ALUMNOS,
@@ -78,4 +80,33 @@ export async function fetchLiveDatasetFromSupabase(
       ejercicios: REAL_EJERCICIOS,
     };
   }
+}
+
+export interface AlumnoEstancado {
+  alumnoId: string;
+  diasSinPR: number;
+}
+
+/** Alumnos con 30+ días sin PR habiendo entrenado (GOZS-226). RLS limita a los alumnos del coach. */
+export async function fetchAlumnosEstancados(client: SupabaseClient<Database> = supabase): Promise<AlumnoEstancado[]> {
+  const porAlumno = new Map<string, SerieHistorica[]>();
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await client
+      .from("registro_series")
+      .select("ejercicio_id, sesion_id, numero_serie, peso_kg, reps_hechas, rpe_real, completada, set_type, registro_sesiones!inner(fecha, alumno_id)")
+      .eq("completada", true)
+      .order("id")
+      .range(desde, desde + 999);
+    if (error || !data) return [];
+    for (const { registro_sesiones, ...s } of data as any[]) {
+      const lista = porAlumno.get(registro_sesiones.alumno_id) ?? [];
+      lista.push({ ...s, fecha: registro_sesiones.fecha });
+      porAlumno.set(registro_sesiones.alumno_id, lista);
+    }
+    if (data.length < 1000) break;
+  }
+  return [...porAlumno]
+    .filter(([, series]) => estaEstancado(series))
+    .map(([alumnoId, series]) => ({ alumnoId, diasSinPR: diasSinPR(series) }))
+    .sort((a, b) => b.diasSinPR - a.diasSinPR);
 }
