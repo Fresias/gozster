@@ -88,7 +88,7 @@ export function WarmupModal({
             </span>
             <div>
               <h2 className="text-base font-bold text-foreground">
-                Series de Aproximación
+                Calculadora de Aproximación
               </h2>
               <p className="text-xs text-muted-foreground">{exerciseName}</p>
             </div>
@@ -253,8 +253,9 @@ export function WarmupModal({
               onClose();
             }}
             data-testid="apply-warmup-sets-btn"
+            title="✓ Cargar 4 Series (W)"
           >
-            ✓ Cargar {progressions.length > 0 ? `${progressions.length} Series (W)` : "Series (W)"}
+            ✓ Cargar {progressions.length > 0 ? `${progressions.length} Series (Aproximación)` : "Series (Aproximación)"}
           </Button>
         </div>
       </div>
