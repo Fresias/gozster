@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type {
+  ActividadAlumno,
+  AlumnoActividad,
   Contratacion,
   DiaRutina,
   Ejercicio,
@@ -17,6 +19,7 @@ import {
 } from "@/lib/contrataciones";
 import {
   MOCK_ALUMNOS,
+  MOCK_ALUMNO_ACTIVIDADES,
   MOCK_DIAS,
   MOCK_EJERCICIOS,
   MOCK_EJERCICIOS_RUTINA,
@@ -25,10 +28,15 @@ import {
   MOCK_PROFESOR_ID,
   type HistoricalLoadEntry,
 } from "@/services/coach-mock-data";
+import {
+  type FiltroActividad,
+  obtenerActividadesAlumno,
+  alumnoTieneActividad,
+} from "@/lib/alumno-actividades";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
-import { DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_CONTRATACIONES_CLASES, DEMO_ALUMNO_ACTIVIDADES } from "@/services/coach-demo-dataset";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -99,6 +107,8 @@ interface CoachStudioState {
   historialCargas: Record<string, HistoricalLoadEntry[]>;
   contrataciones: Contratacion[];
   sustituciones: SustitucionEjercicio[];
+  alumnoActividades: AlumnoActividad[];
+  filtroActividad: FiltroActividad;
 
   selectedAlumnoId: string | null;
   chatAlumnoId: string | null;
@@ -125,6 +135,8 @@ interface CoachStudioState {
   setWhatsAppEnabled: (enabled: boolean) => void;
   toggleWhatsAppEnabled: () => void;
   openChatForAlumno: (alumnoId: string) => void;
+  setFiltroActividad: (filtro: FiltroActividad) => void;
+  setAlumnoActividades: (actividades: AlumnoActividad[]) => void;
   setCurrentPage: (page: number) => void;
   setRoutineBuilderOpen: (open: boolean) => void;
   dismissToast: () => void;
@@ -183,8 +195,12 @@ interface CoachStudioState {
   getHistorialCargasAlumno: (alumnoId: string) => HistoricalLoadEntry[];
   getSustitucionesPlan: (planId: string) => SustitucionEjercicio[];
   getSustitucionesAlumno: (alumnoId: string) => SustitucionEjercicio[];
+  getActividadesAlumno: (alumnoId: string) => ActividadAlumno[];
 
-  obtenerMetricasRetencion: (profesorId?: string | null) => MetricasRetencion;
+  obtenerMetricasRetencion: (
+    profesorId?: string | null,
+    actividad?: FiltroActividad,
+  ) => MetricasRetencion;
   detectarSobrecargaProgresiva: (
     alumnoId: string,
     ejercicioId: string,
@@ -206,7 +222,9 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
     ejercicios: MOCK_EJERCICIOS,
     historialCargas: MOCK_HISTORIAL_CARGAS,
-    contrataciones: [],
+    contrataciones: DEMO_CONTRATACIONES_CLASES,
+    alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
+    filtroActividad: "TODAS",
     sustituciones: [
       {
         id: "sust-demo-001",
@@ -281,6 +299,11 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       set({ chatAlumnoId: alumnoId, isChatOpen: true });
     },
 
+    setFiltroActividad: (filtroActividad) =>
+      set({ filtroActividad, currentPage: 1 }),
+
+    setAlumnoActividades: (alumnoActividades) => set({ alumnoActividades }),
+
     setCurrentPage: (currentPage) => set({ currentPage }),
 
     setRoutineBuilderOpen: (isRoutineBuilderOpen) => set({ isRoutineBuilderOpen }),
@@ -344,6 +367,17 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const state = get();
       const planIds = state.planes.filter((p) => p.alumno_id === alumnoId).map((p) => p.id);
       return state.sustituciones.filter((s) => planIds.includes(s.plan_id));
+    },
+
+    getActividadesAlumno: (alumnoId: string) => {
+      const { alumnoActividades, contrataciones, planes, alumnos } = get();
+      return obtenerActividadesAlumno({
+        alumnoId,
+        alumnoActividades,
+        contrataciones,
+        planes,
+        alumno: alumnos.find((a) => a.id === alumnoId),
+      });
     },
 
     registrarSustitucion: async (input) => {
@@ -911,11 +945,29 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       return nuevoPlan;
     },
 
-    obtenerMetricasRetencion: (profesorId?: string | null) => {
-      const { alumnos, planes } = get();
-      const alumnosFiltrados = profesorId
+    obtenerMetricasRetencion: (
+      profesorId?: string | null,
+      actividad?: FiltroActividad,
+    ) => {
+      const { alumnos, planes, filtroActividad, alumnoActividades, contrataciones } = get();
+      const actividadFiltro = actividad ?? filtroActividad ?? "TODAS";
+
+      let alumnosFiltrados = profesorId
         ? alumnos.filter((a) => a.profesor_asignado_id === profesorId)
         : alumnos;
+
+      if (actividadFiltro !== "TODAS") {
+        alumnosFiltrados = alumnosFiltrados.filter((a) =>
+          alumnoTieneActividad({
+            alumnoId: a.id,
+            actividad: actividadFiltro,
+            alumnoActividades,
+            contrataciones,
+            planes,
+            alumno: a,
+          }),
+        );
+      }
 
       // cantActivas: rol = 'ALUMNO' y estado_membresia IN ('ACTIVA', 'ACTIVE')
       const activas = alumnosFiltrados.filter(

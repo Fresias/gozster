@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estaEstancado, fechasDePR } from "@/lib/estancamiento";
+import { diasSinPR, estaEstancado, fechasDePR } from "@/lib/estancamiento";
 import type { SerieHistorica } from "@/lib/historial-ejercicio";
 
 const AHORA = Date.parse("2026-10-28T12:00:00Z");
@@ -50,5 +50,14 @@ describe("alerta de estancamiento (GOZS-226)", () => {
   });
   it("sin series → no aparece", () => {
     expect(estaEstancado([], AHORA)).toBe(false);
+  });
+});
+
+describe("días sin PR (GOZS-241)", () => {
+  it("cuenta desde el último PR", () => {
+    expect(diasSinPR([serie(60, 50, 5), serie(45, 55, 5), serie(10, 40, 5)], AHORA)).toBe(45);
+  });
+  it("sin PR cuenta desde la primera serie", () => {
+    expect(diasSinPR([serie(60, 50, 5), serie(10, 40, 5)], AHORA)).toBe(60);
   });
 });
