@@ -36,6 +36,16 @@ export interface ReservaAgenda extends Reserva {
   alumno_nombre: string;
 }
 
+export interface ClaseFijaItem {
+  id: string;
+  alumno_id: string;
+  horario_id: string;
+  actividad?: ActividadClase;
+  dia_semana?: number;
+  hora_inicio?: string;
+  created_at?: string;
+}
+
 export type VistaAgenda = "semana" | "dia" | "mes";
 
 interface ClasesState {
@@ -45,6 +55,7 @@ interface ClasesState {
   semanaInicio: string | null;
   clases: Clase[];
   misReservas: Reserva[];
+  clasesFijas: ClaseFijaItem[];
   membresia: Contratacion | null;
   plan: PlanMembresia | null;
   sinCupo: string[];
@@ -87,6 +98,11 @@ interface ClasesState {
   ) => Promise<{ ok: boolean; advertencia?: string; requiereConfirmacion?: boolean }>;
   quitarAnotadoCoach: (reservaId: string) => Promise<boolean>;
 
+  // Métodos Clases Fijas (GOZS-225 / GOZS-246)
+  asignarClaseFija: (horarioId: string, alumnoId: string) => Promise<boolean>;
+  quitarClaseFija: (claseFijaId: string) => Promise<boolean>;
+  obtenerClasesFijasAlumno: (alumnoId: string) => ClaseFijaItem[];
+
   limpiarMensajes: () => void;
 }
 
@@ -116,6 +132,7 @@ export const useClasesStore = create<ClasesState>()(
       semanaInicio: null,
       clases: [],
       misReservas: [],
+      clasesFijas: [],
       membresia: null,
       plan: null,
       sinCupo: [],
@@ -165,6 +182,10 @@ export const useClasesStore = create<ClasesState>()(
           clases: demoClases,
           agendaReservas: demoReservas,
           misReservas,
+          clasesFijas: [
+            { id: "demo-fija-valentina-1", alumno_id: "demo-alumno-valentina", horario_id: "demo-horario-func-lunes" },
+            { id: "demo-fija-valentina-2", alumno_id: "demo-alumno-valentina", horario_id: "demo-horario-func-miercoles" },
+          ],
           membresia: contratacion,
           plan,
           sinCupo,
@@ -917,6 +938,67 @@ export const useClasesStore = create<ClasesState>()(
         return true;
       },
 
+      asignarClaseFija: async (horarioId, alumnoId) => {
+        if (!horarioId || !alumnoId) return false;
+        const nuevaFija: ClaseFijaItem = {
+          id: `demo-fija-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          alumno_id: alumnoId,
+          horario_id: horarioId,
+          created_at: new Date().toISOString(),
+        };
+
+        if (esModoTesteo() || !enLinea()) {
+          set((state) => ({
+            clasesFijas: [
+              ...state.clasesFijas.filter((f) => !(f.alumno_id === alumnoId && f.horario_id === horarioId)),
+              nuevaFija,
+            ],
+          }));
+          return true;
+        }
+
+        try {
+          const { error } = await supabase.rpc("asignar_clase_fija" as any, {
+            p_horario_id: horarioId,
+            p_alumno_id: alumnoId,
+          });
+          if (error) {
+            await supabase.from("clases_fijas" as any).insert({
+              alumno_id: alumnoId,
+              horario_id: horarioId,
+            });
+          }
+        } catch {
+          // fallback
+        }
+
+        set((state) => ({
+          clasesFijas: [
+            ...state.clasesFijas.filter((f) => !(f.alumno_id === alumnoId && f.horario_id === horarioId)),
+            nuevaFija,
+          ],
+        }));
+        return true;
+      },
+
+      quitarClaseFija: async (claseFijaId) => {
+        set((state) => ({
+          clasesFijas: state.clasesFijas.filter((f) => f.id !== claseFijaId),
+        }));
+        if (!esModoTesteo() && enLinea()) {
+          try {
+            await supabase.rpc("quitar_clase_fija" as any, { p_clase_fija_id: claseFijaId });
+          } catch {
+            // best-effort
+          }
+        }
+        return true;
+      },
+
+      obtenerClasesFijasAlumno: (alumnoId) => {
+        return get().clasesFijas.filter((f) => f.alumno_id === alumnoId);
+      },
+
       limpiarMensajes: () => set({ error: null, aviso: null }),
     }),
     {
@@ -927,6 +1009,7 @@ export const useClasesStore = create<ClasesState>()(
         semanaInicio: s.semanaInicio,
         clases: s.clases,
         misReservas: s.misReservas,
+        clasesFijas: s.clasesFijas,
         membresia: s.membresia,
         plan: s.plan,
         sinCupo: s.sinCupo,

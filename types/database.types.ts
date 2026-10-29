@@ -2186,6 +2186,7 @@ export type Clase = Tables<'clases'>;
 export type Feriado = Tables<'feriados'>;
 export type ClaseProfesor = Tables<'clases_profesores'>;
 export type Reserva = Tables<'reservas'>;
+export type ClaseFija = Tables<'clases_fijas'>;
 export type RankingPR = Tables<'ranking_prs'>;
 export type RankingPRInsert = TablesInsert<'ranking_prs'>;
 export type RankingPRUpdate = TablesUpdate<'ranking_prs'>;
