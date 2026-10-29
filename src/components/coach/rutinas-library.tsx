@@ -20,6 +20,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   const [alumnoElegido, setAlumnoElegido] = React.useState("");
   const [enCurso, setEnCurso] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [aviso, setAviso] = React.useState<string | null>(null);
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   const { plantillas, deAlumnos, archivadas } = clasificarRutinas(dataset.planes);
@@ -39,17 +40,25 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     if (!asignando && dialog.open) dialog.close();
   }, [asignando]);
 
+  const cerrarAsignacion = () => {
+    setAsignando(null);
+    setAlumnoElegido("");
+  };
+
   const confirmarAsignacion = async () => {
     if (!asignando || !alumnoElegido) return;
     setEnCurso(true);
     setError(null);
+    setAviso(null);
     try {
       const nuevoId = await asignarRutinaAAlumno(asignando.id, alumnoElegido);
       const fresco = await recargar();
       const clon = fresco.planes.find((p) => p.id === nuevoId) ?? null;
+      const alumnoId = alumnoElegido;
       setAsignando(null);
       setAlumnoElegido("");
-      setBuilder({ plan: clon, alumnoId: alumnoElegido });
+      if (clon) setBuilder({ plan: clon, alumnoId });
+      else setAviso("La rutina se asignó, pero no pudimos cargarla. Recarga la página para verla.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No pudimos asignar la rutina. Intenta de nuevo.");
     } finally {
@@ -116,6 +125,12 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         </Button>
       </header>
 
+      {aviso && (
+        <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/15 p-3 text-sm text-amber-300">
+          {aviso}
+        </p>
+      )}
+
       <Tabs defaultValue="plantillas">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="plantillas">Plantillas ({plantillas.length})</TabsTrigger>
@@ -131,7 +146,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
 
       <dialog
         ref={dialogRef}
-        onClose={() => setAsignando(null)}
+        onClose={cerrarAsignacion}
         className="w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-5 text-foreground backdrop:bg-black/60"
       >
         <h2 className="text-lg font-bold">Asignar “{asignando?.nombre}”</h2>
@@ -157,7 +172,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
           </p>
         )}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" size="touch" onClick={() => setAsignando(null)}>
+          <Button variant="ghost" size="touch" onClick={cerrarAsignacion}>
             Cancelar
           </Button>
           <Button size="touch" disabled={!alumnoElegido || enCurso} onClick={confirmarAsignacion}>

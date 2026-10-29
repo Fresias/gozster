@@ -46,6 +46,65 @@ interface RoutineBuilderModalProps {
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
 
+type SaveMode = "guardar" | "version" | "nueva";
+
+const GENERIC_SAVE_ERROR = "No se pudo guardar la rutina. Intenta de nuevo.";
+
+export function buildGuardarRutinaPayload(input: {
+  planId?: string;
+  comoNueva: boolean;
+  nombre: string;
+  comentarios: string;
+  alumnoId?: string;
+  days: BuilderDay[];
+}) {
+  return {
+    ...(input.planId ? { plan_id: input.planId } : {}),
+    ...(input.comoNueva ? { como_nueva: true } : {}),
+    nombre: input.nombre,
+    comentarios: input.comentarios,
+    ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
+    dias: input.days.map((d) => ({
+      nombre: d.nombre,
+      ejercicios: d.ejercicios.map((e) => ({
+        ejercicio_id: e.ejercicio_id,
+        nombre: e.nombre,
+        series: e.series,
+        repeticiones: e.repeticiones,
+        descanso_segundos: e.descanso_segundos,
+        rpe_objetivo: e.rpe_objetivo,
+        notas: e.notas || null,
+        es_superserie: e.es_superserie,
+        grupo_superserie: e.grupo_superserie,
+        tempo: e.tempo,
+        tempo_activo: e.tempo_activo,
+        tipo_serie: e.tipo_serie,
+        force_rpe_required: e.force_rpe_required,
+      })),
+    })),
+  };
+}
+
+// GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
+export function clasificarErrorGuardado(err: any, modo: SaveMode) {
+  const esNegocio = err?.code === "GZ010";
+  const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
+  return {
+    mensaje,
+    needsNewVersion: esNegocio && modo === "guardar" && /sesiones registradas/i.test(mensaje),
+    detalle: [err?.code, err?.message, err?.details].filter(Boolean).join(" | ") || String(err),
+  };
+}
+
+// Resumen para errores_app: nunca el payload completo
+export function resumenPayload(p: ReturnType<typeof buildGuardarRutinaPayload>) {
+  return {
+    nombre: p.nombre,
+    dias: p.dias.length,
+    ejercicios: p.dias.reduce((n, d) => n + d.ejercicios.length, 0),
+  };
+}
+
 function mapPlanToBuilderDays(
   planId: string,
   dias: DiaRutina[],
@@ -115,6 +174,9 @@ export function RoutineBuilderModal({
 
   React.useEffect(() => {
     if (!isOpen) return;
+    setNeedsNewVersion(false);
+    setAsignarAlumno(false);
+    setErrorMessage(null);
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
@@ -140,6 +202,8 @@ export function RoutineBuilderModal({
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [needsNewVersion, setNeedsNewVersion] = React.useState(false);
+  const [asignarAlumno, setAsignarAlumno] = React.useState(false);
 
   if (!isOpen) return null;
 
@@ -266,84 +330,31 @@ export function RoutineBuilderModal({
     handleUpdateExercise(exId, "tipo_serie", ex?.tipo_serie === tipo ? "NORMAL" : tipo);
   };
 
-  // Guardar de verdad en Supabase (0 hardcodeado)
-  const handleSaveToSupabase = async () => {
+  // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
+  const handleSaveToSupabase = async (modo: SaveMode = "guardar") => {
     setIsSaving(true);
     setErrorMessage(null);
+    const payload = buildGuardarRutinaPayload({
+      planId: planInicial?.id,
+      comoNueva: modo !== "guardar",
+      nombre: planName,
+      comentarios,
+      alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
+      days,
+    });
 
     try {
-      // 1. Guardar o actualizar Plan en Supabase
-      const planId = crypto.randomUUID();
-      const nowIso = new Date().toISOString();
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: planId, error } = await supabase.rpc("guardar_rutina", { p_payload: payload });
+      if (error) throw error;
 
       const { data: planData, error: planErr } = await supabase
         .from("planes_entrenamiento")
-        .insert({
-          id: planId,
-          profesor_id: authData.user?.id ?? null,
-          nombre: planName,
-          comentarios,
-          estado: "ACTIVO",
-          alumno_id: alumnoId || null,
-          created_at: nowIso,
-          updated_at: nowIso,
-        })
-        .select()
+        .select("*")
+        .eq("id", planId)
         .single();
+      if (planErr) throw planErr;
 
-      if (planErr) {
-        throw new Error(`Error guardando plan en Supabase: ${planErr.message}`);
-      }
-
-      // 2. Guardar Días en Supabase
-      for (let i = 0; i < days.length; i++) {
-        const d = days[i]!;
-        const diaId = crypto.randomUUID();
-
-        const { error: diaErr } = await supabase.from("dias_rutina").insert({
-          id: diaId,
-          plan_id: planId,
-          nombre: d.nombre,
-          orden: i + 1,
-          created_at: nowIso,
-          updated_at: nowIso,
-        });
-
-        if (diaErr) {
-          throw new Error(`Error guardando día "${d.nombre}": ${diaErr.message}`);
-        }
-
-        // 3. Guardar Ejercicios en Rutina en Supabase
-        for (let j = 0; j < d.ejercicios.length; j++) {
-          const ej = d.ejercicios[j]!;
-          const { error: erErr } = await supabase
-            .from("ejercicios_en_rutina")
-            .insert({
-              dia_id: diaId,
-              ejercicio_id: ej.ejercicio_id,
-              orden: j + 1,
-              series: ej.series,
-              repeticiones: ej.repeticiones,
-              descanso_segundos: ej.descanso_segundos,
-              rpe_objetivo: ej.rpe_objetivo,
-              tempo: ej.tempo ?? "0",
-              tempo_activo: Boolean(ej.tempo_activo),
-              force_rpe_required: ej.force_rpe_required || false,
-              notas: ej.notas || null,
-              es_superserie: ej.es_superserie,
-              grupo_superserie: ej.grupo_superserie,
-              tipo_serie: ej.tipo_serie,
-              created_at: nowIso,
-              updated_at: nowIso,
-            });
-
-          if (erErr) {
-            throw new Error(`Error guardando ejercicio en rutina: ${erErr.message}`);
-          }
-        }
-      }
-
+      setNeedsNewVersion(false);
       setSaveSuccess(true);
       if (onRoutineSaved && planData) {
         onRoutineSaved(planData as PlanEntrenamiento);
@@ -353,8 +364,23 @@ export function RoutineBuilderModal({
         onClose();
       }, 1500);
     } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err?.message || "Error inesperado al guardar en Supabase.");
+      const { mensaje, detalle, needsNewVersion: nueva } = clasificarErrorGuardado(err, modo);
+      setErrorMessage(mensaje);
+      setNeedsNewVersion(nueva);
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          await supabase.from("errores_app").insert({
+            usuario_id: authData.user.id,
+            contexto: "guardar_rutina",
+            mensaje_humano: mensaje,
+            detalle_tecnico: detalle,
+            payload_resumen: resumenPayload(payload),
+          });
+        }
+      } catch {
+        // el registro de errores nunca debe tapar el error original
+      }
     } finally {
       setIsSaving(false);
     }
@@ -904,13 +930,42 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Cancelar
             </Button>
+            {alumnoId && !planInicial && (
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={asignarAlumno}
+                  onChange={(e) => setAsignarAlumno(e.target.checked)}
+                  disabled={isSaving}
+                />
+                Nueva para {alumnoNombre}
+              </label>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => handleSaveToSupabase("nueva")}
+              disabled={isSaving}
+              data-testid="save-routine-as-new-btn"
+            >
+              Guardar como rutina nueva
+            </Button>
+            {needsNewVersion && (
+              <Button
+                variant="outline"
+                onClick={() => handleSaveToSupabase("version")}
+                disabled={isSaving}
+                data-testid="save-routine-new-version-btn"
+              >
+                Guardar como nueva versión
+              </Button>
+            )}
             <Button
               className="bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90"
-              onClick={handleSaveToSupabase}
+              onClick={() => handleSaveToSupabase()}
               disabled={isSaving}
               data-testid="save-routine-to-supabase-btn"
             >
-              {isSaving ? "Guardando en Supabase..." : "✓ Guardar Rutina en Supabase"}
+              {isSaving ? "Guardando..." : "✓ Guardar"}
             </Button>
           </div>
         </div>
