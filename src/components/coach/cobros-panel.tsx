@@ -1,13 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   useCobrosStore,
   type CobroItem,
   type ComprobanteInterno,
   type FiltroCobros,
+  ultimaSuscripcionPorAlumno,
 } from "@/store/use-cobros-store";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
@@ -31,6 +34,9 @@ export function CobrosPanel() {
     obtenerComprobante,
     metricas,
   } = useCobrosStore();
+
+  const router = useRouter();
+  const selectAlumno = useCoachStudioStore((s) => s.selectAlumno);
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const mode = useWorkspaceModeStore((s) => s.mode);
@@ -63,7 +69,7 @@ export function CobrosPanel() {
   }, [cobros]);
 
   const cobrosFiltrados = React.useMemo(() => {
-    return cobros.filter((c) => {
+    return ultimaSuscripcionPorAlumno(cobros).filter((c) => {
       // Filtro de estado
       if (filtroEstado === "PENDIENTES" && c.estado !== "PENDIENTE") return false;
       if (filtroEstado === "VENCIDOS" && c.estado !== "VENCIDO") return false;
@@ -116,6 +122,11 @@ export function CobrosPanel() {
     } catch {
       // Error manejado en store
     }
+  };
+
+  const verHistorial = (alumnoId: string) => {
+    selectAlumno(alumnoId);
+    router.push("/studio");
   };
 
   const abrirComprobante = (contratacionId: string) => {
@@ -597,6 +608,14 @@ export function CobrosPanel() {
 
                       {/* Acciones */}
                       <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => verHistorial(item.alumnoId)}
+                          data-testid="ver-historial-btn"
+                        >
+                          Historial
+                        </Button>{" "}
                         {esPagado ? (
                           <Button
                             variant="outline"
