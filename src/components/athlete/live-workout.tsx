@@ -35,6 +35,7 @@ import {
   Trash2,
   Lock,
   HelpCircle,
+  ChevronDown,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -71,6 +72,8 @@ export function LiveWorkout() {
     usarVistaRecomendada,
     pasoIncrementoPeso,
     setPasoIncrementoPeso,
+    colapsarRutina,
+    setColapsarRutina,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
@@ -103,6 +106,9 @@ export function LiveWorkout() {
 
   // Modal de configuración del alumno
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
+  // Estado local para expandir la rutina manualmente cuando colapsarRutina está activo
+  const [rutinaDesplegadaManual, setRutinaDesplegadaManual] = React.useState(false);
 
   // Estado para la confirmación optimista de serie guardada
   const [optimisticBanner, setOptimisticBanner] = React.useState<{
@@ -802,30 +808,69 @@ export function LiveWorkout() {
                 SOLAPA 1: ENTRENAR (OPCIÓN B: 1 COLUMNA COMPLETA SIN TEXTOS REDUNDANTES)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
-              <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
-                {currentSession.ejercicios.map((ej, idx) => {
-                  const isSelected = ej.id === currentExercise?.id;
-                  const isDone = ej.series.every((s) => s.completada);
-                  const completedCount = ej.series.filter((s) => s.completada).length;
-                  const isWarmup =
-                    ej.nombre.toLowerCase().includes("warm up") ||
-                    ej.nombre.toLowerCase().includes("calentamiento");
-
-                  return (
-                    <button
-                      key={ej.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ej.id)}
-                      data-testid={`exercise-select-btn-${ej.id}`}
-                      className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
-                        isSelected
-                          ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                          : isDone
-                          ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
-                          : "border-border/70 bg-card hover:bg-secondary/40"
-                      }`}
+              {/* Cabecera / Conmutador de Rutina en Cascada (GOZS-277) */}
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <span className="uppercase tracking-wider font-bold">Rutina</span>
+                  {colapsarRutina && (
+                    <span
+                      data-testid="badge-rutina-colapsada"
+                      className="text-[10px] lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
                     >
+                      colapsada ({currentSession.ejercicios.length} ejercicios)
+                    </span>
+                  )}
+                </div>
+                {colapsarRutina && (
+                  <button
+                    type="button"
+                    onClick={() => setRutinaDesplegadaManual(!rutinaDesplegadaManual)}
+                    data-testid="btn-toggle-rutina-colapsada"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
+                    aria-expanded={rutinaDesplegadaManual}
+                  >
+                    <span>{rutinaDesplegadaManual ? "Colapsar rutina" : `Ver todos (${currentSession.ejercicios.length})`}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${rutinaDesplegadaManual ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+
+              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              <div
+                className="flex flex-col gap-1.5"
+                data-testid="exercise-selector-column"
+                data-rutina-colapsada={colapsarRutina && !rutinaDesplegadaManual ? "true" : "false"}
+              >
+                {currentSession.ejercicios
+                  .filter((ej) => !colapsarRutina || rutinaDesplegadaManual || ej.id === (currentExercise?.id ?? currentSession.ejercicios[0]?.id))
+                  .map((ej) => {
+                    const idx = currentSession.ejercicios.findIndex((e) => e.id === ej.id);
+                    const isSelected = ej.id === currentExercise?.id;
+                    const isDone = ej.series.every((s) => s.completada);
+                    const completedCount = ej.series.filter((s) => s.completada).length;
+                    const isWarmup =
+                      ej.nombre.toLowerCase().includes("warm up") ||
+                      ej.nombre.toLowerCase().includes("calentamiento");
+
+                    return (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExerciseId(ej.id);
+                          if (colapsarRutina && rutinaDesplegadaManual) {
+                            setRutinaDesplegadaManual(false);
+                          }
+                        }}
+                        data-testid={`exercise-select-btn-${ej.id}`}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          isSelected
+                            ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                            : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            : "border-border/70 bg-card hover:bg-secondary/40"
+                        }`}
+                      >
                       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
                         {/* Ordinal estilizado a la izquierda */}
                         <div
