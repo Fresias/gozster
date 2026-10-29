@@ -1076,6 +1076,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      errores_app: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          contexto: string;
+          mensaje_humano: string;
+          detalle_tecnico: string | null;
+          payload_resumen: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          usuario_id: string;
+          contexto: string;
+          mensaje_humano: string;
+          detalle_tecnico?: string | null;
+          payload_resumen?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          usuario_id?: string;
+          contexto?: string;
+          mensaje_humano?: string;
+          detalle_tecnico?: string | null;
+          payload_resumen?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       cobros: {
         Row: {
           id: string;

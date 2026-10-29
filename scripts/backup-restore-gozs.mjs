@@ -67,6 +67,7 @@ export const TABLAS = [
   { nombre: "alumno_historial_dolor", fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios" } },
   { nombre: "alumno_cuestionario_inicial", fks: { alumno_id: "perfiles" } },
   { nombre: "feriados", fks: {} },
+  { nombre: "errores_app", fks: { usuario_id: "perfiles" } },
   { nombre: "planes_membresia", fks: {} },
   { nombre: "planes_membresia_precios", fks: { plan_membresia_id: "planes_membresia", creado_por: "perfiles" } },
   { nombre: "contrataciones", fks: { alumno_id: "perfiles", plan_membresia_id: "planes_membresia" } },
