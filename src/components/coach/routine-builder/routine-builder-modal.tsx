@@ -917,7 +917,7 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Cancelar
             </Button>
-            {alumnoId && (
+            {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
