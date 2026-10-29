@@ -8,13 +8,27 @@ import {
   type ComprobanteInterno,
   type FiltroCobros,
 } from "@/store/use-cobros-store";
+import { type ActividadKpi } from "@/lib/kpi-anual";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
-export function CobrosPanel() {
+export interface CobrosPanelProps {
+  initialKpiAnualAbierto?: boolean;
+  initialFiltroActividad?: ActividadKpi;
+}
+
+export function CobrosPanel({
+  initialKpiAnualAbierto,
+  initialFiltroActividad,
+}: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros,
     filtroEstado,
+    filtroActividadKpiAnual,
+    kpiAnualAbierto: storeKpiAnualAbierto,
+    setFiltroActividadKpiAnual,
+    setKpiAnualAbierto: storeSetKpiAnualAbierto,
+    kpiIngresosAnual,
     busqueda,
     cargando,
     accionEnCurso,
@@ -45,6 +59,48 @@ export function CobrosPanel() {
 
   // Modal recibo
   const reciboDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  // Modal KPI Anual (Enero a Diciembre y desagregado por actividad)
+  const [localKpiAnualAbierto, setLocalKpiAnualAbierto] = React.useState<boolean>(
+    initialKpiAnualAbierto ?? false
+  );
+  const kpiAnualAbierto = localKpiAnualAbierto || Boolean(storeKpiAnualAbierto);
+  const setKpiAnualAbierto = (val: boolean) => {
+    setLocalKpiAnualAbierto(val);
+    storeSetKpiAnualAbierto(val);
+  };
+
+  const [filtroActividad, setFiltroActividad] = React.useState<ActividadKpi>(
+    initialFiltroActividad ?? filtroActividadKpiAnual ?? "TODAS"
+  );
+  const handleCambiarFiltroActividad = (act: ActividadKpi) => {
+    setFiltroActividad(act);
+    setFiltroActividadKpiAnual(act);
+  };
+
+  const kpiAnualDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  React.useEffect(() => {
+    if (kpiAnualAbierto) {
+      if (kpiAnualDialogRef.current && !kpiAnualDialogRef.current.open) {
+        try {
+          kpiAnualDialogRef.current.showModal();
+        } catch {
+          // Fallback para entornos donde showModal no esté implementado
+        }
+      }
+    } else {
+      if (kpiAnualDialogRef.current?.open) {
+        try {
+          kpiAnualDialogRef.current.close();
+        } catch {}
+      }
+    }
+  }, [kpiAnualAbierto]);
+
+  const kpiAnualResultado = React.useMemo(() => {
+    return kpiIngresosAnual(undefined, filtroActividad);
+  }, [kpiIngresosAnual, filtroActividad, cobros]);
 
   React.useEffect(() => {
     void cargarCobros();
@@ -205,9 +261,21 @@ export function CobrosPanel() {
           <p className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums" data-testid="kpi-ingresos-mes" suppressHydrationWarning>
             {formatearDinero(kpis.ingresosMes)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Recaudado en el ciclo actual
-          </p>
+          <div className="flex items-center justify-between gap-1 mt-1">
+            <p className="text-[11px] text-muted-foreground">
+              Recaudado en el ciclo actual
+            </p>
+            <button
+              type="button"
+              onClick={() => setKpiAnualAbierto(true)}
+              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+              data-testid="btn-abrir-kpi-anual"
+              aria-label="Ver KPI anual"
+            >
+              <span data-testid="abrir-kpi-anual">Ver año</span>
+              <span data-testid="kpi-anual-trigger" aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
 
         {/* Cobranza Pendiente */}
@@ -858,6 +926,278 @@ export function CobrosPanel() {
                   setComprobanteActivo(null);
                   reciboDialogRef.current?.close();
                 }}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+      </dialog>
+
+      {/* DIÁLOGO: KPI ANUAL DE INGRESOS (Enero a Diciembre y desagregado por actividad) */}
+      <dialog
+        ref={kpiAnualDialogRef}
+        open={kpiAnualAbierto}
+        className="m-auto w-[min(96vw,56rem)] max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="kpi-anual-titulo"
+        data-testid="kpi-anual-dialog"
+      >
+        {kpiAnualAbierto && (
+          <div className="space-y-6" data-testid="kpi-anual-contenedor">
+            {/* Header del modal */}
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black text-sm">
+                    $
+                  </span>
+                  <h2
+                    id="kpi-anual-titulo"
+                    className="text-xl font-black tracking-tight"
+                    data-testid="kpi-anual-titulo"
+                  >
+                    KPI Ingresos Anuales ({kpiAnualResultado.anio})
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ingresos cobrados de enero a diciembre y desagregado por actividad (funcional, boxeo, rutinas)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Total Facturado
+                  </span>
+                  <span
+                    className="text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+                    data-testid="kpi-anual-total"
+                  >
+                    {formatearDinero(kpiAnualResultado.totalAnual)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setKpiAnualAbierto(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                  data-testid="btn-cerrar-kpi-anual"
+                  aria-label="Cerrar KPI anual"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Selector de Filtro por Actividad */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary/30 rounded-2xl p-3 border border-border/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">
+                  Filtrar por actividad:
+                </span>
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  role="group"
+                  aria-label="Filtro de actividades anual"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("TODAS")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "TODAS"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-todas"
+                  >
+                    Todas ({formatearDinero(kpiAnualResultado.totalAnual)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("FUNCIONAL")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "FUNCIONAL"
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-funcional"
+                  >
+                    Funcional ({formatearDinero(kpiAnualResultado.desagregadoAnual.funcional)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("BOXEO")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "BOXEO"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-boxeo"
+                  >
+                    <span data-testid="filtro-actividad-box" className="sr-only">Box</span>
+                    Boxeo ({formatearDinero(kpiAnualResultado.desagregadoAnual.boxeo)})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCambiarFiltroActividad("RUTINAS")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      filtroActividad === "RUTINAS"
+                        ? "bg-sky-600 text-white shadow-xs"
+                        : "bg-background/80 hover:bg-background text-muted-foreground hover:text-foreground"
+                    }`}
+                    data-testid="filtro-actividad-rutinas"
+                  >
+                    <span data-testid="filtro-actividad-rutina" className="sr-only">Rutinas</span>
+                    Rutinas ({formatearDinero(kpiAnualResultado.desagregadoAnual.rutinas)})
+                  </button>
+                </div>
+              </div>
+
+              {/* Select nativo accesible sincronizado */}
+              <select
+                value={filtroActividad}
+                onChange={(e) => handleCambiarFiltroActividad(e.target.value as any)}
+                className="h-8 rounded-lg border border-border bg-background px-2 text-xs font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+                data-testid="select-filtro-actividad"
+                aria-label="Seleccionar actividad"
+              >
+                <option value="TODAS">Todas las actividades</option>
+                <option value="FUNCIONAL">Funcional</option>
+                <option value="BOXEO">Boxeo</option>
+                <option value="RUTINAS">Rutinas online</option>
+              </select>
+            </div>
+
+            {/* Grilla de Enero a Diciembre (12 meses) */}
+            <div
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3"
+              data-testid="kpi-anual-meses"
+            >
+              {kpiAnualResultado.meses.map((mes) => {
+                const maxIngreso = Math.max(...kpiAnualResultado.meses.map((m) => m.ingresos), 1);
+                const porcentaje = Math.round((mes.ingresos / maxIngreso) * 100);
+
+                return (
+                  <div
+                    key={mes.mesNumero}
+                    className="rounded-2xl border border-border/70 bg-card/60 p-3 flex flex-col justify-between transition-all hover:border-primary/40 hover:bg-card shadow-2xs"
+                    data-testid={`kpi-mes-${mes.mesNumero}`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                        <span className="font-bold text-foreground" data-testid={`kpi-mes-${mes.mesNombre.toLowerCase()}`}>
+                          {mes.mesNombre}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground uppercase" data-testid={`kpi-mes-${mes.mesClave}`}>
+                          {mes.mesCorto}
+                        </span>
+                      </div>
+                      <p
+                        className="mt-2 text-base font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+                        data-testid={`kpi-ingreso-${mes.mesClave}`}
+                      >
+                        {formatearDinero(mes.ingresos)}
+                      </p>
+                    </div>
+
+                    <div
+                      className="mt-3 space-y-1.5 pt-2 border-t border-border/40 text-[10px] text-muted-foreground"
+                      data-testid={`kpi-desagregado-${mes.mesClave}`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Func:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.funcional)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Box:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.boxeo)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sky-600 dark:text-sky-400 font-medium">Rut:</span>
+                        <span className="tabular-nums font-semibold">
+                          {formatearDinero(mes.desagregado.rutinas)}
+                        </span>
+                      </div>
+
+                      {/* Mini barra de progreso relativa */}
+                      <div className="w-full bg-secondary rounded-full h-1 mt-1 overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-1 rounded-full transition-all"
+                          style={{ width: `${porcentaje}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desglose resumido por actividad al pie */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block">
+                    Total Funcional
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Clases presenciales
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums"
+                  data-testid="total-actividad-funcional"
+                >
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.funcional)}
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-amber-800 dark:text-amber-300 block">
+                    Total Boxeo
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Clases presenciales
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums"
+                  data-testid="total-actividad-boxeo"
+                >
+                  <span data-testid="total-actividad-box" className="sr-only">Box</span>
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.boxeo)}
+                </span>
+              </div>
+
+              <div className="rounded-2xl bg-sky-500/10 border border-sky-500/20 p-3.5 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-sky-800 dark:text-sky-300 block">
+                    Total Rutinas
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Asesoría y entrenamiento online
+                  </span>
+                </div>
+                <span
+                  className="text-lg font-black text-sky-700 dark:text-sky-300 tabular-nums"
+                  data-testid="total-actividad-rutinas"
+                >
+                  <span data-testid="total-actividad-rutina" className="sr-only">Rutina</span>
+                  {formatearDinero(kpiAnualResultado.desagregadoAnual.rutinas)}
+                </span>
+              </div>
+            </div>
+
+            {/* Botón cerrar modal */}
+            <div className="flex justify-end pt-2">
+              <Button
+                type="button"
+                onClick={() => setKpiAnualAbierto(false)}
+                className="rounded-xl px-6"
+                data-testid="btn-cerrar-modal-kpi-anual"
               >
                 Cerrar
               </Button>
