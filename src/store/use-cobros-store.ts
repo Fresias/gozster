@@ -12,6 +12,12 @@ import {
 import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import type { Contratacion, MedioPago, Pago } from "@/types/database.types";
+import {
+  type ActividadKpi,
+  type PagoMensualInput,
+  type KpiAnualResultado,
+  calcularKpiAnualIngresos,
+} from "@/lib/kpi-anual";
 
 // Store de Cobros y Pagos en Coach Studio (GOZS-184 / GOZS-181).
 // Gestiona cobros pendientes, vencidos, registro manual de pagos (Transferencia/Efectivo)
@@ -46,6 +52,7 @@ export interface CobroItem {
     confirmadoPor: string;
     notas?: string;
   };
+  pagos?: Array<PagoMensualInput>;
 }
 
 export interface CobrosMetricas {
@@ -78,7 +85,10 @@ export interface ComprobanteInterno {
 
 interface CobrosState {
   cobros: CobroItem[];
+  pagosHistorial?: PagoMensualInput[];
   filtroEstado: FiltroCobros;
+  filtroActividadKpiAnual: ActividadKpi;
+  kpiAnualAbierto: boolean;
   busqueda: string;
   cargando: boolean;
   accionEnCurso: string | null;
@@ -87,6 +97,8 @@ interface CobrosState {
   comprobanteActivo: ComprobanteInterno | null;
 
   setFiltroEstado: (filtro: FiltroCobros) => void;
+  setFiltroActividadKpiAnual: (filtro: ActividadKpi) => void;
+  setKpiAnualAbierto: (abierto: boolean) => void;
   setBusqueda: (busqueda: string) => void;
   setComprobanteActivo: (comprobante: ComprobanteInterno | null) => void;
   limpiarMensajes: () => void;
@@ -102,6 +114,8 @@ interface CobrosState {
   recuperarMontoOriginal: (contratacionId: string) => void;
   obtenerDescuentos: () => CobroItem[];
   obtenerComprobante: (contratacionId: string) => ComprobanteInterno | null;
+  obtenerPagosAnuales: () => PagoMensualInput[];
+  kpiIngresosAnual: (anio?: number, actividad?: ActividadKpi) => KpiAnualResultado;
   metricas: () => CobrosMetricas;
   resetDemoDataset: () => void;
 }
@@ -239,11 +253,59 @@ function generarDemoCobrosIniciales(): CobroItem[] {
   return items;
 }
 
+function generarDemoPagosHistorial(): PagoMensualInput[] {
+  const anio = 2026;
+  const meses = [
+    { mes: "01", func: 25000, box: 30000, rut: 18000 },
+    { mes: "02", func: 25000, box: 30000, rut: 18000 },
+    { mes: "03", func: 25000, box: 32000, rut: 18000 },
+    { mes: "04", func: 28000, box: 32000, rut: 20000 },
+    { mes: "05", func: 28000, box: 35000, rut: 20000 },
+    { mes: "06", func: 28000, box: 35000, rut: 20000 },
+    { mes: "07", func: 30000, box: 35000, rut: 22000 },
+    { mes: "08", func: 30000, box: 38000, rut: 22000 },
+    { mes: "09", func: 30000, box: 38000, rut: 22000 },
+    { mes: "10", func: 32000, box: 38000, rut: 22000 },
+  ];
+
+  const pagos: PagoMensualInput[] = [];
+  for (const m of meses) {
+    pagos.push({
+      id: `demo-pago-func-${m.mes}`,
+      monto: m.func,
+      montoCobrado: m.func,
+      fechaPago: `${anio}-${m.mes}-10T10:00:00Z`,
+      actividad: "FUNCIONAL",
+      servicioNombre: "Funcional 2x semana",
+    });
+    pagos.push({
+      id: `demo-pago-box-${m.mes}`,
+      monto: m.box,
+      montoCobrado: m.box,
+      fechaPago: `${anio}-${m.mes}-15T12:00:00Z`,
+      actividad: "BOXEO",
+      servicioNombre: "Boxeo recreativo",
+    });
+    pagos.push({
+      id: `demo-pago-rut-${m.mes}`,
+      monto: m.rut,
+      montoCobrado: m.rut,
+      fechaPago: `${anio}-${m.mes}-05T14:00:00Z`,
+      actividad: "RUTINAS",
+      servicioNombre: "Rutina online personalizada",
+    });
+  }
+  return pagos;
+}
+
 export const useCobrosStore = create<CobrosState>()(
   persist(
     (set, get) => ({
       cobros: generarDemoCobrosIniciales(),
+      pagosHistorial: generarDemoPagosHistorial(),
       filtroEstado: "TODOS",
+      filtroActividadKpiAnual: "TODAS",
+      kpiAnualAbierto: false,
       busqueda: "",
       cargando: false,
       accionEnCurso: null,
@@ -252,15 +314,21 @@ export const useCobrosStore = create<CobrosState>()(
       comprobanteActivo: null,
 
       setFiltroEstado: (filtroEstado) => set({ filtroEstado }),
+      setFiltroActividadKpiAnual: (filtroActividadKpiAnual) => set({ filtroActividadKpiAnual }),
+      setKpiAnualAbierto: (kpiAnualAbierto) => set({ kpiAnualAbierto }),
       setBusqueda: (busqueda) => set({ busqueda }),
       setComprobanteActivo: (comprobanteActivo) => set({ comprobanteActivo }),
       limpiarMensajes: () => set({ error: null, aviso: null }),
 
       resetDemoDataset: () => {
         const demo = generarDemoCobrosIniciales();
+        const demoPagos = generarDemoPagosHistorial();
         set({
           cobros: demo,
+          pagosHistorial: demoPagos,
           filtroEstado: "TODOS",
+          filtroActividadKpiAnual: "TODAS",
+          kpiAnualAbierto: false,
           busqueda: "",
           error: null,
           aviso: null,
@@ -335,7 +403,21 @@ export const useCobrosStore = create<CobrosState>()(
             };
           });
 
-          set({ cobros: items, cargando: false });
+          const historialMapeado: PagoMensualInput[] = (pagos ?? []).map((p: any) => {
+            const contratacion = (contrataciones ?? []).find((c: any) => c.id === p.contratacion_id);
+            return {
+              id: p.id,
+              monto: Number(p.monto_cobrado ?? p.monto ?? 0),
+              montoCobrado: Number(p.monto_cobrado ?? p.monto ?? 0),
+              fechaPago: p.confirmado_at ?? p.created_at,
+              actividad: contratacion?.actividad ?? null,
+              servicioNombre: contratacion?.planes_membresia?.nombre ?? null,
+              tipoServicio: contratacion?.tipo_servicio ?? null,
+              notas: p.nota,
+            };
+          });
+
+          set({ cobros: items, pagosHistorial: historialMapeado, cargando: false });
         } catch {
           set({
             error: "No pudimos cargar los cobros desde el servidor. Mostramos datos locales.",
@@ -404,8 +486,20 @@ export const useCobrosStore = create<CobrosState>()(
             return c;
           });
 
+          const nuevoPagoRegistro: PagoMensualInput = {
+            id: pagoId,
+            monto,
+            montoCobrado: monto,
+            fechaPago: ahoraIso,
+            actividad: item.actividad,
+            servicioNombre: item.servicioNombre,
+            tipoServicio: item.actividad ? "PRESENCIAL" : "ASESORIA_ONLINE",
+            notas,
+          };
+
           set({
             cobros: cobrosActualizados,
+            pagosHistorial: [...(get().pagosHistorial ?? []), nuevoPagoRegistro],
             accionEnCurso: null,
             comprobanteActivo: comprobante,
             aviso: `Pago de $${monto.toLocaleString("es-AR")} (${medioPago}) confirmado exitosamente.`,
@@ -535,6 +629,76 @@ export const useCobrosStore = create<CobrosState>()(
           proximoVencimiento: item.fechaVencimiento,
           notas: item.ultimoPago.notas,
         };
+      },
+
+      obtenerPagosAnuales: () => {
+        const pagos: PagoMensualInput[] = [];
+        const idsVistos = new Set<string>();
+
+        // 1. Pagos del historial
+        if (get().pagosHistorial && get().pagosHistorial!.length > 0) {
+          for (const p of get().pagosHistorial!) {
+            if (p.id) idsVistos.add(p.id);
+            pagos.push(p);
+          }
+        }
+
+        // 2. Pagos anidados en cobros
+        for (const cobro of get().cobros) {
+          if (cobro.pagos && cobro.pagos.length > 0) {
+            for (const p of cobro.pagos) {
+              const pid = p.id ?? `pago-${cobro.id}-${p.fechaPago}`;
+              if (idsVistos.has(pid)) continue;
+              idsVistos.add(pid);
+              pagos.push({
+                id: pid,
+                monto: p.monto,
+                montoCobrado: p.montoCobrado ?? p.monto,
+                fechaPago: p.fechaPago,
+                actividad: p.actividad ?? cobro.actividad,
+                servicioNombre: p.servicioNombre ?? cobro.servicioNombre,
+                notas: p.notas,
+              });
+            }
+          }
+
+          if (cobro.ultimoPago) {
+            const up = cobro.ultimoPago;
+            if (!idsVistos.has(up.id)) {
+              idsVistos.add(up.id);
+              pagos.push({
+                id: up.id,
+                monto: up.monto,
+                montoCobrado: up.monto,
+                fechaPago: up.fechaPago,
+                actividad: cobro.actividad,
+                servicioNombre: cobro.servicioNombre,
+                notas: up.notas,
+              });
+            }
+          } else if (cobro.estado === "PAGADO") {
+            const fauxId = `pago-auto-${cobro.id}`;
+            if (!idsVistos.has(fauxId)) {
+              idsVistos.add(fauxId);
+              pagos.push({
+                id: fauxId,
+                monto: cobro.monto,
+                montoCobrado: cobro.monto,
+                fechaPago: cobro.fechaVencimiento,
+                actividad: cobro.actividad,
+                servicioNombre: cobro.servicioNombre,
+              });
+            }
+          }
+        }
+
+        return pagos;
+      },
+
+      kpiIngresosAnual: (anio?: number, actividad?: ActividadKpi) => {
+        const pagos = get().obtenerPagosAnuales();
+        const filtro = actividad ?? get().filtroActividadKpiAnual ?? "TODAS";
+        return calcularKpiAnualIngresos(pagos, anio, filtro);
       },
 
       metricas: () => {
