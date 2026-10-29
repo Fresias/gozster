@@ -44,7 +44,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 3. Facundo Medina:
  *    - Cuota: 🟡 PENDIENTE (vence en 2 días, ≤ 3d)
  *    - Score Salud [SH]: 🟡 [ 64 ]
- *    - Vigencia Rutina: 🟡 Por renovar (hace 42 días, 30-60d)
+ *    - Vigencia Rutina: 🟡 Por renovar (hace 18 días, 16-21d)
  *    - Actividad: 🟡 Advertencia (hace 9 días, 7-14d)
  *    - Alertas: [ 🚨 Lumbar ]
  *
@@ -65,7 +65,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 6. Valentina Quiroga:
  *    - Cuota: 🟡 PENDIENTE (vence en 1 día, ≤ 3d)
  *    - Score Salud [SH]: 🟢 [ 82 ]
- *    - Vigencia Rutina: 🟢 Vigente (hace 20 días, < 30d)
+ *    - Vigencia Rutina: 🟢 Vigente (hace 10 días, 0-15d)
  *    - Actividad: 🟢 Reciente (hace 3 días, < 7d)
  *    - Alertas: [ ⚡ PR Peso Muerto ] (140 kg)
  *
@@ -79,7 +79,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  * 8. Camila Navarro:
  *    - Cuota: 🟢 AL DÍA (vence en 18 días)
  *    - Score Salud [SH]: 🟡 [ 71 ]
- *    - Vigencia Rutina: 🟡 Por renovar (hace 49 días, 30-60d)
+ *    - Vigencia Rutina: 🟡 Por renovar (hace 19 días, 16-21d)
  *    - Actividad: 🟢 Reciente (hace 4 días, < 7d)
  *    - Alertas: [ 🚨 Codo ] (molestia en tríceps)
  *
@@ -272,11 +272,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-03-facundo",
     nombre: "Potencia & Acondicionamiento Físico",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-42),
-    fecha_fin: getRelativeDateStr(18),
+    fecha_inicio: getRelativeDateStr(-18),
+    fecha_fin: getRelativeDateStr(42),
     comentarios: "Semana de deload previa a nuevo mesociclo.",
-    created_at: getRelativeIsoStr(-42),
-    updated_at: getRelativeIsoStr(-42),
+    created_at: getRelativeIsoStr(-18),
+    updated_at: getRelativeIsoStr(-18),
   },
   {
     id: "demo-plan-sofia",
@@ -308,11 +308,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-06-valentina",
     nombre: "Empuje-Tracción-Pierna Pro",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-20),
-    fecha_fin: getRelativeDateStr(40),
+    fecha_inicio: getRelativeDateStr(-10),
+    fecha_fin: getRelativeDateStr(50),
     comentarios: "Sobrecarga lineal semanal.",
-    created_at: getRelativeIsoStr(-20),
-    updated_at: getRelativeIsoStr(-20),
+    created_at: getRelativeIsoStr(-10),
+    updated_at: getRelativeIsoStr(-10),
   },
   // Bautista Benítez no tiene plan asignado (alumno huérfano / Sin Plan)
   {
@@ -321,11 +321,11 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     alumno_id: "demo-alumno-08-camila",
     nombre: "Tren Superior & Core Avanzado",
     estado: "ACTIVO",
-    fecha_inicio: getRelativeDateStr(-49),
-    fecha_fin: getRelativeDateStr(11),
+    fecha_inicio: getRelativeDateStr(-19),
+    fecha_fin: getRelativeDateStr(41),
     comentarios: "Ajustar variantes de tríceps si persiste molestia.",
-    created_at: getRelativeIsoStr(-49),
-    updated_at: getRelativeIsoStr(-49),
+    created_at: getRelativeIsoStr(-19),
+    updated_at: getRelativeIsoStr(-19),
   },
   {
     id: "demo-plan-esteban",

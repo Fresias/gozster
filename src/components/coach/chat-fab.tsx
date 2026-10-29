@@ -56,16 +56,20 @@ export function ChatFab({
   const [transferSuccessMsg, setTransferSuccessMsg] = React.useState<string | null>(null);
   const [transferErrorMsg, setTransferErrorMsg] = React.useState<string | null>(null);
 
-  // Si no se pasó alumno por props, permitimos seleccionar uno localmente o usamos el primero
+  const storeSelectedAlumnoId = useChatStore((s) => s.selectedAlumnoId);
+
+  // Si no se pasó alumno por props, permitimos seleccionar uno localmente o usamos el de useChatStore
   const [localAlumnoId, setLocalAlumnoId] = React.useState<string>(
-    alumno?.id || MOCK_ALUMNOS[0]?.id || "a1111111-1111-4111-8111-111111111101",
+    alumno?.id || storeSelectedAlumnoId || MOCK_ALUMNOS[0]?.id || "a1111111-1111-4111-8111-111111111101",
   );
 
   React.useEffect(() => {
     if (alumno?.id) {
       setLocalAlumnoId(alumno.id);
+    } else if (storeSelectedAlumnoId) {
+      setLocalAlumnoId(storeSelectedAlumnoId);
     }
-  }, [alumno?.id]);
+  }, [alumno?.id, storeSelectedAlumnoId]);
 
   const currentAlumnoId = alumno?.id || localAlumnoId;
   const currentAlumno =
@@ -617,12 +621,14 @@ export function ChatFab({
               onChange={(e) => setMessage(e.target.value)}
               placeholder={`Responder como ${activeCoachSender.nombre}...`}
               className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              data-testid="coach-chat-input"
             />
             <Button
               type="submit"
               size="sm"
               variant="default"
               className="min-h-11 px-4 text-xs font-semibold"
+              data-testid="coach-chat-send-btn"
             >
               Enviar
             </Button>

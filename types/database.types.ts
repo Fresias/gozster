@@ -28,6 +28,7 @@ export type MedioPago = 'TRANSFERENCIA' | 'EFECTIVO' | 'PASARELA_ONLINE' | 'OTRO
 export type EstadoPago = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
 export type NivelVistaAlumno = 'SIMPLE' | 'TECNICA';
 export type ActividadClase = 'FUNCIONAL' | 'BOXEO';
+export type ActividadAlumno = ActividadClase | 'RUTINAS';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
@@ -48,6 +49,7 @@ export interface Database {
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at: string;
@@ -65,6 +67,7 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at?: string;
@@ -82,6 +85,7 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at?: string;
@@ -519,6 +523,57 @@ export interface Database {
           },
         ];
       };
+      push_suscripciones: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          usuario_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      push_cola: {
+        Row: {
+          id: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          destinatario_id?: string;
+          mensaje_id?: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       mensajes: {
         Row: {
           id: string;
@@ -893,6 +948,9 @@ export interface Database {
           alumno_id: string;
           cobro_id: string | null;
           monto: number;
+          monto_lista: number | null;
+          monto_cobrado: number;
+          nota: string | null;
           medio_pago: MedioPago;
           estado: EstadoPago;
           idempotency_key: string;
@@ -907,6 +965,8 @@ export interface Database {
           alumno_id: string;
           cobro_id?: string | null;
           monto: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago: MedioPago;
           estado?: EstadoPago;
           idempotency_key: string;
@@ -921,6 +981,8 @@ export interface Database {
           alumno_id?: string;
           cobro_id?: string | null;
           monto?: number;
+          monto_lista?: number | null;
+          nota?: string | null;
           medio_pago?: MedioPago;
           estado?: EstadoPago;
           idempotency_key?: string;
@@ -997,6 +1059,44 @@ export interface Database {
           },
           {
             foreignKeyName: 'cobros_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      alumno_actividades: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana: number | null;
+          pase_libre: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id: string;
+          actividad: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          actividad?: ActividadAlumno;
+          veces_por_semana?: number | null;
+          pase_libre?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_actividades_alumno_id_fkey';
             columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
@@ -1513,6 +1613,19 @@ export interface Database {
       };
     };
     Views: {
+      v_descuentos_otorgados: {
+        Row: {
+          pago_id: string;
+          alumno_id: string;
+          cobro_id: string | null;
+          confirmado_at: string | null;
+          monto_lista: number;
+          monto_cobrado: number;
+          descuento: number;
+          nota: string | null;
+        };
+        Relationships: [];
+      };
       v_morosos: {
         Row: {
           cobro_id: string;
@@ -1527,6 +1640,10 @@ export interface Database {
       };
     };
     Functions: {
+      contar_mensajes_no_leidos: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       asignar_clase_fija: {
         Args: {
           p_horario_id: string;
@@ -1706,6 +1823,19 @@ export interface Database {
           p_clase_id: string;
         };
         Returns: boolean;
+      };
+      obtener_ficha_alumno_actividades: {
+        Args: { p_alumno_id: string };
+        Returns: FichaAlumnoActividades;
+      };
+      registrar_pago_con_descuento: {
+        Args: {
+          p_cobro_id: string;
+          p_monto_cobrado: number;
+          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_nota: string;
+        };
+        Returns: Database['public']['Tables']['cobros']['Row'];
       };
       registrar_pago: {
         Args: {
@@ -1887,6 +2017,18 @@ export type ContratacionInsert = TablesInsert<'contrataciones'>;
 export type ContratacionUpdate = TablesUpdate<'contrataciones'>;
 export type EstadoCobro = 'PENDIENTE' | 'PAGADO' | 'VENCIDO';
 export type Cobro = Tables<'cobros'>;
+export type AlumnoActividad = Tables<'alumno_actividades'>;
+export type FichaAlumnoActividades = {
+  alumno_id: string;
+  actividades: Pick<AlumnoActividad, 'actividad' | 'veces_por_semana' | 'pase_libre'>[];
+  ultima_suscripcion: {
+    contratacion_id: string;
+    estado: Contratacion['estado'];
+    fecha_fin: string;
+    monto: number | null;
+    ultimo_cobro: { periodo: string; monto: number; estado: EstadoCobro } | null;
+  } | null;
+};
 export type CobroInsert = TablesInsert<'cobros'>;
 export type Pago = Tables<'pagos'>;
 export type AuditoriaCambio = Tables<'auditoria_cambios'>;
