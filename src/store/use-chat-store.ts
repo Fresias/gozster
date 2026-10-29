@@ -124,7 +124,7 @@ const INITIAL_CONVERSATIONS: Record<string, ChatConversation> = {
         remitente_rol: "ENTRENADOR",
         contenido:
           "Totalmente de acuerdo con Félix. Si sentís molestia en el lumbar avísanos antes de subir kilos.",
-        leido: true,
+        leido: false,
         created_at: "2026-10-16T18:28:00Z",
         hora: "18:28",
         es_staff: true,
@@ -215,6 +215,8 @@ interface ChatStoreState {
   ) => Promise<void>;
   syncWithSupabase: (alumnoId?: string) => Promise<void>;
   markAsRead: (alumnoId: string) => void;
+  getUnreadStaffCount: (alumnoId?: string) => number;
+  getLatestUnreadStaffMessage: (alumnoId?: string) => ChatMessage | null;
   resetToDefaults: () => void;
 }
 
@@ -306,7 +308,7 @@ export const useChatStore = create<ChatStoreState>()(
           remitente_rol: remitente.rol,
           remitente_avatar: remitente.avatarUrl,
           contenido: trimmed,
-          leido: true,
+          leido: remitente.esStaff ? false : true,
           created_at: isoTime,
           hora: formattedHour,
           es_staff: remitente.esStaff,
@@ -391,8 +393,8 @@ export const useChatStore = create<ChatStoreState>()(
               (k) => updated[k]?.id === conversacionId,
             );
           }
-          if (foundKey && updated[foundKey]) {
-            const current = updated[foundKey]!;
+          if (foundKey) {
+            const current = updated[foundKey] || get().getConversation(foundKey);
             updated[foundKey] = {
               ...current,
               responsable_id: nuevoResponsableId,
@@ -607,6 +609,19 @@ export const useChatStore = create<ChatStoreState>()(
             },
           };
         });
+      },
+
+      getUnreadStaffCount: (alumnoId = DEFAULT_ATHLETE_SENDER.id) => {
+        const conv = get().conversations[alumnoId];
+        if (!conv) return 0;
+        return conv.mensajes.filter((m) => m.es_staff && !m.leido).length;
+      },
+
+      getLatestUnreadStaffMessage: (alumnoId = DEFAULT_ATHLETE_SENDER.id) => {
+        const conv = get().conversations[alumnoId];
+        if (!conv) return null;
+        const unreadStaffMsgs = conv.mensajes.filter((m) => m.es_staff && !m.leido);
+        return unreadStaffMsgs[unreadStaffMsgs.length - 1] || null;
       },
 
       resetToDefaults: () => {

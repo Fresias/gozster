@@ -126,10 +126,13 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
       // Ingresos: $20.000 y variación +186% vs sept.
       expect(clean).toContain("$20.000");
       expect(clean).toContain("186% vs sept.");
-      // Cobranza: 50% cobrado, faltan $20.000 y 1 vencidas
-      expect(clean).toContain("50% ");
-      expect(clean).toContain("cobrado");
-      expect(clean).toContain("Faltan $20.000 · 1 vencidas");
+      // GOZS-238: Borrar KPI cobranza; ingresos muestra desagregado y 'a cobrar'
+      expect(clean).not.toContain("data-testid=\"kpi-cobranza\"");
+      expect(clean).not.toContain("Cobranza del mes");
+      expect(clean).toContain("presencial");
+      expect(clean).toContain("online");
+      expect(clean).toContain("A cobrar:");
+      expect(clean).toContain("$20.000");
       // Sin entrenar: 1 y avatar con iniciales AU
       expect(clean).toContain("AU");
       // Activos: 3, +1 altas · −1 baja este mes, 2 sin rutina
@@ -164,7 +167,7 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
       expect(html).toMatch(/<span[^>]*bg-foreground\/\[0\.06\][^>]*>—<\/span>/);
     });
 
-    it("GIVEN esperada = 0 THEN muestra '—' en cobranza", () => {
+    it("GIVEN esperada = 0 THEN el KPI de cobranza no existe (GOZS-238)", () => {
       const kpis = mapearRpcAKpis(
         {
           ingresos: 0,
@@ -185,8 +188,8 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
         React.createElement(BusinessKpiStrip, { kpis }),
       );
 
-      expect(html).toContain("data-testid=\"kpi-cobranza\"");
-      expect(html).toMatch(/data-testid="kpi-cobranza"[\s\S]*?>—<\/div>/);
+      expect(html).not.toContain("data-testid=\"kpi-cobranza\"");
+      expect(html).not.toContain("Cobranza del mes");
     });
 
     it("GIVEN un error de red THEN la franja no rompe la pantalla y muestra 'No se pudieron cargar los datos'", () => {
@@ -198,7 +201,7 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
         }),
       };
 
-      // Si se pasa error o el cliente falla, las 4 tarjetas muestran "—" y "No se pudieron cargar los datos"
+      // Si se pasa error o el cliente falla, las tarjetas muestran "—" y "No se pudieron cargar los datos"
       // Probamos el render con el cliente de error
       let html = "";
       expect(() => {
@@ -209,15 +212,15 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
         );
       }).not.toThrow();
 
-      // En SSR inicial o estado de carga se renderiza el skeleton sin errores
+      // En SSR inicial o estado de carga se renderiza el skeleton sin errores (sin kpi-skeleton-cobranza)
       expect(html).toContain("data-testid=\"business-kpi-strip\"");
       expect(html).toContain("kpi-skeleton-ingresos");
-      expect(html).toContain("kpi-skeleton-cobranza");
+      expect(html).not.toContain("kpi-skeleton-cobranza");
       expect(html).toContain("kpi-skeleton-sin-entrenar");
       expect(html).toContain("kpi-skeleton-activos");
     });
 
-    it("Modo Testeo sigue usando valores demo sin llamar a la RPC", () => {
+    it("Modo Testeo sigue usando valores demo sin llamar a la RPC y sin KPI cobranza", () => {
       useWorkspaceModeStore.getState().setMode("TESTEO");
       const rpcSpy = vi.fn();
       const mockClient = { rpc: rpcSpy };
@@ -233,7 +236,7 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
       expect(rpcSpy).not.toHaveBeenCalled();
       expect(html).toContain("data-testid=\"business-kpi-strip\"");
       expect(html).toContain("data-testid=\"kpi-ingresos\"");
-      expect(html).toContain("data-testid=\"kpi-cobranza\"");
+      expect(html).not.toContain("data-testid=\"kpi-cobranza\"");
     });
   });
 });

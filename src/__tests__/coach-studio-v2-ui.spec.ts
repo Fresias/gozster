@@ -98,10 +98,10 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(viewContent).not.toMatch(/<td[^>]*>\s*<span[^>]*>Al Día<\/span>\s*<\/td>/);
     });
 
-    it("implementa Score Salud [SH] como micro-badge numérico tonal compacto: [ 88 ]", () => {
-      expect(viewContent).toContain("Score Salud [SH]");
-      expect(viewContent).toContain("shColorClass");
-      expect(viewContent).toMatch(/\[\s*\{\s*Math\.round\(healthScore\.score\)\s*\}\s*\]/);
+    it("verifica que no exista rastro del proxy Score Salud [SH] en la tabla ni código muerto (GOZS-240)", () => {
+      expect(viewContent).not.toContain("Score Salud [SH]");
+      expect(viewContent).not.toContain("shColorClass");
+      expect(viewContent).not.toMatch(/\[\s*\{\s*Math\.round\(healthScore\.score\)\s*\}\s*\]/);
     });
 
     it("implementa Vigencia de Rutina como micro-barra o pill sin nombre de archivo visible", () => {

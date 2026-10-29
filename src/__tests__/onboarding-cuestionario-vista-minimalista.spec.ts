@@ -501,7 +501,7 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(liveWorkoutCode).toContain("isSimpleView");
       expect(liveWorkoutCode).toContain("!isSimpleView && (");
       expect(liveWorkoutCode).toContain("setWarmupModalExercise");
-      expect(liveWorkoutCode).toContain("setPlateModalWeight");
+      expect(liveWorkoutCode).not.toContain("setPlateModalWeight"); // GOZS-279: calculadora de discos eliminada
     });
 
     it("CuestionarioInicial ofrece experiencia opcional, accesible y táctil (>= 44-48px)", () => {
