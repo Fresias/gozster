@@ -49,6 +49,7 @@ export interface Database {
           fecha_baja: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at: string;
@@ -66,6 +67,7 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at?: string;
@@ -83,6 +85,7 @@ export interface Database {
           fecha_baja?: string | null;
           debe_cambiar_password?: boolean;
           telefono?: string | null;
+          whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
           created_at?: string;
@@ -519,6 +522,57 @@ export interface Database {
             referencedColumns: ['id'];
           },
         ];
+      };
+      push_suscripciones: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          usuario_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          usuario_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      push_cola: {
+        Row: {
+          id: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          destinatario_id: string;
+          mensaje_id: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          destinatario_id?: string;
+          mensaje_id?: string;
+          enviado_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       mensajes: {
         Row: {
@@ -1547,6 +1601,10 @@ export interface Database {
       };
     };
     Functions: {
+      contar_mensajes_no_leidos: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
       es_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
