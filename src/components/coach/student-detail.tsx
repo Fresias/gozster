@@ -422,6 +422,14 @@ export function StudentDetail({
     );
   }, [cobros, alumno.id, contratacion.id]);
 
+  const historialCobros = React.useMemo(
+    () =>
+      cobros
+        .filter((c) => c.alumnoId === alumno.id)
+        .sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento)),
+    [cobros, alumno.id],
+  );
+
   const [pagoRegistradoEnSesion, setPagoRegistradoEnSesion] = React.useState(false);
   const [isRegistrandoPago, setIsRegistrandoPago] = React.useState(false);
   const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
@@ -800,6 +808,36 @@ export function StudentDetail({
             >
               ✓ {avisoPago}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GOZS-257: historial completo de cuotas/pagos del alumno */}
+      <Card data-testid="historial-pagos-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold text-foreground">Historial de pagos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {historialCobros.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Sin cuotas registradas.</p>
+          ) : (
+            <ul className="divide-y divide-border/60 text-xs">
+              {historialCobros.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 py-2"
+                  data-testid="historial-pago-item"
+                >
+                  <span className="font-semibold">
+                    {c.servicioNombre} · vence {formatFecha(c.fechaVencimiento)}
+                  </span>
+                  <span className="tabular-nums">
+                    ${(c.ultimoPago?.monto ?? c.monto).toLocaleString("es-AR")} ·{" "}
+                    {c.estado === "PAGADO" ? "Pagado" : c.estado === "VENCIDO" ? "Vencido" : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

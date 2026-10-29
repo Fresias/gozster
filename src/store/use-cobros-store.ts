@@ -55,6 +55,18 @@ export interface CobroItem {
   pagos?: Array<PagoMensualInput>;
 }
 
+/** Una sola fila por alumno: su suscripción más reciente (mayor vencimiento). */
+export function ultimaSuscripcionPorAlumno(items: CobroItem[]): CobroItem[] {
+  const porAlumno = new Map<string, CobroItem>();
+  for (const item of items) {
+    const actual = porAlumno.get(item.alumnoId);
+    if (!actual || item.fechaVencimiento > actual.fechaVencimiento) {
+      porAlumno.set(item.alumnoId, item);
+    }
+  }
+  return [...porAlumno.values()];
+}
+
 export interface CobrosMetricas {
   ingresosMes: number;
   cobranzaPendiente: number;

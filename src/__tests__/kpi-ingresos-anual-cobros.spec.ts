@@ -1,6 +1,8 @@
 import * as React from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 import { CobrosPanel, type CobrosPanelProps } from "@/components/coach/cobros-panel";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
