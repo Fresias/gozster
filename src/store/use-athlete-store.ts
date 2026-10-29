@@ -102,6 +102,7 @@ interface AthleteStoreState {
   currentSession: LiveWorkoutSession;
   restTimer: RestTimerState;
   rpeValidationError: string | null;
+  rpeReminderNotification: string | null;
   stopProtocolActive: boolean;
   activePainBanner: PainBannerData | null;
   nivelVistaAlumno: NivelVistaAlumno;
@@ -177,6 +178,7 @@ interface AthleteStoreState {
     data: Partial<AlumnoCuestionarioInicial>,
   ) => Promise<{ success: boolean; error?: string }>;
   clearRpeValidationError: () => void;
+  clearRpeReminderNotification: () => void;
   updateSetField: (
     exerciseId: string,
     setNumber: number,
@@ -316,10 +318,13 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "6 a 10",
       url_video: "8urE8Z8AMQ4",
       comentario: "3 series de 6 a 10 repeticiones a RPE 8.",
+      force_rpe_required: true,
+      es_superserie: true,
+      grupo_superserie: 1,
       tipo_serie: "DROPSET",
       notas: "3 series de 6 a 10 repeticiones a RPE 8.",
       series: [
-        { numero_serie: 1, peso_kg: 60, reps_hechas: 10, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(60, 10), set_type: "DROPSET" },
+        { numero_serie: 1, peso_kg: 60, reps_hechas: 10, rpe_real: 0, completada: false, estimated1RM: calculateEpley1RM(60, 10), set_type: "DROPSET" },
         { numero_serie: 2, peso_kg: 65, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(65, 8), set_type: "DROPSET" },
         { numero_serie: 3, peso_kg: 70, reps_hechas: 7, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(70, 7), set_type: "DROPSET" },
       ],
@@ -334,6 +339,8 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "8 x lado",
       url_video: "eFWCn5iEbTU",
       comentario: "3 series de 8 pasos por pierna a RPE 8.",
+      es_superserie: true,
+      grupo_superserie: 1,
       notas: "3 series de 8 pasos por pierna a RPE 8.",
       series: [
         { numero_serie: 1, peso_kg: 20, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(20, 8) },
@@ -455,6 +462,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
       rpeValidationError: null,
+      rpeReminderNotification: null,
       stopProtocolActive: false,
       activePainBanner: null,
       restTimer: {
@@ -699,6 +707,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         return { success: true };
       },
       clearRpeValidationError: () => set({ rpeValidationError: null }),
+      clearRpeReminderNotification: () => set({ rpeReminderNotification: null }),
 
       updateSetField: (exerciseId, setNumber, field, value) => {
         set((state) => {
@@ -1013,17 +1022,26 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!targetExercise || !targetSet) return;
 
         // Hevy control del coach: coach_force_rpe_enabled
+        // Si el alumno está en modo técnica mantiene el bloqueo para retrocompatibilidad;
+        // en modo estándar emite un recordatorio persistente en la app sin bloquear la ejecución.
         if (
           targetExercise.force_rpe_required &&
           (!targetSet.rpe_real || targetSet.rpe_real < 6.0 || targetSet.rpe_real > 10.0)
         ) {
-          set({
-            rpeValidationError: `El Coach exige registrar un RPE válido (6.0 a 10.0) en "${targetExercise.nombre}" antes de completar la serie.`,
-          });
-          return;
+          if (get().nivelVistaAlumno === "TECNICA") {
+            set({
+              rpeValidationError: `El Coach exige registrar un RPE válido (6.0 a 10.0) en "${targetExercise.nombre}" antes de completar la serie.`,
+            });
+            return;
+          } else {
+            set({
+              rpeReminderNotification: `Recordatorio: Registrá el RPE en "${targetExercise.nombre}". Es obligatorio para tu coach, pero podés continuar entrenando sin bloqueo.`,
+              rpeValidationError: null,
+            });
+          }
+        } else {
+          set({ rpeValidationError: null });
         }
-
-        set({ rpeValidationError: null });
 
         const completedAt = new Date().toISOString();
         const estimated1RM = calculateEpley1RM(

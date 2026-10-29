@@ -8,6 +8,11 @@ import {
 } from "@/store/use-chat-store";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import {
+  getPushSubscriptionStatus,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from "@/lib/push-notifications";
 
 export interface AthleteChatProps {
   athleteId?: string;
@@ -40,6 +45,44 @@ export function AthleteChat({
 
   const conversation = getConversation(athleteId, athleteName);
   const messages = conversation.mensajes;
+
+  const [pushStatus, setPushStatus] = React.useState<{
+    isSubscribed: boolean;
+    loading: boolean;
+    message?: string;
+  }>({
+    isSubscribed: false,
+    loading: false,
+  });
+
+  React.useEffect(() => {
+    getPushSubscriptionStatus(athleteId).then((st) => {
+      setPushStatus((prev) => ({ ...prev, isSubscribed: st.isSubscribed }));
+    });
+  }, [athleteId]);
+
+  const handleTogglePush = async () => {
+    setPushStatus((prev) => ({ ...prev, loading: true, message: undefined }));
+    if (pushStatus.isSubscribed) {
+      await unsubscribeFromPush(athleteId);
+      setPushStatus({ isSubscribed: false, loading: false });
+    } else {
+      const res = await subscribeToPush(athleteId);
+      if (res.success) {
+        setPushStatus({
+          isSubscribed: true,
+          loading: false,
+          message: "✓ Push activado",
+        });
+      } else {
+        setPushStatus({
+          isSubscribed: false,
+          loading: false,
+          message: res.error || "No se pudo activar push",
+        });
+      }
+    }
+  };
 
   // Auto-scroll al final al abrir o enviar
   React.useEffect(() => {
@@ -77,7 +120,9 @@ export function AthleteChat({
     ? "bottom-28 right-4 sm:bottom-32 sm:right-6"
     : "bottom-5 right-4 sm:bottom-6 sm:right-6";
 
-  const staffMessagesCount = messages.filter((m) => m.es_staff).length;
+  const unreadStaffMessagesCount = messages.filter(
+    (m) => m.es_staff && !m.leido,
+  ).length;
 
   return (
     <>
@@ -106,13 +151,14 @@ export function AthleteChat({
             />
           </svg>
 
-          {/* Badge de mensajes de entrenadores */}
-          {staffMessagesCount > 0 && (
+          {/* Badge de mensajes no leídos de entrenadores */}
+          {unreadStaffMessagesCount > 0 && (
             <span
-              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white ring-2 ring-background"
-              aria-label={`${staffMessagesCount} respuestas del equipo GOZS`}
+              data-testid="unread-chat-badge"
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white ring-2 ring-background animate-pulse"
+              aria-label={`${unreadStaffMessagesCount} mensajes no leídos del equipo GOZS`}
             >
-              {staffMessagesCount}
+              {unreadStaffMessagesCount}
             </span>
           )}
         </button>
@@ -153,6 +199,39 @@ export function AthleteChat({
             </button>
           </div>
 
+          {/* Registro de notificaciones Push (PWA) */}
+          <div
+            data-testid="push-subscription-container"
+            className="border-b border-border/60 bg-muted/20 px-3 py-2 flex items-center justify-between gap-2 text-xs"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-sm">🔔</span>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {pushStatus.message ||
+                  (pushStatus.isSubscribed
+                    ? "Notificaciones push activadas"
+                    : "Avisos de respuestas del coach")}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleTogglePush}
+              data-testid="toggle-push-btn"
+              disabled={pushStatus.loading}
+              className={`min-h-8 min-w-[90px] px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors touch-manipulation cursor-pointer ${
+                pushStatus.isSubscribed
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              }`}
+            >
+              {pushStatus.loading
+                ? "..."
+                : pushStatus.isSubscribed
+                ? "Activadas ✓"
+                : "Activar push"}
+            </button>
+          </div>
+
           {/* Advertencia Offline si está en modo avión */}
           {!isOnline && (
             <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 text-[11px] text-amber-300 flex items-center gap-2">
@@ -190,6 +269,14 @@ export function AthleteChat({
                         <span className="rounded bg-primary/20 px-1.5 py-0.2 text-[9px] font-extrabold text-primary uppercase">
                           Equipo
                         </span>
+                        {!msg.leido && (
+                          <span
+                            data-testid={`unread-tag-${msg.id}`}
+                            className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-emerald-400 uppercase border border-emerald-500/30"
+                          >
+                            No leído
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-start gap-2 max-w-[90%]">

@@ -114,8 +114,9 @@ describe("GOZSter Sprints 1 a 4: Benchmark Hevy, Everfit, Mynter & Supabase Real
       const session = store.currentSession;
       const ejId = session.ejercicios[0]!.id;
 
-      // Habilitamos la exigencia de RPE en el ejercicio
+      // Habilitamos la exigencia de RPE en el ejercicio (el bloqueo aplica en vista TECNICA; en estándar solo avisa)
       useAthleteStore.setState((s) => ({
+        nivelVistaAlumno: "TECNICA",
         currentSession: {
           ...s.currentSession,
           ejercicios: s.currentSession.ejercicios.map((e) =>

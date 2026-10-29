@@ -41,6 +41,7 @@ import {
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { useChatStore } from "@/store/use-chat-store";
 import { UltimaVez } from "@/components/athlete/ultima-vez";
 import { SugerenciaCarga } from "@/components/athlete/sugerencia-carga";
 import { AvisoRecord } from "@/components/athlete/aviso-record";
@@ -58,6 +59,8 @@ export function LiveWorkout() {
     currentSession,
     rpeValidationError,
     clearRpeValidationError,
+    rpeReminderNotification,
+    clearRpeReminderNotification,
     updateSetField,
     updateSetType,
     reportPainForSet,
@@ -237,6 +240,14 @@ export function LiveWorkout() {
 
   const currentExerciseIndex = currentSession.ejercicios.findIndex(
     (ej) => ej.id === currentExercise?.id,
+  );
+
+  const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
+  const latestUnreadStaffMessage = getLatestUnreadStaffMessage();
+  const pendingRpeExercise = currentSession.ejercicios.find(
+    (ej) =>
+      ej.force_rpe_required &&
+      ej.series.some((s) => !s.rpe_real || s.rpe_real < 6 || s.rpe_real > 10),
   );
 
   // Determinar la serie actual dentro del ejercicio (la primera no completada, o la última)
@@ -719,6 +730,77 @@ export function LiveWorkout() {
               </div>
             )}
 
+            {/* Aviso prominente de mensaje no leído del Coach */}
+            {latestUnreadStaffMessage && (
+              <div
+                role="status"
+                onClick={() => setAthleteChatOpen(true)}
+                className="flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3 text-xs text-foreground cursor-pointer shadow-xs animate-in fade-in duration-200"
+                data-testid="unread-coach-message-banner"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-xs">
+                    💬
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-primary">Mensaje del Coach</span>
+                      <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+                        No leído
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                      {latestUnreadStaffMessage.contenido}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAthleteChatOpen(true);
+                  }}
+                  className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8"
+                >
+                  Ver mensaje
+                </button>
+              </div>
+            )}
+
+            {/* Recordatorio de RPE obligatorio sin bloqueo */}
+            {(rpeReminderNotification || pendingRpeExercise) && (
+              <div
+                role="alert"
+                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 animate-in fade-in duration-200"
+                data-testid="rpe-reminder-banner"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-400 font-bold text-xs">
+                    ⚡
+                  </span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-amber-300">RPE obligatorio (sin bloqueo):</span>{" "}
+                    <span className="text-amber-200/90 text-[11px]">
+                      {rpeReminderNotification ||
+                        `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
+                    </span>
+                  </div>
+                </div>
+                {pendingRpeExercise && pendingRpeExercise.id !== currentExercise?.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedExerciseId(pendingRpeExercise.id);
+                      clearRpeReminderNotification();
+                    }}
+                    className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors touch-manipulation cursor-pointer"
+                  >
+                    Ir al ejercicio
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Barra azul llenándose con progreso de ejercicios */}
             <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between">
@@ -869,6 +951,7 @@ export function LiveWorkout() {
                       ej.nombre.toLowerCase().includes("warm up") ||
                       ej.nombre.toLowerCase().includes("calentamiento");
                     const isDropSet = ej.tipo_serie === "DROPSET";
+                    const isSuperset = Boolean(ej.es_superserie);
 
                     return (
                       <button
@@ -900,10 +983,10 @@ export function LiveWorkout() {
                             isDone
                               ? "bg-emerald-500 text-white"
                               : isSelected
-                              ? isDropSet
+                              ? (isDropSet || isSuperset)
                                 ? "bg-purple-600 text-white"
                                 : "bg-primary text-white"
-                              : isDropSet
+                              : (isDropSet || isSuperset)
                               ? "bg-purple-500/20 text-purple-300 font-bold"
                               : "bg-secondary/70 text-muted-foreground"
                           }`}
@@ -930,9 +1013,17 @@ export function LiveWorkout() {
                                 <span>⚡</span> Drop Set
                               </span>
                             )}
+                            {isSuperset && (
+                              <span
+                                data-testid={`superserie-tag-${ej.id}`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
+                              >
+                                <span>🔗</span> Superserie A{ej.grupo_superserie || 1}
+                              </span>
+                            )}
                             <span
                               className={`text-xs sm:text-sm font-bold leading-tight ${
-                                isSelected ? (isDropSet ? "text-purple-300 font-extrabold" : "text-primary") : "text-foreground"
+                                isSelected ? ((isDropSet || isSuperset) ? "text-purple-300 font-extrabold" : "text-primary") : "text-foreground"
                               }`}
                             >
                               {ej.nombre}
@@ -967,6 +1058,29 @@ export function LiveWorkout() {
 
               {currentExercise && (
                 <div className="space-y-4 pt-1" data-testid={`single-exercise-container-${currentExercise.id}`}>
+                  {/* Banner de Superserie Conectada (Circuito Violeta) */}
+                  {currentExercise.es_superserie && (
+                    <div
+                      data-testid="superserie-circuit-banner"
+                      className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-3.5 py-2.5 text-xs font-semibold text-purple-300 dark:text-purple-200 flex items-center justify-between gap-2 shadow-xs animate-in fade-in"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold">A</span>
+                        <div>
+                          <div className="font-bold text-purple-200">
+                            Circuito Superserie A{currentExercise.grupo_superserie || 1}
+                          </div>
+                          <div className="text-[11px] text-purple-300/80">
+                            Ejecutar consecutivamente sin descanso previo
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0">
+                        Circuito Violeta
+                      </span>
+                    </div>
+                  )}
+
                   {/* Banner de Drop Set definido por el constructor (GOZS-275) */}
                   {currentExercise.tipo_serie === "DROPSET" && (
                     <div
