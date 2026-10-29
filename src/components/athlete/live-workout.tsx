@@ -1419,7 +1419,7 @@ export function LiveWorkout() {
                             </div>
                           </div>
 
-                          {/* Auxiliares técnicos: Calentamiento y Discos */}
+                          {/* Auxiliares técnicos: Aproximación y Discos */}
                           <div className="flex items-center gap-2 pt-1">
                             <Button
                               type="button"
@@ -1428,9 +1428,10 @@ export function LiveWorkout() {
                               className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
+                              aria-label="Aproximación"
                             >
                               <Flame className="h-4 w-4" />
-                              <span>Calentamiento</span>
+                              <span data-testid={`aproximacion-btn-${currentExercise.id}`}>Aproximación</span>
                             </Button>
 
                             <Button
@@ -2077,12 +2078,15 @@ export function LiveWorkout() {
           isOpen={Boolean(warmupModalExercise)}
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
+          marcas={marcas[warmupModalExercise.ejercicio_id || warmupModalExercise.id] ?? null}
+          rpeObjetivo={warmupModalExercise.rpe_objetivo}
+          repsObjetivo={warmupModalExercise.repeticiones_objetivo}
           workingWeightKg={
             warmupModalExercise.series.find(
               (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
             )?.peso_kg ||
             warmupModalExercise.series[0]?.peso_kg ||
-            80
+            0
           }
           onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)
