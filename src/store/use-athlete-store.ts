@@ -126,6 +126,7 @@ interface AthleteStoreState {
   miProgresoFecha: string | null; // ISO de la última descarga
   cargandoMiProgreso: boolean;
   pasoIncrementoPeso: number;
+  colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
 
@@ -154,6 +155,7 @@ interface AthleteStoreState {
   marcarDiaCompletado: (diaId: string) => void;
   setMembershipStatus: (status: AthleteMembershipStatus) => void;
   setPasoIncrementoPeso: (paso: number) => void;
+  setColapsarRutina: (colapsar: boolean) => void;
   deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
@@ -427,6 +429,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       historialSesiones: REAL_HISTORIAL_CARGAS[DEFAULT_ATHLETE_ID] || [],
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
+      colapsarRutina: false,
       rpeValidationError: null,
       stopProtocolActive: false,
       restTimer: {
@@ -440,6 +443,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
+      setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -1728,6 +1732,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       partialize: (state) => ({
         membershipStatus: state.membershipStatus,
         pasoIncrementoPeso: state.pasoIncrementoPeso,
+        colapsarRutina: state.colapsarRutina,
         currentSession: state.currentSession,
         nivelVistaAlumno: state.nivelVistaAlumno,
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,
