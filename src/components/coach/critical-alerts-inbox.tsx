@@ -7,6 +7,7 @@ import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   fetchCriticalAlerts,
   getDemoCriticalAlerts,
+  ordenarAlertasPorPrioridad,
   persistAlertEstado,
   withAlertEstado,
   type AlertaEstado,
@@ -89,7 +90,7 @@ export function CriticalAlertsInbox({
   const countCerrados = alerts.filter((a) => a.estado === "CERRADO" || a.estado === "RESUELTO").length;
 
   // Filtrado según la pestaña activa (estrictamente alertas rojas de dolor articular)
-  const filteredAlerts = alerts.filter((a) => {
+  const filteredAlerts = ordenarAlertasPorPrioridad(alerts).filter((a) => {
     if (a.type !== "DOLOR" && !(a.type === "DOLOR")) return false;
     const estado = a.estado || "PENDIENTE";
     if (statusFilter === "TODAS") return a.type === "DOLOR";

@@ -15,6 +15,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isDashboardActive = pathname === "/studio/dashboard";
   const isStudioActive = pathname === "/studio";
   const isAgendaActive = pathname === "/studio/agenda";
+  const isRankingActive = pathname === "/studio/ranking-funcional";
   const isCobrosActive = pathname === "/studio/cobros";
   const isDocumentacionActive = pathname === "/studio/documentacion";
   const isAthleteActive = pathname?.startsWith("/athlete");
@@ -140,6 +141,32 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 />
               </svg>
               <span>Agenda de Clases</span>
+            </Link>
+
+            <Link
+              href="/studio/ranking-funcional"
+              data-testid="sidebar-ranking-link"
+              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                isRankingActive
+                  ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
+              }`}
+            >
+              <svg
+                className="mr-2.5 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.004 0V9.75m-5.004 4.5V9.75m0 0a3 3 0 013-3h.008a3 3 0 013 3m-6 0h6"
+                />
+              </svg>
+              <span>Ranking Funcional</span>
             </Link>
 
             <Link

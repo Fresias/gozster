@@ -32,3 +32,9 @@ export function estaEstancado(series: SerieHistorica[], ahora: number = Date.now
   if (Math.min(...tiempos) > desde) return false;
   return !fechasDePR(series).some((f) => Date.parse(f) >= desde && Date.parse(f) <= ahora);
 }
+
+// Días desde el último PR (o desde la primera serie válida si nunca hubo uno).
+export function diasSinPR(series: SerieHistorica[], ahora: number = Date.now()): number {
+  const ultimo = Math.max(...fechasDePR(series).map(Date.parse), Math.min(...series.filter(esSerieValida).map((s) => Date.parse(s.fecha))));
+  return Math.floor((ahora - ultimo) / MS_DIA);
+}

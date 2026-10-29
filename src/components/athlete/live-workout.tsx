@@ -9,9 +9,11 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -35,6 +37,7 @@ import {
   Trash2,
   Lock,
   HelpCircle,
+  ChevronDown,
 } from "@/components/athlete/icons";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -46,6 +49,9 @@ import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
+// GOZS-275: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
+const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
+
 
 export function LiveWorkout() {
   const {
@@ -71,9 +77,13 @@ export function LiveWorkout() {
     usarVistaRecomendada,
     pasoIncrementoPeso,
     setPasoIncrementoPeso,
+    colapsarRutina,
+    setColapsarRutina,
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
+    activePainBanner,
+    clearActivePainBanner,
     reportPainEvent,
     syncSessionToSupabase,
     diaActivoId,
@@ -103,6 +113,9 @@ export function LiveWorkout() {
 
   // Modal de configuración del alumno
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+
+  // Estado local para expandir la rutina manualmente cuando colapsarRutina está activo
+  const [rutinaDesplegadaManual, setRutinaDesplegadaManual] = React.useState(false);
 
   // Estado para la confirmación optimista de serie guardada
   const [optimisticBanner, setOptimisticBanner] = React.useState<{
@@ -158,6 +171,7 @@ export function LiveWorkout() {
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
+  const [notesExercise, setNotesExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
@@ -622,6 +636,14 @@ export function LiveWorkout() {
               </div>
             </div>
 
+            {/* Cartel de Reporte de Dolor por Rango (GOZS-278) */}
+            {activePainBanner && (
+              <PainReportBanner
+                banner={activePainBanner}
+                onDismiss={clearActivePainBanner}
+              />
+            )}
+
             {/* Protocolo de Freno Destacado ante Síntomas de Alarma */}
             {stopProtocolActive && (
               <div
@@ -802,36 +824,75 @@ export function LiveWorkout() {
                 SOLAPA 1: ENTRENAR (OPCIÓN B: 1 COLUMNA COMPLETA SIN TEXTOS REDUNDANTES)
                 =================================================================== */}
             <TabsContent value="entrenar" className="space-y-4 m-0 focus-visible:outline-none">
-              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
-              <div className="flex flex-col gap-1.5" data-testid="exercise-selector-column">
-                {currentSession.ejercicios.map((ej, idx) => {
-                  const isSelected = ej.id === currentExercise?.id;
-                  const isDone = ej.series.every((s) => s.completada);
-                  const completedCount = ej.series.filter((s) => s.completada).length;
-                  const isWarmup =
-                    ej.tipo_serie === "WARMUP" ||
-                    ej.nombre.toLowerCase().includes("warm up") ||
-                    ej.nombre.toLowerCase().includes("calentamiento");
-                  const isDropSet = ej.tipo_serie === "DROPSET";
-
-                  return (
-                    <button
-                      key={ej.id}
-                      type="button"
-                      onClick={() => setSelectedExerciseId(ej.id)}
-                      data-testid={`exercise-select-btn-${ej.id}`}
-                      className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
-                        isSelected
-                          ? isDropSet
-                            ? "border-purple-500 bg-purple-500/15 shadow-xs ring-1 ring-purple-500/40"
-                            : "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
-                          : isDone
-                          ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
-                          : isDropSet
-                          ? "border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/10"
-                          : "border-border/70 bg-card hover:bg-secondary/40"
-                      }`}
+              {/* Cabecera / Conmutador de Rutina en Cascada (GOZS-277) */}
+              <div className="flex items-center justify-between px-1 text-xs text-muted-foreground font-semibold">
+                <div className="flex items-center gap-1.5">
+                  <span className="uppercase tracking-wider font-bold">Rutina</span>
+                  {colapsarRutina && (
+                    <span
+                      data-testid="badge-rutina-colapsada"
+                      className="text-[10px] lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
                     >
+                      colapsada ({currentSession.ejercicios.length} ejercicios)
+                    </span>
+                  )}
+                </div>
+                {colapsarRutina && (
+                  <button
+                    type="button"
+                    onClick={() => setRutinaDesplegadaManual(!rutinaDesplegadaManual)}
+                    data-testid="btn-toggle-rutina-colapsada"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
+                    aria-expanded={rutinaDesplegadaManual}
+                  >
+                    <span>{rutinaDesplegadaManual ? "Colapsar rutina" : `Ver todos (${currentSession.ejercicios.length})`}</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${rutinaDesplegadaManual ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+
+              {/* Selector de ejercicios en 1 columna completa (Opción B) */}
+              <div
+                className="flex flex-col gap-1.5"
+                data-testid="exercise-selector-column"
+                data-rutina-colapsada={colapsarRutina && !rutinaDesplegadaManual ? "true" : "false"}
+              >
+                {currentSession.ejercicios
+                  .filter((ej) => !colapsarRutina || rutinaDesplegadaManual || ej.id === (currentExercise?.id ?? currentSession.ejercicios[0]?.id))
+                  .map((ej) => {
+                    const idx = currentSession.ejercicios.findIndex((e) => e.id === ej.id);
+                    const isSelected = ej.id === currentExercise?.id;
+                    const isDone = ej.series.every((s) => s.completada);
+                    const completedCount = ej.series.filter((s) => s.completada).length;
+                    const isWarmup =
+                      ej.tipo_serie === "WARMUP" ||
+                      ej.nombre.toLowerCase().includes("warm up") ||
+                      ej.nombre.toLowerCase().includes("calentamiento");
+                    const isDropSet = ej.tipo_serie === "DROPSET";
+
+                    return (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedExerciseId(ej.id);
+                          if (colapsarRutina && rutinaDesplegadaManual) {
+                            setRutinaDesplegadaManual(false);
+                          }
+                        }}
+                        data-testid={`exercise-select-btn-${ej.id}`}
+                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          isSelected
+                            ? isDropSet
+                              ? "border-purple-500 bg-purple-500/15 shadow-xs ring-1 ring-purple-500/40"
+                              : "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
+                            : isDone
+                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            : isDropSet
+                            ? "border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/10"
+                            : "border-border/70 bg-card hover:bg-secondary/40"
+                        }`}
+                      >
                       <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 pr-2">
                         {/* Ordinal estilizado a la izquierda */}
                         <div
@@ -942,8 +1003,10 @@ export function LiveWorkout() {
                         Ejercicio <span className="font-mono">{currentExerciseIndex + 1}</span> de{" "}
                         <span className="font-mono">{currentSession.ejercicios.length}</span>
                       </span>
-                      {currentExercise.tempo && (
-                        <span>Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span></span>
+                      {Boolean(currentExercise.tempo_activo && currentExercise.tempo) && (
+                        <span data-testid={`tempo-indicator-${currentExercise.id}`}>
+                          Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span>
+                        </span>
                       )}
                     </div>
 
@@ -971,6 +1034,14 @@ export function LiveWorkout() {
                               {m}
                             </span>
                           ))}
+                          {currentExercise.force_rpe_required && (
+                            <span
+                              data-testid={`force-rpe-badge-${currentExercise.id}`}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1"
+                            >
+                              RPE obligatorio
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1012,7 +1083,19 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-
+                        {Boolean(currentExercise.notas?.trim() || currentExercise.comentario?.trim()) && (
+                          <button
+                            type="button"
+                            onClick={() => setNotesExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver notas del ejercicio"
+                            data-testid={`exercise-notes-btn-${currentExercise.id}`}
+                            aria-label="Ver notas del ejercicio"
+                          >
+                            <ClipboardList className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Notas</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -1413,7 +1496,7 @@ export function LiveWorkout() {
                                 className="bg-amber-500 text-white font-bold text-xs py-1 px-2.5 flex items-center gap-1 shadow-xs"
                                 data-testid="fixed-warmup-badge"
                               >
-                                <span>🔥</span> Aproximación
+                                <Flame className="h-3.5 w-3.5" /> Aproximación
                               </Badge>
                             ) : (
                               <Badge
@@ -1426,7 +1509,7 @@ export function LiveWorkout() {
                             )}
 
                             {/* Compatibilidad estática: el selector manual W/N/F/D no se renderiza en runtime (GOZS-275) */}
-                            {false && (
+                            {MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE && (
                               <div className="flex items-center gap-1 bg-secondary/60 p-1 rounded-xl border border-border/40">
                                 {(["W", "N", "F", "D"] as const).map((t) => (
                                   <button
@@ -1498,10 +1581,11 @@ export function LiveWorkout() {
                               className="flex-1 min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
+                              aria-label="Aproximación"
                               data-button-type="aproximacion"
                             >
                               <Flame className="h-4 w-4" />
-                              <span>Aproximación</span>
+                              <span data-testid={`aproximacion-btn-${currentExercise.id}`}>Aproximación</span>
                             </Button>
 
                             <Button
@@ -2157,17 +2241,28 @@ export function LiveWorkout() {
         />
       )}
 
+      {notesExercise && (
+        <ExerciseNotesModal
+          exercise={notesExercise}
+          isOpen={Boolean(notesExercise)}
+          onClose={() => setNotesExercise(null)}
+        />
+      )}
+
       {warmupModalExercise && (
         <WarmupModal
           isOpen={Boolean(warmupModalExercise)}
           onClose={() => setWarmupModalExercise(null)}
           exerciseName={warmupModalExercise.nombre}
+          marcas={marcas[warmupModalExercise.ejercicio_id || warmupModalExercise.id] ?? null}
+          rpeObjetivo={warmupModalExercise.rpe_objetivo}
+          repsObjetivo={warmupModalExercise.repeticiones_objetivo}
           workingWeightKg={
             warmupModalExercise.series.find(
               (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
             )?.peso_kg ||
             warmupModalExercise.series[0]?.peso_kg ||
-            80
+            0
           }
           onApplyWarmupSets={(warmupSets) =>
             applyWarmupSetsToExercise(warmupModalExercise.id, warmupSets)
