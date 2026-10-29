@@ -189,7 +189,7 @@ BEGIN
     'alumno_historial_dolor', 'alumno_cuestionario_inicial', 'planes_membresia', 'planes_membresia_precios',
     'contrataciones', 'cobros', 'pagos',
     'auditoria_cambios', 'sustituciones_ejercicios', 'clases_horario', 'clases', 'clases_profesores', 'reservas',
-    'clases_fijas'
+    'push_suscripciones', 'push_cola', 'alumno_actividades', 'clases_fijas'
   ) THEN
     RAISE EXCEPTION 'Tabla no restaurable: %', p_tabla
       USING ERRCODE = '22023';
