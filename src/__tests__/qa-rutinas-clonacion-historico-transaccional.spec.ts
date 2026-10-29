@@ -8,10 +8,10 @@ import { ultimaVezDeEjercicio, type SerieHistorica } from "@/lib/historial-ejerc
 // GOZS-294: QA de rutinas — clonación completa (GOZS-290), histórico abril-junio
 // y guardado/asignación transaccional (GOZS-291), contra las migraciones reales (PGlite).
 //
-// Contrato asumido de las RPCs de GOZS-291 (alinear si el PR de backend lo cambia):
+// Contrato de las RPCs de GOZS-291 (migración 20261029130000_rpc_guardar_asignar_rutina.sql):
 //   guardar_rutina(p_payload jsonb) -> uuid del plan
-//     p_payload = { plan: { id?, nombre, alumno_id?, comentarios? }, como_nueva?: boolean,
-//                   dias: [{ nombre, orden, ejercicios: [{ ejercicio_id, orden, series, repeticiones, ... }] }] }
+//     p_payload = { plan_id?, como_nueva?, nombre, comentarios?, alumno_id?, etiqueta?,
+//                   dias: [{ nombre, ejercicios: [{ ejercicio_id, series, repeticiones, ... }] }] }
 //   asignar_rutina_a_alumno(p_plan_id uuid, p_alumno_id uuid) -> uuid del plan nuevo del alumno
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
@@ -154,8 +154,8 @@ async function historialDe(alumnoId: string): Promise<SerieHistorica[]> {
 
 function payloadValido(nombre: string, ejercicioId: string, extra: Record<string, unknown> = {}) {
   return {
+    nombre,
     ...extra,
-    plan: { nombre, ...((extra.plan as object) ?? {}) },
     dias: [
       {
         nombre: "Día 1",
@@ -345,6 +345,15 @@ describe("GOZS-294 QA Rutinas: clonación, histórico y guardado transaccional",
       expect(await contar(`SELECT 1 FROM public.planes_entrenamiento WHERE nombre = 'Rutina rota'`)).toBe(0);
     });
 
+    it("un ejercicio_id mal formado (no UUID) tampoco deja parciales ni filtra el error crudo de Postgres", async () => {
+      const antes = (await filasDeRutinas()).rows[0];
+      const msg = await errorDe(guardar(payloadValido("Rutina id roto", "no-es-un-uuid")));
+
+      expect((await filasDeRutinas()).rows[0]).toEqual(antes);
+      expect(msg).toMatch(/No se pudo guardar/);
+      expect(msg).not.toMatch(MENSAJE_CRUDO);
+    });
+
     it("editar una rutina existente con un ejercicio inválido conserva intactos sus días y ejercicios", async () => {
       const id = (await guardar(payloadValido("Editable", PRESS))).rows[0]!.id;
       const foto = () =>
@@ -357,7 +366,7 @@ describe("GOZS-294 QA Rutinas: clonación, histórico y guardado transaccional",
       const antes = (await foto()).rows;
       expect(antes).toHaveLength(3);
 
-      const msg = await errorDe(guardar(payloadValido("Editable v2", INEXISTENTE, { plan: { id } })));
+      const msg = await errorDe(guardar(payloadValido("Editable v2", INEXISTENTE, { plan_id: id })));
       expect((await foto()).rows).toEqual(antes);
       const plan = await db.query<{ nombre: string }>(`SELECT nombre FROM public.planes_entrenamiento WHERE id = $1`, [id]);
       expect(plan.rows[0]!.nombre).toBe("Editable");
@@ -368,13 +377,13 @@ describe("GOZS-294 QA Rutinas: clonación, histórico y guardado transaccional",
     it("guardar una rutina sin sesiones actualiza el mismo plan_id y no crea duplicado", async () => {
       const id = (await guardar(payloadValido("Sin sesiones", PRESS))).rows[0]!.id;
       const planes = await contar(`SELECT 1 FROM public.planes_entrenamiento`);
-      const id2 = (await guardar(payloadValido("Sin sesiones v2", SENTADILLA, { plan: { id } }))).rows[0]!.id;
+      const id2 = (await guardar(payloadValido("Sin sesiones v2", SENTADILLA, { plan_id: id }))).rows[0]!.id;
       expect(id2).toBe(id);
       expect(await contar(`SELECT 1 FROM public.planes_entrenamiento`)).toBe(planes);
     });
 
     it("actualizar en el lugar una rutina con sesiones se rechaza con mensaje humano y las sesiones conservan su dia_id", async () => {
-      const msg = await errorDe(guardar(payloadValido("Abril editado", PRESS, { plan: { id: PLAN_ABRIL } })));
+      const msg = await errorDe(guardar(payloadValido("Abril editado", PRESS, { plan_id: PLAN_ABRIL })));
       expect(msg).not.toMatch(MENSAJE_CRUDO);
       expect(msg).toMatch(/nueva versi[oó]n/i);
       const s = await db.query<{ dia_id: string }>(`SELECT dia_id FROM public.registro_sesiones WHERE id = $1`, [sesionAbril]);
@@ -434,7 +443,7 @@ describe("GOZS-294 QA Rutinas: clonación, histórico y guardado transaccional",
           PLANTILLA_PECHO,
           ANA,
         ]),
-      ).rejects.toThrow(/No autorizado|No se pudo|row-level security|permission denied/);
+      ).rejects.toThrow(/No autorizado|no está asignado|No tienes permiso|row-level security|permission denied/);
       expect(await contar(`SELECT 1 FROM public.planes_entrenamiento WHERE alumno_id = '${ANA}'`)).toBe(antes);
     });
   });
