@@ -42,6 +42,17 @@ async function abrirRuta(page: Page, ruta: string, modo: "TESTEO" | "PRODUCCION"
   await page.goto(ruta, { waitUntil: "domcontentloaded" });
 }
 
+// El SSR pinta el FAB antes de que React hidrate: reintenta el click hasta que el toggle responda.
+async function abrirChat(page: Page) {
+  const btnChat = page.getByRole("button", { name: /Abrir chat/i });
+  await expect(btnChat).toBeVisible({ timeout: 60_000 });
+  await expect(async () => {
+    if ((await btnChat.getAttribute("aria-expanded")) !== "true") await btnChat.click();
+    await expect(btnChat).toHaveAttribute("aria-expanded", "true", { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  return page.locator("#athlete-chat-drawer");
+}
+
 test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   test("1. Dashboard: KPIs ejecutivos y filtro de actividad", async ({ page }) => {
     await abrirRuta(page, "/studio/dashboard", "TESTEO");
@@ -107,13 +118,8 @@ test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   test("3. Chat coach-alumno y push notifications en App del Alumno", async ({ page }) => {
     await abrirRuta(page, "/athlete", "TESTEO");
 
-    // Botón flotante para abrir chat
-    const btnChat = page.getByRole("button", { name: /Abrir chat/i });
-    await expect(btnChat).toBeVisible({ timeout: 60_000 });
-    await btnChat.click();
-
-    // Drawer de chat abierto
-    const chatDrawer = page.locator("#athlete-chat-drawer");
+    // Botón flotante para abrir chat → drawer abierto
+    const chatDrawer = await abrirChat(page);
     await expect(chatDrawer).toBeVisible();
     await expect(page.getByTestId("push-subscription-container")).toBeVisible();
     await expect(page.getByTestId("toggle-push-btn")).toBeVisible();
@@ -131,10 +137,7 @@ test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
     await page.waitForTimeout(500);
 
     // Verificar que la app sigue interactiva
-    const btnChat = page.getByRole("button", { name: /Abrir chat/i });
-    await expect(btnChat).toBeVisible();
-    await btnChat.click();
-    const chatDrawer = page.locator("#athlete-chat-drawer");
+    const chatDrawer = await abrirChat(page);
     await expect(chatDrawer).toBeVisible();
 
     // Reconectar red
