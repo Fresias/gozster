@@ -994,6 +994,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_COMPLETED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId || DEFAULT_ATHLETE_ID,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber: newWarmupSet.numero_serie,
@@ -1091,6 +1094,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_COMPLETED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId || DEFAULT_ATHLETE_ID,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber,
@@ -1173,6 +1179,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_UPDATED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId || DEFAULT_ATHLETE_ID,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber,
