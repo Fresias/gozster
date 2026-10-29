@@ -44,9 +44,7 @@ interface RoutineBuilderModalProps {
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
 }
 
-const DEFAULT_BUILDER_DAYS: BuilderDay[] = [
-  { id: "builder-day-1", nombre: "Día 1", orden: 1, ejercicios: [] },
-];
+const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
 
 function mapPlanToBuilderDays(
   planId: string,
@@ -151,7 +149,7 @@ export function RoutineBuilderModal({
     const nextOrder = days.length + 1;
     const newDay: BuilderDay = {
       id: `builder-day-${Date.now()}`,
-      nombre: `Día ${nextOrder}: Nueva Estación`,
+      nombre: `Día ${nextOrder}`,
       orden: nextOrder,
       ejercicios: [],
     };
@@ -165,14 +163,14 @@ export function RoutineBuilderModal({
       id: `be-${Date.now()}`,
       ejercicio_id: ej.id,
       nombre: ej.nombre,
-      series: 3,
-      repeticiones: "8-10",
+      series: 0,
+      repeticiones: "0",
       descanso_segundos: 90,
-      rpe_objetivo: 8.0,
-      tempo: "3-0-1-0",
+      rpe_objetivo: 0,
+      tempo: "0",
       tempo_activo: false,
       force_rpe_required: false,
-      notas: ej.comentario || "",
+      notas: "",
       es_superserie: openCircuit !== null,
       grupo_superserie: openCircuit,
       tipo_serie: "NORMAL",
@@ -329,7 +327,7 @@ export function RoutineBuilderModal({
               repeticiones: ej.repeticiones,
               descanso_segundos: ej.descanso_segundos,
               rpe_objetivo: ej.rpe_objetivo,
-              tempo: ej.tempo || "3-0-1-0",
+              tempo: ej.tempo ?? "0",
               tempo_activo: Boolean(ej.tempo_activo),
               force_rpe_required: ej.force_rpe_required || false,
               notas: ej.notas || null,
@@ -451,34 +449,61 @@ export function RoutineBuilderModal({
 
         {/* Contenido del Día Seleccionado */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="flex items-center justify-between pb-1">
-            <input
-              type="text"
-              value={currentDay?.nombre || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                setDays((prev) =>
-                  prev.map((d, idx) =>
-                    idx === selectedDayIdx ? { ...d, nombre: val } : d
-                  )
-                );
-              }}
-              className="text-sm font-bold text-foreground bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none px-1"
-            />
-            <Button
-              size="sm"
-              onClick={() => setShowCatalogModal(true)}
-              className="bg-primary text-primary-foreground font-bold text-xs"
-              data-testid="open-exercise-catalog-btn"
+          {days.length === 0 ? (
+            <div
+              className="rounded-xl border border-dashed border-border p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center space-y-3 my-auto"
+              data-testid="no-days-message"
             >
-              + Añadir Ejercicio del Catálogo
-            </Button>
-          </div>
-
-          {currentDay?.ejercicios.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
-              No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
+              <p className="text-sm font-medium text-foreground">No hay días precargados en la rutina.</p>
+              <p className="text-xs text-muted-foreground">Crea un día para comenzar a diseñar las sesiones de entrenamiento.</p>
+              <Button
+                size="sm"
+                onClick={handleAddDay}
+                className="bg-primary text-primary-foreground font-bold text-xs"
+                data-testid="add-first-day-btn"
+              >
+                + Agregar Día
+              </Button>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between pb-1 gap-3">
+                <div className="flex items-center gap-2 flex-1 max-w-sm">
+                  <label htmlFor="day-name-input" className="text-xs font-bold text-muted-foreground shrink-0">
+                    Nombre del día:
+                  </label>
+                  <input
+                    id="day-name-input"
+                    type="text"
+                    value={currentDay?.nombre || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDays((prev) =>
+                        prev.map((d, idx) =>
+                          idx === selectedDayIdx ? { ...d, nombre: val } : d
+                        )
+                      );
+                    }}
+                    placeholder="Ej. Día 1 - Torso"
+                    data-testid="day-name-input"
+                    aria-label="Nombre del día"
+                    className="text-sm font-bold text-foreground bg-transparent border-b border-input hover:border-foreground/50 focus:border-primary focus:outline-none px-1 py-0.5 w-full transition-colors"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setShowCatalogModal(true)}
+                  className="bg-primary text-primary-foreground font-bold text-xs"
+                  data-testid="open-exercise-catalog-btn"
+                >
+                  + Añadir Ejercicio del Catálogo
+                </Button>
+              </div>
+
+              {currentDay?.ejercicios.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+                  No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
+                </div>
           ) : (
             <div className="space-y-3">
               {currentDay?.ejercicios.map((ej, index) => {
@@ -590,16 +615,19 @@ export function RoutineBuilderModal({
                         </label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           max={MAX_SERIES_PER_EXERCISE}
                           value={ej.series}
-                          onChange={(e) =>
-                            handleUpdateExercise(
-                              ej.id,
-                              "series",
-                              clampSeries(e.target.value)
-                            )
-                          }
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const num = parseInt(raw, 10);
+                            if (isNaN(num) || num <= 0) {
+                              handleUpdateExercise(ej.id, "series", 0);
+                            } else {
+                              handleUpdateExercise(ej.id, "series", clampSeries(num));
+                            }
+                          }}
+                          data-testid="exercise-series-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <span
@@ -626,6 +654,7 @@ export function RoutineBuilderModal({
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "repeticiones", e.target.value)
                           }
+                          data-testid="exercise-reps-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -639,13 +668,15 @@ export function RoutineBuilderModal({
                           step="15"
                           min="0"
                           value={ej.descanso_segundos}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
                             handleUpdateExercise(
                               ej.id,
                               "descanso_segundos",
-                              parseInt(e.target.value, 10) || 0
-                            )
-                          }
+                              isNaN(val) ? 0 : val
+                            );
+                          }}
+                          data-testid="exercise-rest-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -657,16 +688,18 @@ export function RoutineBuilderModal({
                         <input
                           type="number"
                           step="0.5"
-                          min="6"
+                          min="0"
                           max="10"
                           value={ej.rpe_objetivo}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
                             handleUpdateExercise(
                               ej.id,
                               "rpe_objetivo",
-                              parseFloat(e.target.value) || 8.0
-                            )
-                          }
+                              isNaN(val) ? 0 : val
+                            );
+                          }}
+                          data-testid="exercise-rpe-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
@@ -692,7 +725,7 @@ export function RoutineBuilderModal({
                         </div>
                         <input
                           type="text"
-                          placeholder="3-0-1-0"
+                          placeholder="0"
                           value={ej.tempo}
                           disabled={!ej.tempo_activo}
                           onChange={(e) =>
@@ -799,6 +832,8 @@ export function RoutineBuilderModal({
                 );
               })}
             </div>
+          )}
+            </>
           )}
         </div>
 
