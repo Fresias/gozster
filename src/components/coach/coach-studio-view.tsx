@@ -24,7 +24,6 @@ import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
 import { getRutinaVigenciaInfo } from "@/lib/rutina-vigencia";
-import { calculateStudentHealthScore } from "@/lib/strength-metrics";
 import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
 import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
@@ -562,7 +561,7 @@ export function CoachStudioView({
                     </span>
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Exhibiendo todos los semáforos M3 (Cuota, Score Salud, Vigencia, Actividad) y alertas simultáneas para pruebas táctiles.
+                    Exhibiendo todos los semáforos M3 (Cuota, Vigencia, Actividad) y alertas simultáneas para pruebas táctiles.
                   </p>
                 </div>
               </div>
@@ -859,7 +858,7 @@ export function CoachStudioView({
                     )}
                     {!isTestMode && (
                       <span className="text-xs text-muted-foreground">
-                        — Matriz Operativa Semáforos M3: Estado Cuota, Score Salud, Vigencia y Alertas
+                        — Matriz Operativa Semáforos M3: Estado Cuota, Vigencia y Alertas
                       </span>
                     )}
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
@@ -922,7 +921,6 @@ export function CoachStudioView({
                           Atleta (Columna Matriz)
                         </th>
                         <th className="py-2.5 px-3 text-center w-24">Cuota</th>
-                        <th className="py-2.5 px-3 text-center w-24">Score Salud [SH]</th>
                         <th className="py-2.5 px-3 text-center w-28">Vigencia Rutina</th>
                         <th className="py-2.5 px-3 text-center w-24">Actividad</th>
                         <th className="py-2.5 px-3 text-left min-w-[130px] max-w-[190px]">Alertas</th>
@@ -932,7 +930,7 @@ export function CoachStudioView({
                     <tbody className="divide-y divide-border/60 text-foreground">
                       {paginatedAlumnos.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="py-8 text-center text-muted-foreground">
                             No se encontraron atletas con los criterios seleccionados.
                           </td>
                         </tr>
@@ -982,43 +980,6 @@ export function CoachStudioView({
                             : isPendiente
                             ? "bg-amber-500 border border-amber-600/30"
                             : "bg-rose-500 border border-rose-600/30";
-
-                          // Cálculo Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ])
-                          let shScore: number;
-                          if (isTestMode) {
-                            const nl = alumno.nombre_completo.toLowerCase();
-                            if (nl.includes("mateo")) shScore = 96;
-                            else if (nl.includes("esteban")) shScore = 91;
-                            else if (nl.includes("lucas")) shScore = 88;
-                            else if (nl.includes("valentina")) shScore = 82;
-                            else if (nl.includes("celeste")) shScore = 76;
-                            else if (nl.includes("camila")) shScore = 71;
-                            else if (nl.includes("facundo")) shScore = 64;
-                            else if (nl.includes("martina")) shScore = 58;
-                            else if (nl.includes("sofia")) shScore = 48;
-                            else if (nl.includes("bautista")) shScore = 35;
-                            else shScore = 80;
-                          } else {
-                            const cuotaScore = isAlDia ? 100 : isPendiente ? 50 : 15;
-                            const planScore = planActivo ? 90 : 35;
-                            shScore = Math.round(
-                              calculateStudentHealthScore({
-                                adherencia: planScore,
-                                frecuencia: planActivo ? 85 : 40,
-                                interaccionChat: 75,
-                                estadoCuota: cuotaScore,
-                              }).score,
-                            );
-                          }
-
-                          const healthScore = { score: shScore };
-
-                          const shColorClass =
-                            healthScore.score >= 80
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                              : healthScore.score >= 60
-                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30";
 
                           // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
                           // 🟢 0-15 días, 🟡 16-21 días, 🔴 22+ días o sin plan (GOZS-242)
@@ -1120,21 +1081,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 3. Score Salud [SH] (Micro-badge numérico tonal compacto: [ 88 ]) */}
-                              <td
-                                className={`${rowPaddingClass} px-3 text-center font-mono font-bold tabular-nums`}
-                              >
-                                <div className="flex items-center justify-center">
-                                  <span
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold border ${shColorClass}`}
-                                    title={`Score Salud: ${Math.round(healthScore.score)} / 100`}
-                                  >
-                                    [ {Math.round(healthScore.score)} ]
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* 4. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
+                              {/* 3. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center">
                                   <span
@@ -1146,7 +1093,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 5. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
+                              {/* 4. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center">
                                   <span
@@ -1158,7 +1105,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 6. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
+                              {/* 5. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
                               <td className={`${rowPaddingClass} px-3 text-left`}>
                                 <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
                                   {badges.length === 0 ? (
@@ -1197,7 +1144,7 @@ export function CoachStudioView({
                                 </div>
                               </td>
 
-                              {/* 7. Acciones Táctiles "Fat-Finger Friendly" (Touch targets de 48 × 48 px y separación ≥ 8px) */}
+                              {/* 6. Acciones Táctiles "Fat-Finger Friendly" (Touch targets de 48 × 48 px y separación ≥ 8px) */}
                               <td className={`${rowPaddingClass} px-3 text-center`}>
                                 <div className="flex items-center justify-center gap-2">
                                   {/* Botón Chat por la App (Enviar mensaje) */}
