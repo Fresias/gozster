@@ -161,6 +161,9 @@ export interface Database {
           comentarios: string | null;
           fecha_inicio: string;
           fecha_fin: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -173,6 +176,9 @@ export interface Database {
           comentarios?: string | null;
           fecha_inicio?: string;
           fecha_fin?: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -185,6 +191,9 @@ export interface Database {
           comentarios?: string | null;
           fecha_inicio?: string;
           fecha_fin?: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -194,6 +203,13 @@ export interface Database {
             columns: ['profesor_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'planes_entrenamiento_plan_origen_id_fkey';
+            columns: ['plan_origen_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_entrenamiento';
             referencedColumns: ['id'];
           },
           {
