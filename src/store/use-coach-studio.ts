@@ -36,7 +36,7 @@ import {
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
-import { DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_CONTRATACIONES_CLASES, DEMO_ALUMNO_ACTIVIDADES } from "@/services/coach-demo-dataset";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -222,8 +222,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
     ejercicios: MOCK_EJERCICIOS,
     historialCargas: MOCK_HISTORIAL_CARGAS,
-    contrataciones: [],
-    alumnoActividades: MOCK_ALUMNO_ACTIVIDADES,
+    contrataciones: DEMO_CONTRATACIONES_CLASES,
+    alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
     filtroActividad: "TODAS",
     sustituciones: [
       {
