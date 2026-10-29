@@ -14,12 +14,14 @@ import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawe
 import { ChatFab } from "@/components/coach/chat-fab";
 import { Button } from "@/components/ui/button";
 
-import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+import type { AlumnoEstancado, LiveSupabaseDataset } from "@/services/alumnos-service";
 
 export function CoachDashboardView({
   initialDataset,
+  estancados = [],
 }: {
   initialDataset?: LiveSupabaseDataset | null;
+  estancados?: AlumnoEstancado[];
 } = {}) {
   const router = useRouter();
   const store = useCoachStudioStore();
@@ -170,6 +172,26 @@ export function CoachDashboardView({
         metricas={metricas}
         onAssignPlanClick={() => setIsAssignModalOpen(true)}
       />
+
+      {/* Alerta de estancamiento: 30+ días sin PR (GOZS-226) */}
+      {estancados.length > 0 && (
+        <section
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4"
+          data-testid="alerta-estancamiento"
+        >
+          <h2 className="text-sm font-bold text-amber-300">Alumnos estancados (30+ días sin PR)</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {estancados.map((e) => (
+              <li key={e.alumnoId}>
+                <button type="button" onClick={() => handleSelectAlumno(e.alumnoId)} className="hover:underline">
+                  {alumnos.find((a) => a.id === e.alumnoId)?.nombre_completo ?? "Alumno"}
+                </button>{" "}
+                <span className="text-muted-foreground">· {e.diasSinPR} días sin PR</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* Feed de Alertas de Sobrecarga Progresiva (RPC: detectar_sobrecarga_progresiva y 1RM) */}
       <div className="pt-2">
