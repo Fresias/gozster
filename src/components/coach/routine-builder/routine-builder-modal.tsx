@@ -85,6 +85,17 @@ export function buildGuardarRutinaPayload(input: {
   };
 }
 
+// GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
+export function clasificarErrorGuardado(err: any, modo: SaveMode) {
+  const esNegocio = err?.code === "GZ010";
+  const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
+  return {
+    mensaje,
+    needsNewVersion: esNegocio && modo === "guardar" && /sesiones registradas/i.test(mensaje),
+    detalle: [err?.code, err?.message, err?.details].filter(Boolean).join(" | ") || String(err),
+  };
+}
+
 // Resumen para errores_app: nunca el payload completo
 export function resumenPayload(p: ReturnType<typeof buildGuardarRutinaPayload>) {
   return {
@@ -163,6 +174,9 @@ export function RoutineBuilderModal({
 
   React.useEffect(() => {
     if (!isOpen) return;
+    setNeedsNewVersion(false);
+    setAsignarAlumno(false);
+    setErrorMessage(null);
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
@@ -350,10 +364,9 @@ export function RoutineBuilderModal({
         onClose();
       }, 1500);
     } catch (err: any) {
-      const esNegocio = err?.code === "GZ010";
-      const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
+      const { mensaje, detalle, needsNewVersion: nueva } = clasificarErrorGuardado(err, modo);
       setErrorMessage(mensaje);
-      setNeedsNewVersion(esNegocio && modo === "guardar" && /sesiones registradas/i.test(mensaje));
+      setNeedsNewVersion(nueva);
       try {
         const { data: authData } = await supabase.auth.getUser();
         if (authData.user) {
@@ -361,7 +374,7 @@ export function RoutineBuilderModal({
             usuario_id: authData.user.id,
             contexto: "guardar_rutina",
             mensaje_humano: mensaje,
-            detalle_tecnico: [err?.code, err?.message, err?.details].filter(Boolean).join(" | ") || String(err),
+            detalle_tecnico: detalle,
             payload_resumen: resumenPayload(payload),
           });
         }
