@@ -1509,6 +1509,22 @@ export function StudentDetail({
                                           Superserie G{item.grupo_superserie}
                                         </Badge>
                                       )}
+                                      {item.tempo_activo && item.tempo && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-sky-500 text-sky-400 text-[10px]"
+                                        >
+                                          Tempo {item.tempo}
+                                        </Badge>
+                                      )}
+                                      {item.force_rpe_required && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-amber-500 text-amber-400 text-[10px]"
+                                        >
+                                          RPE Obligatorio
+                                        </Badge>
+                                      )}
                                     </div>
                                     {item.notas && (
                                       <p className="text-[11px] text-muted-foreground">

@@ -16,6 +16,7 @@ interface BuilderExercise {
   descanso_segundos: number;
   rpe_objetivo: number;
   tempo: string;
+  tempo_activo: boolean;
   force_rpe_required: boolean;
   notas: string;
   es_superserie: boolean;
@@ -79,6 +80,7 @@ function mapPlanToBuilderDays(
           descanso_segundos: er.descanso_segundos,
           rpe_objetivo: er.rpe_objetivo ?? 8,
           tempo: er.tempo ?? "2-0-1-0",
+          tempo_activo: Boolean((er as any).tempo_activo),
           force_rpe_required: Boolean((er as any).force_rpe_required),
           notas: er.notas ?? "",
           es_superserie: Boolean(er.es_superserie),
@@ -164,6 +166,7 @@ export function RoutineBuilderModal({
       descanso_segundos: 90,
       rpe_objetivo: 8.0,
       tempo: "3-0-1-0",
+      tempo_activo: false,
       force_rpe_required: false,
       notas: ej.comentario || "",
       es_superserie: false,
@@ -306,6 +309,7 @@ export function RoutineBuilderModal({
               descanso_segundos: ej.descanso_segundos,
               rpe_objetivo: ej.rpe_objetivo,
               tempo: ej.tempo || "3-0-1-0",
+              tempo_activo: Boolean(ej.tempo_activo),
               force_rpe_required: ej.force_rpe_required || false,
               notas: ej.notas || null,
               es_superserie: ej.es_superserie,
@@ -483,9 +487,22 @@ export function RoutineBuilderModal({
                             {groupLabel}
                           </Badge>
                         )}
+                        {ej.tempo_activo && (
+                          <Badge
+                            variant="outline"
+                            className="border-sky-500 text-sky-400 text-[10px] font-bold"
+                            data-testid={`tempo-badge-${ej.id}`}
+                          >
+                            Tempo {ej.tempo || "3-0-1-0"}
+                          </Badge>
+                        )}
                         {ej.force_rpe_required && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-400 text-[10px] font-bold">
-                            RPE Forzado
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500 text-amber-400 text-[10px] font-bold"
+                            data-testid={`rpe-badge-${ej.id}`}
+                          >
+                            RPE Obligatorio
                           </Badge>
                         )}
                         {ej.url_video && (
@@ -624,17 +641,38 @@ export function RoutineBuilderModal({
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
-                          Tempo:
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                            Tempo:
+                          </label>
+                          <label className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={ej.tempo_activo}
+                              onChange={(e) =>
+                                handleUpdateExercise(ej.id, "tempo_activo", e.target.checked)
+                              }
+                              className="rounded accent-primary h-3 w-3"
+                              data-testid={`tempo-active-checkbox-${ej.id}`}
+                              aria-label={`Activar tempo para ${ej.nombre}`}
+                            />
+                            <span>On</span>
+                          </label>
+                        </div>
                         <input
                           type="text"
                           placeholder="3-0-1-0"
                           value={ej.tempo}
+                          disabled={!ej.tempo_activo}
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "tempo", e.target.value)
                           }
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          data-testid={`tempo-input-${ej.id}`}
+                          className={`w-full min-h-[38px] rounded-xl border border-input px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary ${
+                            !ej.tempo_activo
+                              ? "opacity-40 bg-muted cursor-not-allowed"
+                              : "bg-background"
+                          }`}
                         />
                       </div>
 
@@ -653,7 +691,7 @@ export function RoutineBuilderModal({
                       </div>
                     </div>
 
-                    {/* Fila inferior: Notas del coach y switch de RPE forzado */}
+                    {/* Fila inferior: Notas del coach, switch de Tempo y switch de RPE obligatorio */}
                     <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 border-t border-border/40 text-xs">
                       <div className="flex-1 w-full">
                         <input
@@ -667,21 +705,41 @@ export function RoutineBuilderModal({
                         />
                       </div>
 
-                      <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={ej.force_rpe_required}
-                          onChange={(e) =>
-                            handleUpdateExercise(
-                              ej.id,
-                              "force_rpe_required",
-                              e.target.checked
-                            )
-                          }
-                          className="rounded accent-primary h-3.5 w-3.5"
-                        />
-                        <span>Obligar registro de RPE</span>
-                      </label>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={ej.tempo_activo}
+                            onChange={(e) =>
+                              handleUpdateExercise(
+                                ej.id,
+                                "tempo_activo",
+                                e.target.checked
+                              )
+                            }
+                            data-testid={`tempo-toggle-${ej.id}`}
+                            className="rounded accent-primary h-3.5 w-3.5"
+                          />
+                          <span>Activar Tempo</span>
+                        </label>
+
+                        <label className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={ej.force_rpe_required}
+                            onChange={(e) =>
+                              handleUpdateExercise(
+                                ej.id,
+                                "force_rpe_required",
+                                e.target.checked
+                              )
+                            }
+                            data-testid={`force-rpe-checkbox-${ej.id}`}
+                            className="rounded accent-primary h-3.5 w-3.5"
+                          />
+                          <span>RPE obligatorio</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 );

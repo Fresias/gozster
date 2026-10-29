@@ -892,8 +892,10 @@ export function LiveWorkout() {
                         Ejercicio <span className="font-mono">{currentExerciseIndex + 1}</span> de{" "}
                         <span className="font-mono">{currentSession.ejercicios.length}</span>
                       </span>
-                      {currentExercise.tempo && (
-                        <span>Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span></span>
+                      {Boolean(currentExercise.tempo_activo && currentExercise.tempo) && (
+                        <span data-testid={`tempo-indicator-${currentExercise.id}`}>
+                          Tempo: <span className="font-mono font-bold text-foreground">{currentExercise.tempo}</span>
+                        </span>
                       )}
                     </div>
 
@@ -911,6 +913,14 @@ export function LiveWorkout() {
                               {m}
                             </span>
                           ))}
+                          {currentExercise.force_rpe_required && (
+                            <span
+                              data-testid={`force-rpe-badge-${currentExercise.id}`}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1"
+                            >
+                              RPE obligatorio
+                            </span>
+                          )}
                         </div>
                       </div>
 
