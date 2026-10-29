@@ -9,6 +9,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
+import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PlateCalculatorModal } from "@/components/athlete/plate-calculator-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
@@ -167,6 +168,7 @@ export function LiveWorkout() {
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
+  const [notesExercise, setNotesExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [plateModalWeight, setPlateModalWeight] = React.useState<number | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
@@ -1018,7 +1020,19 @@ export function LiveWorkout() {
                           </PopoverContent>
                         </Popover>
 
-
+                        {Boolean(currentExercise.notas?.trim() || currentExercise.comentario?.trim()) && (
+                          <button
+                            type="button"
+                            onClick={() => setNotesExercise(currentExercise)}
+                            className="h-10 px-2.5 rounded-xl border border-border/80 bg-card text-foreground hover:bg-secondary/60 flex items-center gap-1.5 text-xs font-bold transition-all touch-manipulation cursor-pointer"
+                            title="Ver notas del ejercicio"
+                            data-testid={`exercise-notes-btn-${currentExercise.id}`}
+                            aria-label="Ver notas del ejercicio"
+                          >
+                            <ClipboardList className="h-4 w-4 text-primary" />
+                            <span className="hidden sm:inline">Notas</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -2091,6 +2105,14 @@ export function LiveWorkout() {
           exercise={videoExercise}
           isOpen={Boolean(videoExercise)}
           onClose={() => setVideoExercise(null)}
+        />
+      )}
+
+      {notesExercise && (
+        <ExerciseNotesModal
+          exercise={notesExercise}
+          isOpen={Boolean(notesExercise)}
+          onClose={() => setNotesExercise(null)}
         />
       )}
 
