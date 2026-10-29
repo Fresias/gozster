@@ -12,6 +12,7 @@ import {
   horaLocal,
   ocupaCupo,
 } from "@/lib/clases";
+import { cargarFeriados, feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -236,6 +237,20 @@ export function ClassAgenda() {
   const hoy = claveDia(new Date(ahoraMs));
 
   const [fechaBase, setFechaBase] = React.useState<Date>(() => new Date(ahoraMs));
+  const [feriados, setFeriados] = React.useState<FeriadosPorDia>({});
+  const anioFeriados = fechaBase.getFullYear();
+  React.useEffect(() => {
+    if (!mounted) return;
+    if (mode === "TESTEO") {
+      setFeriados(feriadosDemo());
+      return;
+    }
+    let activo = true;
+    cargarFeriados(anioFeriados).then((f) => activo && setFeriados(f));
+    return () => {
+      activo = false;
+    };
+  }, [mounted, mode, anioFeriados]);
   const [dia, setDia] = React.useState(hoy);
   const [claseId, setClaseId] = React.useState<string | null>(null);
 
@@ -785,10 +800,12 @@ export function ClassAgenda() {
             {diasMes.map((d) => {
               const clasesDia = clases.filter((c) => claveDia(c.inicio) === d.clave);
               const esSeleccionado = dia === d.clave;
+              const feriado = feriados[d.clave];
               return (
                 <button
                   key={d.clave}
                   type="button"
+                  title={feriado?.nombre}
                   onClick={() => {
                     setDia(d.clave);
                     setClaseId(null);
@@ -799,18 +816,27 @@ export function ClassAgenda() {
                       ? "border-primary bg-primary/10 ring-2 ring-primary/30"
                       : d.esHoy
                         ? "border-sky-500/60 bg-sky-500/5 font-bold"
-                        : d.esMesActual
+                        : feriado
+                          ? "border-red-500/60 bg-red-500/10"
+                          : d.esMesActual
                           ? "border-border/60 bg-card hover:border-primary/40 hover:bg-secondary/40"
                           : "border-transparent bg-secondary/20 text-muted-foreground opacity-50"
                   }`}
                   data-testid="month-day-cell"
+                  data-feriado={feriado ? "true" : undefined}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs ${d.esHoy ? "text-sky-500 font-black" : ""}`}>
+                    <span className={`text-xs ${d.esHoy ? "text-sky-500 font-black" : feriado ? "text-red-600 dark:text-red-400 font-black" : ""}`}>
                       {d.numero}
                     </span>
                     {d.esHoy && <span className="text-[10px] text-sky-500 font-bold">Hoy</span>}
                   </div>
+
+                  {feriado && (
+                    <span className="mt-1 block truncate text-[10px] font-bold text-red-600 dark:text-red-400">
+                      {feriado.nombre}
+                    </span>
+                  )}
 
                   {clasesDia.length > 0 && (
                     <div className="mt-1 space-y-1">
@@ -846,13 +872,16 @@ export function ClassAgenda() {
               {diasSemana.map((d) => {
                 const esHoy = d.clave === hoy;
                 const esSeleccionado = d.clave === dia;
+                const feriado = feriados[d.clave];
                 return (
                   <button
                     key={d.clave}
                     type="button"
+                    title={feriado?.nombre}
+                    data-feriado={feriado ? "true" : undefined}
                     onClick={() => setDia(d.clave)}
                     className={`h-14 border-r last:border-r-0 border-border/40 p-2 text-center flex flex-col items-center justify-center gap-0.5 transition-colors hover:bg-muted/40 ${
-                      esHoy ? "bg-primary/5" : esSeleccionado ? "bg-secondary/40" : ""
+                      feriado ? "bg-red-500/10 text-red-600 dark:text-red-400" : esHoy ? "bg-primary/5" : esSeleccionado ? "bg-secondary/40" : ""
                     }`}
                   >
                     <span
@@ -1034,12 +1063,22 @@ export function ClassAgenda() {
               dias={diasSemana}
               seleccionado={dia}
               hoy={hoy}
+              feriados={feriados}
               onSeleccionar={(c) => {
                 setDia(c);
                 setClaseId(null);
               }}
             />
           </div>
+
+          {feriados[dia] && (
+            <p
+              className="max-w-xl rounded-xl border border-red-500/60 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400"
+              data-testid="feriado-banner"
+            >
+              Feriado: {feriados[dia].nombre}. Sin clases por defecto; podés agregar una clase manual.
+            </p>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)]">
             {/* Grilla horaria en 1 columna */}
