@@ -67,6 +67,8 @@ export interface LiveWorkoutExercise {
   force_rpe_required?: boolean;
   es_superserie?: boolean;
   grupo_superserie?: number | null;
+  tipo_serie?: "NORMAL" | "WARMUP" | "DROPSET";
+  tempo_activo?: boolean;
 }
 
 export interface LiveWorkoutSession {
@@ -176,6 +178,10 @@ interface AthleteStoreState {
     setNumber: number,
     type: "W" | "N" | "F" | "D",
   ) => void;
+  updateExerciseTipoSerie: (
+    exerciseId: string,
+    tipo_serie: "NORMAL" | "WARMUP" | "DROPSET",
+  ) => void;
   reportPainForSet: (
     exerciseId: string,
     setNumber: number,
@@ -280,10 +286,11 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "15'' x lado",
       url_video: "Sz2LLBq_Krs",
       comentario: "Calentamiento específico: 3 series de 15 segundos por pierna.",
+      tipo_serie: "WARMUP",
       series: [
-        { numero_serie: 1, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0 },
-        { numero_serie: 2, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0 },
-        { numero_serie: 3, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0 },
+        { numero_serie: 1, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0, set_type: "W" },
+        { numero_serie: 2, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0, set_type: "W" },
+        { numero_serie: 3, peso_kg: 0, reps_hechas: 15, rpe_real: 6, completada: false, estimated1RM: 0, set_type: "W" },
       ],
     },
     {
@@ -296,10 +303,11 @@ const defaultSession: LiveWorkoutSession = {
       repeticiones_objetivo: "6 a 10",
       url_video: "8urE8Z8AMQ4",
       comentario: "3 series de 6 a 10 repeticiones a RPE 8.",
+      tipo_serie: "DROPSET",
       series: [
-        { numero_serie: 1, peso_kg: 60, reps_hechas: 10, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(60, 10) },
-        { numero_serie: 2, peso_kg: 65, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(65, 8) },
-        { numero_serie: 3, peso_kg: 70, reps_hechas: 7, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(70, 7) },
+        { numero_serie: 1, peso_kg: 60, reps_hechas: 10, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(60, 10), set_type: "DROPSET" },
+        { numero_serie: 2, peso_kg: 65, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(65, 8), set_type: "DROPSET" },
+        { numero_serie: 3, peso_kg: 70, reps_hechas: 7, rpe_real: 8, completada: false, estimated1RM: calculateEpley1RM(70, 7), set_type: "DROPSET" },
       ],
     },
     {
@@ -706,6 +714,30 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 series: ej.series.map((s) =>
                   s.numero_serie === setNumber ? { ...s, set_type: type } : s
                 ),
+              };
+            }),
+          },
+        }));
+      },
+
+      updateExerciseTipoSerie: (exerciseId, tipo_serie) => {
+        set((state) => ({
+          currentSession: {
+            ...state.currentSession,
+            ejercicios: state.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== exerciseId) return ej;
+              return {
+                ...ej,
+                tipo_serie,
+                series: ej.series.map((s) => ({
+                  ...s,
+                  set_type:
+                    tipo_serie === "DROPSET"
+                      ? "DROPSET"
+                      : tipo_serie === "WARMUP"
+                      ? "W"
+                      : s.set_type,
+                })),
               };
             }),
           },
