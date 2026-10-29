@@ -4,7 +4,7 @@ BEGIN READ ONLY;
 
 -- (a) Planes duplicados: mismo profesor_id + nombre + alumno_id.
 -- accion_sugerida: BORRAR_CANDIDATO (sin sesiones) | ARCHIVAR (con sesiones: INACTIVO + fecha_fin).
--- El owner decide qué se ejecuta; en cada grupo se sugiere conservar el plan con sesiones / el más reciente.
+-- El owner decide qué se ejecuta; en cada grupo se sugiere conservar el plan ACTIVO más reciente (los demás con sesiones se archivan).
 WITH planes AS (
   SELECT p.id, p.profesor_id, p.alumno_id, p.nombre, p.estado, p.created_at,
          (SELECT count(*) FROM public.registro_sesiones s
@@ -12,9 +12,7 @@ WITH planes AS (
            WHERE d.plan_id = p.id) AS sesiones,
          count(*) OVER w AS copias,
          row_number() OVER (w ORDER BY
-           (EXISTS (SELECT 1 FROM public.registro_sesiones s
-                      JOIN public.dias_rutina d ON d.id = s.dia_id
-                     WHERE d.plan_id = p.id)) DESC,
+           (p.estado = 'ACTIVO') DESC,
            p.created_at DESC) AS rango
   FROM public.planes_entrenamiento p
   WINDOW w AS (PARTITION BY p.profesor_id, p.alumno_id, p.nombre)
