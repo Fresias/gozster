@@ -255,6 +255,8 @@ export interface Database {
           grupo_superserie: number | null;
           tempo?: string | null;
           force_rpe_required?: boolean | null;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           created_at: string;
           updated_at: string;
         };
@@ -271,6 +273,8 @@ export interface Database {
           es_superserie?: boolean;
           grupo_superserie?: number | null;
           tempo?: string;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -288,6 +292,8 @@ export interface Database {
           es_superserie?: boolean;
           grupo_superserie?: number | null;
           tempo?: string;
+          tempo_activo?: boolean;
+          tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
