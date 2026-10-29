@@ -1,4 +1,4 @@
-import type { ActividadClase, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
+import type { ActividadClase, AlumnoActividad, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
 import { diasDeLaSemana } from "@/lib/clases";
@@ -691,6 +691,99 @@ export const DEMO_CONTRATACIONES_CLASES: Contratacion[] = [
     precio_pactado: null,
     created_at: getRelativeIsoStr(-40),
     updated_at: getRelativeIsoStr(-10),
+  },
+];
+
+export const DEMO_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
+  {
+    id: "demo-act-valentina",
+    alumno_id: "demo-alumno-valentina",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-60),
+    updated_at: getRelativeIsoStr(-1),
+  },
+  {
+    id: "demo-act-sofia-func",
+    alumno_id: "demo-alumno-sofia",
+    actividad: "FUNCIONAL",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-45),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-sofia-box",
+    alumno_id: "demo-alumno-sofia",
+    actividad: "BOXEO",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-45),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-joaquin",
+    alumno_id: "demo-alumno-joaquin",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-5),
+    updated_at: getRelativeIsoStr(-5),
+  },
+  {
+    id: "demo-act-tomas",
+    alumno_id: "demo-alumno-tomas",
+    actividad: "FUNCIONAL",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-40),
+    updated_at: getRelativeIsoStr(-10),
+  },
+  {
+    id: "demo-act-lucas",
+    alumno_id: "demo-alumno-01-lucas",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-120),
+    updated_at: getRelativeIsoStr(-1),
+  },
+  {
+    id: "demo-act-celeste",
+    alumno_id: "demo-alumno-02-celeste",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-90),
+    updated_at: getRelativeIsoStr(0),
+  },
+  {
+    id: "demo-act-facundo",
+    alumno_id: "demo-alumno-03-facundo",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-60),
+    updated_at: getRelativeIsoStr(-9),
+  },
+  {
+    id: "demo-act-sofia-alb",
+    alumno_id: "demo-alumno-04-sofia",
+    actividad: "RUTINAS",
+    veces_por_semana: null,
+    pase_libre: true,
+    created_at: getRelativeIsoStr(-150),
+    updated_at: getRelativeIsoStr(-18),
+  },
+  {
+    id: "demo-act-mateo-box",
+    alumno_id: "demo-alumno-05-mateo",
+    actividad: "BOXEO",
+    veces_por_semana: 2,
+    pase_libre: false,
+    created_at: getRelativeIsoStr(-80),
+    updated_at: getRelativeIsoStr(-2),
   },
 ];
 
