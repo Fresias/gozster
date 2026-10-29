@@ -1,3 +1,4 @@
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 /**
  * ============================================================================
  * GOZSter Unit & Acceptance Tests: Botón de Notas del Ejercicio en la App Móvil
@@ -178,6 +179,7 @@ describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", (
       expect(alumno).toBeDefined();
       if (!alumno) return;
 
+      sembrarPlanAlumno(alumno.id);
       const ok = useAthleteStore.getState().loadStudentSession(alumno.id);
       expect(ok).toBe(true);
 

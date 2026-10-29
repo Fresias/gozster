@@ -1,3 +1,4 @@
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
@@ -29,6 +30,7 @@ describe("Selector de Ejercicios en 1 Columna (Opción B / GH #172 / GOZS-168)",
 
   it("soporta fluidamente la rutina de Fernando Rosales (8 ejercicios en columna)", () => {
     const store = useAthleteStore.getState();
+    sembrarPlanAlumno("Fernando Rosales");
     store.loadStudentSession("Fernando Rosales");
     const session = useAthleteStore.getState().currentSession;
 
@@ -38,6 +40,7 @@ describe("Selector de Ejercicios en 1 Columna (Opción B / GH #172 / GOZS-168)",
 
   it("soporta fluidamente la rutina de Gabriel Sánchez (Warm up de 2 ejercicios en columna)", () => {
     const store = useAthleteStore.getState();
+    sembrarPlanAlumno("Gabriel Sanchez");
     store.loadStudentSession("Gabriel Sanchez");
     const session = useAthleteStore.getState().currentSession;
 
