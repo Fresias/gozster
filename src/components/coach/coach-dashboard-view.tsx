@@ -13,6 +13,10 @@ import { ProgressiveOverloadFeed } from "@/components/coach/progressive-overload
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
 import { Button } from "@/components/ui/button";
+import {
+  ETIQUETAS_FILTRO_ACTIVIDAD,
+  alumnoTieneActividad,
+} from "@/lib/alumno-actividades";
 
 import type { AlumnoEstancado, LiveSupabaseDataset } from "@/services/alumnos-service";
 
@@ -51,6 +55,8 @@ export function CoachDashboardView({
     getSelectedAlumno,
     getHistorialCargasAlumno,
     loadLiveSupabaseData,
+    filtroActividad,
+    setFiltroActividad,
   } = store;
 
   React.useEffect(() => {
@@ -76,7 +82,7 @@ export function CoachDashboardView({
   const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
 
   // Retention metrics from RPC
-  const metricas = obtenerMetricasRetencion();
+  const metricas = obtenerMetricasRetencion(null, filtroActividad);
 
   // Progressive overload alerts from RPC
   const alertas = getAlertasSobrecargaProgresiva();
@@ -86,6 +92,17 @@ export function CoachDashboardView({
     if (a.rol !== "ALUMNO") return false;
     const isActiva = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
     if (!isActiva) return false;
+    if (filtroActividad !== "TODAS") {
+      const tiene = alumnoTieneActividad({
+        alumnoId: a.id,
+        actividad: filtroActividad,
+        alumnoActividades: store.alumnoActividades,
+        contrataciones: store.contrataciones,
+        planes,
+        alumno: a,
+      });
+      if (!tiene) return false;
+    }
     const planActivo = planes.find((p) => p.alumno_id === a.id && p.estado === "ACTIVO");
     return !planActivo;
   });
@@ -165,6 +182,46 @@ export function CoachDashboardView({
             👥 Ver Directorio de Atletas
           </Link>
         </div>
+      </div>
+
+      {/* Selector de Filtro por Actividad */}
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-testid="filtro-actividad-container"
+      >
+        <span className="text-xs text-muted-foreground font-semibold">Actividad:</span>
+        {(["TODAS", "FUNCIONAL", "BOXEO", "RUTINAS"] as const).map((act) => {
+          const isActive = filtroActividad === act;
+          const label = ETIQUETAS_FILTRO_ACTIVIDAD[act];
+          const count = act === "TODAS"
+            ? alumnos.length
+            : alumnos.filter((a) =>
+                alumnoTieneActividad({
+                  alumnoId: a.id,
+                  actividad: act,
+                  alumnoActividades: store.alumnoActividades,
+                  contrataciones: store.contrataciones,
+                  planes,
+                  alumno: a,
+                })
+              ).length;
+
+          return (
+            <button
+              key={act}
+              type="button"
+              data-testid={`filtro-actividad-${act.toLowerCase()}`}
+              onClick={() => setFiltroActividad(act)}
+              className={`min-h-11 sm:min-h-9 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-border"
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion) */}
