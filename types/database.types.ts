@@ -52,6 +52,8 @@ export interface Database {
           whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at: string;
           updated_at: string;
         };
@@ -70,6 +72,8 @@ export interface Database {
           whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,6 +92,8 @@ export interface Database {
           whatsapp_habilitado?: boolean;
           fecha_vencimiento_cuota?: string | null;
           ultimo_entreno_at?: string | null;
+          peso_corporal_kg?: number | null;
+          sexo?: 'M' | 'F' | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1729,6 +1735,20 @@ export interface Database {
           peso_max_kg: number;
           mejor_1rm_epley: number;
           mejor_1rm_brzycki: number;
+        }[];
+      };
+      obtener_ranking_ejercicio: {
+        Args: {
+          p_ejercicio_id: string;
+        };
+        Returns: {
+          alumno_id: string;
+          nombre_completo: string;
+          sexo: 'M' | 'F' | null;
+          pr_kg: number;
+          ratio_pr_peso_corporal: number | null;
+          posicion_en_sexo: number | null;
+          motivo_exclusion: string | null;
         }[];
       };
       detectar_sobrecarga_progresiva: {
