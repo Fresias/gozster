@@ -21,6 +21,7 @@ interface BuilderExercise {
   notas: string;
   es_superserie: boolean;
   grupo_superserie: number | null;
+  tipo_serie: "NORMAL" | "WARMUP" | "DROPSET";
   url_video?: string | null;
 }
 
@@ -85,6 +86,7 @@ function mapPlanToBuilderDays(
           notas: er.notas ?? "",
           es_superserie: Boolean(er.es_superserie),
           grupo_superserie: grupoNum,
+          tipo_serie: er.tipo_serie ?? "NORMAL",
           url_video: ej?.url_video ?? null,
         };
       });
@@ -133,6 +135,8 @@ export function RoutineBuilderModal({
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
+  // Grupo del circuito de superserie abierto: los ejercicios nuevos entran hasta cerrarlo
+  const [openCircuit, setOpenCircuit] = React.useState<number | null>(null);
   const [showCatalogModal, setShowCatalogModal] = React.useState(false);
   const [catalogSearch, setCatalogSearch] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
@@ -169,8 +173,9 @@ export function RoutineBuilderModal({
       tempo_activo: false,
       force_rpe_required: false,
       notas: ej.comentario || "",
-      es_superserie: false,
-      grupo_superserie: null,
+      es_superserie: openCircuit !== null,
+      grupo_superserie: openCircuit,
+      tipo_serie: "NORMAL",
       url_video: ej.url_video,
     };
 
@@ -233,18 +238,34 @@ export function RoutineBuilderModal({
     );
   };
 
-  // Toggle Superserie (A1 / A2)
+  // Superserie como circuito: tocar abre uno nuevo, tocar de nuevo lo cierra
   const handleToggleSuperset = (exId: string) => {
     if (!currentDay) return;
     const ex = currentDay.ejercicios.find((e) => e.id === exId);
     if (!ex) return;
 
-    const willBeSuperset = !ex.es_superserie;
-    // Si no tiene grupo asignado, asignar 1 por defecto
-    const nextGroup = willBeSuperset ? ex.grupo_superserie || 1 : null;
+    if (openCircuit !== null) {
+      setOpenCircuit(null);
+      return;
+    }
+    if (ex.es_superserie) {
+      handleUpdateExercise(exId, "es_superserie", false);
+      handleUpdateExercise(exId, "grupo_superserie", null);
+      return;
+    }
+    const maxGroup = Math.max(
+      0,
+      ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))
+    );
+    const group = maxGroup + 1;
+    handleUpdateExercise(exId, "es_superserie", true);
+    handleUpdateExercise(exId, "grupo_superserie", group);
+    setOpenCircuit(group);
+  };
 
-    handleUpdateExercise(exId, "es_superserie", willBeSuperset);
-    handleUpdateExercise(exId, "grupo_superserie", nextGroup);
+  const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
+    const ex = currentDay?.ejercicios.find((e) => e.id === exId);
+    handleUpdateExercise(exId, "tipo_serie", ex?.tipo_serie === tipo ? "NORMAL" : tipo);
   };
 
   // Guardar de verdad en Supabase (0 hardcodeado)
@@ -314,6 +335,7 @@ export function RoutineBuilderModal({
               notas: ej.notas || null,
               es_superserie: ej.es_superserie,
               grupo_superserie: ej.grupo_superserie,
+              tipo_serie: ej.tipo_serie,
               created_at: nowIso,
               updated_at: nowIso,
             });
@@ -470,7 +492,7 @@ export function RoutineBuilderModal({
                     key={ej.id}
                     className={`rounded-xl border p-3.5 space-y-3 transition-colors ${
                       isSuperset
-                        ? "border-purple-500/40 bg-purple-500/5"
+                        ? "border-purple-500/40 bg-purple-500/5 border-l-4 border-l-purple-500"
                         : "border-border bg-card"
                     }`}
                   >
@@ -485,6 +507,15 @@ export function RoutineBuilderModal({
                         {isSuperset && (
                           <Badge className="bg-purple-600 text-white text-[10px] font-bold">
                             {groupLabel}
+                          </Badge>
+                        )}
+                        {ej.tipo_serie !== "NORMAL" && (
+                          <Badge
+                            className={`text-white text-[10px] font-bold ${
+                              ej.tipo_serie === "DROPSET" ? "bg-rose-600" : "bg-amber-600"
+                            }`}
+                          >
+                            {ej.tipo_serie === "DROPSET" ? "Dropset" : "Warmup"}
                           </Badge>
                         )}
                         {ej.tempo_activo && (
@@ -686,8 +717,31 @@ export function RoutineBuilderModal({
                               : "bg-secondary text-secondary-foreground border-border hover:bg-secondary/80"
                           }`}
                         >
-                          {isSuperset ? "✓ Superserie A" : "+ Superserie"}
+                          {openCircuit !== null && openCircuit === ej.grupo_superserie
+                            ? "Cerrar circuito"
+                            : isSuperset
+                            ? "✓ Superserie A"
+                            : "+ Superserie"}
                         </button>
+                        <div className="flex gap-1 mt-1">
+                          {(["WARMUP", "DROPSET"] as const).map((tipo) => (
+                            <button
+                              key={tipo}
+                              type="button"
+                              aria-pressed={ej.tipo_serie === tipo}
+                              onClick={() => handleToggleTipoSerie(ej.id, tipo)}
+                              className={`flex-1 min-h-[30px] text-[10px] font-bold rounded-lg border cursor-pointer ${
+                                ej.tipo_serie === tipo
+                                  ? tipo === "DROPSET"
+                                    ? "bg-rose-600 text-white border-rose-500"
+                                    : "bg-amber-600 text-white border-amber-500"
+                                  : "bg-secondary text-secondary-foreground border-border"
+                              }`}
+                            >
+                              {tipo === "DROPSET" ? "Dropset" : "Warmup"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
