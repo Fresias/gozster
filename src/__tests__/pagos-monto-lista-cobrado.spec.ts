@@ -8,7 +8,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // Migración probada sobre Postgres real (PGlite) con roles de Supabase simulados.
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261028150000_pagos_monto_lista_cobrado_nota.sql";
+const NEW_MIGRATION = "20261030000800_pagos_monto_lista_cobrado_nota.sql";
 
 const COACH_A = "00000000-0000-0000-0000-0000000000a1";
 const COACH_B = "00000000-0000-0000-0000-0000000000b1";
