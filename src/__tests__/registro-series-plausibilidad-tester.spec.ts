@@ -24,7 +24,7 @@ describe("GOZS-199: CHECK de plausibilidad y seed del tester", () => {
 
   it("el seed del tester es idempotente, sin secretos y escopado al tester", () => {
     expect(seed).toContain("94.gabriel.sanchez@gmail.com");
-    expect(seed).toContain("'ADMIN'");
+    expect(seed).toContain("'ALUMNO'");
     expect(seed).toContain("ON CONFLICT (id) DO UPDATE");
     expect(seed).not.toMatch(/password|crypt\(|DELETE FROM|TRUNCATE/i);
     for (const n of ["Press Plano con Barra", "Prensa 45°", "Jalón al pecho agarre neutro"]) {
