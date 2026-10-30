@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { clasificarRutinas } from "@/lib/rutinas-biblioteca";
+import { clasificarRutinas, nombreUnico, separarBorradores } from "@/lib/rutinas-biblioteca";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
 
@@ -56,5 +56,23 @@ describe("GOZS-296: biblioteca de rutinas", () => {
   it("oculta el error técnico en cualquier otro caso", async () => {
     const { client } = cliente({ data: null, error: { code: "42501", message: "permission denied for table x" } });
     await expect(asignarRutinaAAlumno("p", "a", client)).rejects.toThrow("No pudimos asignar la rutina. Intenta de nuevo.");
+  });
+});
+
+describe("GOZS-319: nombres y estados en la biblioteca", () => {
+  it("nombreUnico agrega (copia) y (copia N) sin repetir", () => {
+    expect(nombreUnico("X", ["Y"])).toBe("X");
+    expect(nombreUnico("X", ["X"])).toBe("X (copia)");
+    expect(nombreUnico("X", ["X", "X (copia)"])).toBe("X (copia 2)");
+    expect(nombreUnico("X (copia)", ["X", "X (copia)"])).toBe("X (copia 2)");
+  });
+
+  it("separarBorradores aparta los BORRADOR de lo vigente", () => {
+    const r = separarBorradores([
+      plan({ id: "act", alumno_id: "al", estado: "ACTIVO" }),
+      plan({ id: "bor", alumno_id: "al", estado: "BORRADOR" }),
+    ]);
+    expect(r.vigentes.map((p) => p.id)).toEqual(["act"]);
+    expect(r.borradores.map((p) => p.id)).toEqual(["bor"]);
   });
 });

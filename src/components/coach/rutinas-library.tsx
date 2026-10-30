@@ -5,13 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
-import { clasificarRutinas } from "@/lib/rutinas-biblioteca";
+import { clasificarRutinas, formatFecha, separarBorradores } from "@/lib/rutinas-biblioteca";
 import { fetchLiveDatasetFromSupabase, type LiveSupabaseDataset } from "@/services/alumnos-service";
-import { asignarRutinaAAlumno } from "@/services/rutinas-service";
+import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
-
-const formatFecha = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabaseDataset }) {
   const [dataset, setDataset] = React.useState(initialDataset);
@@ -24,6 +21,8 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   const { plantillas, deAlumnos, archivadas } = clasificarRutinas(dataset.planes);
+  const { vigentes, borradores } = separarBorradores(deAlumnos);
+  const nombresExistentes = dataset.planes.map((p) => p.nombre);
   const nombreAlumno = (id: string | null) =>
     dataset.alumnos.find((a) => a.id === id)?.nombre_completo ?? "Alumno";
 
@@ -66,7 +65,20 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     }
   };
 
-  const fila = (plan: PlanEntrenamiento, opciones: { alumno?: boolean; archivada?: boolean }) => (
+  const cambiarEstado = async (accion: () => Promise<void>) => {
+    setError(null);
+    setAviso(null);
+    try {
+      await accion();
+      await recargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No pudimos cambiar el estado. Intenta de nuevo.");
+    }
+  };
+
+  const fila = (plan: PlanEntrenamiento, opciones: { alumno?: boolean; archivada?: boolean }) => {
+    const origen = plan.plan_origen_id ? dataset.planes.find((p) => p.id === plan.plan_origen_id) : undefined;
+    return (
     <li
       key={plan.id}
       data-testid="rutina-item"
@@ -76,14 +88,17 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-bold">{plan.nombre}</p>
           {plan.etiqueta === "STANDARD" && <Badge variant="info">STANDARD</Badge>}
-          {opciones.alumno && !opciones.archivada && (
-            <Badge variant={plan.estado === "ACTIVO" ? "success" : "warning"}>{plan.estado}</Badge>
+          {opciones.alumno && (
+            <Badge variant={plan.estado === "ACTIVO" ? "success" : plan.estado === "BORRADOR" ? "warning" : "secondary"}>
+              {plan.estado}
+            </Badge>
           )}
         </div>
         {plan.alumno_id && <p className="text-sm text-muted-foreground">{nombreAlumno(plan.alumno_id)}</p>}
         {opciones.archivada && (
           <p className="text-sm text-muted-foreground">
-            {formatFecha(plan.fecha_inicio)} → {formatFecha(plan.fecha_fin)}
+            Creada {formatFecha(plan.fecha_inicio)} · archivada {formatFecha(plan.fecha_fin)}
+            {origen && ` · desde “${origen.nombre}” (${formatFecha(origen.fecha_inicio)})`}
           </p>
         )}
       </div>
@@ -97,6 +112,16 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             Abrir
           </Button>
         )}
+        {opciones.alumno && plan.estado !== "ACTIVO" && (
+          <Button size="touch" onClick={() => void cambiarEstado(() => activarRutina(plan))}>
+            Activar
+          </Button>
+        )}
+        {opciones.alumno && plan.estado === "ACTIVO" && (
+          <Button size="touch" variant="outline" onClick={() => void cambiarEstado(() => archivarRutina(plan.id))}>
+            Archivar
+          </Button>
+        )}
         {!opciones.alumno && !opciones.archivada && (
           <Button size="touch" onClick={() => {
               setError(null);
@@ -107,7 +132,8 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         )}
       </div>
     </li>
-  );
+    );
+  };
 
   const lista = (planes: PlanEntrenamiento[], opciones: { alumno?: boolean; archivada?: boolean }, vacio: string) =>
     planes.length === 0 ? (
@@ -134,15 +160,23 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
       <Tabs defaultValue="plantillas">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="plantillas">Plantillas ({plantillas.length})</TabsTrigger>
-          <TabsTrigger value="alumnos">De alumnos ({deAlumnos.length})</TabsTrigger>
+          <TabsTrigger value="alumnos">De alumnos ({vigentes.length})</TabsTrigger>
+          <TabsTrigger value="borradores">Borradores ({borradores.length})</TabsTrigger>
           <TabsTrigger value="archivadas">Archivadas ({archivadas.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="plantillas">{lista(plantillas, {}, "Todavía no hay plantillas.")}</TabsContent>
-        <TabsContent value="alumnos">{lista(deAlumnos, { alumno: true }, "Ningún alumno tiene rutina.")}</TabsContent>
+        <TabsContent value="alumnos">{lista(vigentes, { alumno: true }, "Ningún alumno tiene rutina.")}</TabsContent>
+        <TabsContent value="borradores">{lista(borradores, { alumno: true }, "No hay borradores.")}</TabsContent>
         <TabsContent value="archivadas">
           {lista(archivadas, { alumno: true, archivada: true }, "No hay rutinas archivadas.")}
         </TabsContent>
       </Tabs>
+
+      {error && !asignando && (
+        <p role="alert" className="text-sm text-rose-300">
+          {error}
+        </p>
+      )}
 
       <dialog
         ref={dialogRef}
@@ -188,6 +222,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         alumnoId={builder?.alumnoId}
         alumnoNombre={builder?.alumnoId ? nombreAlumno(builder.alumnoId) : "Plantilla Maestra"}
         planInicial={builder?.plan ?? null}
+        nombresExistentes={nombresExistentes}
         diasIniciales={dataset.dias}
         ejerciciosEnRutinaIniciales={dataset.ejerciciosEnRutina}
         onRoutineSaved={() => void recargar()}

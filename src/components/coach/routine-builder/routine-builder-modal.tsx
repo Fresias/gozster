@@ -4,6 +4,7 @@ import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { nombreUnico } from "@/lib/rutinas-biblioteca";
 import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
@@ -38,6 +39,8 @@ interface RoutineBuilderModalProps {
   alumnoId?: string;
   alumnoNombre?: string;
   planInicial?: PlanEntrenamiento | null;
+  /** Nombres ya usados: "Guardar como rutina nueva" los evita con sufijo "(copia N)". */
+  nombresExistentes?: string[];
   diasIniciales?: DiaRutina[];
   ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
@@ -165,6 +168,7 @@ export function RoutineBuilderModal({
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
   planInicial,
+  nombresExistentes,
   diasIniciales,
   ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
@@ -342,7 +346,7 @@ export function RoutineBuilderModal({
     const payload = buildGuardarRutinaPayload({
       planId: planInicial?.id,
       comoNueva: modo !== "guardar",
-      nombre: planName,
+      nombre: modo === "nueva" && nombresExistentes ? nombreUnico(planName, nombresExistentes) : planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
       // INACTIVO se conserva (no editable aquí); una versión nueva no cambia el estado
