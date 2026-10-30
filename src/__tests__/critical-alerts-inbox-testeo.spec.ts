@@ -6,14 +6,15 @@ import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critic
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
-describe("GOZS-133: bandeja de alertas de una línea (Modo Testeo)", () => {
+describe("GOZS-133: bandeja de alertas de una línea", () => {
   const inbox = read("../components/coach/critical-alerts-inbox.tsx");
   const pain = read("../components/coach/student-pain-alerts.tsx");
 
   beforeEach(() => useDemoAlertEstados.setState({ estados: {} }));
 
-  it("filtro efectivo derivado en el render: PENDIENTE en Testeo sin pisar la pestaña", () => {
-    expect(inbox).toContain('const statusFilter = isTesteo ? "PENDIENTE" : selectedFilter;');
+  it("la bandeja lista solo las alertas PENDIENTES y no tiene pestañas de filtro", () => {
+    expect(inbox).toContain('return estado === "PENDIENTE" && a.type === "DOLOR";');
+    expect(inbox).not.toContain("alerts-status-filter-container");
   });
 
   it("fila de una línea con la clase del spec y click a onSelectAlumno", () => {
@@ -22,13 +23,6 @@ describe("GOZS-133: bandeja de alertas de una línea (Modo Testeo)", () => {
     expect(inbox).toContain("Síntoma de alarma");
     expect(inbox).toContain("Dolor moderado");
     expect(inbox).toContain("h-2.5 w-2.5");
-  });
-
-  it("Producción conserva pestañas y tarjetas completas", () => {
-    expect(inbox).toContain("{isExpanded && !isTesteo && (");
-    for (const t of ["filter-tab-pendientes", "red-flag-badge", "quick-swap-btn-", "view-student-btn-"]) {
-      expect(inbox).toContain(t);
-    }
   });
 
   it("bandeja y ficha comparten el store: Atendido en la ficha saca la alerta de pendientes", () => {

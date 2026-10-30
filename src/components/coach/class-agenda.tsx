@@ -12,11 +12,10 @@ import {
   horaLocal,
   ocupaCupo,
 } from "@/lib/clases";
-import { cargarFeriados, feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
+import { feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import type { ActividadClase, Clase } from "@/types/database.types";
 
 const MOTIVO_MINIMO = 5;
@@ -224,33 +223,15 @@ export function ClassAgenda() {
   } = useClasesStore();
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
-  const mode = useWorkspaceModeStore((s) => s.mode);
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isTestMode = mounted && mode === "TESTEO";
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
 
   const [fechaBase, setFechaBase] = React.useState<Date>(() => new Date(ahoraMs));
   const [feriados, setFeriados] = React.useState<FeriadosPorDia>({});
-  const anioFeriados = fechaBase.getFullYear();
   React.useEffect(() => {
-    if (!mounted) return;
-    if (mode === "TESTEO") {
-      setFeriados(feriadosDemo());
-      return;
-    }
-    let activo = true;
-    cargarFeriados(anioFeriados).then((f) => activo && setFeriados(f));
-    return () => {
-      activo = false;
-    };
-  }, [mounted, mode, anioFeriados]);
+    setFeriados(feriadosDemo());
+  }, []);
   const [dia, setDia] = React.useState(hoy);
   const [claseId, setClaseId] = React.useState<string | null>(null);
 
@@ -285,8 +266,8 @@ export function ClassAgenda() {
   const [nuevaHora, setNuevaHora] = React.useState<string>("18:00");
 
   React.useEffect(() => {
-    if (isOnline || isTestMode) void cargarAgenda();
-  }, [isOnline, isTestMode, cargarAgenda]);
+    void cargarAgenda();
+  }, [cargarAgenda]);
 
   // Días de la semana en curso
   const diasSemana = React.useMemo(() => diasDeLaSemana(fechaBase), [fechaBase]);
@@ -425,14 +406,13 @@ export function ClassAgenda() {
     : false;
 
   const listaAlumnos = React.useMemo(() => {
-    if (!isTestMode) return [];
     const combinados = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
     const unicos = new Map<string, (typeof combinados)[0]>();
     for (const a of combinados) {
       if (!unicos.has(a.id)) unicos.set(a.id, a);
     }
     return [...unicos.values()].sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
-  }, [isTestMode]);
+  }, []);
 
   const confirmarCancelacion = async () => {
     if (!seleccionada) return;
@@ -733,14 +713,12 @@ export function ClassAgenda() {
             <span>+</span> Nueva clase
           </Button>
 
-          {isTestMode && (
-            <span
-              className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
-              data-testid="demo-coach-badge"
-            >
-              Modo Testeo · Coach Lucía Ferraro
-            </span>
-          )}
+          <span
+            className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
+            data-testid="demo-coach-badge"
+          >
+            Coach Lucía Ferraro
+          </span>
           {!isOnline && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
               Sin conexión · agenda guardada
@@ -1031,8 +1009,6 @@ export function ClassAgenda() {
                 seleccionada,
                 anotados,
                 claseIniciada,
-                isOnline,
-                isTestMode,
                 abrirAnotarAlumno,
                 cancelDialogRef,
                 redimensionarClase,
@@ -1192,8 +1168,6 @@ export function ClassAgenda() {
                 seleccionada,
                 anotados,
                 claseIniciada,
-                isOnline,
-                isTestMode,
                 abrirAnotarAlumno,
                 cancelDialogRef,
                 redimensionarClase,
@@ -1513,8 +1487,6 @@ function renderDetalleClase(
   seleccionada: Clase,
   anotados: ReturnType<typeof useClasesStore.getState>["agendaReservas"],
   claseIniciada: boolean,
-  isOnline: boolean,
-  isTestMode: boolean,
   abrirAnotarAlumno: () => void,
   cancelDialogRef: React.RefObject<HTMLDialogElement | null>,
   redimensionarClase: (id: string, duracion: number) => Promise<boolean>,
@@ -1577,7 +1549,6 @@ function renderDetalleClase(
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!isOnline && !isTestMode}
                 onClick={() => cancelDialogRef.current?.showModal()}
                 data-testid="cancel-class-dialog-btn"
               >
@@ -1764,7 +1735,6 @@ function renderDetalleClase(
                       <button
                         type="button"
                         disabled={
-                          (!isOnline && !isTestMode) ||
                           accionEnCurso === r.id ||
                           !claseIniciada
                         }

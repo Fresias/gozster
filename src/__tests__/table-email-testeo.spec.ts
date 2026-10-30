@@ -7,15 +7,13 @@ const view = fs.readFileSync(
   "utf-8",
 );
 
-describe("GOZS-130: email fuera de las filas en Modo Testeo", () => {
-  it("la fila solo renderiza el email fuera de Testeo", () => {
-    expect(view).toMatch(/\{!isTestMode && \(\s*<span[^>]*>\s*\{alumno\.email \?\? "—"\}/);
+describe("GOZS-130: email fuera de las filas", () => {
+  it("la fila no renderiza el email", () => {
+    expect(view).not.toMatch(/\{alumno\.email \?\? "—"\}/);
   });
 
-  it("el placeholder cambia solo en Testeo y el buscador sigue filtrando por email", () => {
-    expect(view).toContain(
-      'placeholder={isTestMode ? "Buscar atleta…" : "Buscar atleta o email..."}',
-    );
+  it("el placeholder es 'Buscar atleta…' y el buscador sigue filtrando por email", () => {
+    expect(view).toContain('placeholder="Buscar atleta…"');
     expect(view).toContain("a.email?.toLowerCase().includes(filterQuery.toLowerCase())");
   });
 });

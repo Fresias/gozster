@@ -37,7 +37,6 @@ import {
   HelpCircle,
   ChevronDown,
 } from "@/components/athlete/icons";
-import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { UltimaVez } from "@/components/athlete/ultima-vez";
@@ -70,7 +69,6 @@ export function LiveWorkout() {
     editCompletedSet,
     deleteCompletedSet,
     resetSessionToDefaults,
-    loadStudentSession,
     nivelVistaAlumno,
     setNivelVistaAlumno,
     vistaElegidaPorAlumno,
@@ -527,42 +525,6 @@ export function LiveWorkout() {
         <div className="space-y-5">
           {/* Header de la sesión del alumno */}
           <div className="space-y-3">
-            {/* Conmutador rápido de vista de atleta (Fernando Rosales vs Gabriel Sánchez) */}
-            <div
-              className="flex items-center gap-1.5 p-1 rounded-2xl bg-secondary/60 border border-border/80"
-              data-testid="athlete-switcher-container"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedExerciseId(null);
-                  loadStudentSession("66b92b9a-1ce7-4e2e-a47c-7c5600000000");
-                }}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
-                  !currentSession?.studentName?.toLowerCase().includes("gabriel")
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="athlete-switcher-fernando"
-              >
-                <span>Fernando Rosales</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedExerciseId(null);
-                  loadStudentSession("0a7a4dfd-e040-4b92-ac29-9507cbb13215");
-                }}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
-                  currentSession?.studentName?.toLowerCase().includes("gabriel")
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="athlete-switcher-gabriel"
-              >
-                <span>Gabriel Sánchez (yo, gabi)</span>
-              </button>
-            </div>
             {/* Aviso de error de sincronización offline */}
             {syncError && (
               <div
@@ -2172,43 +2134,6 @@ export function LiveWorkout() {
               >
                 <X className="h-4 w-4" />
               </button>
-            </div>
-
-            {/* Conmutador de Alumno Activo */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                Alumno activo
-              </label>
-              <div className="grid grid-cols-2 gap-1 rounded-xl border border-border/80 bg-secondary/40 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedExerciseId(null);
-                    loadStudentSession("66b92b9a-1ce7-4e2e-a47c-7c5600000000");
-                  }}
-                  className={`rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
-                    !currentSession?.studentName?.toLowerCase().includes("gabriel")
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Fernando Rosales
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedExerciseId(null);
-                    loadStudentSession("0a7a4dfd-e040-4b92-ac29-9507cbb13215");
-                  }}
-                  className={`rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
-                    currentSession?.studentName?.toLowerCase().includes("gabriel")
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Gabriel Sánchez (yo, gabi)
-                </button>
-              </div>
             </div>
 
             {/* Selector de Nivel de Vista: Minimalista (SIMPLE) vs Técnica (TECNICA) */}

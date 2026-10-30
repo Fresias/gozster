@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   AVISO_VIGENCIA_FUTURA,
   esFechaPosteriorAHoy,
@@ -12,7 +11,6 @@ import {
 
 describe("FE Studio/cobros: creación y modificación de planes con vigencia futura (GOZS-255)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

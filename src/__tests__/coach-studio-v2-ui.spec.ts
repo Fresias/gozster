@@ -81,9 +81,8 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   // 2. MATRIZ OPERATIVA CON SEMÁFOROS M3 (CERO TEXTO REDUNDANTE)
   // ==========================================================================
   describe("2. Matriz Operativa con Semáforos M3 (Cero Texto Redundante)", () => {
-    it("preserva los requerimientos de estructura del Cuadro 1.1 y columna matriz", () => {
-      expect(viewContent).toContain("Cuadro 1.1");
-      expect(viewContent).toContain("34px");
+    it("preserva los requerimientos de estructura del cuadro y columna matriz", () => {
+      expect(viewContent).toContain("min-h-[48px]");
       expect(viewContent).toContain("Columna Matriz");
       expect(viewContent).toContain("sticky left-0");
       expect(viewContent).toContain("tabular-nums");
@@ -123,9 +122,8 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
     it("implementa la Columna de Alertas Responsive con contenedor min-w-[130px] max-w-[190px] y badges simultáneos", () => {
       expect(viewContent).toContain("min-w-[130px] max-w-[190px]");
       expect(viewContent).toContain("flex flex-wrap gap-1.5");
-      expect(viewContent).toContain("🚨");
-      expect(viewContent).toContain("⚡");
-      expect(viewContent).toContain("PR Banca");
+      expect(viewContent).toContain("getDemoAlumnoAlerts(alumno.nombre_completo)");
+      expect(fs.readFileSync(path.resolve(__dirname, "../services/coach-demo-dataset.ts"), "utf-8")).toContain("PR Banca");
     });
   });
 
@@ -140,28 +138,21 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
     });
 
     it("posee un layout compacto de alta densidad con ancho contenido sin espacios vacíos muertos", () => {
-      expect(alertsContent).toContain("max-w-4xl");
-      expect(alertsContent).toContain("Sustituir Ejercicio");
+      expect(alertsContent).toContain("xl:absolute xl:inset-x-0 xl:top-0 xl:max-h-full flex flex-col");
       expect(alertsContent).toContain("onQuickSwap");
     });
 
-    it("en Modo Testeo arranca colapsada, con título corto y header como botón accesible sin pulso", () => {
-      expect(alertsContent).toContain('React.useState(mode !== "TESTEO")');
-      expect(alertsContent).toContain('const isTesteo = mode === "TESTEO"');
+    it("arranca colapsada, con título corto y header como botón accesible sin pulso", () => {
+      expect(alertsContent).toContain("React.useState(false)");
       expect(alertsContent).toContain("Bandeja de alertas críticas");
       expect(alertsContent).toContain("aria-expanded={isExpanded}");
-      // Reseteo al alternar el toggle (misma instancia en ambos modos)
-      expect(alertsContent).toMatch(/useEffect\(\(\) => \{\s*setIsExpanded\(!isTesteo\);\s*\}, \[isTesteo\]\)/);
       expect(alertsContent).toContain("w-full min-h-12 flex items-center justify-between");
-      // En Producción se conserva el header original
-      expect(alertsContent).toContain("Bandeja de Alertas Críticas (Dolor Articular");
     });
 
-    it("en Modo Testeo oculta el selector Cuadro INDEC / Tarjetas y fuerza la tabla; en Producción se conserva", () => {
-      expect(viewContent).toContain("{!isTestMode && (");
-      expect(viewContent).toContain('{isTestMode || viewMode === "table" ? (');
-      expect(viewContent).toContain("Cuadro INDEC");
-      expect(viewContent).toContain("Tarjetas");
+    it("no ofrece el selector Cuadro INDEC / Tarjetas: la tabla es la única vista", () => {
+      expect(viewContent).not.toContain("viewMode");
+      expect(viewContent).not.toContain("Cuadro INDEC");
+      expect(viewContent).not.toContain("StudentCard");
     });
   });
 

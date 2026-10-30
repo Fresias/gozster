@@ -5,7 +5,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { CobrosPanel, type CobrosPanelProps } from "@/components/coach/cobros-panel";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   calcularKpiAnualIngresos,
   categorizarActividad,
@@ -16,7 +15,6 @@ import {
 
 describe("FE Studio/cobros: KPI ingresos de enero a diciembre y desagregado por actividad (GOZS-259)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

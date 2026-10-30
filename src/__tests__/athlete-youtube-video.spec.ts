@@ -1,3 +1,4 @@
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 /**
  * ============================================================================
  * GOZSter QA & Unit Tests: Reproductor de Técnica y Video YouTube
@@ -100,6 +101,7 @@ describe("Pilar C: Integración en Athlete Store y Rutinas de Entrenamiento", ()
     expect(alumno1).toBeDefined();
     if (!alumno1) throw new Error("No hay alumnos en REAL_ALUMNOS");
 
+    sembrarPlanAlumno(alumno1.id);
     const loaded = useAthleteStore.getState().loadStudentSession(alumno1.id);
     expect(loaded).toBe(true);
 

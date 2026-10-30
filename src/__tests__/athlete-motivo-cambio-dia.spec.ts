@@ -1,3 +1,4 @@
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
@@ -70,6 +71,7 @@ describe("GOZS-149: Athlete App motivo del cambio de día (chips + vista coach)"
       const diaElegido = REAL_DIAS[1]!.id;
 
       store.elegirOtroDia(diaElegido, motivo, diaSugerido);
+      sembrarPlanAlumno(store.currentSession.studentId);
       store.empezarDia(diaElegido);
 
       // Verificamos currentSession
@@ -95,6 +97,7 @@ describe("GOZS-149: Athlete App motivo del cambio de día (chips + vista coach)"
       const diaElegido = "dia-test-3";
 
       store.elegirOtroDia(diaElegido, null, diaSugerido);
+      sembrarPlanAlumno(store.currentSession.studentId);
       store.empezarDia(diaElegido);
 
       const queue = useOfflineQueueStore.getState().pendingEvents;

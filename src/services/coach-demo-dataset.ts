@@ -947,7 +947,7 @@ export function generarDemoReservasIniciales(): Array<Reserva & { alumno_nombre:
 }
 
 // ============================================================================
-// KPIs de negocio para el dueño (GOZS-136, solo Modo Testeo). Conexión real: GOZS-137.
+// KPIs de negocio para el dueño (GOZS-136). Conexión real: GOZS-137.
 // ============================================================================
 
 const AHORA_DEMO = new Date();

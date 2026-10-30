@@ -4,12 +4,6 @@ import * as React from "react";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
 import {
-  REAL_ALUMNOS,
-  REAL_PLANES,
-  REAL_DIAS,
-  REAL_EJERCICIOS_RUTINA,
-} from "@/services/real-mynter-data";
-import {
   calcularEstadosDias,
   calcularUltimoDiaRealizado,
   type DiaConEstado,
@@ -43,7 +37,9 @@ export function InicioMisDias() {
     empezarDia,
     elegirOtroDia,
     deshacerCambioDia,
-    loadStudentSession,
+    planAlumno,
+    cargandoPlan,
+    cargarPlanAlumno,
     rpeReminderNotification,
   } = useAthleteStore();
 
@@ -62,37 +58,20 @@ export function InicioMisDias() {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Identificar alumno y plan activo
-  const student = React.useMemo(() => {
-    const studentId = currentSession?.studentId;
-    if (studentId) {
-      const match = REAL_ALUMNOS.find(
-        (a) => a.id === studentId || a.nombre_completo.toLowerCase().includes(studentId.toLowerCase()),
-      );
-      if (match) return match;
-    }
-    return REAL_ALUMNOS[0];
-  }, [currentSession?.studentId]);
+  React.useEffect(() => {
+    void cargarPlanAlumno();
+  }, [cargarPlanAlumno]);
 
-  const plan = React.useMemo(() => {
-    return (
-      REAL_PLANES.find((p) => p.alumno_id === student?.id && p.estado === "ACTIVO") ||
-      REAL_PLANES.find((p) => p.alumno_id === student?.id) ||
-      REAL_PLANES[0]
-    );
-  }, [student?.id]);
-
-  // Obtener los días de la rutina con cantidad de ejercicios calculada
+  // Alumno, plan y días reales del alumno autenticado (Supabase + RLS)
+  const student = planAlumno?.alumnos[0];
+  const plan = planAlumno?.planes[0];
   const diasItems: DiaRutinaItem[] = React.useMemo(() => {
-    const rawDias = REAL_DIAS.filter((d) => d.plan_id === plan?.id).sort(
-      (a, b) => a.orden - b.orden,
-    );
-
-    // Si el plan tiene días asociados, los usamos
-    if (rawDias.length > 0) {
-      return rawDias.map((d) => {
-        const count = REAL_EJERCICIOS_RUTINA.filter((er) => er.dia_id === d.id).length;
-        const ejerciciosCount = count > 0 ? count : 6;
+    if (!planAlumno || !plan) return [];
+    return planAlumno.dias
+      .filter((d) => d.plan_id === plan.id)
+      .sort((a, b) => a.orden - b.orden)
+      .map((d) => {
+        const ejerciciosCount = planAlumno.ejerciciosEnRutina.filter((er) => er.dia_id === d.id).length;
         return {
           id: d.id,
           orden: d.orden,
@@ -102,16 +81,7 @@ export function InicioMisDias() {
           duracionMinutos: ejerciciosCount * 8 + 5,
         };
       });
-    }
-
-    // Fallback con los días demostrativos del mockup oficial (mockup 04)
-    return [
-      { id: "demo-dia-1", orden: 1, nombre: "Full body", ejerciciosCount: 5, duracionMinutos: 45 },
-      { id: "demo-dia-2", orden: 2, nombre: "Tren inferior", ejerciciosCount: 6, duracionMinutos: 55 },
-      { id: "demo-dia-3", orden: 3, nombre: "Tren superior", ejerciciosCount: 6, duracionMinutos: 50 },
-      { id: "demo-dia-4", orden: 4, nombre: "Movilidad y core", ejerciciosCount: 5, duracionMinutos: 35 },
-    ];
-  }, [plan?.id]);
+  }, [planAlumno, plan]);
 
   const ultimoDiaRealizado = React.useMemo(() => {
     return calcularUltimoDiaRealizado(diasItems, sesionesCompletadas);
@@ -176,46 +146,31 @@ export function InicioMisDias() {
 
   const diaHero = diaActivoHoy || diasConEstado[0];
 
+  if (diasItems.length === 0) {
+    return (
+      <div className="space-y-2 pt-6 pb-20 text-center" data-testid="inicio-sin-plan">
+        <p className="text-sm font-medium text-muted-foreground">
+          {student ? `Hola, ${student.nombre_completo.split(" ")[0]}` : "Hola"}
+        </p>
+        <h1 className="font-outfit text-xl font-extrabold text-foreground">
+          {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
+        </h1>
+        {!cargandoPlan && (
+          <p className="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 pb-20" data-testid="inicio-mis-dias-container">
-      {/* Conmutador rápido de vista de atleta (Fernando Rosales vs Gabriel Sánchez) */}
-      <div
-        className="flex items-center gap-1.5 p-1 rounded-2xl bg-secondary/60 border border-border/80"
-        data-testid="athlete-switcher-container"
-      >
-        <button
-          type="button"
-          onClick={() => loadStudentSession("66b92b9a-1ce7-4e2e-a47c-7c5600000000")}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
-            !currentSession?.studentName?.toLowerCase().includes("gabriel")
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          data-testid="athlete-switcher-fernando"
-        >
-          <span>Fernando Rosales</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => loadStudentSession("0a7a4dfd-e040-4b92-ac29-9507cbb13215")}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all touch-manipulation cursor-pointer flex items-center justify-center gap-1.5 ${
-            currentSession?.studentName?.toLowerCase().includes("gabriel")
-              ? "bg-primary text-primary-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          data-testid="athlete-switcher-gabriel"
-        >
-          <span>Gabriel Sánchez (yo, gabi)</span>
-        </button>
-      </div>
-
       {/* Saludo y Plan */}
       <div className="pt-2">
         <p className="text-sm font-medium text-muted-foreground">
-          Hola, {student?.nombre_completo?.split(" ")[0] || "Fernando"}
+          Hola, {student?.nombre_completo?.split(" ")[0] ?? ""}
         </p>
         <h1 className="font-outfit text-2xl sm:text-[26px] font-extrabold tracking-tight text-foreground mt-0.5">
-          {plan?.nombre || "Hipertrofia & Fuerza"}
+          {plan?.nombre ?? "Tu plan"}
         </h1>
         <p className="text-sm font-medium text-muted-foreground mt-0.5">
           Semana{" "}

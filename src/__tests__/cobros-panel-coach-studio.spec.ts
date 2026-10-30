@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { computeAnchoredRenewalDate } from "@/lib/contrataciones";
 
 describe("Panel de Cobros en Coach Studio (GOZS-184 / GH #181)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

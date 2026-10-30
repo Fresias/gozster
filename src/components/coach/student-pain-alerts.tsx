@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   getDemoCriticalAlerts,
   persistAlertEstado,
@@ -25,23 +24,22 @@ export interface StudentPainAlertsProps {
   onQuickSwap?: (alert: CriticalAlert) => void;
 }
 
-/** Sección "Alertas de dolor" de la ficha del alumno (solo Modo Testeo). */
+/** Sección "Alertas de dolor" de la ficha del alumno (dataset demo). */
 export function StudentPainAlerts({ alumnoId, onQuickSwap }: StudentPainAlertsProps) {
-  const isTesteo = useWorkspaceModeStore().mode === "TESTEO";
   const [baseAlerts, setBaseAlerts] = React.useState<CriticalAlert[]>([]);
   const { estados, setEstado } = useDemoAlertEstados();
   const alerts = applyDemoEstados(baseAlerts, estados);
 
   React.useEffect(() => {
-    setBaseAlerts(isTesteo ? getDemoCriticalAlerts().filter((a) => a.alumnoId === alumnoId) : []);
-  }, [isTesteo, alumnoId]);
+    setBaseAlerts(getDemoCriticalAlerts().filter((a) => a.alumnoId === alumnoId));
+  }, [alumnoId]);
 
   const handleUpdateStatus = async (alertId: string, nuevoEstado: AlertaEstado) => {
     setEstado(alertId, nuevoEstado);
     await persistAlertEstado(alertId, nuevoEstado);
   };
 
-  if (!isTesteo || alerts.length === 0) return null;
+  if (alerts.length === 0) return null;
 
   // Pendientes primero (orden estable entre el resto)
   const sorted = [...alerts].sort((a, b) => Number(isPendiente(b)) - Number(isPendiente(a)));
