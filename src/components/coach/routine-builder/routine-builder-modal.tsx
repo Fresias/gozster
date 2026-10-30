@@ -56,6 +56,7 @@ export function buildGuardarRutinaPayload(input: {
   nombre: string;
   comentarios: string;
   alumnoId?: string;
+  estado?: "BORRADOR" | "ACTIVO";
   days: BuilderDay[];
 }) {
   return {
@@ -64,6 +65,7 @@ export function buildGuardarRutinaPayload(input: {
     nombre: input.nombre,
     comentarios: input.comentarios,
     ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
+    ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
       nombre: d.nombre,
       ejercicios: d.ejercicios.map((e) => ({
@@ -171,6 +173,7 @@ export function RoutineBuilderModal({
   const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
+  const [estado, setEstado] = React.useState<"BORRADOR" | "ACTIVO">("BORRADOR");
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -180,6 +183,7 @@ export function RoutineBuilderModal({
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
+      setEstado(planInicial.estado === "ACTIVO" ? "ACTIVO" : "BORRADOR");
       const mapped = mapPlanToBuilderDays(
         planInicial.id,
         diasIniciales ?? [],
@@ -190,6 +194,7 @@ export function RoutineBuilderModal({
     } else {
       setPlanName("Bloque de Hipertrofia & Fuerza");
       setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
+      setEstado("BORRADOR");
       setDays(DEFAULT_BUILDER_DAYS);
     }
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
@@ -340,6 +345,8 @@ export function RoutineBuilderModal({
       nombre: planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
+      // INACTIVO se conserva (no editable aquí); una versión nueva no cambia el estado
+      estado: modo === "version" || planInicial?.estado === "INACTIVO" ? undefined : estado,
       days,
     });
 
@@ -930,6 +937,19 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Cancelar
             </Button>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Estado
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value as "BORRADOR" | "ACTIVO")}
+                disabled={isSaving || planInicial?.estado === "INACTIVO"}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                data-testid="routine-estado-select"
+              >
+                <option value="BORRADOR">Borrador</option>
+                <option value="ACTIVO">Activo</option>
+              </select>
+            </label>
             {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
