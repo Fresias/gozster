@@ -158,6 +158,37 @@ function mapPlanToBuilderDays(
   });
 }
 
+// Input numérico con borrador de texto: permite dejarlo vacío mientras se edita
+// y muestra exactamente lo tipeado (sin ceros a la izquierda forzados).
+function DraftNumberInput({
+  value,
+  parse,
+  onValue,
+  ...props
+}: {
+  value: number;
+  parse: (raw: string) => number;
+  onValue: (n: number) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => {
+    setDraft((d) => (parse(d) === value ? d : String(value)));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <input
+      {...props}
+      type="number"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const n = parse(raw);
+        setDraft(raw !== "" && n !== Number(raw) ? String(n) : raw);
+        onValue(n);
+      }}
+    />
+  );
+}
+
 export function RoutineBuilderModal({
   isOpen,
   onClose,
@@ -172,6 +203,7 @@ export function RoutineBuilderModal({
   const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
+  const baselineRef = React.useRef("");
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -188,10 +220,16 @@ export function RoutineBuilderModal({
         catalogoEjercicios,
       );
       setDays(mapped);
+      baselineRef.current = JSON.stringify([planInicial.nombre, planInicial.comentarios ?? "", mapped]);
     } else {
       setPlanName("Bloque de Hipertrofia & Fuerza");
       setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
       setDays(DEFAULT_BUILDER_DAYS);
+      baselineRef.current = JSON.stringify([
+        "Bloque de Hipertrofia & Fuerza",
+        "Enfocarse en sobrecarga progresiva y control excéntrico.",
+        DEFAULT_BUILDER_DAYS,
+      ]);
     }
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
@@ -205,6 +243,39 @@ export function RoutineBuilderModal({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [needsNewVersion, setNeedsNewVersion] = React.useState(false);
   const [asignarAlumno, setAsignarAlumno] = React.useState(false);
+
+  const isDirty =
+    isOpen && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Aviso nativo al recargar/cerrar la pestaña, y confirmación al volver atrás (misma que "Cancelar")
+  React.useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    let sentinel = true;
+    window.history.pushState({ constructorSinGuardar: true }, "");
+    const onPopState = () => {
+      sentinel = false;
+      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
+        onCloseRef.current();
+      } else {
+        window.history.pushState({ constructorSinGuardar: true }, "");
+        sentinel = true;
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      if (sentinel) window.history.back();
+    };
+  }, [isDirty]);
 
   if (!isOpen) return null;
 
@@ -225,6 +296,12 @@ export function RoutineBuilderModal({
     setOpenCircuit(null);
     setDays((prev) => normalizarSuperseries(prev, null));
     setSelectedDayIdx(idx);
+  };
+
+  const handleClose = () => {
+    const dirty = JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+    if (dirty && !window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) return;
+    onClose();
   };
 
   const handleAddDay = () => {
@@ -423,7 +500,7 @@ export function RoutineBuilderModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-md"
           >
             ✕
@@ -650,20 +727,15 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Series:
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           min="0"
                           max={MAX_SERIES_PER_EXERCISE}
                           value={ej.series}
-                          onChange={(e) => {
-                            const raw = e.target.value;
+                          parse={(raw) => {
                             const num = parseInt(raw, 10);
-                            if (isNaN(num) || num <= 0) {
-                              handleUpdateExercise(ej.id, "series", 0);
-                            } else {
-                              handleUpdateExercise(ej.id, "series", clampSeries(num));
-                            }
+                            return isNaN(num) || num <= 0 ? 0 : clampSeries(num);
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "series", n)}
                           data-testid="exercise-series-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -700,19 +772,15 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Descanso (s):
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           step="15"
                           min="0"
                           value={ej.descanso_segundos}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            handleUpdateExercise(
-                              ej.id,
-                              "descanso_segundos",
-                              isNaN(val) ? 0 : val
-                            );
+                          parse={(raw) => {
+                            const val = parseInt(raw, 10);
+                            return isNaN(val) ? 0 : val;
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "descanso_segundos", n)}
                           data-testid="exercise-rest-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -722,20 +790,16 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           RPE Objetivo:
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           step="0.5"
                           min="0"
                           max="10"
                           value={ej.rpe_objetivo}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            handleUpdateExercise(
-                              ej.id,
-                              "rpe_objetivo",
-                              isNaN(val) ? 0 : val
-                            );
+                          parse={(raw) => {
+                            const val = parseFloat(raw);
+                            return isNaN(val) ? 0 : val;
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "rpe_objetivo", n)}
                           data-testid="exercise-rpe-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -954,7 +1018,7 @@ export function RoutineBuilderModal({
           )}
 
           <div className="flex items-center gap-2 ml-auto">
-            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            <Button variant="outline" onClick={handleClose} disabled={isSaving}>
               Cancelar
             </Button>
             {alumnoId && !planInicial && (
