@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi } from "vitest";
@@ -55,6 +56,12 @@ describe("constructor → guardar_rutina", () => {
     expect(p).toMatchObject({ plan_id: "p1", como_nueva: true, alumno_id: "a1" });
   });
 
+  it("envía estado solo cuando se indica (BORRADOR por defecto lo fija la RPC)", () => {
+    const base = { comoNueva: false, nombre: "R", comentarios: "", days: [day] };
+    expect(buildGuardarRutinaPayload(base)).not.toHaveProperty("estado");
+    expect(buildGuardarRutinaPayload({ ...base, estado: "ACTIVO" })).toMatchObject({ estado: "ACTIVO" });
+  });
+
   it("el resumen no incluye el payload completo", () => {
     const p = buildGuardarRutinaPayload({ comoNueva: false, nombre: "R", comentarios: "", days: [day] });
     expect(resumenPayload(p)).toEqual({ nombre: "R", dias: 1, ejercicios: 1 });
@@ -82,5 +89,12 @@ describe("constructor → guardar_rutina", () => {
     expect(renderToStaticMarkup(createElement(RoutineBuilderModal, base))).toContain("Nueva para Ana");
     const plan = { id: "p1", nombre: "R", comentarios: null } as never;
     expect(renderToStaticMarkup(createElement(RoutineBuilderModal, { ...base, planInicial: plan }))).not.toContain("Nueva para Ana");
+  });
+
+  it("GOZS-308: la migración deja la plantilla nueva en BORRADOR y permite promover", () => {
+    const sql = readFileSync("supabase/migrations/20261030001300_guardar_rutina_estado_borrador.sql", "utf8");
+    expect(sql).toContain("COALESCE(v_estado, 'BORRADOR')");
+    expect(sql).toContain("estado = COALESCE(v_estado, estado::TEXT)::public.estado_plan");
+    expect(sql).not.toContain("THEN 'ACTIVO' ELSE");
   });
 });
