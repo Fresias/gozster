@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const upserts: { table: string; row: Record<string, unknown> }[] = [];
 let fail = false;
+let failCode: string | undefined;
 
 vi.mock("@/lib/supabase/client", () => ({
   supabase: {
     from: (table: string) => ({
       upsert: async (row: Record<string, unknown>) => {
-        if (fail) return { error: { message: "rls" } };
+        if (fail) return { error: { message: "rls", code: failCode } };
         upserts.push({ table, row });
         return { error: null };
       },
@@ -36,6 +37,7 @@ describe("GOZS-283 · flushQueue envía las series a Supabase", () => {
   beforeEach(() => {
     upserts.length = 0;
     fail = false;
+    failCode = undefined;
     useOfflineQueueStore.setState({ pendingEvents: [], syncError: null });
   });
 
@@ -58,5 +60,24 @@ describe("GOZS-283 · flushQueue envía las series a Supabase", () => {
     expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
     // Idempotencia: la serie se envía con onConflict, no con insert.
     expect(upserts.filter((u) => u.table === "registro_series")).toHaveLength(2);
+  });
+
+  it.each(["23514", "42501"])("un rechazo permanente (%s) se descarta y no bloquea la cola", async (code) => {
+    useOfflineQueueStore.getState().enqueueEvent(setEvent("x1", 1));
+    fail = true;
+    failCode = code;
+    await useOfflineQueueStore.getState().flushQueue();
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
+    expect(useOfflineQueueStore.getState().syncError).not.toBeNull();
+  });
+
+  it("un evento sin alumnoId no se atribuye a nadie y no bloquea la cola", async () => {
+    const sinAlumno = setEvent("x1", 1);
+    delete (sinAlumno.payload as Record<string, unknown>).alumnoId;
+    useOfflineQueueStore.getState().enqueueEvent(sinAlumno);
+    useOfflineQueueStore.getState().enqueueEvent(setEvent("x2", 2));
+    await useOfflineQueueStore.getState().flushQueue();
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
+    expect(upserts.filter((u) => u.table === "registro_series")).toHaveLength(1);
   });
 });

@@ -26,8 +26,8 @@ describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
     it("flushQueue vacía la cola y limpia el aviso sin pasos del alumno", async () => {
       const store = useOfflineQueueStore.getState();
       store.setOnlineStatus(false);
-      store.enqueueEvent({ id: "e1", action: "WORKOUT_SET_COMPLETED", payload: {} });
-      store.enqueueEvent({ id: "e2", action: "WORKOUT_SET_COMPLETED", payload: {} });
+      store.enqueueEvent({ id: "e1", action: "WORKOUT_SET_COMPLETED", payload: { sessionId: "s1", alumnoId: "a1", ejercicioId: "e1", setNumber: 1, pesoKg: 50, reps: 8 } });
+      store.enqueueEvent({ id: "e2", action: "WORKOUT_SET_COMPLETED", payload: { sessionId: "s1", alumnoId: "a1", ejercicioId: "e1", setNumber: 2, pesoKg: 50, reps: 8 } });
       useOfflineQueueStore.getState().setSyncError("algún fallo previo");
 
       expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(2);

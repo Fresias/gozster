@@ -34,11 +34,19 @@ interface OfflineQueueState {
 
 const SET_ACTIONS = ["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"];
 
+type SendResult = "ok" | "retry" | "rejected";
+
+// Errores permanentes de Postgres: CHECK (23514), FK (23503) y RLS (42501).
+// Reintentarlos no sirve y bloquearía la cola; los de red no traen código.
+const PERMANENT_CODES = ["23514", "23503", "42501"];
+const toResult = (error: { code?: string } | null): SendResult =>
+  !error ? "ok" : PERMANENT_CODES.includes(error.code ?? "") ? "rejected" : "retry";
+
 /**
  * Envía un evento de serie. Idempotente: la sesión se upsertea por id y la
  * serie por (sesion_id, ejercicio_id, numero_serie), así un reintento no duplica.
  */
-async function sendSetEvent(ev: OfflineSyncEvent): Promise<boolean> {
+async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   const p = ev.payload as {
     sessionId?: string;
     alumnoId?: string;
@@ -53,14 +61,16 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<boolean> {
     painNotes?: string | null;
     videoUrl?: string | null;
   };
-  if (!supabase || !p.sessionId || !p.alumnoId || !p.ejercicioId) return true;
+  if (!supabase) return "retry";
+  // Sin alumno o ejercicio no se puede atribuir la serie: reintentar no lo arregla.
+  if (!p.sessionId || !p.alumnoId || !p.ejercicioId) return "rejected";
   const sesion = await supabase
     .from("registro_sesiones")
     .upsert(
       { id: p.sessionId, alumno_id: p.alumnoId, ...(p.diaId ? { dia_id: p.diaId } : {}) },
       { onConflict: "id" },
     );
-  if (sesion.error) return false;
+  if (sesion.error) return toResult(sesion.error);
   const completed = ev.action === "WORKOUT_SET_COMPLETED";
   const serie = await supabase.from("registro_series").upsert(
     {
@@ -82,7 +92,7 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<boolean> {
     },
     { onConflict: "sesion_id,ejercicio_id,numero_serie" },
   );
-  return !serie.error;
+  return toResult(serie.error);
 }
 
 const memoryFallback: Record<string, string> = {};
@@ -132,20 +142,24 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
       flushQueue: async () => {
         // Sin cliente Supabase no hay servidor que confirme: nada se descarta.
         if (!supabase) return;
+        set({ syncError: null });
         for (const ev of get().pendingEvents) {
-          let ok = true;
+          let result: SendResult = "ok";
           if (SET_ACTIONS.includes(ev.action)) {
             try {
-              ok = await sendSetEvent(ev);
+              result = await sendSetEvent(ev);
             } catch {
-              ok = false;
+              result = "retry";
             }
           }
-          // Orden preservado: ante el primer fallo se corta y se reintenta luego.
-          if (!ok) return;
+          // Orden preservado: ante un fallo transitorio se corta y se reintenta luego.
+          if (result === "retry") return;
+          // Rechazo permanente: se descarta ese evento para no bloquear la cola.
+          if (result === "rejected") {
+            set({ syncError: "No pudimos guardar una serie. Avisá a tu coach." });
+          }
           get().removeEvent(ev.id);
         }
-        set({ syncError: null });
       },
       setSyncError: (message) => set({ syncError: message }),
       clearSyncError: () => set({ syncError: null }),
