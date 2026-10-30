@@ -1,3 +1,4 @@
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 import { describe, expect, it, beforeEach } from "vitest";
 import { useAthleteStore, DEFAULT_ATHLETE_ID, DEFAULT_ATHLETE_NAME } from "@/store/use-athlete-store";
 import {
@@ -73,6 +74,7 @@ describe("GH #165 / GOZS-166: Rutina de Fernando Rosales por defecto y dataset r
       expect(ferDias.map((d) => d.nombre)).toEqual(["DIA 1", "DIA 2", "DIA 3", "DIA 4"]);
 
       // Cargar DIA 2
+      sembrarPlanAlumno("Fernando Rosales");
       const loaded = useAthleteStore
         .getState()
         .loadStudentSession("Fernando Rosales", ferDias[1]!.id);
@@ -85,6 +87,7 @@ describe("GH #165 / GOZS-166: Rutina de Fernando Rosales por defecto y dataset r
 
     it("resetSessionToDefaults restablece fielmente a Fernando Rosales DIA 1", () => {
       // Alterar sesión
+      sembrarPlanAlumno("Gabriel Sanchez");
       useAthleteStore.getState().loadStudentSession("Gabriel Sanchez");
       expect(useAthleteStore.getState().currentSession.studentName).toContain("Gabriel");
 

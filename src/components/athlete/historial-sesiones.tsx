@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { REAL_DIAS } from "@/services/real-mynter-data";
 import {
   normalizarSesionesDetalladas,
   generarContratoMiniDashboard,
@@ -40,6 +39,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
   const cargarHistorialSesiones = useAthleteStore((s) => s.cargarHistorialSesiones);
   const actualizarSerieHistorial = useAthleteStore((s) => s.actualizarSerieHistorial);
   const currentSession = useAthleteStore((s) => s.currentSession);
+  const planDias = useAthleteStore((s) => s.planAlumno?.dias);
   const storeIsOnline = useOfflineQueueStore((s) => s.isOnline);
   const isOnline = offline !== undefined ? !offline : storeIsOnline;
 
@@ -52,13 +52,13 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
 
   // Sesiones normalizadas y ordenadas (más reciente a más antigua)
   const sesiones = React.useMemo(() => {
-    return normalizarSesionesDetalladas(historialSesiones, REAL_DIAS);
-  }, [historialSesiones]);
+    return normalizarSesionesDetalladas(historialSesiones, planDias ?? []);
+  }, [historialSesiones, planDias]);
 
   // Contrato estructurado para mini-dashboard de progresión
   const contratoDashboard = React.useMemo(() => {
-    return generarContratoMiniDashboard(historialSesiones, currentSession.studentId, REAL_DIAS);
-  }, [historialSesiones, currentSession.studentId]);
+    return generarContratoMiniDashboard(historialSesiones, currentSession.studentId, planDias ?? []);
+  }, [historialSesiones, currentSession.studentId, planDias]);
 
   // Estado de vista: listado de sesiones o mini-dashboard por ejercicio
   const [tabActiva, setTabActiva] = React.useState<"sesiones" | "dashboard">("sesiones");
