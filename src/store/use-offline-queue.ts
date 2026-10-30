@@ -62,12 +62,16 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
     videoUrl?: string | null;
   };
   if (!supabase) return "retry";
-  // Sin alumno o ejercicio no se puede atribuir la serie: reintentar no lo arregla.
-  if (!p.sessionId || !p.alumnoId || !p.ejercicioId) return "rejected";
+  // Sin sesión o ejercicio no se puede atribuir la serie: reintentar no lo arregla.
+  if (!p.sessionId || !p.ejercicioId) return "rejected";
+  // Sin alumno en el evento, la serie es del usuario autenticado (RLS exige lo mismo).
+  // Sin sesión de auth se conserva en cola: es dato del alumno, no se descarta.
+  const alumnoId = p.alumnoId ?? (await supabase.auth.getUser()).data.user?.id;
+  if (!alumnoId) return "retry";
   const sesion = await supabase
     .from("registro_sesiones")
     .upsert(
-      { id: p.sessionId, alumno_id: p.alumnoId, ...(p.diaId ? { dia_id: p.diaId } : {}) },
+      { id: p.sessionId, alumno_id: alumnoId, ...(p.diaId ? { dia_id: p.diaId } : {}) },
       { onConflict: "id" },
     );
   if (sesion.error) return toResult(sesion.error);

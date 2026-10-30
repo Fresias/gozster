@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const upserts: { table: string; row: Record<string, unknown> }[] = [];
 let fail = false;
 let failCode: string | undefined;
+let authUserId: string | null = "u-auth";
 
 vi.mock("@/lib/supabase/client", () => ({
   supabase: {
+    auth: { getUser: async () => ({ data: { user: authUserId ? { id: authUserId } : null } }) },
     from: (table: string) => ({
       upsert: async (row: Record<string, unknown>) => {
         if (fail) return { error: { message: "rls", code: failCode } };
@@ -38,6 +40,7 @@ describe("GOZS-283 · flushQueue envía las series a Supabase", () => {
     upserts.length = 0;
     fail = false;
     failCode = undefined;
+    authUserId = "u-auth";
     useOfflineQueueStore.setState({ pendingEvents: [], syncError: null });
   });
 
@@ -71,13 +74,25 @@ describe("GOZS-283 · flushQueue envía las series a Supabase", () => {
     expect(useOfflineQueueStore.getState().syncError).not.toBeNull();
   });
 
-  it("un evento sin alumnoId no se atribuye a nadie y no bloquea la cola", async () => {
+  it("un evento sin alumnoId se atribuye al usuario autenticado, no se descarta", async () => {
     const sinAlumno = setEvent("x1", 1);
     delete (sinAlumno.payload as Record<string, unknown>).alumnoId;
     useOfflineQueueStore.getState().enqueueEvent(sinAlumno);
     useOfflineQueueStore.getState().enqueueEvent(setEvent("x2", 2));
     await useOfflineQueueStore.getState().flushQueue();
     expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
-    expect(upserts.filter((u) => u.table === "registro_series")).toHaveLength(1);
+    expect(upserts.filter((u) => u.table === "registro_series")).toHaveLength(2);
+    expect(upserts.find((u) => u.table === "registro_sesiones")?.row.alumno_id).toBe("u-auth");
+  });
+
+  it("un evento sin alumnoId y sin sesión de auth queda en cola para reintentar", async () => {
+    authUserId = null;
+    const sinAlumno = setEvent("y1", 1);
+    delete (sinAlumno.payload as Record<string, unknown>).alumnoId;
+    useOfflineQueueStore.getState().enqueueEvent(sinAlumno);
+    await useOfflineQueueStore.getState().flushQueue();
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(1);
+    expect(upserts).toHaveLength(0);
+    useOfflineQueueStore.getState().clearQueue();
   });
 });
