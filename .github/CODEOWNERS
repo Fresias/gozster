@@ -4,3 +4,4 @@
 harness-kit/**          @Fresias
 harness/**              @Fresias
 .github/workflows/**    @Fresias
+supabase/migrations/**  @Fresias
