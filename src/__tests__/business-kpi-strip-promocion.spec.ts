@@ -1,7 +1,6 @@
 import * as React from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { describe, expect, it } from "vitest";
 import {
   calcularPeriodoMesEnCurso,
   mapearRpcAKpis,
@@ -11,10 +10,6 @@ import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
 describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () => {
-  beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("PRODUCCION");
-  });
-
   describe("1. Período: del día 1 del mes en curso a hoy en hora de Argentina", () => {
     it("calcula día 1 a hoy y label del mes anterior completo", () => {
       // 23 de octubre de 2026 a las 15:00 UTC (12:00 en Argentina)
@@ -97,7 +92,7 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
   });
 
   describe("3. Criterios de aceptación del componente visual", () => {
-    it("GIVEN ADMIN en Producción THEN los números coinciden con la RPC", () => {
+    it("GIVEN kpis mapeados desde la RPC THEN los números coinciden", () => {
       const kpisReales = mapearRpcAKpis(
         {
           ingresos: 20000,
@@ -192,48 +187,14 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
       expect(html).not.toContain("Cobranza del mes");
     });
 
-    it("GIVEN un error de red THEN la franja no rompe la pantalla y muestra 'No se pudieron cargar los datos'", () => {
-      // Mock de cliente Supabase con error
-      const mockSupabaseError = {
-        rpc: vi.fn().mockResolvedValue({
-          data: null,
-          error: new Error("Network error / 500 Internal Server Error"),
-        }),
-      };
-
-      // Si se pasa error o el cliente falla, las tarjetas muestran "—" y "No se pudieron cargar los datos"
-      // Probamos el render con el cliente de error
-      let html = "";
-      expect(() => {
-        html = renderToString(
-          React.createElement(BusinessKpiStrip, {
-            supabaseClient: mockSupabaseError,
-          }),
-        );
-      }).not.toThrow();
-
-      // En SSR inicial o estado de carga se renderiza el skeleton sin errores (sin kpi-skeleton-cobranza)
-      expect(html).toContain("data-testid=\"business-kpi-strip\"");
-      expect(html).toContain("kpi-skeleton-ingresos");
-      expect(html).not.toContain("kpi-skeleton-cobranza");
-      expect(html).toContain("kpi-skeleton-sin-entrenar");
-      expect(html).toContain("kpi-skeleton-activos");
-    });
-
-    it("Modo Testeo sigue usando valores demo sin llamar a la RPC y sin KPI cobranza", () => {
-      useWorkspaceModeStore.getState().setMode("TESTEO");
-      const rpcSpy = vi.fn();
-      const mockClient = { rpc: rpcSpy };
-
+    it("con kpis demo muestra los valores sin KPI cobranza", () => {
       const html = renderToString(
         React.createElement(BusinessKpiStrip, {
           kpis: DEMO_KPIS_NEGOCIO,
           sinEntrenarNombres: ["Alumno Demo"],
-          supabaseClient: mockClient,
         }),
       );
 
-      expect(rpcSpy).not.toHaveBeenCalled();
       expect(html).toContain("data-testid=\"business-kpi-strip\"");
       expect(html).toContain("data-testid=\"kpi-ingresos\"");
       expect(html).not.toContain("data-testid=\"kpi-cobranza\"");

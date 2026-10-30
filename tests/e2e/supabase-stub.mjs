@@ -11,6 +11,8 @@ const USER = {
   user_metadata: {},
   created_at: "2026-01-01T00:00:00Z",
 };
+// Fixtures opcionales por tabla (GOZS-297): un test las fija con PUT /__e2e/fixtures y las borra con DELETE.
+let fixtures = {};
 
 http
   .createServer((req, res) => {
@@ -27,6 +29,12 @@ http
     };
     if (req.method === "OPTIONS") return send(204, {});
     if (url === "/health") return send(200, { ok: true });
+    if (url === "/__e2e/fixtures") {
+      if (req.method === "DELETE") return (fixtures = {}), send(200, {});
+      let raw = "";
+      req.on("data", (c) => (raw += c));
+      return req.on("end", () => ((fixtures = JSON.parse(raw || "{}")), send(200, {})));
+    }
     if (url.startsWith("/auth/v1/user")) return send(200, USER);
     if (url.startsWith("/auth/v1/token")) {
       // Login (GOZS-206): solo la clave "e2e-ok" entra; cualquier otra devuelve invalid_grant como GoTrue.
@@ -44,10 +52,13 @@ http
       });
     }
     if (url.startsWith("/rest/v1/perfiles")) {
-      // Solo la consulta del propio perfil (id=eq.<uid>) devuelve fila; el listado de alumnos queda vacío.
+      // La consulta del propio perfil (id=eq.<uid>) devuelve fila; el listado de alumnos queda vacío salvo fixture.
       const row = { id: USER.id, rol: "ENTRENADOR" };
-      return send(200, url.includes(`id=eq.${USER.id}`) ? [row] : []);
+      if (url.includes(`id=eq.${USER.id}`)) return send(200, [row]);
+      return send(200, url.includes("rol=eq.ALUMNO") ? fixtures.alumnos ?? [] : []);
     }
+    const tabla = url.match(/^\/rest\/v1\/(\w+)\?/)?.[1];
+    if (req.method === "GET" && tabla && fixtures[tabla]) return send(200, fixtures[tabla]);
     if (url.startsWith("/rest/v1/")) {
       const single = String(req.headers.accept || "").includes("pgrst.object");
       return send(single ? 406 : 200, single ? { message: "no rows" } : []);

@@ -15,7 +15,15 @@ import {
 } from "@/components/coach/assign-routine-preview-modal";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { asignarRutinaAAlumno } from "@/services/rutinas-service";
+import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import type { Perfil } from "@/types/database.types";
+
+vi.mock("@/services/rutinas-service", () => ({ asignarRutinaAAlumno: vi.fn() }));
+vi.mock("@/services/alumnos-service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/alumnos-service")>()),
+  fetchLiveDatasetFromSupabase: vi.fn(),
+}));
 
 const mockAlumnoSinRutina: Perfil = {
   id: "alumno-sin-rutina-01",
@@ -82,46 +90,75 @@ describe("GOZS-245: 'Asignar rutina' abre preview de rutinas genéricas con conf
   // --------------------------------------------------------------------------
   // 2. STORE ACTION: asignarPlanDesdePlantilla
   // --------------------------------------------------------------------------
-  describe("2. useCoachStudioStore.asignarPlanDesdePlantilla", () => {
-    it("clona la plantilla genérica seleccionada creando plan, día y 5 ejercicios en estado ACTIVO", async () => {
+  describe("2. useCoachStudioStore.asignarPlanDesdePlantilla (RPC asignar_rutina_a_alumno)", () => {
+    it("asigna vía RPC, refresca planes y devuelve el clon ACTIVO del alumno", async () => {
       const store = useCoachStudioStore.getState();
       const alumnoId = mockAlumnoSinRutina.id;
-
-      // Asegurar que el alumno está en el store
-      useCoachStudioStore.setState({
-        alumnos: [mockAlumnoSinRutina, ...store.alumnos.filter((a) => a.id !== alumnoId)],
-        planes: store.planes.filter((p) => p.alumno_id !== alumnoId),
+      const plan = {
+        id: "plan-clon-01",
+        profesor_id: "profesor-01",
+        alumno_id: alumnoId,
+        nombre: "Adaptación - Primer día de gimnasio",
+        estado: "ACTIVO",
+        comentarios: null,
+        fecha_inicio: "2026-10-29T10:00:00Z",
+        fecha_fin: null,
+        tipo: "DE_ALUMNO",
+        etiqueta: null,
+        plan_origen_id: PLANTILLA_ADAPTACION_ID,
+        created_at: "2026-10-29T10:00:00Z",
+        updated_at: "2026-10-29T10:00:00Z",
+      } as const;
+      vi.mocked(asignarRutinaAAlumno).mockResolvedValue(plan.id);
+      vi.mocked(fetchLiveDatasetFromSupabase).mockResolvedValue({
+        alumnos: [mockAlumnoSinRutina],
+        planes: [plan],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
       });
+      useCoachStudioStore.setState({ alumnos: [mockAlumnoSinRutina, ...store.alumnos] });
 
-      const nuevoPlan = await store.asignarPlanDesdePlantilla(
-        alumnoId,
-        PLANTILLA_ADAPTACION_ID,
-      );
+      const nuevoPlan = await store.asignarPlanDesdePlantilla(alumnoId, PLANTILLA_ADAPTACION_ID);
 
-      expect(nuevoPlan).toBeDefined();
-      expect(nuevoPlan.alumno_id).toBe(alumnoId);
-      expect(nuevoPlan.nombre).toBe("Adaptación - Primer día de gimnasio");
-      expect(nuevoPlan.estado).toBe("ACTIVO");
+      expect(asignarRutinaAAlumno).toHaveBeenCalledWith(PLANTILLA_ADAPTACION_ID, alumnoId);
+      expect(nuevoPlan?.id).toBe(plan.id);
+      expect(nuevoPlan?.estado).toBe("ACTIVO");
+      expect(nuevoPlan?.plan_origen_id).toBe(PLANTILLA_ADAPTACION_ID);
 
       const statePost = useCoachStudioStore.getState();
-
-      // Días creados para el plan
-      const diasPlan = statePost.dias.filter((d) => d.plan_id === nuevoPlan.id);
-      expect(diasPlan).toHaveLength(1);
-      expect(diasPlan[0]?.nombre).toBe("Día 1: Adaptación Full Body");
-
-      // Ejercicios creados para el día
-      const ejPlan = statePost.ejerciciosEnRutina.filter((e) => e.dia_id === diasPlan[0]?.id);
-      expect(ejPlan).toHaveLength(5);
-
-      // Toast optimista
-      expect(statePost.toast).not.toBeNull();
+      expect(statePost.planes.some((p) => p.id === plan.id)).toBe(true);
       expect(statePost.toast?.type).toBe("success");
       expect(statePost.toast?.message).toContain(mockAlumnoSinRutina.nombre_completo);
+    });
 
-      // Evento offline encolado
-      const queue = useOfflineQueueStore.getState().pendingEvents;
-      expect(queue.some((e) => e.payload?.plantillaId === PLANTILLA_ADAPTACION_ID)).toBe(true);
+    it("RPC ok pero la recarga no trae el clon: éxito con aviso y sin pisar el estado", async () => {
+      const alumnoId = mockAlumnoSinRutina.id;
+      vi.mocked(asignarRutinaAAlumno).mockResolvedValue("plan-que-no-llega");
+      vi.mocked(fetchLiveDatasetFromSupabase).mockResolvedValue({
+        alumnos: [],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      });
+      const planesAntes = [{ id: "previo" }] as never;
+      useCoachStudioStore.setState({ alumnos: [mockAlumnoSinRutina], planes: planesAntes });
+
+      const res = await useCoachStudioStore.getState().asignarPlanDesdePlantilla(alumnoId, PLANTILLA_ADAPTACION_ID);
+
+      expect(res).toBeNull();
+      const st = useCoachStudioStore.getState();
+      expect(st.planes).toBe(planesAntes);
+      expect(st.toast?.type).toBe("success");
+      expect(st.toast?.message).toContain("Recarga la página");
+    });
+
+    it("propaga el error humano de la RPC sin tocar el estado", async () => {
+      vi.mocked(asignarRutinaAAlumno).mockRejectedValue(new Error("La rutina ya no existe"));
+      await expect(
+        useCoachStudioStore.getState().asignarPlanDesdePlantilla(mockAlumnoSinRutina.id, "x"),
+      ).rejects.toThrow("La rutina ya no existe");
     });
   });
 

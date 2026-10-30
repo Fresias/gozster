@@ -1,12 +1,25 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { HistorialSesiones } from "@/components/athlete/historial-sesiones";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { REAL_HISTORIAL_CARGAS } from "@/services/real-mynter-data";
+import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
+
+// renderToStaticMarkup lee el snapshot de servidor (estado inicial): el hook lee el estado vivo sembrado en beforeEach.
+vi.mock("@/store/use-athlete-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-athlete-store")>();
+  const hook = Object.assign((sel: (s: any) => unknown) => sel(mod.useAthleteStore.getState()), mod.useAthleteStore);
+  return { ...mod, useAthleteStore: hook };
+});
 
 describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", () => {
   beforeEach(() => {
+    sembrarPlanAlumno("Fernando Rosales");
+    useAthleteStore.setState({
+      historialSesiones: REAL_HISTORIAL_CARGAS["66b92b9a-1ce7-4e2e-a47c-7c5600000000"] || [],
+    });
     useOfflineQueueStore.setState({
       isOnline: true,
       pendingEvents: [],

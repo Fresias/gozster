@@ -161,6 +161,9 @@ export interface Database {
           comentarios: string | null;
           fecha_inicio: string;
           fecha_fin: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -173,6 +176,9 @@ export interface Database {
           comentarios?: string | null;
           fecha_inicio?: string;
           fecha_fin?: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -185,6 +191,9 @@ export interface Database {
           comentarios?: string | null;
           fecha_inicio?: string;
           fecha_fin?: string | null;
+          tipo?: 'PLANTILLA' | 'DE_ALUMNO';
+          etiqueta?: 'STANDARD' | null;
+          plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -194,6 +203,13 @@ export interface Database {
             columns: ['profesor_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'planes_entrenamiento_plan_origen_id_fkey';
+            columns: ['plan_origen_id'];
+            isOneToOne: false;
+            referencedRelation: 'planes_entrenamiento';
             referencedColumns: ['id'];
           },
           {
@@ -1060,6 +1076,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      errores_app: {
+        Row: {
+          id: string;
+          usuario_id: string;
+          contexto: string;
+          mensaje_humano: string;
+          detalle_tecnico: string | null;
+          payload_resumen: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          usuario_id: string;
+          contexto: string;
+          mensaje_humano: string;
+          detalle_tecnico?: string | null;
+          payload_resumen?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          usuario_id?: string;
+          contexto?: string;
+          mensaje_humano?: string;
+          detalle_tecnico?: string | null;
+          payload_resumen?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       cobros: {
         Row: {
           id: string;
@@ -1878,6 +1924,19 @@ export interface Database {
           peso_max_kg: number;
           hubo_sobrecarga: boolean;
         }[];
+      };
+      guardar_rutina: {
+        Args: {
+          p_payload: Json;
+        };
+        Returns: string;
+      };
+      asignar_rutina_a_alumno: {
+        Args: {
+          p_plan_id: string;
+          p_alumno_id: string;
+        };
+        Returns: string;
       };
       clonar_plan_entrenamiento: {
         Args: {

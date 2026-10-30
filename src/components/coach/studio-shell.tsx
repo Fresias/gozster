@@ -4,16 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { WorkspaceModeToggle } from "@/components/ui/workspace-mode-toggle";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isDashboardActive = pathname === "/studio/dashboard";
   const isStudioActive = pathname === "/studio";
+  const isRutinasActive = pathname === "/studio/rutinas";
   const isAgendaActive = pathname === "/studio/agenda";
   const isRankingActive = pathname === "/studio/ranking-funcional";
   const isCobrosActive = pathname === "/studio/cobros";
@@ -21,11 +20,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isAthleteActive = pathname?.startsWith("/athlete");
 
   const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
-  const { mode } = useWorkspaceModeStore();
-  const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
-    setMounted(true);
     setOnlineStatus(navigator.onLine);
     const handleOnline = () => setOnlineStatus(true);
     const handleOffline = () => setOnlineStatus(false);
@@ -37,8 +33,6 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("offline", handleOffline);
     };
   }, [setOnlineStatus]);
-
-  const isTestMode = mounted && mode === "TESTEO";
 
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[280px_1fr] bg-background text-foreground transition-colors duration-150">
@@ -59,8 +53,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
             <div className="flex items-center gap-2 lg:hidden">
-              <WorkspaceModeToggle />
-              <ThemeToggle />
+                <ThemeToggle />
             </div>
           </div>
 
@@ -116,6 +109,31 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 />
               </svg>
               <span>Atletas &amp; Rutinas</span>
+            </Link>
+
+            <Link
+              href="/studio/rutinas"
+              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                isRutinasActive
+                  ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
+              }`}
+            >
+              <svg
+                className="mr-2.5 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                />
+              </svg>
+              <span>Rutinas</span>
             </Link>
 
             <Link
@@ -195,33 +213,31 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <span>Cobros &amp; Pagos</span>
             </Link>
 
-            {mode === "TESTEO" && (
-              <Link
-                href="/studio/documentacion"
-                data-testid="sidebar-documentacion-link"
-                className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                  isDocumentacionActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
-                }`}
+            <Link
+              href="/studio/documentacion"
+              data-testid="sidebar-documentacion-link"
+              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                isDocumentacionActive
+                  ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
+              }`}
+            >
+              <svg
+                className="mr-2.5 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
               >
-                <svg
-                  className="mr-2.5 h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-                <span>Documentación</span>
-              </Link>
-            )}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+              <span>Documentación</span>
+            </Link>
 
             <Link
               href="/athlete"
@@ -319,11 +335,10 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <WorkspaceModeToggle />
             <ThemeToggle showLabel />
           </div>
         </header>
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 ${mode === "TESTEO" ? "max-w-[1920px]" : "max-w-7xl"}`}>{children}</main>
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-[1920px]`}>{children}</main>
       </div>
     </div>
   );

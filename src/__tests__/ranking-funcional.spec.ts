@@ -7,13 +7,11 @@ import {
   type ResultadoRanking,
 } from "@/store/use-ranking-store";
 import { useClasesStore } from "@/store/use-clases-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { RankingFuncional } from "@/components/coach/ranking-funcional";
 import type { Perfil, RankingPR } from "@/types/database.types";
 
 describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH #262)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useClasesStore.getState().resetDemoDataset();
   });
 
@@ -367,7 +365,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
   });
 
   describe("Store useRankingStore: registro y validaciones", () => {
-    it("permite registrar un nuevo PR en modo testeo y actualiza la lista", async () => {
+    it("permite registrar un nuevo PR y actualiza la lista", async () => {
       const store = useRankingStore.getState();
 
       const res = await store.registrarPr({

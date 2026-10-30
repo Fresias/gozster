@@ -7,7 +7,7 @@ export interface Feriado {
 
 export type FeriadosPorDia = Record<string, Feriado>;
 
-// Modo TESTEO (sin base): mismos feriados nacionales 2026 que supabase/seed_data/feriados_ar_2026.sql.
+// Sin base: mismos feriados nacionales 2026 que supabase/seed_data/feriados_ar_2026.sql.
 const DEMO_FERIADOS_2026: Array<[string, string]> = [
   ["2026-01-01", "Año Nuevo"],
   ["2026-02-16", "Carnaval"],

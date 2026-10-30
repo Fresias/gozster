@@ -110,3 +110,54 @@ export async function fetchAlumnosEstancados(client: SupabaseClient<Database> = 
     .map(([alumnoId, series]) => ({ alumnoId, diasSinPR: diasSinPR(series) }))
     .sort((a, b) => b.diasSinPR - a.diasSinPR);
 }
+
+/**
+ * Plan real del alumno autenticado (GOZS-285). Sin fallback a datos demo: RLS limita
+ * todo a lo propio. Devuelve `null` si no hay sesión o falla la lectura (el llamador
+ * conserva lo cacheado); un alumno sin plan devuelve el dataset con `planes: []`.
+ */
+export async function fetchPlanAlumno(client: SupabaseClient<Database> = supabase): Promise<LiveSupabaseDataset | null> {
+  const { data: auth } = await client.auth.getUser();
+  if (!auth?.user) return null;
+  const perfilRes = await client.from("perfiles").select("*").eq("id", auth.user.id).maybeSingle();
+  if (perfilRes.error || !perfilRes.data) return null;
+  const alumno = perfilRes.data as Perfil;
+  const vacio = { alumnos: [alumno], planes: [], dias: [], ejerciciosEnRutina: [], ejercicios: [] };
+
+  const planesRes = await client
+    .from("planes_entrenamiento")
+    .select("*")
+    .eq("alumno_id", alumno.id)
+    .order("created_at", { ascending: false });
+  if (planesRes.error) return null;
+  const planes = (planesRes.data as PlanEntrenamiento[]) ?? [];
+  const plan = planes.find((p) => p.estado === "ACTIVO") ?? planes[0];
+  if (!plan) return vacio;
+
+  const diasRes = await client.from("dias_rutina").select("*").eq("plan_id", plan.id).order("orden", { ascending: true });
+  if (diasRes.error) return null;
+  const dias = (diasRes.data as DiaRutina[]) ?? [];
+  if (dias.length === 0) return { ...vacio, planes: [plan] };
+
+  const ejRutinaRes = await client
+    .from("ejercicios_en_rutina")
+    .select("*")
+    .in("dia_id", dias.map((d) => d.id))
+    .order("orden", { ascending: true });
+  if (ejRutinaRes.error) return null;
+  const ejerciciosEnRutina = (ejRutinaRes.data as EjercicioEnRutina[]) ?? [];
+
+  const ejerciciosRes = await client
+    .from("ejercicios")
+    .select("*")
+    .in("id", [...new Set(ejerciciosEnRutina.map((e) => e.ejercicio_id))]);
+  if (ejerciciosRes.error) return null;
+
+  return {
+    alumnos: [alumno],
+    planes: [plan],
+    dias,
+    ejerciciosEnRutina,
+    ejercicios: (ejerciciosRes.data as Ejercicio[]) ?? [],
+  };
+}

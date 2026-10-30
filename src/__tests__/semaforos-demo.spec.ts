@@ -1,5 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
+import { describe, expect, it } from "vitest";
 import {
   DEMO_ALUMNOS,
   DEMO_PLANES,
@@ -11,75 +10,8 @@ import {
   evaluateRutinaVigenciaSemaphore,
   evaluateActividadSemaphore,
 } from "./coach-studio-v2.spec";
-import * as fs from "node:fs";
-import * as path from "node:path";
 
-describe("Sprint Demo INDEC: Conmutador Modo Producción vs Testeo y Semáforos M3 (Issue #47 / GOZS-29)", () => {
-  beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("PRODUCCION");
-  });
-
-  // ==========================================================================
-  // 1. STORE Y CONMUTADOR DE ENTORNO (PRODUCCIÓN / TESTEO)
-  // ==========================================================================
-  describe("1. Conmutador de Entorno (WorkspaceModeStore)", () => {
-    it("inicia en modo PRODUCCION por defecto", () => {
-      expect(useWorkspaceModeStore.getState().mode).toBe("PRODUCCION");
-    });
-
-    it("permite conmutar a modo TESTEO y alternar con toggleMode", () => {
-      const store = useWorkspaceModeStore.getState();
-      store.setMode("TESTEO");
-      expect(useWorkspaceModeStore.getState().mode).toBe("TESTEO");
-
-      useWorkspaceModeStore.getState().toggleMode();
-      expect(useWorkspaceModeStore.getState().mode).toBe("PRODUCCION");
-
-      useWorkspaceModeStore.getState().toggleMode();
-      expect(useWorkspaceModeStore.getState().mode).toBe("TESTEO");
-    });
-
-    it("D-CONSOLA / GOZS-212: no crashea si localStorage no está disponible o lanza error", () => {
-      expect(() => {
-        useWorkspaceModeStore.getState().setMode("TESTEO");
-        useWorkspaceModeStore.getState().toggleMode();
-      }).not.toThrow();
-    });
-
-    it("el componente WorkspaceModeToggle existe y define los controles accesibles", () => {
-      const toggleFile = path.resolve(
-        __dirname,
-        "../components/ui/workspace-mode-toggle.tsx",
-      );
-      expect(fs.existsSync(toggleFile)).toBe(true);
-      const content = fs.readFileSync(toggleFile, "utf-8");
-      expect(content).toContain('data-testid="workspace-mode-toggle"');
-      expect(content).toContain('data-testid="toggle-mode-produccion"');
-      expect(content).toContain('data-testid="toggle-mode-testeo"');
-      expect(content).toContain("Modo Testeo");
-      expect(content).toContain("Producción");
-    });
-
-    it("CoachStudioView y StudioShell integran WorkspaceModeToggle", () => {
-      const shellFile = path.resolve(
-        __dirname,
-        "../components/coach/studio-shell.tsx",
-      );
-      const viewFile = path.resolve(
-        __dirname,
-        "../components/coach/coach-studio-view.tsx",
-      );
-
-      const shellContent = fs.readFileSync(shellFile, "utf-8");
-      const viewContent = fs.readFileSync(viewFile, "utf-8");
-
-      expect(shellContent).toContain("WorkspaceModeToggle");
-      expect(viewContent).toContain("WorkspaceModeToggle");
-      expect(viewContent).toContain('data-testid="test-mode-banner"');
-      expect(viewContent).toContain('data-testid="badge-modo-testeo"');
-    });
-  });
-
+describe("Sprint Demo INDEC: Semáforos M3 (Issue #47 / GOZS-29)", () => {
   // ==========================================================================
   // 2. COBERTURA TOTAL DE SEMÁFOROS M3 EN DATASET DEMO
   // ==========================================================================

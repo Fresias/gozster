@@ -7,13 +7,11 @@ import {
   derivarMontoSuscripcion,
 } from "@/lib/alumno-ficha";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { DEMO_ALUMNOS_CLASES, DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
 import type { Contratacion, Perfil, PlanEntrenamiento } from "@/types/database.types";
 
 describe("FE Studio: Ficha del alumno con actividad, frecuencia, estado de pago y registro de pago (GOZS-247)", () => {
   beforeEach(() => {
-    useWorkspaceModeStore.getState().setMode("TESTEO");
     useCobrosStore.getState().resetDemoDataset();
   });
 

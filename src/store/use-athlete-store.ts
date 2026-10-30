@@ -5,14 +5,7 @@ import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-he
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
-import {
-  REAL_ALUMNOS,
-  REAL_PLANES,
-  REAL_DIAS,
-  REAL_EJERCICIOS,
-  REAL_EJERCICIOS_RUTINA,
-  REAL_HISTORIAL_CARGAS,
-} from "@/services/real-mynter-data";
+import { fetchPlanAlumno, type LiveSupabaseDataset } from "@/services/alumnos-service";
 import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
@@ -233,6 +226,9 @@ interface AthleteStoreState {
   addTimerSeconds: (seconds: number) => void;
 
   // Session & Routine Loaders
+  planAlumno: LiveSupabaseDataset | null;
+  cargandoPlan: boolean;
+  cargarPlanAlumno: () => Promise<void>;
   setSession: (session: LiveWorkoutSession) => void;
   loadStudentSession: (
     studentId?: string,
@@ -444,20 +440,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
       diaElegidoHoyId: null,
       diaSugeridoId: null,
       motivoCambioDia: null,
-      sesionesCompletadas: [
-        {
-          id: "ses-fernando-init-2026-10-23",
-          dia_id: "6a669097-5bd8-4547-87f7-a43700000001",
-          fecha: "2026-10-23T18:00:00.000Z",
-        },
-      ],
+      sesionesCompletadas: [],
+      planAlumno: null,
+      cargandoPlan: false,
       ultimaVez: {},
       cargandoUltimaVez: false,
       marcas: {},
       miProgreso: null,
       miProgresoFecha: null,
       cargandoMiProgreso: false,
-      historialSesiones: REAL_HISTORIAL_CARGAS[DEFAULT_ATHLETE_ID] || [],
+      historialSesiones: [],
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
@@ -482,7 +474,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
       empezarDia: (diaId) => {
         const state = get();
-        const studentId = state.currentSession.studentId || DEFAULT_ATHLETE_ID;
+        const studentId = state.planAlumno?.alumnos[0]?.id || state.currentSession.studentId || DEFAULT_ATHLETE_ID;
         const motivo = state.motivoCambioDia;
         const diaSugeridoId = state.diaSugeridoId;
 
@@ -994,6 +986,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_COMPLETED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber: newWarmupSet.numero_serie,
@@ -1091,6 +1086,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_COMPLETED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber,
@@ -1173,6 +1171,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           action: "WORKOUT_SET_UPDATED",
           payload: {
             sessionId: state.currentSession.id,
+            alumnoId: state.currentSession.studentId,
+            diaId: state.currentSession.dia_id,
+            ejercicioId: targetExercise.ejercicio_id ?? exerciseId,
             exerciseId,
             exerciseName: targetExercise.nombre,
             setNumber,
@@ -1329,7 +1330,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
           const seriesPorSesion: Record<string, (RegistroSerie & { ejercicioNombre: string })[]> = {};
           (seriesData || []).forEach((item: any) => {
-            const ejNombre = item.ejercicios?.nombre || REAL_EJERCICIOS.find((e) => e.id === item.ejercicio_id)?.nombre || "Ejercicio";
+            const ejNombre = item.ejercicios?.nombre || "Ejercicio";
             const row: RegistroSerie & { ejercicioNombre: string } = {
               id: item.id,
               sesion_id: item.sesion_id,
@@ -1627,57 +1628,40 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({ currentSession: session });
       },
 
-      loadStudentSession: (studentId, diaId, motivo = null, diaSugeridoId = null) => {
-        const student = studentId
-          ? REAL_ALUMNOS.find((a) => a.id === studentId || a.nombre_completo.toLowerCase().includes(studentId.toLowerCase()))
-          : REAL_ALUMNOS[0];
+      cargarPlanAlumno: async () => {
+        set({ cargandoPlan: true });
+        try {
+          const plan = await fetchPlanAlumno();
+          if (!plan) return;
+          set({ planAlumno: plan });
+          get().loadStudentSession(plan.alumnos[0]?.id);
+        } catch (err) {
+          console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
+        } finally {
+          set({ cargandoPlan: false });
+        }
+      },
 
-        if (!student) return false;
+      loadStudentSession: (_studentId, diaId, motivo = null, diaSugeridoId = null) => {
+        const data = get().planAlumno;
+        const student = data?.alumnos[0];
+        const plan = data?.planes[0];
+        if (!data || !student || !plan) return false;
 
-        const plan = REAL_PLANES.find((p) => p.alumno_id === student.id && p.estado === "ACTIVO") ||
-          REAL_PLANES.find((p) => p.alumno_id === student.id) ||
-          REAL_PLANES[0];
-
-        if (!plan) return false;
-
-        const dias = REAL_DIAS.filter((d) => d.plan_id === plan.id).sort((a, b) => a.orden - b.orden);
+        const dias = data.dias.filter((d) => d.plan_id === plan.id).sort((a, b) => a.orden - b.orden);
         if (dias.length === 0) return false;
 
-        if (student.id === "0a7a4dfd-e040-4b92-ac29-9507cbb13215") {
-          const tieneGabriel = get().sesionesCompletadas.some(s => s.dia_id === "d0276837-4fe4-418f-a3e2-841cc9a865e5");
-          if (!tieneGabriel) {
-            set((prev) => ({
-              sesionesCompletadas: [
-                ...prev.sesionesCompletadas.filter(s => s.id !== "ses-gabriel-init-2026-10-22"),
-                {
-                  id: "ses-gabriel-init-2026-10-22",
-                  dia_id: "d0276837-4fe4-418f-a3e2-841cc9a865e5",
-                  fecha: "2026-10-22T18:00:00.000Z",
-                },
-              ],
-              historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
-            }));
-          } else {
-            set((prev) => ({
-              historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
-            }));
-          }
-        } else {
-          set((prev) => ({
-            historialSesiones: REAL_HISTORIAL_CARGAS[student.id] || prev.historialSesiones,
-          }));
-        }
         const selectedDia = (diaId ? dias.find((d) => d.id === diaId) : undefined) ?? dias[0];
         if (!selectedDia) return false;
 
-        const ejRutinaList = REAL_EJERCICIOS_RUTINA.filter((er) => er.dia_id === selectedDia.id).sort(
+        const ejRutinaList = data.ejerciciosEnRutina.filter((er) => er.dia_id === selectedDia.id).sort(
           (a, b) => a.orden - b.orden,
         );
 
         if (ejRutinaList.length === 0) return false;
 
         const mappedExercises: LiveWorkoutExercise[] = ejRutinaList.map((er, idx) => {
-          const ejMaestro = REAL_EJERCICIOS.find((e) => e.id === er.ejercicio_id);
+          const ejMaestro = data.ejercicios.find((e) => e.id === er.ejercicio_id);
           const seriesCount = typeof er.series === "number" && er.series > 0 ? er.series : 3;
           const ultimaVezEjercicio = get().ultimaVez?.[er.ejercicio_id];
 
@@ -1817,6 +1801,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         pasoIncrementoPeso: state.pasoIncrementoPeso,
         colapsarRutina: state.colapsarRutina,
         currentSession: state.currentSession,
+        planAlumno: state.planAlumno,
         nivelVistaAlumno: state.nivelVistaAlumno,
         vistaElegidaPorAlumno: state.vistaElegidaPorAlumno,
         vistaRecomendadaCoach: state.vistaRecomendadaCoach,

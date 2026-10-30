@@ -231,32 +231,26 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
       expect(alertsInboxContent).toContain('"CERRADO"');
     });
 
-    it("dispone de pestañas de filtrado con data-testid correspondientes", () => {
-      expect(alertsInboxContent).toContain('data-testid="filter-tab-pendientes"');
-      expect(alertsInboxContent).toContain('data-testid="filter-tab-atendidos"');
-      expect(alertsInboxContent).toContain('data-testid="filter-tab-cerrados"');
-      expect(alertsInboxContent).toContain('data-testid="filter-tab-todas"');
+    it("la bandeja lista solo alertas pendientes sin pestañas de filtrado", () => {
+      expect(alertsInboxContent).not.toContain("filter-tab-pendientes");
+      expect(alertsInboxContent).toContain('return estado === "PENDIENTE" && a.type === "DOLOR";');
     });
 
-    it("renderiza badges de severidad CRITICA y Síntoma de Alarma cuando corresponde", () => {
-      expect(alertsInboxContent).toContain('data-testid="red-flag-badge"');
-      expect(alertsInboxContent).toContain("CRÍTICA / RED FLAG");
+    const painSection = readSource("../components/coach/student-pain-alerts.tsx");
+
+    it("la ficha del alumno muestra Síntomas de Alarma en las alertas con red flag", () => {
+      expect(painSection).toContain("Síntomas de Alarma");
     });
 
-    it("ofrece botón para abrir Quick Swap directamente desde la alerta", () => {
-      expect(alertsInboxContent).toContain(
-        'data-testid={`quick-swap-btn-${alert.id}`}',
-      );
-      expect(alertsInboxContent).toContain("Sustituir Ejercicio");
+    it("la ficha ofrece botón para abrir Quick Swap directamente desde la alerta", () => {
+      expect(painSection).toContain("data-testid={`student-quick-swap-btn-${alert.id}`}");
+      expect(painSection).toContain("Sustituir Ejercicio");
     });
 
-    it("ofrece botones para cambiar el estado a Atendido o Cerrado", () => {
-      expect(alertsInboxContent).toContain(
-        'data-testid={`status-btn-atendido-${alert.id}`}',
-      );
-      expect(alertsInboxContent).toContain(
-        'data-testid={`status-btn-cerrado-${alert.id}`}',
-      );
+    it("la ficha ofrece botones para cambiar el estado a Atendido o Cerrado", () => {
+      expect(painSection).toContain("data-testid={`student-status-btn-${e.value.toLowerCase()}-${alert.id}`}");
+      expect(painSection).toContain("Atendido");
+      expect(painSection).toContain("Cerrado");
     });
   });
 

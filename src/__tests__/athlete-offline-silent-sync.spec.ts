@@ -1,6 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+vi.mock("@/lib/supabase/client", () => ({
+  supabase: { from: () => ({ upsert: async () => ({ error: null }) }) },
+}));
+
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 const readSource = (relPath: string) =>
@@ -19,18 +23,18 @@ describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
   });
 
   describe("Cola que sincroniza sola al volver la señal", () => {
-    it("flushQueue vacía la cola y limpia el aviso sin pasos del alumno", () => {
+    it("flushQueue vacía la cola y limpia el aviso sin pasos del alumno", async () => {
       const store = useOfflineQueueStore.getState();
       store.setOnlineStatus(false);
-      store.enqueueEvent({ id: "e1", action: "WORKOUT_SET_COMPLETED", payload: {} });
-      store.enqueueEvent({ id: "e2", action: "WORKOUT_SET_COMPLETED", payload: {} });
+      store.enqueueEvent({ id: "e1", action: "WORKOUT_SET_COMPLETED", payload: { sessionId: "s1", alumnoId: "a1", ejercicioId: "e1", setNumber: 1, pesoKg: 50, reps: 8 } });
+      store.enqueueEvent({ id: "e2", action: "WORKOUT_SET_COMPLETED", payload: { sessionId: "s1", alumnoId: "a1", ejercicioId: "e1", setNumber: 2, pesoKg: 50, reps: 8 } });
       useOfflineQueueStore.getState().setSyncError("algún fallo previo");
 
       expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(2);
 
       // Vuelve la señal → la cola se vacía sola y en silencio.
       useOfflineQueueStore.getState().setOnlineStatus(true);
-      useOfflineQueueStore.getState().flushQueue();
+      await useOfflineQueueStore.getState().flushQueue();
 
       expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
       expect(useOfflineQueueStore.getState().syncError).toBeNull();
