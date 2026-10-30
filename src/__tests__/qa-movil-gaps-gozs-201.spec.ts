@@ -132,11 +132,11 @@ describe("GOZS-201 · Sync offline→online y doble tap (bugs abiertos)", () => 
     expect(eventosDeSerie(1)).toHaveLength(1);
   });
 
-  // BUG-201-A (P0): flushQueue vacía la cola sin enviarla; nada escribe registro_series.
-  it.fails("QA-201-42 al volver la señal sin capa de envío, la serie completada no se descarta", () => {
+  // BUG-201-A (P0) resuelto en #267 (GOZS-283): flushQueue solo quita lo confirmado por el servidor.
+  it("QA-201-42 al volver la señal sin capa de envío, la serie completada no se descarta", async () => {
     const ejId = useAthleteStore.getState().currentSession.ejercicios[0]!.id;
     useAthleteStore.getState().completeSet(ejId, 1);
-    useOfflineQueueStore.getState().flushQueue();
+    await useOfflineQueueStore.getState().flushQueue();
     expect(eventosDeSerie(1)).toHaveLength(1);
   });
 });
