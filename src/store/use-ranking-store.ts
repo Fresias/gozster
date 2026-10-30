@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { safeStorage } from "@/store/use-offline-queue";
+import { userScopedStorage } from "@/lib/user-storage";
 import type { Perfil, RankingPR, Reserva } from "@/types/database.types";
 
 export interface RankingCalculadoItem {
@@ -282,7 +282,7 @@ export const useRankingStore = create<RankingState>()(
     }),
     {
       name: "gozster-ranking-store",
-      storage: createJSONStorage(() => safeStorage),
+      storage: createJSONStorage(() => userScopedStorage),
       partialize: (state) => ({
         claseIdSeleccionada: state.claseIdSeleccionada,
         ejercicioIdSeleccionado: state.ejercicioIdSeleccionado,

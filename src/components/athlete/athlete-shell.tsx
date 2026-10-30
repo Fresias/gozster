@@ -4,11 +4,21 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { activarUsuarioStorage, cerrarSesionAlumno } from "@/lib/session-scope";
+import { createClient } from "@/lib/supabase/browser";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
+
+  // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
+  React.useEffect(() => {
+    void createClient()
+      .auth.getUser()
+      .then(({ data }) => (data.user ? activarUsuarioStorage(data.user.id) : undefined))
+      .catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
@@ -64,6 +74,13 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => void cerrarSesionAlumno()}
+            className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Salir
+          </button>
         </div>
       </header>
 

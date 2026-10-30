@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 import type { EstadoConversacion } from "@/types/database.types";
 import {
@@ -219,31 +220,6 @@ interface ChatStoreState {
   getLatestUnreadStaffMessage: (alumnoId?: string) => ChatMessage | null;
   resetToDefaults: () => void;
 }
-
-const memoryFallback: Record<string, string> = {};
-
-const safeStorage: StateStorage = {
-  getItem: (name: string): string | null => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      return window.localStorage.getItem(name);
-    }
-    return memoryFallback[name] ?? null;
-  },
-  setItem: (name: string, value: string): void => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(name, value);
-      return;
-    }
-    memoryFallback[name] = value;
-  },
-  removeItem: (name: string): void => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.removeItem(name);
-      return;
-    }
-    delete memoryFallback[name];
-  },
-};
 
 export const useChatStore = create<ChatStoreState>()(
   persist(
@@ -635,7 +611,7 @@ export const useChatStore = create<ChatStoreState>()(
     }),
     {
       name: "gozster-chat-store",
-      storage: createJSONStorage(() => safeStorage),
+      storage: createJSONStorage(() => userScopedStorage),
     },
   ),
 );
