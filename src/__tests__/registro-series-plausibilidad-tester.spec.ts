@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, "../../supabase");
 const read = (p: string) => fs.readFileSync(path.join(root, p), "utf-8");
 
 describe("GOZS-199: CHECK de plausibilidad y seed del tester", () => {
-  const mig = read("migrations/20261028130000_registro_series_checks_plausibilidad.sql");
+  const mig = read("migrations/20261030000600_registro_series_checks_plausibilidad.sql");
   const seed = read("seed_tester.sql");
 
   it("la migración define CHECKs de peso, reps y RPE, idempotentes", () => {

@@ -7,7 +7,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // GOZS-229: feriados de Argentina y flag de clases (PGlite, roles Supabase simulados).
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261028150000_feriados_argentina.sql";
+const NEW_MIGRATION = "20261030000700_feriados_argentina.sql";
 const COACH = "00000000-0000-0000-0000-0000000000a1";
 const ALUMNO = "00000000-0000-0000-0000-0000000000a2";
 

@@ -70,7 +70,7 @@ describe("GOZS-201 · Entradas absurdas en peso/reps/RPE (gaps)", () => {
 
   it("QA-201-17 el tope del cliente (500 kg) es más estricto que el CHECK de BD (1000 kg)", () => {
     expect(evaluarPlausibilidadSerie({ peso: 501, reps: 1 }).estado).toBe("bloqueado");
-    expect(leer("supabase/migrations/20261028130000_registro_series_checks_plausibilidad.sql")).toMatch(
+    expect(leer("supabase/migrations/20261030000600_registro_series_checks_plausibilidad.sql")).toMatch(
       /peso_kg >= 0 AND peso_kg <= 1000/,
     );
   });

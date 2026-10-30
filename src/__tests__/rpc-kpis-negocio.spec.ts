@@ -8,7 +8,7 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // con roles de Supabase simulados.
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261022120000_rpc_obtener_kpis_negocio.sql";
+const NEW_MIGRATION = "20261022120001_rpc_obtener_kpis_negocio.sql";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
 const COACH = "00000000-0000-0000-0000-00000000c0ac";
