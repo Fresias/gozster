@@ -13,7 +13,6 @@ import {
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { type ActividadKpi } from "@/lib/kpi-anual";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   type ActividadPlanOpcion,
   type PlanMembresiaConVigencia,
@@ -65,8 +64,6 @@ export function CobrosPanel({
   const selectAlumno = useCoachStudioStore((s) => s.selectAlumno);
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
-  const mode = useWorkspaceModeStore((s) => s.mode);
-  const isTestMode = mode === "TESTEO";
 
   // Modales de planes
   const planesDialogRef = React.useRef<HTMLDialogElement>(null);
@@ -310,14 +307,12 @@ export function CobrosPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isTestMode && (
-            <span
-              className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
-              data-testid="demo-coach-badge"
-            >
-              Modo Testeo · Coach Lucía Ferraro
-            </span>
-          )}
+          <span
+            className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
+            data-testid="demo-coach-badge"
+          >
+            Coach Lucía Ferraro
+          </span>
           {!isOnline && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
               Sin conexión · cobros guardados

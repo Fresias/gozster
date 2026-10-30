@@ -10,7 +10,6 @@ import {
   ResultadoRanking,
   useRankingStore,
 } from "@/store/use-ranking-store";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { Ejercicio, Perfil } from "@/types/database.types";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
@@ -29,7 +28,6 @@ export function RankingFuncional({
   alumnosDisponibles,
   ejerciciosDisponibles,
 }: RankingFuncionalProps) {
-  const { mode } = useWorkspaceModeStore();
   const { isOnline } = useOfflineQueueStore();
 
   const {
@@ -288,11 +286,6 @@ export function RankingFuncional({
           {!isOnline && (
             <Badge variant="warning">
               ⚡ Modo Offline
-            </Badge>
-          )}
-          {mode === "TESTEO" && (
-            <Badge variant="info">
-              🧪 Modo Testeo
             </Badge>
           )}
         </div>

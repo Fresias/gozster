@@ -8,7 +8,7 @@ interface DemoAlertEstadosState {
   setEstado: (alertId: string, estado: AlertaEstado) => void;
 }
 
-/** Estado de las alertas demo (Modo Testeo), compartido entre la bandeja y la ficha del alumno. */
+/** Estado de las alertas demo, compartido entre la bandeja y la ficha del alumno. */
 export const useDemoAlertEstados = create<DemoAlertEstadosState>((set) => ({
   estados: {},
   setEstado: (alertId, estado) => set((s) => ({ estados: { ...s.estados, [alertId]: estado } })),

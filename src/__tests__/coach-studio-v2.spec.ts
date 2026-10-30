@@ -261,8 +261,10 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
     it("comprueba que la celda de alertas combine múltiples eventos sin colapso ni desbordamiento de grilla", () => {
       expect(viewContent).toContain("min-w-[130px] max-w-[190px]");
       expect(viewContent).toContain("flex flex-wrap gap-1.5");
-      expect(viewContent).toContain("🚨");
-      expect(viewContent).toContain("⚡");
+      expect(viewContent).toContain("getDemoAlumnoAlerts(alumno.nombre_completo)");
+      const dataset = fs.readFileSync(path.resolve(__dirname, "../services/coach-demo-dataset.ts"), "utf-8");
+      expect(dataset).toContain("🚨");
+      expect(dataset).toContain("⚡");
     });
   });
 

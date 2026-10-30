@@ -17,12 +17,11 @@ const session = {
   user: { id: "00000000-0000-4000-8000-000000000001", aud: "authenticated", role: "authenticated", email: "coach-e2e@gozster.test", app_metadata: {}, user_metadata: {} },
 };
 
-async function abrirRuta(page: Page, ruta: string, modo: "TESTEO" | "PRODUCCION" = "TESTEO") {
+async function abrirRuta(page: Page, ruta: string) {
   await page.context().addCookies([
     { name: "sb-localhost-auth-token", value: `base64-${b64url(session)}`, url: "http://localhost:3100" },
   ]);
-  await page.addInitScript((m) => {
-    window.localStorage.setItem("gozster-workspace-mode", m);
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "gozster-athlete-store",
       JSON.stringify({
@@ -38,7 +37,7 @@ async function abrirRuta(page: Page, ruta: string, modo: "TESTEO" | "PRODUCCION"
         version: 2,
       })
     );
-  }, modo);
+  });
   await page.goto(ruta, { waitUntil: "domcontentloaded" });
 }
 
@@ -55,9 +54,9 @@ async function abrirChat(page: Page) {
 
 test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   test("1. Dashboard: KPIs ejecutivos y filtro de actividad", async ({ page }) => {
-    await abrirRuta(page, "/studio/dashboard", "TESTEO");
+    await abrirRuta(page, "/studio/dashboard");
 
-    // Franja de KPIs de retención en Modo Testeo
+    // Franja de KPIs de retención
     await expect(page.getByTestId("kpi-cant-activas")).toBeVisible({ timeout: 60_000 });
 
     // Filtros por actividad en el dashboard (GOZS-239)
@@ -81,7 +80,7 @@ test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   });
 
   test("2. Cobros: Una fila por alumno, planes con vigencia futura y KPI anual", async ({ page }) => {
-    await abrirRuta(page, "/studio/cobros", "TESTEO");
+    await abrirRuta(page, "/studio/cobros");
 
     await expect(page.getByTestId("cobros-panel")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId("cobros-kpis")).toBeVisible();
@@ -116,7 +115,7 @@ test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   });
 
   test("3. Chat coach-alumno y push notifications en App del Alumno", async ({ page }) => {
-    await abrirRuta(page, "/athlete", "TESTEO");
+    await abrirRuta(page, "/athlete");
 
     // Botón flotante para abrir chat → drawer abierto
     const chatDrawer = await abrirChat(page);
@@ -130,7 +129,7 @@ test.describe("Épica GOZS-221: Flujos UI de Coach Studio y App", () => {
   });
 
   test("4. Offline y Resiliencia: La app permanece operativa y conserva estado sin red", async ({ page }) => {
-    await abrirRuta(page, "/athlete", "TESTEO");
+    await abrirRuta(page, "/athlete");
 
     // Simular pérdida de conexión
     await page.context().setOffline(true);

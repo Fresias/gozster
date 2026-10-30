@@ -6,24 +6,18 @@ import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critic
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
-describe("GOZS-134: layout KPIs + bandeja arriba, Alumnos a todo el ancho (Testeo)", () => {
+describe("GOZS-134: layout KPIs + bandeja arriba, Alumnos a todo el ancho", () => {
   const shell = read("../components/coach/studio-shell.tsx");
   const inbox = read("../components/coach/critical-alerts-inbox.tsx");
   const view = read("../components/coach/coach-studio-view.tsx");
 
   beforeEach(() => useDemoAlertEstados.setState({ estados: {} }));
 
-  it("Producción conserva las clases originales", () => {
-    expect(shell).toContain('"max-w-7xl"');
-    expect(inbox).toContain('"max-w-4xl"');
-    expect(view).toContain('"space-y-6"');
-    expect(view).toContain('"space-y-4"');
-  });
-
-  it("Testeo: main ancho, grilla de dos columnas y tabla a todo el ancho", () => {
-    expect(shell).toContain('mode === "TESTEO" ? "max-w-[1920px]"');
+  it("main ancho, grilla de dos columnas y tabla a todo el ancho", () => {
+    expect(shell).toContain("max-w-[1920px]");
+    expect(shell).not.toContain("max-w-7xl");
     expect(view).toContain("grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]");
-    expect(view).toContain('isTestMode ? "xl:col-span-2" : undefined');
+    expect(view).toContain('className="xl:col-span-2"');
     expect(view).toContain("relative self-stretch");
     expect(view).not.toContain("items-start xl:grid-cols");
   });

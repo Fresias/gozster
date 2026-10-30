@@ -8,7 +8,7 @@ const hora = (iso: string) =>
 const diaSemana = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { timeZone: "America/Argentina/Buenos_Aires", weekday: "short" });
 
-describe("seed de clases ficticias (Modo Testeo)", () => {
+describe("seed de clases ficticias", () => {
   it("es idempotente: dos ejecuciones producen los mismos ids, sin duplicados", () => {
     const a = generarDemoClasesSemana(REF);
     const b = generarDemoClasesSemana(REF);

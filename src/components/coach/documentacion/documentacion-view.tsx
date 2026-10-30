@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Card } from "@/components/ui/card";
 import { calcularEjemplosDocumentacion } from "@/lib/documentacion-ejemplos";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import {
   FAQ,
   FICHAS,
@@ -34,19 +33,6 @@ function Ejemplo({ children }: { children: React.ReactNode }) {
 }
 
 export function DocumentacionView() {
-  const mode = useWorkspaceModeStore((s) => s.mode);
-
-  if (mode !== "TESTEO") {
-    return (
-      <div role="status" data-testid="documentacion-aviso-produccion" className="mx-auto max-w-xl rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-center">
-        <h1 className="text-lg font-black text-foreground">Esta guía está en Modo Testeo</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Para leerla, activá el <strong>Modo Testeo</strong> con el interruptor de arriba y volvé a esta página.
-        </p>
-      </div>
-    );
-  }
-
   return <DocumentacionPagina />;
 }
 

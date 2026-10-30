@@ -5,7 +5,7 @@ import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
-describe("GOZS-126: ficha del alumno con Alertas de dolor (Modo Testeo)", () => {
+describe("GOZS-126: ficha del alumno con Alertas de dolor", () => {
   const section = read("../components/coach/student-pain-alerts.tsx");
   const detail = read("../components/coach/student-detail.tsx");
   const view = read("../components/coach/coach-studio-view.tsx");
@@ -18,9 +18,8 @@ describe("GOZS-126: ficha del alumno con Alertas de dolor (Modo Testeo)", () => 
     expect(celeste[0]?.detalle).toBeTruthy();
   });
 
-  it("la sección solo se renderiza en Testeo y si el alumno tiene alertas", () => {
-    expect(section).toContain('useWorkspaceModeStore().mode === "TESTEO"');
-    expect(section).toContain("if (!isTesteo || alerts.length === 0) return null;");
+  it("la sección solo se renderiza si el alumno tiene alertas", () => {
+    expect(section).toContain("if (alerts.length === 0) return null;");
   });
 
   it("filtra por alumno_id y ordena pendientes primero", () => {

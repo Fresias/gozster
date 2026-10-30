@@ -1,14 +1,8 @@
 import * as React from "react";
 import type { KpisNegocio } from "@/services/coach-demo-dataset";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
-import { useWorkspaceModeStore } from "@/store/use-workspace-mode";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { supabase as defaultSupabase } from "@/lib/supabase/client";
-import {
-  calcularPeriodoMesEnCurso,
-  mapearRpcAKpis,
-  type KpisNegocioDatos,
-} from "@/lib/kpis-negocio";
+import type { KpisNegocioDatos } from "@/lib/kpis-negocio";
 
 export interface BusinessKpiStripProps {
   kpis?: KpisNegocio | KpisNegocioDatos;
@@ -19,13 +13,8 @@ export interface BusinessKpiStripProps {
   onSinEntrenarClick?: () => void;
   onAsignarClick?: () => void;
   className?: string;
-  alumnos?: { id: string; nombre_completo: string }[];
-  /** Permite forzar modo testeo explícito */
-  isTestMode?: boolean;
   /** Permite forzar estado de error (para tests o fallos) */
   error?: boolean;
-  /** Cliente opcional para tests o inyección de dependencias */
-  supabaseClient?: any;
 }
 
 const pesos = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
@@ -90,49 +79,6 @@ const iniciales = (n: string) =>
     .join("")
     .toUpperCase();
 
-function BusinessKpiStripSkeleton({ className }: { className?: string }) {
-  return (
-    <div
-      data-testid="business-kpi-strip"
-      className={`grid grid-cols-2 min-[1700px]:grid-cols-4 gap-4 ${className ?? ""}`}
-    >
-      <div className={CARD} data-testid="kpi-skeleton-ingresos">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/10 animate-pulse" />
-          <div className="h-4 w-28 rounded bg-foreground/10 animate-pulse" />
-        </div>
-        <div className="mt-3 h-7 w-32 rounded bg-foreground/10 animate-pulse" />
-        <div className="mt-3 h-8 w-full rounded bg-foreground/10 animate-pulse" />
-        <div className="mt-2 h-4 w-24 rounded-full bg-foreground/10 animate-pulse" />
-      </div>
-
-      <div className={CARD} data-testid="kpi-skeleton-sin-entrenar">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/10 animate-pulse" />
-          <div className="h-4 w-32 rounded bg-foreground/10 animate-pulse" />
-        </div>
-        <div className="mt-3 h-7 w-12 rounded bg-foreground/10 animate-pulse" />
-        <div className="mt-3 flex items-center -space-x-2">
-          <div className="h-7 w-7 rounded-full bg-foreground/10 ring-2 ring-card animate-pulse" />
-          <div className="h-7 w-7 rounded-full bg-foreground/10 ring-2 ring-card animate-pulse" />
-          <div className="h-7 w-7 rounded-full bg-foreground/10 ring-2 ring-card animate-pulse" />
-        </div>
-        <div className="mt-2 h-4 w-20 rounded bg-foreground/10 animate-pulse" />
-      </div>
-
-      <div className={CARD} data-testid="kpi-skeleton-activos">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/10 animate-pulse" />
-          <div className="h-4 w-28 rounded bg-foreground/10 animate-pulse" />
-        </div>
-        <div className="mt-3 h-7 w-16 rounded bg-foreground/10 animate-pulse" />
-        <div className="mt-4 h-1.5 w-full rounded-full bg-foreground/10 animate-pulse" />
-        <div className="mt-2 h-4 w-40 rounded bg-foreground/10 animate-pulse" />
-      </div>
-    </div>
-  );
-}
-
 /** Franja de 4 KPIs de negocio (Material 3 elevated cards), solo para ADMIN. Un único acento: primary. */
 export function BusinessKpiStrip({
   kpis: propKpis,
@@ -141,103 +87,12 @@ export function BusinessKpiStrip({
   onSinEntrenarClick,
   onAsignarClick,
   className,
-  alumnos = [],
-  isTestMode: propIsTestMode,
   error: propError,
-  supabaseClient,
 }: BusinessKpiStripProps) {
-  const storeMode =
-    typeof window === "undefined"
-      ? useWorkspaceModeStore.getState().mode
-      : useWorkspaceModeStore((s) => s.mode);
-  const isTestMode = propIsTestMode ?? storeMode === "TESTEO";
+  const error = propError;
+  const kpis: KpisNegocio | KpisNegocioDatos = propKpis ?? DEMO_KPIS_NEGOCIO;
 
-  const hasRealPropKpis = propKpis !== undefined && propKpis !== DEMO_KPIS_NEGOCIO;
-  const initialLoading = !isTestMode && !hasRealPropKpis && !propError;
-
-  const [loading, setLoading] = React.useState(initialLoading);
-  const [hasError, setHasError] = React.useState(false);
-  const [realKpis, setRealKpis] = React.useState<KpisNegocioDatos | null>(null);
-  const [realSinEntrenarNombres, setRealSinEntrenarNombres] =
-    React.useState<string[]>(propSinEntrenarNombres);
-
-  React.useEffect(() => {
-    if (isTestMode || hasRealPropKpis || propError) {
-      setLoading(false);
-      setHasError(false);
-      return;
-    }
-
-    let activo = true;
-    setLoading(true);
-    setHasError(false);
-
-    (async () => {
-      try {
-        const client = supabaseClient ?? defaultSupabase;
-        const { p_desde, p_hasta, mesAnteriorLabel } = calcularPeriodoMesEnCurso();
-        const { data, error: rpcError } = await client.rpc("obtener_kpis_negocio", {
-          p_desde,
-          p_hasta,
-        });
-
-        if (!activo) return;
-
-        if (rpcError || !data || data.length === 0) {
-          setHasError(true);
-          setLoading(false);
-          return;
-        }
-
-        const mapeados = mapearRpcAKpis(data[0], mesAnteriorLabel);
-
-        let nombresSinEntrenar = propSinEntrenarNombres;
-        if (nombresSinEntrenar.length === 0 && alumnos.length > 0) {
-          const idSet = new Set(mapeados.sin_entrenar_7d_ids);
-          nombresSinEntrenar = alumnos
-            .filter((a) => idSet.has(a.id))
-            .map((a) => a.nombre_completo);
-        }
-
-        setRealSinEntrenarNombres(nombresSinEntrenar);
-        setRealKpis(mapeados);
-        setLoading(false);
-      } catch {
-        if (activo) {
-          setHasError(true);
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      activo = false;
-    };
-  }, [isTestMode, hasRealPropKpis, propError, supabaseClient]);
-
-  if (loading) {
-    return <BusinessKpiStripSkeleton className={className} />;
-  }
-
-  const error = propError || hasError;
-
-  const kpis: KpisNegocio | KpisNegocioDatos = isTestMode
-    ? propKpis ?? DEMO_KPIS_NEGOCIO
-    : realKpis ?? (hasRealPropKpis ? (propKpis as KpisNegocioDatos) : {
-        ingresos_mes: 0,
-        ingresos_variacion_pct: null,
-        ingresos_mes_anterior_label: "",
-        ingresos_ultimos_6_meses: [0, 0, 0, 0, 0, 0],
-        cobranza_pct: null,
-        cobranza_faltante: 0,
-        cobranza_vencidas: 0,
-        sin_entrenar_7d_ids: [],
-        alumnos_activos: 0,
-        altas_mes: 0,
-        bajas_mes: 0,
-      });
-
-  const sinEntrenarNombres = isTestMode ? propSinEntrenarNombres : realSinEntrenarNombres;
+  const sinEntrenarNombres = propSinEntrenarNombres;
   const sinEntrenarTotal =
     sinEntrenarNombres.length > 0
       ? sinEntrenarNombres.length
@@ -273,7 +128,7 @@ export function BusinessKpiStrip({
 
   const kpisAny = kpis as any;
 
-  const isCustomPropKpis = hasRealPropKpis;
+  const isCustomPropKpis = propKpis !== undefined && propKpis !== DEMO_KPIS_NEGOCIO;
 
   const ingresosPresencial =
     typeof kpisAny.ingresos_presencial === "number"

@@ -218,12 +218,11 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       expect(formatIndec(undefined)).toBe("—");
     });
 
-    it("verifica que coach-studio-view.tsx implementa el Cuadro 1.1 con filas de 34px y columna matriz", () => {
+    it("verifica que coach-studio-view.tsx implementa el cuadro con filas de 48px y columna matriz", () => {
       const viewPath = path.resolve(__dirname, "../components/coach/coach-studio-view.tsx");
       const viewContent = fs.readFileSync(viewPath, "utf-8");
 
-      expect(viewContent).toContain("Cuadro 1.1");
-      expect(viewContent).toContain("34px");
+      expect(viewContent).toContain("min-h-[48px]");
       expect(viewContent).toContain("Columna Matriz");
       expect(viewContent).toContain("sticky left-0");
       expect(viewContent).toContain("tabular-nums");

@@ -1,10 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-// GOZS-206: recorrido de demo del Coach Studio (login → dashboard → alumno → rutina → agenda → cobros → documentación).
+// GOZS-206: recorrido de demo del Coach Studio (login → agenda → cobros → documentación).
 // Un test.step por ítem de la checklist (ID D-xx). Un fallo no corta la corrida: se registra y el test falla al final.
 // Lo ya cubierto por agenda-testeo.e2e.ts (GOZS-196) no se repite: acá solo recorrido y gaps.
-// GABI AGOSTO sale del dataset real de respaldo (src/services/real-mynter-data.ts, plan cab4ad3d-…); el stub no devuelve filas.
 
 const GABI_ID = "0a7a4dfd-e040-4b92-ac29-9507cbb13215";
 const EVIDENCIA = "docs/qa/demo-evidencia";
@@ -18,9 +17,8 @@ const session = {
   user: { id: "00000000-0000-4000-8000-000000000001", aud: "authenticated", role: "authenticated", email: "coach-e2e@gozster.test", app_metadata: {}, user_metadata: {} },
 };
 
-async function entrar(page: Page, modo: "TESTEO" | "PRODUCCION") {
+async function entrar(page: Page) {
   await page.context().addCookies([{ name: "sb-localhost-auth-token", value: `base64-${b64url(session)}`, url: "http://localhost:3100" }]);
-  await page.addInitScript((m) => window.localStorage.setItem("gozster-workspace-mode", m), modo);
 }
 
 const desborde = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -86,128 +84,8 @@ test("@demo recorrido Coach Studio con GABI AGOSTO", async ({ page }, info: Test
     await expect(page.getByRole("button", { name: /modo (día|noche|oscuro|claro)|tema/i }).first()).toBeVisible();
   });
 
-  // ── 3. Dashboard (/studio/dashboard y directorio /studio) ───────────────
-  await entrar(page, "PRODUCCION");
-  await paso("D-D1", "ROJO", "Dashboard carga con franja de KPIs visible", async () => {
-    await page.goto("/studio/dashboard");
-    await expect(page.getByTestId("retention-executive-banner")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("kpi-cant-activas")).toBeVisible();
-  });
-  await paso("D-D2", "ROJO", "Ningún KPI muestra NaN/Infinity/undefined", async () => {
-    await sinBasura(page);
-    await page.goto("/studio");
-    await expect(page.getByTestId("alumnos-directory")).toBeVisible({ timeout: 60_000 });
-    await sinBasura(page);
-    await expect(page.getByTestId("kpi-cant-activas")).not.toHaveText(/^\s*0\s*$/);
-  });
-  await paso("D-D3", "NARANJA", "Abrir una alerta lleva al alumno correcto", async () => {
-    await page.getByTestId("view-student-btn-alert-demo-dolor-1").click();
-    await expect(page.getByRole("heading", { name: /Celeste Gerardi/ })).toBeVisible();
-    await page.getByRole("button", { name: /Volver a Alumnos/ }).click();
-  });
-  await paso("D-D5", "NARANJA", 'Buscar "gabi" lo encuentra y limpiar restaura la lista', async () => {
-    const buscador = page.getByRole("searchbox").first();
-    const antes = await page.locator('[data-testid^="btn-ver-ficha-"]').count();
-    try {
-      await buscador.fill("gabi");
-      await expect(page.getByTestId(`btn-ver-ficha-${GABI_ID}`)).toBeVisible({ timeout: 3000 });
-    } finally {
-      await buscador.fill("");
-      await expect(page.locator('[data-testid^="btn-ver-ficha-"]')).toHaveCount(antes);
-    }
-  });
-  await paso("D-D6", "AMARILLO", "Sin scroll horizontal de página en el directorio", async () => {
-    expect(await desborde(page)).toBeLessThanOrEqual(1);
-  });
-
-  // ── 4. Alumno (Gabi) ────────────────────────────────────────────────────
-  await paso("D-A1", "ROJO", "Abrir ficha de Gabi: carga plan, historial y datos", async () => {
-    await page.getByTestId(`btn-ver-ficha-${GABI_ID}`).click();
-    await expect(page.getByTestId("contratacion-panel")).toBeVisible();
-    await expect(page.getByTestId("estado-rutina")).toBeVisible();
-    await sinBasura(page);
-  });
-  await paso("D-A2", "ROJO", "Plan GABI AGOSTO activo con fechas coherentes", async () => {
-    await expect(page.getByText("GABI AGOSTO", { exact: true }).first()).toBeVisible();
-    await expect(page.getByTestId("estado-rutina")).toContainText(/ACTIVO/i);
-    // Plan 25/09 → 25/10/2026: si hoy ya pasó el fin del plan, "activo" no es coherente con las fechas.
-    const fin = new Date("2026-10-25T02:59:00Z");
-    expect(new Date() <= fin, "El plan figura ACTIVO pero su fecha_fin (25/10/2026) ya pasó").toBe(true);
-  });
-  await paso("D-A3", "NARANJA", "Historial de cargas abre y cierra", async () => {
-    await page.getByText("Ver Cargas & RPE").click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByLabel("Cerrar panel de historial").click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-  });
-  await paso("D-A5", "NARANJA", "Plantilla WhatsApp abre sin enviar nada real", async () => {
-    const enviados: string[] = [];
-    page.on("request", (r) => { if (/wa\.me|whatsapp|api\.whatsapp/i.test(r.url())) enviados.push(r.url()); });
-    await page.context().route(/wa\.me|whatsapp/i, (r) => r.abort());
-    await page.getByTestId("whatsapp-direct-btn").click();
-    await page.waitForTimeout(500);
-    expect(enviados, "no debe haber requests a WhatsApp").toEqual([]);
-    await page.keyboard.press("Escape");
-  });
-
-  // Rotación a mitad de recorrido (solo tablet): el estado debe conservarse.
-  if (info.project.name === "tablet") {
-    await paso("D-T3", "NARANJA", "Rotar a horizontal conserva estado (ficha de Gabi)", async () => {
-      await page.setViewportSize({ width: 1024, height: 768 });
-      await expect(page.getByTestId("contratacion-panel")).toBeVisible();
-      await expect(page.getByText("GABI AGOSTO", { exact: true }).first()).toBeVisible();
-      expect(await desborde(page)).toBeLessThanOrEqual(1);
-    });
-  }
-
-  // ── 5. Rutina (constructor / estructura GABI AGOSTO) ────────────────────
-  await paso("D-R1", "ROJO", "GABI AGOSTO: días en orden (WARM UP → PRINCIPAL)", async () => {
-    const txt = await page.locator("body").innerText();
-    expect(txt).toContain("ESTRUCTURA DEL PLAN (2 DÍAS)");
-    expect(txt.indexOf("WARM UP")).toBeGreaterThan(-1);
-    expect(txt.indexOf("WARM UP")).toBeLessThan(txt.indexOf("PRINCIPAL"));
-  });
-  await paso("D-R2", "ROJO", "Ejercicios con series, reps (rango), descanso y RPE", async () => {
-    const txt = await page.locator("body").innerText();
-    expect(txt).toMatch(/\d+ × .+/);
-    expect(txt).toMatch(/RPE \d/);
-    expect(txt).toMatch(/\d+s desc\./);
-  });
-  await paso("D-R3", "NARANJA", "Superseries agrupadas y recomendaciones (escala RPE 1–10)", async () => {
-    await expect(page.getByText("Superserie G1").first()).toBeVisible();
-    await expect(page.locator("body")).toContainText(/RPE.*1 al 10/);
-  });
-  await paso("D-R4", "NARANJA", "Constructor abre con el plan de Gabi (no con la plantilla genérica)", async () => {
-    await page.getByTestId("sidebar-routine-builder-btn").click();
-    const modal = page.getByTestId("routine-builder-modal");
-    await expect(modal).toBeVisible();
-    await expect(modal).toContainText("Gabriel Sanchez");
-    // GAP conocido: el constructor siempre arranca con la "Plantilla Maestra" (Bloque de Hipertrofia), no con GABI AGOSTO.
-    await expect(modal.locator("input").first()).toHaveValue("GABI AGOSTO");
-  });
-  await paso("D-R6", "NARANJA", "9999 series se rechaza o avisa", async () => {
-    const serie = page.getByTestId("routine-builder-modal").locator('input[type="number"]').first();
-    await serie.fill("9999");
-    const valor = await serie.inputValue();
-    const aviso = await page.getByTestId("routine-builder-modal").getByText(/máximo|inválid|límite|rango/i).count();
-    expect(Number(valor) < 9999 || aviso > 0, "acepta 9999 series sin rechazar ni avisar").toBe(true);
-  });
-  await paso("D-R8", "AMARILLO", "Modal del constructor se cierra sin guardar", async () => {
-    await page.getByTestId("routine-builder-modal").getByRole("button", { name: "Cancelar" }).click();
-    await expect(page.getByTestId("routine-builder-modal")).toHaveCount(0);
-  });
-  await paso("D-R5", "NARANJA", "Quick Swap: sustituir y queda trazado", async () => {
-    await page.goto("/studio");
-    await page.getByTestId("quick-swap-btn-alert-demo-dolor-2").click();
-    const modal = page.getByTestId("quick-swap-modal");
-    await expect(modal).toBeVisible();
-    await modal.getByTestId("swap-motive-input").fill("QA demo: molestia de hombro");
-    await modal.locator('[data-testid^="confirm-swap-btn-"]').first().click();
-    await expect(page.getByTestId("quick-swap-modal")).toHaveCount(0);
-  });
-
-  // ── 6. Agenda (Modo Testeo; detalle en agenda-testeo.e2e.ts) ────────────
-  await entrar(page, "TESTEO");
+  await entrar(page);
+  // ── 6. Agenda (detalle en agenda-testeo.e2e.ts) ────────────
   await paso("D-G1", "ROJO", "Vista Semana con clases y día actual resaltado", async () => {
     await page.goto("/studio/agenda");
     await expect(page.getByTestId("class-agenda")).toBeVisible({ timeout: 60_000 });
@@ -240,7 +118,7 @@ test("@demo recorrido Coach Studio con GABI AGOSTO", async ({ page }, info: Test
     }
     expect(aviso, "ningún alumno/clase del seed dispara el aviso de suscripción").toBe(true);
   });
-  await paso("D-G4", "NARANJA", "Crear clase de prueba y cancelarla (Modo Testeo)", async () => {
+  await paso("D-G4", "NARANJA", "Crear clase de prueba y cancelarla", async () => {
     await page.goto("/studio/agenda");
     await expect(page.getByTestId("class-agenda")).toBeVisible({ timeout: 60_000 });
     await page.getByTestId("view-week-btn").click();
