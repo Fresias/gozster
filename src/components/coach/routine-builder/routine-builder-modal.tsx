@@ -42,6 +42,8 @@ interface RoutineBuilderModalProps {
   ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
+  /** Plan archivado con versión sucesora: se consulta, no se guarda. */
+  soloLectura?: boolean;
 }
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
@@ -163,6 +165,7 @@ export function RoutineBuilderModal({
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
   planInicial,
+  soloLectura = false,
   diasIniciales,
   ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
@@ -930,43 +933,47 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={onClose} disabled={isSaving}>
               Cancelar
             </Button>
-            {alumnoId && !planInicial && (
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={asignarAlumno}
-                  onChange={(e) => setAsignarAlumno(e.target.checked)}
-                  disabled={isSaving}
-                />
-                Nueva para {alumnoNombre}
-              </label>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => handleSaveToSupabase("nueva")}
-              disabled={isSaving}
-              data-testid="save-routine-as-new-btn"
-            >
-              Guardar como rutina nueva
-            </Button>
-            {needsNewVersion && (
+            {!soloLectura && (
+              <>
+              {alumnoId && !planInicial && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={asignarAlumno}
+                    onChange={(e) => setAsignarAlumno(e.target.checked)}
+                    disabled={isSaving}
+                  />
+                  Nueva para {alumnoNombre}
+                </label>
+              )}
               <Button
                 variant="outline"
-                onClick={() => handleSaveToSupabase("version")}
+                onClick={() => handleSaveToSupabase("nueva")}
                 disabled={isSaving}
-                data-testid="save-routine-new-version-btn"
+                data-testid="save-routine-as-new-btn"
               >
-                Guardar como nueva versión
+                Guardar como rutina nueva
               </Button>
+              {needsNewVersion && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleSaveToSupabase("version")}
+                  disabled={isSaving}
+                  data-testid="save-routine-new-version-btn"
+                >
+                  Guardar como nueva versión
+                </Button>
+              )}
+              <Button
+                className="bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90"
+                onClick={() => handleSaveToSupabase()}
+                disabled={isSaving}
+                data-testid="save-routine-to-supabase-btn"
+              >
+                {isSaving ? "Guardando..." : "✓ Guardar"}
+              </Button>
+              </>
             )}
-            <Button
-              className="bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90"
-              onClick={() => handleSaveToSupabase()}
-              disabled={isSaving}
-              data-testid="save-routine-to-supabase-btn"
-            >
-              {isSaving ? "Guardando..." : "✓ Guardar"}
-            </Button>
           </div>
         </div>
       </div>
