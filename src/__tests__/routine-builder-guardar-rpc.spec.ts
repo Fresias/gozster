@@ -67,6 +67,16 @@ describe("constructor → guardar_rutina", () => {
     expect(clasificarErrorGuardado({ code: "GZ010", message: "La rutina necesita un nombre" }, "guardar").needsNewVersion).toBe(false);
   });
 
+  it("GZ011 (conflicto de versión) muestra el mensaje humano y envía la versión solo al editar", () => {
+    const err = { code: "GZ011", message: "Esta rutina cambió en otra pestaña o dispositivo. Recarga para ver la última versión" };
+    expect(clasificarErrorGuardado(err, "guardar")).toMatchObject({ mensaje: err.message, needsNewVersion: false });
+    const base = { comoNueva: false, nombre: "R", comentarios: "", days: [] };
+    expect(buildGuardarRutinaPayload({ ...base, planId: "p1", version: "2026-10-30T10:00:00.123456+00:00" })).toMatchObject({
+      version: "2026-10-30T10:00:00.123456+00:00",
+    });
+    expect(buildGuardarRutinaPayload({ ...base, version: "v" })).not.toHaveProperty("version");
+  });
+
   it("otros errores usan el mensaje genérico y conservan el detalle técnico", () => {
     const r = clasificarErrorGuardado({ code: "42501", message: "boom", details: "x" }, "guardar");
     expect(r).toEqual({

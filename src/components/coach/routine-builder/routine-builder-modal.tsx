@@ -52,6 +52,7 @@ const GENERIC_SAVE_ERROR = "No se pudo guardar la rutina. Intenta de nuevo.";
 
 export function buildGuardarRutinaPayload(input: {
   planId?: string;
+  version?: string;
   comoNueva: boolean;
   nombre: string;
   comentarios: string;
@@ -60,6 +61,7 @@ export function buildGuardarRutinaPayload(input: {
 }) {
   return {
     ...(input.planId ? { plan_id: input.planId } : {}),
+    ...(input.planId && input.version ? { version: input.version } : {}),
     ...(input.comoNueva ? { como_nueva: true } : {}),
     nombre: input.nombre,
     comentarios: input.comentarios,
@@ -85,9 +87,9 @@ export function buildGuardarRutinaPayload(input: {
   };
 }
 
-// GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
+// GZ010/GZ011 (conflicto de versión) = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
 export function clasificarErrorGuardado(err: any, modo: SaveMode) {
-  const esNegocio = err?.code === "GZ010";
+  const esNegocio = err?.code === "GZ010" || err?.code === "GZ011";
   const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
   return {
     mensaje,
@@ -172,8 +174,12 @@ export function RoutineBuilderModal({
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
 
+  // updated_at que leyó este cliente; se refresca tras cada guardado (GOZS-318)
+  const versionRef = React.useRef<string | undefined>(planInicial?.updated_at);
+
   React.useEffect(() => {
     if (!isOpen) return;
+    versionRef.current = planInicial?.updated_at;
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
@@ -336,6 +342,7 @@ export function RoutineBuilderModal({
     setErrorMessage(null);
     const payload = buildGuardarRutinaPayload({
       planId: planInicial?.id,
+      version: versionRef.current,
       comoNueva: modo !== "guardar",
       nombre: planName,
       comentarios,
@@ -354,6 +361,7 @@ export function RoutineBuilderModal({
         .single();
       if (planErr) throw planErr;
 
+      if (planData?.updated_at) versionRef.current = planData.updated_at;
       setNeedsNewVersion(false);
       setSaveSuccess(true);
       if (onRoutineSaved && planData) {
