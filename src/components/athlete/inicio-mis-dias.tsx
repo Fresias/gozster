@@ -6,6 +6,8 @@ import { useChatStore } from "@/store/use-chat-store";
 import {
   calcularEstadosDias,
   calcularUltimoDiaRealizado,
+  calcularSemanaPlan,
+  etiquetaDia,
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
@@ -144,6 +146,7 @@ export function InicioMisDias() {
     };
   }, []);
 
+  const semanaPlan = plan ? calcularSemanaPlan(plan.fecha_inicio, plan.fecha_fin) : { actual: 1, total: null };
   const diaHero = diaActivoHoy || diasConEstado[0];
 
   if (diasItems.length === 0) {
@@ -174,8 +177,12 @@ export function InicioMisDias() {
         </h1>
         <p className="text-sm font-medium text-muted-foreground mt-0.5">
           Semana{" "}
-          <span className="font-mono font-bold text-foreground">3</span> de{" "}
-          <span className="font-mono font-bold text-foreground">8</span>
+          <span className="font-mono font-bold text-foreground">{semanaPlan.actual}</span>
+          {semanaPlan.total !== null && (
+            <>
+              {" "}de <span className="font-mono font-bold text-foreground">{semanaPlan.total}</span>
+            </>
+          )}
         </p>
       </div>
 
@@ -194,7 +201,7 @@ export function InicioMisDias() {
                 Último entrenamiento realizado
               </p>
               <p className="text-sm font-bold text-foreground truncate mt-0.5">
-                Día {ultimoDiaRealizado.dia.orden} · {ultimoDiaRealizado.dia.nombre}
+                {etiquetaDia(ultimoDiaRealizado.dia)}
               </p>
             </div>
           </div>
@@ -306,7 +313,7 @@ export function InicioMisDias() {
           </div>
 
           <h2 className="font-outfit text-[26px] sm:text-[28px] font-extrabold tracking-tight text-white mt-1.5 leading-tight">
-            Día {diaHero.orden} · {diaHero.nombre}
+            {etiquetaDia(diaHero)}
           </h2>
 
           <p className="text-sm font-medium text-[#CBD5E1] mt-1">
@@ -402,7 +409,7 @@ export function InicioMisDias() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <b className="text-base font-bold text-foreground truncate">
-                      Día {dia.orden} · {dia.nombre}
+                      {etiquetaDia(dia)}
                     </b>
                     {isUltimo && (
                       <span
@@ -494,7 +501,7 @@ export function InicioMisDias() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <b className="block text-base font-bold text-muted-foreground truncate">
-                          Día {dia.orden} · {dia.nombre}
+                          {etiquetaDia(dia)}
                         </b>
                         <span className="block text-xs text-muted-foreground">
                           Ya lo hiciste esta semana
@@ -540,7 +547,7 @@ export function InicioMisDias() {
 
                     <div className="flex-1 min-w-0">
                       <b className="block text-base font-bold text-foreground truncate">
-                        Día {dia.orden} · {dia.nombre}
+                        {etiquetaDia(dia)}
                       </b>
                       <span className="block text-xs text-muted-foreground">
                         {isNaturalNext
