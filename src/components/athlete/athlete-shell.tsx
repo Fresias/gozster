@@ -16,7 +16,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
       // nunca ve "pendientes", para él sus datos ya estaban guardados.
-      flushQueue();
+      void flushQueue();
     };
     const handleOffline = () => setOnlineStatus(false);
 
