@@ -56,6 +56,9 @@ const SEED = `
     ('${ALU_B}','PRESENCIAL',5,CURRENT_DATE - 10,CURRENT_DATE + 30,'VIGENTE','${PLAN_LIBRE}',NULL,30000);
 `;
 
+// Lunes 00:00 (zona del gimnasio, como anotar_alumno) de la semana próxima; independiente de la fecha de ejecución.
+const LUNES_PROXIMO = `((date_trunc('week', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') + interval '7 days') AT TIME ZONE 'America/Argentina/Buenos_Aires')`;
+
 let db: PGlite;
 
 async function aplicarMigracion(sql: string) {
@@ -125,11 +128,23 @@ describe("GOZS-186: cobros, anotar_alumno y RLS por coach (PGlite)", () => {
     });
 
     it("anota y luego rechaza al superar las veces por semana", async () => {
-      const b1 = await crearClase("BOXEO", "now() + interval '2 days'");
-      const b2 = await crearClase("BOXEO", "now() + interval '2 days 1 hour'");
+      // Anclado al miércoles de la semana próxima (zona del gimnasio): nunca cruza el borde de semana.
+      const mie = `${LUNES_PROXIMO} + interval '2 days 12 hours'`;
+      const b1 = await crearClase("BOXEO", mie);
+      const b2 = await crearClase("BOXEO", `${mie} + interval '1 hour'`);
       const ok = await anotar(COACH_A, b1, ALU_A1);
       expect(ok.rows[0]!.sobrecupo).toBe(false);
       await expect(anotar(COACH_A, b2, ALU_A1)).rejects.toMatchObject({ code: "GZ002" });
+    });
+
+    it("el tope semanal se reinicia en el borde de semana (domingo 23:30 vs lunes 00:30)", async () => {
+      const lunes = `${LUNES_PROXIMO} + interval '14 days'`;
+      const domingo = await crearClase("BOXEO", `${lunes} - interval '30 minutes'`);
+      const lunesSig = await crearClase("BOXEO", `${lunes} + interval '30 minutes'`);
+      const lunesSig2 = await crearClase("BOXEO", `${lunes} + interval '2 hours'`);
+      await anotar(COACH_A, domingo, ALU_A1);
+      await anotar(COACH_A, lunesSig, ALU_A1);
+      await expect(anotar(COACH_A, lunesSig2, ALU_A1)).rejects.toMatchObject({ code: "GZ002" });
     });
 
     it("superar el cupo NO bloquea: anota con advertencia sobrecupo", async () => {
