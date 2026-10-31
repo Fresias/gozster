@@ -2785,11 +2785,11 @@ ON CONFLICT (plan_id, orden) DO UPDATE SET
 
 -- 6. Ejercicios en Rutina (incluyendo Superseries)
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('e3d8fbff-49ab-42fc-aabb-34a1e104b9a2', '52a5d867-5f37-4256-a952-9a122c667c0d', '55ddab2b-3449-41af-a04d-1f5ce33ad7d6', 1, 2, '4 x lado', 90, 5, 'Movilidad de cadera', true, 1)
+VALUES ('e3d8fbff-49ab-42fc-aabb-34a1e104b9a2', '52a5d867-5f37-4256-a952-9a122c667c0d', '55ddab2b-3449-41af-a04d-1f5ce33ad7d6', 1, 2, '4', 90, 5, 'Movilidad de cadera', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('4378d6d3-7117-4db7-a97c-7119b264de3d', '52a5d867-5f37-4256-a952-9a122c667c0d', 'f5190986-2dcc-40b4-a22a-2bd1fda33de9', 2, 2, '6 x lado', 90, 5, 'Activacion de cadena posterior', true, 1)
+VALUES ('4378d6d3-7117-4db7-a97c-7119b264de3d', '52a5d867-5f37-4256-a952-9a122c667c0d', 'f5190986-2dcc-40b4-a22a-2bd1fda33de9', 2, 2, '6', 90, 5, 'Activacion de cadena posterior', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -2799,11 +2799,11 @@ VALUES ('1ac28f97-2a4e-4785-ad4d-c10aced6fc95', '52a5d867-5f37-4256-a952-9a122c6
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('6ba8fe69-865e-40a9-a165-af9575824948', '086d14b0-262e-4efd-ae56-cd7f1210b10e', 'b23e4443-f2b8-4122-ad2a-c551ad7446bd', 1, 4, '6 x lado', 90, 8, 'Ejercicio de fuerza para el tren inferior', false, NULL)
+VALUES ('6ba8fe69-865e-40a9-a165-af9575824948', '086d14b0-262e-4efd-ae56-cd7f1210b10e', 'b23e4443-f2b8-4122-ad2a-c551ad7446bd', 1, 4, '6', 90, 8, 'Ejercicio de fuerza para el tren inferior', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('cb0b758e-036c-42ec-ab32-546c1e34d459', '086d14b0-262e-4efd-ae56-cd7f1210b10e', '54661849-67ec-48f1-a90e-c37522f0e7af', 2, 4, '10 x lado', 90, 7, 'Configuración:
+VALUES ('cb0b758e-036c-42ec-ab32-546c1e34d459', '086d14b0-262e-4efd-ae56-cd7f1210b10e', '54661849-67ec-48f1-a90e-c37522f0e7af', 2, 4, '10', 90, 7, 'Configuración:
 -Acostarse en el suelo, mirando hacia arriba. 
 -Una rodilla flexionada y la otra semi-estirada, con los pies apoyados en el piso.
 -Mantener el contacto con los hombros en el suelo en todo momento.
@@ -2816,11 +2816,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('0691f385-50f8-42d1-af72-b53e81f90028', '086d14b0-262e-4efd-ae56-cd7f1210b10e', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 3, 4, '30'''' de minimo - 1'' de máximo', 90, 8, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', false, NULL)
+VALUES ('0691f385-50f8-42d1-af72-b53e81f90028', '086d14b0-262e-4efd-ae56-cd7f1210b10e', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 3, 4, '30-1', 90, 8, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('001c30d3-0a25-421e-a67a-c82ef3f3a71f', '086d14b0-262e-4efd-ae56-cd7f1210b10e', '2c43bdae-c530-4ae7-a126-ee1e927f7a14', 4, 4, '12 x lado', 90, 8, 'Configuración:
+VALUES ('001c30d3-0a25-421e-a67a-c82ef3f3a71f', '086d14b0-262e-4efd-ae56-cd7f1210b10e', '2c43bdae-c530-4ae7-a126-ee1e927f7a14', 4, 4, '12', 90, 8, 'Configuración:
 Acostado, de manera lateral. 
 Flexionar la pierna de base a 90º y mantener la pierna contraria estirada.
 Colocar una tobillera en cada pierna. 
@@ -2835,7 +2835,7 @@ VALUES ('8ccc2d40-0c39-4de2-a035-c36ab8fac1da', 'e64710ad-a24f-4901-ae81-1563285
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('cacefcea-e899-4d96-a5b7-8f9ab26a2ae3', 'e64710ad-a24f-4901-ae81-1563285e59f4', '2fd2a01d-70cd-4313-acc4-c96adbd71038', 2, 2, '5 a 8', 90, 6, 'Configuración:
+VALUES ('cacefcea-e899-4d96-a5b7-8f9ab26a2ae3', 'e64710ad-a24f-4901-ae81-1563285e59f4', '2fd2a01d-70cd-4313-acc4-c96adbd71038', 2, 2, '5-8', 90, 6, 'Configuración:
 -Ubicar el cuerpo boca abajo con las piernas juntas y estiradas. 
 -Ubicar los brazos estirados por dentro de la anchura de los hombros.
 
@@ -2845,7 +2845,7 @@ Instrucciones:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('b21b758e-5d4e-4613-aec8-1c56bbb4aa91', '67684253-e3f4-43d6-a4e4-f931520fe866', 'e26cd601-0e6f-4f44-a3a2-07a236f54cad', 1, 5, '4 a 6 / 3 a 5 / 1 a 3', 90, 10, 'Configuración:
+VALUES ('b21b758e-5d4e-4613-aec8-1c56bbb4aa91', '67684253-e3f4-43d6-a4e4-f931520fe866', 'e26cd601-0e6f-4f44-a3a2-07a236f54cad', 1, 5, '4-6-3-5-1-3', 90, 10, 'Configuración:
 -Comenzar con los brazos estirados sobre la barra.
 -Sostener el peso entre las piernas o en un cinturón.
 
@@ -2870,7 +2870,7 @@ Ejecucion:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('6e35c15f-894a-4a30-a3e4-c0ef28303206', '67684253-e3f4-43d6-a4e4-f931520fe866', '58fb0ac9-c454-4217-a72b-67e3e942a2a1', 3, 3, '10 a 12', 90, 9, 'Configuración:
+VALUES ('6e35c15f-894a-4a30-a3e4-c0ef28303206', '67684253-e3f4-43d6-a4e4-f931520fe866', '58fb0ac9-c454-4217-a72b-67e3e942a2a1', 3, 3, '10-12', 90, 9, 'Configuración:
 - Apoyar ambos talones sobre un disco.
 - De pie, piernas juntas.
 - Manos sosteniendo una pesa rusa. 
@@ -2886,7 +2886,7 @@ VALUES ('663bd447-78b8-4b26-a520-86258de5d5f9', '67684253-e3f4-43d6-a4e4-f931520
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('7f00b412-0b69-47e0-a936-6f865039d25e', '67684253-e3f4-43d6-a4e4-f931520fe866', '6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 5, 4, '6 a 8', 90, 8, 'Configuración:
+VALUES ('7f00b412-0b69-47e0-a936-6f865039d25e', '67684253-e3f4-43d6-a4e4-f931520fe866', '6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 5, 4, '6-8', 90, 8, 'Configuración:
 -Ubicarse acostado en un banco plano.
 -Piernas al ancho de caderas.
 -Brazos estirados por delante del hombro, sosteniendo una barra Z.
@@ -2906,11 +2906,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('e96f1d55-480d-4901-a33e-5abedec8eafe', 'd0276837-4fe4-418f-a3e2-841cc9a865e5', 'ed06151d-8e3c-405f-ae17-1e955e962439', 1, 2, '6 x lado', 90, 6, NULL, true, 1)
+VALUES ('e96f1d55-480d-4901-a33e-5abedec8eafe', 'd0276837-4fe4-418f-a3e2-841cc9a865e5', 'ed06151d-8e3c-405f-ae17-1e955e962439', 1, 2, '6', 90, 6, NULL, true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ca776e0c-b53d-437c-a1dd-0f5d4306cf0e', 'd0276837-4fe4-418f-a3e2-841cc9a865e5', '3473c3f2-f239-4d69-a62a-d8abb92ff936', 2, 2, '6 x lado', 90, 6, 'Configuración:
+VALUES ('ca776e0c-b53d-437c-a1dd-0f5d4306cf0e', 'd0276837-4fe4-418f-a3e2-841cc9a865e5', '3473c3f2-f239-4d69-a62a-d8abb92ff936', 2, 2, '6', 90, 6, 'Configuración:
 -Ubicar el cuerpo boca abajo en el suelo con los brazos extendidos.
 -Piernas al ancho de cadera.
 -Manos alineadas con hombros.
@@ -2923,7 +2923,7 @@ Ejecucción:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('5e606805-ca91-4481-a36b-eeba865a5433', '0839bec2-f325-46b2-aa49-5164b3b6290d', 'f2b732c6-623d-4def-ac84-9f6fe940d3a8', 1, 4, '8 a 10', 90, 8, 'Configuración:
+VALUES ('5e606805-ca91-4481-a36b-eeba865a5433', '0839bec2-f325-46b2-aa49-5164b3b6290d', 'f2b732c6-623d-4def-ac84-9f6fe940d3a8', 1, 4, '8-10', 90, 8, 'Configuración:
 - Acostarse boca arriba sobre banco plano.
 - Puntos de apoyo en pies, glúteos y escapular.
 - Agarrar barra mayor al ancho de hombros.
@@ -2952,18 +2952,18 @@ Subir las mancuernas, hasta alinear las mueñcas con los hombros.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('1a9aa495-4bf9-488a-a881-e9733d95960d', '0839bec2-f325-46b2-aa49-5164b3b6290d', '1213e846-0ff9-4750-a129-31a242ef5356', 3, 3, '8 a 10', 90, 7, NULL, false, NULL)
+VALUES ('1a9aa495-4bf9-488a-a881-e9733d95960d', '0839bec2-f325-46b2-aa49-5164b3b6290d', '1213e846-0ff9-4750-a129-31a242ef5356', 3, 3, '8-10', 90, 7, NULL, false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ff0d6280-cf01-4595-a66e-a06345628f0d', '0839bec2-f325-46b2-aa49-5164b3b6290d', 'c7521ded-a63c-48fc-a019-f01872eb3f5c', 4, 3, '6 a 8 x lado', 90, 7, 'Configuracion:
+VALUES ('ff0d6280-cf01-4595-a66e-a06345628f0d', '0839bec2-f325-46b2-aa49-5164b3b6290d', 'c7521ded-a63c-48fc-a019-f01872eb3f5c', 4, 3, '6-8', 90, 7, 'Configuracion:
 -Sentarse en un banco y ubicar el brazo extendido sobre el aductor sosteniendo la mancuerna.
 Ejecucion:
 -Flexionar el codo elevando la mancuerna hacia la cadera y descender de manera controlada.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('6e8c8d13-b5d8-461b-aa4b-b2eaa751acf5', '0839bec2-f325-46b2-aa49-5164b3b6290d', '72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 5, 3, '10 a 12', 90, 7, 'Ejercicio para aislar los triceps', false, NULL)
+VALUES ('6e8c8d13-b5d8-461b-aa4b-b2eaa751acf5', '0839bec2-f325-46b2-aa49-5164b3b6290d', '72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 5, 3, '10-12', 90, 7, 'Ejercicio para aislar los triceps', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -2990,7 +2990,7 @@ Instrucciones:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('4efb1f43-7706-4dad-a4e5-6001aedf4412', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', 'b8e0e509-955b-402e-abd8-ae16eade90a5', 1, 4, '6 a 8 / 4 a 6', 90, 9, 'Configuración:
+VALUES ('4efb1f43-7706-4dad-a4e5-6001aedf4412', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', 'b8e0e509-955b-402e-abd8-ae16eade90a5', 1, 4, '6-8-4-6', 90, 9, 'Configuración:
 - Acostarse sobre banco plano
 - puntos de apoyo en pies, glúteos y escapulas.
 - Agarrar la barra al ancho de hombros.
@@ -3006,11 +3006,11 @@ VALUES ('c39eef99-2524-4e53-ade9-1b97b5663af3', '6b677760-3a0f-44bf-a6f5-e246a58
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('437e7ba2-9080-4acb-a058-edeca738a640', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', 'e979e45c-166c-4d5e-ab2b-26db8f6b9430', 3, 3, '10 a 12', 90, 8, 'Colocar la guia a la altura de nuestras claviculas. Con un banco con espaldar recto, colocarnos bajo la guia y empujar hacia arriba. Descender hasta que la guía vuelva a la posición inicial para finalizar la repetición.', false, NULL)
+VALUES ('437e7ba2-9080-4acb-a058-edeca738a640', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', 'e979e45c-166c-4d5e-ab2b-26db8f6b9430', 3, 3, '10-12', 90, 8, 'Colocar la guia a la altura de nuestras claviculas. Con un banco con espaldar recto, colocarnos bajo la guia y empujar hacia arriba. Descender hasta que la guía vuelva a la posición inicial para finalizar la repetición.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('f4b2d9d4-472e-4118-a323-b2065e095142', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', '6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 4, 4, '6 a 8', 90, 8, 'Configuración:
+VALUES ('f4b2d9d4-472e-4118-a323-b2065e095142', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', '6dee16eb-63e0-4a2b-a10d-32f4f6e6e080', 4, 4, '6-8', 90, 8, 'Configuración:
 -Ubicarse acostado en un banco plano.
 -Piernas al ancho de caderas.
 -Brazos estirados por delante del hombro, sosteniendo una barra Z.
@@ -3021,19 +3021,19 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a9ab3811-b5da-4581-ad2a-e009ccef144c', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', '943ba0d9-6b8b-4df9-a828-ba7a4a9c23eb', 5, 3, '12 a 15', 90, 7, 'Ejercicio para aislar la cara media del deltoides.', false, NULL)
+VALUES ('a9ab3811-b5da-4581-ad2a-e009ccef144c', '6b677760-3a0f-44bf-a6f5-e246a58a3b8a', '943ba0d9-6b8b-4df9-a828-ba7a4a9c23eb', 5, 3, '12-15', 90, 7, 'Ejercicio para aislar la cara media del deltoides.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('8d55fae8-6910-43bf-ac23-42378bd8ef32', '8bdca85c-9d01-4493-ae72-69eaf3451ba1', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 1, 2, '8 x lado', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
+VALUES ('8d55fae8-6910-43bf-ac23-42378bd8ef32', '8bdca85c-9d01-4493-ae72-69eaf3451ba1', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 1, 2, '8', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('777a88de-bdea-457e-aa40-36fbc570c810', '8bdca85c-9d01-4493-ae72-69eaf3451ba1', '7b6143fa-6c2a-45f5-a9be-abd7954160a4', 2, 2, '6 x lado', 90, 6, 'Ejercicio de activación', true, 1)
+VALUES ('777a88de-bdea-457e-aa40-36fbc570c810', '8bdca85c-9d01-4493-ae72-69eaf3451ba1', '7b6143fa-6c2a-45f5-a9be-abd7954160a4', 2, 2, '6', 90, 6, 'Ejercicio de activación', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('5167d8f2-a637-47f8-a311-4607757aa1fd', 'ec97829f-c49d-41de-aefb-210fc4da3069', 'ed40902f-15c4-4b48-a6ca-8de025514c76', 1, 4, '6 a 8 / 4 a 6', 90, 9, 'Configuración:
+VALUES ('5167d8f2-a637-47f8-a311-4607757aa1fd', 'ec97829f-c49d-41de-aefb-210fc4da3069', 'ed40902f-15c4-4b48-a6ca-8de025514c76', 1, 4, '6-8-4-6', 90, 9, 'Configuración:
 Ubicar ambos pies sobre la plataforma, manteniendo las piernas estiradas.
 Tomar cada manija con agarre neutro.
 
@@ -3043,11 +3043,11 @@ Volver al punto de inicio.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('6604ac04-9094-467f-a29f-7ad410891abe', 'ec97829f-c49d-41de-aefb-210fc4da3069', '7277039e-6d8d-4d6f-afcd-ed44b3020fca', 2, 3, '10 a 12', 90, 8, NULL, true, 1)
+VALUES ('6604ac04-9094-467f-a29f-7ad410891abe', 'ec97829f-c49d-41de-aefb-210fc4da3069', '7277039e-6d8d-4d6f-afcd-ed44b3020fca', 2, 3, '10-12', 90, 8, NULL, true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('79b1ef3f-649e-48a4-a421-1aa1f376016f', 'ec97829f-c49d-41de-aefb-210fc4da3069', '21311af0-704c-41ff-a074-16a956fda259', 3, 3, '8 a 10', 90, 9, 'Configuración:
+VALUES ('79b1ef3f-649e-48a4-a421-1aa1f376016f', 'ec97829f-c49d-41de-aefb-210fc4da3069', '21311af0-704c-41ff-a074-16a956fda259', 3, 3, '8-10', 90, 9, 'Configuración:
 -Sentado en la máquina, con la cabeza, la espalda, las caderas, y las nalgas presionando por igual contra sus respectivos apoyos almohadillados.
 -Si el ángulo del respaldo es ajustable, moverlo
 hacia arriba o hacia abajo para que el tronco y las piernas formen un ángulo de 90 grados aproximadamente , con los pies colocados
@@ -3078,7 +3078,7 @@ VALUES ('a257ea16-4a23-4d88-a9a5-1ab7a7ba2624', 'ec97829f-c49d-41de-aefb-210fc4d
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('19315784-dd6a-4d68-a99d-be4dc74403b8', 'ec97829f-c49d-41de-aefb-210fc4da3069', '991f6823-5969-4f2d-afe0-e6b703206936', 5, 3, '6 x lado', 90, 8, 'Ejercicio progresivo de fuerza para el tren inferior', true, 2)
+VALUES ('19315784-dd6a-4d68-a99d-be4dc74403b8', 'ec97829f-c49d-41de-aefb-210fc4da3069', '991f6823-5969-4f2d-afe0-e6b703206936', 5, 3, '6', 90, 8, 'Ejercicio progresivo de fuerza para el tren inferior', true, 2)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -3092,7 +3092,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('370d281e-8c76-4127-af9b-0b1103d28756', 'ec97829f-c49d-41de-aefb-210fc4da3069', 'a36b7410-ba07-4def-ab5d-3069f5b2b2ff', 7, 3, '10 x lado', 90, 8, 'Ejercicio para aislar el gluteo medio', true, 3)
+VALUES ('370d281e-8c76-4127-af9b-0b1103d28756', 'ec97829f-c49d-41de-aefb-210fc4da3069', 'a36b7410-ba07-4def-ab5d-3069f5b2b2ff', 7, 3, '10', 90, 8, 'Ejercicio para aislar el gluteo medio', true, 3)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -3109,7 +3109,7 @@ VALUES ('1cc9d3f6-f452-4a19-a2c0-ebd7918853d5', 'c03e88d4-a2e4-4ae7-af49-69243dc
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('7bd4b306-a090-4ff6-ae21-08c387fe5b2e', 'c03e88d4-a2e4-4ae7-af49-69243dcaa582', '3652ccf8-63a6-4b5c-a242-638b3f187011', 2, 2, '20''''', 90, 6, 'Configuración: 
+VALUES ('7bd4b306-a090-4ff6-ae21-08c387fe5b2e', 'c03e88d4-a2e4-4ae7-af49-69243dcaa582', '3652ccf8-63a6-4b5c-a242-638b3f187011', 2, 2, '20', 90, 6, 'Configuración: 
 Apoyar un antebrazo en contacto con el suelo y mantener ambas piernas estiradas, una por encima de la otra.
 Ejecución:
 El brazo que ese encuentra estirado en línea con el hombro, llevarlo por debajo del cuerpo.
@@ -3117,15 +3117,15 @@ Volver al punto de inicio.', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('93ad575a-0485-442f-a609-e82369a8fd56', 'c03e88d4-a2e4-4ae7-af49-69243dcaa582', '64817423-63ce-45a1-a411-44d827c273b5', 3, 2, '5 x lado', 90, 6, 'Ejercicio de resistencia para los hombros', true, 1)
+VALUES ('93ad575a-0485-442f-a609-e82369a8fd56', 'c03e88d4-a2e4-4ae7-af49-69243dcaa582', '64817423-63ce-45a1-a411-44d827c273b5', 3, 2, '5', 90, 6, 'Ejercicio de resistencia para los hombros', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('bb0d4fb0-977e-4aba-ad1d-252bdeb222c7', '29999d21-d9b4-4c31-a569-b9adc075515f', 'f339d55c-0dfd-4f32-a75b-b069f2bb5975', 1, 10, '8 / 6 / 6 / 4', 90, 9, 'Ejercicio de fuerza máxima para los musculos de tracción', false, NULL)
+VALUES ('bb0d4fb0-977e-4aba-ad1d-252bdeb222c7', '29999d21-d9b4-4c31-a569-b9adc075515f', 'f339d55c-0dfd-4f32-a75b-b069f2bb5975', 1, 10, '8-6-6-4', 90, 9, 'Ejercicio de fuerza máxima para los musculos de tracción', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('40faea78-2b50-473f-ac6e-4af2ee790317', '29999d21-d9b4-4c31-a569-b9adc075515f', '476bfb69-21ef-4681-af65-ee8bf9f3990a', 2, 4, '4 a 6 x lado', 90, 8, 'Configuración:
+VALUES ('40faea78-2b50-473f-ac6e-4af2ee790317', '29999d21-d9b4-4c31-a569-b9adc075515f', '476bfb69-21ef-4681-af65-ee8bf9f3990a', 2, 4, '4-6', 90, 8, 'Configuración:
 -Colocar la barra por encima de los hombros.
 -Mantener un agarre frontal. 
 
@@ -3135,7 +3135,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ebefd6c1-6762-4a0e-a92e-262a349644bb', '29999d21-d9b4-4c31-a569-b9adc075515f', 'fbc74266-fca5-41a3-a7fd-75d6482e73d6', 3, 3, '2 a 6', 90, 8, 'Configuración:
+VALUES ('ebefd6c1-6762-4a0e-a92e-262a349644bb', '29999d21-d9b4-4c31-a569-b9adc075515f', 'fbc74266-fca5-41a3-a7fd-75d6482e73d6', 3, 3, '2-6', 90, 8, 'Configuración:
 Colgarse de la barra, con los brazos completamen estirados, sin apoyar los pies sobre el suelo.
 Ubicar los brazos ligeramente al ancho superior de hombros y utilizando un agarre supino.
 Ejecución:
@@ -3153,7 +3153,7 @@ VALUES ('93fa9047-5f9a-4546-a532-034bd03ac8b0', '29999d21-d9b4-4c31-a569-b9adc07
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ab60446c-ef20-4509-a169-a2984a4840e3', 'a82a4edf-10c4-4184-a7e0-b74f6b682a50', '7a38528b-9b84-4025-afe5-89570f647c73', 1, 2, '5 x lado', 90, 5, 'Configuración:
+VALUES ('ab60446c-ef20-4509-a169-a2984a4840e3', 'a82a4edf-10c4-4184-a7e0-b74f6b682a50', '7a38528b-9b84-4025-afe5-89570f647c73', 1, 2, '5', 90, 5, 'Configuración:
 -Colocar las manos, pies y rodillas en contacto con el suelo
 -Comenzar con los brazos extendidos.
 -Ubicar las rodillas alineadas con la cadera y los pies alineados con las rodillas.
@@ -3167,11 +3167,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('bd4a7061-545f-4334-a448-90f0e9458801', 'a82a4edf-10c4-4184-a7e0-b74f6b682a50', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 2, 2, '5 x lado', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
+VALUES ('bd4a7061-545f-4334-a448-90f0e9458801', 'a82a4edf-10c4-4184-a7e0-b74f6b682a50', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 2, 2, '5', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('310036fe-756d-4d12-a5a5-6e7795f4d20f', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', 'b8e0e509-955b-402e-abd8-ae16eade90a5', 1, 4, '5 a 8 / 3 a 5', 90, 9, 'Configuración:
+VALUES ('310036fe-756d-4d12-a5a5-6e7795f4d20f', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', 'b8e0e509-955b-402e-abd8-ae16eade90a5', 1, 4, '5-8-3-5', 90, 9, 'Configuración:
 - Acostarse sobre banco plano
 - puntos de apoyo en pies, glúteos y escapulas.
 - Agarrar la barra al ancho de hombros.
@@ -3187,15 +3187,15 @@ VALUES ('ff13eebe-8594-4b0e-a9f6-c864efc89a42', 'f2f8d71a-a197-4489-a813-f1d7e8d
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('4bc8e854-85f5-410d-a5f0-cf5efa0c7f46', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '357e1785-c4af-4271-a03c-d561ffd51c3e', 3, 3, '8 a 12', 90, 8, 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', true, 2)
+VALUES ('4bc8e854-85f5-410d-a5f0-cf5efa0c7f46', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '357e1785-c4af-4271-a03c-d561ffd51c3e', 3, 3, '8-12', 90, 8, 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', true, 2)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('3e2ec3ef-3854-4cdd-a200-cf39c6c60bab', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', 'b3a04a0b-91b0-4366-a359-0131acd6c084', 4, 3, '6 a 8', 90, 9, NULL, true, 2)
+VALUES ('3e2ec3ef-3854-4cdd-a200-cf39c6c60bab', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', 'b3a04a0b-91b0-4366-a359-0131acd6c084', 4, 3, '6-8', 90, 9, NULL, true, 2)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a47a78e9-74ff-4a2c-a3b1-b0ba10970cbb', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '0de62cb9-7f0d-406b-ac00-c6a1ef6f966c', 5, 3, '5 x lado', 90, 8, 'Configuración:
+VALUES ('a47a78e9-74ff-4a2c-a3b1-b0ba10970cbb', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '0de62cb9-7f0d-406b-ac00-c6a1ef6f966c', 5, 3, '5', 90, 8, 'Configuración:
 - De pie, al frente de una polea. Ubicar el agarre en la parte superior.
 - Utilizar un agarre unilateral con toma supina y flexionar el codo a 90º.
 
@@ -3207,7 +3207,7 @@ Ejecucción:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('c533dcb1-d2cd-4d7e-a22e-bfb2490defda', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '730a60f0-49ac-4384-acf7-9d4e2f4443c9', 6, 3, '5 x lado', 90, 8, 'Configuración:
+VALUES ('c533dcb1-d2cd-4d7e-a22e-bfb2490defda', 'f2f8d71a-a197-4489-a813-f1d7e8d37060', '730a60f0-49ac-4384-acf7-9d4e2f4443c9', 6, 3, '5', 90, 8, 'Configuración:
 -Ubicar una barra en un rack o jaula.
 -Colocar la barra en la parte superior de los trapecios.
 -Brazos por fuera de los hombros.
@@ -3223,11 +3223,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('cb720550-b52d-4e1c-abdb-7fa800748b94', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 1, 2, '6 x lado', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
+VALUES ('cb720550-b52d-4e1c-abdb-7fa800748b94', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', 'cd9e0518-3ee7-4b79-a592-125796eaf724', 1, 2, '6', 90, 5, 'Ejercicio para la movilidad del tobillo y la cadera', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('78920d3d-29d5-4fce-a44d-03f19764b005', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', '0342ef22-9092-4b15-adbf-6da9f445e82c', 2, 2, '4 x lado', 90, 5, 'Configuración: 
+VALUES ('78920d3d-29d5-4fce-a44d-03f19764b005', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', '0342ef22-9092-4b15-adbf-6da9f445e82c', 2, 2, '4', 90, 5, 'Configuración: 
 En posición de cuadrupedia, manos estiradas al ancho de hombros en contacto con el suelo.
 Cabeza en línea con la columna.
 Ejecución:
@@ -3238,15 +3238,15 @@ Volver al punto de inicio.', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('39e6fa19-554c-4449-a3d1-1886ab389140', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', '67947c59-3dec-4e04-ad24-0de994173179', 3, 2, '15'''' x lado', 90, 6, 'Ejercicio de activación del gluteo medio', true, 1)
+VALUES ('39e6fa19-554c-4449-a3d1-1886ab389140', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', '67947c59-3dec-4e04-ad24-0de994173179', 3, 2, '15', 90, 6, 'Ejercicio de activación del gluteo medio', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('29841683-8254-4dcb-a010-dea0cd409df2', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 4, 2, '30''''', 90, 6, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', true, 1)
+VALUES ('29841683-8254-4dcb-a010-dea0cd409df2', 'ee9b12cb-2438-4852-a02f-7fd2d7ed5360', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 4, 2, '30', 90, 6, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('e3e6820e-d9a6-406c-adc8-2dfbee61c6e9', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'c0aaba94-49f3-4fe6-a36d-4ee942058882', 1, 4, '6 a 8', 90, 9, 'Configuración:
+VALUES ('e3e6820e-d9a6-406c-adc8-2dfbee61c6e9', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'c0aaba94-49f3-4fe6-a36d-4ee942058882', 1, 4, '6-8', 90, 9, 'Configuración:
 -Ubicar un banco plano o cajón  cerca de nuestro cuerpo
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
 -Ubicar la barra por debajo del deltoides posterior. 
@@ -3262,7 +3262,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('59583258-8efc-4e77-a7cb-3b6c542108d4', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', '608a25d1-0532-4acb-a633-5cc6ef1b0ae0', 2, 4, '15'''' a 30''''', 90, 9, NULL, false, NULL)
+VALUES ('59583258-8efc-4e77-a7cb-3b6c542108d4', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', '608a25d1-0532-4acb-a633-5cc6ef1b0ae0', 2, 4, '15-30', 90, 9, NULL, false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -3275,11 +3275,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('8d19bbfc-1ddb-46c2-aecc-0eddfcbb6db8', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'b182cdf4-c36a-4a93-a855-b1bb1e93d1de', 4, 3, '6 x lado', 90, 8, 'Ejercicio de fuerza para los musculos de la espalda', false, NULL)
+VALUES ('8d19bbfc-1ddb-46c2-aecc-0eddfcbb6db8', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'b182cdf4-c36a-4a93-a855-b1bb1e93d1de', 4, 3, '6', 90, 8, 'Ejercicio de fuerza para los musculos de la espalda', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('8de2ca33-c151-4d43-a762-d94bcf65fd34', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'b62de09b-26a9-4fe7-a1ef-30a61f725d58', 5, 4, '5 x lado', 90, 8, 'Configuración:
+VALUES ('8de2ca33-c151-4d43-a762-d94bcf65fd34', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'b62de09b-26a9-4fe7-a1ef-30a61f725d58', 5, 4, '5', 90, 8, 'Configuración:
 -Sostener una mancuerna en cada mano.
 -Los brazos permanecen rectos a los lados.
 -Una pierna da un paso largo hacia adelante al ancho de la cadera.
@@ -3292,18 +3292,18 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('2ffc2092-bffd-4bb8-a6be-9cac63bfbdb7', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'c7521ded-a63c-48fc-a019-f01872eb3f5c', 6, 3, '10 x lado', 90, 9, 'Configuracion:
+VALUES ('2ffc2092-bffd-4bb8-a6be-9cac63bfbdb7', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', 'c7521ded-a63c-48fc-a019-f01872eb3f5c', 6, 3, '10', 90, 9, 'Configuracion:
 -Sentarse en un banco y ubicar el brazo extendido sobre el aductor sosteniendo la mancuerna.
 Ejecucion:
 -Flexionar el codo elevando la mancuerna hacia la cadera y descender de manera controlada.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('1bd6e1b6-ac28-484f-a622-fdb65c9c35aa', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', '75b64ec7-ba2d-4924-a6f0-37cbabe2fdaf', 7, 4, '8 x lado', 90, 8, 'Ejercicio de fuerza para el cuadriceps', false, NULL)
+VALUES ('1bd6e1b6-ac28-484f-a622-fdb65c9c35aa', '70e23a83-9914-4ac5-a4a7-63ae1b0f4b22', '75b64ec7-ba2d-4924-a6f0-37cbabe2fdaf', 7, 4, '8', 90, 8, 'Ejercicio de fuerza para el cuadriceps', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('34dbab49-63e9-491f-ad9d-b551c4a2f388', '7917e71d-c0d3-4ee0-a169-9436209b2a74', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 1, 2, '20" a 30"', 90, 6, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', true, 1)
+VALUES ('34dbab49-63e9-491f-ad9d-b551c4a2f388', '7917e71d-c0d3-4ee0-a169-9436209b2a74', 'b19721dc-8846-492f-a9b0-f42086dfd9e9', 1, 2, '20-30', 90, 6, 'Mantener las rodillas a 90 grados y la espalda completamente apoyada contra la pared', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -3318,11 +3318,11 @@ Instrucciones:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('fbe06def-22e2-4f0e-afdf-154cb00b8608', '5a885575-913d-40de-aee6-19bd97fee277', '0a2c2da5-3f3d-4e25-a800-e1fcce32a646', 1, 4, '4 a 6 x 3" de pausa / 2 a 4 x 3" de pausa', 90, 9, 'Ejercicio para los pectorales y triceps', false, NULL)
+VALUES ('fbe06def-22e2-4f0e-afdf-154cb00b8608', '5a885575-913d-40de-aee6-19bd97fee277', '0a2c2da5-3f3d-4e25-a800-e1fcce32a646', 1, 4, '4-6-2-4', 90, 9, 'Ejercicio para los pectorales y triceps', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('2d900958-e941-488a-aad2-a437b2188376', '5a885575-913d-40de-aee6-19bd97fee277', 'c5d56949-3a06-4168-a087-9ea2e8bceafb', 2, 3, '5 a 8', 90, 9, 'Configuración:
+VALUES ('2d900958-e941-488a-aad2-a437b2188376', '5a885575-913d-40de-aee6-19bd97fee277', 'c5d56949-3a06-4168-a087-9ea2e8bceafb', 2, 3, '5-8', 90, 9, 'Configuración:
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
 -Ubicar la barra en la parte superior de los omoplatos. 
 -Sujetar con ambas manos a cada lado.
@@ -3336,23 +3336,23 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ee058a69-d1e2-4402-af47-31bfc3d8deaf', '5a885575-913d-40de-aee6-19bd97fee277', '7277039e-6d8d-4d6f-afcd-ed44b3020fca', 3, 3, '5 a 8', 90, 8, NULL, false, NULL)
+VALUES ('ee058a69-d1e2-4402-af47-31bfc3d8deaf', '5a885575-913d-40de-aee6-19bd97fee277', '7277039e-6d8d-4d6f-afcd-ed44b3020fca', 3, 3, '5-8', 90, 8, NULL, false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('78f5a5a3-c0ca-4072-a8c5-9da470efc425', '5a885575-913d-40de-aee6-19bd97fee277', '357e1785-c4af-4271-a03c-d561ffd51c3e', 4, 3, '8 a 12', 90, 8, 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', false, NULL)
+VALUES ('78f5a5a3-c0ca-4072-a8c5-9da470efc425', '5a885575-913d-40de-aee6-19bd97fee277', '357e1785-c4af-4271-a03c-d561ffd51c3e', 4, 3, '8-12', 90, 8, 'Con la barra colocada sobre nuestro pecho superior, tomar aire y apretar el abdomen. Empujar en linea vertical, evitando que la barra vaya hacia delante. Una vez la barra este arriba, debemos descenderla nuevamente hasta la posición inicial.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('e8d1e3b1-60dd-4205-a768-9a605dc3902d', '5a885575-913d-40de-aee6-19bd97fee277', '81707c19-53dd-4f84-a9f2-dc88cdc057cb', 5, 3, '4 a 6 x lado', 90, 8, NULL, false, NULL)
+VALUES ('e8d1e3b1-60dd-4205-a768-9a605dc3902d', '5a885575-913d-40de-aee6-19bd97fee277', '81707c19-53dd-4f84-a9f2-dc88cdc057cb', 5, 3, '4-6', 90, 8, NULL, false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('878e974f-617f-43f8-a0ad-6482c393cc3d', '5a885575-913d-40de-aee6-19bd97fee277', '72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 6, 3, '10 a 12', 90, 10, 'Ejercicio para aislar los triceps', false, NULL)
+VALUES ('878e974f-617f-43f8-a0ad-6482c393cc3d', '5a885575-913d-40de-aee6-19bd97fee277', '72c7a0d9-3341-4b2a-a987-3de8a62a09a2', 6, 3, '10-12', 90, 10, 'Ejercicio para aislar los triceps', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('5e302432-4fcb-47c0-ae64-f15baca96e50', 'c3dd1290-fa63-4a62-aae2-239025dc0bbf', '15892e3e-1567-433d-ad74-dc6cf9adc272', 1, 2, '20 a 30', 90, 8, 'Configuración:
+VALUES ('5e302432-4fcb-47c0-ae64-f15baca96e50', 'c3dd1290-fa63-4a62-aae2-239025dc0bbf', '15892e3e-1567-433d-ad74-dc6cf9adc272', 1, 2, '20-30', 90, 8, 'Configuración:
 Acostado en una colchoneta, con las piernas al ancho de caderas.
 Tomar un disco con los brazos estirados entre ambas manos.
 
@@ -3362,11 +3362,11 @@ Volver al punto de inicio de manera controlada, apoyando la espalda baja primero
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('2f2d243b-aaea-4f52-a9e3-c3486252cb8d', 'c3dd1290-fa63-4a62-aae2-239025dc0bbf', '050c8756-5f7f-4cc9-a323-3aeae589c753', 2, 2, '20 x lado', 90, 8, NULL, true, 1)
+VALUES ('2f2d243b-aaea-4f52-a9e3-c3486252cb8d', 'c3dd1290-fa63-4a62-aae2-239025dc0bbf', '050c8756-5f7f-4cc9-a323-3aeae589c753', 2, 2, '20', 90, 8, NULL, true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a58fdf1f-f2b4-466f-ac49-069fd614b2a9', 'f4df62f2-8313-46c1-a928-6d4633adddf6', '0c9d22aa-370c-41a4-a781-2b79c714cd62', 1, 3, '5 x lado', 90, 6, 'Configuración:
+VALUES ('a58fdf1f-f2b4-466f-ac49-069fd614b2a9', 'f4df62f2-8313-46c1-a928-6d4633adddf6', '0c9d22aa-370c-41a4-a781-2b79c714cd62', 1, 3, '5', 90, 6, 'Configuración:
 Piernas flexionadas a 90º, al ancho de caderas.
 Brazos al costado del cuerpo o juntos. 
 
@@ -3376,7 +3376,7 @@ Volver al punto de inicio.', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('05c873fb-fedd-4d6e-a66e-befae2960717', 'f4df62f2-8313-46c1-a928-6d4633adddf6', '90076515-125a-4b30-a030-98748a900baa', 2, 3, '5 x lado', 90, 6, 'Configuración:
+VALUES ('05c873fb-fedd-4d6e-a66e-befae2960717', 'f4df62f2-8313-46c1-a928-6d4633adddf6', '90076515-125a-4b30-a030-98748a900baa', 2, 3, '5', 90, 6, 'Configuración:
 -Ubicar el cuerpo boca abajo con los brazos estirados.
 -Colocar una sola mancuerna de peso ligero/moderado a su lado.
 
@@ -3389,7 +3389,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('2a563a85-608a-4d31-a9f0-6e74e3705206', '6a2b34be-eb25-4021-a9dd-556279c00838', 'f2b732c6-623d-4def-ac84-9f6fe940d3a8', 1, 4, '6 a 8 / 4 a 6', 90, 9, 'Configuración:
+VALUES ('2a563a85-608a-4d31-a9f0-6e74e3705206', '6a2b34be-eb25-4021-a9dd-556279c00838', 'f2b732c6-623d-4def-ac84-9f6fe940d3a8', 1, 4, '6-8-4-6', 90, 9, 'Configuración:
 - Acostarse boca arriba sobre banco plano.
 - Puntos de apoyo en pies, glúteos y escapular.
 - Agarrar barra mayor al ancho de hombros.
@@ -3403,7 +3403,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('8a9812af-feba-4af7-a890-307fc581c606', '6a2b34be-eb25-4021-a9dd-556279c00838', '3beb9f1d-351f-4437-a83a-3d67637848fe', 2, 10, '8 a 10 / 6 a 8 / 4 a 6 / 3 a 5', 90, 10, 'Ejercicio de hipertrofia para la cadena posterior', false, NULL)
+VALUES ('8a9812af-feba-4af7-a890-307fc581c606', '6a2b34be-eb25-4021-a9dd-556279c00838', '3beb9f1d-351f-4437-a83a-3d67637848fe', 2, 10, '8-10-6-8-4-6-3-5', 90, 10, 'Ejercicio de hipertrofia para la cadena posterior', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
@@ -3411,7 +3411,7 @@ VALUES ('1e36ec24-901f-4694-a404-00cba1471ff5', '6a2b34be-eb25-4021-a9dd-556279c
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('5d1689f5-45a0-455d-a7a7-282fb09042a2', '6a2b34be-eb25-4021-a9dd-556279c00838', '7d4702d4-35ae-47b8-a737-c6c00b78d5de', 4, 3, '6 a 8 x lado', 90, 8, 'Configuración:
+VALUES ('5d1689f5-45a0-455d-a7a7-282fb09042a2', '6a2b34be-eb25-4021-a9dd-556279c00838', '7d4702d4-35ae-47b8-a737-c6c00b78d5de', 4, 3, '6-8', 90, 8, 'Configuración:
 -Mantener las mancuernas cerca del cuerpo.
 -Comenzar con el apoyo de un solo pie, con las mancuernas en ambas manos.
 
@@ -3425,7 +3425,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('4789c569-71ce-4005-a2bd-7791b3a57fc8', '6a2b34be-eb25-4021-a9dd-556279c00838', 'd514bf7c-c4c5-4a26-a153-b20cd4ca017f', 5, 3, '10 x lado', 90, 8, 'Configuración: 
+VALUES ('4789c569-71ce-4005-a2bd-7791b3a57fc8', '6a2b34be-eb25-4021-a9dd-556279c00838', 'd514bf7c-c4c5-4a26-a153-b20cd4ca017f', 5, 3, '10', 90, 8, 'Configuración: 
 - De pie, posicionado de costado a la polea.
 - Tobillera puesta en la pierna que va a ejecutar el movimiento.
 - Pierna de apoyo por delante de la que va a realizar el movimiento.
@@ -3437,7 +3437,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('225fef20-a4fd-4881-afa1-1d4c6b96357c', 'e2b6000b-8941-458b-ab2e-ffd1c8e9616e', 'c6a5debf-dc7b-4d33-a607-05658a33008b', 1, 3, '10 a 12', 90, 8, 'Configuración:
+VALUES ('225fef20-a4fd-4881-afa1-1d4c6b96357c', 'e2b6000b-8941-458b-ab2e-ffd1c8e9616e', 'c6a5debf-dc7b-4d33-a607-05658a33008b', 1, 3, '10-12', 90, 8, 'Configuración:
 Boca abajo, con el apoyo de ambas rodillas flexionadas.
 Comenzar con las manos estiradas sosteniendo la rueda abdominal.
 La espalda lumbar se encuentra redondeada. 
@@ -3447,7 +3447,7 @@ Volver a la posición de inicio.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('d054ee97-32c4-4239-a994-52d7f208b214', 'b2d847d2-4300-4b8d-a55d-d29caa26771f', '3652ccf8-63a6-4b5c-a242-638b3f187011', 1, 2, '20'''' x lado', 90, 6, 'Configuración: 
+VALUES ('d054ee97-32c4-4239-a994-52d7f208b214', 'b2d847d2-4300-4b8d-a55d-d29caa26771f', '3652ccf8-63a6-4b5c-a242-638b3f187011', 1, 2, '20', 90, 6, 'Configuración: 
 Apoyar un antebrazo en contacto con el suelo y mantener ambas piernas estiradas, una por encima de la otra.
 Ejecución:
 El brazo que ese encuentra estirado en línea con el hombro, llevarlo por debajo del cuerpo.
@@ -3466,7 +3466,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('473be9f0-e925-4b42-ad04-3b6db442e350', '0e039540-485c-47f6-a1bc-208b3077f0ec', 'a0da644a-198d-4b0f-a286-56efcd318e13', 1, 4, '8 a 10 / 6 a 8', 90, 9, 'Configuracion:
+VALUES ('473be9f0-e925-4b42-ad04-3b6db442e350', '0e039540-485c-47f6-a1bc-208b3077f0ec', 'a0da644a-198d-4b0f-a286-56efcd318e13', 1, 4, '8-10-6-8', 90, 9, 'Configuracion:
 -Los pies a la ancho de los hombros, hacer peso muerto con la barra para iniciar el ejercicio.
 -Mantenga ambas manos en un agarre prono (las palmas hacia el cuerpo) con las manos mayor al ancho de los hombros.
 -Mantener la espalda baja plana.
@@ -3479,7 +3479,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('ef3bfd0b-f82f-4bb3-a23f-0c1c7a958a68', '0e039540-485c-47f6-a1bc-208b3077f0ec', '476bfb69-21ef-4681-af65-ee8bf9f3990a', 2, 4, '4 a 6 x lado', 90, 8, 'Configuración:
+VALUES ('ef3bfd0b-f82f-4bb3-a23f-0c1c7a958a68', '0e039540-485c-47f6-a1bc-208b3077f0ec', '476bfb69-21ef-4681-af65-ee8bf9f3990a', 2, 4, '4-6', 90, 8, 'Configuración:
 -Colocar la barra por encima de los hombros.
 -Mantener un agarre frontal. 
 
@@ -3489,7 +3489,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('9f41e523-0883-425a-a963-0a1d79e6d264', '0e039540-485c-47f6-a1bc-208b3077f0ec', '3b1647e1-5771-4b74-aaf3-5c72df77affd', 3, 3, '6 a 8 x lado', 90, 8, 'Ejecución:
+VALUES ('9f41e523-0883-425a-a963-0a1d79e6d264', '0e039540-485c-47f6-a1bc-208b3077f0ec', '3b1647e1-5771-4b74-aaf3-5c72df77affd', 3, 3, '6-8', 90, 8, 'Ejecución:
 Utilizar un banco plano para apoyar un brazo y una pierna del mismo lado.
 Pierna contraria estirada, y brazo estirado con una mancuerna.
 
@@ -3500,7 +3500,7 @@ Volver a la posición inicial.', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('e4f84625-eb5e-490c-a376-286d160b6d89', '0e039540-485c-47f6-a1bc-208b3077f0ec', '58fb0ac9-c454-4217-a72b-67e3e942a2a1', 4, 3, '10 a 12', 90, 8, 'Configuración:
+VALUES ('e4f84625-eb5e-490c-a376-286d160b6d89', '0e039540-485c-47f6-a1bc-208b3077f0ec', '58fb0ac9-c454-4217-a72b-67e3e942a2a1', 4, 3, '10-12', 90, 8, 'Configuración:
 - Apoyar ambos talones sobre un disco.
 - De pie, piernas juntas.
 - Manos sosteniendo una pesa rusa. 
@@ -3516,7 +3516,7 @@ VALUES ('5ffd2508-c9e3-48d2-acce-997620ba1607', '0e039540-485c-47f6-a1bc-208b307
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('03fd7850-cc17-4a01-aa01-d433ad614964', '0e039540-485c-47f6-a1bc-208b3077f0ec', '582fc07a-e7e0-4366-aa3b-93ff2f6b3a6e', 6, 3, '15" x lado', 90, 8, 'Configuración:
+VALUES ('03fd7850-cc17-4a01-aa01-d433ad614964', '0e039540-485c-47f6-a1bc-208b3077f0ec', '582fc07a-e7e0-4366-aa3b-93ff2f6b3a6e', 6, 3, '15', 90, 8, 'Configuración:
 - De pie, al ancho de caderas.
 
 Ejecución:
@@ -3531,7 +3531,7 @@ VALUES ('6ecbe789-3a5a-4e03-a027-523f69ba5d94', 'e5b976aa-fab7-4ac2-adfb-bb7b187
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('f9e2490f-74db-44d4-ab34-1559e4c7ebb1', 'e5b976aa-fab7-4ac2-adfb-bb7b187d69ae', '90076515-125a-4b30-a030-98748a900baa', 2, 2, '20''''', 90, 6, 'Configuración:
+VALUES ('f9e2490f-74db-44d4-ab34-1559e4c7ebb1', 'e5b976aa-fab7-4ac2-adfb-bb7b187d69ae', '90076515-125a-4b30-a030-98748a900baa', 2, 2, '20', 90, 6, 'Configuración:
 -Ubicar el cuerpo boca abajo con los brazos estirados.
 -Colocar una sola mancuerna de peso ligero/moderado a su lado.
 
@@ -3544,7 +3544,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('636d08c0-1392-4730-a610-65499d72eeee', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'a68fe779-de36-4690-af14-366be05f62c7', 1, 10, '8 / 6 / 6 / 4', 90, 9, 'Configuración:
+VALUES ('636d08c0-1392-4730-a610-65499d72eeee', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'a68fe779-de36-4690-af14-366be05f62c7', 1, 10, '8-6-6-4', 90, 9, 'Configuración:
 -Colocar la barra en un rack o jaula de potencia justo por debajo de los hombros.
 -Apoyar la barra en los hombros, con los brazos cruzados. 
 -Codos altos.
@@ -3559,11 +3559,11 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('c5e470a2-0910-4ab3-a783-800aa39f380d', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'd1558a7b-c764-4e2e-ac0f-91d4d347f3f7', 2, 3, '8 x lado', 90, 8, 'En caso de ser muy facil la ejecución podes agregarle peso sosteniendo una mancuerna o disco', false, NULL)
+VALUES ('c5e470a2-0910-4ab3-a783-800aa39f380d', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'd1558a7b-c764-4e2e-ac0f-91d4d347f3f7', 2, 3, '8', 90, 8, 'En caso de ser muy facil la ejecución podes agregarle peso sosteniendo una mancuerna o disco', false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a3800739-71f8-4a06-a3b3-76d82d28e8bf', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'a53f51bf-55b3-4629-a795-1dba2fb9986e', 3, 3, 'DROP-SET', 90, 10, 'Configuración:
+VALUES ('a3800739-71f8-4a06-a3b3-76d82d28e8bf', '7dad1990-5fa4-4376-ad02-e45126b0a247', 'a53f51bf-55b3-4629-a795-1dba2fb9986e', 3, 3, '10', 90, 10, 'Configuración:
 - Sentarse sobre el sillón de cuádriceps.
 - Pies posicionados por debajo del rodillo con puntas direccionadas hacia arriba.
 
@@ -3576,11 +3576,11 @@ VALUES ('4e4ce6b3-6959-420d-a758-7f5c2e83ff64', '7dad1990-5fa4-4376-ad02-e45126b
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('82601beb-f5be-4ab2-a026-f589d849fb62', 'ab8a92d9-de53-4512-a595-e98efcfa5cc4', 'bcbac147-2a78-4063-a6af-f2386f2f06b3', 1, 2, '5 x lado', 90, 6, 'Ejercicio de movilidad para el tren inferior', true, 1)
+VALUES ('82601beb-f5be-4ab2-a026-f589d849fb62', 'ab8a92d9-de53-4512-a595-e98efcfa5cc4', 'bcbac147-2a78-4063-a6af-f2386f2f06b3', 1, 2, '5', 90, 6, 'Ejercicio de movilidad para el tren inferior', true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('0809bc7f-918b-4a1d-a7e3-5ea2e9fbbe4e', 'ab8a92d9-de53-4512-a595-e98efcfa5cc4', '3473c3f2-f239-4d69-a62a-d8abb92ff936', 2, 2, '5 x lado', 90, 6, 'Configuración:
+VALUES ('0809bc7f-918b-4a1d-a7e3-5ea2e9fbbe4e', 'ab8a92d9-de53-4512-a595-e98efcfa5cc4', '3473c3f2-f239-4d69-a62a-d8abb92ff936', 2, 2, '5', 90, 6, 'Configuración:
 -Ubicar el cuerpo boca abajo en el suelo con los brazos extendidos.
 -Piernas al ancho de cadera.
 -Manos alineadas con hombros.
@@ -3593,11 +3593,11 @@ Ejecucción:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a0791683-97a9-49de-a325-ecf701760d1c', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '2c2c63b9-5ebe-4128-a543-a82360a9ccbb', 1, 3, '10 a 12', 90, 7, NULL, true, 1)
+VALUES ('a0791683-97a9-49de-a325-ecf701760d1c', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '2c2c63b9-5ebe-4128-a543-a82360a9ccbb', 1, 3, '10-12', 90, 7, NULL, true, 1)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('a963e27c-4aee-492f-a0ea-fd484bb922df', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', 'd6b0e0d9-5d7e-46f6-a369-c10370bcfd82', 2, 3, '4 a 6', 90, 8, 'Configuración:
+VALUES ('a963e27c-4aee-492f-a0ea-fd484bb922df', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', 'd6b0e0d9-5d7e-46f6-a369-c10370bcfd82', 2, 3, '4-6', 90, 8, 'Configuración:
 -Ubicar el cuerpo boca abajo con la rodillas apoyadas en el suelo y las piernas juntas. 
 -Ubicar los brazos estirados a la altura de los hombros, cerca del cuerpo.
 
@@ -3609,7 +3609,7 @@ Instrucciones:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('836b6bb5-c0f2-4883-ade9-684398cdba20', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '90076515-125a-4b30-a030-98748a900baa', 3, 3, '8 x lado', 90, 7, 'Configuración:
+VALUES ('836b6bb5-c0f2-4883-ade9-684398cdba20', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '90076515-125a-4b30-a030-98748a900baa', 3, 3, '8', 90, 7, 'Configuración:
 -Ubicar el cuerpo boca abajo con los brazos estirados.
 -Colocar una sola mancuerna de peso ligero/moderado a su lado.
 
@@ -3622,7 +3622,7 @@ Ejecución:
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('c90298c5-3aa7-4212-ab5e-d57e14ce21cb', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '8f58bf34-3e36-40d6-af71-8a72b35f2d70', 4, 3, '6 a 8 x lado', 90, 8, 'Configuración:
+VALUES ('c90298c5-3aa7-4212-ab5e-d57e14ce21cb', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '8f58bf34-3e36-40d6-af71-8a72b35f2d70', 4, 3, '6-8', 90, 8, 'Configuración:
 -Los brazos permanecen rectos a los lados.
 -Una pierna da un paso largo hacia adelante al ancho de la cadera.
 -El pie trasero va encima del soporte.
@@ -3648,7 +3648,7 @@ VALUES ('327e754c-cecc-441c-a8be-4a6fb2010899', 'b8bcbf2d-912f-4427-ac6e-b7b002a
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie)
-VALUES ('70f4aeb4-2186-4e42-ad03-cae869bd6f70', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '208d5c64-957b-4fcf-ab4c-08c22ac26453', 7, 2, '45" a 1''', 90, 7, NULL, false, NULL)
+VALUES ('70f4aeb4-2186-4e42-ad03-cae869bd6f70', 'b8bcbf2d-912f-4427-ac6e-b7b002a4cce9', '208d5c64-957b-4fcf-ab4c-08c22ac26453', 7, 2, '45-1', 90, 7, NULL, false, NULL)
 ON CONFLICT (id) DO UPDATE SET
   dia_id = EXCLUDED.dia_id, ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden, series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones, descanso_segundos = EXCLUDED.descanso_segundos, rpe_objetivo = EXCLUDED.rpe_objetivo, notas = EXCLUDED.notas, es_superserie = EXCLUDED.es_superserie, grupo_superserie = EXCLUDED.grupo_superserie, updated_at = now();
 
