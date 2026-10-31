@@ -14,3 +14,14 @@ CLAUDE.md text eol=lf
 # Harness sources
 harness/** text eol=lf
 harness-kit/** text eol=lf
+
+# Default: normalize all text to LF in the index and working tree
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+
+# Historical append-only migrations: do not renormalize
+supabase/migrations/20261030000700_feriados_argentina.sql -text
+supabase/migrations/20261030000800_pagos_monto_lista_cobrado_nota.sql -text
