@@ -242,16 +242,20 @@ async function cargar(page: Page, i: number, v: { series?: string; reps?: string
   await pausa(page);
 }
 
-/** Clic en Guardar y espera el desenlace: "guardada" o el mensaje de error del pie. */
+/** Clic en Guardar y espera el desenlace: "guardada" o el/los mensajes de error. */
 async function guardar(page: Page, boton: Locator = btnGuardar(page)): Promise<{ ok: boolean; mensaje: string }> {
   await boton.click();
   const exito = builder(page).getByText("Rutina guardada");
-  await expect(exito.or(errorVisible(page))).toBeVisible({ timeout: 15_000 });
+  // La validación puede mostrar uno o varios mensajes (p. ej. uno por campo inválido): esperamos el éxito o el primero.
+  await expect(exito.or(errorVisible(page)).first()).toBeVisible({ timeout: 15_000 });
   if (await exito.isVisible()) {
     await expect(builder(page)).toBeHidden();
     return { ok: true, mensaje: "" };
   }
-  return { ok: false, mensaje: (await errorVisible(page).innerText()).trim() };
+  // Juntamos todos los mensajes visibles: con uno solo el texto es idéntico al de antes; con varios se conservan todos
+  // para que las aserciones sigan verificando el mensaje específico del campo inválido (p. ej. "Series: entre 1 y 20").
+  const mensajes = (await errorVisible(page).allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+  return { ok: false, mensaje: mensajes.join("\n") };
 }
 
 async function cerrarSinGuardar(page: Page) {

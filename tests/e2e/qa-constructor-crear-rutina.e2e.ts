@@ -403,8 +403,19 @@ async function recorrido(page: Page, info: TestInfo) {
   for (const [i, dia] of RUTINA.dias.entries()) await expect(filasDia.nth(i)).toContainText(dia.nombre);
   await evidencia(page, info, "athlete-mis-dias");
   const contenedor = await page.getByTestId("inicio-mis-dias-container").innerText();
-  await chequeoBug(page, info, "bug-semana-hardcodeada", /Semana\s+1\s+de/.test(contenedor),
-    "un plan asignado hoy debería mostrar la semana 1 (hoy muestra 'Semana 3 de 8' fijo)");
+  const semanaVista = (t: string) => t.match(/Semana[^\n]*/)?.[0] ?? "sin 'Semana'";
+  // El clon no tiene fecha_fin: alcanza con "Semana 1" (no hay total que mostrar). Lo que no vale es el "Semana 3 de 8" fijo.
+  await chequeoBug(page, info, "bug-semana-hardcodeada", /Semana\s+1\b/.test(contenedor),
+    `un plan asignado hoy (sin fecha_fin) debería mostrar la semana 1; se vio: "${semanaVista(contenedor)}"`);
+
+  // Con fecha_fin sí hay que mostrar el total: "Semana N de M". Mismo plan, ahora con fin a 8 semanas.
+  Object.assign(clon, { fecha_fin: new Date(Date.parse(clon.fecha_inicio) + 8 * 7 * 24 * 60 * 60 * 1000).toISOString() });
+  await publicar(page, db, clon.id);
+  await page.reload();
+  await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 60_000 });
+  const contenedorConFin = await page.getByTestId("inicio-mis-dias-container").innerText();
+  await chequeoBug(page, info, "bug-semana-hardcodeada-con-fin", /Semana\s+1\s+de\s+\d+/.test(contenedorConFin),
+    `un plan con fecha_fin a 8 semanas debería mostrar "Semana 1 de M"; se vio: "${semanaVista(contenedorConFin)}"`);
   await chequeoBug(page, info, "bug-dia-prefijo-duplicado", !(await filasDia.first().innerText()).includes("Día 1 · Día 1"),
     'la fila del día repite el prefijo: "Día 1 · Día 1: Torso Pesado"');
   const hero = await page.getByTestId("hero-dia-hoy").innerText();
