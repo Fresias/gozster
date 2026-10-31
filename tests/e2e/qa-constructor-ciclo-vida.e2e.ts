@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Dialog, type Page, type TestInfo } from "@playwright/test";
 import {
   ANA, BASE, STUB, abrirRutinaDeAna, aPayload, athleteApp, builder, chequeoBug, conectarBd, editar,
   ErrorNegocio, evidencia, guardarYComprobar, insertarDias, plan, prepararSesion, publicar, sembrar, tipear,
@@ -312,7 +312,9 @@ test.describe("GOZS-306: QA humano — guardar, versionar, plantillas, clonar y 
   });
 
   // 5. Salir sin guardar (sin repetir GOZS-312, que es Cancelar/✕): recargar con cambios pendientes.
-  test("desktop 1440×900: recargar con cambios sin guardar no avisa y los pierde", async ({ page }, info) => {
+  // Correcto: beforeunload avisa. Si el coach CANCELA, la recarga se detiene y lo editado sigue; si ACEPTA,
+  // se recarga y los cambios se descartan. El bug es que hoy no avisa y los pierde en silencio.
+  test("desktop 1440×900: recargar con cambios sin guardar avisa — cancelar conserva, aceptar descarta", async ({ page }, info) => {
     test.setTimeout(240_000);
     const { db } = sembrar();
     await conectarBd(page, db);
@@ -321,13 +323,25 @@ test.describe("GOZS-306: QA humano — guardar, versionar, plantillas, clonar y 
     await irABiblioteca(page);
     await abrirRutinaDeAna(page);
 
-    await tipear(nombrePlan(page), `${NOMBRE} (editando sin guardar)`);
-    let avisoVisto = false;
-    page.on("dialog", (d) => { avisoVisto = true; void d.dismiss(); });
-    await page.reload();
+    const editado = `${NOMBRE} (editando sin guardar)`;
+    await tipear(nombrePlan(page), editado);
 
-    await chequeoBug(page, info, "bug-sin-aviso-al-salir", avisoVisto,
-      "recargar (o cerrar la pestaña / navegar) con cambios sin guardar no muestra ningún aviso beforeunload: se pierden en silencio");
+    // Rama (a): el coach CANCELA el aviso → la recarga se detiene y lo editado sigue en el modal.
+    let avisoVisto = false;
+    const alCancelar = (d: Dialog) => { avisoVisto = true; void d.dismiss(); };
+    page.on("dialog", alCancelar);
+    await page.reload({ timeout: 15_000 }).catch(() => {}); // si el aviso cancela la recarga, reload() puede rechazar
+    page.off("dialog", alCancelar);
+    const modalSigueAbierto = await builder(page).isVisible().catch(() => false);
+    const loEditadoSigue = modalSigueAbierto && (await nombrePlan(page).inputValue().catch(() => "")) === editado;
+    await chequeoBug(page, info, "bug-sin-aviso-al-salir", avisoVisto && loEditadoSigue,
+      "recargar con cambios sin guardar debería avisar (beforeunload) y, al cancelar, no recargar ni perder lo editado; hoy no avisa y se pierde en silencio");
+
+    // Rama (b): el coach ACEPTA el aviso (o no hay aviso) → se recarga y los cambios se descartan.
+    const alAceptar = (d: Dialog) => { void d.accept(); };
+    page.on("dialog", alAceptar);
+    await page.reload();
+    page.off("dialog", alAceptar);
     // Invariante: lo no guardado no persiste (abrirRutinaDeAna exige el nombre original).
     await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
     await abrirRutinaDeAna(page);

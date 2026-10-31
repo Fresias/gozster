@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { nombreUnico } from "@/lib/rutinas-biblioteca";
 import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
+import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -52,6 +53,13 @@ const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
 type SaveMode = "guardar" | "version" | "nueva";
 
 const GENERIC_SAVE_ERROR = "No se pudo guardar la rutina. Intenta de nuevo.";
+const OFFLINE_SAVE_ERROR = "Sin conexión: tus cambios siguen acá y se guardan cuando vuelva la red";
+
+// Error de red (no de negocio): sin conexión o fetch caído
+export function esErrorDeRed(err: any) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  return err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(String(err?.message ?? err));
+}
 
 export function buildGuardarRutinaPayload(input: {
   planId?: string;
@@ -59,7 +67,6 @@ export function buildGuardarRutinaPayload(input: {
   nombre: string;
   comentarios: string;
   alumnoId?: string;
-  estado?: "BORRADOR" | "ACTIVO";
   days: BuilderDay[];
 }) {
   return {
@@ -68,7 +75,6 @@ export function buildGuardarRutinaPayload(input: {
     nombre: input.nombre,
     comentarios: input.comentarios,
     ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
-    ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
       nombre: d.nombre,
       ejercicios: d.ejercicios.map((e) => ({
@@ -93,7 +99,8 @@ export function buildGuardarRutinaPayload(input: {
 // GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
 export function clasificarErrorGuardado(err: any, modo: SaveMode) {
   const esNegocio = err?.code === "GZ010";
-  const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
+  const sinRed = !esNegocio && esErrorDeRed(err);
+  const mensaje = esNegocio ? String(err.message) : sinRed ? OFFLINE_SAVE_ERROR : GENERIC_SAVE_ERROR;
   return {
     mensaje,
     needsNewVersion: esNegocio && modo === "guardar" && /sesiones registradas/i.test(mensaje),
@@ -162,6 +169,37 @@ function mapPlanToBuilderDays(
   });
 }
 
+// Input numérico con borrador de texto: permite dejarlo vacío mientras se edita
+// y muestra exactamente lo tipeado (sin ceros a la izquierda forzados).
+function DraftNumberInput({
+  value,
+  parse,
+  onValue,
+  ...props
+}: {
+  value: number;
+  parse: (raw: string) => number;
+  onValue: (n: number) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => {
+    setDraft((d) => (parse(d) === value ? d : String(value)));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <input
+      {...props}
+      type="number"
+      value={draft}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const n = parse(raw);
+        setDraft(raw !== "" && n !== Number(raw) ? String(n) : raw);
+        onValue(n);
+      }}
+    />
+  );
+}
+
 export function RoutineBuilderModal({
   isOpen,
   onClose,
@@ -177,17 +215,27 @@ export function RoutineBuilderModal({
   const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
-  const [estado, setEstado] = React.useState<"BORRADOR" | "ACTIVO">("BORRADOR");
+  const baselineRef = React.useRef("");
+
+  // Candado síncrono (el estado llega tarde al 2º/3er clic) que se mantiene hasta cerrar el modal
+  const lockRef = React.useRef(false);
+  // Guardado pendiente por falta de red: se reintenta una sola vez al volver `online`
+  const pendienteRef = React.useRef<SaveMode | null>(null);
+  const guardarRef = React.useRef<(modo: SaveMode) => Promise<void>>(async () => {});
 
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      lockRef.current = false;
+      pendienteRef.current = null;
+      return;
+    }
+    if (lockRef.current) return; // guardando o ya guardado: no pisar lo que hay en pantalla
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
-      setEstado(planInicial.estado === "ACTIVO" ? "ACTIVO" : "BORRADOR");
       const mapped = mapPlanToBuilderDays(
         planInicial.id,
         diasIniciales ?? [],
@@ -195,11 +243,16 @@ export function RoutineBuilderModal({
         catalogoEjercicios,
       );
       setDays(mapped);
+      baselineRef.current = JSON.stringify([planInicial.nombre, planInicial.comentarios ?? "", mapped]);
     } else {
       setPlanName("Bloque de Hipertrofia & Fuerza");
       setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
-      setEstado("BORRADOR");
       setDays(DEFAULT_BUILDER_DAYS);
+      baselineRef.current = JSON.stringify([
+        "Bloque de Hipertrofia & Fuerza",
+        "Enfocarse en sobrecarga progresiva y control excéntrico.",
+        DEFAULT_BUILDER_DAYS,
+      ]);
     }
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
@@ -214,9 +267,43 @@ export function RoutineBuilderModal({
   const [needsNewVersion, setNeedsNewVersion] = React.useState(false);
   const [asignarAlumno, setAsignarAlumno] = React.useState(false);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const alVolverRed = () => {
+      const modo = pendienteRef.current;
+      pendienteRef.current = null;
+      if (modo) void guardarRef.current(modo);
+    };
+    window.addEventListener("online", alVolverRed);
+    return () => window.removeEventListener("online", alVolverRed);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const currentDay = days[selectedDayIdx] || days[0];
+
+  // Toda acción sobre el día actual termina normalizando: ningún grupo queda de 1 ni partido
+  const actualizarDiaActual = (fn: (lista: BuilderExercise[]) => BuilderExercise[]) => {
+    setDays((prev) =>
+      normalizarSuperseries(
+        prev.map((d, idx) => (idx === selectedDayIdx ? { ...d, ejercicios: fn(d.ejercicios) } : d)),
+        openCircuit
+      )
+    );
+  };
+
+  // Cambiar de día cierra el circuito abierto (no puede cruzar días)
+  const irADia = (idx: number) => {
+    setOpenCircuit(null);
+    setDays((prev) => normalizarSuperseries(prev, null));
+    setSelectedDayIdx(idx);
+  };
+
+  const handleClose = () => {
+    const dirty = JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+    if (dirty && !window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) return;
+    onClose();
+  };
 
   const handleAddDay = () => {
     const nextOrder = days.length + 1;
@@ -226,7 +313,8 @@ export function RoutineBuilderModal({
       orden: nextOrder,
       ejercicios: [],
     };
-    setDays([...days, newDay]);
+    setOpenCircuit(null);
+    setDays(normalizarSuperseries([...days, newDay], null));
     setSelectedDayIdx(days.length);
   };
 
@@ -250,13 +338,8 @@ export function RoutineBuilderModal({
       url_video: ej.url_video,
     };
 
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx
-          ? { ...d, ejercicios: [...d.ejercicios, newExercise] }
-          : d
-      )
-    );
+    // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
+    actualizarDiaActual((lista) => [...lista, newExercise]);
     setShowCatalogModal(false);
   };
 
@@ -280,33 +363,11 @@ export function RoutineBuilderModal({
   };
 
   const handleRemoveExercise = (exId: string) => {
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx
-          ? {
-              ...d,
-              ejercicios: d.ejercicios.filter((e) => e.id !== exId),
-            }
-          : d
-      )
-    );
+    actualizarDiaActual((lista) => lista.filter((e) => e.id !== exId));
   };
 
   const handleMoveExercise = (index: number, direction: "UP" | "DOWN") => {
-    if (!currentDay) return;
-    const targetIdx = direction === "UP" ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= currentDay.ejercicios.length) return;
-
-    const list = [...currentDay.ejercicios];
-    const [moved] = list.splice(index, 1);
-    if (!moved) return;
-    list.splice(targetIdx, 0, moved);
-
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx ? { ...d, ejercicios: list } : d
-      )
-    );
+    actualizarDiaActual((lista) => moverEjercicio(lista, index, direction));
   };
 
   // Superserie como circuito: tocar abre uno nuevo, tocar de nuevo lo cierra
@@ -316,22 +377,37 @@ export function RoutineBuilderModal({
     if (!ex) return;
 
     if (openCircuit !== null) {
-      setOpenCircuit(null);
+      if (ex.grupo_superserie === openCircuit) {
+        // Cerrar circuito: si quedó de 1 pasa a ser normal
+        setOpenCircuit(null);
+        setDays((prev) => normalizarSuperseries(prev, null));
+      } else {
+        // Un ejercicio existente (suelto o de otra superserie) se une al circuito abierto
+        actualizarDiaActual((lista) => asignarGrupo(lista, exId, openCircuit));
+      }
       return;
     }
     if (ex.es_superserie) {
-      handleUpdateExercise(exId, "es_superserie", false);
-      handleUpdateExercise(exId, "grupo_superserie", null);
+      actualizarDiaActual((lista) => asignarGrupo(lista, exId, null));
       return;
     }
-    const maxGroup = Math.max(
-      0,
-      ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))
-    );
-    const group = maxGroup + 1;
-    handleUpdateExercise(exId, "es_superserie", true);
-    handleUpdateExercise(exId, "grupo_superserie", group);
+    const group = Math.max(0, ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))) + 1;
     setOpenCircuit(group);
+    setDays((prev) =>
+      normalizarSuperseries(
+        prev.map((d, idx) =>
+          idx === selectedDayIdx
+            ? { ...d, ejercicios: d.ejercicios.map((e) => (e.id === exId ? { ...e, es_superserie: true, grupo_superserie: group } : e)) }
+            : d
+        ),
+        group
+      )
+    );
+  };
+
+  // Mover a otra superserie del mismo día (select nativo)
+  const handleMoveToGroup = (exId: string, value: string) => {
+    actualizarDiaActual((lista) => asignarGrupo(lista, exId, value === "" ? null : Number(value)));
   };
 
   const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
@@ -341,6 +417,10 @@ export function RoutineBuilderModal({
 
   // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
   const handleSaveToSupabase = async (modo: SaveMode = "guardar") => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    pendienteRef.current = null;
+    let liberar = true;
     setIsSaving(true);
     setErrorMessage(null);
     const payload = buildGuardarRutinaPayload({
@@ -349,9 +429,7 @@ export function RoutineBuilderModal({
       nombre: modo === "nueva" && nombresExistentes ? nombreUnico(planName, nombresExistentes) : planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
-      // INACTIVO se conserva (no editable aquí); una versión nueva no cambia el estado
-      estado: modo === "version" || planInicial?.estado === "INACTIVO" ? undefined : estado,
-      days,
+      days: normalizarSuperseries(days, null, true),
     });
 
     try {
@@ -367,6 +445,7 @@ export function RoutineBuilderModal({
 
       setNeedsNewVersion(false);
       setSaveSuccess(true);
+      liberar = false; // tras éxito el candado sigue hasta cerrar: ningún clic re-guarda
       if (onRoutineSaved && planData) {
         onRoutineSaved(planData as PlanEntrenamiento);
       }
@@ -376,6 +455,7 @@ export function RoutineBuilderModal({
       }, 1500);
     } catch (err: any) {
       const { mensaje, detalle, needsNewVersion: nueva } = clasificarErrorGuardado(err, modo);
+      if (err?.code !== "GZ010" && esErrorDeRed(err)) pendienteRef.current = modo;
       setErrorMessage(mensaje);
       setNeedsNewVersion(nueva);
       try {
@@ -393,12 +473,19 @@ export function RoutineBuilderModal({
         // el registro de errores nunca debe tapar el error original
       }
     } finally {
+      if (liberar) lockRef.current = false;
       setIsSaving(false);
     }
   };
+  guardarRef.current = handleSaveToSupabase;
 
-  const filteredCatalog = catalogoEjercicios.filter((e) =>
-    e.nombre.toLowerCase().includes(catalogSearch.toLowerCase())
+  const normalizar = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const termino = normalizar(catalogSearch.trim());
+  const filteredCatalog = catalogoEjercicios.filter(
+    (e) =>
+      normalizar(e.nombre).includes(termino) ||
+      e.musculos_principales.some((m) => normalizar(m).includes(termino))
   );
 
   return (
@@ -423,7 +510,7 @@ export function RoutineBuilderModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-md"
           >
             ✕
@@ -463,7 +550,7 @@ export function RoutineBuilderModal({
               <button
                 key={d.id}
                 type="button"
-                onClick={() => setSelectedDayIdx(idx)}
+                onClick={() => irADia(idx)}
                 className={`px-3 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-all whitespace-nowrap ${
                   idx === selectedDayIdx
                     ? "border-primary text-primary bg-primary/5"
@@ -650,20 +737,15 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Series:
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           min="0"
                           max={MAX_SERIES_PER_EXERCISE}
                           value={ej.series}
-                          onChange={(e) => {
-                            const raw = e.target.value;
+                          parse={(raw) => {
                             const num = parseInt(raw, 10);
-                            if (isNaN(num) || num <= 0) {
-                              handleUpdateExercise(ej.id, "series", 0);
-                            } else {
-                              handleUpdateExercise(ej.id, "series", clampSeries(num));
-                            }
+                            return isNaN(num) || num <= 0 ? 0 : clampSeries(num);
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "series", n)}
                           data-testid="exercise-series-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -700,19 +782,15 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           Descanso (s):
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           step="15"
                           min="0"
                           value={ej.descanso_segundos}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            handleUpdateExercise(
-                              ej.id,
-                              "descanso_segundos",
-                              isNaN(val) ? 0 : val
-                            );
+                          parse={(raw) => {
+                            const val = parseInt(raw, 10);
+                            return isNaN(val) ? 0 : val;
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "descanso_segundos", n)}
                           data-testid="exercise-rest-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -722,20 +800,16 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           RPE Objetivo:
                         </label>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           step="0.5"
                           min="0"
                           max="10"
                           value={ej.rpe_objetivo}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            handleUpdateExercise(
-                              ej.id,
-                              "rpe_objetivo",
-                              isNaN(val) ? 0 : val
-                            );
+                          parse={(raw) => {
+                            const val = parseFloat(raw);
+                            return isNaN(val) ? 0 : val;
                           }}
+                          onValue={(n) => handleUpdateExercise(ej.id, "rpe_objetivo", n)}
                           data-testid="exercise-rpe-input"
                           className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
@@ -793,6 +867,22 @@ export function RoutineBuilderModal({
                             ? "✓ Superserie A"
                             : "+ Superserie"}
                         </button>
+                        {openCircuit === null && (() => {
+                          const otros = [...new Set(currentDay.ejercicios.map((e) => e.grupo_superserie).filter((g): g is number => g !== null && g !== ej.grupo_superserie))];
+                          return otros.length > 0 ? (
+                            <select
+                              aria-label="Mover a otra superserie"
+                              value=""
+                              onChange={(ev) => handleMoveToGroup(ej.id, ev.target.value)}
+                              className="mt-1 w-full min-h-[34px] text-xs rounded-xl border border-border bg-secondary text-secondary-foreground"
+                            >
+                              <option value="">Mover a…</option>
+                              {otros.map((g) => (
+                                <option key={g} value={g}>{`Superserie A${g}`}</option>
+                              ))}
+                            </select>
+                          ) : null;
+                        })()}
                         <div className="flex gap-1 mt-1">
                           {(["WARMUP", "DROPSET"] as const).map((tipo) => (
                             <button
@@ -938,22 +1028,9 @@ export function RoutineBuilderModal({
           )}
 
           <div className="flex items-center gap-2 ml-auto">
-            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            <Button variant="outline" onClick={handleClose} disabled={isSaving}>
               Cancelar
             </Button>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              Estado
-              <select
-                value={estado}
-                onChange={(e) => setEstado(e.target.value as "BORRADOR" | "ACTIVO")}
-                disabled={isSaving || planInicial?.estado === "INACTIVO"}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                data-testid="routine-estado-select"
-              >
-                <option value="BORRADOR">Borrador</option>
-                <option value="ACTIVO">Activo</option>
-              </select>
-            </label>
             {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
@@ -968,7 +1045,7 @@ export function RoutineBuilderModal({
             <Button
               variant="outline"
               onClick={() => handleSaveToSupabase("nueva")}
-              disabled={isSaving}
+              disabled={isSaving || saveSuccess}
               data-testid="save-routine-as-new-btn"
             >
               Guardar como rutina nueva
@@ -977,7 +1054,7 @@ export function RoutineBuilderModal({
               <Button
                 variant="outline"
                 onClick={() => handleSaveToSupabase("version")}
-                disabled={isSaving}
+                disabled={isSaving || saveSuccess}
                 data-testid="save-routine-new-version-btn"
               >
                 Guardar como nueva versión
@@ -986,10 +1063,10 @@ export function RoutineBuilderModal({
             <Button
               className="bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90"
               onClick={() => handleSaveToSupabase()}
-              disabled={isSaving}
+              disabled={isSaving || saveSuccess}
               data-testid="save-routine-to-supabase-btn"
             >
-              {isSaving ? "Guardando..." : "✓ Guardar"}
+              {isSaving || saveSuccess ? "Guardando…" : "✓ Guardar"}
             </Button>
           </div>
         </div>
