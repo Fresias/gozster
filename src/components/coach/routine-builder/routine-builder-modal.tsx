@@ -178,6 +178,7 @@ function DraftNumberInput({
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   const [draft, setDraft] = React.useState(value === null ? "" : String(value));
   React.useEffect(() => {
+    if (value !== null && Number.isNaN(value)) return; // texto no numérico tipeado: se queda como está
     setDraft((d) => ((d === "" ? null : Number(d)) === value ? d : value === null ? "" : String(value)));
   }, [value]);
   return (
@@ -188,7 +189,8 @@ function DraftNumberInput({
       onChange={(e) => {
         const raw = e.target.value;
         setDraft(raw);
-        onValue(raw === "" ? null : Number(raw));
+        // "abc" en un input numérico llega como "" con badInput: es inválido, no vacío
+        onValue(raw === "" ? (e.target.validity.badInput ? NaN : null) : Number(raw));
       }}
     />
   );
