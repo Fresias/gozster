@@ -347,7 +347,8 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     await nuevaRutina(page);
     const sinMarca: string[] = [];
 
-    // Rutina sin días.
+    // Rutina sin días (con nombre válido: si no, la UI frena antes por el nombre y el caso no llega a probarse).
+    await tipear(nombrePlan(page), "Sin días QA");
     const sinDias = await guardar(page);
     expect(sinDias).toEqual({ ok: false, mensaje: "La rutina necesita al menos un día" });
     await chequeoMensaje(page, info, ctx, sinDias.mensaje, "sin-dias");
