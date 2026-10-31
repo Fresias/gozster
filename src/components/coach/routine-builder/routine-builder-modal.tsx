@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
-import { asignarGrupo, moverEjercicio, normalizarSuperseries, posicionTrasGrupo } from "@/lib/superseries";
+import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -353,12 +353,8 @@ export function RoutineBuilderModal({
       url_video: ej.url_video,
     };
 
-    // Con un circuito abierto el nuevo entra pegado al bloque; si no, al final del día
-    actualizarDiaActual((lista) => {
-      const copia = [...lista];
-      copia.splice(openCircuit !== null ? posicionTrasGrupo(lista, openCircuit) : lista.length, 0, newExercise);
-      return copia;
-    });
+    // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
+    actualizarDiaActual((lista) => [...lista, newExercise]);
     setShowCatalogModal(false);
   };
 
@@ -463,7 +459,7 @@ export function RoutineBuilderModal({
       nombre: planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
-      days: normalizarSuperseries(days, null),
+      days: normalizarSuperseries(days, null, true),
     });
 
     try {
