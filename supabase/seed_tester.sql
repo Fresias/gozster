@@ -70,12 +70,12 @@ BEGIN
   ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, orden = EXCLUDED.orden;
 
   INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos) VALUES
-    ('c0de1990-0000-4000-8000-000000000e11', v_d1, v_press,      1, 4, '8 a 10',  120),
-    ('c0de1990-0000-4000-8000-000000000e12', v_d1, v_muneca,     2, 3, '12 a 15',  60),
-    ('c0de1990-0000-4000-8000-000000000e21', v_d2, v_prensa,     1, 4, '10 a 12',  120),
-    ('c0de1990-0000-4000-8000-000000000e22', v_d2, v_muneca_inv, 2, 3, '12 a 15',  60),
-    ('c0de1990-0000-4000-8000-000000000e31', v_d3, v_jalon,      1, 4, '8 a 12',   90),
-    ('c0de1990-0000-4000-8000-000000000e32', v_d3, v_muneca,     2, 3, '12 a 15',  60)
+    ('c0de1990-0000-4000-8000-000000000e11', v_d1, v_press,      1, 4, '8-10',  120),
+    ('c0de1990-0000-4000-8000-000000000e12', v_d1, v_muneca,     2, 3, '12-15',  60),
+    ('c0de1990-0000-4000-8000-000000000e21', v_d2, v_prensa,     1, 4, '10-12',  120),
+    ('c0de1990-0000-4000-8000-000000000e22', v_d2, v_muneca_inv, 2, 3, '12-15',  60),
+    ('c0de1990-0000-4000-8000-000000000e31', v_d3, v_jalon,      1, 4, '8-12',   90),
+    ('c0de1990-0000-4000-8000-000000000e32', v_d3, v_muneca,     2, 3, '12-15',  60)
   ON CONFLICT (id) DO UPDATE SET ejercicio_id = EXCLUDED.ejercicio_id, orden = EXCLUDED.orden,
     series = EXCLUDED.series, repeticiones = EXCLUDED.repeticiones;
 
@@ -96,7 +96,7 @@ BEGIN
     ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, orden = EXCLUDED.orden;
 
     INSERT INTO public.ejercicios_en_rutina (id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos)
-    VALUES ('c0de1990-0000-4000-8000-000000000b11', v_dia_b, v_press, 1, 3, '8 a 10', 90)
+    VALUES ('c0de1990-0000-4000-8000-000000000b11', v_dia_b, v_press, 1, 3, '8-10', 90)
     ON CONFLICT (id) DO UPDATE SET ejercicio_id = EXCLUDED.ejercicio_id;
   END IF;
 END
