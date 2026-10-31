@@ -276,3 +276,26 @@ export function calcularUltimoDiaRealizado(
     fechaLegible,
   };
 }
+
+/** Semana real del plan (1-based, hora local) a partir de `fecha_inicio`/`fecha_fin`. `total` es null si el plan no tiene fin. */
+export function calcularSemanaPlan(
+  fechaInicio: string,
+  fechaFin: string | null,
+  hoy: Date = new Date(),
+): { actual: number; total: number | null } {
+  const DIA_MS = 86_400_000;
+  const dia = (s: string) => {
+    const [y = 0, m = 1, d = 1] = s.slice(0, 10).split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const inicio = dia(fechaInicio);
+  const total = fechaFin ? Math.max(1, Math.ceil((dia(fechaFin) - inicio + DIA_MS) / (7 * DIA_MS))) : null;
+  const actual = Math.max(1, Math.floor((hoyUtc - inicio) / (7 * DIA_MS)) + 1);
+  return { actual: total ? Math.min(actual, total) : actual, total };
+}
+
+/** Etiqueta del día: antepone `Día {orden} ·` salvo que el coach ya nombró el día "Día N: ...". */
+export function etiquetaDia(dia: { orden: number; nombre: string }): string {
+  return /^\s*d[ií]a\s*\d+\s*[:·.\-–]/i.test(dia.nombre) ? dia.nombre.trim() : `Día ${dia.orden} · ${dia.nombre}`;
+}
