@@ -299,34 +299,16 @@ export function RoutineBuilderModal({
   const isDirty =
     isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
 
-  const onCloseRef = React.useRef(onClose);
-  onCloseRef.current = onClose;
-
-  // Aviso nativo al recargar/cerrar la pestaña, y confirmación al volver atrás (misma que "Cancelar")
+  // Aviso nativo al recargar/cerrar la pestaña o salir del documento (atrás incluido) con cambios sin guardar.
+  // El modal no vive en la URL: no se empuja historial ni se intercepta popstate.
   React.useEffect(() => {
     if (!isDirty) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
-    let sentinel = true;
-    window.history.pushState({ constructorSinGuardar: true }, "");
-    const onPopState = () => {
-      sentinel = false;
-      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
-        onCloseRef.current();
-      } else {
-        window.history.pushState({ constructorSinGuardar: true }, "");
-        sentinel = true;
-      }
-    };
     window.addEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("popstate", onPopState);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      window.removeEventListener("popstate", onPopState);
-      if (sentinel) window.history.back();
-    };
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [isDirty]);
 
   if (!isOpen) return null;
