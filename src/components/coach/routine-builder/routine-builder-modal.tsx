@@ -292,6 +292,17 @@ export function RoutineBuilderModal({
     return () => window.removeEventListener("online", alVolverRed);
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const alVolverRed = () => {
+      const modo = pendienteRef.current;
+      pendienteRef.current = null;
+      if (modo) void guardarRef.current(modo);
+    };
+    window.addEventListener("online", alVolverRed);
+    return () => window.removeEventListener("online", alVolverRed);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const currentDay = days[selectedDayIdx] || days[0];
@@ -439,15 +450,6 @@ export function RoutineBuilderModal({
   // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
   const handleSaveToSupabase = async (modo: SaveMode = "guardar") => {
     if (lockRef.current) return;
-    const claves = Object.keys(errores);
-    if (claves.length > 0) {
-      setVerErrores(true);
-      setErrorMessage(`Revisá los campos marcados en rojo (${claves.length}).`);
-      // Llevar al coach al primer día con un error
-      const diaIdx = days.findIndex((d) => errores[claveDia(d.id)] || d.ejercicios.some((e) => claves.some((c) => c.startsWith(`ej.${e.id}.`))));
-      if (diaIdx >= 0 && diaIdx !== selectedDayIdx) irADia(diaIdx);
-      return;
-    }
     lockRef.current = true;
     pendienteRef.current = null;
     let liberar = true;
@@ -463,6 +465,15 @@ export function RoutineBuilderModal({
     });
 
     try {
+      // Un campo inválido se rechaza acá, sin llamar a la RPC, y deja su fila en errores_app (catch)
+      const claves = Object.keys(errores);
+      if (claves.length > 0) {
+        setVerErrores(true);
+        // Llevar al coach al primer día con un error
+        const diaIdx = days.findIndex((d) => errores[claveDia(d.id)] || d.ejercicios.some((e) => claves.some((c) => c.startsWith(`ej.${e.id}.`))));
+        if (diaIdx >= 0 && diaIdx !== selectedDayIdx) irADia(diaIdx);
+        throw { code: "GZ010", message: `Revisá los campos marcados en rojo (${claves.length}).`, details: claves.join(", ") };
+      }
       const { data: planId, error } = await supabase.rpc("guardar_rutina", { p_payload: payload });
       if (error) throw error;
 
