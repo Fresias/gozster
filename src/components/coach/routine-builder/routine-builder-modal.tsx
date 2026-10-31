@@ -333,6 +333,31 @@ export function RoutineBuilderModal({
     setSelectedDayIdx(days.length);
   };
 
+  const handleMoveDay = (index: number, direction: "UP" | "DOWN") => {
+    const targetIdx = direction === "UP" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= days.length) return;
+    const list = [...days];
+    const [moved] = list.splice(index, 1);
+    if (!moved) return;
+    list.splice(targetIdx, 0, moved);
+    setDays(list.map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(targetIdx);
+  };
+
+  const handleRemoveDay = (index: number) => {
+    const dia = days[index];
+    if (!dia || days.length <= 1) return;
+    if (
+      dia.ejercicios.length > 0 &&
+      !window.confirm(
+        `¿Borrar "${dia.nombre}" y sus ${dia.ejercicios.length} ejercicio(s)? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setDays(days.filter((_, i) => i !== index).map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(Math.min(selectedDayIdx > index ? selectedDayIdx - 1 : selectedDayIdx, days.length - 2));
+  };
+
   const handleAddExerciseToCurrentDay = (ej: Ejercicio) => {
     if (!currentDay) return;
     const newExercise: BuilderExercise = {
@@ -594,6 +619,39 @@ export function RoutineBuilderModal({
                 {d.nombre.trim() || "Sin nombre"} ({d.ejercicios.length})
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-1 pb-1 pl-2 shrink-0">
+            <button
+              type="button"
+              disabled={selectedDayIdx === 0}
+              onClick={() => handleMoveDay(selectedDayIdx, "UP")}
+              aria-label="Mover día a la izquierda"
+              data-testid="move-day-up"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              disabled={selectedDayIdx >= days.length - 1}
+              onClick={() => handleMoveDay(selectedDayIdx, "DOWN")}
+              aria-label="Mover día a la derecha"
+              data-testid="move-day-down"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              disabled={days.length <= 1}
+              title={days.length <= 1 ? "Una rutina necesita al menos un día" : undefined}
+              onClick={() => handleRemoveDay(selectedDayIdx)}
+              aria-label="Borrar día"
+              data-testid="remove-day"
+              className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs disabled:opacity-30 hover:bg-destructive/30 flex items-center justify-center border border-destructive/30 font-bold"
+            >
+              ✕
+            </button>
           </div>
           <Button
             size="sm"
