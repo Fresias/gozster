@@ -177,6 +177,8 @@ function DraftNumberInput({
   onValue: (n: number | null) => void;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   const [draft, setDraft] = React.useState(value === null ? "" : String(value));
+  // Chromium a veces entrega "" sin badInput al reemplazar el contenido por letras: se recuerda la tecla
+  const letraRef = React.useRef(false);
   React.useEffect(() => {
     if (value !== null && Number.isNaN(value)) return; // texto no numérico tipeado: se queda como está
     setDraft((d) => ((d === "" ? null : Number(d)) === value ? d : value === null ? "" : String(value)));
@@ -186,11 +188,15 @@ function DraftNumberInput({
       {...props}
       type="number"
       value={draft}
+      onKeyDown={(e) => {
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) letraRef.current = !/[\d.,+-]/.test(e.key);
+      }}
       onChange={(e) => {
         const raw = e.target.value;
         setDraft(raw);
-        // "abc" en un input numérico llega como "" con badInput: es inválido, no vacío
-        onValue(raw === "" ? (e.target.validity.badInput ? NaN : null) : Number(raw));
+        // "abc" en un input numérico llega como "" (con o sin badInput): es inválido, no vacío
+        onValue(raw === "" ? (e.target.validity.badInput || letraRef.current ? NaN : null) : Number(raw));
+        if (raw !== "") letraRef.current = false;
       }}
     />
   );
