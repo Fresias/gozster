@@ -247,7 +247,7 @@ FROM (VALUES
   ('44444444-4444-4444-8444-4444444444a2', 'Jalón al Pecho',             2, 2, '12',      90, 5.0, NULL),
   ('44444444-4444-4444-8444-4444444444a3', 'Press de Pecho en Máquina',  3, 2, '12',      90, 5.0, NULL),
   ('44444444-4444-4444-8444-4444444444a4', 'Remo en Máquina',            4, 2, '12',      90, 5.0, NULL),
-  ('44444444-4444-4444-8444-4444444444a5', 'Plancha',                    5, 2, '20-30 s', 60, 5.0, 'Mantener la posición con buena técnica.')
+  ('44444444-4444-4444-8444-4444444444a5', 'Plancha',                    5, 2, '20-30', 60, 5.0, 'Mantener la posición con buena técnica.')
 ) AS v(id, nombre, orden, series, reps, descanso, rpe, notas)
 JOIN public.ejercicios e ON e.nombre = v.nombre
 ON CONFLICT (id) DO NOTHING;
