@@ -301,16 +301,39 @@ export function RoutineBuilderModal({
   const isDirty =
     isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
 
-  // Aviso nativo al recargar/cerrar la pestaña o salir del documento (atrás incluido) con cambios sin guardar.
-  // El modal no vive en la URL: no se empuja historial ni se intercepta popstate.
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Con cambios sin guardar: aviso nativo al recargar/cerrar la pestaña y, al volver atrás, la misma
+  // confirmación que "Cancelar". El modal no vive en la URL, así que se empuja una entrada centinela
+  // (conservando el state de Next) para poder interceptar el "atrás" sin salir de la página.
   React.useEffect(() => {
     if (!isDirty) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
+    const empujarCentinela = () =>
+      window.history.pushState({ ...window.history.state, constructorSinGuardar: true }, "");
+    let centinela = true;
+    empujarCentinela();
+    const onPopState = () => {
+      centinela = false;
+      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
+        onCloseRef.current();
+        window.history.back(); // el "atrás" que el coach pidió: la centinela ya se consumió
+      } else {
+        empujarCentinela();
+        centinela = true;
+      }
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      if (centinela) window.history.back(); // se cerró por otra vía (guardar/cancelar): no dejar la entrada
+    };
   }, [isDirty]);
 
   if (!isOpen) return null;
