@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
+import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -247,6 +248,23 @@ export function RoutineBuilderModal({
 
   const currentDay = days[selectedDayIdx] || days[0];
 
+  // Toda acción sobre el día actual termina normalizando: ningún grupo queda de 1 ni partido
+  const actualizarDiaActual = (fn: (lista: BuilderExercise[]) => BuilderExercise[]) => {
+    setDays((prev) =>
+      normalizarSuperseries(
+        prev.map((d, idx) => (idx === selectedDayIdx ? { ...d, ejercicios: fn(d.ejercicios) } : d)),
+        openCircuit
+      )
+    );
+  };
+
+  // Cambiar de día cierra el circuito abierto (no puede cruzar días)
+  const irADia = (idx: number) => {
+    setOpenCircuit(null);
+    setDays((prev) => normalizarSuperseries(prev, null));
+    setSelectedDayIdx(idx);
+  };
+
   const handleClose = () => {
     const dirty = JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
     if (dirty && !window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) return;
@@ -261,7 +279,8 @@ export function RoutineBuilderModal({
       orden: nextOrder,
       ejercicios: [],
     };
-    setDays([...days, newDay]);
+    setOpenCircuit(null);
+    setDays(normalizarSuperseries([...days, newDay], null));
     setSelectedDayIdx(days.length);
   };
 
@@ -285,13 +304,8 @@ export function RoutineBuilderModal({
       url_video: ej.url_video,
     };
 
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx
-          ? { ...d, ejercicios: [...d.ejercicios, newExercise] }
-          : d
-      )
-    );
+    // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
+    actualizarDiaActual((lista) => [...lista, newExercise]);
     setShowCatalogModal(false);
   };
 
@@ -315,33 +329,11 @@ export function RoutineBuilderModal({
   };
 
   const handleRemoveExercise = (exId: string) => {
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx
-          ? {
-              ...d,
-              ejercicios: d.ejercicios.filter((e) => e.id !== exId),
-            }
-          : d
-      )
-    );
+    actualizarDiaActual((lista) => lista.filter((e) => e.id !== exId));
   };
 
   const handleMoveExercise = (index: number, direction: "UP" | "DOWN") => {
-    if (!currentDay) return;
-    const targetIdx = direction === "UP" ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= currentDay.ejercicios.length) return;
-
-    const list = [...currentDay.ejercicios];
-    const [moved] = list.splice(index, 1);
-    if (!moved) return;
-    list.splice(targetIdx, 0, moved);
-
-    setDays((prev) =>
-      prev.map((d, idx) =>
-        idx === selectedDayIdx ? { ...d, ejercicios: list } : d
-      )
-    );
+    actualizarDiaActual((lista) => moverEjercicio(lista, index, direction));
   };
 
   // Superserie como circuito: tocar abre uno nuevo, tocar de nuevo lo cierra
@@ -351,22 +343,37 @@ export function RoutineBuilderModal({
     if (!ex) return;
 
     if (openCircuit !== null) {
-      setOpenCircuit(null);
+      if (ex.grupo_superserie === openCircuit) {
+        // Cerrar circuito: si quedó de 1 pasa a ser normal
+        setOpenCircuit(null);
+        setDays((prev) => normalizarSuperseries(prev, null));
+      } else {
+        // Un ejercicio existente (suelto o de otra superserie) se une al circuito abierto
+        actualizarDiaActual((lista) => asignarGrupo(lista, exId, openCircuit));
+      }
       return;
     }
     if (ex.es_superserie) {
-      handleUpdateExercise(exId, "es_superserie", false);
-      handleUpdateExercise(exId, "grupo_superserie", null);
+      actualizarDiaActual((lista) => asignarGrupo(lista, exId, null));
       return;
     }
-    const maxGroup = Math.max(
-      0,
-      ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))
-    );
-    const group = maxGroup + 1;
-    handleUpdateExercise(exId, "es_superserie", true);
-    handleUpdateExercise(exId, "grupo_superserie", group);
+    const group = Math.max(0, ...days.flatMap((d) => d.ejercicios.map((e) => e.grupo_superserie ?? 0))) + 1;
     setOpenCircuit(group);
+    setDays((prev) =>
+      normalizarSuperseries(
+        prev.map((d, idx) =>
+          idx === selectedDayIdx
+            ? { ...d, ejercicios: d.ejercicios.map((e) => (e.id === exId ? { ...e, es_superserie: true, grupo_superserie: group } : e)) }
+            : d
+        ),
+        group
+      )
+    );
+  };
+
+  // Mover a otra superserie del mismo día (select nativo)
+  const handleMoveToGroup = (exId: string, value: string) => {
+    actualizarDiaActual((lista) => asignarGrupo(lista, exId, value === "" ? null : Number(value)));
   };
 
   const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
@@ -384,7 +391,7 @@ export function RoutineBuilderModal({
       nombre: planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
-      days,
+      days: normalizarSuperseries(days, null, true),
     });
 
     try {
@@ -501,7 +508,7 @@ export function RoutineBuilderModal({
               <button
                 key={d.id}
                 type="button"
-                onClick={() => setSelectedDayIdx(idx)}
+                onClick={() => irADia(idx)}
                 className={`px-3 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-all whitespace-nowrap ${
                   idx === selectedDayIdx
                     ? "border-primary text-primary bg-primary/5"
@@ -818,6 +825,22 @@ export function RoutineBuilderModal({
                             ? "✓ Superserie A"
                             : "+ Superserie"}
                         </button>
+                        {openCircuit === null && (() => {
+                          const otros = [...new Set(currentDay.ejercicios.map((e) => e.grupo_superserie).filter((g): g is number => g !== null && g !== ej.grupo_superserie))];
+                          return otros.length > 0 ? (
+                            <select
+                              aria-label="Mover a otra superserie"
+                              value=""
+                              onChange={(ev) => handleMoveToGroup(ej.id, ev.target.value)}
+                              className="mt-1 w-full min-h-[34px] text-xs rounded-xl border border-border bg-secondary text-secondary-foreground"
+                            >
+                              <option value="">Mover a…</option>
+                              {otros.map((g) => (
+                                <option key={g} value={g}>{`Superserie A${g}`}</option>
+                              ))}
+                            </select>
+                          ) : null;
+                        })()}
                         <div className="flex gap-1 mt-1">
                           {(["WARMUP", "DROPSET"] as const).map((tipo) => (
                             <button
