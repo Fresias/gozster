@@ -276,9 +276,9 @@ export function RoutineBuilderModal({
   const claseCampo = (clave: string) => (errorDe(clave) ? "border-destructive ring-1 ring-destructive" : "border-input");
   const mensajeCampo = (clave: string) =>
     errorDe(clave) ? (
-      <p id={`${clave}.error`} role="alert" className="text-[10px] font-medium text-destructive mt-0.5">
+      <span id={`${clave}.error`} role="alert" className="block text-[10px] font-medium text-destructive mt-0.5">
         {errorDe(clave)}
-      </p>
+      </span>
     ) : null;
 
   React.useEffect(() => {
@@ -324,7 +324,7 @@ export function RoutineBuilderModal({
     const nextOrder = days.length + 1;
     const newDay: BuilderDay = {
       id: `builder-day-${Date.now()}`,
-      nombre: "",
+      nombre: `Día ${nextOrder}`,
       orden: nextOrder,
       ejercicios: [],
     };
