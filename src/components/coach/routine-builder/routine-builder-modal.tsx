@@ -509,8 +509,13 @@ export function RoutineBuilderModal({
   };
   guardarRef.current = handleSaveToSupabase;
 
-  const filteredCatalog = catalogoEjercicios.filter((e) =>
-    e.nombre.toLowerCase().includes(catalogSearch.toLowerCase())
+  const normalizar = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const termino = normalizar(catalogSearch.trim());
+  const filteredCatalog = catalogoEjercicios.filter(
+    (e) =>
+      normalizar(e.nombre).includes(termino) ||
+      e.musculos_principales.some((m) => normalizar(m).includes(termino))
   );
 
   return (
