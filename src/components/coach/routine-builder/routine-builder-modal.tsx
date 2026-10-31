@@ -292,17 +292,6 @@ export function RoutineBuilderModal({
     return () => window.removeEventListener("online", alVolverRed);
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const alVolverRed = () => {
-      const modo = pendienteRef.current;
-      pendienteRef.current = null;
-      if (modo) void guardarRef.current(modo);
-    };
-    window.addEventListener("online", alVolverRed);
-    return () => window.removeEventListener("online", alVolverRed);
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   const currentDay = days[selectedDayIdx] || days[0];
