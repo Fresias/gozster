@@ -1935,6 +1935,7 @@ export interface Database {
         Args: {
           p_plan_id: string;
           p_alumno_id: string;
+          p_nombre?: string;
         };
         Returns: string;
       };
