@@ -51,6 +51,16 @@ import { triggerHapticVibration } from "@/lib/sound";
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
 
 
+/** "Biserie A1" (2 ejercicios) o "Circuito A1 · 3 ejercicios" (3 o más). */
+function etiquetaGrupoSuperserie(
+  ejercicios: { es_superserie?: boolean; grupo_superserie?: number | null }[],
+  ej: { grupo_superserie?: number | null }
+) {
+  const grupo = ej.grupo_superserie || 1;
+  const n = ejercicios.filter((e) => e.es_superserie && (e.grupo_superserie || 1) === grupo).length;
+  return n > 2 ? `Circuito A${grupo} · ${n} ejercicios` : `Biserie A${grupo}`;
+}
+
 export function LiveWorkout() {
   const {
     currentSession,
@@ -975,9 +985,9 @@ export function LiveWorkout() {
                             {isSuperset && (
                               <span
                                 data-testid={`superserie-tag-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
                               >
-                                <span>🔗</span> Superserie A{ej.grupo_superserie || 1}
+                                <span>🔗</span> {etiquetaGrupoSuperserie(currentSession.ejercicios, ej)}
                               </span>
                             )}
                             <span
@@ -1021,21 +1031,21 @@ export function LiveWorkout() {
                   {currentExercise.es_superserie && (
                     <div
                       data-testid="superserie-circuit-banner"
-                      className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-3.5 py-2.5 text-xs font-semibold text-purple-300 dark:text-purple-200 flex items-center justify-between gap-2 shadow-xs animate-in fade-in"
+                      className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-3.5 py-2.5 text-xs font-semibold text-purple-800 dark:text-purple-200 flex items-center justify-between gap-2 shadow-xs animate-in fade-in"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 font-bold">A</span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-800 dark:text-purple-200 font-bold">A</span>
                         <div>
-                          <div className="font-bold text-purple-200">
-                            Circuito Superserie A{currentExercise.grupo_superserie || 1}
+                          <div className="font-bold text-purple-900 dark:text-purple-100">
+                            {etiquetaGrupoSuperserie(currentSession.ejercicios, currentExercise)}
                           </div>
-                          <div className="text-[11px] text-purple-300/80">
+                          <div className="text-[11px] text-purple-800 dark:text-purple-200">
                             Ejecutar consecutivamente sin descanso previo
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0">
-                        Circuito Violeta
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/40 shrink-0">
+                        Superserie
                       </span>
                     </div>
                   )}
