@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import {
   BASE, STUB, abrirRutinaDeAna, agregar, athleteApp, borrar, builder, chequeoBug, conectarBd, e, etiquetaSs, evidencia,
-  guardarYComprobar, indice, irAlDia, mover, particion, prepararSesion, publicar, sembrar, tarjeta, tipear, verificarBd,
+  guardarYComprobar, indice, irAlDia, mover, particion, pausa, prepararSesion, publicar, sembrar, tarjeta, tarjetas, tipear, verificarBd,
   verificarDia, type Db, type Dia, type Ej,
 } from "./helpers/qa-constructor";
 
@@ -81,7 +81,7 @@ async function invariantesBd(page: Page, info: TestInfo, db: Db, planId: string,
   await chequeoBug(page, info, `bug-bd-superserie-partida-${etapa}`, partidos.length === 0, `superseries no consecutivas por orden: ${partidos.join("; ")}`);
 }
 
-/** La Athlete App muestra el Día 1 con las superseries agrupadas (mismo badge "Superserie A<n>" que en BD). */
+/** La Athlete App muestra el Día 1 con las superseries agrupadas: "Biserie A<n>" (2) o "Circuito A<n> · N ejercicios" (3+), GOZS-316. */
 async function athleteSuperseries(page: Page, db: Db, planId: string, hoy: Dia) {
   const dia = db.dias_rutina.find((d) => d.plan_id === planId && d.orden === 1)!;
   const filas = db.ejercicios_en_rutina.filter((x) => x.dia_id === dia.id).sort((a, b) => a.orden - b.orden);
@@ -92,7 +92,11 @@ async function athleteSuperseries(page: Page, db: Db, planId: string, hoy: Dia) 
   }));
   expect(particion(tags), `Athlete App: superseries agrupadas en ${hoy.nombre}`).toEqual(particion(hoy.ejercicios.map((x) => x.ss)));
   expect(tags, "Athlete App: el badge coincide con grupo_superserie de la BD")
-    .toEqual(filas.map((f) => (f.es_superserie ? `Superserie A${f.grupo_superserie}` : null)));
+    .toEqual(filas.map((f) => {
+      if (!f.es_superserie) return null;
+      const n = filas.filter((x) => x.es_superserie && x.grupo_superserie === f.grupo_superserie).length;
+      return n > 2 ? `Circuito A${f.grupo_superserie} · ${n} ejercicios` : `Biserie A${f.grupo_superserie}`;
+    }));
 }
 
 async function recorrido(page: Page, info: TestInfo) {
@@ -173,14 +177,26 @@ async function recorrido(page: Page, info: TestInfo) {
   await borrar(page, d1, "Elevaciones Laterales");
   expect(await etiqueta(page, d1, "Plancha Abdominal"), "el circuito sigue entero").toBe(await etiqueta(page, d1, "Fondos en Paralelas"));
   await soltar(page, d1, "Curl de Bíceps");
-  await botonSs(page, d1, "Curl de Bíceps").click();
-  const curl = await etiqueta(page, d1, "Curl de Bíceps");
+  // Con dos superseries en el día, el destino se elige en el <select> "Mover a otra superserie" (decisión PM, GOZS-314).
   const biserie = await etiqueta(page, d1, "Press de Banca Plano");
+  const moverA = tarjeta(page, indice(d1, "Curl de Bíceps")).getByRole("combobox", { name: "Mover a otra superserie" });
+  const conSelect = (await moverA.count()) > 0;
+  if (conSelect) {
+    await moverA.selectOption({ label: biserie! });
+    await pausa(page);
+    // El ejercicio puede cambiar de lugar al unirse: el modelo toma el orden que muestra la UI.
+    const orden = (await tarjetas(page).allTextContents()).map((t) => t.trim());
+    d1.ejercicios.sort((a, b) => orden.indexOf(a.nombre) - orden.indexOf(b.nombre));
+  } else await botonSs(page, d1, "Curl de Bíceps").click();
+  const curl = await etiqueta(page, d1, "Curl de Bíceps");
   await chequeoBug(page, info, "bug-mover-entre-superseries", curl === biserie,
-    `no hay forma de llevar Curl de Bíceps a la ${biserie}: "+ Superserie" abre otro grupo (${curl})`);
+    conSelect ? `"Mover a otra superserie" → ${biserie} deja Curl de Bíceps en ${curl ?? "suelto"}`
+      : `no hay forma de llevar Curl de Bíceps a la ${biserie}: "+ Superserie" abre otro grupo (${curl})`);
   await soltar(page, d1, "Curl de Bíceps");
-  // Curl quedó suelto en medio del circuito: lo saca afuera con ▼.
-  await mover(page, d1, "Curl de Bíceps", "Bajar");
+  // Si Curl quedó suelto en medio del circuito, lo saca afuera con ▼.
+  const iCurl = indice(d1, "Curl de Bíceps");
+  const [antes, despues] = [await etiquetaSs(page, iCurl - 1), await etiquetaSs(page, iCurl + 1)];
+  if (iCurl > 0 && antes !== null && antes === despues) await mover(page, d1, "Curl de Bíceps", "Bajar");
   // 6. Reordenar dentro del circuito (Plancha sube) y meter con ▼ un ejercicio suelto en medio del bloque.
   await mover(page, d1, "Plancha Abdominal", "Subir");
   await mover(page, d1, "Dominadas", "Bajar");
