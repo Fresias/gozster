@@ -204,9 +204,14 @@ export function RoutineBuilderModal({
   const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
   const baselineRef = React.useRef("");
+  // Hasta que el efecto de abajo fija la línea base, el estado puede ser el de la apertura anterior
+  const [baselineLista, setBaselineLista] = React.useState(false);
 
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setBaselineLista(false);
+      return;
+    }
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
@@ -231,6 +236,7 @@ export function RoutineBuilderModal({
         DEFAULT_BUILDER_DAYS,
       ]);
     }
+    setBaselineLista(true);
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
@@ -245,7 +251,7 @@ export function RoutineBuilderModal({
   const [asignarAlumno, setAsignarAlumno] = React.useState(false);
 
   const isDirty =
-    isOpen && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+    isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
 
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
