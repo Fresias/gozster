@@ -50,6 +50,13 @@ const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
 type SaveMode = "guardar" | "version" | "nueva";
 
 const GENERIC_SAVE_ERROR = "No se pudo guardar la rutina. Intenta de nuevo.";
+const OFFLINE_SAVE_ERROR = "Sin conexión: tus cambios siguen acá y se guardan cuando vuelva la red";
+
+// Error de red (no de negocio): sin conexión o fetch caído
+export function esErrorDeRed(err: any) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  return err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(String(err?.message ?? err));
+}
 
 export function buildGuardarRutinaPayload(input: {
   planId?: string;
@@ -89,7 +96,8 @@ export function buildGuardarRutinaPayload(input: {
 // GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
 export function clasificarErrorGuardado(err: any, modo: SaveMode) {
   const esNegocio = err?.code === "GZ010";
-  const mensaje = esNegocio ? String(err.message) : GENERIC_SAVE_ERROR;
+  const sinRed = !esNegocio && esErrorDeRed(err);
+  const mensaje = esNegocio ? String(err.message) : sinRed ? OFFLINE_SAVE_ERROR : GENERIC_SAVE_ERROR;
   return {
     mensaje,
     needsNewVersion: esNegocio && modo === "guardar" && /sesiones registradas/i.test(mensaje),
@@ -205,8 +213,19 @@ export function RoutineBuilderModal({
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
   const baselineRef = React.useRef("");
 
+  // Candado síncrono (el estado llega tarde al 2º/3er clic) que se mantiene hasta cerrar el modal
+  const lockRef = React.useRef(false);
+  // Guardado pendiente por falta de red: se reintenta una sola vez al volver `online`
+  const pendienteRef = React.useRef<SaveMode | null>(null);
+  const guardarRef = React.useRef<(modo: SaveMode) => Promise<void>>(async () => {});
+
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      lockRef.current = false;
+      pendienteRef.current = null;
+      return;
+    }
+    if (lockRef.current) return; // guardando o ya guardado: no pisar lo que hay en pantalla
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
@@ -243,6 +262,17 @@ export function RoutineBuilderModal({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [needsNewVersion, setNeedsNewVersion] = React.useState(false);
   const [asignarAlumno, setAsignarAlumno] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const alVolverRed = () => {
+      const modo = pendienteRef.current;
+      pendienteRef.current = null;
+      if (modo) void guardarRef.current(modo);
+    };
+    window.addEventListener("online", alVolverRed);
+    return () => window.removeEventListener("online", alVolverRed);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -383,6 +413,10 @@ export function RoutineBuilderModal({
 
   // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
   const handleSaveToSupabase = async (modo: SaveMode = "guardar") => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    pendienteRef.current = null;
+    let liberar = true;
     setIsSaving(true);
     setErrorMessage(null);
     const payload = buildGuardarRutinaPayload({
@@ -407,6 +441,7 @@ export function RoutineBuilderModal({
 
       setNeedsNewVersion(false);
       setSaveSuccess(true);
+      liberar = false; // tras éxito el candado sigue hasta cerrar: ningún clic re-guarda
       if (onRoutineSaved && planData) {
         onRoutineSaved(planData as PlanEntrenamiento);
       }
@@ -416,6 +451,7 @@ export function RoutineBuilderModal({
       }, 1500);
     } catch (err: any) {
       const { mensaje, detalle, needsNewVersion: nueva } = clasificarErrorGuardado(err, modo);
+      if (err?.code !== "GZ010" && esErrorDeRed(err)) pendienteRef.current = modo;
       setErrorMessage(mensaje);
       setNeedsNewVersion(nueva);
       try {
@@ -433,9 +469,11 @@ export function RoutineBuilderModal({
         // el registro de errores nunca debe tapar el error original
       }
     } finally {
+      if (liberar) lockRef.current = false;
       setIsSaving(false);
     }
   };
+  guardarRef.current = handleSaveToSupabase;
 
   const normalizar = (s: string) =>
     s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -1003,7 +1041,7 @@ export function RoutineBuilderModal({
             <Button
               variant="outline"
               onClick={() => handleSaveToSupabase("nueva")}
-              disabled={isSaving}
+              disabled={isSaving || saveSuccess}
               data-testid="save-routine-as-new-btn"
             >
               Guardar como rutina nueva
@@ -1012,7 +1050,7 @@ export function RoutineBuilderModal({
               <Button
                 variant="outline"
                 onClick={() => handleSaveToSupabase("version")}
-                disabled={isSaving}
+                disabled={isSaving || saveSuccess}
                 data-testid="save-routine-new-version-btn"
               >
                 Guardar como nueva versión
@@ -1021,10 +1059,10 @@ export function RoutineBuilderModal({
             <Button
               className="bg-primary text-primary-foreground font-bold shadow-md hover:opacity-90"
               onClick={() => handleSaveToSupabase()}
-              disabled={isSaving}
+              disabled={isSaving || saveSuccess}
               data-testid="save-routine-to-supabase-btn"
             >
-              {isSaving ? "Guardando..." : "✓ Guardar"}
+              {isSaving || saveSuccess ? "Guardando…" : "✓ Guardar"}
             </Button>
           </div>
         </div>
