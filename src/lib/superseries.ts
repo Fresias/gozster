@@ -13,36 +13,47 @@ interface DiaSuperserie<T extends ItemSuperserie> {
 const grupoDe = (e: ItemSuperserie) => (e.es_superserie ? e.grupo_superserie : null);
 
 /**
- * Corta cada día en tramos consecutivos del mismo grupo: los de 1 pasan a normales y un grupo
- * repetido en otro tramo o día recibe número nuevo. `abierto` es el circuito que el coach aún está
- * armando: su tramo de 1 se conserva (solo en el día donde está).
+ * Deja cada día con grupos válidos: los de 1 pasan a normales y un grupo repetido en otro día recibe
+ * número nuevo. `abierto` es el circuito que el coach aún está armando: se conserva aunque tenga 1.
+ * Mientras se edita, los miembros pueden estar separados (el ejercicio nuevo entra al final del día y
+ * se sube con ▲); con `consecutivos` (al guardar) cada grupo se junta pegado a su primer miembro.
  */
 export function normalizarSuperseries<T extends ItemSuperserie, D extends DiaSuperserie<T>>(
   dias: D[],
-  abierto: number | null = null
+  abierto: number | null = null,
+  consecutivos = false
 ): D[] {
   const usados = new Set<number>();
   let max = Math.max(0, ...dias.flatMap((d) => d.ejercicios.map((e) => grupoDe(e) ?? 0)));
 
   return dias.map((dia) => {
-    const lista = dia.ejercicios;
-    const ejercicios = [...lista];
-    for (let i = 0; i < lista.length; ) {
-      const g = grupoDe(lista[i]!);
-      let fin = i + 1;
-      while (g !== null && fin < lista.length && grupoDe(lista[fin]!) === g) fin++;
-      const valido = g !== null && (fin - i >= 2 || g === abierto);
-      for (let k = i; k < fin; k++) {
-        if (!valido) {
-          ejercicios[k] = { ...lista[k]!, es_superserie: false, grupo_superserie: null };
-        } else if (g !== abierto && usados.has(g!)) {
-          // grupo ya usado en otro tramo/día: número nuevo para que cada bloque sea único
-          const nuevo = k === i ? ++max : ejercicios[k - 1]!.grupo_superserie;
-          ejercicios[k] = { ...lista[k]!, grupo_superserie: nuevo };
-        }
+    const cuenta = new Map<number, number>();
+    for (const e of dia.ejercicios) {
+      const g = grupoDe(e);
+      if (g !== null) cuenta.set(g, (cuenta.get(g) ?? 0) + 1);
+    }
+    const nuevo = new Map<number, number>();
+    for (const [g, n] of cuenta) {
+      if (n < 2 && g !== abierto) continue;
+      const final = g !== abierto && usados.has(g) ? ++max : g;
+      nuevo.set(g, final);
+      usados.add(final);
+    }
+    let ejercicios = dia.ejercicios.map((e) => {
+      const g = grupoDe(e);
+      if (g === null) return e.es_superserie || e.grupo_superserie !== null ? { ...e, es_superserie: false, grupo_superserie: null } : e;
+      const final = nuevo.get(g);
+      if (final === undefined) return { ...e, es_superserie: false, grupo_superserie: null };
+      return final === g ? e : { ...e, grupo_superserie: final };
+    });
+    if (consecutivos) {
+      const orden: T[] = [];
+      for (const e of ejercicios) {
+        const g = grupoDe(e);
+        if (g === null) orden.push(e);
+        else if (!orden.some((o) => grupoDe(o) === g)) orden.push(...ejercicios.filter((x) => grupoDe(x) === g));
       }
-      if (valido) usados.add(ejercicios[i]!.grupo_superserie!);
-      i = fin;
+      ejercicios = orden;
     }
     return { ...dia, ejercicios };
   });
