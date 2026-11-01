@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
@@ -14,6 +14,8 @@ import {
 
 describe("Coach Studio Analytics & Progressive Overload Suite (Issue #18 / GOZS-12)", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
     // Reset stores to initial state
     useOfflineQueueStore.setState({
       isOnline: true,
@@ -31,6 +33,10 @@ describe("Coach Studio Analytics & Progressive Overload Suite (Issue #18 / GOZS-
       toast: null,
       currentPage: 1,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("1. RPC obtener_metricas_retencion - Tarjetas KPI", () => {
