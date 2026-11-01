@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
-import { clasificarRutinas, formatFecha, separarBorradores } from "@/lib/rutinas-biblioteca";
+import { clasificarRutinas, formatFecha, nombreUnico, separarBorradores } from "@/lib/rutinas-biblioteca";
 import { fetchLiveDatasetFromSupabase, type LiveSupabaseDataset } from "@/services/alumnos-service";
 import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
@@ -50,7 +50,12 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     setError(null);
     setAviso(null);
     try {
-      const nuevoId = await asignarRutinaAAlumno(asignando.id, alumnoElegido);
+      const nuevoId = await asignarRutinaAAlumno(
+        asignando.id,
+        alumnoElegido,
+        undefined,
+        nombreUnico(asignando.nombre, dataset.planes.filter((p) => p.alumno_id === alumnoElegido).map((p) => p.nombre)),
+      );
       const fresco = await recargar();
       const clon = fresco.planes.find((p) => p.id === nuevoId) ?? null;
       const alumnoId = alumnoElegido;
@@ -223,6 +228,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         alumnoNombre={builder?.alumnoId ? nombreAlumno(builder.alumnoId) : "Plantilla Maestra"}
         planInicial={builder?.plan ?? null}
         nombresExistentes={nombresExistentes}
+        soloLectura={!!builder?.plan && builder.plan.estado === "INACTIVO" && dataset.planes.some((p) => p.plan_origen_id === builder.plan?.id)}
         diasIniciales={dataset.dias}
         ejerciciosEnRutinaIniciales={dataset.ejerciciosEnRutina}
         onRoutineSaved={() => void recargar()}

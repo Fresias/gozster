@@ -14,10 +14,12 @@ export async function asignarRutinaAAlumno(
   planId: string,
   alumnoId: string,
   client: SupabaseClient<Database> = supabase,
+  nombre?: string,
 ): Promise<string> {
   const { data, error } = await client.rpc("asignar_rutina_a_alumno", {
     p_plan_id: planId,
     p_alumno_id: alumnoId,
+    ...(nombre ? { p_nombre: nombre } : {}),
   });
   if (!error && data) return data as string;
 

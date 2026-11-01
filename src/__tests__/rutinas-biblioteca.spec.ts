@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { clasificarRutinas, nombreUnico, separarBorradores } from "@/lib/rutinas-biblioteca";
-import { asignarRutinaAAlumno } from "@/services/rutinas-service";
+import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
 
 const plan = (over: Partial<PlanEntrenamiento>): PlanEntrenamiento => ({
@@ -74,5 +74,110 @@ describe("GOZS-319: nombres y estados en la biblioteca", () => {
     ]);
     expect(r.vigentes.map((p) => p.id)).toEqual(["act"]);
     expect(r.borradores.map((p) => p.id)).toEqual(["bor"]);
+  });
+});
+
+describe("GOZS-319: activarRutina / archivarRutina", () => {
+  type Fila = { id: string; alumno_id: string | null; estado: string; fecha_fin: string | null };
+  const fila = (id: string, alumno_id: string | null, estado: string): Fila => ({ id, alumno_id, estado, fecha_fin: null });
+
+  /** Cliente en memoria: cada update() aplica filtros eq/neq/in y puede fallar en el n-ésimo llamado. */
+  const fake = (filas: Fila[], fallaEnUpdate = 0) => {
+    let llamadas = 0;
+    const client = {
+      from: () => ({
+        update: (valores: Partial<Fila>) => {
+          llamadas++;
+          const falla = llamadas === fallaEnUpdate;
+          const filtros: Array<(f: Fila) => boolean> = [];
+          const q: any = {
+            eq: (c: keyof Fila, v: unknown) => (filtros.push((f) => f[c] === v), q),
+            neq: (c: keyof Fila, v: unknown) => (filtros.push((f) => f[c] !== v), q),
+            in: (c: keyof Fila, vs: unknown[]) => (filtros.push((f) => vs.includes(f[c])), q),
+            select: () => q,
+            then: (ok: (r: unknown) => unknown) => {
+              if (falla) return Promise.resolve({ data: null, error: { message: "x" } }).then(ok);
+              const tocadas = filas.filter((f) => filtros.every((fn) => fn(f)));
+              tocadas.forEach((f) => Object.assign(f, valores));
+              return Promise.resolve({ data: tocadas.map((f) => ({ id: f.id })), error: null }).then(ok);
+            },
+          };
+          return q;
+        },
+      }),
+    } as never;
+    return { client, filas };
+  };
+  const estados = (filas: Fila[]) => Object.fromEntries(filas.map((f) => [f.id, f.estado]));
+
+  it("activa un BORRADOR y archiva la ACTIVA anterior con fecha_fin", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), fila("b", "al", "BORRADOR")]);
+    await activarRutina(filas[1]!, client);
+    expect(estados(filas)).toEqual({ a: "INACTIVO", b: "ACTIVO" });
+    expect(filas[0]!.fecha_fin).not.toBeNull();
+    expect(filas[1]!.fecha_fin).toBeNull();
+  });
+
+  it("reactiva una archivada", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), { ...fila("v", "al", "INACTIVO"), fecha_fin: "2026-10-01" }]);
+    await activarRutina(filas[1]!, client);
+    expect(estados(filas)).toEqual({ a: "INACTIVO", v: "ACTIVO" });
+    expect(filas[1]!.fecha_fin).toBeNull();
+  });
+
+  it("activar la que ya está activa no cambia nada", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO")]);
+    await activarRutina(filas[0]!, client);
+    expect(estados(filas)).toEqual({ a: "ACTIVO" });
+    expect(filas[0]!.fecha_fin).toBeNull();
+  });
+
+  it("dos ACTIVO del mismo alumno quedan en uno", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), fila("b", "al", "ACTIVO"), fila("c", "al", "BORRADOR")]);
+    await activarRutina(filas[2]!, client);
+    expect(filas.filter((f) => f.estado === "ACTIVO").map((f) => f.id)).toEqual(["c"]);
+  });
+
+  it("si falla el 2.º UPDATE restaura la ACTIVA anterior", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), fila("b", "al", "BORRADOR")], 2);
+    await expect(activarRutina(filas[1]!, client)).rejects.toThrow("No pudimos activar la rutina");
+    expect(estados(filas)).toEqual({ a: "ACTIVO", b: "BORRADOR" });
+    expect(filas[0]!.fecha_fin).toBeNull();
+  });
+
+  it("si falla el 1.º UPDATE no toca nada", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), fila("b", "al", "BORRADOR")], 1);
+    await expect(activarRutina(filas[1]!, client)).rejects.toThrow("No pudimos activar la rutina");
+    expect(estados(filas)).toEqual({ a: "ACTIVO", b: "BORRADOR" });
+  });
+
+  it("rechaza una plantilla sin alumno", async () => {
+    const { client, filas } = fake([fila("t", null, "BORRADOR")]);
+    await expect(activarRutina(filas[0]!, client)).rejects.toThrow("Solo se puede activar");
+    expect(estados(filas)).toEqual({ t: "BORRADOR" });
+  });
+
+  it("no afecta a otros alumnos", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO"), fila("b", "al", "BORRADOR"), fila("o", "otro", "ACTIVO")]);
+    await activarRutina(filas[1]!, client);
+    expect(estados(filas)).toEqual({ a: "INACTIVO", b: "ACTIVO", o: "ACTIVO" });
+  });
+
+  it("archivarRutina cierra con fecha_fin y falla con mensaje humano", async () => {
+    const { client, filas } = fake([fila("a", "al", "ACTIVO")]);
+    await archivarRutina("a", client);
+    expect(filas[0]!.estado).toBe("INACTIVO");
+    expect(filas[0]!.fecha_fin).not.toBeNull();
+    const malo = fake([fila("a", "al", "ACTIVO")], 1);
+    await expect(archivarRutina("a", malo.client)).rejects.toThrow("No pudimos archivar la rutina");
+  });
+
+  it("asignarRutinaAAlumno envía p_nombre solo si se indica", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: "n", error: null });
+    const client = { rpc } as never;
+    await asignarRutinaAAlumno("p", "a", client);
+    expect(rpc).toHaveBeenLastCalledWith("asignar_rutina_a_alumno", { p_plan_id: "p", p_alumno_id: "a" });
+    await asignarRutinaAAlumno("p", "a", client, "X (copia)");
+    expect(rpc).toHaveBeenLastCalledWith("asignar_rutina_a_alumno", { p_plan_id: "p", p_alumno_id: "a", p_nombre: "X (copia)" });
   });
 });

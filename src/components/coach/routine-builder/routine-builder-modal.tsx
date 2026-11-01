@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { nombreUnico } from "@/lib/rutinas-biblioteca";
-import { clampSeries, MAX_SERIES_PER_EXERCISE } from "@/lib/routine-helpers";
+import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
 import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
@@ -13,10 +13,10 @@ interface BuilderExercise {
   id: string;
   ejercicio_id: string;
   nombre: string;
-  series: number;
+  series: number | null;
   repeticiones: string;
-  descanso_segundos: number;
-  rpe_objetivo: number;
+  descanso_segundos: number | null;
+  rpe_objetivo: number | null;
   tempo: string;
   tempo_activo: boolean;
   force_rpe_required: boolean;
@@ -46,6 +46,8 @@ interface RoutineBuilderModalProps {
   ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
+  /** Plan archivado con versión sucesora: se consulta, no se guarda. */
+  soloLectura?: boolean;
 }
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
@@ -63,18 +65,22 @@ export function esErrorDeRed(err: any) {
 
 export function buildGuardarRutinaPayload(input: {
   planId?: string;
+  version?: string;
   comoNueva: boolean;
   nombre: string;
   comentarios: string;
   alumnoId?: string;
+  estado?: "BORRADOR" | "ACTIVO";
   days: BuilderDay[];
 }) {
   return {
     ...(input.planId ? { plan_id: input.planId } : {}),
+    ...(input.planId && input.version ? { version: input.version } : {}),
     ...(input.comoNueva ? { como_nueva: true } : {}),
     nombre: input.nombre,
     comentarios: input.comentarios,
     ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
+    ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
       nombre: d.nombre,
       ejercicios: d.ejercicios.map((e) => ({
@@ -96,9 +102,9 @@ export function buildGuardarRutinaPayload(input: {
   };
 }
 
-// GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
+// GZ010/GZ011 (conflicto de versión) = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
 export function clasificarErrorGuardado(err: any, modo: SaveMode) {
-  const esNegocio = err?.code === "GZ010";
+  const esNegocio = err?.code === "GZ010" || err?.code === "GZ011";
   const sinRed = !esNegocio && esErrorDeRed(err);
   const mensaje = esNegocio ? String(err.message) : sinRed ? OFFLINE_SAVE_ERROR : GENERIC_SAVE_ERROR;
   return {
@@ -148,7 +154,7 @@ function mapPlanToBuilderDays(
           series: er.series,
           repeticiones: er.repeticiones,
           descanso_segundos: er.descanso_segundos,
-          rpe_objetivo: er.rpe_objetivo ?? 8,
+          rpe_objetivo: er.rpe_objetivo ?? null,
           tempo: er.tempo ?? "2-0-1-0",
           tempo_activo: Boolean((er as any).tempo_activo),
           force_rpe_required: Boolean((er as any).force_rpe_required),
@@ -169,32 +175,37 @@ function mapPlanToBuilderDays(
   });
 }
 
-// Input numérico con borrador de texto: permite dejarlo vacío mientras se edita
-// y muestra exactamente lo tipeado (sin ceros a la izquierda forzados).
+// Input numérico que muestra exactamente lo tipeado (no corrige: la validación lo marca)
+// y reporta null cuando está vacío.
 function DraftNumberInput({
   value,
-  parse,
   onValue,
   ...props
 }: {
-  value: number;
-  parse: (raw: string) => number;
-  onValue: (n: number) => void;
+  value: number | null;
+  onValue: (n: number | null) => void;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
-  const [draft, setDraft] = React.useState(String(value));
+  const [draft, setDraft] = React.useState(value === null ? "" : String(value));
+  // Chromium a veces entrega "" sin badInput al reemplazar el contenido por letras: se recuerda la tecla
+  const letraRef = React.useRef(false);
   React.useEffect(() => {
-    setDraft((d) => (parse(d) === value ? d : String(value)));
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (value !== null && Number.isNaN(value)) return; // texto no numérico tipeado: se queda como está
+    setDraft((d) => ((d === "" ? null : Number(d)) === value ? d : value === null ? "" : String(value)));
+  }, [value]);
   return (
     <input
       {...props}
       type="number"
       value={draft}
+      onKeyDown={(e) => {
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) letraRef.current = !/[\d.,+-]/.test(e.key);
+      }}
       onChange={(e) => {
         const raw = e.target.value;
-        const n = parse(raw);
-        setDraft(raw !== "" && n !== Number(raw) ? String(n) : raw);
-        onValue(n);
+        setDraft(raw);
+        // "abc" en un input numérico llega como "" (con o sin badInput): es inválido, no vacío
+        onValue(raw === "" ? (e.target.validity.badInput || letraRef.current ? NaN : null) : Number(raw));
+        if (raw !== "") letraRef.current = false;
       }}
     />
   );
@@ -207,35 +218,49 @@ export function RoutineBuilderModal({
   alumnoNombre = "Plantilla Maestra",
   planInicial,
   nombresExistentes,
+  soloLectura = false,
   diasIniciales,
   ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
   onRoutineSaved,
 }: RoutineBuilderModalProps) {
-  const [planName, setPlanName] = React.useState("Bloque de Hipertrofia & Fuerza");
-  const [comentarios, setComentarios] = React.useState("Enfocarse en sobrecarga progresiva y control excéntrico.");
+  const [planName, setPlanName] = React.useState("");
+  const [comentarios, setComentarios] = React.useState("");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
   const baselineRef = React.useRef("");
+  // Hasta que el efecto de abajo fija la línea base, el estado puede ser el de la apertura anterior
+  const [baselineLista, setBaselineLista] = React.useState(false);
 
   // Candado síncrono (el estado llega tarde al 2º/3er clic) que se mantiene hasta cerrar el modal
   const lockRef = React.useRef(false);
   // Guardado pendiente por falta de red: se reintenta una sola vez al volver `online`
   const pendienteRef = React.useRef<SaveMode | null>(null);
   const guardarRef = React.useRef<(modo: SaveMode) => Promise<void>>(async () => {});
+  const [estado, setEstado] = React.useState<"BORRADOR" | "ACTIVO">("BORRADOR");
+  // El selector de estado solo aplica a plantillas (sin alumno): en planes de alumno la RPC lo ignora
+  const esPlantilla = planInicial ? !planInicial.alumno_id : !alumnoId;
+
+  // updated_at que leyó este cliente; se refresca tras cada guardado (GOZS-318)
+  const versionRef = React.useRef<string | undefined>(planInicial?.updated_at);
 
   React.useEffect(() => {
     if (!isOpen) {
+      setBaselineLista(false);
       lockRef.current = false;
       pendienteRef.current = null;
       return;
     }
     if (lockRef.current) return; // guardando o ya guardado: no pisar lo que hay en pantalla
+    versionRef.current = planInicial?.updated_at;
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
+    setTocados(new Set());
+    setVerErrores(false);
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
+      setEstado(planInicial.estado === "ACTIVO" ? "ACTIVO" : "BORRADOR");
       const mapped = mapPlanToBuilderDays(
         planInicial.id,
         diasIniciales ?? [],
@@ -245,15 +270,17 @@ export function RoutineBuilderModal({
       setDays(mapped);
       baselineRef.current = JSON.stringify([planInicial.nombre, planInicial.comentarios ?? "", mapped]);
     } else {
-      setPlanName("Bloque de Hipertrofia & Fuerza");
-      setComentarios("Enfocarse en sobrecarga progresiva y control excéntrico.");
+      setPlanName("");
+      setComentarios("");
+      setEstado("BORRADOR");
       setDays(DEFAULT_BUILDER_DAYS);
       baselineRef.current = JSON.stringify([
-        "Bloque de Hipertrofia & Fuerza",
-        "Enfocarse en sobrecarga progresiva y control excéntrico.",
+        "",
+        "",
         DEFAULT_BUILDER_DAYS,
       ]);
     }
+    setBaselineLista(true);
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
@@ -266,6 +293,25 @@ export function RoutineBuilderModal({
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [needsNewVersion, setNeedsNewVersion] = React.useState(false);
   const [asignarAlumno, setAsignarAlumno] = React.useState(false);
+  // Errores visibles: por campo al salir de él (blur) y todos tras intentar guardar
+  const [tocados, setTocados] = React.useState<Set<string>>(new Set());
+  const [verErrores, setVerErrores] = React.useState(false);
+  const { errores, avisos } = validarRutina({ nombre: planName, days });
+  const errorDe = (clave: string) => (verErrores || tocados.has(clave) ? errores[clave] : undefined);
+  const tocar = (clave: string) => setTocados((prev) => (prev.has(clave) ? prev : new Set(prev).add(clave)));
+  const propsCampo = (clave: string) => ({
+    required: true,
+    "aria-invalid": errorDe(clave) ? true : undefined,
+    "aria-describedby": errorDe(clave) ? `${clave}.error` : undefined,
+    onBlur: () => tocar(clave),
+  });
+  const claseCampo = (clave: string) => (errorDe(clave) ? "border-destructive ring-1 ring-destructive" : "border-input");
+  const mensajeCampo = (clave: string) =>
+    errorDe(clave) ? (
+      <span id={`${clave}.error`} role="alert" className="block text-[10px] font-medium text-destructive mt-0.5">
+        {errorDe(clave)}
+      </span>
+    ) : null;
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -278,9 +324,48 @@ export function RoutineBuilderModal({
     return () => window.removeEventListener("online", alVolverRed);
   }, [isOpen]);
 
+  const isDirty =
+    isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Con cambios sin guardar: aviso nativo al recargar/cerrar la pestaña y, al volver atrás, la misma
+  // confirmación que "Cancelar". El modal no vive en la URL, así que se empuja una entrada centinela
+  // (conservando el state de Next) para poder interceptar el "atrás" sin salir de la página.
+  React.useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const empujarCentinela = () =>
+      window.history.pushState({ ...window.history.state, constructorSinGuardar: true }, "");
+    let centinela = true;
+    empujarCentinela();
+    const onPopState = () => {
+      centinela = false;
+      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
+        onCloseRef.current();
+        window.history.back(); // el "atrás" que el coach pidió: la centinela ya se consumió
+      } else {
+        empujarCentinela();
+        centinela = true;
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      if (centinela) window.history.back(); // se cerró por otra vía (guardar/cancelar): no dejar la entrada
+    };
+  }, [isDirty]);
+
   if (!isOpen) return null;
 
   const currentDay = days[selectedDayIdx] || days[0];
+  const diaId = currentDay?.id ?? "";
 
   // Toda acción sobre el día actual termina normalizando: ningún grupo queda de 1 ni partido
   const actualizarDiaActual = (fn: (lista: BuilderExercise[]) => BuilderExercise[]) => {
@@ -318,16 +403,42 @@ export function RoutineBuilderModal({
     setSelectedDayIdx(days.length);
   };
 
+  const handleMoveDay = (index: number, direction: "UP" | "DOWN") => {
+    const targetIdx = direction === "UP" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= days.length) return;
+    const list = [...days];
+    const [moved] = list.splice(index, 1);
+    if (!moved) return;
+    list.splice(targetIdx, 0, moved);
+    setDays(list.map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(targetIdx);
+  };
+
+  const handleRemoveDay = (index: number = selectedDayIdx) => {
+    const dia = days[index];
+    if (!dia || days.length <= 1) return;
+    if (
+      dia.ejercicios.length > 0 &&
+      !window.confirm(
+        `¿Borrar "${dia.nombre}" y sus ${dia.ejercicios.length} ejercicio(s)? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setOpenCircuit(null);
+    setDays(days.filter((_, i) => i !== index).map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(Math.min(selectedDayIdx > index ? selectedDayIdx - 1 : selectedDayIdx, days.length - 2));
+  };
+
   const handleAddExerciseToCurrentDay = (ej: Ejercicio) => {
     if (!currentDay) return;
     const newExercise: BuilderExercise = {
       id: `be-${Date.now()}`,
       ejercicio_id: ej.id,
       nombre: ej.nombre,
-      series: 0,
-      repeticiones: "0",
+      series: null,
+      repeticiones: "",
       descanso_segundos: 90,
-      rpe_objetivo: 0,
+      rpe_objetivo: null,
       tempo: "0",
       tempo_activo: false,
       force_rpe_required: false,
@@ -425,14 +536,26 @@ export function RoutineBuilderModal({
     setErrorMessage(null);
     const payload = buildGuardarRutinaPayload({
       planId: planInicial?.id,
+      version: versionRef.current,
       comoNueva: modo !== "guardar",
       nombre: modo === "nueva" && nombresExistentes ? nombreUnico(planName, nombresExistentes) : planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
+      // guardar_rutina solo aplica payload.estado a plantillas; INACTIVO se conserva y una versión nueva no cambia el estado
+      estado: modo === "version" || !esPlantilla || planInicial?.estado === "INACTIVO" ? undefined : estado,
       days: normalizarSuperseries(days, null, true),
     });
 
     try {
+      // Un campo inválido se rechaza acá, sin llamar a la RPC, y deja su fila en errores_app (catch)
+      const claves = Object.keys(errores);
+      if (claves.length > 0) {
+        setVerErrores(true);
+        // Llevar al coach al primer día con un error
+        const diaIdx = days.findIndex((d) => errores[claveDia(d.id)] || d.ejercicios.some((e) => claves.some((c) => c.startsWith(`ej.${e.id}.`))));
+        if (diaIdx >= 0 && diaIdx !== selectedDayIdx) irADia(diaIdx);
+        throw { code: "GZ010", message: `Revisá los campos marcados en rojo (${claves.length}).`, details: claves.join(", ") };
+      }
       const { data: planId, error } = await supabase.rpc("guardar_rutina", { p_payload: payload });
       if (error) throw error;
 
@@ -443,6 +566,7 @@ export function RoutineBuilderModal({
         .single();
       if (planErr) throw planErr;
 
+      if (planData?.updated_at) versionRef.current = planData.updated_at;
       setNeedsNewVersion(false);
       setSaveSuccess(true);
       liberar = false; // tras éxito el candado sigue hasta cerrar: ningún clic re-guarda
@@ -527,8 +651,12 @@ export function RoutineBuilderModal({
               type="text"
               value={planName}
               onChange={(e) => setPlanName(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Ej. Bloque de Hipertrofia y Fuerza"
+              data-testid="plan-name-input"
+              {...propsCampo(claveRutina)}
+              className={`w-full rounded-lg border ${claseCampo(claveRutina)} bg-background px-3 py-1.5 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
             />
+            {mensajeCampo(claveRutina)}
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground">
@@ -538,6 +666,7 @@ export function RoutineBuilderModal({
               type="text"
               value={comentarios}
               onChange={(e) => setComentarios(e.target.value)}
+              placeholder="Ej. Enfocarse en sobrecarga progresiva y control excéntrico"
               className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -557,9 +686,42 @@ export function RoutineBuilderModal({
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {d.nombre} ({d.ejercicios.length})
+                {d.nombre.trim() || "Sin nombre"} ({d.ejercicios.length})
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-1 pb-1 pl-2 shrink-0">
+            <button
+              type="button"
+              disabled={selectedDayIdx === 0}
+              onClick={() => handleMoveDay(selectedDayIdx, "UP")}
+              aria-label="Mover día a la izquierda"
+              data-testid="move-day-up"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              disabled={selectedDayIdx >= days.length - 1}
+              onClick={() => handleMoveDay(selectedDayIdx, "DOWN")}
+              aria-label="Mover día a la derecha"
+              data-testid="move-day-down"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              disabled={days.length <= 1}
+              title={days.length <= 1 ? "Una rutina necesita al menos un día" : undefined}
+              onClick={() => handleRemoveDay(selectedDayIdx)}
+              aria-label="Borrar día"
+              data-testid="remove-day"
+              className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs disabled:opacity-30 hover:bg-destructive/30 flex items-center justify-center border border-destructive/30 font-bold"
+            >
+              ✕
+            </button>
           </div>
           <Button
             size="sm"
@@ -611,7 +773,8 @@ export function RoutineBuilderModal({
                     placeholder="Ej. Día 1 - Torso"
                     data-testid="day-name-input"
                     aria-label="Nombre del día"
-                    className="text-sm font-bold text-foreground bg-transparent border-b border-input hover:border-foreground/50 focus:border-primary focus:outline-none px-1 py-0.5 w-full transition-colors"
+                    {...propsCampo(claveDia(diaId))}
+                    className={`text-sm font-bold text-foreground bg-transparent border-b ${claseCampo(claveDia(diaId))} hover:border-foreground/50 focus:border-primary focus:outline-none px-1 py-0.5 w-full transition-colors`}
                   />
                 </div>
                 <Button
@@ -627,6 +790,12 @@ export function RoutineBuilderModal({
               {currentDay?.ejercicios.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
                   No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
+                  <p className="mt-2 font-medium text-amber-500 dark:text-amber-400" data-testid="dia-vacio-aviso">
+                    {avisos[claveDia(diaId)]}.{" "}
+                    <button type="button" onClick={() => handleRemoveDay()} className="underline min-h-11 px-2" data-testid="quitar-dia-btn">
+                      Quitar este día
+                    </button>
+                  </p>
                 </div>
           ) : (
             <div className="space-y-3">
@@ -699,7 +868,7 @@ export function RoutineBuilderModal({
                           disabled={index === 0}
                           onClick={() => handleMoveExercise(index, "UP")}
                           aria-label={`Subir orden de ${ej.nombre}`}
-                          className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
+                          className="h-11 w-11 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
                         >
                           ▲
                         </button>
@@ -708,7 +877,7 @@ export function RoutineBuilderModal({
                           disabled={index === currentDay.ejercicios.length - 1}
                           onClick={() => handleMoveExercise(index, "DOWN")}
                           aria-label={`Bajar orden de ${ej.nombre}`}
-                          className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
+                          className="h-11 w-11 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center transition-colors cursor-pointer border border-border/40 font-bold"
                         >
                           ▼
                         </button>
@@ -716,7 +885,7 @@ export function RoutineBuilderModal({
                           type="button"
                           onClick={() => handleRemoveExercise(ej.id)}
                           aria-label={`Eliminar ${ej.nombre}`}
-                          className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs hover:bg-destructive/30 font-bold ml-1 flex items-center justify-center transition-colors cursor-pointer border border-destructive/30"
+                          className="h-11 w-11 rounded-xl bg-destructive/15 text-destructive text-xs hover:bg-destructive/30 font-bold ml-1 flex items-center justify-center transition-colors cursor-pointer border border-destructive/30"
                         >
                           ✕
                         </button>
@@ -738,29 +907,16 @@ export function RoutineBuilderModal({
                           Series:
                         </label>
                         <DraftNumberInput
-                          min="0"
-                          max={MAX_SERIES_PER_EXERCISE}
+                          min="1"
+                          max="20"
+                          step="1"
                           value={ej.series}
-                          parse={(raw) => {
-                            const num = parseInt(raw, 10);
-                            return isNaN(num) || num <= 0 ? 0 : clampSeries(num);
-                          }}
                           onValue={(n) => handleUpdateExercise(ej.id, "series", n)}
                           data-testid="exercise-series-input"
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          {...propsCampo(claveEjercicio(ej.id, "series"))}
+                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "series"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
-                        <span
-                          className={`text-[9px] block text-center mt-0.5 font-medium ${
-                            ej.series >= MAX_SERIES_PER_EXERCISE
-                              ? "text-amber-500 dark:text-amber-400"
-                              : "text-muted-foreground"
-                          }`}
-                          aria-live="polite"
-                        >
-                          {ej.series >= MAX_SERIES_PER_EXERCISE
-                            ? "Límite máximo: 10 series"
-                            : "Máximo: 10 series"}
-                        </span>
+                        {mensajeCampo(claveEjercicio(ej.id, "series"))}
                       </div>
 
                       <div>
@@ -773,9 +929,14 @@ export function RoutineBuilderModal({
                           onChange={(e) =>
                             handleUpdateExercise(ej.id, "repeticiones", e.target.value)
                           }
+                          placeholder="10 · 10-8-6 · 3x12"
+                          maxLength={20}
+                          pattern="^\d{1,3}(-\d{1,3})*$|^\d{1,2}x\d{1,3}$"
                           data-testid="exercise-reps-input"
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          {...propsCampo(claveEjercicio(ej.id, "reps"))}
+                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "reps"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
+                        {mensajeCampo(claveEjercicio(ej.id, "reps"))}
                       </div>
 
                       <div>
@@ -783,17 +944,16 @@ export function RoutineBuilderModal({
                           Descanso (s):
                         </label>
                         <DraftNumberInput
-                          step="15"
+                          step="1"
                           min="0"
+                          max="900"
                           value={ej.descanso_segundos}
-                          parse={(raw) => {
-                            const val = parseInt(raw, 10);
-                            return isNaN(val) ? 0 : val;
-                          }}
                           onValue={(n) => handleUpdateExercise(ej.id, "descanso_segundos", n)}
                           data-testid="exercise-rest-input"
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          {...propsCampo(claveEjercicio(ej.id, "descanso"))}
+                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "descanso"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
+                        {mensajeCampo(claveEjercicio(ej.id, "descanso"))}
                       </div>
 
                       <div>
@@ -802,17 +962,16 @@ export function RoutineBuilderModal({
                         </label>
                         <DraftNumberInput
                           step="0.5"
-                          min="0"
+                          min="1"
                           max="10"
                           value={ej.rpe_objetivo}
-                          parse={(raw) => {
-                            const val = parseFloat(raw);
-                            return isNaN(val) ? 0 : val;
-                          }}
                           onValue={(n) => handleUpdateExercise(ej.id, "rpe_objetivo", n)}
                           data-testid="exercise-rpe-input"
-                          className="w-full min-h-[38px] rounded-xl border border-input bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          {...propsCampo(claveEjercicio(ej.id, "rpe"))}
+                          required={false}
+                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "rpe"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
+                        {mensajeCampo(claveEjercicio(ej.id, "rpe"))}
                       </div>
 
                       <div>
@@ -1031,6 +1190,21 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={handleClose} disabled={isSaving}>
               Cancelar
             </Button>
+            {!soloLectura && (
+              <>
+            {esPlantilla && (<label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Estado
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value as "BORRADOR" | "ACTIVO")}
+                disabled={isSaving || planInicial?.estado === "INACTIVO"}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                data-testid="routine-estado-select"
+              >
+                <option value="BORRADOR">Borrador</option>
+                <option value="ACTIVO">Activo</option>
+              </select>
+            </label>)}
             {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
@@ -1068,6 +1242,8 @@ export function RoutineBuilderModal({
             >
               {isSaving || saveSuccess ? "Guardando…" : "✓ Guardar"}
             </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

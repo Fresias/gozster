@@ -55,6 +55,25 @@ describe("constructor → guardar_rutina", () => {
     expect(p).toMatchObject({ plan_id: "p1", como_nueva: true, alumno_id: "a1" });
   });
 
+  it("version se manda solo cuando hay planId (GOZS-318)", () => {
+    const base = { comoNueva: false, nombre: "R", comentarios: "", days: [day] };
+    expect(buildGuardarRutinaPayload({ ...base, planId: "p1", version: "2026-01-01T00:00:00Z" })).toMatchObject({ version: "2026-01-01T00:00:00Z" });
+    expect(buildGuardarRutinaPayload({ ...base, version: "2026-01-01T00:00:00Z" })).not.toHaveProperty("version");
+    expect(buildGuardarRutinaPayload({ ...base, planId: "p1" })).not.toHaveProperty("version");
+  });
+
+  it("estado se manda solo si viene definido (GOZS-308)", () => {
+    const base = { comoNueva: false, nombre: "R", comentarios: "", days: [day] };
+    expect(buildGuardarRutinaPayload({ ...base, estado: "ACTIVO" })).toMatchObject({ estado: "ACTIVO" });
+    expect(buildGuardarRutinaPayload({ ...base, estado: "BORRADOR" })).toMatchObject({ estado: "BORRADOR" });
+    expect(buildGuardarRutinaPayload({ ...base, estado: undefined })).not.toHaveProperty("estado");
+  });
+
+  it("GZ011 muestra el mensaje de la RPC y no ofrece nueva versión (GOZS-318)", () => {
+    const err = { code: "GZ011", message: "La rutina cambió en otra pestaña. Recargá para ver la última versión." };
+    expect(clasificarErrorGuardado(err, "guardar")).toMatchObject({ mensaje: err.message, needsNewVersion: false });
+  });
+
   it("el resumen no incluye el payload completo", () => {
     const p = buildGuardarRutinaPayload({ comoNueva: false, nombre: "R", comentarios: "", days: [day] });
     expect(resumenPayload(p)).toEqual({ nombre: "R", dias: 1, ejercicios: 1 });
