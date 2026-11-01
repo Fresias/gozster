@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
@@ -17,6 +17,8 @@ import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
 
 describe("QA Formal Audit: Studio Analytics, Progressive Overload & Edge Cases (GOZS-12 / PR #23)", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-15T15:00:00Z"));
     useOfflineQueueStore.setState({
       isOnline: true,
       pendingEvents: [],
@@ -33,6 +35,10 @@ describe("QA Formal Audit: Studio Analytics, Progressive Overload & Edge Cases (
       toast: null,
       currentPage: 1,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("1. Verificación Matemática Estricta de Fórmulas de Fuerza", () => {
