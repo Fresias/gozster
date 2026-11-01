@@ -43,6 +43,8 @@ interface RoutineBuilderModalProps {
   ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
+  /** Plan archivado con versión sucesora: se consulta, no se guarda. */
+  soloLectura?: boolean;
 }
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
@@ -60,18 +62,22 @@ export function esErrorDeRed(err: any) {
 
 export function buildGuardarRutinaPayload(input: {
   planId?: string;
+  version?: string;
   comoNueva: boolean;
   nombre: string;
   comentarios: string;
   alumnoId?: string;
+  estado?: "BORRADOR" | "ACTIVO";
   days: BuilderDay[];
 }) {
   return {
     ...(input.planId ? { plan_id: input.planId } : {}),
+    ...(input.planId && input.version ? { version: input.version } : {}),
     ...(input.comoNueva ? { como_nueva: true } : {}),
     nombre: input.nombre,
     comentarios: input.comentarios,
     ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
+    ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
       nombre: d.nombre,
       ejercicios: d.ejercicios.map((e) => ({
@@ -93,9 +99,9 @@ export function buildGuardarRutinaPayload(input: {
   };
 }
 
-// GZ010 = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
+// GZ010/GZ011 (conflicto de versión) = error de negocio con mensaje ya humano; cualquier otro se oculta tras el genérico
 export function clasificarErrorGuardado(err: any, modo: SaveMode) {
-  const esNegocio = err?.code === "GZ010";
+  const esNegocio = err?.code === "GZ010" || err?.code === "GZ011";
   const sinRed = !esNegocio && esErrorDeRed(err);
   const mensaje = esNegocio ? String(err.message) : sinRed ? OFFLINE_SAVE_ERROR : GENERIC_SAVE_ERROR;
   return {
@@ -208,6 +214,7 @@ export function RoutineBuilderModal({
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
   planInicial,
+  soloLectura = false,
   diasIniciales,
   ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
@@ -225,6 +232,12 @@ export function RoutineBuilderModal({
   // Guardado pendiente por falta de red: se reintenta una sola vez al volver `online`
   const pendienteRef = React.useRef<SaveMode | null>(null);
   const guardarRef = React.useRef<(modo: SaveMode) => Promise<void>>(async () => {});
+  const [estado, setEstado] = React.useState<"BORRADOR" | "ACTIVO">("BORRADOR");
+  // El selector de estado solo aplica a plantillas (sin alumno): en planes de alumno la RPC lo ignora
+  const esPlantilla = planInicial ? !planInicial.alumno_id : !alumnoId;
+
+  // updated_at que leyó este cliente; se refresca tras cada guardado (GOZS-318)
+  const versionRef = React.useRef<string | undefined>(planInicial?.updated_at);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -234,6 +247,7 @@ export function RoutineBuilderModal({
       return;
     }
     if (lockRef.current) return; // guardando o ya guardado: no pisar lo que hay en pantalla
+    versionRef.current = planInicial?.updated_at;
     setNeedsNewVersion(false);
     setAsignarAlumno(false);
     setErrorMessage(null);
@@ -242,6 +256,7 @@ export function RoutineBuilderModal({
     if (planInicial) {
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
+      setEstado(planInicial.estado === "ACTIVO" ? "ACTIVO" : "BORRADOR");
       const mapped = mapPlanToBuilderDays(
         planInicial.id,
         diasIniciales ?? [],
@@ -253,6 +268,7 @@ export function RoutineBuilderModal({
     } else {
       setPlanName("");
       setComentarios("");
+      setEstado("BORRADOR");
       setDays(DEFAULT_BUILDER_DAYS);
       baselineRef.current = JSON.stringify([
         "",
@@ -383,6 +399,32 @@ export function RoutineBuilderModal({
     setSelectedDayIdx(days.length);
   };
 
+  const handleMoveDay = (index: number, direction: "UP" | "DOWN") => {
+    const targetIdx = direction === "UP" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= days.length) return;
+    const list = [...days];
+    const [moved] = list.splice(index, 1);
+    if (!moved) return;
+    list.splice(targetIdx, 0, moved);
+    setDays(list.map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(targetIdx);
+  };
+
+  const handleRemoveDay = (index: number = selectedDayIdx) => {
+    const dia = days[index];
+    if (!dia || days.length <= 1) return;
+    if (
+      dia.ejercicios.length > 0 &&
+      !window.confirm(
+        `¿Borrar "${dia.nombre}" y sus ${dia.ejercicios.length} ejercicio(s)? Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setOpenCircuit(null);
+    setDays(days.filter((_, i) => i !== index).map((d, i) => ({ ...d, orden: i + 1 })));
+    setSelectedDayIdx(Math.min(selectedDayIdx > index ? selectedDayIdx - 1 : selectedDayIdx, days.length - 2));
+  };
+
   const handleAddExerciseToCurrentDay = (ej: Ejercicio) => {
     if (!currentDay) return;
     const newExercise: BuilderExercise = {
@@ -406,12 +448,6 @@ export function RoutineBuilderModal({
     // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
     actualizarDiaActual((lista) => [...lista, newExercise]);
     setShowCatalogModal(false);
-  };
-
-  const handleRemoveDay = () => {
-    setOpenCircuit(null);
-    setDays((prev) => prev.filter((_, idx) => idx !== selectedDayIdx).map((d, i) => ({ ...d, orden: i + 1 })));
-    setSelectedDayIdx((i) => Math.max(0, i - 1));
   };
 
   const handleUpdateExercise = (
@@ -496,10 +532,13 @@ export function RoutineBuilderModal({
     setErrorMessage(null);
     const payload = buildGuardarRutinaPayload({
       planId: planInicial?.id,
+      version: versionRef.current,
       comoNueva: modo !== "guardar",
       nombre: planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
+      // guardar_rutina solo aplica payload.estado a plantillas; INACTIVO se conserva y una versión nueva no cambia el estado
+      estado: modo === "version" || !esPlantilla || planInicial?.estado === "INACTIVO" ? undefined : estado,
       days: normalizarSuperseries(days, null, true),
     });
 
@@ -523,6 +562,7 @@ export function RoutineBuilderModal({
         .single();
       if (planErr) throw planErr;
 
+      if (planData?.updated_at) versionRef.current = planData.updated_at;
       setNeedsNewVersion(false);
       setSaveSuccess(true);
       liberar = false; // tras éxito el candado sigue hasta cerrar: ningún clic re-guarda
@@ -646,6 +686,39 @@ export function RoutineBuilderModal({
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1 pb-1 pl-2 shrink-0">
+            <button
+              type="button"
+              disabled={selectedDayIdx === 0}
+              onClick={() => handleMoveDay(selectedDayIdx, "UP")}
+              aria-label="Mover día a la izquierda"
+              data-testid="move-day-up"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              disabled={selectedDayIdx >= days.length - 1}
+              onClick={() => handleMoveDay(selectedDayIdx, "DOWN")}
+              aria-label="Mover día a la derecha"
+              data-testid="move-day-down"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              disabled={days.length <= 1}
+              title={days.length <= 1 ? "Una rutina necesita al menos un día" : undefined}
+              onClick={() => handleRemoveDay(selectedDayIdx)}
+              aria-label="Borrar día"
+              data-testid="remove-day"
+              className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs disabled:opacity-30 hover:bg-destructive/30 flex items-center justify-center border border-destructive/30 font-bold"
+            >
+              ✕
+            </button>
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -715,7 +788,7 @@ export function RoutineBuilderModal({
                   No hay ejercicios cargados en este día. Haz clic en "+ Añadir Ejercicio" para armar la estación.
                   <p className="mt-2 font-medium text-amber-500 dark:text-amber-400" data-testid="dia-vacio-aviso">
                     {avisos[claveDia(diaId)]}.{" "}
-                    <button type="button" onClick={handleRemoveDay} className="underline min-h-11 px-2" data-testid="quitar-dia-btn">
+                    <button type="button" onClick={() => handleRemoveDay()} className="underline min-h-11 px-2" data-testid="quitar-dia-btn">
                       Quitar este día
                     </button>
                   </p>
@@ -1113,6 +1186,21 @@ export function RoutineBuilderModal({
             <Button variant="outline" onClick={handleClose} disabled={isSaving}>
               Cancelar
             </Button>
+            {!soloLectura && (
+              <>
+            {esPlantilla && (<label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Estado
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value as "BORRADOR" | "ACTIVO")}
+                disabled={isSaving || planInicial?.estado === "INACTIVO"}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                data-testid="routine-estado-select"
+              >
+                <option value="BORRADOR">Borrador</option>
+                <option value="ACTIVO">Activo</option>
+              </select>
+            </label>)}
             {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
@@ -1150,6 +1238,8 @@ export function RoutineBuilderModal({
             >
               {isSaving || saveSuccess ? "Guardando…" : "✓ Guardar"}
             </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -188,6 +188,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         alumnoId={builder?.alumnoId}
         alumnoNombre={builder?.alumnoId ? nombreAlumno(builder.alumnoId) : "Plantilla Maestra"}
         planInicial={builder?.plan ?? null}
+        soloLectura={!!builder?.plan && builder.plan.estado === "INACTIVO" && dataset.planes.some((p) => p.plan_origen_id === builder.plan?.id)}
         diasIniciales={dataset.dias}
         ejerciciosEnRutinaIniciales={dataset.ejerciciosEnRutina}
         onRoutineSaved={() => void recargar()}
