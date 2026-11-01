@@ -217,6 +217,8 @@ export function RoutineBuilderModal({
   const [comentarios, setComentarios] = React.useState("");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
   const baselineRef = React.useRef("");
+  // Hasta que el efecto de abajo fija la línea base, el estado puede ser el de la apertura anterior
+  const [baselineLista, setBaselineLista] = React.useState(false);
 
   // Candado síncrono (el estado llega tarde al 2º/3er clic) que se mantiene hasta cerrar el modal
   const lockRef = React.useRef(false);
@@ -226,6 +228,7 @@ export function RoutineBuilderModal({
 
   React.useEffect(() => {
     if (!isOpen) {
+      setBaselineLista(false);
       lockRef.current = false;
       pendienteRef.current = null;
       return;
@@ -257,6 +260,7 @@ export function RoutineBuilderModal({
         DEFAULT_BUILDER_DAYS,
       ]);
     }
+    setBaselineLista(true);
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
@@ -299,6 +303,44 @@ export function RoutineBuilderModal({
     window.addEventListener("online", alVolverRed);
     return () => window.removeEventListener("online", alVolverRed);
   }, [isOpen]);
+
+  const isDirty =
+    isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Con cambios sin guardar: aviso nativo al recargar/cerrar la pestaña y, al volver atrás, la misma
+  // confirmación que "Cancelar". El modal no vive en la URL, así que se empuja una entrada centinela
+  // (conservando el state de Next) para poder interceptar el "atrás" sin salir de la página.
+  React.useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const empujarCentinela = () =>
+      window.history.pushState({ ...window.history.state, constructorSinGuardar: true }, "");
+    let centinela = true;
+    empujarCentinela();
+    const onPopState = () => {
+      centinela = false;
+      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
+        onCloseRef.current();
+        window.history.back(); // el "atrás" que el coach pidió: la centinela ya se consumió
+      } else {
+        empujarCentinela();
+        centinela = true;
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      if (centinela) window.history.back(); // se cerró por otra vía (guardar/cancelar): no dejar la entrada
+    };
+  }, [isDirty]);
 
   if (!isOpen) return null;
 

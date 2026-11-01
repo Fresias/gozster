@@ -648,8 +648,12 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     // Atrás y adelante con el modal abierto.
     await abrirPlantilla(page, "Plantilla A");
     await cargar(page, 0, { series: "7" });
+    // Con cambios sin guardar, atrás pide confirmación (GOZS-320): el coach acepta y el modal se cierra limpio.
+    const dialogosAtras: string[] = [];
+    page.once("dialog", (d) => { dialogosAtras.push(d.type()); void d.accept(); });
     await page.goBack();
     await page.goForward();
+    expect(dialogosAtras, "atrás con cambios sin guardar pide exactamente una confirmación").toEqual(["confirm"]);
     await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
     await expect(builder(page), "tras atrás/adelante no queda modal fantasma").toBeHidden();
 
