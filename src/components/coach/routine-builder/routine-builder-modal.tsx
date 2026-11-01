@@ -684,6 +684,39 @@ export function RoutineBuilderModal({
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1 pb-1 pl-2 shrink-0">
+            <button
+              type="button"
+              disabled={selectedDayIdx === 0}
+              onClick={() => handleMoveDay(selectedDayIdx, "UP")}
+              aria-label="Mover día a la izquierda"
+              data-testid="move-day-up"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              disabled={selectedDayIdx >= days.length - 1}
+              onClick={() => handleMoveDay(selectedDayIdx, "DOWN")}
+              aria-label="Mover día a la derecha"
+              data-testid="move-day-down"
+              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              disabled={days.length <= 1}
+              title={days.length <= 1 ? "Una rutina necesita al menos un día" : undefined}
+              onClick={() => handleRemoveDay(selectedDayIdx)}
+              aria-label="Borrar día"
+              data-testid="remove-day"
+              className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs disabled:opacity-30 hover:bg-destructive/30 flex items-center justify-center border border-destructive/30 font-bold"
+            >
+              ✕
+            </button>
+          </div>
           <Button
             size="sm"
             variant="outline"
