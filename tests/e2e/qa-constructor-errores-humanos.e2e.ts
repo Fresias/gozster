@@ -341,7 +341,7 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     const p = ctx.db.planes_entrenamiento[0]!;
     const fila = filasDe(ctx, p.id).ejs[0]!;
     await info.attach("bd-defaults", { body: JSON.stringify({ nombre: p.nombre, comentarios: p.comentarios, reps: fila.repeticiones }, null, 2), contentType: "application/json" });
-    await chequeoBug(page, info, "bug-defaults-se-guardan-sin-tocar", p.nombre !== nombre && p.comentarios !== comentario && fila.repeticiones !== "0",
+    await chequeoBug(page, info, "bug-defaults-se-guardan-sin-tocar", p.nombre !== nombre && (comentario === "" ? !p.comentarios : p.comentarios !== comentario) && fila.repeticiones !== "0",
       `si el coach no los toca, se guardan los defaults: nombre "${p.nombre}", comentario "${p.comentarios}", repeticiones "${fila.repeticiones}"`);
   });
 
