@@ -233,6 +233,8 @@ export function RoutineBuilderModal({
   const pendienteRef = React.useRef<SaveMode | null>(null);
   const guardarRef = React.useRef<(modo: SaveMode) => Promise<void>>(async () => {});
   const [estado, setEstado] = React.useState<"BORRADOR" | "ACTIVO">("BORRADOR");
+  // El selector de estado solo aplica a plantillas (sin alumno): en planes de alumno la RPC lo ignora
+  const esPlantilla = planInicial ? !planInicial.alumno_id : !alumnoId;
 
   // updated_at que leyó este cliente; se refresca tras cada guardado (GOZS-318)
   const versionRef = React.useRef<string | undefined>(planInicial?.updated_at);
@@ -535,8 +537,8 @@ export function RoutineBuilderModal({
       nombre: planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
-      // INACTIVO se conserva (no editable aquí); una versión nueva no cambia el estado
-      estado: modo === "version" || planInicial?.estado === "INACTIVO" ? undefined : estado,
+      // guardar_rutina solo aplica payload.estado a plantillas; INACTIVO se conserva y una versión nueva no cambia el estado
+      estado: modo === "version" || !esPlantilla || planInicial?.estado === "INACTIVO" ? undefined : estado,
       days: normalizarSuperseries(days, null, true),
     });
 
@@ -1186,7 +1188,7 @@ export function RoutineBuilderModal({
             </Button>
             {!soloLectura && (
               <>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {esPlantilla && (<label className="flex items-center gap-1.5 text-xs text-muted-foreground">
               Estado
               <select
                 value={estado}
@@ -1198,7 +1200,7 @@ export function RoutineBuilderModal({
                 <option value="BORRADOR">Borrador</option>
                 <option value="ACTIVO">Activo</option>
               </select>
-            </label>
+            </label>)}
             {alumnoId && !planInicial && (
               <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
