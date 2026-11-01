@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
-import { asignarGrupo, moverEjercicio, normalizarSuperseries, posicionTrasGrupo } from "@/lib/superseries";
+import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 interface BuilderExercise {
@@ -183,7 +183,10 @@ function DraftNumberInput({
   onValue: (n: number | null) => void;
 } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
   const [draft, setDraft] = React.useState(value === null ? "" : String(value));
+  // Chromium a veces entrega "" sin badInput al reemplazar el contenido por letras: se recuerda la tecla
+  const letraRef = React.useRef(false);
   React.useEffect(() => {
+    if (value !== null && Number.isNaN(value)) return; // texto no numérico tipeado: se queda como está
     setDraft((d) => ((d === "" ? null : Number(d)) === value ? d : value === null ? "" : String(value)));
   }, [value]);
   return (
@@ -191,10 +194,15 @@ function DraftNumberInput({
       {...props}
       type="number"
       value={draft}
+      onKeyDown={(e) => {
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) letraRef.current = !/[\d.,+-]/.test(e.key);
+      }}
       onChange={(e) => {
         const raw = e.target.value;
         setDraft(raw);
-        onValue(raw === "" ? null : Number(raw));
+        // "abc" en un input numérico llega como "" (con o sin badInput): es inválido, no vacío
+        onValue(raw === "" ? (e.target.validity.badInput || letraRef.current ? NaN : null) : Number(raw));
+        if (raw !== "") letraRef.current = false;
       }}
     />
   );
@@ -216,6 +224,8 @@ export function RoutineBuilderModal({
   const [comentarios, setComentarios] = React.useState("");
   const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
   const baselineRef = React.useRef("");
+  // Hasta que el efecto de abajo fija la línea base, el estado puede ser el de la apertura anterior
+  const [baselineLista, setBaselineLista] = React.useState(false);
 
   // Candado síncrono (el estado llega tarde al 2º/3er clic) que se mantiene hasta cerrar el modal
   const lockRef = React.useRef(false);
@@ -229,6 +239,7 @@ export function RoutineBuilderModal({
 
   React.useEffect(() => {
     if (!isOpen) {
+      setBaselineLista(false);
       lockRef.current = false;
       pendienteRef.current = null;
       return;
@@ -263,6 +274,7 @@ export function RoutineBuilderModal({
         DEFAULT_BUILDER_DAYS,
       ]);
     }
+    setBaselineLista(true);
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
@@ -290,9 +302,9 @@ export function RoutineBuilderModal({
   const claseCampo = (clave: string) => (errorDe(clave) ? "border-destructive ring-1 ring-destructive" : "border-input");
   const mensajeCampo = (clave: string) =>
     errorDe(clave) ? (
-      <p id={`${clave}.error`} role="alert" className="text-[10px] font-medium text-destructive mt-0.5">
+      <span id={`${clave}.error`} role="alert" className="block text-[10px] font-medium text-destructive mt-0.5">
         {errorDe(clave)}
-      </p>
+      </span>
     ) : null;
 
   React.useEffect(() => {
@@ -305,6 +317,44 @@ export function RoutineBuilderModal({
     window.addEventListener("online", alVolverRed);
     return () => window.removeEventListener("online", alVolverRed);
   }, [isOpen]);
+
+  const isDirty =
+    isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Con cambios sin guardar: aviso nativo al recargar/cerrar la pestaña y, al volver atrás, la misma
+  // confirmación que "Cancelar". El modal no vive en la URL, así que se empuja una entrada centinela
+  // (conservando el state de Next) para poder interceptar el "atrás" sin salir de la página.
+  React.useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const empujarCentinela = () =>
+      window.history.pushState({ ...window.history.state, constructorSinGuardar: true }, "");
+    let centinela = true;
+    empujarCentinela();
+    const onPopState = () => {
+      centinela = false;
+      if (window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) {
+        onCloseRef.current();
+        window.history.back(); // el "atrás" que el coach pidió: la centinela ya se consumió
+      } else {
+        empujarCentinela();
+        centinela = true;
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("popstate", onPopState);
+      if (centinela) window.history.back(); // se cerró por otra vía (guardar/cancelar): no dejar la entrada
+    };
+  }, [isDirty]);
 
   if (!isOpen) return null;
 
@@ -338,7 +388,7 @@ export function RoutineBuilderModal({
     const nextOrder = days.length + 1;
     const newDay: BuilderDay = {
       id: `builder-day-${Date.now()}`,
-      nombre: "",
+      nombre: `Día ${nextOrder}`,
       orden: nextOrder,
       ejercicios: [],
     };
@@ -393,12 +443,8 @@ export function RoutineBuilderModal({
       url_video: ej.url_video,
     };
 
-    // Con un circuito abierto el nuevo entra pegado al bloque; si no, al final del día
-    actualizarDiaActual((lista) => {
-      const copia = [...lista];
-      copia.splice(openCircuit !== null ? posicionTrasGrupo(lista, openCircuit) : lista.length, 0, newExercise);
-      return copia;
-    });
+    // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
+    actualizarDiaActual((lista) => [...lista, newExercise]);
     setShowCatalogModal(false);
   };
 
@@ -477,15 +523,6 @@ export function RoutineBuilderModal({
   // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
   const handleSaveToSupabase = async (modo: SaveMode = "guardar") => {
     if (lockRef.current) return;
-    const claves = Object.keys(errores);
-    if (claves.length > 0) {
-      setVerErrores(true);
-      setErrorMessage(`Revisá los campos marcados en rojo (${claves.length}).`);
-      // Llevar al coach al primer día con un error
-      const diaIdx = days.findIndex((d) => errores[claveDia(d.id)] || d.ejercicios.some((e) => claves.some((c) => c.startsWith(`ej.${e.id}.`))));
-      if (diaIdx >= 0 && diaIdx !== selectedDayIdx) irADia(diaIdx);
-      return;
-    }
     lockRef.current = true;
     pendienteRef.current = null;
     let liberar = true;
@@ -500,10 +537,19 @@ export function RoutineBuilderModal({
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
       // INACTIVO se conserva (no editable aquí); una versión nueva no cambia el estado
       estado: modo === "version" || planInicial?.estado === "INACTIVO" ? undefined : estado,
-      days: normalizarSuperseries(days, null),
+      days: normalizarSuperseries(days, null, true),
     });
 
     try {
+      // Un campo inválido se rechaza acá, sin llamar a la RPC, y deja su fila en errores_app (catch)
+      const claves = Object.keys(errores);
+      if (claves.length > 0) {
+        setVerErrores(true);
+        // Llevar al coach al primer día con un error
+        const diaIdx = days.findIndex((d) => errores[claveDia(d.id)] || d.ejercicios.some((e) => claves.some((c) => c.startsWith(`ej.${e.id}.`))));
+        if (diaIdx >= 0 && diaIdx !== selectedDayIdx) irADia(diaIdx);
+        throw { code: "GZ010", message: `Revisá los campos marcados en rojo (${claves.length}).`, details: claves.join(", ") };
+      }
       const { data: planId, error } = await supabase.rpc("guardar_rutina", { p_payload: payload });
       if (error) throw error;
 
@@ -551,8 +597,13 @@ export function RoutineBuilderModal({
   };
   guardarRef.current = handleSaveToSupabase;
 
-  const filteredCatalog = catalogoEjercicios.filter((e) =>
-    e.nombre.toLowerCase().includes(catalogSearch.toLowerCase())
+  const normalizar = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const termino = normalizar(catalogSearch.trim());
+  const filteredCatalog = catalogoEjercicios.filter(
+    (e) =>
+      normalizar(e.nombre).includes(termino) ||
+      e.musculos_principales.some((m) => normalizar(m).includes(termino))
   );
 
   return (
@@ -632,39 +683,6 @@ export function RoutineBuilderModal({
                 {d.nombre.trim() || "Sin nombre"} ({d.ejercicios.length})
               </button>
             ))}
-          </div>
-          <div className="flex items-center gap-1 pb-1 pl-2 shrink-0">
-            <button
-              type="button"
-              disabled={selectedDayIdx === 0}
-              onClick={() => handleMoveDay(selectedDayIdx, "UP")}
-              aria-label="Mover día a la izquierda"
-              data-testid="move-day-up"
-              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
-            >
-              ▲
-            </button>
-            <button
-              type="button"
-              disabled={selectedDayIdx >= days.length - 1}
-              onClick={() => handleMoveDay(selectedDayIdx, "DOWN")}
-              aria-label="Mover día a la derecha"
-              data-testid="move-day-down"
-              className="h-8 w-8 rounded-xl bg-secondary text-xs disabled:opacity-30 hover:bg-secondary/80 flex items-center justify-center border border-border/40 font-bold"
-            >
-              ▼
-            </button>
-            <button
-              type="button"
-              disabled={days.length <= 1}
-              title={days.length <= 1 ? "Una rutina necesita al menos un día" : undefined}
-              onClick={() => handleRemoveDay(selectedDayIdx)}
-              aria-label="Borrar día"
-              data-testid="remove-day"
-              className="h-8 w-8 rounded-xl bg-destructive/15 text-destructive text-xs disabled:opacity-30 hover:bg-destructive/30 flex items-center justify-center border border-destructive/30 font-bold"
-            >
-              ✕
-            </button>
           </div>
           <Button
             size="sm"

@@ -242,16 +242,20 @@ async function cargar(page: Page, i: number, v: { series?: string; reps?: string
   await pausa(page);
 }
 
-/** Clic en Guardar y espera el desenlace: "guardada" o el mensaje de error del pie. */
+/** Clic en Guardar y espera el desenlace: "guardada" o el/los mensajes de error. */
 async function guardar(page: Page, boton: Locator = btnGuardar(page)): Promise<{ ok: boolean; mensaje: string }> {
   await boton.click();
   const exito = builder(page).getByText("Rutina guardada");
-  await expect(exito.or(errorVisible(page))).toBeVisible({ timeout: 15_000 });
+  // La validación puede mostrar uno o varios mensajes (p. ej. uno por campo inválido): esperamos el éxito o el primero.
+  await expect(exito.or(errorVisible(page)).first()).toBeVisible({ timeout: 15_000 });
   if (await exito.isVisible()) {
     await expect(builder(page)).toBeHidden();
     return { ok: true, mensaje: "" };
   }
-  return { ok: false, mensaje: (await errorVisible(page).innerText()).trim() };
+  // Juntamos todos los mensajes visibles: con uno solo el texto es idéntico al de antes; con varios se conservan todos
+  // para que las aserciones sigan verificando el mensaje específico del campo inválido (p. ej. "Series: entre 1 y 20").
+  const mensajes = (await errorVisible(page).allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+  return { ok: false, mensaje: mensajes.join("\n") };
 }
 
 async function cerrarSinGuardar(page: Page) {
@@ -269,7 +273,10 @@ async function campoMarcado(input: Locator) {
 /** Mensaje humano: en español, sin texto crudo de Postgres, y con su fila en errores_app. */
 async function chequeoMensaje(page: Page, info: TestInfo, ctx: Ctx, mensaje: string, nombre: string) {
   await chequeoBug(page, info, `bug-mensaje-crudo-${nombre}`, !PG_CRUDO.test(mensaje), `el coach ve texto crudo de Postgres: "${mensaje}"`);
-  const fila = ctx.db.errores_app.find((r: any) => r.mensaje_humano === mensaje);
+  const buscar = () => ctx.db.errores_app.find((r: any) => r.mensaje_humano === mensaje);
+  // El insert en errores_app sale después de pintar el mensaje: se espera la fila (hasta 5 s) y después se exige igual que antes.
+  await expect.poll(() => !!buscar(), { timeout: 5_000 }).toBe(true).catch(() => {});
+  const fila = buscar();
   await chequeoBug(page, info, `bug-sin-fila-errores-app-${nombre}`, !!fila && (fila as any).contexto === "guardar_rutina" && !!(fila as any).detalle_tecnico,
     `el error "${mensaje}" no dejó una fila útil en errores_app (contexto + detalle técnico)`);
 }
@@ -325,14 +332,16 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     await chequeoBug(page, info, "bug-ui-no-marca-campo-invalido-defaults", await campoMarcado(campo(page, "exercise-series-input")),
       `el error "${intacto.mensaje}" queda solo en el pie: ni series ni RPE se marcan y el mensaje no dice qué campo corregir`);
 
-    // El coach corrige series y RPE pero no ve el "0" de repeticiones: se guarda así.
-    await cargar(page, 0, { series: "4", rpe: "8" });
+    // El coach completa lo obligatorio (nombre, series, reps y RPE): con todo válido guarda. Lo que no tocó
+    // (comentario) no puede guardarse como un default inventado.
+    await tipear(nombrePlan(page), "Defaults QA");
+    await cargar(page, 0, { series: "4", reps: "10", rpe: "8" });
     const corregido = await guardar(page);
-    expect(corregido.ok, "con series y RPE válidos guarda").toBe(true);
+    expect(corregido.ok, "con nombre, series, reps y RPE válidos guarda").toBe(true);
     const p = ctx.db.planes_entrenamiento[0]!;
     const fila = filasDe(ctx, p.id).ejs[0]!;
     await info.attach("bd-defaults", { body: JSON.stringify({ nombre: p.nombre, comentarios: p.comentarios, reps: fila.repeticiones }, null, 2), contentType: "application/json" });
-    await chequeoBug(page, info, "bug-defaults-se-guardan-sin-tocar", p.nombre !== nombre && p.comentarios !== comentario && fila.repeticiones !== "0",
+    await chequeoBug(page, info, "bug-defaults-se-guardan-sin-tocar", p.nombre !== nombre && (comentario === "" ? !p.comentarios : p.comentarios !== comentario) && fila.repeticiones !== "0",
       `si el coach no los toca, se guardan los defaults: nombre "${p.nombre}", comentario "${p.comentarios}", repeticiones "${fila.repeticiones}"`);
   });
 
@@ -343,7 +352,8 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     await nuevaRutina(page);
     const sinMarca: string[] = [];
 
-    // Rutina sin días.
+    // Rutina sin días (con nombre válido: si no, la UI frena antes por el nombre y el caso no llega a probarse).
+    await tipear(nombrePlan(page), "Sin días QA");
     const sinDias = await guardar(page);
     expect(sinDias).toEqual({ ok: false, mensaje: "La rutina necesita al menos un día" });
     await chequeoMensaje(page, info, ctx, sinDias.mensaje, "sin-dias");
@@ -355,7 +365,10 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     for (const [caso, valor] of [["nombre-vacio", ""], ["nombre-espacios", "     "]] as const) {
       await tipear(nombrePlan(page), valor);
       const r = await guardar(page);
-      expect(r, `${caso}: la BD rechaza`).toEqual({ ok: false, mensaje: "La rutina necesita un nombre" });
+      // La UI frena antes de llegar a la BD: un solo campo en rojo (el nombre) y nada guardado.
+      expect(r, `${caso}: la UI rechaza`).toEqual({ ok: false, mensaje: "Revisá los campos marcados en rojo (1)." });
+      await expect(nombrePlan(page), `${caso}: el nombre queda marcado`).toHaveAttribute("aria-invalid", "true");
+      expect(ctx.db.planes_entrenamiento, `${caso}: no se guarda nada`).toHaveLength(0);
       await chequeoMensaje(page, info, ctx, r.mensaje, caso);
       if (!(await campoMarcado(nombrePlan(page)))) sinMarca.push(`${caso}: nombre de la rutina`);
     }
@@ -412,7 +425,9 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
       const r = await guardar(page);
       const marcado = r.ok ? false : await campoMarcado(input); // tras guardar bien el modal (y el input) ya no está
       const bd = enBd(c);
-      const visto = c.campo === "series" || c.campo === "descanso" || c.campo === "rpe" ? Number(enUi) : enUi;
+      // RPE es opcional: si el coach lo ve vacío, lo guardado tiene que ser null (no el 0 de Number("")).
+      const visto = c.campo === "rpe" && enUi === "" ? null
+        : c.campo === "series" || c.campo === "descanso" || c.campo === "rpe" ? Number(enUi) : enUi;
       tabla.push({ campo: c.campo, tipeado: c.valor.length > 40 ? `${c.valor.slice(0, 12)}… (${c.valor.length})` : c.valor,
         ui: enUi.length > 40 ? `(${enUi.length} chars)` : enUi, guardo: r.ok, mensaje: r.mensaje, uiMarcaCampo: marcado,
         bd: typeof bd === "string" && bd.length > 40 ? `(${bd.length} chars)` : bd });
@@ -633,8 +648,12 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     // Atrás y adelante con el modal abierto.
     await abrirPlantilla(page, "Plantilla A");
     await cargar(page, 0, { series: "7" });
+    // Con cambios sin guardar, atrás pide confirmación (GOZS-320): el coach acepta y el modal se cierra limpio.
+    const dialogosAtras: string[] = [];
+    page.once("dialog", (d) => { dialogosAtras.push(d.type()); void d.accept(); });
     await page.goBack();
     await page.goForward();
+    expect(dialogosAtras, "atrás con cambios sin guardar pide exactamente una confirmación").toEqual(["confirm"]);
     await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
     await expect(builder(page), "tras atrás/adelante no queda modal fantasma").toBeHidden();
 

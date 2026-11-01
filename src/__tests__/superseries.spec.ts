@@ -25,9 +25,10 @@ describe("normalizarSuperseries", () => {
     expect(r[1]!.ejercicios[1]!.grupo_superserie).toBe(g);
   });
 
-  it("un bloque partido por un suelto queda como tramos válidos", () => {
-    const r = normalizarSuperseries([dia(e("a", 1), e("x"), e("b", 1))]);
-    expect(r[0]!.ejercicios.every((x) => !x.es_superserie)).toBe(true);
+  it("un bloque partido por un suelto se mantiene al editar y se junta al guardar", () => {
+    const d = [dia(e("a", 1), e("x"), e("b", 1))];
+    expect(ids(normalizarSuperseries(d)[0]!.ejercicios)).toBe("a:1,x:-,b:1");
+    expect(ids(normalizarSuperseries(d, null, true)[0]!.ejercicios)).toBe("a:1,b:1,x:-");
   });
 });
 

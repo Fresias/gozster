@@ -33,14 +33,14 @@ describe("validarRutina (GOZS-322)", () => {
     expect(rutina(ej({ repeticiones: r })).errores[claveEjercicio("e1", "reps")]).toBeDefined();
   });
 
-  it.each([null, -1, 901, 99999, 1.5])("descanso %s es inválido", (d) => {
+  it.each([null, NaN, -1, 901, 99999, 1.5])("descanso %s es inválido", (d) => {
     expect(rutina(ej({ descanso_segundos: d })).errores[claveEjercicio("e1", "descanso")]).toBe("Descanso: entre 0 y 900 s");
   });
   it.each([0, 900])("descanso %s es válido", (d) => {
     expect(rutina(ej({ descanso_segundos: d })).errores).toEqual({});
   });
 
-  it.each([0, 0.5, 10.5, 11, -1, 7.3])("RPE %s es inválido", (v) => {
+  it.each([NaN, 0, 0.5, 10.5, 11, -1, 7.3])("RPE %s es inválido", (v) => {
     expect(rutina(ej({ rpe_objetivo: v })).errores[claveEjercicio("e1", "rpe")]).toBeDefined();
   });
   it.each([null, 1, 7.5, 10])("RPE %s es válido (opcional)", (v) => {
