@@ -1939,6 +1939,12 @@ export interface Database {
         };
         Returns: string;
       };
+      activar_rutina: {
+        Args: {
+          p_plan_id: string;
+        };
+        Returns: string;
+      };
       clonar_plan_entrenamiento: {
         Args: {
           p_plan_id: string;
