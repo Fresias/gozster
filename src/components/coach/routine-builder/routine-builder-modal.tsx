@@ -4,6 +4,7 @@ import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { nombreUnico } from "@/lib/rutinas-biblioteca";
 import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
 import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
@@ -39,6 +40,8 @@ interface RoutineBuilderModalProps {
   alumnoId?: string;
   alumnoNombre?: string;
   planInicial?: PlanEntrenamiento | null;
+  /** Nombres ya usados: "Guardar como rutina nueva" los evita con sufijo "(copia N)". */
+  nombresExistentes?: string[];
   diasIniciales?: DiaRutina[];
   ejerciciosEnRutinaIniciales?: EjercicioEnRutina[];
   catalogoEjercicios: Ejercicio[];
@@ -214,6 +217,7 @@ export function RoutineBuilderModal({
   alumnoId,
   alumnoNombre = "Plantilla Maestra",
   planInicial,
+  nombresExistentes,
   soloLectura = false,
   diasIniciales,
   ejerciciosEnRutinaIniciales,
@@ -534,7 +538,7 @@ export function RoutineBuilderModal({
       planId: planInicial?.id,
       version: versionRef.current,
       comoNueva: modo !== "guardar",
-      nombre: planName,
+      nombre: modo === "nueva" && nombresExistentes ? nombreUnico(planName, nombresExistentes) : planName,
       comentarios,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
       // guardar_rutina solo aplica payload.estado a plantillas; INACTIVO se conserva y una versión nueva no cambia el estado
