@@ -73,13 +73,14 @@ function rpcGuardarRutina(ctx: Ctx, p: any): string {
   return nuevo.id;
 }
 
-/** asignar_rutina_a_alumno: archiva la ACTIVA del alumno (INACTIVO) y clona la rutina como su nueva ACTIVO. */
-function rpcAsignar(db: Db, planId: string, alumnoId: string): string {
+/** asignar_rutina_a_alumno: archiva la ACTIVA del alumno (INACTIVO) y clona la rutina como su nueva ACTIVO.
+ * p_nombre opcional (20261031230000): NULL o vacío = nombre de la plantilla. */
+function rpcAsignar(db: Db, planId: string, alumnoId: string, nombre?: string | null): string {
   const origen = db.planes_entrenamiento.find((x) => x.id === planId);
   if (!origen) throw new ErrorNegocio("La rutina que intentas asignar ya no existe");
   const t = ahora();
   for (const pl of activosDe(db, alumnoId)) Object.assign(pl, { estado: "INACTIVO", fecha_fin: t });
-  const clon = plan(origen.nombre, {
+  const clon = plan(nombre?.trim() || origen.nombre, {
     alumno_id: alumnoId, comentarios: origen.comentarios, etiqueta: origen.etiqueta,
     tipo: "DE_ALUMNO", plan_origen_id: origen.id,
     estado: "ACTIVO" as PlanEntrenamiento["estado"], fecha_inicio: t, fecha_fin: null,
@@ -112,8 +113,8 @@ async function conectarCiclo(page: Page, ctx: Ctx) {
   });
   await page.route("**/rest/v1/rpc/asignar_rutina_a_alumno", async (route) => {
     try {
-      const { p_plan_id, p_alumno_id } = route.request().postDataJSON();
-      const id = rpcAsignar(ctx.db, p_plan_id, p_alumno_id);
+      const { p_plan_id, p_alumno_id, p_nombre } = route.request().postDataJSON();
+      const id = rpcAsignar(ctx.db, p_plan_id, p_alumno_id, p_nombre);
       await publicar(page, ctx.db);
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(id) });
     } catch (err) {
