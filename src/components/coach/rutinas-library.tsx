@@ -50,11 +50,13 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     setError(null);
     setAviso(null);
     try {
+      const nombresAlumno = dataset.planes.filter((p) => p.alumno_id === alumnoElegido).map((p) => p.nombre);
+      const nombrePropuesto = nombreUnico(asignando.nombre, nombresAlumno);
       const nuevoId = await asignarRutinaAAlumno(
         asignando.id,
         alumnoElegido,
         undefined,
-        nombreUnico(asignando.nombre, dataset.planes.filter((p) => p.alumno_id === alumnoElegido).map((p) => p.nombre)),
+        nombrePropuesto !== asignando.nombre ? nombrePropuesto : undefined,
       );
       const fresco = await recargar();
       const clon = fresco.planes.find((p) => p.id === nuevoId) ?? null;
