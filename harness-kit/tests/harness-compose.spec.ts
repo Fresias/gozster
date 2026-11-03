@@ -51,6 +51,26 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
     expect(res.promote).toBe(true);
     expect(res.duration_ms).toBe(350);
   });
+
+  it("prioriza menor costo operacional (telemetría: tool_calls y bloques) sobre duración bruta", () => {
+    const probes = [
+      {
+        candidate_id: "cand-friction",
+        passed: true,
+        duration_ms: 400,
+        telemetry: { tool_calls: 10, blocks: 3 },
+      },
+      {
+        candidate_id: "cand-clean",
+        passed: true,
+        duration_ms: 600,
+        telemetry: { tool_calls: 3, blocks: 0 },
+      },
+    ];
+    const res = evaluateProbes(probes);
+    expect(res.winner_id).toBe("cand-clean");
+    expect(res.promote).toBe(true);
+  });
 });
 
 describe("Harness² Sintetizador: runCompose (promoción y persistencia de experiencia)", () => {
@@ -136,9 +156,11 @@ describe("Harness² Sintetizador: runCompose (promoción y persistencia de exper
 
     // Verificar que se registró la lección en experience_library.jsonl
     const expLibContent = readFileSync(path.join(ws, "harness", "experience_library.jsonl"), "utf8");
-    expect(expLibContent).toContain("cand-fast");
-    expect(expLibContent).toContain("Optimize schema inspection");
-    expect(expLibContent).toContain('"verified":true');
+    const parsedExp = JSON.parse(expLibContent);
+    expect(parsedExp.lesson).toContain("cand-fast");
+    expect(parsedExp.task).toBe("Optimize schema inspection");
+    expect(parsedExp.verified).toBe(true);
+    expect(parsedExp.tags).toContain("db");
   });
 
   it("bloquea promoción de mutaciones fuera de harness/ por seguridad", () => {

@@ -118,6 +118,32 @@ function loadCandidates(repoDir, candidateInput) {
   }
 }
 
+/** Calculates operational cost incorporating duration and telemetry friction */
+export function calculateOperationalCost(p) {
+  let cost = p.duration_ms || 0;
+  if (p.telemetry) {
+    const toolCalls = p.telemetry.tool_calls ?? p.telemetry.actions ?? 0;
+    const blocks = p.telemetry.blocks ?? 0;
+    const errors = p.telemetry.errors ?? 0;
+    // Friction penalty: each guardrail block adds equivalent of 800ms, each tool call adds 150ms
+    cost += (toolCalls * 150) + (blocks * 800) + (errors * 1500);
+  }
+  return cost;
+}
+
+/** Derives semantic tags for a task and candidate */
+export function deriveTags(candidate, task = "") {
+  const text = `${candidate?.candidate_id || ""} ${candidate?.target_component || ""} ${candidate?.rationale || ""} ${task}`.toLowerCase();
+  const tags = new Set(Array.isArray(candidate?.tags) ? candidate.tags : []);
+  if (/rpc|db|database|sql|migration|supabase|postgres|schema/.test(text)) tags.add("db");
+  if (/ui|modal|component|react|frontend|css|view/.test(text)) tags.add("ui");
+  if (/time|date|utc|timezone|semana|fecha/.test(text)) tags.add("time");
+  if (/auth|session|token|login|rbac/.test(text)) tags.add("auth");
+  if (/test|vitest|spec|qa|assert/.test(text)) tags.add("qa");
+  if (/tool|guidance|cli|multica/.test(text)) tags.add("tools");
+  return Array.from(tags);
+}
+
 /** Evaluates probe traces and selects the winner */
 export function evaluateProbes(probeResults, explicitDecision) {
   if (explicitDecision) {
@@ -154,16 +180,21 @@ export function evaluateProbes(probeResults, explicitDecision) {
     };
   }
 
-  // Rank by duration_ms (ascending)
-  passedProbes.sort((a, b) => (a.duration_ms || 0) - (b.duration_ms || 0));
+  // Rank by operational cost (ascending) incorporating duration and telemetry
+  passedProbes.sort((a, b) => calculateOperationalCost(a) - calculateOperationalCost(b));
   const winner = passedProbes[0];
+
+  const telemStr = winner.telemetry
+    ? ` (duration: ${winner.duration_ms}ms, tool_calls: ${winner.telemetry.tool_calls ?? 0}, blocks: ${winner.telemetry.blocks ?? 0})`
+    : ` (${winner.duration_ms}ms)`;
 
   return {
     winner_id: winner.candidate_id,
     promote: true,
-    rationale: `Candidate ${winner.candidate_id} passed cleanly with optimal duration (${winner.duration_ms}ms)`,
+    rationale: `Candidate ${winner.candidate_id} passed cleanly with optimal operational cost${telemStr}`,
     lesson: `Candidate ${winner.candidate_id} on ${winner.target_components?.join(", ") || "harness"} resolved task in ${winner.duration_ms}ms`,
     duration_ms: winner.duration_ms,
+    telemetry: winner.telemetry || null,
   };
 }
 
@@ -218,6 +249,7 @@ export function runCompose(opts) {
       probe_result: `passed (${evaluation.duration_ms ?? "ok"})`,
       lesson: evaluation.lesson,
       verified: true,
+      tags: deriveTags(winningCandidate, opts.task),
     };
 
     const expLine = JSON.stringify(experienceEntry) + "\n";

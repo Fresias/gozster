@@ -180,7 +180,7 @@ for (const line of memory?.split("\n") ?? []) {
   }
 }
 
-// C3b: Experience Library (Harness² JSONL)
+// C3b: Experience Library (Harness² JSONL con filtrado por scope)
 const expLibPath = path.join(overlayDir, "experience_library.jsonl");
 let expLibSection = null;
 if (existsSync(expLibPath)) {
@@ -200,7 +200,43 @@ if (existsSync(expLibPath)) {
     }
   }
   if (validLessons.length > 0) {
-    const lines = validLessons.slice(-3).map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
+    let activeScope = [];
+    const targetRoot = path.resolve(overlayDir, "..");
+    const scopePaths = [
+      path.join(targetRoot, ".harness", "scope.json"),
+      path.join(overlayDir, "scope.json"),
+      path.join(repoRoot(), ".harness", "scope.json"),
+    ];
+    for (const sp of scopePaths) {
+      if (existsSync(sp)) {
+        try {
+          const parsedScope = JSON.parse(readFileSafe(sp));
+          if (Array.isArray(parsedScope.scope)) activeScope = parsedScope.scope.map((s) => s.toLowerCase());
+          break;
+        } catch {}
+      }
+    }
+
+    let selected = [];
+    if (activeScope.length > 0) {
+      const scored = validLessons.map((l) => {
+        const lTags = Array.isArray(l.tags) ? l.tags.map((t) => t.toLowerCase()) : [];
+        const taskText = `${l.task || ""} ${l.lesson || ""}`.toLowerCase();
+        let matches = 0;
+        for (const s of activeScope) {
+          if (lTags.includes(s) || taskText.includes(s)) matches++;
+        }
+        return { lesson: l, matches };
+      });
+      const matching = scored.filter((s) => s.matches > 0).sort((a, b) => b.matches - a.matches).map((s) => s.lesson);
+      if (matching.length > 0) selected = matching.slice(-3);
+    }
+
+    if (selected.length === 0) {
+      selected = validLessons.slice(-3);
+    }
+
+    const lines = selected.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
     expLibSection = `### Experience Library (Harness²)\n\n${lines.join("\n")}`;
   }
 }

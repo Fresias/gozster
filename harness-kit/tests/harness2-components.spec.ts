@@ -135,4 +135,36 @@ describe("Harness²: 8-Component Architecture", () => {
       execFileSync(process.execPath, [renderScript, overlay], { stdio: ["ignore", "pipe", "pipe"] });
     }).toThrow();
   });
+
+  it("filtra experience_library.jsonl según .harness/scope.json", () => {
+    const { workspace: ws, overlay } = createFullHarness2Workspace();
+    const dotHarness = path.join(ws, ".harness");
+    mkdirSync(dotHarness, { recursive: true });
+    writeFileSync(path.join(dotHarness, "scope.json"), JSON.stringify({ scope: ["database"] }));
+
+    writeFileSync(
+      path.join(overlay, "experience_library.jsonl"),
+      JSON.stringify({
+        id: "exp-ui",
+        task: "modal ui fix",
+        lesson: "modal state requires single lock",
+        tags: ["ui"],
+        verified: true,
+      }) + "\n" +
+      JSON.stringify({
+        id: "exp-db",
+        task: "database rpc fix",
+        lesson: "rpc requires default null in postgres",
+        tags: ["database"],
+        verified: true,
+      }) + "\n",
+    );
+
+    const stdout = execFileSync(process.execPath, [renderScript, overlay], { encoding: "utf8" });
+    expect(stdout).toContain("harness render OK");
+
+    const agents = readFileSync(path.join(ws, "AGENTS.md"), "utf8");
+    expect(agents).toContain("rpc requires default null in postgres");
+    expect(agents).not.toContain("modal state requires single lock");
+  });
 });

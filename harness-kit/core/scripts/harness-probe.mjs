@@ -238,6 +238,25 @@ export function runProbe(opts) {
       const stderr = probeExec.stderr || "";
       const exitCode = probeExec.status ?? (probeExec.error ? 1 : 0);
 
+      // Check for telemetry events during probe execution
+      let telemetry = candidate.telemetry || null;
+      const telemFile = path.join(repoDir, ".harness", "telemetry", "events.jsonl");
+      if (existsSync(telemFile)) {
+        try {
+          const telemLines = readFileSync(telemFile, "utf8").split("\n").filter((l) => l.trim().length > 0);
+          let toolCalls = 0;
+          let blocks = 0;
+          for (const l of telemLines) {
+            try {
+              const ev = JSON.parse(l);
+              if (ev.phase !== "post") toolCalls++;
+              if (ev.decision === "block") blocks++;
+            } catch {}
+          }
+          telemetry = { tool_calls: toolCalls, blocks, total_events: telemLines.length };
+        } catch {}
+      }
+
       probeResult = {
         candidate_id: candidateId,
         probe_branch: probeBranch,
@@ -249,6 +268,7 @@ export function runProbe(opts) {
         timestamp: new Date().toISOString(),
         stdout_preview: stdout.slice(0, 1000),
         stderr_preview: stderr.slice(0, 1000),
+        telemetry,
         branch_kept: Boolean(opts.keepBranch),
       };
     }
