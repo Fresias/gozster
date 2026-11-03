@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "node",
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
-      "tests/**/*.{test,spec}.ts",
+      "tests/**/*.{test,spec}.{ts,tsx}",
       "harness-kit/tests/**/*.spec.ts",
     ],
     globals: false,

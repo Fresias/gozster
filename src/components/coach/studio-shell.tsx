@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
@@ -53,7 +54,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
             <div className="flex items-center gap-2 lg:hidden">
-                <ThemeToggle />
+              <ModeSwitcher current="studio" />
+              <ThemeToggle />
             </div>
           </div>
 
@@ -335,6 +337,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <ModeSwitcher current="studio" />
             <ThemeToggle showLabel />
           </div>
         </header>
