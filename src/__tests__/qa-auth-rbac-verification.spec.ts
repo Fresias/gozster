@@ -209,10 +209,10 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(response.headers.get("location")).toBeNull();
     });
 
-    it("GOZS-339: permite el acceso a /studio a 94.gabriel.sanchez@gmail.com como ADMIN principal", async () => {
-      const gabiUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
-      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gabiUser } });
-      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gabriel Sanchez" } });
+    it("GOZS-335: permite el acceso a /studio a Gonzalo Salas con su perfil ADMIN persistido", async () => {
+      const gonzaloUser = { id: "f4819866-b758-424e-90b2-555b7887c601", email: "gonzasalas2016@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gonzaloUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gonzalo Salas" } });
       const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
       const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
 
@@ -228,16 +228,19 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(response.headers.get("location")).toBeNull();
     });
 
-    it("GOZS-339: permite el acceso a /athlete a 94.gabriel.sanchez@gmail.com con rol ADMIN (Rol Dual / Autogestión)", async () => {
+    it("GOZS-339: permite el acceso a /studio a 94.gabriel.sanchez@gmail.com como ADMIN principal", async () => {
       const gabiUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gabiUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gabriel Sanchez" } });
+      const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
 
       (createServerClient as any).mockReturnValue({
         auth: { getUser: mockGetUser },
-        from: vi.fn(),
+        from: vi.fn().mockReturnValue({ select: mockSelect }),
       });
 
-      const request = new NextRequest("https://gozster.com/athlete");
+      const request = new NextRequest("https://gozster.com/studio");
       const response = await middleware(request);
 
       expect(response.status).toBe(200);
@@ -263,6 +266,37 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(response.headers.get("location")).toBeNull();
     });
 
+    it("GOZS-335: permite el acceso a /athlete a un ADMIN para autogestionar su propia rutina (Rol Dual)", async () => {
+      const adminUser = { id: "f4819866-b758-424e-90b2-555b7887c601", email: "gonzasalas2016@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: adminUser } });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn(),
+      });
+
+      const request = new NextRequest("https://gozster.com/athlete");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("GOZS-339: permite el acceso a /athlete a 94.gabriel.sanchez@gmail.com con rol ADMIN (Rol Dual / Autogestión)", async () => {
+      const gabiUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gabiUser } });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn(),
+      });
+
+      const request = new NextRequest("https://gozster.com/athlete");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
     it("debe permitir el acceso a /athlete a un ALUMNO autenticado", async () => {
       const mockUser = { id: "alumno-uuid-3", email: "atleta@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
