@@ -124,7 +124,7 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(redirectUrl.searchParams.get("redirectTo")).toBe("/athlete");
     });
 
-    it("debe bloquear a un ALUMNO autenticado en /studio y redirigirlo a /athlete", async () => {
+    it("debe bloquear a un ALUMNO autenticado en /studio y redirigirlo a /login?roleMismatch=1", async () => {
       const mockUser = { id: "alumno-uuid-1", email: "alumno@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
 
@@ -146,11 +146,11 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
 
       expect(response.status).toBe(307);
       const redirectUrl = new URL(response.headers.get("location")!);
-      expect(redirectUrl.pathname).toBe("/athlete");
-      expect(redirectUrl.search).toBe("");
+      expect(redirectUrl.pathname).toBe("/login");
+      expect(redirectUrl.searchParams.get("roleMismatch")).toBe("1");
     });
 
-    it("debe bloquear a un ALUMNO autenticado en una subruta de /studio y redirigirlo a /athlete", async () => {
+    it("debe bloquear a un ALUMNO autenticado en una subruta de /studio y redirigirlo a /login?roleMismatch=1", async () => {
       const mockUser = { id: "alumno-uuid-2", email: "alumno2@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
       const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ALUMNO" } });
@@ -167,7 +167,8 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
 
       expect(response.status).toBe(307);
       const redirectUrl = new URL(response.headers.get("location")!);
-      expect(redirectUrl.pathname).toBe("/athlete");
+      expect(redirectUrl.pathname).toBe("/login");
+      expect(redirectUrl.searchParams.get("roleMismatch")).toBe("1");
     });
 
     it("debe permitir el acceso a /studio a un ENTRENADOR autenticado", async () => {
@@ -212,6 +213,22 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
     it("debe permitir el acceso a /athlete a un ALUMNO autenticado", async () => {
       const mockUser = { id: "alumno-uuid-3", email: "atleta@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn(),
+      });
+
+      const request = new NextRequest("https://gozster.com/athlete");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("debe permitir el acceso a /athlete a un ADMIN autenticado (Rol Dual GOZS-336)", async () => {
+      const mockAdmin = { id: "admin-uuid-dual", email: "admin@gozster.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockAdmin } });
 
       (createServerClient as any).mockReturnValue({
         auth: { getUser: mockGetUser },
@@ -581,6 +598,36 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(resolveDestination("ENTRENADOR", "/studio")).toBe("/studio");
       expect(resolveDestination("ADMIN", "/studio/analytics")).toBe("/studio/analytics");
       expect(resolveDestination(undefined, "/studio")).toBe("/studio");
+    });
+
+    it("debe verificar que login/page.tsx incluye el tratamiento transparente de roleMismatch=1 (GOZS-336)", () => {
+      const loginPath = path.resolve(__dirname, "../app/login/page.tsx");
+      const content = fs.readFileSync(loginPath, "utf-8");
+
+      expect(content).toContain('searchParams.get("roleMismatch")');
+      expect(content).toContain("Tu cuenta actual es de Alumno. Para ingresar al Studio requerís una cuenta de Entrenador/Admin");
+      expect(content).toContain("Volver a mi rutina");
+      expect(content).toContain("Cerrar sesión e ingresar con otra cuenta");
+    });
+
+    it("debe verificar que los layouts de studio y athlete integran ModeSwitcher para soporte de rol dual ADMIN (GOZS-336)", () => {
+      const studioShellPath = path.resolve(__dirname, "../components/coach/studio-shell.tsx");
+      const athleteShellPath = path.resolve(__dirname, "../components/athlete/athlete-shell.tsx");
+      const modeSwitcherPath = path.resolve(__dirname, "../components/navigation/mode-switcher.tsx");
+
+      const studioContent = fs.readFileSync(studioShellPath, "utf-8");
+      const athleteContent = fs.readFileSync(athleteShellPath, "utf-8");
+      const switcherContent = fs.readFileSync(modeSwitcherPath, "utf-8");
+
+      expect(studioContent).toContain('<ModeSwitcher current="studio"');
+      expect(athleteContent).toContain('<ModeSwitcher');
+      expect(athleteContent).toContain('current="athlete"');
+      expect(athleteContent).toContain("showReturnButton={true}");
+
+      expect(switcherContent).toContain("Modo Studio");
+      expect(switcherContent).toContain("Modo Entrenamiento");
+      expect(switcherContent).toContain("Volver a Coach Studio");
+      expect(switcherContent).toContain('rol !== "ADMIN"');
     });
   });
 

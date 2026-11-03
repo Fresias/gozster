@@ -58,7 +58,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Coach Studio exige rol ENTRENADOR o ADMIN; un ALUMNO se desvía a su app.
+  // Coach Studio exige rol ENTRENADOR o ADMIN; un ALUMNO no es redirigido en bucle a /athlete,
+  // sino a /login?roleMismatch=1 para informarle con claridad y ofrecerle cambio de cuenta o volver a su rutina.
   if (isStudio && user) {
     const { data: perfil } = await supabase
       .from("perfiles")
@@ -69,8 +70,9 @@ export async function middleware(request: NextRequest) {
 
     if (rol === "ALUMNO") {
       const url = request.nextUrl.clone();
-      url.pathname = "/athlete";
+      url.pathname = "/login";
       url.search = "";
+      url.searchParams.set("roleMismatch", "1");
       return NextResponse.redirect(url);
     }
     if (!rol || !COACH_ROLES.includes(rol)) {
