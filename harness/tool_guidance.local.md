@@ -1,0 +1,3 @@
+- **RPCs en Supabase (GOZS-331):** Parámetros opcionales llevan default explícito ('DEFAULT NULL') en SQL y opcionales en cliente TypeScript.
+- **Modales con Guardado (GOZS-321):** Candado isSaving atómico y desactivar botón submit para prevenir carreras de datos o peticiones duplicadas.
+- **Cálculos de Fechas (GOZS-327):** Fijar 'vi.setSystemTime()' en lunes 09:00 ART en pruebas con tope semanal para evitar desfasajes con UTC.

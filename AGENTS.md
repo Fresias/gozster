@@ -7,9 +7,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - Next.js 15, React 19, TypeScript strict; Tailwind, Shadcn; Zustand (offline-first, delta sync via `updated_at`); Supabase PostgreSQL with strict RLS.
 
 ## Verified Commands
-- Install `npm ci`; dev `npm run dev`; build/start `npm run build` / `npm start`.
-- Type-check / lint `npm run typecheck` / `npm run lint`; tests `npm test` (watch `npm run test:watch`).
-- Single file `npx vitest run <path/to/file.test.ts>`; seed `npm run seed:mynter`.
+- `npm ci`, `npm run dev`, `npm run build`, `npm start`.
+- `npm run typecheck`, `npm run lint`, `npm test` (`npm run test:watch`).
+- Single: `npx vitest run <path/to/file.test.ts>`; seed: `npm run seed:mynter`.
 - **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
@@ -32,33 +32,31 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - Modifying public APIs, interfaces or schemas outside the issue's stated scope.
 
 ## Never (Enforced by Guard)
-- Destructive: `git push --force`/`+branch`, `git reset --hard`, `git clean -fd`, `rm -rf`, `sudo` (rules: `git.force-push`, `git.reset-hard`, `git.clean-force`, `shell.rm-rf`, `shell.sudo`).
+- Destructive: `git push --force`/`+branch`, `git reset --hard`, `git clean -fd`, `rm -rf`, `sudo` (rules: `git.force-push`, `git.reset-hard`, `shell.rm-rf`, `shell.sudo`).
 - Secrets: never read or commit `.env*` (only `.env.example|.sample|.template`) (rule: `fs.env-leak`), nor `*.pem`/`*.key` (rule: `read.sensitive`).
 - Bloat: never read `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `.next/`, `node_modules/`, `dist/`, `build/` (rule: `fs.bloatware`).
 - Unbounded: never read or `cat` >300-line files without limits (rules: `read.oversize`, `shell.oversize-cat`).
-- Harness: never modify guard/git hooks or runtime settings unauthorized (rule: `fs.protected`), nor hand-edit generated files (rule: `write.generated`).
+- Harness: never modify guard/git hooks or settings unauthorized (rule: `fs.protected`), nor hand-edit generated files (rule: `write.generated`).
 - No `gh pr create` without a valid `harness-gate.sh` seal (rule: `pr.requires-seal`).
 
 # Multica Guardrails
 
 ## Invariants
-- **Daemon protection:** Never terminate `multica` or `multica.exe` by process name. Only terminate specific child PIDs after checking `multica daemon status --output json` (rule: `multica.daemon-protect`).
-- **Foreground blocking:** Never detach long-running work or exit a turn "standing by"; run work synchronously in foreground tool calls.
-- **Windows comment encoding:** Write comment bodies to a UTF-8 file in the task workdir, submit via `--content-file`, then delete it only after the post succeeds.
+- **Daemon protection:** Never terminate `multica` by process name. Check `multica daemon status --output json` and terminate only specific child PIDs (`multica.daemon-protect`).
+- **Foreground blocking:** Never exit turn "standing by"; run work synchronously in foreground tool calls.
+- **Windows comment encoding:** Write comments to UTF-8 file in workdir, submit via `--content-file`, delete on success.
 
 # GOZSter Local Guardrails
 
 ## Database & Migrations
-- `supabase/migrations/` is **strictly append-only**: never edit or delete a migration (rule: `db.append-only`).
-- New tables must define explicit PostgreSQL Row Level Security (RLS) policies.
+- `supabase/migrations/`: strictly append-only, never edit/delete migrations (`db.append-only`). Explicit RLS required on new tables.
 
 ## Brand & Product Integrity
-- Zero references to "Mynter" in production UI and student-facing copy (ADR-005).
-- Respect dual view states `SIMPLE` vs `TECNICA` (full overload) per ADR-004.
+- Zero references to "Mynter" in production UI (ADR-005). Dual view states `SIMPLE` vs `TECNICA` per ADR-004.
 
 ## QA & Review Rounds
-- **QA `CHANGES_REQUESTED`, round 1/2:** set stage `in_progress`, comment blocker + link + round `N/2` @mentioning assignee; set QA issue `todo` until `in_review`.
-- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections (no reopen).
+- **QA `CHANGES_REQUESTED` r1/2:** set stage `in_progress`, comment blocker + round `N/2` @mentioning assignee; QA issue `todo` until `in_review`.
+- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections.
 
 ## Skills
 
@@ -73,17 +71,23 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - [verified 2026-10-19 | src: docs/GLOSSARY.md] Training hierarchy: planes_entrenamiento → dias_rutina → ejercicios_en_rutina → registro_sesiones → registro_series.
 - [verified 2026-10-19 | src: package.json] `npm run lint` == `tsc --noEmit` (same as typecheck).
 
+### Experience Library (Harness²)
+
+- [lesson 2026-11-03 | task: GOZS-331] RPCs opcionales requieren DEFAULT NULL en SQL y cliente (1387ms)
+- [lesson 2026-11-03 | task: GOZS-321] Modales transaccionales requieren candado isSaving atómico (1410ms)
+- [lesson 2026-11-03 | task: GOZS-327] Topes semanales deterministas fijando lunes 09:00 ART (3171ms)
+
 # Tool Guidance & Execution Rules
 
 ## File Exploration & Editing
-- **Scan-before-read:** Locate the exact target range with `rg -n` before reading.
-- **Bounded reading:** For files > 300 lines, supply `offset` + `limit` (≤ 200) or `StartLine` + `EndLine` (≤ 300).
-- **Time-to-First-Edit (TTFE):** Aim to read and make the first edit within ≤ 5 tool calls.
-- **Quiet inspection:** Prefer quiet flags like `git diff --stat` or `git status -s` before requesting full diffs.
+- **Scan-before-read:** Locate target range with `rg -n` before reading.
+- **Bounded reading:** Files >300 lines require `offset`+`limit` (≤200) or `StartLine`+`EndLine` (≤300).
+- **Time-to-First-Edit (TTFE):** Aim to read and edit within ≤5 tool calls.
+- **Quiet inspection:** Prefer `git diff --stat` or `git status -s` before full diffs.
 
 ## Test & Gate Workflow
-- **Iterative development:** Run ONLY the affected test file (`npx vitest run <path/to/spec.ts>`).
-- **Zero stale claims:** Never skip tests, mark tests `.skip` or `.todo`, or relax assertions to mask failures.
+- **Iterative development:** Run ONLY affected test file (`npx vitest run <path/to/spec.ts>`).
+- **Zero stale claims:** Never skip tests, mark `.skip`/`.todo`, or relax assertions.
 
 # Multica CLI Guidance (Anti-Token-Waste)
 
@@ -102,6 +106,10 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - **Retries (max 2):** max 2 tries on failure; if 2nd fails, set `blocked` with evidence and end run.
 - **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep/poll.
+
+- **RPCs en Supabase (GOZS-331):** Parámetros opcionales llevan default explícito ('DEFAULT NULL') en SQL y opcionales en cliente TypeScript.
+- **Modales con Guardado (GOZS-321):** Candado isSaving atómico y desactivar botón submit para prevenir carreras de datos o peticiones duplicadas.
+- **Cálculos de Fechas (GOZS-327):** Fijar 'vi.setSystemTime()' en lunes 09:00 ART en pruebas con tope semanal para evitar desfasajes con UTC.
 
 # Helper scripts (run via bash)
 

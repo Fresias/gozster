@@ -7,9 +7,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - Next.js 15, React 19, TypeScript strict; Tailwind, Shadcn; Zustand (offline-first, delta sync via `updated_at`); Supabase PostgreSQL with strict RLS.
 
 ## Verified Commands
-- Install `npm ci`; dev `npm run dev`; build/start `npm run build` / `npm start`.
-- Type-check / lint `npm run typecheck` / `npm run lint`; tests `npm test` (watch `npm run test:watch`).
-- Single file `npx vitest run <path/to/file.test.ts>`; seed `npm run seed:mynter`.
+- `npm ci`, `npm run dev`, `npm run build`, `npm start`.
+- `npm run typecheck`, `npm run lint`, `npm test` (`npm run test:watch`).
+- Single: `npx vitest run <path/to/file.test.ts>`; seed: `npm run seed:mynter`.
 - **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
