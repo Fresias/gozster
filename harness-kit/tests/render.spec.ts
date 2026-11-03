@@ -146,6 +146,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
       "harness-kit/core/scripts/harness-contrast.mjs",
       "harness-kit/core/scripts/harness-gate.sh",
       "harness-kit/core/scripts/harness-init.sh",
+      "harness-kit/core/scripts/harness-learn.sh",
       "harness-kit/core/scripts/harness-probe.mjs",
       "harness-kit/core/scripts/harness-render.mjs",
       "harness-kit/core/scripts/harness-telemetry.mjs",

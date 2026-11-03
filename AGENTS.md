@@ -113,6 +113,7 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - `harness-kit/core/scripts/harness-contrast.mjs`: Contrasts candidate harness probe reports and selects winning configuration (Harness²).
 - `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only check, project gate commands, writes .harness/complete.json.
 - `harness-kit/core/scripts/harness-init.sh`: Setup in one call: git identity, deps, harness status, optional scope.
+- `harness-kit/core/scripts/harness-learn.sh`: Post-merge & issue-close autonomous learner: persists lessons to experience_library.jsonl.
 - `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
 - `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
 - `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:

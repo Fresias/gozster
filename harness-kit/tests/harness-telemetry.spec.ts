@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { buildEvent, recordEvent, redactCmd } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
-import { formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
+import { evaluatePpcTrigger, formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
 // H-12 — Telemetría determinista del guard + agregador harness-telemetry.mjs.
 // Criterios de aceptación (Gherkin):
@@ -244,5 +244,19 @@ describe("H-12: summarize con 100 eventos sintéticos (criterio 1)", () => {
     expect(summary.repeatedBlockSessions).toEqual([
       { session: "s0", rule: "db.append-only", count: 8 },
     ]);
+  });
+
+  it("evaluatePpcTrigger activa should_trigger al superar umbral de 2 bloqueos en una sesión", () => {
+    const trigger = evaluatePpcTrigger([
+      { session: "sess-1", decision: "block", rule: "shell.destructive" },
+      { session: "sess-1", decision: "block", rule: "shell.destructive" },
+      { session: "sess-2", decision: "block", rule: "read.oversize" },
+    ], 2);
+
+    expect(trigger.should_trigger).toBe(true);
+    expect(trigger.triggers).toHaveLength(1);
+    expect(trigger.triggers[0]!.rule).toBe("shell.destructive");
+    expect(trigger.triggers[0]!.block_count).toBe(2);
+    expect(trigger.triggers[0]!.recommendation).toContain("Trigger harness-proposer");
   });
 });
