@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 
 export interface OfflineSyncEvent {
@@ -170,7 +171,7 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
     }),
     {
       name: "gozster-offline-queue",
-      storage: createJSONStorage(() => safeStorage),
+      storage: createJSONStorage(() => userScopedStorage),
       // Nunca persistimos el aviso de error: es efímero y no bloqueante.
       partialize: (state) => ({
         isOnline: state.isOnline,

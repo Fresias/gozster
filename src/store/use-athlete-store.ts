@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/user-storage";
 import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
@@ -396,31 +397,6 @@ const defaultSession: LiveWorkoutSession = {
       ],
     },
   ],
-};
-
-const memoryFallback: Record<string, string> = {};
-
-const safeStorage: StateStorage = {
-  getItem: (name: string): string | null => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      return window.localStorage.getItem(name);
-    }
-    return memoryFallback[name] ?? null;
-  },
-  setItem: (name: string, value: string): void => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(name, value);
-      return;
-    }
-    memoryFallback[name] = value;
-  },
-  removeItem: (name: string): void => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.removeItem(name);
-      return;
-    }
-    delete memoryFallback[name];
-  },
 };
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
@@ -1763,28 +1739,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
     {
       name: "gozster-athlete-store",
       version: 2,
-      storage: createJSONStorage(() => safeStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state?.currentSession) {
-          const studentName = state.currentSession.studentName || "";
-          const isAllowed =
-            studentName.includes("Fernando Rosales") ||
-            studentName.includes("Gabriel");
-          if (!isAllowed) {
-            state.resetSessionToDefaults();
-          }
-        }
-      },
+      storage: createJSONStorage(() => userScopedStorage),
       migrate: (persistedState: any, version: number) => {
         const state = persistedState as Partial<AthleteStoreState>;
-        const studentName = state?.currentSession?.studentName || "";
-        const isAllowed =
-          studentName.includes("Fernando Rosales") ||
-          studentName.includes("Gabriel");
         if (
           version < 2 ||
-          !state?.currentSession?.studentId ||
-          !isAllowed
+          !state?.currentSession?.studentId
         ) {
           return {
             ...state,
