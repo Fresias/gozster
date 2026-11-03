@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { LandingSessionCapsule } from "@/components/landing-session-capsule";
 import { useLandingSession } from "@/lib/use-landing-session";
 import { cn } from "@/lib/utils";
 
@@ -68,35 +69,8 @@ export default function HomePage() {
 
           {/* Acciones del Cabezal: Sesión, CTAs y Toggle de Tema */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Cápsula de Sesión Inteligente */}
-            {!loading && user ? (
-              <div
-                data-testid="session-capsule"
-                className="flex items-center gap-2 rounded-full border border-border/90 bg-surface-container/60 px-3 py-1 text-xs"
-              >
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-mono text-[11px] font-semibold text-foreground">
-                  {user.displayName} (
-                  {user.rol === "ADMIN"
-                    ? "Admin"
-                    : user.rol === "ENTRENADOR"
-                    ? "Coach"
-                    : "Atleta"}
-                  )
-                </span>
-              </div>
-            ) : !loading ? (
-              <Link
-                href="/login"
-                data-testid="session-capsule"
-                className="hidden sm:inline-flex items-center gap-2 rounded-full border border-border/80 bg-surface-container/50 hover:bg-surface-container px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span className="h-2 w-2 rounded-full bg-slate-400" />
-                <span className="font-mono text-[11px] font-semibold">
-                  Iniciar Sesión
-                </span>
-              </Link>
-            ) : null}
+            {/* Cápsula de Sesión Inteligente con Botón de Logout */}
+            <LandingSessionCapsule />
 
             {/* Botón destacado: Portal Alumnos */}
             <Link
@@ -239,7 +213,7 @@ export default function HomePage() {
                 100%
               </div>
               <div className="text-xs text-muted-foreground mt-1.5 leading-snug">
-                Tolerancia a sótanos sin señal (Offline-First)
+                100% Offline-First PWA (Tolerancia a sótanos sin señal)
               </div>
             </Card>
 
@@ -501,7 +475,9 @@ export default function HomePage() {
                 <div className="inline-flex items-center gap-2 font-mono text-xs font-bold text-emerald-500">
                   <span>ACCESO EXCLUSIVO ALUMNOS</span>
                   <span aria-hidden="true">•</span>
-                  <span>MODO OFFLINE PWA</span>
+                  <span>100% Offline-First PWA</span>
+                  <span aria-hidden="true">•</span>
+                  <span>Athlete App</span>
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
                   ¿Sos socio, alumno o atleta de GOZSter?

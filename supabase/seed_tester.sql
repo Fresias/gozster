@@ -28,12 +28,12 @@ BEGIN
   END IF;
 
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
-  VALUES (v_coach, v_coach_email, 'Coach GOZS', 'ADMIN', 'ACTIVA')
+  VALUES (v_coach, v_coach_email, 'Gabriel Sanchez', 'ADMIN', 'ACTIVA')
   ON CONFLICT (id) DO UPDATE SET rol = 'ADMIN', estado_membresia = 'ACTIVA';
 
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-  VALUES (v_uid, v_email, 'Tester GOZS', 'ALUMNO', 'ACTIVA', v_coach)
-  ON CONFLICT (id) DO UPDATE SET rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = v_coach;
+  VALUES (v_uid, v_email, 'Gabriel Sanchez', 'ADMIN', 'ACTIVA', v_coach)
+  ON CONFLICT (id) DO UPDATE SET rol = 'ADMIN', nombre_completo = 'Gabriel Sanchez', estado_membresia = 'ACTIVA', profesor_asignado_id = v_coach;
 
   -- Catálogo: reutiliza los del seed Mynter; crea solo los que falten (nombre es UNIQUE).
   INSERT INTO public.ejercicios (nombre, musculos_principales) VALUES
@@ -58,11 +58,21 @@ BEGIN
   VALUES (v_plan, v_coach, v_uid, 'Tester 3 días + antebrazos', 'INACTIVO', 'Plan de pruebas (GOZS-199)')
   ON CONFLICT (id) DO UPDATE SET estado = 'INACTIVO', alumno_id = v_uid, profesor_id = v_coach;
 
-  -- GABI AGOSTO (de seed_mynter.sql) queda asignada al tester y a su coach.
-  UPDATE public.planes_entrenamiento SET alumno_id = v_uid, profesor_id = v_coach, estado = 'ACTIVO'
+  -- GABI AGOSTO queda asignada a Gabriel Sanchez (94.gabriel.sanchez@gmail.com, ADMIN)
+  UPDATE public.planes_entrenamiento
+  SET alumno_id = v_uid,
+      profesor_id = v_coach,
+      estado = 'ACTIVO'
   WHERE id = v_gabi;
+
   IF NOT FOUND THEN
-    RAISE NOTICE 'seed_tester: plan GABI AGOSTO (%) no existe; correr seed_mynter.sql antes.', v_gabi;
+    INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios)
+    VALUES (v_gabi, v_coach, v_uid, 'GABI AGOSTO', 'ACTIVO', 'Rutina activa principal de entrenamiento')
+    ON CONFLICT (id) DO UPDATE SET
+      alumno_id = v_uid,
+      profesor_id = v_coach,
+      nombre = 'GABI AGOSTO',
+      estado = 'ACTIVO';
   END IF;
 
   INSERT INTO public.dias_rutina (id, plan_id, nombre, orden) VALUES

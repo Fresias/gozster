@@ -1,11 +1,13 @@
 import type { StateStorage } from "zustand/middleware";
 
-/** Stores del alumno cuya persistencia se aísla por usuario. */
+/** Stores del alumno y del coach cuya persistencia se aísla por usuario. */
 export const USER_SCOPED_STORE_NAMES = [
   "gozster-athlete-store",
   "gozster-chat-store",
   "gozster-offline-queue",
   "gozster-ranking-store",
+  "gozster-clases",
+  "gozster-cobros",
 ] as const;
 
 let currentUserId: string | null = null;
@@ -38,12 +40,26 @@ export const userScopedStorage: StateStorage = {
   },
 };
 
-/** Borra claves persistidas: las sin sufijo (legado) y las del usuario indicado. */
+/** Borra claves persistidas: las sin sufijo (legado/coach) y las del usuario indicado en localStorage y sessionStorage. */
 export function purgeStoredUserData(userId: string | null) {
   for (const name of USER_SCOPED_STORE_NAMES) {
     delete memory[name];
-    if (!hasLocalStorage()) continue;
-    window.localStorage.removeItem(name);
-    if (userId) window.localStorage.removeItem(`${name}:${userId}`);
+    if (hasLocalStorage()) {
+      window.localStorage.removeItem(name);
+      if (userId) window.localStorage.removeItem(`${name}:${userId}`);
+    }
+  }
+
+  // Purga complementaria en sessionStorage
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      for (const name of USER_SCOPED_STORE_NAMES) {
+        window.sessionStorage.removeItem(name);
+        if (userId) window.sessionStorage.removeItem(`${name}:${userId}`);
+      }
+      window.sessionStorage.clear();
+    } catch {
+      // Ignorar fallos en entornos sin acceso a sessionStorage
+    }
   }
 }
