@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { activarUsuarioStorage, cerrarSesionAlumno } from "@/lib/session-scope";
+import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { createClient } from "@/lib/supabase/browser";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
@@ -78,11 +78,14 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
             <button
               type="button"
-              onClick={() => void cerrarSesionAlumno()}
-              className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+              onClick={() => void cerrarSesion()}
+              className="min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors inline-flex items-center gap-1.5"
               aria-label="Cerrar sesión"
             >
-              Salir
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Cerrar Sesión</span>
             </button>
           </div>
         </div>
