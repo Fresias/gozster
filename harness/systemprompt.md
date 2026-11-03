@@ -13,8 +13,7 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
-- `src/` — `app/` routes (`(coach)/`, `(athlete)/`, `login/`, `invitacion/`), `components/`, `lib/` (`supabase/` clients), `services/`, `store/`, `middleware.ts`, `__tests__/` (`*.spec.ts`/`*.test.ts`).
-- `supabase/migrations/`, `types/database.types.ts` (generated), `docs/` (`adr/`, `GLOSSARY.md`), `tests/` (harness).
+- `src/` (app routes, components, lib, services, store, `__tests__`), `supabase/migrations/`, `types/database.types.ts`.
 
 ## Governance & Roles
 - Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`).

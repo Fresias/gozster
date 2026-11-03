@@ -13,8 +13,7 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Repository Layout
-- `src/` — `app/` routes (`(coach)/`, `(athlete)/`, `login/`, `invitacion/`), `components/`, `lib/` (`supabase/` clients), `services/`, `store/`, `middleware.ts`, `__tests__/` (`*.spec.ts`/`*.test.ts`).
-- `supabase/migrations/`, `types/database.types.ts` (generated), `docs/` (`adr/`, `GLOSSARY.md`), `tests/` (harness).
+- `src/` (app routes, components, lib, services, store, `__tests__`), `supabase/migrations/`, `types/database.types.ts`.
 
 ## Governance & Roles
 - Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`).
@@ -100,9 +99,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - **One hand-off per state change:** comment only when you deliver, block, or request a specific action.
 
 ## Terminal States (Stop the Loop)
-- **Retries (max 2):** at most 2 tries on the same failure; if the 2nd makes no progress, set `blocked` with evidence (command, output, what was tried) and end the run.
-- **Hand-off, no start:** record goal, changes, evidence, risks and out-of-scope zones, name exactly ONE next action, then end the run without starting it.
-- **Waits by condition only:** use condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`/`--until-issue`); no periodic wakeups, no sleep/poll.
+- **Retries (max 2):** max 2 tries on failure; if 2nd fails, set `blocked` with evidence and end run.
+- **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, end run.
+- **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep/poll.
 
 # Helper scripts (run via bash)
 
