@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOZSter - Propuesta 2: SaaS Coach & Gym Platform + Portal Atleta (Corpo)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    /* TOKENS BIMODALES SEGÚN docs/MARCA.md y DESIGN_SYSTEM.md */
+    :root {
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --surface-container: #F1F5F9;
+      --surface-elevated: #FFFFFF;
+      --border: #E2E8F0;
+      --border-subtle: #EDF2F7;
+      --foreground: #0F172A;
+      --muted: #64748B;
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --accent-coach: #2563EB;
+      --accent-athlete: #059669;
+      --font-display: 'Outfit', -apple-system, sans-serif;
+      --font-body: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    html.dark {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --surface-container: #243247;
+      --surface-elevated: #334155;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.04);
+      --foreground: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #38BDF8;
+      --primary-hover: #0284C7;
+      --accent-coach: #38BDF8;
+      --accent-athlete: #34D399;
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.7);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--foreground);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.2s ease, color 0.2s ease;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+
+    /* Fixed Corporate Header */
+    .saas-header {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--card); border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+    .header-container {
+      max-width: 1320px; margin: 0 auto; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit;
+    }
+    .brand-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      background: #2563EB; color: #FFFFFF;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 900; font-size: 18px;
+    }
+    .brand-title {
+      font-family: var(--font-display); font-size: 19px; font-weight: 900; letter-spacing: -0.5px;
+    }
+    .brand-badge {
+      font-family: var(--font-mono); font-size: 10px; background: rgba(37, 99, 235, 0.12);
+      color: var(--accent-coach); padding: 2px 6px; border-radius: 4px; font-weight: 700;
+    }
+
+    .nav-links {
+      display: flex; align-items: center; gap: 24px; list-style: none;
+    }
+    .nav-link {
+      font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .nav-link:hover { color: var(--foreground); }
+
+    .nav-actions {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    /* Dual Role / Session Capsule */
+    .session-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface-container); border: 1px solid var(--border);
+      padding: 5px 12px; border-radius: 100px; font-size: 12px;
+    }
+    .session-dot { width: 7px; height: 7px; border-radius: 50%; background: #10B981; }
+    .session-text { font-family: var(--font-mono); font-weight: 600; font-size: 11px; }
+
+    /* Button Variants */
+    .btn {
+      min-height: 40px; padding: 0 16px; border-radius: 9px; font-weight: 600; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer; text-decoration: none; border: none; transition: all 0.15s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-athlete {
+      background: #059669; color: #FFFFFF;
+    }
+    .btn-athlete:hover { filter: brightness(1.1); }
+    .btn-coach-primary {
+      background: #2563EB; color: #FFFFFF;
+    }
+    .btn-coach-primary:hover { filter: brightness(1.1); }
+    .btn-secondary {
+      background: var(--surface-container); color: var(--foreground); border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+
+    /* Theme Toggle */
+    .theme-btn {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--foreground); width: 36px; height: 36px; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* HERO SECTION: SaaS CORPORATE */
+    .saas-hero {
+      padding: 72px 24px 48px 24px; text-align: center; max-width: 1080px; margin: 0 auto;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface-container); border: 1px solid var(--border);
+      padding: 6px 14px; border-radius: 100px; font-size: 12px; font-family: var(--font-mono);
+      font-weight: 600; color: var(--muted); margin-bottom: 24px;
+    }
+    .hero-eyebrow strong { color: var(--accent-coach); }
+
+    .hero-headline {
+      font-family: var(--font-display); font-size: 56px; font-weight: 900;
+      letter-spacing: -2px; line-height: 1.08; margin-bottom: 20px;
+    }
+    .hero-headline .highlight-coach {
+      color: var(--accent-coach);
+    }
+    .hero-headline .highlight-free {
+      background: linear-gradient(135deg, #10B981, #38BDF8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subhead {
+      font-size: 18px; color: var(--muted); max-width: 720px; margin: 0 auto 36px auto;
+      line-height: 1.6;
+    }
+
+    .hero-cta-bar {
+      display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 48px;
+    }
+    .hero-cta-btn {
+      min-height: 52px; padding: 0 28px; border-radius: 12px; font-size: 15px; font-weight: 700;
+    }
+
+    /* PROOF STATS BAR (Real GOZSter Metrics) */
+    .proof-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      max-width: 980px; margin: 0 auto 64px auto;
+    }
+    .proof-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px; text-align: left; box-shadow: var(--shadow-sm);
+    }
+    .proof-val {
+      font-family: var(--font-mono); font-size: 26px; font-weight: 700; color: var(--foreground);
+    }
+    .proof-label {
+      font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4;
+    }
+
+    /* PRODUCT PREVIEW INTERFACE SHOWCASE (Interactive Switcher) */
+    .preview-section {
+      max-width: 1280px; margin: 0 auto 80px auto; padding: 0 24px; width: 100%;
+    }
+    .preview-tabs {
+      display: flex; justify-content: center; gap: 8px; margin-bottom: 24px;
+    }
+    .preview-tab-btn {
+      background: var(--surface-container); border: 1px solid var(--border); color: var(--muted);
+      padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 8px; transition: all 0.15s;
+    }
+    .preview-tab-btn.active {
+      background: var(--card); color: var(--foreground); border-color: var(--accent-coach);
+      box-shadow: var(--shadow-sm); font-weight: 700;
+    }
+
+    .preview-window {
+      background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      overflow: hidden; box-shadow: var(--shadow-lg); min-height: 520px;
+    }
+    .window-topbar {
+      background: var(--surface-container); border-bottom: 1px solid var(--border);
+      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .window-dots { display: flex; gap: 6px; }
+    .window-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+    .window-title { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+    .window-body { padding: 32px; }
+
+    /* VIEW A: COACH DASHBOARD VIEW */
+    .coach-mock-dashboard { display: grid; grid-template-columns: 280px 1fr; gap: 24px; }
+    .mock-sidebar {
+      background: var(--surface-container); border: 1px solid var(--border-subtle);
+      border-radius: 12px; padding: 16px;
+    }
+    .mock-roster-title {
+      font-size: 11px; font-family: var(--font-mono); color: var(--muted); text-transform: uppercase; margin-bottom: 12px;
+    }
+    .mock-athlete-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 6px;
+    }
+    .mock-athlete-row.active { background: rgba(37, 99, 235, 0.12); color: var(--accent-coach); font-weight: 600; }
+    
+    .mock-main { display: flex; flex-direction: column; gap: 20px; }
+    .mock-kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .mock-kpi-card {
+      background: var(--surface-container); border: 1px solid var(--border-subtle);
+      border-radius: 10px; padding: 16px;
+    }
+
+    /* ATHLETE MEMBER ACCESS BANNER */
+    .athlete-corpo-box {
+      max-width: 1280px; margin: 0 auto 80px auto; padding: 0 24px; width: 100%;
+    }
+    .athlete-banner-card {
+      background: var(--card); border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 18px; padding: 36px 44px; display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 24px; position: relative; overflow: hidden;
+    }
+    .athlete-banner-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+      background: #10B981;
+    }
+    .athlete-banner-content h3 {
+      font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px;
+    }
+    .athlete-banner-content p {
+      color: var(--muted); font-size: 15px; max-width: 600px; line-height: 1.5;
+    }
+
+    /* CORPORATE FAQ / PILLARS */
+    .corpo-features {
+      max-width: 1280px; margin: 0 auto 80px auto; padding: 0 24px; width: 100%;
+    }
+    .section-title-wrap { text-align: center; margin-bottom: 48px; }
+    .section-title { font-family: var(--font-display); font-size: 36px; font-weight: 900; letter-spacing: -1px; }
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .feature-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 28px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .feature-card h4 {
+      font-family: var(--font-display); font-size: 20px; font-weight: 800; margin: 14px 0 8px 0;
+    }
+    .feature-card p {
+      font-size: 14px; color: var(--muted); line-height: 1.6;
+    }
+
+    /* FOOTER */
+    .saas-footer {
+      border-top: 1px solid var(--border); background: var(--card); padding: 40px 24px 24px 24px;
+    }
+    .footer-inner {
+      max-width: 1320px; margin: 0 auto; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .hero-headline { font-size: 38px; }
+      .proof-grid { grid-template-columns: repeat(2, 1fr); }
+      .features-grid { grid-template-columns: 1fr; }
+      .coach-mock-dashboard { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Corporate Navbar -->
+  <header class="saas-header">
+    <div class="header-container">
+      <div style="display: flex; align-items: center; gap: 32px;">
+        <a href="/" class="brand">
+          <div class="brand-icon">G</div>
+          <div>
+            <span class="brand-title">GOZSter</span>
+            <span class="brand-badge">ENTERPRISE</span>
+          </div>
+        </a>
+
+        <ul class="nav-links">
+          <li><a href="#features" class="nav-link">Gimnasios &amp; Sedes</a></li>
+          <li><a href="#demo" class="nav-link">Constructor de Rutinas</a></li>
+          <li><a href="#athlete" class="nav-link">App de Alumnos</a></li>
+          <li><a href="#pricing" class="nav-link">Open Source ($0/mes)</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-actions">
+        <!-- Smart Session Indicator: Solución al caso Gabriel/Gonzalo -->
+        <div class="session-badge">
+          <span class="session-dot"></span>
+          <span class="session-text">ds.gabriel.sanchez (Admin)</span>
+        </div>
+
+        <a href="/athlete" class="btn btn-athlete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          Portal Alumnos
+        </a>
+
+        <a href="/studio" class="btn btn-coach-primary">
+          Coach Studio →
+        </a>
+
+        <button class="theme-btn" onclick="toggleTheme()" title="Cambiar tema">
+          <span id="theme-icon">☀️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="saas-hero">
+      <div class="hero-eyebrow">
+        <span>INFRAESTRUCTURA DE FUERZA</span> • <strong>$0 COSTO EN LICENCIAS MENSUALES</strong>
+      </div>
+
+      <h1 class="hero-headline">
+        La plataforma de entrenamiento y retención que <span class="highlight-coach">potencia tu negocio</span> sin pagar licencias.
+      </h1>
+
+      <p class="hero-subhead">
+        Reemplazá plataformas de gimnasio comerciales por una suite de fuerza de alto rendimiento. Control centralizado de entrenadores, analítica de bajas y la app offline que tus atletas realmente van a usar.
+      </p>
+
+      <div class="hero-cta-bar">
+        <a href="/studio" class="btn btn-coach-primary hero-cta-btn">
+          Ingresar al Panel de Administrador →
+        </a>
+        <a href="/athlete" class="btn btn-secondary hero-cta-btn">
+          🏋️‍♂️ Entrenar como Atleta (Mi Rutina)
+        </a>
+      </div>
+
+      <!-- Live Proof Stats Bar (No-AI-Slop: Métricas reales de producción) -->
+      <div class="proof-grid">
+        <div class="proof-card">
+          <div class="proof-val" style="color: var(--accent-coach);">13</div>
+          <div class="proof-label">Atletas y alumnos con membresía activa</div>
+        </div>
+        <div class="proof-card">
+          <div class="proof-val" style="color: #10B981;">100%</div>
+          <div class="proof-label">Tolerancia a sótanos sin señal (Offline-First)</div>
+        </div>
+        <div class="proof-card">
+          <div class="proof-val" style="color: #38BDF8;">$0</div>
+          <div class="proof-label">Gasto en licencias corporativas por mes</div>
+        </div>
+        <div class="proof-card">
+          <div class="proof-val">1RM</div>
+          <div class="proof-label">Fórmulas científicas Epley y Brzycki auditadas</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Product Interface Showcase (Tabs interactivos) -->
+    <section class="preview-section" id="demo">
+      <div class="preview-tabs">
+        <button class="preview-tab-btn active" onclick="switchPreview('coach')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+          Vista Coach Studio (Desktop)
+        </button>
+        <button class="preview-tab-btn" onclick="switchPreview('athlete')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          Vista Athlete App (Mobile PWA)
+        </button>
+      </div>
+
+      <div class="preview-window">
+        <div class="window-topbar">
+          <div class="window-dots">
+            <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
+          </div>
+          <div class="window-title" id="window-caption">gozster.vercel.app/studio • Panel General de Alumnos</div>
+          <div style="font-size: 11px; font-family: var(--font-mono); color: #10B981;">● PRODUCCIÓN ACTIVA</div>
+        </div>
+
+        <div class="window-body" id="preview-content">
+          <!-- Live Preview Coach Studio -->
+          <div class="coach-mock-dashboard">
+            <div class="mock-sidebar">
+              <div class="mock-roster-title">Alumnos Asignados (13)</div>
+              <div class="mock-athlete-row active">
+                <span>Gabriel Sanchez</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">GABI AGOSTO</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Celeste Gerardi</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVA</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Esteban Papic</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVO</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Michelle Roach</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVA</span>
+              </div>
+            </div>
+
+            <div class="mock-main">
+              <div class="mock-kpi-row">
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Retención</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; color: #10B981; margin-top: 4px;">100%</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">0 clientes perdidos este mes</div>
+                </div>
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Sobrecarga</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; color: var(--accent-coach); margin-top: 4px;">+4.8%</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Incremento de tonelaje medio</div>
+                </div>
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Estado de Cuenta</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; margin-top: 4px;">ADMIN</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Control total de profesores</div>
+                </div>
+              </div>
+
+              <div style="background: var(--surface-container); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+                <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px;">Constructor Visual de Rutinas y Superseries</div>
+                <p style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+                  Editor de días de entrenamiento con cálculo automático de descansos, tempo de ejecución (ej. 3-0-1-0) y agrupación de biseries con un solo clic.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dedicated Athlete Access Banner for Students / Members -->
+    <section class="athlete-corpo-box" id="athlete">
+      <div class="athlete-banner-card">
+        <div class="athlete-banner-content">
+          <div style="display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: #10B981; font-weight: 700; margin-bottom: 8px;">
+            <span>ACCESO EXCLUSIVO ALUMNOS</span> • <span>MODO OFFLINE PWA</span>
+          </div>
+          <h3>¿Sos socio, alumno o atleta de GOZSter?</h3>
+          <p>
+            Abrí tu rutina en vivo directamente en tu celular. Registrá series, consultá videos de técnica de YouTube y descansá con el temporizador automático sonoro.
+          </p>
+        </div>
+
+        <a href="/athlete" class="btn btn-athlete" style="min-height: 48px; padding: 0 24px; font-size: 14px; font-weight: 700;">
+          Abrir mi Entrenamiento en Vivo →
+        </a>
+      </div>
+    </section>
+
+    <!-- Corporate Features Pillars -->
+    <section class="corpo-features" id="features">
+      <div class="section-title-wrap">
+        <h2 class="section-title">Diseñado para la Gestión Real de Fuerza</h2>
+        <p style="color: var(--muted); font-size: 15px; margin-top: 8px;">
+          Ingeniería de software deportiva para reemplazar licencias comerciales obsoletas.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div>
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(37,99,235,0.1); color: var(--accent-coach); display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <h4>Estructura Multi-Entrenador</h4>
+            <p>
+              Gobernanza por roles: Administrador general, Profesores de sala y Alumnos. Cada profesor gestiona su cupo y el administrador audita la retención global.
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div>
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(16,185,129,0.1); color: #10B981; display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <h4>Alertas de Sobrecarga y Récords</h4>
+            <p>
+              Notificaciones automáticas cuando un atleta supera su récord de carga (PR) o reporta dolor articular agudo, protegiendo la salud física del alumno.
+            </p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div>
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(56,189,248,0.1); color: #38BDF8; display: flex; align-items: center; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <h4>Arquitectura Bimodal Ergonométrica</h4>
+            <p>
+              Modo Día Suave optimizado para horas de trabajo de escritorio frente a la computadora y Modo Noche Pulido para la penumbra del gimnasio sin fatiga visual.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Corporate Footer -->
+  <footer class="saas-footer">
+    <div class="footer-inner">
+      <div>
+        <span style="font-family: var(--font-display); font-weight: 900; font-size: 16px;">GOZSter Platform</span>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">
+          Plataforma libre y de código abierto para entrenadores, gimnasios y atletas de fuerza.
+        </p>
+      </div>
+
+      <div style="font-size: 12px; color: var(--muted);">
+        Desarrollado para el rendimiento deportivo • Fresias / GOZSter
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+    }
+
+    function switchPreview(type) {
+      document.querySelectorAll('.preview-tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.closest('.preview-tab-btn').classList.add('active');
+
+      const caption = document.getElementById('window-caption');
+      const content = document.getElementById('preview-content');
+
+      if (type === 'coach') {
+        caption.innerText = 'gozster.vercel.app/studio • Panel General de Alumnos y Retención';
+        content.innerHTML = `
+          <div class="coach-mock-dashboard">
+            <div class="mock-sidebar">
+              <div class="mock-roster-title">Alumnos Asignados (13)</div>
+              <div class="mock-athlete-row active">
+                <span>Gabriel Sanchez</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">GABI AGOSTO</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Celeste Gerardi</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVA</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Esteban Papic</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVO</span>
+              </div>
+              <div class="mock-athlete-row">
+                <span>Michelle Roach</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">ACTIVA</span>
+              </div>
+            </div>
+
+            <div class="mock-main">
+              <div class="mock-kpi-row">
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Retención</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; color: #10B981; margin-top: 4px;">100%</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">0 clientes perdidos este mes</div>
+                </div>
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Sobrecarga</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; color: var(--accent-coach); margin-top: 4px;">+4.8%</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Incremento de tonelaje medio</div>
+                </div>
+                <div class="mock-kpi-card">
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Estado de Cuenta</div>
+                  <div style="font-size: 24px; font-family: var(--font-mono); font-weight: 700; margin-top: 4px;">ADMIN</div>
+                  <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Control total de profesores</div>
+                </div>
+              </div>
+
+              <div style="background: var(--surface-container); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+                <div style="font-weight: 700; font-size: 14px; margin-bottom: 6px;">Constructor Visual de Rutinas y Superseries</div>
+                <p style="font-size: 12px; color: var(--muted); line-height: 1.5;">
+                  Editor de días de entrenamiento con cálculo automático de descansos, tempo de ejecución (ej. 3-0-1-0) y agrupación de biseries con un solo clic.
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        caption.innerText = 'gozster.vercel.app/athlete • Modo Entrenamiento en Vivo';
+        content.innerHTML = `
+          <div style="max-width: 440px; margin: 0 auto; background: var(--surface-container); border: 1px solid var(--border); border-radius: 14px; padding: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <span style="font-family: var(--font-mono); font-size: 11px; color: #10B981; font-weight: 700;">DÍA 1 • TORSO PESADO</span>
+              <span style="font-family: var(--font-mono); font-size: 11px; background: rgba(16,185,129,0.15); color: #10B981; padding: 2px 6px; border-radius: 4px;">OFFLINE OK</span>
+            </div>
+            
+            <div style="background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px;">
+              <div style="font-weight: 700; font-size: 15px;">Press Plano con Barra</div>
+              <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">4 series x 8-10 reps • Descanso: 120s</div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+                <div>
+                  <div style="font-size: 11px; color: var(--muted);">Serie 1 (Efectiva)</div>
+                  <div style="font-family: var(--font-mono); font-weight: 700; font-size: 16px;">80 kg x 10 reps</div>
+                </div>
+                <div style="background: #10B981; color: #000; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900;">
+                  ✓
+                </div>
+              </div>
+            </div>
+
+            <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 14px; text-align: center;">
+              <div style="font-size: 11px; font-family: var(--font-mono); color: #38BDF8;">CRONÓMETRO DE DESCANSO AUTOMÁTICO</div>
+              <div style="font-family: var(--font-mono); font-size: 32px; font-weight: 800; color: #38BDF8; margin: 4px 0;">01:45</div>
+              <div style="font-size: 11px; color: var(--muted);">Alerta audible y vibración al llegar a cero</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
