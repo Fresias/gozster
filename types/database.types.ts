@@ -1799,6 +1799,22 @@ export interface Database {
       };
     };
     Functions: {
+      actualizar_peso_sexo_alumno: {
+        Args: {
+          p_alumno_id: string;
+          p_peso_corporal_kg: number;
+          p_sexo: string;
+        };
+        Returns: Json;
+      };
+      actualizar_perfil_alumno: {
+        Args: {
+          p_alumno_id: string;
+          p_peso_corporal_kg: number;
+          p_sexo: string;
+        };
+        Returns: Json;
+      };
       contar_mensajes_no_leidos: {
         Args: Record<PropertyKey, never>;
         Returns: number;
