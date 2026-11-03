@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOZSter - Propuesta 1: Dual Hub Split (Corpo & Performance)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    /* TOKENS BIMODALES SEGÚN docs/MARCA.md y DESIGN_SYSTEM.md */
+    :root {
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --surface-container: #F1F5F9;
+      --surface-elevated: #FFFFFF;
+      --border: #E2E8F0;
+      --border-subtle: #EDF2F7;
+      --foreground: #0F172A;
+      --muted: #64748B;
+      --primary: #2563EB;
+      --primary-foreground: #FFFFFF;
+      --accent-coach: #2563EB;
+      --accent-athlete: #059669;
+      --athlete-glow: rgba(5, 150, 105, 0.08);
+      --coach-glow: rgba(37, 99, 235, 0.08);
+      --font-display: 'Outfit', -apple-system, sans-serif;
+      --font-body: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+      --shadow-elevated: 0 12px 32px rgba(15, 23, 42, 0.12);
+    }
+
+    html.dark {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --surface-container: #243247;
+      --surface-elevated: #334155;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.04);
+      --foreground: #F8FAFC;
+      --muted: #94A3B8;
+      --primary: #38BDF8;
+      --primary-foreground: #0F172A;
+      --accent-coach: #38BDF8;
+      --accent-athlete: #34D399;
+      --athlete-glow: rgba(52, 211, 153, 0.06);
+      --coach-glow: rgba(56, 189, 248, 0.06);
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+      --shadow-elevated: 0 16px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--foreground);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.2s ease, color 0.2s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Brand & Session Header */
+    .top-bar {
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(8px);
+    }
+    .top-bar-inner {
+      max-width: 1400px; margin: 0 auto;
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand-group {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .brand-mark {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: var(--foreground); color: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-weight: 900; font-size: 20px;
+    }
+    .brand-info h1 {
+      font-family: var(--font-display); font-size: 18px; font-weight: 800; letter-spacing: -0.5px;
+      line-height: 1.1;
+    }
+    .brand-info span {
+      font-size: 11px; font-family: var(--font-mono); color: var(--muted); letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex; align-items: center; gap: 14px;
+    }
+
+    /* Theme Switcher Toggle */
+    .theme-toggle-btn {
+      background: var(--surface-container); border: 1px solid var(--border);
+      color: var(--foreground); padding: 8px 14px; border-radius: 8px;
+      font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .theme-toggle-btn:hover { background: var(--border); }
+
+    /* Smart Auth Session Capsule */
+    .auth-capsule {
+      background: var(--surface-container); border: 1px solid var(--border);
+      border-radius: 100px; padding: 4px 6px 4px 14px;
+      display: flex; align-items: center; gap: 12px; font-size: 13px;
+    }
+    .auth-status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #10B981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+    .auth-user-meta {
+      display: flex; flex-direction: column; line-height: 1.2;
+    }
+    .auth-user-name { font-weight: 600; font-size: 12px; }
+    .auth-user-role { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+    .auth-switch-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--foreground);
+      padding: 6px 12px; border-radius: 100px; font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .auth-switch-btn:hover { background: var(--surface-container); }
+
+    /* Corporate Subheader Banner */
+    .corpo-banner {
+      background: var(--surface-container); border-bottom: 1px solid var(--border);
+      padding: 10px 24px; font-size: 12px; text-align: center; color: var(--muted);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .corpo-badge {
+      background: rgba(37, 99, 235, 0.12); color: var(--accent-coach);
+      padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: var(--font-mono); font-size: 11px;
+    }
+
+    /* Main Dual Split Layout */
+    .split-viewport {
+      flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+      max-width: 1400px; width: 100%; margin: 0 auto;
+      border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+    }
+
+    .split-column {
+      padding: 56px 48px; display: flex; flex-direction: column; justify-content: space-between;
+      position: relative; transition: background 0.2s ease;
+    }
+    .split-coach {
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--coach-glow) 0%, transparent 100%);
+    }
+    .split-athlete {
+      background: linear-gradient(180deg, var(--athlete-glow) 0%, transparent 100%);
+    }
+
+    .column-header { margin-bottom: 32px; }
+    .column-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono);
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    .split-coach .column-badge {
+      background: rgba(37, 99, 235, 0.1); color: var(--accent-coach); border: 1px solid rgba(37, 99, 235, 0.25);
+    }
+    .split-athlete .column-badge {
+      background: rgba(16, 185, 129, 0.1); color: var(--accent-athlete); border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .column-title {
+      font-family: var(--font-display); font-size: 38px; font-weight: 900;
+      letter-spacing: -1.2px; line-height: 1.1; margin-bottom: 14px;
+    }
+    .column-description {
+      font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 500px;
+    }
+
+    /* Live Telemetry Mock Modules (Anti-Slop: Real product data) */
+    .telemetry-preview {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px; margin: 28px 0; box-shadow: var(--shadow-sm);
+    }
+    .telemetry-title {
+      font-size: 11px; font-family: var(--font-mono); text-transform: uppercase;
+      color: var(--muted); letter-spacing: 0.5px; margin-bottom: 14px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .metric-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    }
+    .metric-cell {
+      background: var(--surface-container); padding: 12px; border-radius: 8px; border: 1px solid var(--border-subtle);
+    }
+    .metric-val {
+      font-family: var(--font-mono); font-size: 22px; font-weight: 700; line-height: 1.1;
+    }
+    .metric-label {
+      font-size: 11px; color: var(--muted); margin-top: 4px;
+    }
+
+    /* Feature Checklist */
+    .feature-list {
+      list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 36px;
+    }
+    .feature-item {
+      display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--foreground);
+    }
+    .feature-check {
+      width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .split-coach .feature-check { background: rgba(37, 99, 235, 0.15); color: var(--accent-coach); }
+    .split-athlete .feature-check { background: rgba(16, 185, 129, 0.15); color: var(--accent-athlete); }
+    .feature-check svg { width: 12px; height: 12px; stroke-width: 2.5; stroke: currentColor; fill: none; }
+
+    /* Action Trigger Buttons */
+    .action-group { display: flex; flex-direction: column; gap: 10px; }
+    .cta-btn {
+      min-height: 48px; border-radius: 12px; font-weight: 700; font-size: 15px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      cursor: pointer; border: none; text-decoration: none; transition: transform 0.1s ease, filter 0.15s ease;
+    }
+    .cta-btn:active { transform: scale(0.98); }
+    .btn-coach {
+      background: #2563EB; color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    }
+    .btn-coach:hover { filter: brightness(1.08); }
+    .btn-athlete {
+      background: #059669; color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+    }
+    .btn-athlete:hover { filter: brightness(1.08); }
+    
+    .dual-role-pill {
+      background: var(--surface-container); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--muted);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .dual-role-link {
+      color: var(--foreground); font-weight: 600; text-decoration: underline; cursor: pointer;
+    }
+
+    /* Bottom Corporate Strip */
+    .corpo-footer {
+      border-top: 1px solid var(--border); background: var(--card);
+      padding: 18px 24px; font-size: 12px; color: var(--muted);
+    }
+    .corpo-footer-inner {
+      max-width: 1400px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .split-viewport { grid-template-columns: 1fr; border: none; }
+      .split-coach { border-right: none; border-bottom: 1px solid var(--border); }
+      .split-column { padding: 40px 24px; }
+      .top-bar-inner { flex-direction: column; gap: 12px; align-items: flex-start; }
+      .header-actions { width: 100%; justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation & Unified Session Bar -->
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <div class="brand-group">
+        <div class="brand-mark">G</div>
+        <div class="brand-info">
+          <h1>GOZSter <span style="font-weight: 500; color: var(--muted); font-size: 14px;">Platform</span></h1>
+          <span>ENTERPRISE &amp; PERFORMANCE PROTOCOL</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Interactive Simulated Session: Admin con Rol Dual -->
+        <div class="auth-capsule">
+          <span class="auth-status-dot"></span>
+          <div class="auth-user-meta">
+            <span class="auth-user-name">ds.gabriel.sanchez@gmail.com</span>
+            <span class="auth-user-role">ROL: ADMIN (COACH + ATLETA)</span>
+          </div>
+          <button class="auth-switch-btn" onclick="alert('Abriendo selector de perfil: Cambiar a cuenta de Atleta puro o cerrar sesión')">
+            Cambiar Cuenta
+          </button>
+        </div>
+
+        <button class="theme-toggle-btn" onclick="toggleTheme()">
+          <span id="theme-icon">☀️</span> <span id="theme-text">Modo Día</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Corporate Multi-Facility Notice -->
+  <div class="corpo-banner">
+    <span class="corpo-badge">CORPO READY</span>
+    <span>Arquitectura Multi-Entrenador y Multi-Sede con 100% de datos bajo gobernanza Open Source ($0/mes en licencias de software).</span>
+  </div>
+
+  <!-- Dual Hub Split Viewport -->
+  <main class="split-viewport">
+    
+    <!-- LEFT PANEL: COACH & GYM STUDIO (B2B / CORPO) -->
+    <section class="split-column split-coach">
+      <div>
+        <div class="column-header">
+          <span class="column-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            Coach Studio • Desktop &amp; Multi-Sede
+          </span>
+          <h2 class="column-title">Centro de Mando para Entrenadores y Gimnasios</h2>
+          <p class="column-description">
+            Planificación de sobrecarga, retención de alumnos y analítica de negocio. Diseñado para entrenadores de fuerza y gimnasios que no quieren depender de plataformas de terceros.
+          </p>
+        </div>
+
+        <!-- Telemetry: Real Product Data (INDEC Kpis) -->
+        <div class="telemetry-preview">
+          <div class="telemetry-title">
+            <span>Telemetría en Vivo • Sede Central</span>
+            <span style="color: var(--accent-coach); font-weight: 700;">PRODUCCIÓN</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric-cell">
+              <div class="metric-val" style="color: var(--accent-coach);">13</div>
+              <div class="metric-label">Alumnos Activos</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-val" style="color: #F59E0B;">0</div>
+              <div class="metric-label">Sin Plan Asignado</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-val" style="color: #10B981;">0.0%</div>
+              <div class="metric-label">Tasa Churn (Mes)</div>
+            </div>
+          </div>
+        </div>
+
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Constructor Visual de Rutinas:</strong> Soporte nativo de superseries, circuitos y descansos auditivos.</span>
+          </li>
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Gobernanza Corporativa:</strong> Asignación de profesores por sede, control de cobros y agenda semanal.</span>
+          </li>
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Catálogo Maestro Biomecánico:</strong> Videos de técnica integrados con IDs de YouTube sin coste adicional.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="action-group">
+        <a href="/studio" class="cta-btn btn-coach">
+          Ingresar al Coach Studio →
+        </a>
+        <div class="dual-role-pill">
+          <span>¿Sos Gonzalo Salas? Ingresá como Admin con tus credenciales asignadas.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: ATHLETE & MEMBER APP (MOBILE / PWA) -->
+    <section class="split-column split-athlete">
+      <div>
+        <div class="column-header">
+          <span class="column-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            Athlete App • PWA Offline-First
+          </span>
+          <h2 class="column-title">Entrenamiento en Vivo en el Piso del Gimnasio</h2>
+          <p class="column-description">
+            La experiencia de tus atletas en el gimnasio. Diseñada para funcionar sin señal en sótanos, con cronómetro automático, cálculo de 1RM y check rápido de series.
+          </p>
+        </div>
+
+        <!-- Telemetry: Real Athlete Metrics -->
+        <div class="telemetry-preview">
+          <div class="telemetry-title">
+            <span>Sesión en Curso • Rutina de Fuerza</span>
+            <span style="color: var(--accent-athlete); font-weight: 700;">OFFLINE SYNC OK</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric-cell">
+              <div class="metric-val" style="color: var(--accent-athlete);">4.280</div>
+              <div class="metric-label">Kg Volumen Efectivo</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-val">142.5</div>
+              <div class="metric-label">1RM Est. (Brzycki)</div>
+            </div>
+            <div class="metric-cell">
+              <div class="metric-val" style="font-family: var(--font-mono); color: #38BDF8;">01:30</div>
+              <div class="metric-label">Timer Descanso</div>
+            </div>
+          </div>
+        </div>
+
+        <ul class="feature-list">
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Cero Caídas en Sótanos:</strong> Almacenamiento local con Zustand y sincronización diferida al recuperar red.</span>
+          </li>
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Ergonomía Táctil 48px:</strong> Botones gigantes operables con una mano y manos sudadas o con magnesio.</span>
+          </li>
+          <li class="feature-item">
+            <span class="feature-check"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+            <span><strong>Fórmulas Científicas:</strong> Exclusión estricta de series de aproximación para no falsear el tonelaje real.</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="action-group">
+        <a href="/athlete" class="cta-btn btn-athlete">
+          Abrir Athlete App (PWA) →
+        </a>
+        <div class="dual-role-pill">
+          <span>Como Administrador tenés tu propia rutina asignada:</span>
+          <span class="dual-role-link" onclick="alert('Abriendo sesión de entrenamiento para Gabriel (Admin)')">Entrenar mi Rutina</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Corporate Bottom Governance -->
+  <footer class="corpo-footer">
+    <div class="corpo-footer-inner">
+      <div>
+        <strong>GOZSter Athletic Platform</strong> • Arquitectura Bimodal (Modo Día Suave &amp; Modo Noche Pulido).
+      </div>
+      <div>
+        Supabase PostgreSQL + Next.js + Tailwind CSS • Código Abierto bajo Licencia MIT.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-text').innerText = isDark ? 'Modo Día' : 'Modo Noche';
+    }
+  </script>
+</body>
+</html>
