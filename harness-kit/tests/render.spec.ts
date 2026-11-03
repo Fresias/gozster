@@ -142,8 +142,10 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]!);
 
     expect(listed).toEqual([
+      "harness-kit/core/scripts/harness-compose.mjs",
       "harness-kit/core/scripts/harness-gate.sh",
       "harness-kit/core/scripts/harness-init.sh",
+      "harness-kit/core/scripts/harness-probe.mjs",
       "harness-kit/core/scripts/harness-render.mjs",
       "harness-kit/core/scripts/harness-telemetry.mjs",
     ]);

@@ -1,10 +1,10 @@
 # GOZSter — System Prompt & Guidelines
 
 ## Product Vision & Architecture
-GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plans, students and overload alerts; **Athlete App** (Mobile-First/PWA) for live, offline-first training (timers, 1RM, RPE).
+GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **Athlete App** (Mobile-First/PWA) for live, offline-first training (timers, 1RM, RPE).
 
 ## Technology Stack
-- Next.js 15 + React 19, TypeScript (`strict`); Tailwind + Shadcn; Zustand (offline-first, delta sync via `updated_at`); **Backend:** Supabase — PostgreSQL 15+ with strict RLS.
+- Next.js 15, React 19, TypeScript strict; Tailwind, Shadcn; Zustand (offline-first, delta sync via `updated_at`); Supabase PostgreSQL with strict RLS.
 
 ## Verified Commands
 - Install `npm ci`; dev `npm run dev`; build/start `npm run build` / `npm start`.
@@ -17,9 +17,9 @@ GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plan
 - `supabase/migrations/`, `types/database.types.ts` (generated), `docs/` (`adr/`, `GLOSSARY.md`), `tests/` (harness).
 
 ## Governance & Roles
-- Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`).
-- Merge: `@PM-GOZster` alone merges to `main`, gated on green CI + QA `APPROVED`.
-- Review: `@qa-eng` runs the 6-level Selection protocol (`harness-kit/core/templates/review-selection.md`) per PR.
+- Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`).
+- Merge: `@PM-GOZster` merges to `main` on green CI + QA `APPROVED`.
+- Review: `@qa-eng` runs the 6-level Selection protocol (`review-selection.md`) per PR.
 
 # Core Guardrails (Invariants)
 
@@ -58,8 +58,8 @@ GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plan
 - Respect dual view states `SIMPLE` vs `TECNICA` (full overload) per ADR-004.
 
 ## QA & Review Rounds
-- **QA `CHANGES_REQUESTED`, round 1/2 — reopen the stage:** set the Stage issue `in_progress`; comment there with blocker + detail link + round `N/2`, @mentioning the assignee (an action request, so the mention fires their run); set the QA issue `todo` until the stage is `in_review` again.
-- **Round 2/2 — no re-audit, no reopen:** QA/PM set `blocked` and @mention Gabriel (human owner) with a summary of the two rejections.
+- **QA `CHANGES_REQUESTED`, round 1/2:** set stage `in_progress`, comment blocker + link + round `N/2` @mentioning assignee; set QA issue `todo` until `in_review`.
+- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections (no reopen).
 
 ## Skills
 
@@ -106,7 +106,9 @@ GOZSter is a strength-training platform: **Coach Studio** (Desktop/Web) for plan
 
 # Helper scripts (run via bash)
 
+- `harness-kit/core/scripts/harness-compose.mjs`: Evaluates probe traces, selects the winning harness and updates experience library.
 - `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only check, project gate commands, writes .harness/complete.json.
 - `harness-kit/core/scripts/harness-init.sh`: Setup in one call: git identity, deps, harness status, optional scope.
+- `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
 - `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
 - `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:

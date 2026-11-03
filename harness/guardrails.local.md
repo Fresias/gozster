@@ -9,5 +9,5 @@
 - Respect dual view states `SIMPLE` vs `TECNICA` (full overload) per ADR-004.
 
 ## QA & Review Rounds
-- **QA `CHANGES_REQUESTED`, round 1/2 — reopen the stage:** set the Stage issue `in_progress`; comment there with blocker + detail link + round `N/2`, @mentioning the assignee (an action request, so the mention fires their run); set the QA issue `todo` until the stage is `in_review` again.
-- **Round 2/2 — no re-audit, no reopen:** QA/PM set `blocked` and @mention Gabriel (human owner) with a summary of the two rejections.
+- **QA `CHANGES_REQUESTED`, round 1/2:** set stage `in_progress`, comment blocker + link + round `N/2` @mentioning assignee; set QA issue `todo` until `in_review`.
+- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections (no reopen).

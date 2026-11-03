@@ -12,6 +12,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const runtimesDir = path.resolve(here, "..", "core", "runtimes");
 
+const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+const bashEnv =
+  process.platform === "win32" && existsSync(gitBashWin)
+    ? {
+        ...process.env,
+        PATH: `C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\usr\\bin;${process.env.PATH ?? ""}`,
+      }
+    : process.env;
+
 describe("H-06: Superficie de hooks y soporte de flecha result (post-hook)", () => {
   it("documenta en antigravity.json que post es 'unsupported' sin inventar workarounds", () => {
     const agPath = path.join(runtimesDir, "antigravity.json");
@@ -208,6 +217,7 @@ describe("GOZS-81: matchers generados ⊇ tools de core/runtimes", () => {
       cwd: path.join(repoRoot, ".agents"),
       input: payload,
       encoding: "utf8",
+      env: bashEnv,
     });
     expect(JSON.parse(out)).toMatchObject({ decision: "deny" });
   });
