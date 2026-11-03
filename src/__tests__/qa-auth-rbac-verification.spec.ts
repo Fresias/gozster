@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { middleware, config as middlewareConfig } from "@/middleware";
-import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
+import { fetchLiveDatasetFromSupabase, fetchPlanAlumno } from "@/services/alumnos-service";
 import {
   calculateBrzycki1RM,
   calculateEpley1RM,
@@ -209,6 +209,60 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(response.headers.get("location")).toBeNull();
     });
 
+    it("GOZS-339: permite el acceso a /studio a 94.gabriel.sanchez@gmail.com como ADMIN principal", async () => {
+      const gabiUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gabiUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gabriel Sanchez" } });
+      const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn().mockReturnValue({ select: mockSelect }),
+      });
+
+      const request = new NextRequest("https://gozster.com/studio");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("GOZS-339: permite el acceso a /athlete a 94.gabriel.sanchez@gmail.com con rol ADMIN (Rol Dual / Autogestión)", async () => {
+      const gabiUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gabiUser } });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn(),
+      });
+
+      const request = new NextRequest("https://gozster.com/athlete");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("GOZS-339: permite el acceso a /studio a ds.gabriel.sanchez@gmail.com como ADMIN auxiliar", async () => {
+      const coachUser = { id: "00000000-0000-4000-8000-0000000000c1", email: "ds.gabriel.sanchez@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: coachUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gabriel Sanchez" } });
+      const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn().mockReturnValue({ select: mockSelect }),
+      });
+
+      const request = new NextRequest("https://gozster.com/studio");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
     it("debe permitir el acceso a /athlete a un ALUMNO autenticado", async () => {
       const mockUser = { id: "alumno-uuid-3", email: "atleta@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
@@ -392,6 +446,111 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(content).toContain('export const dynamic = "force-dynamic"');
       expect(content).toContain("await createClient()");
       expect(content).toContain("fetchLiveDatasetFromSupabase(supabase)");
+    });
+
+    it("GOZS-339: carga de rutina activa 'GABI AGOSTO' (3 días + antebrazos) para 94.gabriel.sanchez@gmail.com (ADMIN)", async () => {
+      const gabiId = "00000000-0000-4000-8000-0000000000a1";
+      const planGabiId = "cab4ad3d-8595-47be-a220-6dc52117048e";
+      const gabiUser = { id: gabiId, email: "94.gabriel.sanchez@gmail.com" };
+
+      const mockPerfil = {
+        id: gabiId,
+        email: "94.gabriel.sanchez@gmail.com",
+        nombre_completo: "Gabriel Sanchez",
+        rol: "ADMIN",
+        estado_membresia: "ACTIVA",
+      };
+
+      const mockPlan = {
+        id: planGabiId,
+        profesor_id: "00000000-0000-4000-8000-0000000000c1",
+        alumno_id: gabiId,
+        nombre: "GABI AGOSTO",
+        estado: "ACTIVO",
+      };
+
+      const mockDias = [
+        { id: "d-1", plan_id: planGabiId, nombre: "Día 1 - Empuje + Antebrazos", orden: 1 },
+        { id: "d-2", plan_id: planGabiId, nombre: "Día 2 - Piernas + Antebrazos", orden: 2 },
+        { id: "d-3", plan_id: planGabiId, nombre: "Día 3 - Tracción + Antebrazos", orden: 3 },
+      ];
+
+      const mockEjerciciosEnRutina = [
+        { id: "er-1", dia_id: "d-1", ejercicio_id: "e-1", orden: 1, series: 4, repeticiones: "8-10" },
+        { id: "er-2", dia_id: "d-1", ejercicio_id: "e-4", orden: 2, series: 3, repeticiones: "12-15" },
+        { id: "er-3", dia_id: "d-2", ejercicio_id: "e-2", orden: 1, series: 4, repeticiones: "10-12" },
+        { id: "er-4", dia_id: "d-3", ejercicio_id: "e-3", orden: 1, series: 4, repeticiones: "8-12" },
+      ];
+
+      const mockEjercicios = [
+        { id: "e-1", nombre: "Press Plano con Barra" },
+        { id: "e-2", nombre: "Prensa 45°" },
+        { id: "e-3", nombre: "Jalón al pecho agarre neutro" },
+        { id: "e-4", nombre: "Curl de muñeca con barra" },
+      ];
+
+      const mockClient = {
+        auth: {
+          getUser: vi.fn().mockResolvedValue({ data: { user: gabiUser } }),
+        },
+        from: vi.fn((table: string) => {
+          if (table === "perfiles") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: mockPerfil, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "planes_entrenamiento") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  order: vi.fn().mockResolvedValue({ data: [mockPlan], error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "dias_rutina") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  order: vi.fn().mockResolvedValue({ data: mockDias, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "ejercicios_en_rutina") {
+            return {
+              select: vi.fn().mockReturnValue({
+                in: vi.fn().mockReturnValue({
+                  order: vi.fn().mockResolvedValue({ data: mockEjerciciosEnRutina, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "ejercicios") {
+            return {
+              select: vi.fn().mockReturnValue({
+                in: vi.fn().mockResolvedValue({ data: mockEjercicios, error: null }),
+              }),
+            };
+          }
+          return { select: vi.fn().mockReturnValue({ order: vi.fn().mockResolvedValue({ data: [] }) }) };
+        }),
+      } as any;
+
+      const dataset = await fetchPlanAlumno(mockClient);
+
+      expect(dataset).not.toBeNull();
+      expect(dataset?.alumnos[0]?.rol).toBe("ADMIN");
+      expect(dataset?.alumnos[0]?.nombre_completo).toBe("Gabriel Sanchez");
+      expect(dataset?.alumnos[0]?.email).toBe("94.gabriel.sanchez@gmail.com");
+      expect(dataset?.planes[0]?.nombre).toBe("GABI AGOSTO");
+      expect(dataset?.planes[0]?.estado).toBe("ACTIVO");
+      expect(dataset?.dias).toHaveLength(3);
+      expect(dataset?.ejerciciosEnRutina.length).toBeGreaterThan(0);
     });
   });
 
