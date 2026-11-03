@@ -4,6 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { createClient } from "@/lib/supabase/browser";
+import { cerrarSesion } from "@/lib/session-scope";
+import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
@@ -34,6 +37,24 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     };
   }, [setOnlineStatus]);
 
+  const [userEmail, setUserEmail] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (active && data?.user?.email) {
+          setUserEmail(data.user.email);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[280px_1fr] bg-background text-foreground transition-colors duration-150">
       <aside className="border-b border-border/80 bg-card/95 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-6 backdrop-blur-md">
@@ -53,7 +74,19 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
             <div className="flex items-center gap-2 lg:hidden">
-                <ThemeToggle />
+              <ModeSwitcher current="studio" />
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={() => void cerrarSesion()}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-border/80 bg-background/80 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors cursor-pointer"
+                aria-label="Cerrar sesión"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="hidden sm:inline">Cerrar Sesión</span>
+              </button>
             </div>
           </div>
 
@@ -322,6 +355,24 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                     : "Sin conexión · los cambios se guardan localmente."}
               </p>
             </div>
+
+            {/* Perfil de Coach y Botón de Cerrar Sesión en Sidebar */}
+            <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-foreground truncate" title={userEmail || "Coach Studio"}>
+                  {userEmail || "Coach Studio"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Sesión Activa</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void cerrarSesion()}
+                className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border/70 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors cursor-pointer"
+                aria-label="Cerrar sesión"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -335,7 +386,24 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <ModeSwitcher current="studio" />
+            {userEmail && (
+              <span className="text-xs font-medium text-muted-foreground max-w-[220px] truncate" title={userEmail}>
+                {userEmail}
+              </span>
+            )}
             <ThemeToggle showLabel />
+            <button
+              type="button"
+              onClick={() => void cerrarSesion()}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-border/80 bg-background/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer transition-colors"
+              aria-label="Cerrar sesión"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span>Cerrar Sesión</span>
+            </button>
           </div>
         </header>
         <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-[1920px]`}>{children}</main>
