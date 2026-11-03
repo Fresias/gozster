@@ -70,7 +70,16 @@ export default function HomePage() {
           {/* Acciones del Cabezal: Sesión, CTAs y Toggle de Tema */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Cápsula de Sesión Inteligente con Botón de Logout */}
-            <LandingSessionCapsule />
+            <LandingSessionCapsule
+              initialUser={
+                user
+                  ? {
+                      email: user.email,
+                      nombre: `${user.displayName} (${user.rol === "ADMIN" ? "Admin" : "Atleta"})`,
+                    }
+                  : null
+              }
+            />
 
             {/* Botón destacado: Portal Alumnos */}
             <Link
@@ -213,7 +222,7 @@ export default function HomePage() {
                 100%
               </div>
               <div className="text-xs text-muted-foreground mt-1.5 leading-snug">
-                100% Offline-First PWA (Tolerancia a sótanos sin señal)
+                Tolerancia a sótanos sin señal (Offline-First)
               </div>
             </Card>
 
@@ -477,13 +486,15 @@ export default function HomePage() {
                   <span aria-hidden="true">•</span>
                   <span>100% Offline-First PWA</span>
                   <span aria-hidden="true">•</span>
+                  <span>MODO OFFLINE PWA</span>
+                  <span aria-hidden="true">•</span>
                   <span>Athlete App</span>
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
                   ¿Sos socio, alumno o atleta de GOZSter?
                 </h3>
                 <p className="text-sm sm:text-base text-muted-foreground max-w-xl leading-relaxed">
-                  Abrí tu rutina en vivo directamente en tu celular. Registrá series, consultá videos de técnica de YouTube y descansá con el temporizador automático sonoro.
+                  Abrí tu rutina en vivo directamente en tu celular. Cronómetro Inteligente y descansos automáticos con alerta sonora. Calentamiento Específico, registro de series con RPE real y videos de técnica de YouTube.
                 </p>
               </div>
 

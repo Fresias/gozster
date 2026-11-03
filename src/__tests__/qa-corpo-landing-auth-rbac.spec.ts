@@ -271,7 +271,9 @@ describe("QA Suite: GOZS-338 - Auditoría E2E de Roles Cruzados, Login de Gonzal
   // ==========================================================================
   describe("4. Verificación de Renderizado Bimodal y Accesibilidad en Landing SaaS Corporativa", () => {
     it("debe validar la existencia y estructura semántica de la landing corporativa", () => {
-      const pagePath = path.resolve(__dirname, "../app/page.tsx");
+      const pagePath = fs.existsSync(path.resolve(__dirname, "../src/app/page.tsx"))
+        ? path.resolve(__dirname, "../src/app/page.tsx")
+        : path.resolve(__dirname, "../app/page.tsx");
       expect(fs.existsSync(pagePath)).toBe(true);
 
       const content = fs.readFileSync(pagePath, "utf-8");
@@ -321,7 +323,9 @@ describe("QA Suite: GOZS-338 - Auditoría E2E de Roles Cruzados, Login de Gonzal
     });
 
     it("debe validar que los prototipos aprobados de landing y diseño bimodal están disponibles y documentados", () => {
-      const prototypesDir = path.resolve(__dirname, "../../docs/prototypes");
+      const prototypesDir = fs.existsSync(path.resolve(__dirname, "../docs/prototypes"))
+        ? path.resolve(__dirname, "../docs/prototypes")
+        : path.resolve(__dirname, "../../docs/prototypes");
       expect(fs.existsSync(prototypesDir)).toBe(true);
 
       const files = fs.readdirSync(prototypesDir);
