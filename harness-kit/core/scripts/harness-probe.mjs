@@ -25,6 +25,7 @@ function parseArgs(args) {
     json: false,
     workdir: process.cwd(),
     report: "",
+    syntaxOnly: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -32,6 +33,7 @@ function parseArgs(args) {
     if (a === "--candidate" || a === "-c") opts.candidate = args[++i];
     else if (a === "--probe-cmd" || a === "-p") opts.probeCmd = args[++i];
     else if (a === "--keep-branch") opts.keepBranch = true;
+    else if (a === "--syntax-only") opts.syntaxOnly = true;
     else if (a === "--json") opts.json = true;
     else if (a === "--workdir" || a === "-w") opts.workdir = path.resolve(args[++i]);
     else if (a === "--report") opts.report = args[++i];
@@ -41,6 +43,7 @@ function parseArgs(args) {
 Options:
   --candidate, -c <file|json>  Path to candidate JSON file or raw JSON string
   --probe-cmd, -p <command>    Command to execute as probe (default: project.json gate)
+  --syntax-only                Run universal syntactic pipeline (typecheck + lint + build)
   --keep-branch                Do not delete ephemeral probe branch upon completion
   --json                       Output structured JSON report to stdout
   --report <path>              Save report to specified path
@@ -138,17 +141,23 @@ export function runProbe(opts) {
   const probeBranch = `probe/${candidateId.toLowerCase().replace(/[^a-z0-9_-]/g, "-")}-${timestamp}`;
 
   // Resolve probe command
-  let probeCmd = opts.probeCmd;
+  let probeCmd = opts.probeCmd || candidate.probe_cmd;
   if (!probeCmd) {
     const projectJsonPath = path.join(repoDir, "harness", "project.json");
     if (existsSync(projectJsonPath)) {
       try {
         const pj = JSON.parse(readFileSync(projectJsonPath, "utf8"));
-        probeCmd = pj.gate;
+        probeCmd = opts.syntaxOnly
+          ? (pj.syntax_gate || "npm run typecheck && npm run lint && npm run build")
+          : (pj.gate || pj.syntax_gate);
       } catch {}
     }
   }
-  if (!probeCmd) probeCmd = "npm test";
+  if (!probeCmd) {
+    probeCmd = opts.syntaxOnly
+      ? "npm run typecheck && npm run lint && npm run build"
+      : "npm test";
+  }
 
   let probeResult = null;
   let branchCreated = false;

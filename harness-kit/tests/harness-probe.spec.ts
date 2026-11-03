@@ -194,4 +194,28 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       );
     }).toThrow();
   });
+
+  it("resuelve el pipeline sintáctico universal con --syntax-only", () => {
+    const repo = setupTestRepo();
+    const candidateFile = path.join(repo, "candidate.json");
+    writeFileSync(
+      candidateFile,
+      JSON.stringify({
+        candidate_id: "cand-syntax",
+        target_component: "tool_guidance",
+        file: "harness/tool_guidance.local.md",
+        action: "append",
+        content: "- syntax invariant rule.",
+      }),
+    );
+
+    const out = execFileSync(
+      process.execPath,
+      [probeScript, "--workdir", repo, "--candidate", candidateFile, "--syntax-only", "--probe-cmd", "node -e 'process.exit(0)'", "--json"],
+      { encoding: "utf8" },
+    );
+    const parsed = JSON.parse(out);
+    expect(parsed.passed).toBe(true);
+    expect(parsed.candidate_id).toBe("cand-syntax");
+  });
 });

@@ -65,17 +65,13 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 
 # LongTermMEMORY
 
-- [verified 2026-10-19 | src: PR #63] Push protection GH007: commits must use 6156087+Fresias@users.noreply.github.com.
-- [verified 2026-10-19 | src: runtime] Bash cwd persists between calls; Git Bash at C:\Program Files\Git\bin\bash.exe.
-- [verified 2026-10-19 | src: tests/db] SQL/RLS tests run on @electric-sql/pglite, no Docker.
-- [verified 2026-10-19 | src: docs/GLOSSARY.md] Training hierarchy: planes_entrenamiento → dias_rutina → ejercicios_en_rutina → registro_sesiones → registro_series.
-- [verified 2026-10-19 | src: package.json] `npm run lint` == `tsc --noEmit` (same as typecheck).
+- [verified 2026-10-19 | src: harness] Hechos historicos consolidados en experience_library.jsonl con tags semanticos.
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-03 | task: GOZS-331] RPCs opcionales requieren DEFAULT NULL en SQL y cliente (1387ms)
-- [lesson 2026-11-03 | task: GOZS-321] Modales transaccionales requieren candado isSaving atómico (1410ms)
-- [lesson 2026-11-03 | task: GOZS-327] Topes semanales deterministas fijando lunes 09:00 ART (3171ms)
+- [lesson 2026-10-19 | task: tests/db] SQL/RLS tests run on @electric-sql/pglite, no Docker.
+- [lesson 2026-10-19 | task: docs/GLOSSARY.md] Training hierarchy: planes_entrenamiento → dias_rutina → ejercicios_en_rutina → registro_sesiones → registro_series.
+- [lesson 2026-10-19 | task: package.json] `npm run lint` == `tsc --noEmit` (same as typecheck).
 
 # Tool Guidance & Execution Rules
 
