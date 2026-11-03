@@ -1,3 +1,4 @@
+import * as React from "react";
 import Link from "next/link";
 import {
   Card,
@@ -9,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { RosterPillLabel } from "@/components/roster-pill-label";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { LandingSessionCapsule } from "@/components/landing-session-capsule";
 
 export default function HomePage() {
   return (
@@ -31,6 +33,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <LandingSessionCapsule />
             <Badge variant="success" className="px-3 py-1 text-xs">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse mr-1" />
               100% Offline-First PWA
