@@ -209,6 +209,41 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(response.headers.get("location")).toBeNull();
     });
 
+    it("GOZS-335: permite el acceso a /studio a Gonzalo Salas con su perfil ADMIN persistido", async () => {
+      const gonzaloUser = { id: "f4819866-b758-424e-90b2-555b7887c601", email: "gonzasalas2016@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: gonzaloUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN", nombre_completo: "Gonzalo Salas" } });
+      const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn().mockReturnValue({ select: mockSelect }),
+      });
+
+      const request = new NextRequest("https://gozster.com/studio");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
+    it("GOZS-335: permite el acceso a /athlete a un ADMIN para autogestionar su propia rutina (Rol Dual)", async () => {
+      const adminUser = { id: "f4819866-b758-424e-90b2-555b7887c601", email: "gonzasalas2016@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: adminUser } });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn(),
+      });
+
+      const request = new NextRequest("https://gozster.com/athlete");
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+    });
+
     it("debe permitir el acceso a /athlete a un ALUMNO autenticado", async () => {
       const mockUser = { id: "alumno-uuid-3", email: "atleta@gozster.com" };
       const mockGetUser = vi.fn().mockResolvedValue({ data: { user: mockUser } });
