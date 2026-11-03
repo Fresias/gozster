@@ -218,4 +218,49 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
     expect(parsed.passed).toBe(true);
     expect(parsed.candidate_id).toBe("cand-syntax");
   });
+
+  it("ejecuta múltiples candidatos en modo --batch y produce array de resultados", () => {
+    const repo = setupTestRepo();
+    const batchFile = path.join(repo, "batch.json");
+    writeFileSync(
+      batchFile,
+      JSON.stringify([
+        {
+          candidate_id: "batch-1",
+          mutations: [
+            {
+              target_component: "tool_guidance",
+              file: "harness/tool_guidance.local.md",
+              action: "append",
+              content: "- rule batch 1",
+            },
+          ],
+        },
+        {
+          candidate_id: "batch-2",
+          mutations: [
+            {
+              target_component: "tool_guidance",
+              file: "harness/tool_guidance.local.md",
+              action: "append",
+              content: "- rule batch 2",
+            },
+          ],
+        },
+      ]),
+    );
+
+    const out = execFileSync(
+      process.execPath,
+      [probeScript, "--workdir", repo, "--batch", batchFile, "--probe-cmd", "node -e 'process.exit(0)'", "--json"],
+      { encoding: "utf8" },
+    );
+    const parsed = JSON.parse(out);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].candidate_id).toBe("batch-1");
+    expect(parsed[1].candidate_id).toBe("batch-2");
+    expect(parsed[0].passed).toBe(true);
+    expect(parsed[1].passed).toBe(true);
+  });
 });

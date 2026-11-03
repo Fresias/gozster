@@ -143,6 +143,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
 
     expect(listed).toEqual([
       "harness-kit/core/scripts/harness-compose.mjs",
+      "harness-kit/core/scripts/harness-contrast.mjs",
       "harness-kit/core/scripts/harness-gate.sh",
       "harness-kit/core/scripts/harness-init.sh",
       "harness-kit/core/scripts/harness-probe.mjs",
