@@ -8,6 +8,7 @@ import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
 import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
+import { AthletePreviewModal } from "@/components/coach/athlete-preview-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
 import { StudentDetail } from "@/components/coach/student-detail";
@@ -175,6 +176,21 @@ export function CoachStudioView({
     isOpen: false,
     alumnoNombre: "",
   });
+
+  const [previewAlumno, setPreviewAlumno] = React.useState<Perfil | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const previewParam = params.get("preview") || params.get("previewAlumno") || params.get("impersonate");
+    if (previewParam) {
+      const q = previewParam.toLowerCase();
+      const found = alumnos.find((a) => a.id === previewParam || a.nombre_completo.toLowerCase().includes(q));
+      if (found) {
+        setPreviewAlumno(found);
+      }
+    }
+  }, [alumnos]);
 
   const isBuilderModalVisible = isRoutineBuilderOpen || localIsBuilderOpen;
   const handleCloseBuilderModal = () => {
@@ -602,6 +618,51 @@ export function CoachStudioView({
                   <span>Constructor</span>
                 </Button>
 
+                {/* Control rápido de Previsualización / Simulador de Atleta (GOZS-345) */}
+                <div className="flex items-center gap-1.5" data-testid="preview-athlete-control">
+                  <select
+                    value={previewAlumno?.id || ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      if (!id) {
+                        setPreviewAlumno(null);
+                        return;
+                      }
+                      const found = alumnos.find((a) => a.id === id);
+                      if (found) setPreviewAlumno(found);
+                    }}
+                    className="min-h-9 rounded-lg border border-border/80 bg-background px-2.5 text-xs font-semibold text-foreground max-w-[170px] truncate"
+                    data-testid="preview-athlete-select"
+                    aria-label="Previsualizar experiencia de alumno"
+                  >
+                    <option value="">Vista previa alumno...</option>
+                    {alumnos.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre_completo}
+                      </option>
+                    ))}
+                  </select>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const target =
+                        previewAlumno ||
+                        selectedAlumno ||
+                        alumnos.find((a) => a.nombre_completo.toLowerCase().includes("miguel")) ||
+                        alumnos[0] ||
+                        null;
+                      setPreviewAlumno(target);
+                    }}
+                    className="min-h-9 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1 rounded-lg"
+                    data-testid="preview-athlete-btn"
+                    title="Previsualizar experiencia de alumno en dispositivo móvil"
+                  >
+                    <span>👁️ Ver como Alumno</span>
+                  </Button>
+                </div>
+
                 {/* Alta directa de alumno (Edge Function alta-alumno-directa) con credenciales al instante */}
                 <Button
                   variant="default"
@@ -931,6 +992,31 @@ export function CoachStudioView({
                                   </button>
                                 )}
 
+                                {/* Botón Vista Previa / Simulador Móvil del Alumno */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewAlumno(alumno)}
+                                  className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary border border-border/60 active:scale-95 transition-all shadow-xs"
+                                  title="Vista previa de atleta en móvil"
+                                  aria-label={`Vista previa de atleta para ${alumno.nombre_completo}`}
+                                  data-testid={`btn-preview-alumno-${alumno.id}`}
+                                >
+                                  <svg
+                                    className="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    aria-hidden="true"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                    />
+                                  </svg>
+                                </button>
+
                                 {/* Botón Ver Ficha / Detalle */}
                                 <button
                                   type="button"
@@ -1059,6 +1145,7 @@ export function CoachStudioView({
           onOpenChat={() => setChatOpen(true)}
           onActualizarNivelVista={actualizarNivelVistaAlumno}
           onQuickSwap={handleOpenQuickSwapFromAlert}
+          onPreviewAthlete={(a) => setPreviewAlumno(a)}
         />
       )}
 
@@ -1131,6 +1218,25 @@ export function CoachStudioView({
         diasIniciales={dias}
         ejerciciosEnRutinaIniciales={ejerciciosEnRutina}
         onRoutineSaved={() => loadLiveSupabaseData()}
+      />
+
+      {/* Modal Simulador / Vista Previa de Atleta en marco móvil (GOZS-345) */}
+      <AthletePreviewModal
+        isOpen={previewAlumno !== null}
+        onClose={() => setPreviewAlumno(null)}
+        alumnoId={previewAlumno?.id}
+        alumnoNombre={previewAlumno?.nombre_completo}
+        dataset={{
+          alumnos,
+          planes,
+          dias,
+          ejerciciosEnRutina,
+          ejercicios,
+        }}
+        onSelectAlumno={(id) => {
+          const found = alumnos.find((a) => a.id === id);
+          if (found) setPreviewAlumno(found);
+        }}
       />
 
       {/* Lateral Panel / Modal: Historical Loads & RPE */}
