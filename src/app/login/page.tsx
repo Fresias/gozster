@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
+import { cerrarSesionAlumno } from "@/lib/session-scope";
 
 /** Un alumno recién dado de alta debe cambiar su contraseña temporal en el primer login. */
 function debeCambiarPassword(
@@ -28,6 +29,13 @@ function LoginForm() {
   const redirectTo = searchParams.get("redirectTo") || "/studio";
   // El middleware redirige a /login?forceChange=1 a quien ya tiene sesión pero aún no cambió su clave.
   const forceChangeParam = searchParams.get("forceChange");
+  // El middleware redirige a /login?roleMismatch=1 a un ALUMNO que intenta entrar a Coach Studio.
+  const roleMismatchParam = searchParams.get("roleMismatch") === "1";
+  const [showRoleMismatch, setShowRoleMismatch] = React.useState(roleMismatchParam);
+
+  React.useEffect(() => {
+    setShowRoleMismatch(roleMismatchParam);
+  }, [roleMismatchParam]);
 
   // Calentar la ruta de destino para compilación en dev y transiciones rápidas
   React.useEffect(() => {
@@ -110,6 +118,69 @@ function LoginForm() {
         // Con la clave definitiva ya activa, el alumno entra directo a su app.
         onSuccess={() => window.location.assign("/athlete")}
       />
+    );
+  }
+
+  if (showRoleMismatch) {
+    return (
+      <div className="space-y-4" data-testid="role-mismatch-banner">
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-medium text-amber-900 dark:text-amber-200 space-y-2"
+        >
+          <div className="flex items-center gap-2 font-bold text-sm text-amber-800 dark:text-amber-300">
+            <svg
+              className="h-5 w-5 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span>Acceso restringido a Coach Studio</span>
+          </div>
+          <p className="leading-relaxed">
+            Tu cuenta actual es de Alumno. Para ingresar al Studio requerís una cuenta de Entrenador/Admin.
+          </p>
+        </div>
+
+        <div className="space-y-2 pt-2">
+          <Button
+            type="button"
+            size="lg"
+            className="w-full"
+            onClick={() => window.location.assign("/athlete")}
+            data-testid="btn-volver-rutina"
+          >
+            Volver a mi rutina
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={async () => {
+              try {
+                const supabase = createClient();
+                await supabase.auth.signOut();
+              } catch {}
+              await cerrarSesionAlumno();
+              setShowRoleMismatch(false);
+              router.replace("/login");
+            }}
+            data-testid="btn-cerrar-sesion-otra-cuenta"
+          >
+            Cerrar sesión e ingresar con otra cuenta
+          </Button>
+        </div>
+      </div>
     );
   }
 

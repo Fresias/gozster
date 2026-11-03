@@ -91,11 +91,11 @@ describe("GOZS-286: seed del tester como ALUMNO", () => {
     expect(segundaCorrida).toEqual(primeraCorrida);
   });
 
-  it("el tester es ALUMNO del coach con GABI AGOSTO como único plan activo", async () => {
-    const [p] = await q<{ rol: string; profesor_asignado_id: string }>(
-      `SELECT rol, profesor_asignado_id FROM public.perfiles WHERE id = '${TESTER}'`
+  it("el tester es ADMIN del coach con GABI AGOSTO como único plan activo (GOZS-339)", async () => {
+    const [p] = await q<{ rol: string; nombre_completo: string; profesor_asignado_id: string }>(
+      `SELECT rol, nombre_completo, profesor_asignado_id FROM public.perfiles WHERE id = '${TESTER}'`
     );
-    expect(p).toEqual({ rol: "ALUMNO", profesor_asignado_id: COACH });
+    expect(p).toEqual({ rol: "ADMIN", nombre_completo: "Gabriel Sanchez", profesor_asignado_id: COACH });
     const activos = await q<{ id: string; profesor_id: string }>(
       `SELECT id, profesor_id FROM public.planes_entrenamiento WHERE alumno_id = '${TESTER}' AND estado = 'ACTIVO'`
     );

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/browser";
 import { cerrarSesion } from "@/lib/session-scope";
+import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
@@ -73,6 +74,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </div>
             </Link>
             <div className="flex items-center gap-2 lg:hidden">
+              <ModeSwitcher current="studio" />
               <ThemeToggle />
               <button
                 type="button"
@@ -384,6 +386,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <ModeSwitcher current="studio" />
             {userEmail && (
               <span className="text-xs font-medium text-muted-foreground max-w-[220px] truncate" title={userEmail}>
                 {userEmail}
