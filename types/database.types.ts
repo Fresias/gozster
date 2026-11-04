@@ -163,6 +163,7 @@ export interface Database {
           fecha_fin: string | null;
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
+          tags?: string[];
           plan_origen_id?: string | null;
           created_at: string;
           updated_at: string;
@@ -178,6 +179,7 @@ export interface Database {
           fecha_fin?: string | null;
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
+          tags?: string[];
           plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -193,6 +195,7 @@ export interface Database {
           fecha_fin?: string | null;
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
+          tags?: string[];
           plan_origen_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -273,6 +276,9 @@ export interface Database {
           force_rpe_required?: boolean | null;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -291,6 +297,9 @@ export interface Database {
           tempo?: string;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -310,6 +319,9 @@ export interface Database {
           tempo?: string;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -1515,6 +1527,7 @@ export interface Database {
           cantidad_actividades: number;
           duracion_meses: number;
           precio: number;
+          notas?: string | null;
           activo: boolean;
           created_at: string;
           updated_at: string;
@@ -1526,6 +1539,7 @@ export interface Database {
           cantidad_actividades: number;
           duracion_meses: number;
           precio: number;
+          notas?: string | null;
           activo?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -1537,6 +1551,7 @@ export interface Database {
           cantidad_actividades?: number;
           duracion_meses?: number;
           precio?: number;
+          notas?: string | null;
           activo?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -2282,3 +2297,12 @@ export type ClaseFija = Tables<'clases_fijas'>;
 export type RankingPR = Tables<'ranking_prs'>;
 export type RankingPRInsert = TablesInsert<'ranking_prs'>;
 export type RankingPRUpdate = TablesUpdate<'ranking_prs'>;
+
+export type TagPlanEntrenamiento =
+  | 'Fuerza'
+  | 'Hipertrofia'
+  | 'Rehabilitación'
+  | 'Potencia'
+  | 'Peso Corporal';
+export type TipoMedicionEjercicio = 'REPS' | 'TIEMPO';
+
