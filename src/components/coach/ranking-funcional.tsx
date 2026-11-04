@@ -255,14 +255,31 @@ export function RankingFuncional({
     });
   }, [activeClaseId, activeEjercicioId, calcularRanking, todosAlumnos, participantes, prs]);
 
-  // Filtro de búsqueda de ejercicios
+  // Filtro de búsqueda de ejercicios y estado de combobox desplegable
   const [filtroEjercicio, setFiltroEjercicio] = React.useState<string>("");
+  const [comboboxAbierto, setComboboxAbierto] = React.useState<boolean>(false);
+  const comboboxRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (comboboxRef.current && !comboboxRef.current.contains(event.target as Node)) {
+        setComboboxAbierto(false);
+      }
+    }
+    if (comboboxAbierto) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [comboboxAbierto]);
+
   const ejerciciosFiltrados = React.useMemo(() => {
-    if (!filtroEjercicio.trim()) return listaEjercicios.slice(0, 30);
-    const q = filtroEjercicio.toLowerCase();
+    if (!filtroEjercicio.trim()) return listaEjercicios.slice(0, 50);
+    const q = filtroEjercicio.toLowerCase().trim();
     return listaEjercicios
       .filter((e) => e.nombre.toLowerCase().includes(q))
-      .slice(0, 30);
+      .slice(0, 50);
   }, [listaEjercicios, filtroEjercicio]);
 
   return (
@@ -382,28 +399,85 @@ export function RankingFuncional({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Buscar ejercicio..."
-                value={filtroEjercicio}
-                onChange={(e) => setFiltroEjercicio(e.target.value)}
-                className="w-1/3 min-h-[44px] rounded-xl border border-border/80 bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-primary focus:outline-none"
-              />
-              <select
+            <div className="relative" ref={comboboxRef} data-testid="ejercicio-combobox">
+              <button
+                type="button"
                 id="select-ejercicio"
                 data-testid="ejercicio-select"
-                value={activeEjercicioId ?? ""}
-                onChange={(e) => setEjercicioId(e.target.value || null)}
-                className="w-2/3 min-h-[44px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none"
+                aria-haspopup="listbox"
+                aria-expanded={comboboxAbierto}
+                onClick={() => setComboboxAbierto((prev) => !prev)}
+                className="w-full min-h-[44px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium flex items-center justify-between text-left focus:ring-2 focus:ring-primary focus:outline-none shadow-xs transition-colors hover:border-primary/50"
               >
-                <option value="">-- Seleccionar ejercicio --</option>
-                {ejerciciosFiltrados.map((ej) => (
-                  <option key={ej.id} value={ej.id}>
-                    {ej.nombre}
-                  </option>
-                ))}
-              </select>
+                <span className={ejercicioActivo ? "text-foreground font-semibold truncate" : "text-muted-foreground truncate"}>
+                  {ejercicioActivo ? ejercicioActivo.nombre : "-- Seleccionar ejercicio --"}
+                </span>
+                <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                  {comboboxAbierto ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {comboboxAbierto && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border/80 bg-card p-2 shadow-xl animate-in fade-in-0 zoom-in-95"
+                  data-testid="ejercicio-combobox-dropdown"
+                >
+                  <div className="p-1 pb-2 border-b border-border/60">
+                    <input
+                      type="text"
+                      placeholder="Buscar ejercicio..."
+                      value={filtroEjercicio}
+                      onChange={(e) => setFiltroEjercicio(e.target.value)}
+                      data-testid="ejercicio-combobox-input"
+                      className="w-full min-h-[38px] rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1 space-y-0.5" role="listbox">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEjercicioId(null);
+                        setComboboxAbierto(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted"
+                    >
+                      -- Ninguno / Deseleccionar --
+                    </button>
+                    {ejerciciosFiltrados.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                        No se encontraron ejercicios
+                      </div>
+                    ) : (
+                      ejerciciosFiltrados.map((ej) => (
+                        <button
+                          key={ej.id}
+                          type="button"
+                          role="option"
+                          aria-selected={ej.id === activeEjercicioId}
+                          onClick={() => {
+                            setEjercicioId(ej.id);
+                            setComboboxAbierto(false);
+                          }}
+                          data-testid={`ejercicio-option-${ej.id}`}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
+                            ej.id === activeEjercicioId
+                              ? "bg-primary/10 text-primary font-bold"
+                              : "hover:bg-accent text-foreground"
+                          }`}
+                        >
+                          <span className="truncate">{ej.nombre}</span>
+                          {ej.musculos_principales?.[0] && (
+                            <span className="text-[10px] text-muted-foreground ml-2 shrink-0">
+                              {ej.musculos_principales[0]}
+                            </span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             {ejercicioActivo && (
               <p className="text-xs text-muted-foreground truncate">

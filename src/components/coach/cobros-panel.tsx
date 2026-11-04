@@ -26,16 +26,18 @@ import {
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
   initialFiltroActividad?: ActividadKpi;
+  initialFiltroEstado?: FiltroCobros;
 }
 
 export function CobrosPanel({
   initialKpiAnualAbierto,
   initialFiltroActividad,
+  initialFiltroEstado,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros,
     planes,
-    filtroEstado,
+    filtroEstado: storeFiltroEstado,
     filtroActividadKpiAnual,
     kpiAnualAbierto: storeKpiAnualAbierto,
     setFiltroActividadKpiAnual,
@@ -47,7 +49,7 @@ export function CobrosPanel({
     error,
     aviso,
     comprobanteActivo,
-    setFiltroEstado,
+    setFiltroEstado: storeSetFiltroEstado,
     setBusqueda,
     setComprobanteActivo,
     limpiarMensajes,
@@ -59,6 +61,15 @@ export function CobrosPanel({
     crearPlan,
     modificarPlan,
   } = useCobrosStore();
+
+  const [localFiltroEstado, setLocalFiltroEstado] = React.useState<FiltroCobros | undefined>(
+    initialFiltroEstado
+  );
+  const filtroEstado = localFiltroEstado ?? storeFiltroEstado;
+  const setFiltroEstado = (val: FiltroCobros) => {
+    setLocalFiltroEstado(val);
+    storeSetFiltroEstado(val);
+  };
 
   const router = useRouter();
   const selectAlumno = useCoachStudioStore((s) => s.selectAlumno);
@@ -176,6 +187,30 @@ export function CobrosPanel({
   };
 
   const kpiAnualDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  // Estado de colapso de descuentos en Cobros & Pagos (persistido en localStorage)
+  const [descuentosColapsados, setDescuentosColapsados] = React.useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("gozster:cobros:descuentos-colapsados") === "true";
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
+  const toggleColapsarDescuentos = React.useCallback(() => {
+    setDescuentosColapsados((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("gozster:cobros:descuentos-colapsados", String(next));
+        } catch {}
+      }
+      return next;
+    });
+  }, []);
 
   React.useEffect(() => {
     if (kpiAnualAbierto) {
@@ -531,8 +566,8 @@ export function CobrosPanel({
         </div>
       </div>
 
-      {/* VISTA PARA RECUPERAR DESCUENTOS / MONTOS MENORES A LA SUB */}
-      {cobrosConDescuento.length > 0 && (
+      {/* VISTA PARA RECUPERAR DESCUENTOS / MONTOS MENORES A LA SUB (solo visible bajo filtro DESCUENTOS) */}
+      {filtroEstado === "DESCUENTOS" && cobrosConDescuento.length > 0 && (
         <div
           className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3"
           data-testid="vista-recuperar-descuentos"
@@ -559,72 +594,83 @@ export function CobrosPanel({
                   {formatearDinero(kpis.totalDescuentos)}
                 </span>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleColapsarDescuentos}
+                data-testid="btn-colapso-descuentos"
+                className="h-7 text-xs font-bold text-amber-800 dark:text-amber-200 hover:bg-amber-500/20 px-2.5"
+              >
+                {descuentosColapsados ? "Expandir" : "Minimizar"}
+              </Button>
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {cobrosConDescuento.map((itemDesc) => {
-              const lista = itemDesc.montoLista ?? itemDesc.monto;
-              const cobrado = itemDesc.monto;
-              const diferencia = lista > cobrado ? lista - cobrado : (itemDesc.descuento ?? 0);
-              const nota = itemDesc.ultimoPago?.notas ?? itemDesc.notaDescuento ?? "Descuento acordado";
+          {!descuentosColapsados && (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cobrosConDescuento.map((itemDesc) => {
+                const lista = itemDesc.montoLista ?? itemDesc.monto;
+                const cobrado = itemDesc.monto;
+                const diferencia = lista > cobrado ? lista - cobrado : (itemDesc.descuento ?? 0);
+                const nota = itemDesc.ultimoPago?.notas ?? itemDesc.notaDescuento ?? "Descuento acordado";
 
-              return (
-                <div
-                  key={itemDesc.id}
-                  className="rounded-xl border border-border/60 bg-card p-3 space-y-2 text-xs shadow-xs hover:border-amber-500/40 transition-colors"
-                  data-testid="item-descuento-recuperable"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-bold text-foreground text-sm">{itemDesc.alumnoNombre}</p>
-                      <p className="text-[11px] text-muted-foreground">{itemDesc.servicioNombre}</p>
-                    </div>
-                    <span
-                      className="inline-flex items-center gap-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 px-1.5 py-0.5 text-[10px] font-black"
-                      title={nota}
-                    >
-                      N
-                    </span>
-                  </div>
-
-                  <div className="rounded-lg bg-secondary/40 p-2 space-y-1 tabular-nums">
-                    <div className="flex justify-between text-muted-foreground text-[11px]">
-                      <span>Monto de lista:</span>
-                      <span className="line-through">{formatearDinero(lista)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-foreground">
-                      <span>Monto cobrado:</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-black">
-                        {formatearDinero(cobrado)}
+                return (
+                  <div
+                    key={itemDesc.id}
+                    className="rounded-xl border border-border/60 bg-card p-3 space-y-2 text-xs shadow-xs hover:border-amber-500/40 transition-colors"
+                    data-testid="item-descuento-recuperable"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{itemDesc.alumnoNombre}</p>
+                        <p className="text-[11px] text-muted-foreground">{itemDesc.servicioNombre}</p>
+                      </div>
+                      <span
+                        className="inline-flex items-center gap-1 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 px-1.5 py-0.5 text-[10px] font-black"
+                        title={nota}
+                      >
+                        N
                       </span>
                     </div>
-                    <div className="flex justify-between text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
-                      <span>Descuento:</span>
-                      <span>-{formatearDinero(diferencia)}</span>
+
+                    <div className="rounded-lg bg-secondary/40 p-2 space-y-1 tabular-nums">
+                      <div className="flex justify-between text-muted-foreground text-[11px]">
+                        <span>Monto de lista:</span>
+                        <span className="line-through">{formatearDinero(lista)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-foreground">
+                        <span>Monto cobrado:</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                          {formatearDinero(cobrado)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
+                        <span>Descuento:</span>
+                        <span>-{formatearDinero(diferencia)}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-muted-foreground">
+                      <span className="font-semibold text-foreground">Nota: </span>
+                      <span className="italic">{nota}</span>
+                    </div>
+
+                    <div className="pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs h-7 font-bold border-amber-500/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                        onClick={() => recuperarMontoOriginal(itemDesc.contratacionId)}
+                        data-testid="recuperar-monto-btn"
+                      >
+                        Recuperar monto lista ({formatearDinero(lista)})
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="text-[11px] text-muted-foreground">
-                    <span className="font-semibold text-foreground">Nota: </span>
-                    <span className="italic">{nota}</span>
-                  </div>
-
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs h-7 font-bold border-amber-500/40 hover:bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                      onClick={() => recuperarMontoOriginal(itemDesc.contratacionId)}
-                      data-testid="recuperar-monto-btn"
-                    >
-                      Recuperar monto lista ({formatearDinero(lista)})
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
