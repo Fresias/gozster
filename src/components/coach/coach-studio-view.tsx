@@ -20,6 +20,7 @@ import {
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
+import { StudioSankeyModal } from "@/components/coach/studio-sankey-modal";
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
 import { getRutinaVigenciaInfo } from "@/lib/rutina-vigencia";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
@@ -27,6 +28,7 @@ import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
 import {
   DEMO_GIMNASIO,
   DEMO_ALUMNO_ACTIVIDADES,
+  DEMO_CONTRATACIONES_CLASES,
   getDemoAlumnoAlerts,
 } from "@/services/coach-demo-dataset";
 import {
@@ -163,6 +165,9 @@ export function CoachStudioView({
   >("ALL");
   const [sinEntrenarFilter, setSinEntrenarFilter] = React.useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
+  const [isSankeyModalOpen, setIsSankeyModalOpen] = React.useState(false);
+  const filtroActividad = store.filtroActividad ?? "TODAS";
+  const setFiltroActividad = store.setFiltroActividad;
   const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
@@ -276,7 +281,18 @@ export function CoachStudioView({
 
     const matchSinEntrenar = !sinEntrenarFilter || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id);
 
-    return matchQuery && matchPayment && matchSinEntrenar;
+    const matchActividad =
+      filtroActividad === "TODAS" ||
+      alumnoTieneActividad({
+        alumnoId: a.id,
+        actividad: filtroActividad,
+        alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
+        contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+        planes,
+        alumno: a,
+      });
+
+    return matchQuery && matchPayment && matchSinEntrenar && matchActividad;
   });
 
   // Pagination calculation
@@ -470,6 +486,7 @@ export function CoachStudioView({
               .map((a) => a.nombre_completo)}
             sinRutina={metricas.cantSinPlanEntrenamiento}
             onAsignarClick={() => setIsAssignModalOpen(true)}
+            onIngresosClick={() => setIsSankeyModalOpen(true)}
             onSinEntrenarClick={() => {
               setIsAlumnosExpanded(true);
               setSinEntrenarFilter(true);
@@ -588,6 +605,74 @@ export function CoachStudioView({
                     Sin entrenar +7 días ✕
                   </button>
                 )}
+
+                {/* Filtros rápidos por Actividad (GOZS-349) */}
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  data-testid="filtro-actividad-chips"
+                >
+                  <span className="text-xs text-muted-foreground font-medium">Actividad:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroActividad("TODAS");
+                      setCurrentPage(1);
+                    }}
+                    data-testid="filtro-actividad-todas"
+                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                      filtroActividad === "TODAS"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroActividad(filtroActividad === "FUNCIONAL" ? "TODAS" : "FUNCIONAL");
+                      setCurrentPage(1);
+                    }}
+                    data-testid="filtro-actividad-funcional"
+                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                      filtroActividad === "FUNCIONAL"
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Funcional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroActividad(filtroActividad === "BOXEO" ? "TODAS" : "BOXEO");
+                      setCurrentPage(1);
+                    }}
+                    data-testid="filtro-actividad-boxeo"
+                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                      filtroActividad === "BOXEO"
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Boxeo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroActividad(filtroActividad === "RUTINAS" ? "TODAS" : "RUTINAS");
+                      setCurrentPage(1);
+                    }}
+                    data-testid="filtro-actividad-rutinas"
+                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                      filtroActividad === "RUTINAS"
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:bg-secondary/50"
+                    }`}
+                  >
+                    Rutina online
+                  </button>
+                </div>
 
                 {/* Botón de Herramientas: Constructor de Rutinas (Movido desde cabecera principal) */}
                 <Button
@@ -871,6 +956,23 @@ export function CoachStudioView({
                                       </span>
                                     )}
                                   </span>
+                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                    {obtenerActividadesAlumno({
+                                      alumnoId: alumno.id,
+                                      alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
+                                      contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+                                      planes,
+                                      alumno,
+                                    }).map((act) => (
+                                      <span
+                                        key={act}
+                                        data-testid={`badge-actividad-${act.toLowerCase()}`}
+                                        className="inline-block text-[9px] font-semibold px-1 rounded bg-secondary/80 text-muted-foreground"
+                                      >
+                                        {ETIQUETAS_ACTIVIDAD[act]}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
                               </button>
                             </td>
@@ -1254,6 +1356,12 @@ export function CoachStudioView({
           const found = alumnos.find((a) => a.id === id);
           if (found) setPreviewAlumno(found);
         }}
+      />
+
+      {/* Modal de Diagrama de Sankey (GOZS-349) */}
+      <StudioSankeyModal
+        isOpen={isSankeyModalOpen}
+        onClose={() => setIsSankeyModalOpen(false)}
       />
 
       {/* Lateral Panel / Modal: Historical Loads & RPE */}

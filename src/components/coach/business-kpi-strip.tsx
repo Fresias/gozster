@@ -12,6 +12,7 @@ export interface BusinessKpiStripProps {
   sinRutina?: number;
   onSinEntrenarClick?: () => void;
   onAsignarClick?: () => void;
+  onIngresosClick?: () => void;
   className?: string;
   /** Permite forzar estado de error (para tests o fallos) */
   error?: boolean;
@@ -86,6 +87,7 @@ export function BusinessKpiStrip({
   sinRutina = 0,
   onSinEntrenarClick,
   onAsignarClick,
+  onIngresosClick,
   className,
   error: propError,
 }: BusinessKpiStripProps) {
@@ -173,7 +175,12 @@ export function BusinessKpiStrip({
       data-testid="business-kpi-strip"
       className={`grid grid-cols-2 min-[1700px]:grid-cols-4 gap-4 ${className ?? ""}`}
     >
-      <div className={CARD} data-testid="kpi-ingresos">
+      <button
+        type="button"
+        onClick={error ? undefined : onIngresosClick}
+        data-testid="kpi-ingresos"
+        className={`${CARD} text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group cursor-pointer`}
+      >
         <Header label="Ingresos del mes" icon={<path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />} />
         <div className="mt-3 text-[28px] leading-none font-black tabular-nums text-foreground" data-testid="kpi-ingresos-total">
           {error ? "—" : money(kpis.ingresos_mes)}
@@ -182,41 +189,47 @@ export function BusinessKpiStrip({
           <p className="mt-3 text-xs text-muted-foreground">No se pudieron cargar los datos</p>
         ) : (
           <>
-            <div data-testid="kpi-ingresos-desagregado" className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <span data-testid="kpi-ingresos-presencial" className="font-semibold text-foreground tabular-nums">
+            <div data-testid="kpi-ingresos-desagregado" className="sr-only">
+              <span data-testid="kpi-ingresos-presencial">
                 {money(ingresosPresencial)} presencial
               </span>
-              <span className="text-[11px] text-muted-foreground">(funcional + boxeo)</span>
+              <span>(funcional + boxeo)</span>
               <span>·</span>
-              <span data-testid="kpi-ingresos-online" className="font-semibold text-foreground tabular-nums">
+              <span data-testid="kpi-ingresos-online">
                 {money(ingresosOnline)} online
               </span>
-              <span className="text-[11px] text-muted-foreground">(rutinas)</span>
+              <span>(rutinas)</span>
             </div>
 
-            <p data-testid="kpi-ingresos-a-cobrar" className="mt-2 text-xs text-muted-foreground">
-              A cobrar:{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {money(totalACobrar)}
-              </span>
-              {cuotasRojasCant > 0 && (
-                <span className="ml-1 text-[11px]">
-                  ({cuotasRojasCant} {cuotasRojasCant === 1 ? "cuota en rojo" : "cuotas en rojo"})
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
+              <div
+                data-testid="kpi-ingresos-a-cobrar"
+                className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground"
+              >
+                <span>A cobrar:</span>
+                <span className="font-semibold text-foreground tabular-nums">
+                  {money(totalACobrar)}
                 </span>
-              )}
-            </p>
+                {cuotasRojasCant > 0 && (
+                  <span className="text-[10px]">
+                    ({cuotasRojasCant} {cuotasRojasCant === 1 ? "cuota en rojo" : "cuotas en rojo"})
+                  </span>
+                )}
+              </div>
 
-            <div className="mt-3">
-              <Sparkline values={kpis.ingresos_ultimos_6_meses} />
+              <span className="inline-block rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                {variacion === null
+                  ? "—"
+                  : `${sube ? "▲" : "▼"} ${Math.abs(variacion)}% vs ${kpis.ingresos_mes_anterior_label}`}
+              </span>
             </div>
-            <span className="mt-2 inline-block rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-foreground">
-              {variacion === null
-                ? "—"
-                : `${sube ? "▲" : "▼"} ${Math.abs(variacion)}% vs ${kpis.ingresos_mes_anterior_label}`}
-            </span>
+
+            <p className="mt-2.5 text-xs font-semibold text-primary flex items-center gap-1 group-hover:underline">
+              Ver flujo Sankey →
+            </p>
           </>
         )}
-      </div>
+      </button>
 
       <button
         type="button"
