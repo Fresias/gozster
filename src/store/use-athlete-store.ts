@@ -68,6 +68,9 @@ export interface LiveWorkoutExercise {
   es_superserie?: boolean;
   grupo_superserie?: number | null;
   tipo_serie?: "NORMAL" | "WARMUP" | "DROPSET";
+  tipo_medicion?: "REPS" | "TIEMPO";
+  tiempo_objetivo_segundos?: number | null;
+  es_unilateral?: boolean;
 }
 
 export interface LiveWorkoutSession {
@@ -1086,14 +1089,53 @@ export const useAthleteStore = create<AthleteStoreState>()(
           },
         });
 
-        // 3. Iniciar temporizador de descanso sólo si quedan series incompletas en la sesión
+        // 3. Iniciar temporizador de descanso según el tipo de ejercicio y flujo de circuito
         const hasRemainingIncompleteSets = get().currentSession.ejercicios.some((ej) =>
           ej.series.some((s) => !s.completada)
         );
 
         if (hasRemainingIncompleteSets && state.mostrarTimerDescanso !== false) {
-          const restDuration = targetExercise.descanso_segundos || 90;
-          get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+          const isDropsetExercise =
+            targetExercise.tipo_serie === "DROPSET" ||
+            Boolean((targetExercise as any).es_dropset) ||
+            targetSet.set_type === "DROPSET" ||
+            targetSet.set_type === "D";
+
+          if (isDropsetExercise) {
+            // Dropset Quirúrgico: El atleta ejecuta todas las bajadas seguidas.
+            // Al sentarse a registrar, al registrar la primera serie se activa de inmediato el temporizador de descanso
+            // para que descanse mientras termina de anotar las series restantes del dropset.
+            // Las series posteriores mantienen el temporizador en curso sin reiniciarlo.
+            if (!state.restTimer.isActive) {
+              const restDuration = targetExercise.descanso_segundos > 0 ? targetExercise.descanso_segundos : 90;
+              get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+            }
+          } else if (targetExercise.es_superserie) {
+            // Superserie / Circuito Round-Robin:
+            // La navegación avanza en ronda: Ejercicio 1 (Serie 1) -> Ejercicio 2 (Serie 1) -> descanso.
+            // El descanso se dispara únicamente al registrar el último ejercicio del circuito de esa ronda.
+            const grupo = targetExercise.grupo_superserie ?? 1;
+            const groupExercises = get().currentSession.ejercicios.filter(
+              (e) => e.es_superserie && (e.grupo_superserie ?? 1) === grupo
+            );
+            // Verificar si en esta ronda (setNumber) todavía quedan ejercicios con esa serie pendiente
+            const hasRemainingInRound = groupExercises.some((e) =>
+              e.series.some((s) => s.numero_serie === setNumber && !s.completada)
+            );
+
+            if (!hasRemainingInRound) {
+              // Todos los ejercicios de la ronda completaron la serie setNumber: se activa descanso del circuito
+              const restDuration = targetExercise.descanso_segundos > 0 ? targetExercise.descanso_segundos : 90;
+              get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+            } else {
+              // Si aún quedan ejercicios de la misma ronda en el circuito: cero descanso intermedio
+              get().stopTimer();
+            }
+          } else {
+            // Ejercicio individual estándar
+            const restDuration = targetExercise.descanso_segundos > 0 ? targetExercise.descanso_segundos : 90;
+            get().startRestTimer(restDuration, targetExercise.nombre, setNumber);
+          }
         } else if (!hasRemainingIncompleteSets) {
           get().stopTimer();
           // Auto-finalización y sincronización automática al completar la última serie de la sesión
@@ -1681,10 +1723,18 @@ export const useAthleteStore = create<AthleteStoreState>()(
           const seriesCount = typeof er.series === "number" && er.series > 0 ? er.series : 3;
           const ultimaVezEjercicio = get().ultimaVez?.[er.ejercicio_id];
 
+          const tipoMedicion = (er as any).tipo_medicion === "TIEMPO" ? "TIEMPO" : "REPS";
+          const tiempoObjetivo = typeof (er as any).tiempo_objetivo_segundos === "number"
+            ? (er as any).tiempo_objetivo_segundos
+            : null;
+          const esUnilateral = Boolean((er as any).es_unilateral);
+
           const sets: LiveWorkoutSet[] = Array.from({ length: seriesCount }, (_, sIdx) => {
             const prevSet = ultimaVezEjercicio?.series?.[sIdx] ?? ultimaVezEjercicio?.series?.[0];
             const defaultPeso = prevSet?.peso_kg ?? 0;
-            const reps = parseDefaultReps(er.repeticiones, sIdx + 1);
+            const reps = tipoMedicion === "TIEMPO"
+              ? (tiempoObjetivo ?? parseDefaultReps(er.repeticiones, sIdx + 1))
+              : parseDefaultReps(er.repeticiones, sIdx + 1);
             return {
               numero_serie: sIdx + 1,
               peso_kg: defaultPeso,
@@ -1712,6 +1762,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
             force_rpe_required: Boolean((er as any).force_rpe_required),
             es_superserie: Boolean(er.es_superserie),
             grupo_superserie: er.grupo_superserie ?? null,
+            tipo_serie: (er as any).tipo_serie,
+            tipo_medicion: tipoMedicion,
+            tiempo_objetivo_segundos: tiempoObjetivo,
+            es_unilateral: esUnilateral,
           };
         });
 
