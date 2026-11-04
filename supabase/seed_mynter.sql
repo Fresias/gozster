@@ -720,157 +720,169 @@ INSERT INTO auth.users (
 ) VALUES (
   'f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno1@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Celeste Gerardi"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Celeste Gerardi","sexo":"F","peso_corporal_kg":58.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'alumno1@gozster.local', 'Celeste Gerardi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'alumno1@gozster.local', 'Celeste Gerardi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 58.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '299665bc-7349-4c9d-a937-fcd0bed437bf', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno2@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Esteban Papic"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Esteban Papic","sexo":"M","peso_corporal_kg":80.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('299665bc-7349-4c9d-a937-fcd0bed437bf', 'alumno2@gozster.local', 'Esteban Papic', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('299665bc-7349-4c9d-a937-fcd0bed437bf', 'alumno2@gozster.local', 'Esteban Papic', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 80.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '0a7a4dfd-e040-4b92-ac29-9507cbb13215', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno3@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Gabriel Sanchez"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Gabriel Sanchez","sexo":"M","peso_corporal_kg":75.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'alumno3@gozster.local', 'Gabriel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'alumno3@gozster.local', 'Gabriel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 75.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '9015b7d8-7118-4912-aa01-0fb6e62848c6', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno4@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Michelle Roach"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Michelle Roach","sexo":"F","peso_corporal_kg":60.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('9015b7d8-7118-4912-aa01-0fb6e62848c6', 'alumno4@gozster.local', 'Michelle Roach', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('9015b7d8-7118-4912-aa01-0fb6e62848c6', 'alumno4@gozster.local', 'Michelle Roach', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 60.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '41d387a0-04e0-4b33-a47b-2bda95f53019', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno5@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Oriana Bongiovanni"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Oriana Bongiovanni","sexo":"F","peso_corporal_kg":57.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('41d387a0-04e0-4b33-a47b-2bda95f53019', 'alumno5@gozster.local', 'Oriana Bongiovanni', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('41d387a0-04e0-4b33-a47b-2bda95f53019', 'alumno5@gozster.local', 'Oriana Bongiovanni', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 57.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   'b952505b-3695-4daf-acf5-7f99b7844666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno6@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Miguel Sanchez"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Miguel Sanchez","sexo":"M","peso_corporal_kg":74.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('b952505b-3695-4daf-acf5-7f99b7844666', 'alumno6@gozster.local', 'Miguel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('b952505b-3695-4daf-acf5-7f99b7844666', 'alumno6@gozster.local', 'Miguel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 74.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '8f7949b8-49df-4f85-a4ff-c314e631eb11', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno7@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Artero"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Artero","sexo":"M","peso_corporal_kg":82.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('8f7949b8-49df-4f85-a4ff-c314e631eb11', 'alumno7@gozster.local', 'Agustin Artero', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('8f7949b8-49df-4f85-a4ff-c314e631eb11', 'alumno7@gozster.local', 'Agustin Artero', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 82.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   'bf34698b-114e-45ef-a97d-98396704cf8e', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno8@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Rosaschi"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Rosaschi","sexo":"F","peso_corporal_kg":54.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('bf34698b-114e-45ef-a97d-98396704cf8e', 'alumno8@gozster.local', 'Camila Rosaschi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('bf34698b-114e-45ef-a97d-98396704cf8e', 'alumno8@gozster.local', 'Camila Rosaschi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 54.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '97114142-d446-430e-a3eb-53c7960a670f', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno9@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Scarafioca"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Scarafioca","sexo":"M","peso_corporal_kg":85.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('97114142-d446-430e-a3eb-53c7960a670f', 'alumno9@gozster.local', 'Agustin Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('97114142-d446-430e-a3eb-53c7960a670f', 'alumno9@gozster.local', 'Agustin Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 85.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   'effe6558-3937-479d-ae4c-6253c728b365', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno10@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Olivia Scarafioca"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Olivia Scarafioca","sexo":"F","peso_corporal_kg":53.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('effe6558-3937-479d-ae4c-6253c728b365', 'alumno10@gozster.local', 'Olivia Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('effe6558-3937-479d-ae4c-6253c728b365', 'alumno10@gozster.local', 'Olivia Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 53.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   'f45d21ae-ad2a-4a8a-ac28-a6080cc87000', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno11@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Maza"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Maza","sexo":"F","peso_corporal_kg":56.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'alumno11@gozster.local', 'Camila Maza', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'alumno11@gozster.local', 'Camila Maza', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 56.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '1b9075d0-e34f-46ce-af26-556912be9436', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno12@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Romina Villalba"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Romina Villalba","sexo":"F","peso_corporal_kg":59.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('1b9075d0-e34f-46ce-af26-556912be9436', 'alumno12@gozster.local', 'Romina Villalba', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('1b9075d0-e34f-46ce-af26-556912be9436', 'alumno12@gozster.local', 'Romina Villalba', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 59.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   'd957443f-674a-46da-a6b1-40cf367f40ad', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno13@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Kiki Fernandez"}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Kiki Fernandez","sexo":"F","peso_corporal_kg":61.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('d957443f-674a-46da-a6b1-40cf367f40ad', 'alumno13@gozster.local', 'Kiki Fernandez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113')
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('d957443f-674a-46da-a6b1-40cf367f40ad', 'alumno13@gozster.local', 'Kiki Fernandez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 61.0)
 ON CONFLICT (id) DO UPDATE SET
-  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, updated_at = now();
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) VALUES (
+  'e8b1a08c-3430-4000-8000-000000000008', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'camila.navarro@ficticio.ar', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Navarro","sexo":"F","peso_corporal_kg":55.0}', now(), now()
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+VALUES ('e8b1a08c-3430-4000-8000-000000000008', 'camila.navarro@ficticio.ar', 'Camila Navarro', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 55.0)
+ON CONFLICT (id) DO UPDATE SET
+  email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 
 -- 4. Planes de Entrenamiento
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)

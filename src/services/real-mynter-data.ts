@@ -16,6 +16,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 78.0,
     "fecha_baja": null,
     "fecha_vencimiento_cuota": "2026-11-15",
     "ultimo_entreno_at": "2026-10-23T18:00:00.000Z",
@@ -29,6 +31,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 58.0,
     "fecha_baja": null,
     "created_at": "2026-09-19T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.556Z"
@@ -40,6 +44,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 80.0,
     "fecha_baja": null,
     "created_at": "2026-09-24T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.557Z"
@@ -51,6 +57,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 75.0,
     "fecha_baja": null,
     "fecha_vencimiento_cuota": "2026-10-25",
     "created_at": "2026-09-25T03:01:00+0000",
@@ -63,6 +71,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 60.0,
     "fecha_baja": null,
     "created_at": "2026-09-27T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.557Z"
@@ -74,6 +84,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 57.0,
     "fecha_baja": null,
     "created_at": "2026-09-30T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.558Z"
@@ -85,6 +97,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 74.0,
     "fecha_baja": null,
     "created_at": "2026-10-02T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.558Z"
@@ -96,6 +110,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 82.0,
     "fecha_baja": null,
     "created_at": "2026-10-06T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.558Z"
@@ -107,6 +123,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 54.0,
     "fecha_baja": null,
     "created_at": "2026-10-06T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.558Z"
@@ -118,6 +136,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "M",
+    "peso_corporal_kg": 85.0,
     "fecha_baja": null,
     "created_at": "2026-10-11T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.558Z"
@@ -129,6 +149,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 53.0,
     "fecha_baja": null,
     "created_at": "2026-10-11T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.559Z"
@@ -140,6 +162,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 56.0,
     "fecha_baja": null,
     "created_at": "2026-10-14T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.559Z"
@@ -151,6 +175,8 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 59.0,
     "fecha_baja": null,
     "created_at": "2026-10-14T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.559Z"
@@ -162,9 +188,27 @@ export const REAL_ALUMNOS: Perfil[] = [
     "rol": "ALUMNO",
     "estado_membresia": "ACTIVA",
     "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 61.0,
     "fecha_baja": null,
     "created_at": "2026-10-16T03:01:00+0000",
     "updated_at": "2026-10-17T02:20:33.559Z"
+  },
+  {
+    "id": "e8b1a08c-3430-4000-8000-000000000008",
+    "email": "camila.navarro@ficticio.ar",
+    "nombre_completo": "Camila Navarro",
+    "telefono": "+54 9 11 3456-7890",
+    "rol": "ALUMNO",
+    "estado_membresia": "ACTIVA",
+    "profesor_asignado_id": "20685bca-6304-4e55-abba-37a1cf8f6113",
+    "sexo": "F",
+    "peso_corporal_kg": 55.0,
+    "fecha_baja": null,
+    "fecha_vencimiento_cuota": "2026-11-20",
+    "ultimo_entreno_at": "2026-10-28T18:00:00.000Z",
+    "created_at": "2026-08-01T10:00:00+0000",
+    "updated_at": "2026-10-28T18:00:00.000Z"
   }
 ];
 
