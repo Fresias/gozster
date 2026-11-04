@@ -129,6 +129,17 @@ interface CobrosState {
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     notas?: string;
   }) => Promise<ComprobanteInterno>;
+  registrarCobroInicial: (params: {
+    alumnoId: string;
+    alumnoNombre: string;
+    alumnoEmail: string;
+    alumnoTelefono?: string | null;
+    monto: number;
+    pagado: boolean;
+    medioPago?: "TRANSFERENCIA" | "EFECTIVO";
+    notas?: string;
+    actividad?: string;
+  }) => Promise<CobroItem>;
   recuperarMontoOriginal: (contratacionId: string) => void;
   obtenerDescuentos: () => CobroItem[];
   obtenerComprobante: (contratacionId: string) => ComprobanteInterno | null;
@@ -552,6 +563,77 @@ export const useCobrosStore = create<CobrosState>()(
         });
 
         return comprobante;
+      },
+
+      registrarCobroInicial: async ({
+        alumnoId,
+        alumnoNombre,
+        alumnoEmail,
+        alumnoTelefono,
+        monto,
+        pagado,
+        medioPago = "TRANSFERENCIA",
+        notas,
+        actividad,
+      }) => {
+        const contratacionId = `cont-alta-${alumnoId}`;
+        const cobroId = `cobro-alta-${alumnoId}`;
+        const ahoraIso = new Date().toISOString();
+        const diaVencimiento = new Date().getDate();
+        const fechaVencimiento = computeAnchoredRenewalDate(ahoraIso, diaVencimiento);
+        const pagoId = `pago-alta-${Date.now()}`;
+
+        const nuevoItem: CobroItem = {
+          id: cobroId,
+          alumnoId,
+          alumnoNombre,
+          alumnoEmail,
+          alumnoTelefono: alumnoTelefono ?? null,
+          contratacionId,
+          servicioNombre: actividad ? `Pase ${actividad}` : "Asesoría Online / Rutina",
+          actividad: actividad ?? null,
+          monto,
+          montoLista: monto,
+          diaVencimiento,
+          fechaVencimiento,
+          estado: pagado ? "PAGADO" : "PENDIENTE",
+          ...(pagado
+            ? {
+                ultimoPago: {
+                  id: pagoId,
+                  monto,
+                  montoLista: monto,
+                  medioPago,
+                  fechaPago: ahoraIso,
+                  confirmadoPor: "Coach",
+                  notas,
+                },
+              }
+            : {}),
+        };
+
+        const nuevoPago: PagoMensualInput | undefined = pagado
+          ? {
+              id: pagoId,
+              monto,
+              montoCobrado: monto,
+              fechaPago: ahoraIso,
+              actividad: actividad ?? null,
+              servicioNombre: nuevoItem.servicioNombre,
+              tipoServicio: actividad ? "PRESENCIAL" : "ASESORIA_ONLINE",
+              notas,
+            }
+          : undefined;
+
+        set((state) => ({
+          cobros: [nuevoItem, ...state.cobros.filter((c) => c.alumnoId !== alumnoId)],
+          pagosHistorial: nuevoPago
+            ? [...(state.pagosHistorial ?? []), nuevoPago]
+            : state.pagosHistorial,
+          aviso: `Cobro inicial de $${monto.toLocaleString("es-AR")} (${pagado ? "Liquidado" : "Pendiente"}) registrado para ${alumnoNombre}.`,
+        }));
+
+        return nuevoItem;
       },
 
       recuperarMontoOriginal: (contratacionId: string) => {

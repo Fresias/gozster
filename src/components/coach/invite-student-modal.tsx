@@ -5,6 +5,7 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { useClasesStore } from "@/store/use-clases-store";
+import { useCobrosStore } from "@/store/use-cobros-store";
 
 export type ActividadTipo = "FUNCIONAL" | "BOXEO" | "RUTINAS";
 
@@ -57,6 +58,12 @@ export interface AltaExitosa {
   clases_fijas?: HorarioClaseDisponible[];
   sexo?: "F" | "M";
   peso_corporal_kg?: number | null;
+  cobro_inicial?: {
+    monto: number;
+    pagado: boolean;
+    medio_pago?: "TRANSFERENCIA" | "EFECTIVO";
+    nota?: string;
+  };
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -154,6 +161,12 @@ export function InviteStudentModal({
   // Estado de clases fijas vinculadas (GOZS-225 / GOZS-246)
   const [clasesFijasSeleccionadas, setClasesFijasSeleccionadas] = React.useState<string[]>([]);
 
+  // Estado de cobro inicial y suscripción (GOZS-351)
+  const [montoSuscripcion, setMontoSuscripcion] = React.useState<string>("");
+  const [pagoInicialRealizado, setPagoInicialRealizado] = React.useState<boolean>(false);
+  const [medioPagoInicial, setMedioPagoInicial] = React.useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
+  const [notaPagoInicial, setNotaPagoInicial] = React.useState<string>("");
+
   const reset = React.useCallback(() => {
     setNombreCompleto("");
     setEmail("");
@@ -164,6 +177,10 @@ export function InviteStudentModal({
     setAlta(null);
     setCopiado(false);
     setLoading(false);
+    setMontoSuscripcion("");
+    setPagoInicialRealizado(false);
+    setMedioPagoInicial("TRANSFERENCIA");
+    setNotaPagoInicial("");
     setActividades({
       FUNCIONAL: { habilitada: true, veces_por_semana: 2, pase_libre: false },
       BOXEO: { habilitada: false, veces_por_semana: 2, pase_libre: false },
@@ -327,17 +344,84 @@ export function InviteStudentModal({
           for (const cf of clasesFijasAsignadas) {
             await useClasesStore.getState().asignarClaseFija(cf.id, data.alumno_id);
           }
+
+          // Registrar cobro inicial y suscripción (GOZS-351)
+          const montoNum = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
+          if (montoNum > 0) {
+            try {
+              // 1. Registrar en el store de cobros de Coach Studio
+              await useCobrosStore.getState().registrarCobroInicial({
+                alumnoId: data.alumno_id,
+                alumnoNombre: nombreLimpio || emailLimpio,
+                alumnoEmail: emailLimpio,
+                alumnoTelefono: telefono.trim() || null,
+                monto: montoNum,
+                pagado: pagoInicialRealizado,
+                medioPago: medioPagoInicial,
+                notas: notaPagoInicial.trim() || undefined,
+                actividad: actividadesConfiguradas[0]?.actividad,
+              });
+
+              // 2. Persistir en contrataciones y pagos en Supabase
+              const ahoraIso = new Date().toISOString();
+              const hoyStr = ahoraIso.split("T")[0];
+              const diaVenc = new Date().getDate();
+              const finStr = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
+
+              const { data: nuevaContratacion } = await (supabase.from("contrataciones" as any) as any)
+                .insert({
+                  alumno_id: data.alumno_id,
+                  tipo_servicio: actividadesConfiguradas.some(
+                    (a) => a.actividad === "FUNCIONAL" || a.actividad === "BOXEO",
+                  )
+                    ? "PRESENCIAL"
+                    : "ASESORIA_ONLINE",
+                  estado: pagoInicialRealizado ? "ACTIVA" : "PENDIENTE_PAGO",
+                  dia_vencimiento: diaVenc,
+                  fecha_inicio: hoyStr,
+                  fecha_fin: finStr,
+                  precio_pactado: montoNum,
+                })
+                .select("id")
+                .maybeSingle();
+
+              if ((nuevaContratacion as any)?.id && pagoInicialRealizado) {
+                await (supabase.from("pagos" as any) as any).insert({
+                  contratacion_id: (nuevaContratacion as any).id,
+                  alumno_id: data.alumno_id,
+                  monto: montoNum,
+                  monto_cobrado: montoNum,
+                  medio_pago: medioPagoInicial,
+                  estado: "CONFIRMADO",
+                  nota: notaPagoInicial.trim() || undefined,
+                  idempotency_key: `alta-pago-${data.alumno_id}-${Date.now()}`,
+                });
+              }
+            } catch (cobroErr) {
+              console.warn("Aviso al registrar cobro inicial:", cobroErr);
+            }
+          }
         } catch (persErr) {
           console.warn("Aviso al vincular perfil, actividades o clases fijas:", persErr);
         }
       }
 
+      const montoNumAlta = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
       setAlta({
         ...data,
         actividades: actividadesConfiguradas,
         clases_fijas: clasesFijasAsignadas,
         sexo: sexo,
         peso_corporal_kg: pesoNum && !isNaN(pesoNum) ? pesoNum : null,
+        cobro_inicial:
+          montoNumAlta > 0
+            ? {
+                monto: montoNumAlta,
+                pagado: pagoInicialRealizado,
+                medio_pago: medioPagoInicial,
+                nota: notaPagoInicial.trim() || undefined,
+              }
+            : undefined,
       });
       setLoading(false);
       await onInvited();
@@ -489,6 +573,39 @@ export function InviteStudentModal({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Resumen de Cobro Inicial (GOZS-351) */}
+            {alta.cobro_inicial && (
+              <div className="rounded-xl border border-border bg-background p-3.5 space-y-1.5" data-testid="alta-success-cobro">
+                <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cobro inicial registrado
+                </p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-foreground">
+                      ${alta.cobro_inicial.monto.toLocaleString("es-AR")}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      · {alta.cobro_inicial.medio_pago === "EFECTIVO" ? "Efectivo" : "Transferencia"}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      alta.cobro_inicial.pagado
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                        : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                    }`}
+                  >
+                    {alta.cobro_inicial.pagado ? "✓ Liquidado" : "⏳ Pendiente"}
+                  </span>
+                </div>
+                {alta.cobro_inicial.nota && (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    "{alta.cobro_inicial.nota}"
+                  </p>
+                )}
               </div>
             )}
 
@@ -903,6 +1020,105 @@ export function InviteStudentModal({
                 </div>
               </div>
             )}
+
+            {/* 4. Cobro Inicial & Suscripción (GOZS-351) */}
+            <div className="space-y-3 pt-2 border-t border-border" data-testid="seccion-cobro-inicial">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <span>💳</span> Cobro Inicial & Suscripción
+                </h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Definí el arancel de suscripción y si el alumno ingresa con su cuota liquidada o pendiente.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-monto-suscripcion" className="block text-xs font-semibold text-foreground">
+                    Arancel mensual / Suscripción ($)
+                  </label>
+                  <input
+                    id="alta-monto-suscripcion"
+                    name="monto_suscripcion"
+                    data-testid="alta-monto-suscripcion"
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={montoSuscripcion}
+                    onChange={(ev) => setMontoSuscripcion(ev.target.value)}
+                    placeholder="Ej. 35000"
+                    className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm font-mono text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-estado-pago" className="block text-xs font-semibold text-foreground">
+                    Estado de cuota inicial
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 rounded-xl border border-input bg-secondary/30 p-1 min-h-12 items-center">
+                    <button
+                      type="button"
+                      data-testid="alta-pago-pendiente"
+                      onClick={() => setPagoInicialRealizado(false)}
+                      className={`h-9 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        !pagoInicialRealizado
+                          ? "bg-amber-500 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Pendiente
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="alta-pago-realizado"
+                      onClick={() => setPagoInicialRealizado(true)}
+                      className={`h-9 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        pagoInicialRealizado
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Liquidado
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-medio-pago" className="block text-xs font-semibold text-foreground">
+                    Medio de pago
+                  </label>
+                  <select
+                    id="alta-medio-pago"
+                    name="medio_pago"
+                    data-testid="alta-medio-pago"
+                    value={medioPagoInicial}
+                    onChange={(ev) => setMedioPagoInicial(ev.target.value as "TRANSFERENCIA" | "EFECTIVO")}
+                    className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="TRANSFERENCIA">Transferencia Bancaria</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-nota-pago" className="block text-xs font-semibold text-foreground">
+                    Nota o acuerdo de pago <span className="font-normal text-muted-foreground">(opcional)</span>
+                  </label>
+                  <input
+                    id="alta-nota-pago"
+                    name="nota_pago"
+                    data-testid="alta-nota-pago"
+                    type="text"
+                    value={notaPagoInicial}
+                    onChange={(ev) => setNotaPagoInicial(ev.target.value)}
+                    placeholder="Ej. Promoción inicio / Pagó en recepción"
+                    className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </div>
 
             {error && (
               <div
