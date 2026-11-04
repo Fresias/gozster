@@ -37,12 +37,13 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
       expect(html).toContain("Revisa tus entrenamientos y corrige registros en línea");
     });
 
-    it("THEN visualiza la lista cronológica con fecha, nombre del día y métricas", () => {
+    it("THEN visualiza la lista cronológica con fecha, nombre del día y métricas (Poda de Volumen Total según GOZS-359)", () => {
       const html = renderComponent();
       expect(html).toContain('data-testid="tab-sesiones"');
       expect(html).toContain('data-testid="tab-dashboard"');
       expect(html).toContain("Sesiones Realizadas");
-      expect(html).toContain("Volumen Total");
+      expect(html).toContain("Series Totales");
+      expect(html).not.toContain("Volumen Total");
     });
 
     it("AND al expandir una sesión se visualiza el detalle con ejercicios y series (kg × reps y tipo)", () => {

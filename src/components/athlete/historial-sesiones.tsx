@@ -27,13 +27,15 @@ import {
   CloudOff,
   TriangleAlert,
 } from "@/components/athlete/icons";
+import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 
 export interface HistorialSesionesProps {
   offline?: boolean;
+  initialTab?: "sesiones" | "dashboard";
 }
 
-export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
+export function HistorialSesiones({ offline, initialTab = "sesiones" }: HistorialSesionesProps = {}) {
   const historialSesiones = useAthleteStore((s) => s.historialSesiones);
   const cargandoHistorial = useAthleteStore((s) => s.cargandoHistorial);
   const cargarHistorialSesiones = useAthleteStore((s) => s.cargarHistorialSesiones);
@@ -61,7 +63,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
   }, [historialSesiones, currentSession.studentId, planDias]);
 
   // Estado de vista: listado de sesiones o mini-dashboard por ejercicio
-  const [tabActiva, setTabActiva] = React.useState<"sesiones" | "dashboard">("sesiones");
+  const [tabActiva, setTabActiva] = React.useState<"sesiones" | "dashboard">(initialTab);
 
   // Estado de acordeón: primer elemento expandido por defecto
   const [expandedIds, setExpandedIds] = React.useState<Record<string, boolean>>({});
@@ -167,14 +169,15 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
     setTimeout(() => setGuardadoExitoso(null), 3000);
   };
 
-  // Filtro de ejercicio para el mini-dashboard
-  const [selectedEjercicioId, setSelectedEjercicioId] = React.useState<string>("");
+  // Filtro de ejercicio para el mini-dashboard (inicializa con el primer ejercicio disponible)
+  const primerEjercicioId = contratoDashboard.listaEjercicios[0]?.ejercicioId || "";
+  const [selectedEjercicioId, setSelectedEjercicioId] = React.useState<string>(primerEjercicioId);
 
   React.useEffect(() => {
-    if (contratoDashboard.listaEjercicios.length > 0 && !selectedEjercicioId) {
-      setSelectedEjercicioId(contratoDashboard.listaEjercicios[0]!.ejercicioId);
+    if (!selectedEjercicioId && primerEjercicioId) {
+      setSelectedEjercicioId(primerEjercicioId);
     }
-  }, [contratoDashboard, selectedEjercicioId]);
+  }, [primerEjercicioId, selectedEjercicioId]);
 
   const resumenEjercicioActual = selectedEjercicioId
     ? contratoDashboard.ejercicios[selectedEjercicioId]
@@ -210,7 +213,7 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
           )}
         </div>
 
-        {/* Resumen numérico rápido */}
+        {/* Resumen numérico rápido (Poda de Volumen Total según GOZS-359) */}
         <div className="grid grid-cols-2 gap-2 pt-1 text-center">
           <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -222,11 +225,10 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
           </div>
           <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Volumen Total
+              Series Totales
             </span>
             <div className="font-mono text-xl font-black text-primary">
-              {contratoDashboard.volumenTotalAcumuladoKg.toLocaleString("es-AR")}
-              <span className="text-xs font-bold text-muted-foreground ml-1">kg</span>
+              {sesiones.reduce((acc, s) => acc + s.totalSeries, 0)}
             </div>
           </div>
         </div>
@@ -333,10 +335,6 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                         <span>{sesion.totalEjercicios} ejercicios</span>
                         <span>·</span>
                         <span>{sesion.totalSeries} series</span>
-                        <span>·</span>
-                        <span className="font-bold text-foreground">
-                          {sesion.volumenTotalKg.toLocaleString("es-AR")} kg
-                        </span>
                       </div>
                     </div>
 
@@ -537,8 +535,9 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                          <span className="hidden sm:inline-block text-[11px] font-mono text-muted-foreground">
-                                            1RM: {Math.round(s.estimated1RM)} kg
+                                          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                                            <span>1RM: {Math.round(s.estimated1RM)} kg</span>
+                                            <Tooltip1RM size="sm" />
                                           </span>
 
                                           <button
@@ -603,8 +602,8 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
 
           {resumenEjercicioActual ? (
             <div className="space-y-3" data-testid="metricas-ejercicio-dashboard">
-              {/* Tarjetas de Récords y Métricas */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Tarjetas de Récords y Métricas (Poda de Volumen Total en UI según GOZS-359) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="rounded-xl border border-border/80 bg-card p-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
                     <Trophy className="h-4 w-4 text-amber-500" />
@@ -617,9 +616,12 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                 </div>
 
                 <div className="rounded-xl border border-border/80 bg-card p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <Flame className="h-4 w-4 text-rose-500" />
-                    <span>Mejor 1RM (Epley)</span>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+                    <div className="flex items-center gap-1.5">
+                      <Flame className="h-4 w-4 text-rose-500" />
+                      <span>Mejor 1RM (Epley)</span>
+                    </div>
+                    <Tooltip1RM size="sm" />
                   </div>
                   <div className="mt-1 font-mono text-2xl font-black text-foreground">
                     {Math.round(resumenEjercicioActual.record1RM)}{" "}
@@ -635,17 +637,6 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                   <div className="mt-1 font-mono text-2xl font-black text-foreground">
                     {resumenEjercicioActual.recordReps}{" "}
                     <span className="text-xs font-bold text-muted-foreground">reps</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border/80 bg-card p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <Dumbbell className="h-4 w-4 text-emerald-500" />
-                    <span>Volumen Total</span>
-                  </div>
-                  <div className="mt-1 font-mono text-2xl font-black text-foreground">
-                    {resumenEjercicioActual.volumenTotalHistoricoKg.toLocaleString("es-AR")}{" "}
-                    <span className="text-xs font-bold text-muted-foreground">kg</span>
                   </div>
                 </div>
               </div>
@@ -676,8 +667,9 @@ export function HistorialSesiones({ offline }: HistorialSesionesProps = {}) {
                         <div className="font-mono text-sm font-black text-primary">
                           {punto.maxPesoKg} kg
                         </div>
-                        <div className="text-[11px] font-mono text-muted-foreground">
-                          1RM: {Math.round(punto.bestEstimated1RM)} kg
+                        <div className="text-[11px] font-mono text-muted-foreground inline-flex items-center gap-1 justify-end">
+                          <span>1RM: {Math.round(punto.bestEstimated1RM)} kg</span>
+                          <Tooltip1RM size="sm" />
                         </div>
                       </div>
                     </div>

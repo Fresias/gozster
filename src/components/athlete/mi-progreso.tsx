@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { CloudOff, History } from "@/components/athlete/icons";
+import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { formatearFechaCorta } from "@/lib/historial-ejercicio";
 import {
   ariaProgreso,
@@ -86,9 +87,10 @@ function ProgresoLinea({ ejercicio, vista }: { ejercicio: EjercicioProgreso; vis
         />
       </div>
       {conEpley && (
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground inline-flex items-center gap-1">
           <span aria-hidden="true">— </span>Peso máx<span aria-hidden="true">  ··· </span>
           <span className="ml-2">1RM estimado</span>
+          <Tooltip1RM size="sm" />
         </p>
       )}
     </div>
@@ -110,8 +112,9 @@ function TarjetaEjercicio({ ejercicio, vista }: { ejercicio: EjercicioProgreso; 
             {ultimo ? etiquetaValor(ultimo, a_peso_corporal) : "—"}
           </span>
           {vista === "TECNICA" && !a_peso_corporal && ultimo && ultimo.epley_max_kg > 0 && (
-            <span className="mt-0.5 block font-mono text-xs tabular-nums text-muted-foreground">
-              {etiquetaEpley(ultimo)}
+            <span className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs tabular-nums text-muted-foreground">
+              <span>{etiquetaEpley(ultimo)}</span>
+              <Tooltip1RM size="sm" />
             </span>
           )}
         </div>

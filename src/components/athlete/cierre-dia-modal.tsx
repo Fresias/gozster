@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Trophy, Flame, Check, ArrowLeft, X, TrendingUp } from "@/components/athlete/icons";
+import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 
 export interface RecordSesionItem {
   exerciseName: string;
@@ -40,9 +41,9 @@ export function CierreDiaModal({
   totalSeries,
   duracionMinutos = 45,
   duracionTexto,
-  rachaDias = 5,
-  rachaPrevia = 4,
-  metaDiasSemana = 4,
+  rachaDias = 1,
+  rachaPrevia = 0,
+  metaDiasSemana = 3,
   diasCompletadosSemana = 1,
   recordsObtenidos = [],
   studentName = "Fernando",
@@ -61,9 +62,6 @@ export function CierreDiaModal({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
-
-  // Formato localizado para Argentina / español (ej. "14.250 kg")
-  const tonelajeFormateado = `${new Intl.NumberFormat("es-AR").format(Math.round(tonelajeKg))} kg`;
 
   const tiempoTexto = duracionTexto || `${duracionMinutos} min`;
 
@@ -164,34 +162,18 @@ export function CierreDiaModal({
           </div>
         </div>
 
-        {/* Hero Metric Destacada: Tonelaje total acumulado */}
+        {/* Resumen de Sesión Destacado: Series completadas y Duración (Poda de Tonelaje kg según GOZS-359) */}
         <div
           className="rounded-2xl border border-primary/25 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent p-4 sm:p-5 shadow-sm space-y-3"
-          data-testid="hero-metric-tonelaje-card"
+          data-testid="hero-metric-summary-card"
         >
-          <div className="space-y-0.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Tonelaje Total Acumulado
-            </span>
-            <div
-              className="text-3xl sm:text-4xl font-black tracking-tight text-foreground font-outfit"
-              data-testid="hero-metric-tonelaje"
-            >
-              {tonelajeFormateado}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Volumen total levantado calculado de todas las series completadas
-            </p>
-          </div>
-
-          {/* Métricas secundarias: Series completadas y Duración */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
-            <div className="rounded-xl bg-background/80 p-2.5 border border-border/60 text-center">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-background/80 p-3 border border-border/60 text-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                 Series
               </span>
               <span
-                className="text-base sm:text-lg font-black font-mono text-foreground"
+                className="text-lg sm:text-xl font-black font-mono text-foreground"
                 data-testid="hero-metric-series"
               >
                 {`${seriesCompletadas}/${totalSeries}`}
@@ -201,12 +183,12 @@ export function CierreDiaModal({
               </span>
             </div>
 
-            <div className="rounded-xl bg-background/80 p-2.5 border border-border/60 text-center">
+            <div className="rounded-xl bg-background/80 p-3 border border-border/60 text-center">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                 Tiempo
               </span>
               <span
-                className="text-base sm:text-lg font-black font-mono text-foreground"
+                className="text-lg sm:text-xl font-black font-mono text-foreground"
                 data-testid="hero-metric-tiempo"
               >
                 {tiempoTexto}
@@ -238,7 +220,7 @@ export function CierreDiaModal({
                     className="text-xs font-black text-amber-500 font-mono"
                     data-testid="racha-dias-valor"
                   >
-                    {`${rachaDias} días`}
+                    {`${rachaDias} ${rachaDias === 1 ? "día" : "días"}`}
                   </span>
                   <span
                     className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30"
@@ -279,7 +261,7 @@ export function CierreDiaModal({
                 Impacto en Ranking de Constancia
               </span>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                ¡Sumaste adherencia positiva! Conforme a la filosofía de GOZSter, el ranking del gimnasio premia tu consistencia semanal y tonelaje acumulado, sin toxicidad competitiva.
+                Mantener una buena racha tendrá su recompensa.
               </p>
             </div>
           </div>
@@ -312,9 +294,14 @@ export function CierreDiaModal({
                     <span className="text-xs font-bold text-foreground block">
                       {rec.exerciseName}
                     </span>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {`${rec.peso_kg} kg × ${rec.reps_hechas} reps`}
-                      {rec.epley_kg && rec.epley_kg > 0 ? ` · 1RM ~${rec.epley_kg} kg` : ""}
+                    <span className="text-xs text-muted-foreground font-mono inline-flex items-center gap-1">
+                      <span>{`${rec.peso_kg} kg × ${rec.reps_hechas} reps`}</span>
+                      {rec.epley_kg && rec.epley_kg > 0 ? (
+                        <>
+                          <span>{`· 1RM ~${rec.epley_kg} kg`}</span>
+                          <Tooltip1RM size="sm" />
+                        </>
+                      ) : null}
                     </span>
                   </div>
 

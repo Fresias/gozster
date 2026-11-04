@@ -81,8 +81,8 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
     });
   });
 
-  describe("Criterio Gherkin 2: Hero Metric destacada (Tonelaje total acumulado, series completadas y tiempo de sesión)", () => {
-    it("GIVEN un tonelaje acumulado de 14.250 kg, 26/26 series y 45 min, THEN se muestran con formato numérico y jerarquía visual", () => {
+  describe("Criterio Gherkin 2: Resumen destacado de sesión y Poda de Tonelaje Kg (GOZS-359)", () => {
+    it("GIVEN una sesión finalizada con 26/26 series y 45 min, THEN muestra series y tiempo y no figura el texto ni el valor del tonelaje/volumen total en kg", () => {
       const html = renderToString(
         React.createElement(CierreDiaModal, {
           isOpen: true,
@@ -94,10 +94,12 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
         })
       );
 
-      // Hero Metric: Tonelaje total acumulado con formato de miles en español
-      expect(html).toContain('data-testid="hero-metric-tonelaje-card"');
-      expect(html).toContain('data-testid="hero-metric-tonelaje"');
-      expect(html).toContain("14.250 kg");
+      // Poda de Tonelaje Total Acumulado según GOZS-359
+      expect(html).toContain('data-testid="hero-metric-summary-card"');
+      expect(html).not.toContain('data-testid="hero-metric-tonelaje"');
+      expect(html).not.toContain("Tonelaje Total Acumulado");
+      expect(html).not.toContain("Volumen total levantado");
+      expect(html).not.toContain("14.250 kg");
 
       // Series completadas
       expect(html).toContain('data-testid="hero-metric-series"');
@@ -108,7 +110,7 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       expect(html).toContain("45 min");
     });
 
-    it("GIVEN una sesión con valores dinámicos calculados, THEN el formateo de tonelaje respeta la localización argentina", () => {
+    it("GIVEN una sesión con valores dinámicos calculados, THEN no exhibe métrica de tonelaje y mantiene métricas operativas", () => {
       const html = renderToString(
         React.createElement(CierreDiaModal, {
           isOpen: true,
@@ -120,14 +122,14 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
         })
       );
 
-      expect(html).toContain("8.613 kg");
+      expect(html).not.toContain("8.613 kg");
       expect(html).toContain("26/26");
       expect(html).toContain("52 min");
     });
   });
 
-  describe("Criterio Gherkin 3: Exhibición del avance de la Racha Semanal (+1 día) y el impacto positivo hacia el ranking de constancia del gimnasio", () => {
-    it("GIVEN un avance de racha de 4 a 5 días y 1 de 4 días de la semana, THEN visualiza el incremento y contexto sin toxicidad competitiva (ADR-003)", () => {
+  describe("Criterio Gherkin 3: Exhibición de Racha Dinámica (+1 día) e Impacto en Ranking de Constancia (GOZS-359)", () => {
+    it("GIVEN una racha calculada dinámicamente y meta semanal, THEN visualiza el avance y el texto 'Mantener una buena racha tendrá su recompensa'", () => {
       const html = renderToString(
         React.createElement(CierreDiaModal, {
           isOpen: true,
@@ -155,10 +157,10 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       expect(html).toContain('data-testid="meta-semanal-avance"');
       expect(html).toContain("Día 1 de 4 completados esta semana");
 
-      // Impacto positivo en Ranking de Constancia (ADR-003)
+      // Impacto positivo en Ranking de Constancia con texto actualizado (GOZS-359)
       expect(html).toContain('data-testid="cierre-dia-ranking-constancia"');
-      expect(html).toContain("Ranking de Constancia");
-      expect(html).toContain("sin toxicidad competitiva");
+      expect(html).toContain("Impacto en Ranking de Constancia");
+      expect(html).toContain("Mantener una buena racha tendrá su recompensa");
     });
   });
 
