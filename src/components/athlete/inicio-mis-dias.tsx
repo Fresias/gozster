@@ -60,12 +60,68 @@ export function InicioMisDias() {
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  // Lógica de Recordatorio Mensual de Peso Corporal (GOZS-345)
+  const [recordatorioDescartado, setRecordatorioDescartado] = React.useState(false);
+  const [nuevoPesoKg, setNuevoPesoKg] = React.useState<string>("");
+  const [guardandoPeso, setGuardandoPeso] = React.useState(false);
+  const [pesoGuardadoMensaje, setPesoGuardadoMensaje] = React.useState<string | null>(null);
+
   React.useEffect(() => {
     void cargarPlanAlumno();
   }, [cargarPlanAlumno]);
 
   // Alumno, plan y días reales del alumno autenticado (Supabase + RLS)
   const student = planAlumno?.alumnos[0];
+
+  // Lógica de Recordatorio Mensual de Peso Corporal (GOZS-345)
+  const diasSinActualizarPeso = React.useMemo(() => {
+    if (!student) return 0;
+    if (student.peso_corporal_kg === null || student.peso_corporal_kg === undefined) {
+      return 999; // Sin peso registrado -> mostrar aviso
+    }
+    const fechaRef = (student as any).fecha_actualizacion_peso || student.updated_at || student.created_at;
+    if (!fechaRef) return 999;
+    const diffMs = Date.now() - new Date(fechaRef).getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [student]);
+
+  const debeRecordarPeso = !recordatorioDescartado && diasSinActualizarPeso >= 30;
+
+  const handleGuardarPeso = async () => {
+    const pesoNum = parseFloat(nuevoPesoKg);
+    if (isNaN(pesoNum) || pesoNum <= 0 || pesoNum > 500) {
+      setToastMessage("Por favor ingresá un peso válido en kg (ej: 75.5)");
+      return;
+    }
+    setGuardandoPeso(true);
+    try {
+      if (student) {
+        student.peso_corporal_kg = pesoNum;
+        student.updated_at = new Date().toISOString();
+        (student as any).fecha_actualizacion_peso = new Date().toISOString();
+      }
+      try {
+        const { supabase } = await import("@/lib/supabase/client");
+        if (student?.id) {
+          await supabase
+            .from("perfiles")
+            .update({
+              peso_corporal_kg: pesoNum,
+              updated_at: new Date().toISOString(),
+            } as any)
+            .eq("id", student.id);
+        }
+      } catch (err) {
+        console.warn("Actualización de peso offline:", err);
+      }
+      setPesoGuardadoMensaje(`¡Peso guardado: ${pesoNum} kg!`);
+      setTimeout(() => {
+        setRecordatorioDescartado(true);
+      }, 2000);
+    } finally {
+      setGuardandoPeso(false);
+    }
+  };
   const plan = planAlumno?.planes[0];
   const diasItems: DiaRutinaItem[] = React.useMemo(() => {
     if (!planAlumno || !plan) return [];
@@ -149,18 +205,97 @@ export function InicioMisDias() {
   const semanaPlan = plan ? calcularSemanaPlan(plan.fecha_inicio, plan.fecha_fin) : { actual: 1, total: null };
   const diaHero = diaActivoHoy || diasConEstado[0];
 
+  const tarjetaRecordatorioPeso = debeRecordarPeso ? (
+    <div
+      role="region"
+      aria-label="Recordatorio de peso corporal"
+      className="rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-xs space-y-3 transition-all text-left"
+      data-testid="recordatorio-peso-card"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-lg shadow-xs">
+            ⚖️
+          </span>
+          <div>
+            <p className="text-xs sm:text-sm font-bold text-foreground">
+              Actualizá tu peso corporal para calibrar tus marcas de fuerza (kg)
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {student?.peso_corporal_kg
+                ? `Último registro: ${student.peso_corporal_kg} kg (hace ${diasSinActualizarPeso} días)`
+                : "Calibración en kilogramos puros sin métricas invasivas"}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setRecordatorioDescartado(true)}
+          className="text-muted-foreground hover:text-foreground text-xs font-bold p-1 rounded-lg cursor-pointer"
+          aria-label="Descartar recordatorio"
+          data-testid="descartar-recordatorio-peso-btn"
+        >
+          ✕
+        </button>
+      </div>
+
+      {pesoGuardadoMensaje ? (
+        <div
+          className="rounded-xl bg-emerald-500/15 border border-emerald-500/30 p-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+          data-testid="peso-guardado-feedback"
+        >
+          ✓ {pesoGuardadoMensaje}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <div className="relative flex-1 min-w-[130px] max-w-[200px]">
+            <input
+              type="number"
+              step="0.5"
+              min="20"
+              max="400"
+              placeholder={student?.peso_corporal_kg ? String(student.peso_corporal_kg) : "Ej: 75.0"}
+              value={nuevoPesoKg}
+              onChange={(e) => setNuevoPesoKg(e.target.value)}
+              className="w-full min-h-11 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary pr-9"
+              data-testid="input-peso-corporal"
+              aria-label="Nuevo peso corporal en kilogramos"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+              kg
+            </span>
+          </div>
+
+          <button
+            type="button"
+            disabled={!nuevoPesoKg || guardandoPeso}
+            onClick={handleGuardarPeso}
+            className="min-h-11 rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+            data-testid="btn-guardar-peso-corporal"
+          >
+            {guardandoPeso ? "Guardando…" : "Actualizar"}
+          </button>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   if (diasItems.length === 0) {
     return (
-      <div className="space-y-2 pt-6 pb-20 text-center" data-testid="inicio-sin-plan">
-        <p className="text-sm font-medium text-muted-foreground">
-          {student ? `Hola, ${student.nombre_completo.split(" ")[0]}` : "Hola"}
-        </p>
-        <h1 className="font-outfit text-xl font-extrabold text-foreground">
-          {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
-        </h1>
-        {!cargandoPlan && (
-          <p className="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p>
-        )}
+      <div className="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan">
+        {tarjetaRecordatorioPeso}
+        <div className="text-center space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">
+            {student ? `Hola, ${student.nombre_completo.split(" ")[0]}` : "Hola"}
+          </p>
+          <h1 className="font-outfit text-xl font-extrabold text-foreground">
+            {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
+          </h1>
+          {!cargandoPlan && (
+            <p className="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -185,6 +320,9 @@ export function InicioMisDias() {
           )}
         </p>
       </div>
+
+      {/* Recordatorio Mensual de Peso Corporal (kg puro) (GOZS-345) */}
+      {tarjetaRecordatorioPeso}
 
       {/* Indicador de Último Entrenamiento Realizado */}
       {ultimoDiaRealizado && (

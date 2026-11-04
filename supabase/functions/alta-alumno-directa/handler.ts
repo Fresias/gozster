@@ -46,6 +46,8 @@ export interface PerfilAlumno {
   profesor_asignado_id: string;
   debe_cambiar_password: true;
   telefono: string | null;
+  sexo?: "M" | "F" | null;
+  peso_corporal_kg?: number | null;
 }
 
 export interface AltaAlumnoDeps {
@@ -101,7 +103,13 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
     }
 
     // 3. Validar entrada
-    let body: { email?: unknown; nombre_completo?: unknown; telefono?: unknown };
+    let body: {
+      email?: unknown;
+      nombre_completo?: unknown;
+      telefono?: unknown;
+      sexo?: unknown;
+      peso_corporal_kg?: unknown;
+    };
     try {
       body = await req.json();
     } catch {
@@ -113,13 +121,39 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
     const nombreCompleto = String(body.nombre_completo ?? "").trim() || email.slice(0, email.indexOf("@"));
     const telefono = body.telefono ? String(body.telefono).trim() : null;
 
+    let sexo: "M" | "F" | null = null;
+    if (body.sexo !== undefined && body.sexo !== null && body.sexo !== "") {
+      const s = String(body.sexo).trim().toUpperCase();
+      if (s === "M" || s === "F") {
+        sexo = s;
+      } else {
+        return json(400, { error: "El sexo biológico debe ser 'M' o 'F'" });
+      }
+    }
+
+    let pesoCorporalKg: number | null = null;
+    if (body.peso_corporal_kg !== undefined && body.peso_corporal_kg !== null && body.peso_corporal_kg !== "") {
+      const p = Number(body.peso_corporal_kg);
+      if (Number.isFinite(p) && p > 0 && p <= 500) {
+        pesoCorporalKg = Math.round(p * 100) / 100;
+      } else {
+        return json(400, { error: "El peso corporal debe ser un número mayor a 0 y hasta 500 kg" });
+      }
+    }
+
     // 4. Crear el usuario con contraseña temporal y email ya confirmado
     const passwordTemporal = generarPasswordTemporal();
     const creado = await deps.crearUsuario({
       email,
       password: passwordTemporal,
       email_confirm: true,
-      user_metadata: { must_change_password: true, rol: "ALUMNO", nombre_completo: nombreCompleto },
+      user_metadata: {
+        must_change_password: true,
+        rol: "ALUMNO",
+        nombre_completo: nombreCompleto,
+        ...(sexo ? { sexo } : {}),
+        ...(pesoCorporalKg !== null ? { peso_corporal_kg: pesoCorporalKg } : {}),
+      },
     });
     if ("error" in creado) {
       return creado.error === "email_existe"
@@ -137,6 +171,8 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
       profesor_asignado_id: entrenadorId,
       debe_cambiar_password: true,
       telefono,
+      ...(sexo ? { sexo } : {}),
+      ...(pesoCorporalKg !== null ? { peso_corporal_kg: pesoCorporalKg } : {}),
     });
     if (!perfilOk) {
       // Evitar usuarios de Auth huérfanos sin perfil
@@ -154,6 +190,8 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
       email,
       password_temporal: passwordTemporal,
       email_enviado: emailEnviado,
+      sexo,
+      peso_corporal_kg: pesoCorporalKg,
       mensaje: emailEnviado
         ? `Alumno creado. Le enviamos sus credenciales a ${email}.`
         : `Alumno creado. Compartile sus credenciales: deberá cambiar la contraseña al ingresar en ${LOGIN_URL}.`,

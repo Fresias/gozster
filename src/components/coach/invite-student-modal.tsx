@@ -55,6 +55,8 @@ export interface AltaExitosa {
   mensaje: string;
   actividades?: ActividadConfiguracion[];
   clases_fijas?: HorarioClaseDisponible[];
+  sexo?: "F" | "M";
+  peso_corporal_kg?: number | null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -133,6 +135,8 @@ export function InviteStudentModal({
   const [nombreCompleto, setNombreCompleto] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [telefono, setTelefono] = React.useState("");
+  const [sexo, setSexo] = React.useState<"F" | "M">("F");
+  const [pesoCorporalKg, setPesoCorporalKg] = React.useState<string>("");
   const [error, setError] = React.useState<string | null>(null);
   const [alta, setAlta] = React.useState<AltaExitosa | null>(null);
   const [copiado, setCopiado] = React.useState(false);
@@ -154,6 +158,8 @@ export function InviteStudentModal({
     setNombreCompleto("");
     setEmail("");
     setTelefono("");
+    setSexo("F");
+    setPesoCorporalKg("");
     setError(null);
     setAlta(null);
     setCopiado(false);
@@ -235,6 +241,7 @@ export function InviteStudentModal({
 
     setLoading(true);
     try {
+      const pesoNum = pesoCorporalKg.trim() ? parseFloat(pesoCorporalKg.trim()) : undefined;
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke<AltaExitosa>(
         "alta-alumno-directa",
@@ -243,6 +250,8 @@ export function InviteStudentModal({
             email: emailLimpio,
             nombre_completo: nombreLimpio || undefined,
             telefono: telefono.trim() || undefined,
+            sexo: sexo || undefined,
+            peso_corporal_kg: pesoNum && !isNaN(pesoNum) ? pesoNum : undefined,
           },
         },
       );
@@ -287,9 +296,21 @@ export function InviteStudentModal({
         clasesFijasSeleccionadas.includes(h.id),
       );
 
-      // Persistir actividades y clases fijas si hay alumno_id
+      // Persistir actividades, clases fijas, sexo y peso si hay alumno_id
       if (data.alumno_id) {
         try {
+          // Persistir sexo y peso corporal en perfiles
+          const perfilUpdate: { sexo?: "F" | "M"; peso_corporal_kg?: number } = {};
+          if (sexo === "F" || sexo === "M") {
+            perfilUpdate.sexo = sexo;
+          }
+          if (pesoNum && !isNaN(pesoNum) && pesoNum > 0) {
+            perfilUpdate.peso_corporal_kg = pesoNum;
+          }
+          if (Object.keys(perfilUpdate).length > 0) {
+            await supabase.from("perfiles" as any).update(perfilUpdate as any).eq("id", data.alumno_id);
+          }
+
           if (actividadesConfiguradas.length > 0) {
             await supabase.from("alumno_actividades" as any).upsert(
               actividadesConfiguradas.map((a) => ({
@@ -307,7 +328,7 @@ export function InviteStudentModal({
             await useClasesStore.getState().asignarClaseFija(cf.id, data.alumno_id);
           }
         } catch (persErr) {
-          console.warn("Aviso al vincular actividades o clases fijas:", persErr);
+          console.warn("Aviso al vincular perfil, actividades o clases fijas:", persErr);
         }
       }
 
@@ -315,6 +336,8 @@ export function InviteStudentModal({
         ...data,
         actividades: actividadesConfiguradas,
         clases_fijas: clasesFijasAsignadas,
+        sexo: sexo,
+        peso_corporal_kg: pesoNum && !isNaN(pesoNum) ? pesoNum : null,
       });
       setLoading(false);
       await onInvited();
@@ -560,6 +583,46 @@ export function InviteStudentModal({
                     value={telefono}
                     onChange={(ev) => setTelefono(ev.target.value)}
                     placeholder="+54 9 11 ..."
+                    className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Sexo Biológico y Peso Corporal Aproximado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-sexo" className="block text-xs font-semibold text-foreground">
+                    Sexo Biológico <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    id="alta-sexo"
+                    name="sexo"
+                    data-testid="alta-sexo"
+                    required
+                    value={sexo}
+                    onChange={(ev) => setSexo(ev.target.value as "F" | "M")}
+                    className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="F">Femenino</option>
+                    <option value="M">Masculino</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="alta-peso" className="block text-xs font-semibold text-foreground">
+                    Peso Corporal Aproximado (kg)
+                  </label>
+                  <input
+                    id="alta-peso"
+                    name="peso_corporal_kg"
+                    data-testid="alta-peso"
+                    type="number"
+                    step="0.1"
+                    min="20"
+                    max="300"
+                    value={pesoCorporalKg}
+                    onChange={(ev) => setPesoCorporalKg(ev.target.value)}
+                    placeholder="Ej. 65"
                     className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>

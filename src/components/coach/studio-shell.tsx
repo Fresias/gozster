@@ -96,6 +96,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           >
             <Link
               href="/studio/dashboard"
+              data-testid="sidebar-metricas-link"
               className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                 isDashboardActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
@@ -116,7 +117,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                 />
               </svg>
-              <span>Dashboard &amp; Analíticas</span>
+              <span>Métricas &amp; Retención</span>
             </Link>
 
             <Link
@@ -146,6 +147,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
             <Link
               href="/studio/rutinas"
+              data-testid="sidebar-routine-builder-btn"
+              title="Rutinas &amp; Constructor de Rutinas"
               className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                 isRutinasActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
@@ -166,7 +169,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                 />
               </svg>
-              <span>Rutinas</span>
+              <span>Rutinas &amp; Constructor</span>
             </Link>
 
             <Link
@@ -297,28 +300,6 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <span>Vista Atleta (PWA)</span>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => useCoachStudioStore.getState().setRoutineBuilderOpen(true)}
-              className="inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent text-left w-full"
-              data-testid="sidebar-routine-builder-btn"
-            >
-              <svg
-                className="mr-2.5 h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
-              <span>Constructor de Rutinas</span>
-            </button>
           </nav>
 
           <div className="hidden lg:block mt-auto pt-6 border-t border-border/60">
