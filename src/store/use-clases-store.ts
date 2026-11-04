@@ -668,7 +668,22 @@ export const useClasesStore = create<ClasesState>()(
     }),
     {
       name: "gozster-clases",
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
+      migrate: (persistedState: any, version: number) => {
+        const state = persistedState as Partial<ClasesState>;
+        // Si el estado persistido en el navegador del usuario es versión anterior a GOZS-354,
+        // purgamos el snapshot viejo donde demo-clase-func-miercoles tenía capacidad: 3 y EN_ESPERA.
+        if (!version || version < 2) {
+          return {
+            ...state,
+            clases: generarDemoClasesSemana(),
+            agendaReservas: generarDemoReservasIniciales(),
+            sinCupo: [],
+          };
+        }
+        return state;
+      },
       partialize: (s) => ({
         vista: s.vista,
         semanaInicio: s.semanaInicio,

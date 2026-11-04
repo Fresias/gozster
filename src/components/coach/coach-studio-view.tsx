@@ -488,9 +488,7 @@ export function CoachStudioView({
               .map((a) => a.nombre_completo)}
             sinRutina={metricas.cantSinPlanEntrenamiento}
             onAsignarClick={() => setIsAssignModalOpen(true)}
-            {/* Contrato GOZS-349: onIngresosClick={() => setIsSankeyModalOpen(true)} */}
             onIngresosClick={() => {
-              setIsSankeyModalOpen(true);
               router.push("/studio/ingresos");
             }}
             onSinEntrenarClick={() => {
