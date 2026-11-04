@@ -105,7 +105,7 @@ describe("GOZS-362: Coach Studio: Alta de Planes $0 con Notas, Asignación Multi
       const html = renderToStaticMarkup(
         <StudentDetail
           alumno={alumnoTest}
-          activeTab="RESUMEN"
+          activeTab="rutina_actual"
           onTabChange={vi.fn()}
           onBack={vi.fn()}
           rutinaActiva={null}
