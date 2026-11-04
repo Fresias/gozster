@@ -754,6 +754,7 @@ export interface Database {
           profesor_id: string;
           ejercicio_id: string | null;
           serie_id: string | null;
+          reporte_dolor_id?: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
           severidad: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
@@ -771,6 +772,7 @@ export interface Database {
           profesor_id: string;
           ejercicio_id?: string | null;
           serie_id?: string | null;
+          reporte_dolor_id?: string | null;
           tipo_alerta: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
           severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo: string;
@@ -788,6 +790,7 @@ export interface Database {
           profesor_id?: string;
           ejercicio_id?: string | null;
           serie_id?: string | null;
+          reporte_dolor_id?: string | null;
           tipo_alerta?: 'DOLOR_ARTICULAR' | 'RECORD_1RM' | 'DESERCION_RIESGO' | 'CUOTA_VENCIDA' | 'INACTIVIDAD';
           severidad?: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
           titulo?: string;
@@ -826,6 +829,13 @@ export interface Database {
             columns: ['serie_id'];
             isOneToOne: false;
             referencedRelation: 'registro_series';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alertas_entrenador_reporte_dolor_id_fkey';
+            columns: ['reporte_dolor_id'];
+            isOneToOne: false;
+            referencedRelation: 'alumno_historial_dolor';
             referencedColumns: ['id'];
           },
           {

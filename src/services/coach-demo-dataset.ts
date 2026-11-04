@@ -1,6 +1,7 @@
 import type { ActividadClase, AlumnoActividad, Clase, Contratacion, EstadoReserva, Perfil, PlanEntrenamiento, PlanMembresia, Reserva } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import type { CriticalAlert } from "@/components/coach/critical-alerts-inbox";
+import { getReactiveAlertsForStudent } from "@/components/coach/critical-alerts-store";
 import { diasDeLaSemana } from "@/lib/clases";
 import { derivarKpisNegocio, generarDemoGimnasio, type KpisNegocio } from "@/services/coach-demo-generator";
 
@@ -435,7 +436,17 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
  * Retorna las alertas e insignias correspondientes para los atletas del dataset de demostración
  */
 export function getDemoAlumnoAlerts(alumnoIdOrName: string) {
-  const q = alumnoIdOrName.toLowerCase();
+  const q = (alumnoIdOrName || "").toLowerCase();
+
+  // 1. Integración reactiva: si el alumno tiene reportes de dolor activos en el pipeline, emitir badge dinámico
+  try {
+    const reactiveAlerts = getReactiveAlertsForStudent(alumnoIdOrName);
+    if (reactiveAlerts.length > 0) {
+      return reactiveAlerts;
+    }
+  } catch {
+    // Silencioso en entornos sin store inicializado
+  }
 
   if (q.includes("lucas")) {
     return [
