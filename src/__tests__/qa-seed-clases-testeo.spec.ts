@@ -40,14 +40,16 @@ describe("seed de clases ficticias", () => {
     expect(clases).toHaveLength(10);
   });
 
-  it("los anotados activos nunca exceden la capacidad; EN_ESPERA y CANCELADO no cuentan", () => {
+  it("las clases demo no tienen límite de cupo por defecto (capacidad = null) y respetan cancelaciones (GOZS-354)", () => {
     const clases = generarDemoClasesSemana(REF);
     const reservas = generarDemoReservasIniciales();
     for (const c of clases) {
+      expect(c.capacidad).toBeNull();
       const ocupados = reservas.filter((r) => r.clase_id === c.id && ["ANOTADO", "AUSENTE"].includes(r.estado)).length;
-      expect(ocupados).toBeLessThanOrEqual(c.capacidad ?? 0);
+      if (c.capacidad !== null) {
+        expect(ocupados).toBeLessThanOrEqual(c.capacidad);
+      }
     }
-    expect(reservas.some((r) => r.estado === "EN_ESPERA")).toBe(true);
     expect(reservas.some((r) => r.estado === "CANCELADO")).toBe(true);
   });
 

@@ -880,25 +880,25 @@ export const DEMO_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
   },
 ];
 
-// Horario ficticio (GOZS-194). dia: 0 = lunes ... 4 = viernes.
+// Horario ficticio (GOZS-194, GOZS-354). Clases sin cupo por defecto (capacidad = null).
 const HORARIO_DEMO: Array<{
   id: string;
   actividad: ActividadClase;
   dia: number;
   hora: string;
-  capacidad: number;
+  capacidad: number | null;
   cancelada?: boolean;
 }> = [
-  { id: "demo-clase-func-lunes", actividad: "FUNCIONAL", dia: 0, hora: "18:00", capacidad: 3 },
-  { id: "demo-clase-func-martes", actividad: "FUNCIONAL", dia: 1, hora: "18:00", capacidad: 8 },
-  { id: "demo-clase-func-miercoles", actividad: "FUNCIONAL", dia: 2, hora: "18:00", capacidad: 3 },
-  { id: "demo-clase-func-jueves", actividad: "FUNCIONAL", dia: 3, hora: "18:00", capacidad: 8 },
-  { id: "demo-clase-func-viernes", actividad: "FUNCIONAL", dia: 4, hora: "18:00", capacidad: 8, cancelada: true },
-  { id: "demo-clase-func-martes-17", actividad: "FUNCIONAL", dia: 1, hora: "17:00", capacidad: 6 },
-  { id: "demo-clase-func-jueves-17", actividad: "FUNCIONAL", dia: 3, hora: "17:00", capacidad: 6 },
-  { id: "demo-clase-box-lunes", actividad: "BOXEO", dia: 0, hora: "19:30", capacidad: 10 },
-  { id: "demo-clase-box-miercoles", actividad: "BOXEO", dia: 2, hora: "19:30", capacidad: 10 },
-  { id: "demo-clase-box-viernes", actividad: "BOXEO", dia: 4, hora: "19:30", capacidad: 10 },
+  { id: "demo-clase-func-lunes", actividad: "FUNCIONAL", dia: 0, hora: "18:00", capacidad: null },
+  { id: "demo-clase-func-martes", actividad: "FUNCIONAL", dia: 1, hora: "18:00", capacidad: null },
+  { id: "demo-clase-func-miercoles", actividad: "FUNCIONAL", dia: 2, hora: "18:00", capacidad: null },
+  { id: "demo-clase-func-jueves", actividad: "FUNCIONAL", dia: 3, hora: "18:00", capacidad: null },
+  { id: "demo-clase-func-viernes", actividad: "FUNCIONAL", dia: 4, hora: "18:00", capacidad: null, cancelada: true },
+  { id: "demo-clase-func-martes-17", actividad: "FUNCIONAL", dia: 1, hora: "17:00", capacidad: null },
+  { id: "demo-clase-func-jueves-17", actividad: "FUNCIONAL", dia: 3, hora: "17:00", capacidad: null },
+  { id: "demo-clase-box-lunes", actividad: "BOXEO", dia: 0, hora: "19:30", capacidad: null },
+  { id: "demo-clase-box-miercoles", actividad: "BOXEO", dia: 2, hora: "19:30", capacidad: null },
+  { id: "demo-clase-box-viernes", actividad: "BOXEO", dia: 4, hora: "19:30", capacidad: null },
 ];
 
 export function generarDemoClasesSemana(fechaRef: Date = new Date()): Clase[] {
@@ -918,14 +918,14 @@ export function generarDemoClasesSemana(fechaRef: Date = new Date()): Clase[] {
   }));
 }
 
-// Anotados ficticios: cupo libre (lunes, sin anotados), casi llena (martes 17), llena con espera (miércoles)
-// y una reserva cancelada (jueves 17). Ids fijos: recargar el seed no duplica filas.
+// Anotados ficticios (GOZS-194, GOZS-354): clases sin cupo por defecto (capacidad = null).
+// Ids fijos: recargar el seed no duplica filas.
 const ANOTADOS_DEMO: Array<[claseId: string, sufijo: string, nombre: string, estado: EstadoReserva]> = [
   ["demo-clase-func-miercoles", "mie-1", "Camila Navarro", "ANOTADO"],
   ["demo-clase-func-miercoles", "mie-2", "Lucas Giménez", "ANOTADO"],
   ["demo-clase-func-miercoles", "mie-3", "Mateo Rossi", "ANOTADO"],
-  ["demo-clase-func-miercoles", "mie-4", "Renata Quiroga", "EN_ESPERA"],
-  ["demo-clase-func-miercoles", "mie-5", "Emilia Castro", "EN_ESPERA"],
+  ["demo-clase-func-miercoles", "mie-4", "Renata Quiroga", "ANOTADO"],
+  ["demo-clase-func-miercoles", "mie-5", "Emilia Castro", "ANOTADO"],
   ["demo-clase-func-martes-17", "mar17-1", "Ignacio Duarte", "ANOTADO"],
   ["demo-clase-func-martes-17", "mar17-2", "Julieta Sosa", "ANOTADO"],
   ["demo-clase-func-martes-17", "mar17-3", "Federico Bravo", "ANOTADO"],
