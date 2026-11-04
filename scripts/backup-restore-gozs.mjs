@@ -60,6 +60,7 @@ export const TABLAS = [
       alumno_id: "perfiles",
       ejercicio_id: "ejercicios",
       profesor_id: "perfiles",
+      reporte_dolor_id: "alumno_historial_dolor",
       resuelto_por: "perfiles",
       serie_id: "registro_series",
     },

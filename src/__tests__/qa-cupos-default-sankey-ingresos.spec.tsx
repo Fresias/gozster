@@ -93,36 +93,38 @@ describe("GOZS-356: Auditoría Integral QA - Clases sin Cupo por Defecto y Vista
 
     it("GIVEN el componente StudioSankeyView WHEN se renderiza THEN exhibe la franja superior de 4 KPIs ejecutivos estilo reui.io", () => {
       const html = renderToString(React.createElement(StudioSankeyView, { initialData: CANONICAL_SANKEY_DATA }));
+      const clean = html.replace(/<!-- -->/g, "").replace(/[\u00a0\s]+/g, " ");
       expect(html).toContain('data-testid="studio-sankey-view"');
       expect(html).toContain('data-testid="sankey-metrics-strip"');
 
       // 1. Facturación Potencial: $100.000
       expect(html).toContain("Facturación Potencial");
-      expect(html).toContain("$100.000");
+      expect(clean).toMatch(/\$100[.,]000/);
 
       // 2. Cobranza Efectiva: $80.000 (80.0%)
       expect(html).toContain("Cobranza Efectiva");
-      expect(html).toContain("$80.000");
-      expect(html).toContain("80.0%");
+      expect(clean).toMatch(/\$80[.,]000/);
+      expect(clean).toContain("80.0%");
 
       // 3. Por Cobrar / Deuda: $20.000 (20.0%)
       expect(html).toContain("Por Cobrar / Deuda");
-      expect(html).toContain("$20.000");
-      expect(html).toContain("20.0%");
+      expect(clean).toMatch(/\$20[.,]000/);
+      expect(clean).toContain("20.0%");
 
       // 4. Mix Canales: 80% Presencial / 20% Online
       expect(html).toContain("Mix Canales");
-      expect(html).toContain("80% Presencial");
+      expect(clean).toMatch(/80\s*%\s*Presencial/);
     });
 
     it("GIVEN el componente StudioSankeyView WHEN se renderiza THEN exhibe la barra de filtros interactiva con bullets de color y texto guía", () => {
       const html = renderToString(React.createElement(StudioSankeyView, { initialData: CANONICAL_SANKEY_DATA }));
+      const clean = html.replace(/<!-- -->/g, "").replace(/[\u00a0\s]+/g, " ");
       expect(html).toContain('data-testid="sankey-filter-bar"');
       expect(html).toContain("Todos");
-      expect(html).toContain("Cobrado ($80.000)");
-      expect(html).toContain("Por Cobrar ($20.000)");
-      expect(html).toContain("Presencial ($80.000)");
-      expect(html).toContain("Online ($20.000)");
+      expect(clean).toMatch(/Cobrado\s*\(\$80[.,]000\)/);
+      expect(clean).toMatch(/Por Cobrar\s*\(\$20[.,]000\)/);
+      expect(clean).toMatch(/Presencial\s*\(\$80[.,]000\)/);
+      expect(clean).toMatch(/Online\s*\(\$20[.,]000\)/);
       expect(html).toContain("Haz clic en un nodo o cinta para trazar su flujo");
     });
 

@@ -61,8 +61,8 @@ describe("GOZS-349: Rediseño KPI Ingresos Studio con Diagrama Sankey y Filtros 
       expect(html).not.toContain("polyline");
     });
 
-    it("CoachStudioView cablea onIngresosClick hacia el modal de Sankey", () => {
-      expect(viewSource).toContain("onIngresosClick={() => setIsSankeyModalOpen(true)}");
+    it("CoachStudioView cablea onIngresosClick hacia la vista de ingresos /studio/ingresos", () => {
+      expect(viewSource).toContain('router.push("/studio/ingresos")');
       expect(viewSource).toContain("<StudioSankeyModal");
       expect(viewSource).toContain("isOpen={isSankeyModalOpen}");
       expect(viewSource).toContain("onClose={() => setIsSankeyModalOpen(false)}");
