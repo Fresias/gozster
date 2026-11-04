@@ -79,3 +79,55 @@ export function formatearActividadPlan(actividad?: ActividadPlanOpcion): string 
       return "General";
   }
 }
+
+export function formatearNombreCortoPlan(nombre: string): string {
+  if (/corpo/i.test(nombre)) return "CORPO";
+  if (/pase\s*libre/i.test(nombre)) return "Pase Libre";
+  if (/funcional\s*2x/i.test(nombre)) return "Funcional 2x";
+  if (/funcional/i.test(nombre)) return "Funcional";
+  if (/boxeo/i.test(nombre)) return "Boxeo";
+  if (/rutina/i.test(nombre)) return "Rutinas";
+  return nombre.length > 14 ? nombre.slice(0, 13) + "…" : nombre;
+}
+
+export interface BadgePlanInfo {
+  label: string;
+  tooltip: string;
+  className: string;
+  esGratis: boolean;
+}
+
+export function derivarBadgePlan(params: {
+  nombrePlan: string;
+  precio: number;
+  esVigente: boolean;
+  esAlDia?: boolean;
+}): BadgePlanInfo {
+  const { nombrePlan, precio, esVigente, esAlDia = true } = params;
+  const nombreCorto = formatearNombreCortoPlan(nombrePlan);
+
+  if (precio === 0) {
+    return {
+      label: `${nombreCorto}: $0`,
+      tooltip: `${nombrePlan} (Convenio $0)`,
+      className: "border-cyan-500/40 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
+      esGratis: true,
+    };
+  }
+
+  if (esVigente && esAlDia) {
+    return {
+      label: `${nombreCorto}: Al día`,
+      tooltip: `${nombrePlan} (Cuota al día)`,
+      className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+      esGratis: false,
+    };
+  }
+
+  return {
+    label: `${nombreCorto}: Vencida`,
+    tooltip: `${nombrePlan} (Cuota vencida / pendiente)`,
+    className: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+    esGratis: false,
+  };
+}

@@ -41,6 +41,7 @@ import type { CriticalAlert } from "@/components/coach/critical-alerts-data";
 import { AdherenciaCard, type EstadoAdherencia } from "@/components/coach/adherencia-card";
 import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
 import { useCobrosStore } from "@/store/use-cobros-store";
+import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
 import {
   derivarActividadFrecuencia,
   derivarEstadoPagoAlumno,
@@ -432,6 +433,20 @@ export function StudentDetail({
   const [pagoRegistradoEnSesion, setPagoRegistradoEnSesion] = React.useState(false);
   const [isRegistrandoPago, setIsRegistrandoPago] = React.useState(false);
   const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
+
+  // Multiactividad y asignación de planes (GOZS-362)
+  const contratacionesStudio = useCoachStudioStore((s) => s.contrataciones);
+  const vincularPlanMembresiaAlumno = useCoachStudioStore((s) => s.vincularPlanMembresiaAlumno);
+  const planesCobros = useCobrosStore((s) => s.planes);
+  const [modalAsignarPlanAbierto, setModalAsignarPlanAbierto] = React.useState(false);
+
+  const todasContratacionesAlumno = React.useMemo(() => {
+    const list = contratacionesStudio.filter(
+      (c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA"
+    );
+    if (list.length > 0) return list;
+    return [contratacion];
+  }, [contratacionesStudio, alumno.id, contratacion]);
 
   const actividadFrecuencia = React.useMemo(() => {
     return derivarActividadFrecuencia({
@@ -1081,50 +1096,129 @@ export function StudentDetail({
             </div>
           </div>
 
-          {/* Plan de Membresía y Actividad Presencial (GH #122) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="membresia-clases-panel">
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Plan de Membresía
+          {/* Cabecera y Acción Rápida de Asignación / Cambio de Plan */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                Planes de Membresía & Multiactividad
+                {todasContratacionesAlumno.length > 1 && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold">
+                    Multiactividad ({todasContratacionesAlumno.length} planes)
+                  </Badge>
+                )}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Membresías activas vinculadas al atleta.
               </p>
-              <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
-                {contratacion.plan_membresia_id === "demo-plan-funcional-2x"
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModalAsignarPlanAbierto(true)}
+                data-testid="btn-asignar-nuevo-plan"
+                className="text-xs font-semibold h-8"
+              >
+                + Asignar / Cambiar Plan
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModalAsignarPlanAbierto(true)}
+                data-testid="btn-asignar-plan"
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+              >
+                Asignar
+              </Button>
+            </div>
+          </div>
+
+          {/* Plan de Membresía y Actividad Presencial (GH #122 / GOZS-362 Multiactividad) */}
+          <div className="space-y-3" data-testid="membresia-clases-panel">
+            {todasContratacionesAlumno.map((c, idx) => {
+              const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
+              const nombrePlan =
+                plan?.nombre ??
+                (c.plan_membresia_id === "demo-plan-funcional-2x"
                   ? "Funcional 2x semana"
-                  : contratacion.plan_membresia_id === "demo-plan-pase-libre"
+                  : c.plan_membresia_id === "demo-plan-pase-libre"
                   ? "Pase libre Funcional + Boxeo"
-                  : contratacion.plan_membresia_id
-                  ? "Plan Presencial"
-                  : "Sin membresía de clases"}
-              </p>
-              <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
-                {contratacion.plan_membresia_id === "demo-plan-funcional-2x"
-                  ? "Límite: 2 clases por semana · $25.000/mes"
-                  : contratacion.plan_membresia_id === "demo-plan-pase-libre"
-                  ? "Pase libre sin límite semanal · $40.000/mes"
-                  : contratacion.plan_membresia_id
-                  ? "Membresía activa"
-                  : "Asesoría o sin plan de clases"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Actividad de la Contratación
-              </p>
-              <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
-                {contratacion.actividad
-                  ? contratacion.actividad === "FUNCIONAL"
-                    ? "Funcional"
-                    : "Boxeo"
-                  : contratacion.plan_membresia_id
-                  ? "Funcional + Boxeo (Pase libre)"
-                  : "No asignada"}
-              </p>
-              <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
-                {contratacion.tipo_servicio === "PRESENCIAL"
-                  ? "Modalidad Presencial"
-                  : "Modalidad Online"}
-              </p>
-            </div>
+                  : c.plan_membresia_id ?? "Plan Presencial");
+
+              const esGratis = c.precio_pactado === 0 || plan?.precio === 0;
+
+              return (
+                <div
+                  key={c.id || idx}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-border/70 bg-secondary/20 p-3"
+                  data-testid="item-plan-desglose"
+                >
+                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Plan {todasContratacionesAlumno.length > 1 ? `#${idx + 1}` : "de Membresía"}
+                      </p>
+                      {esGratis ? (
+                        <Badge
+                          variant="default"
+                          className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 text-[10px] font-bold"
+                          data-testid="badge-corpo-0"
+                        >
+                          CORPO $0
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          {c.precio_pactado ? formatearDinero(c.precio_pactado) : "Membresía"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
+                      {nombrePlan}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
+                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Asesoría Online · Sin límite de clases"
+                        : c.plan_membresia_id === "demo-plan-funcional-2x"
+                        ? "Límite: 2 clases por semana · $25.000/mes"
+                        : c.plan_membresia_id === "demo-plan-pase-libre"
+                        ? "Pase libre sin límite semanal · $40.000/mes"
+                        : plan?.limite_semanal
+                        ? `Límite: ${plan.limite_semanal} clases/sem`
+                        : "Pase libre sin límite semanal"}
+                    </p>
+                    {plan?.notas && (
+                      <p className="mt-1 text-[11px] text-muted-foreground italic" data-testid="plan-membresia-notas">
+                        📝 {plan.notas}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Actividad de la Contratación
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
+                      {c.actividad
+                        ? c.actividad === "FUNCIONAL"
+                          ? "Funcional"
+                          : c.actividad === "BOXEO"
+                          ? "Boxeo"
+                          : c.actividad
+                        : c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Rutinas Online (Asesoría)"
+                        : "Funcional + Boxeo (Pase libre)"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
+                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Modalidad Online"
+                        : "Modalidad Presencial"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -2024,6 +2118,24 @@ export function StudentDetail({
         </form>
       </dialog>
 
+      {/* Modal Asignar / Cambiar Plan de Membresía (Multiactividad GOZS-362) */}
+      <ModalAsignarPlan
+        abierto={modalAsignarPlanAbierto}
+        onCerrar={() => setModalAsignarPlanAbierto(false)}
+        alumnoId={alumno.id}
+        alumnoNombre={alumno.nombre_completo}
+        planesDisponibles={planesCobros}
+        tienePlanesActivos={todasContratacionesAlumno.length > 0}
+        onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
+          await vincularPlanMembresiaAlumno({
+            alumnoId,
+            planId,
+            esAdicional,
+            notas,
+          });
+          setModalAsignarPlanAbierto(false);
+        }}
+      />
     </div>
   );
 }

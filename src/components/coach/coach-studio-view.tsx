@@ -38,6 +38,8 @@ import {
   alumnoTieneActividad,
   obtenerActividadesAlumno,
 } from "@/lib/alumno-actividades";
+import { useCobrosStore } from "@/store/use-cobros-store";
+import { derivarBadgePlan } from "@/lib/planes";
 
 import type { LiveSupabaseDataset, AlumnoEstancado } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
@@ -54,9 +56,11 @@ import {
 export function CoachStudioView({
   initialDataset,
   estancados = [],
+  initialAlumnosExpanded = false,
 }: {
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
+  initialAlumnosExpanded?: boolean;
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
@@ -158,7 +162,7 @@ export function CoachStudioView({
   }, [initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
-  const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);
+  const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(initialAlumnosExpanded);
   const showAlumnosBody = isAlumnosExpanded;
   const [filterQuery, setFilterQuery] = React.useState("");
   const [paymentFilter, setPaymentFilter] = React.useState<
@@ -880,6 +884,32 @@ export function CoachStudioView({
                           ? "bg-amber-500 border border-amber-600/30"
                           : "bg-rose-500 border border-rose-600/30";
 
+                        // Badges apilables de planes de membresía y multiactividad (GOZS-362)
+                        const contratacionesAlumno = store.getContratacionesAlumno
+                          ? store.getContratacionesAlumno(alumno.id)
+                          : (store.contrataciones?.filter((c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA") ?? []);
+                        const planesCobros = useCobrosStore.getState().planes;
+                        const badgesPlanes = contratacionesAlumno.map((c) => {
+                          const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
+                          const nombrePlan =
+                            plan?.nombre ??
+                            (c.plan_membresia_id === "demo-plan-funcional-2x"
+                              ? "Funcional 2x"
+                              : c.plan_membresia_id === "demo-plan-pase-libre"
+                              ? "Pase Libre"
+                              : c.plan_membresia_id ?? "Plan");
+                          const precio =
+                            c.precio_pactado ??
+                            plan?.precio ??
+                            (c.plan_membresia_id === "demo-plan-pase-libre" ? 40000 : 25000);
+                          return derivarBadgePlan({
+                            nombrePlan,
+                            precio,
+                            esVigente: c.estado === "VIGENTE" || c.estado === "POR_VENCER",
+                            esAlDia: isAlDia,
+                          });
+                        });
+
                         // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
                         // 🟢 0-15 días, 🟡 16-21 días, 🔴 22+ días o sin plan (GOZS-242)
                         const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
@@ -984,15 +1014,31 @@ export function CoachStudioView({
                               </button>
                             </td>
 
-                            {/* 2. Cuota (Semáforo M3 Puro: Círculo 10-12px sin texto redundante) */}
-                            <td className={`${rowPaddingClass} px-3 text-center`}>
-                              <div className="flex items-center justify-center">
-                                <span
-                                  className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
-                                  title={cuotaTooltip}
-                                  aria-label={cuotaTooltip}
-                                  role="status"
-                                />
+                            {/* 2. Cuota (Semáforo M3 Puro: Círculo 10-12px + Badges Apilables Multiactividad) */}
+                            <td className={`${rowPaddingClass} px-3 text-center`} data-testid="columna-cuota-actividad">
+                              <div className="flex flex-col items-center justify-center gap-1">
+                                <div className="flex items-center justify-center">
+                                  <span
+                                    className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
+                                    title={cuotaTooltip}
+                                    aria-label={cuotaTooltip}
+                                    role="status"
+                                  />
+                                </div>
+                                {badgesPlanes.length > 0 && (
+                                  <div className="flex flex-col gap-0.5 items-center mt-0.5" data-testid="badges-planes-apilados">
+                                    {badgesPlanes.map((b, idx) => (
+                                      <span
+                                        key={idx}
+                                        data-testid="badge-plan-apilado"
+                                        className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight border leading-tight ${b.className}`}
+                                        title={b.tooltip}
+                                      >
+                                        {b.label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </td>
 

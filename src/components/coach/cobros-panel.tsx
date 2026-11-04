@@ -23,6 +23,7 @@ import {
   validarVigenciaFutura,
 } from "@/lib/planes";
 import { HistorialCobrosDrawer } from "@/components/coach/historial-cobros-drawer";
+import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
 
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
@@ -88,8 +89,12 @@ export function CobrosPanel({
   const [planDuracion, setPlanDuracion] = React.useState<1 | 3 | 6 | 12>(1);
   const [planLimiteSemanal, setPlanLimiteSemanal] = React.useState<number | null>(null);
   const [planPrecio, setPlanPrecio] = React.useState<number>(30000);
+  const [planNotas, setPlanNotas] = React.useState<string>("");
   const [planFechaVigencia, setPlanFechaVigencia] = React.useState<string>("");
   const [errorFechaVigencia, setErrorFechaVigencia] = React.useState<string | null>(null);
+
+  // Modal rápido de asignación / cambio de plan desde la tabla de cobros
+  const [alumnoParaAsignar, setAlumnoParaAsignar] = React.useState<CobroItem | null>(null);
 
   const fechaMinimaManana = React.useMemo(() => getMananaFechaString(), []);
 
@@ -104,6 +109,7 @@ export function CobrosPanel({
     setPlanDuracion(1);
     setPlanLimiteSemanal(null);
     setPlanPrecio(30000);
+    setPlanNotas("");
     setPlanFechaVigencia(getMananaFechaString());
     setErrorFechaVigencia(null);
     planFormDialogRef.current?.showModal();
@@ -112,12 +118,13 @@ export function CobrosPanel({
   const abrirModalEditarPlan = (plan: PlanMembresiaConVigencia) => {
     setPlanEnEdicion(plan);
     setPlanNombre(plan.nombre);
-    setPlanActividad(
-      plan.actividad_tipo ?? (plan.cantidad_actividades === 2 ? "FUNCIONAL_BOXEO" : "FUNCIONAL")
-    );
+    const act =
+      plan.actividad_tipo ?? (plan.cantidad_actividades === 2 ? "FUNCIONAL_BOXEO" : "FUNCIONAL");
+    setPlanActividad(act);
     setPlanDuracion((plan.duracion_meses as 1 | 3 | 6 | 12) || 1);
-    setPlanLimiteSemanal(plan.limite_semanal);
+    setPlanLimiteSemanal(act === "RUTINAS" ? null : plan.limite_semanal);
     setPlanPrecio(plan.precio);
+    setPlanNotas(plan.notas ?? "");
     setPlanFechaVigencia(getMananaFechaString());
     setErrorFechaVigencia(null);
     planFormDialogRef.current?.showModal();
@@ -132,6 +139,7 @@ export function CobrosPanel({
     }
 
     try {
+      const limite = planActividad === "RUTINAS" ? null : planLimiteSemanal;
       if (planEnEdicion) {
         await modificarPlan({
           planId: planEnEdicion.id,
@@ -139,16 +147,18 @@ export function CobrosPanel({
           precio: Number(planPrecio),
           fechaVigencia: planFechaVigencia,
           duracionMeses: planDuracion,
-          limiteSemanal: planLimiteSemanal,
+          limiteSemanal: limite,
+          notas: planNotas.trim() || null,
         });
       } else {
         await crearPlan({
           nombre: planNombre.trim(),
           actividad: planActividad,
           duracionMeses: planDuracion,
-          limiteSemanal: planLimiteSemanal,
+          limiteSemanal: limite,
           precio: Number(planPrecio),
           fechaVigencia: planFechaVigencia,
+          notas: planNotas.trim() || null,
         });
       }
       planFormDialogRef.current?.close();
@@ -847,6 +857,15 @@ export function CobrosPanel({
                         >
                           Historial
                         </Button>{" "}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAlumnoParaAsignar(item)}
+                          data-testid="btn-cambiar-plan-cobros"
+                          title="Asignar o cambiar plan de membresía"
+                        >
+                          Plan
+                        </Button>{" "}
                         {esPagado ? (
                           <Button
                             variant="outline"
@@ -1174,7 +1193,12 @@ export function CobrosPanel({
                 {planes.map((p) => (
                   <tr key={p.id} className="hover:bg-muted/40 transition-colors" data-testid={`plan-row-${p.id}`}>
                     <td className="p-3 font-bold text-foreground">
-                      {p.nombre}
+                      <div>{p.nombre}</div>
+                      {p.notas && (
+                        <div className="text-[11px] text-muted-foreground font-normal italic mt-0.5">
+                          📝 {p.notas}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className="rounded-md bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
@@ -1270,7 +1294,13 @@ export function CobrosPanel({
             Actividad / Disciplina
             <select
               value={planActividad}
-              onChange={(e) => setPlanActividad(e.target.value as ActividadPlanOpcion)}
+              onChange={(e) => {
+                const act = e.target.value as ActividadPlanOpcion;
+                setPlanActividad(act);
+                if (act === "RUTINAS") {
+                  setPlanLimiteSemanal(null);
+                }
+              }}
               className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
               data-testid="select-plan-actividad"
             >
@@ -1297,23 +1327,33 @@ export function CobrosPanel({
             </select>
           </label>
 
-          {/* Límite semanal */}
-          <label className="block space-y-1.5 text-sm font-semibold">
-            Límite Semanal de Clases
-            <select
-              value={planLimiteSemanal === null ? "LIBRE" : String(planLimiteSemanal)}
-              onChange={(e) => setPlanLimiteSemanal(e.target.value === "LIBRE" ? null : Number(e.target.value))}
-              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
-              data-testid="select-plan-limite"
-            >
-              <option value="LIBRE">Pase Libre (sin límite semanal)</option>
-              <option value="1">1 vez por semana</option>
-              <option value="2">2 veces por semana</option>
-              <option value="3">3 veces por semana</option>
-              <option value="4">4 veces por semana</option>
-              <option value="5">5 veces por semana</option>
-            </select>
-          </label>
+          {/* Límite semanal de clases */}
+          {planActividad === "RUTINAS" ? (
+            <div className="space-y-1.5 text-sm font-semibold text-muted-foreground" data-testid="limite-semanal-no-aplica">
+              <span>Límite Semanal de Clases</span>
+              <div className="w-full rounded-xl border border-dashed border-border bg-muted/40 p-2.5 text-sm font-medium text-muted-foreground flex items-center justify-between">
+                <span>No aplica (Rutinas Online / Asesoría)</span>
+                <span className="text-[11px] bg-secondary px-2 py-0.5 rounded text-foreground font-bold">100% Online</span>
+              </div>
+            </div>
+          ) : (
+            <label className="block space-y-1.5 text-sm font-semibold">
+              Límite Semanal de Clases
+              <select
+                value={planLimiteSemanal === null ? "LIBRE" : String(planLimiteSemanal)}
+                onChange={(e) => setPlanLimiteSemanal(e.target.value === "LIBRE" ? null : Number(e.target.value))}
+                className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary"
+                data-testid="select-plan-limite"
+              >
+                <option value="LIBRE">Pase Libre (sin límite semanal)</option>
+                <option value="1">1 vez por semana</option>
+                <option value="2">2 veces por semana</option>
+                <option value="3">3 veces por semana</option>
+                <option value="4">4 veces por semana</option>
+                <option value="5">5 veces por semana</option>
+              </select>
+            </label>
+          )}
 
           {/* Precio */}
           <label className="block space-y-1.5 text-sm font-semibold">
@@ -1321,12 +1361,28 @@ export function CobrosPanel({
             <input
               type="number"
               required
-              min="1"
-              step="500"
+              min="0"
+              step="any"
               value={planPrecio}
               onChange={(e) => setPlanPrecio(Number(e.target.value))}
               className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary"
               data-testid="input-plan-precio"
+            />
+            <span className="block text-[11px] text-muted-foreground">
+              Permite $0 para planes corporativos CORPO, becas o convenios.
+            </span>
+          </label>
+
+          {/* Notas / Observaciones opcionales */}
+          <label className="block space-y-1.5 text-sm font-semibold">
+            Notas / Observaciones (opcional)
+            <textarea
+              rows={2}
+              value={planNotas}
+              onChange={(e) => setPlanNotas(e.target.value)}
+              placeholder="Ej: Convenio empresa Tech Corp, beca deportiva, acuerdo $0"
+              className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary resize-none"
+              data-testid="input-plan-notas"
             />
           </label>
 
@@ -1668,6 +1724,27 @@ export function CobrosPanel({
           registrarDialogRef.current?.showModal();
         }}
       />
+
+      {/* Modal Asignar / Cambiar Plan de Membresía */}
+      {alumnoParaAsignar && (
+        <ModalAsignarPlan
+          abierto={Boolean(alumnoParaAsignar)}
+          onCerrar={() => setAlumnoParaAsignar(null)}
+          alumnoId={alumnoParaAsignar.alumnoId}
+          alumnoNombre={alumnoParaAsignar.alumnoNombre}
+          planesDisponibles={planes}
+          tienePlanesActivos={true}
+          onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
+            await useCoachStudioStore.getState().vincularPlanMembresiaAlumno({
+              alumnoId,
+              planId,
+              esAdicional,
+              notas,
+            });
+            setAlumnoParaAsignar(null);
+          }}
+        />
+      )}
     </section>
   );
 }
