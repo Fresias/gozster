@@ -165,7 +165,6 @@ export interface Database {
           etiqueta?: 'STANDARD' | null;
           tags?: string[];
           plan_origen_id?: string | null;
-          tags?: string[];
           created_at: string;
           updated_at: string;
         };
@@ -182,7 +181,6 @@ export interface Database {
           etiqueta?: 'STANDARD' | null;
           tags?: string[];
           plan_origen_id?: string | null;
-          tags?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -199,7 +197,6 @@ export interface Database {
           etiqueta?: 'STANDARD' | null;
           tags?: string[];
           plan_origen_id?: string | null;
-          tags?: string[];
           created_at?: string;
           updated_at?: string;
         };
