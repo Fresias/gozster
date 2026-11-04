@@ -480,6 +480,7 @@ export function CoachStudioView({
           )}
 
           {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
+          {/* Contrato GOZS-349: onIngresosClick={() => setIsSankeyModalOpen(true)} */}
           <div className={leftCol}>
           <BusinessKpiStrip
             kpis={DEMO_KPIS_NEGOCIO}
@@ -488,7 +489,6 @@ export function CoachStudioView({
               .map((a) => a.nombre_completo)}
             sinRutina={metricas.cantSinPlanEntrenamiento}
             onAsignarClick={() => setIsAssignModalOpen(true)}
-            {/* Contrato GOZS-349: onIngresosClick={() => setIsSankeyModalOpen(true)} */}
             onIngresosClick={() => {
               setIsSankeyModalOpen(true);
               router.push("/studio/ingresos");
