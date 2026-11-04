@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
+import { useAthleteStore, type LiveWorkoutExercise, type LiveWorkoutSet, type LiveWorkoutSession } from "@/store/use-athlete-store";
 import { calculateEpley1RM, calculateBrzycki1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
@@ -47,7 +47,7 @@ import { sugerirCarga } from "@/lib/sugerencia-carga";
 import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
-import { triggerHapticVibration } from "@/lib/sound";
+import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { parseRepRange } from "@/lib/routine-helpers";
 // GOZS-275 / GOZS-351: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
@@ -63,6 +63,98 @@ function etiquetaGrupoSuperserie(
   const grupo = ej.grupo_superserie || 1;
   const n = ejercicios.filter((e) => e.es_superserie && (e.grupo_superserie || 1) === grupo).length;
   return n > 2 ? `Circuito A${grupo} · ${n} ejercicios` : `Biserie A${grupo}`;
+}
+
+/**
+ * Determina el siguiente ejercicio en el flujo de entrenamiento en vivo (GOZS-361).
+ * - Superseries en circuito Round-Robin: avanza dentro de la ronda entre ejercicios del circuito,
+ *   y al completar la ronda avanza a la siguiente ronda soportando series dispares.
+ * - Ejercicios individuales / dropset: avanza al siguiente ejercicio incompleto una vez finalizadas sus series.
+ */
+export function findNextExerciseInWorkout(
+  session: LiveWorkoutSession,
+  currentExercise: LiveWorkoutExercise,
+  completedSetNumber: number
+): {
+  nextExerciseId: string | null;
+  shouldTransition: boolean;
+} {
+  // 1. Superseries en circuito Round-Robin
+  if (currentExercise.es_superserie) {
+    const grupo = currentExercise.grupo_superserie ?? 1;
+    const groupExercises = session.ejercicios.filter(
+      (e) => e.es_superserie && (e.grupo_superserie ?? 1) === grupo
+    );
+    const currentIndexInGroup = groupExercises.findIndex((e) => e.id === currentExercise.id);
+
+    // Buscar el siguiente ejercicio del circuito en la MISMA ronda (completedSetNumber)
+    let nextInRound: LiveWorkoutExercise | null = null;
+    for (let i = currentIndexInGroup + 1; i < groupExercises.length; i++) {
+      const cand = groupExercises[i];
+      if (!cand) continue;
+      const candSet = cand.series.find((s) => s.numero_serie === completedSetNumber);
+      if (candSet && !candSet.completada) {
+        nextInRound = cand;
+        break;
+      }
+    }
+
+    if (nextInRound) {
+      return {
+        nextExerciseId: nextInRound.id,
+        shouldTransition: true,
+      };
+    }
+
+    // Terminó la ronda 'completedSetNumber'. Buscar la siguiente ronda incompleta en el grupo (soporte de series dispares)
+    const maxSetsInGroup = Math.max(...groupExercises.map((e) => e.series.length), 0);
+    for (let r = completedSetNumber + 1; r <= maxSetsInGroup; r++) {
+      const firstInGroupWithRound = groupExercises.find((e) => {
+        const s = e.series.find((set) => set.numero_serie === r);
+        return s && !s.completada;
+      });
+      if (firstInGroupWithRound) {
+        return {
+          nextExerciseId: firstInGroupWithRound.id,
+          shouldTransition: true,
+        };
+      }
+    }
+
+    // Si no quedan más series en el grupo, pasar al siguiente ejercicio fuera de este grupo
+    const nextOutside = session.ejercicios.find(
+      (ej) =>
+        (!ej.es_superserie || (ej.grupo_superserie ?? 1) !== grupo) &&
+        ej.series.some((s) => !s.completada)
+    );
+    if (nextOutside) {
+      return {
+        nextExerciseId: nextOutside.id,
+        shouldTransition: true,
+      };
+    }
+
+    return { nextExerciseId: null, shouldTransition: false };
+  }
+
+  // 2. Ejercicios Individuales o Dropset
+  const remainingInExercise = currentExercise.series.filter(
+    (s) => !s.completada && s.numero_serie !== completedSetNumber
+  );
+
+  if (remainingInExercise.length === 0) {
+    const nextIncomplete = session.ejercicios.find(
+      (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada)
+    );
+    if (nextIncomplete) {
+      return {
+        nextExerciseId: nextIncomplete.id,
+        shouldTransition: true,
+      };
+    }
+  }
+
+  return { nextExerciseId: null, shouldTransition: false };
 }
 
 export function LiveWorkout() {
@@ -145,6 +237,36 @@ export function LiveWorkout() {
 
   // Selección manual de ejercicio activo
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
+
+  // Estado para highlight visual y transición entre ejercicios (GOZS-361)
+  const [highlightedExerciseId, setHighlightedExerciseId] = React.useState<string | null>(null);
+
+  // Estados del temporizador para ejercicios por tiempo (tipo_medicion === 'TIEMPO', GOZS-361)
+  const [tiempoCountdown, setTiempoCountdown] = React.useState<number>(0);
+  const [timerTiempoActivo, setTimerTiempoActivo] = React.useState<boolean>(false);
+  const [timerTiempoPausado, setTimerTiempoPausado] = React.useState<boolean>(false);
+  const [timerTiempoCompletado, setTimerTiempoCompletado] = React.useState<boolean>(false);
+
+  const ejecutarTransicionVisual = React.useCallback((exerciseId: string) => {
+    setHighlightedExerciseId(exerciseId);
+    triggerHapticVibration([60, 40, 60]);
+    if (typeof window !== "undefined") {
+      setTimeout(() => {
+        const el =
+          document.getElementById(`exercise-card-${exerciseId}`) ||
+          document.querySelector(`[data-testid="single-exercise-container-${exerciseId}"]`) ||
+          document.querySelector(`[data-testid="exercise-select-btn-${exerciseId}"]`);
+        if (el && typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 50);
+      setTimeout(() => {
+        setHighlightedExerciseId((prev) => (prev === exerciseId ? null : prev));
+      }, 1500);
+    }
+  }, []);
 
   // Edición en línea de serie en "Registro de la sesión"
   const [editingSet, setEditingSet] = React.useState<{
@@ -296,6 +418,60 @@ export function LiveWorkout() {
     updateSetField(currentExercise.id, serie.numero_serie, "reps_hechas", repsSugeridas);
   }, [claveSerie, pesoSugerido, repsSugeridas]);
 
+  const tiempoObjetivo =
+    currentExercise?.tipo_medicion === "TIEMPO"
+      ? (currentExercise.tiempo_objetivo_segundos ??
+         (parseInt(currentExercise.repeticiones_objetivo.replace(/\D/g, ""), 10) || 30))
+      : 0;
+
+  // Sincronizar temporizador de ejercicio por tiempo al cambiar de ejercicio o de serie (GOZS-361)
+  React.useEffect(() => {
+    if (currentExercise?.tipo_medicion === "TIEMPO") {
+      const t =
+        currentExercise.tiempo_objetivo_segundos ??
+        (parseInt(currentExercise.repeticiones_objetivo.replace(/\D/g, ""), 10) || 30);
+      setTiempoCountdown(t);
+      setTimerTiempoActivo(false);
+      setTimerTiempoPausado(false);
+      setTimerTiempoCompletado(false);
+    }
+  }, [
+    currentExercise?.id,
+    currentExercise?.tipo_medicion,
+    currentExercise?.tiempo_objetivo_segundos,
+    currentExercise?.repeticiones_objetivo,
+    serie?.numero_serie,
+  ]);
+
+  // Cronómetro regresivo para ejercicios por tiempo con alertas sonoras y hápticas (GOZS-361)
+  React.useEffect(() => {
+    if (!timerTiempoActivo || timerTiempoPausado) return;
+
+    if (tiempoCountdown <= 0) {
+      setTimerTiempoActivo(false);
+      setTimerTiempoCompletado(true);
+      playRestTimerAlert();
+      triggerHapticVibration([300, 150, 300]);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTiempoCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setTimerTiempoActivo(false);
+          setTimerTiempoCompletado(true);
+          playRestTimerAlert();
+          triggerHapticVibration([300, 150, 300]);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerTiempoActivo, timerTiempoPausado, tiempoCountdown]);
+
   // Registrar serie actual
   const handleRegistrarSerie = (confirmarAtipica = false) => {
     if (!currentExercise || !currentSet) return;
@@ -303,7 +479,10 @@ export function LiveWorkout() {
 
     const num = currentSet.numero_serie;
     const peso = currentSet.peso_kg;
-    const reps = currentSet.reps_hechas;
+    const reps =
+      currentExercise.tipo_medicion === "TIEMPO" && (!currentSet.reps_hechas || currentSet.reps_hechas === 0)
+        ? tiempoObjetivo
+        : currentSet.reps_hechas;
     const setType = currentSet.set_type;
     const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
 
@@ -405,15 +584,15 @@ export function LiveWorkout() {
     if (isLastSetOfWorkout) {
       void handleTerminarEntrenamiento();
     } else {
-      const remainingInExercise = currentExercise.series.filter(
-        (s) => !s.completada && s.numero_serie !== num,
+      const { nextExerciseId, shouldTransition } = findNextExerciseInWorkout(
+        currentSession,
+        currentExercise,
+        num,
       );
-      if (remainingInExercise.length === 0) {
-        const nextIncomplete = currentSession.ejercicios.find(
-          (ej) => ej.id !== currentExercise.id && ej.series.some((s) => !s.completada),
-        );
-        if (nextIncomplete) {
-          setSelectedExerciseId(nextIncomplete.id);
+      if (nextExerciseId) {
+        setSelectedExerciseId(nextExerciseId);
+        if (shouldTransition) {
+          ejecutarTransicionVisual(nextExerciseId);
         }
       }
     }
@@ -429,6 +608,11 @@ export function LiveWorkout() {
   const handleAdjustReps = (delta: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
+    if (currentExercise.tipo_medicion === "TIEMPO") {
+      const newReps = Math.max(1, currentSet.reps_hechas + delta);
+      updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
+      return;
+    }
     const repRange = parseRepRange(currentExercise.repeticiones_objetivo);
     const maxLimit = repRange?.isRange ? repRange.max : Infinity;
     const newReps = Math.min(maxLimit, Math.max(1, currentSet.reps_hechas + delta));
@@ -945,7 +1129,12 @@ export function LiveWorkout() {
                           }
                         }}
                         data-testid={`exercise-select-btn-${ej.id}`}
+                        data-highlight={highlightedExerciseId === ej.id ? "true" : undefined}
                         className={`flex items-center justify-between p-2.5 sm:p-3 rounded-xl border text-left transition-all touch-manipulation cursor-pointer ${
+                          highlightedExerciseId === ej.id
+                            ? "ring-2 ring-primary ring-offset-2 ring-offset-background shadow-md animate-pulse"
+                            : ""
+                        } ${
                           isSelected
                             ? isDropSet
                               ? "border-purple-500 bg-purple-500/15 shadow-xs ring-1 ring-purple-500/40"
@@ -1002,6 +1191,22 @@ export function LiveWorkout() {
                                 <span>🔗</span> {etiquetaGrupoSuperserie(currentSession.ejercicios, ej)}
                               </span>
                             )}
+                            {ej.es_unilateral && (
+                              <span
+                                data-testid={`badge-unilateral-${ej.id}`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0"
+                              >
+                                c/lado
+                              </span>
+                            )}
+                            {ej.tipo_medicion === "TIEMPO" && (
+                              <span
+                                data-testid={`badge-tiempo-${ej.id}`}
+                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-500 uppercase tracking-wider shrink-0 inline-flex items-center gap-1"
+                              >
+                                <Timer className="h-3 w-3" /> Tiempo
+                              </span>
+                            )}
                             <span
                               className={`text-xs sm:text-sm font-bold leading-tight ${
                                 isSelected ? ((isDropSet || isSuperset) ? "text-purple-300 font-extrabold" : "text-primary") : "text-foreground"
@@ -1038,7 +1243,16 @@ export function LiveWorkout() {
               </div>
 
               {currentExercise && (
-                <div className="space-y-4 pt-1" data-testid={`single-exercise-container-${currentExercise.id}`}>
+                <div
+                  id={`exercise-card-${currentExercise.id}`}
+                  data-testid={`single-exercise-container-${currentExercise.id}`}
+                  data-highlight={highlightedExerciseId === currentExercise.id ? "true" : undefined}
+                  className={`space-y-4 pt-1 transition-all duration-500 rounded-2xl ${
+                    highlightedExerciseId === currentExercise.id
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5 p-2 animate-pulse"
+                      : ""
+                  }`}
+                >
                   {/* Banner de Superserie Conectada (Circuito Violeta) */}
                   {currentExercise.es_superserie && (
                     <div
@@ -1117,6 +1331,24 @@ export function LiveWorkout() {
                               data-testid="dropset-title-badge"
                             >
                               ⚡ Drop Set
+                            </Badge>
+                          )}
+                          {currentExercise.es_unilateral && (
+                            <Badge
+                              variant="outline"
+                              className="border-amber-500/50 bg-amber-500/15 text-amber-500 dark:text-amber-400 font-bold text-xs"
+                              data-testid="badge-unilateral"
+                            >
+                              c/lado
+                            </Badge>
+                          )}
+                          {currentExercise.tipo_medicion === "TIEMPO" && (
+                            <Badge
+                              variant="secondary"
+                              className="border border-blue-500/40 bg-blue-500/10 text-blue-500 font-bold text-xs inline-flex items-center gap-1"
+                              data-testid="badge-tipo-tiempo"
+                            >
+                              <Timer className="h-3.5 w-3.5" /> {currentExercise.tiempo_objetivo_segundos ?? tiempoObjetivo}s
                             </Badge>
                           )}
                         </div>
@@ -1377,14 +1609,130 @@ export function LiveWorkout() {
                         repsActuales={serie.reps_hechas}
                       />
 
+                      {/* Temporizador para Ejercicios por Tiempo (GOZS-361) */}
+                      {currentExercise.tipo_medicion === "TIEMPO" && (
+                        <div
+                          data-testid="timer-ejercicio-tiempo"
+                          className="rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4 sm:p-5 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-5 w-5 text-blue-500" />
+                              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                Temporizador de Ejercicio ({tiempoObjetivo}s)
+                              </span>
+                            </div>
+                            {timerTiempoCompletado && (
+                              <Badge className="bg-emerald-500 text-white font-bold text-xs" data-testid="timer-tiempo-completado-badge">
+                                ✓ ¡Tiempo completado!
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Display gigante de tiempo regresivo */}
+                          <div className="flex items-center justify-center py-2">
+                            <div
+                              className="font-mono text-5xl sm:text-6xl font-black text-foreground tabular-nums tracking-tight"
+                              data-testid="timer-tiempo-countdown"
+                            >
+                              {tiempoCountdown}s
+                            </div>
+                          </div>
+
+                          {/* Barra de progreso visual */}
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-secondary border border-border/50">
+                            <div
+                              className={`h-full transition-all duration-300 ease-linear rounded-full ${
+                                timerTiempoCompletado
+                                  ? "bg-emerald-500"
+                                  : timerTiempoPausado
+                                  ? "bg-amber-400"
+                                  : "bg-blue-500"
+                              }`}
+                              style={{
+                                width: `${
+                                  tiempoObjetivo > 0
+                                    ? Math.max(0, Math.min(100, ((tiempoObjetivo - tiempoCountdown) / tiempoObjetivo) * 100))
+                                    : 100
+                                }%`,
+                              }}
+                            />
+                          </div>
+
+                          {/* Controles táctiles */}
+                          <div className="flex items-center gap-2 pt-1">
+                            {!timerTiempoActivo ? (
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  if (tiempoCountdown === 0) {
+                                    setTiempoCountdown(tiempoObjetivo);
+                                  }
+                                  setTimerTiempoActivo(true);
+                                  setTimerTiempoPausado(false);
+                                  setTimerTiempoCompletado(false);
+                                }}
+                                className="flex-1 h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                data-testid="timer-tiempo-iniciar-btn"
+                              >
+                                {tiempoCountdown === 0 || timerTiempoCompletado ? "Reiniciar e Iniciar" : "Iniciar"}
+                              </Button>
+                            ) : timerTiempoPausado ? (
+                              <Button
+                                type="button"
+                                onClick={() => setTimerTiempoPausado(false)}
+                                className="flex-1 h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                data-testid="timer-tiempo-reanudar-btn"
+                              >
+                                ▶ Reanudar
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setTimerTiempoPausado(true)}
+                                className="flex-1 h-12 rounded-xl font-bold text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                data-testid="timer-tiempo-pausar-btn"
+                              >
+                                ⏸ Pausar
+                              </Button>
+                            )}
+
+                            {(timerTiempoActivo || tiempoCountdown !== tiempoObjetivo) && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setTimerTiempoActivo(false);
+                                  setTimerTiempoPausado(false);
+                                  setTimerTiempoCompletado(false);
+                                  setTiempoCountdown(tiempoObjetivo);
+                                }}
+                                className="h-12 px-4 rounded-xl font-bold text-xs active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                data-testid="timer-tiempo-reset-btn"
+                              >
+                                Reiniciar
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Stepper Peso (kg) con input libre y botones configurables */}
                       <div className="space-y-1.5">
-                        <label
-                          htmlFor={`peso-${currentExercise.id}-${serie.numero_serie}`}
-                          className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
-                        >
-                          Peso
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label
+                            htmlFor={`peso-${currentExercise.id}-${serie.numero_serie}`}
+                            className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
+                          >
+                            Peso
+                          </label>
+                          {currentExercise.es_unilateral && (
+                            <span className="text-[11px] font-bold text-amber-500" data-testid="badge-peso-unilateral">
+                              c/lado
+                            </span>
+                          )}
+                        </div>
                         <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
                           <button
                             type="button"
@@ -1433,24 +1781,31 @@ export function LiveWorkout() {
                         </div>
                       </div>
 
-                      {/* Stepper Repeticiones */}
+                      {/* Stepper Repeticiones / Tiempo */}
                       <div className="space-y-1.5">
-                        <label
-                          htmlFor={`reps-${currentExercise.id}-${serie.numero_serie}`}
-                          className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
-                        >
-                          Repeticiones
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label
+                            htmlFor={`reps-${currentExercise.id}-${serie.numero_serie}`}
+                            className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
+                          >
+                            {currentExercise.tipo_medicion === "TIEMPO" ? "Tiempo (segundos)" : "Repeticiones"}
+                          </label>
+                          {currentExercise.es_unilateral && (
+                            <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1" data-testid="unilateral-indicator">
+                              (c/lado)
+                            </span>
+                          )}
+                        </div>
                         <div className="grid grid-cols-[64px_1fr_64px] gap-2 items-center">
                           <button
                             type="button"
                             disabled={serie.reps_hechas <= 1}
-                            onClick={() => handleAdjustReps(-1)}
+                            onClick={() => handleAdjustReps(currentExercise.tipo_medicion === "TIEMPO" ? -5 : -1)}
                             className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
-                            aria-label="Restar 1 repetición"
+                            aria-label={currentExercise.tipo_medicion === "TIEMPO" ? "Restar 5 segundos" : "Restar 1 repetición"}
                             data-testid="reps-decrement-btn"
                           >
-                            −1
+                            {currentExercise.tipo_medicion === "TIEMPO" ? "−5s" : "−1"}
                           </button>
                           <div className="relative h-16 rounded-xl border-2 border-border bg-background flex items-center justify-center focus-within:border-primary transition-colors">
                             <input
@@ -1458,7 +1813,7 @@ export function LiveWorkout() {
                               type="number"
                               step="1"
                               min="0"
-                              max="100"
+                              max={currentExercise.tipo_medicion === "TIEMPO" ? "3600" : "100"}
                               inputMode="numeric"
                               value={serie.reps_hechas}
                               onChange={(e) => {
@@ -1470,18 +1825,25 @@ export function LiveWorkout() {
                                 const val = parseInt(raw, 10);
                                 handleDirectUpdateReps(isNaN(val) ? 0 : val);
                               }}
-                              className="w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none min-h-[44px]"
-                              aria-label="Cantidad de repeticiones"
+                              className={`w-full h-full bg-transparent text-center font-mono font-extrabold text-3xl sm:text-4xl tabular-nums text-foreground focus:outline-none min-h-[44px] ${
+                                currentExercise.tipo_medicion === "TIEMPO" ? "pr-8" : ""
+                              }`}
+                              aria-label={currentExercise.tipo_medicion === "TIEMPO" ? "Tiempo en segundos" : "Cantidad de repeticiones"}
                             />
+                            {currentExercise.tipo_medicion === "TIEMPO" && (
+                              <span className="absolute right-3 text-sm font-medium text-muted-foreground pointer-events-none">
+                                s
+                              </span>
+                            )}
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleAdjustReps(1)}
+                            onClick={() => handleAdjustReps(currentExercise.tipo_medicion === "TIEMPO" ? 5 : 1)}
                             className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
-                            aria-label="Sumar 1 repetición"
+                            aria-label={currentExercise.tipo_medicion === "TIEMPO" ? "Sumar 5 segundos" : "Sumar 1 repetición"}
                             data-testid="reps-increment-btn"
                           >
-                            +1
+                            {currentExercise.tipo_medicion === "TIEMPO" ? "+5s" : "+1"}
                           </button>
                         </div>
                       </div>
@@ -1746,7 +2108,10 @@ export function LiveWorkout() {
                       {firstIncompleteExercise ? (
                         <Button
                           type="button"
-                          onClick={() => setSelectedExerciseId(firstIncompleteExercise.id)}
+                          onClick={() => {
+                            setSelectedExerciseId(firstIncompleteExercise.id);
+                            ejecutarTransicionVisual(firstIncompleteExercise.id);
+                          }}
                           className="h-12 px-6 rounded-xl font-bold bg-primary text-primary-foreground"
                         >
                           Ir a {firstIncompleteExercise.nombre}
