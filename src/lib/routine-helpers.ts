@@ -3,13 +3,67 @@
  * Cero dependencias externas.
  */
 
+export interface RepRangeInfo {
+  isRange: boolean;
+  min: number;
+  max: number;
+}
+
+/**
+ * Interpreta una prescripción de repeticiones de tipo rango con barra (ej. "8/12" o "10/12").
+ * Retorna { isRange: true, min, max } o null si no es un rango válido.
+ */
+export function parseRepRange(repeticiones?: string): RepRangeInfo | null {
+  if (!repeticiones) return null;
+  const str = repeticiones.trim();
+  const slashMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (slashMatch && slashMatch[1] && slashMatch[2]) {
+    const n1 = parseInt(slashMatch[1], 10);
+    const n2 = parseInt(slashMatch[2], 10);
+    if (!isNaN(n1) && !isNaN(n2)) {
+      return {
+        isRange: true,
+        min: Math.min(n1, n2),
+        max: Math.max(n1, n2),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Cuenta la cantidad de series implícitas en una secuencia piramidal con guión (ej. "12-10-8-6-4" -> 5).
+ * Rechaza espacios (ej. "10 8 6 4" -> null).
+ */
+export function parsePyramidSeriesCount(repeticiones?: string): number | null {
+  if (!repeticiones) return null;
+  const str = repeticiones.trim();
+  if (/\s/.test(str)) return null;
+  const parts = str.split("-");
+  if (parts.length >= 2 && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) > 0)) {
+    return parts.length;
+  }
+  return null;
+}
+
 /**
  * Lee la prescripción de repeticiones de la rutina y devuelve el valor numérico por defecto.
- * Soporta series descendentes ("10-8-6"), rangos ("4 a 6", "8-10"), isométricos ("15'' x lado") y números directos.
+ * Soporta series descendentes ("10-8-6"), rangos con barra ("8/12"), rangos con "a" o "-" ("4 a 6", "8-10"),
+ * isométricos ("15'' x lado") y números directos.
  */
 export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: number = 1): number {
   if (!repeticionesObjetivo) return 10;
   const str = repeticionesObjetivo.trim();
+
+  // Caso: rango con barra "/" (ej. "8/12" o "10/12") -> target por defecto es el máximo
+  const slashMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (slashMatch && slashMatch[1] && slashMatch[2]) {
+    const n1 = parseInt(slashMatch[1], 10);
+    const n2 = parseInt(slashMatch[2], 10);
+    if (!isNaN(n1) && !isNaN(n2)) {
+      return Math.max(n1, n2);
+    }
+  }
 
   // Caso: lista descendente como "10-8-6" o "12-10-8-6"
   const dashList = str

@@ -164,6 +164,7 @@ export interface Database {
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
           plan_origen_id?: string | null;
+          tags?: string[];
           created_at: string;
           updated_at: string;
         };
@@ -179,6 +180,7 @@ export interface Database {
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
           plan_origen_id?: string | null;
+          tags?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -194,6 +196,7 @@ export interface Database {
           tipo?: 'PLANTILLA' | 'DE_ALUMNO';
           etiqueta?: 'STANDARD' | null;
           plan_origen_id?: string | null;
+          tags?: string[];
           created_at?: string;
           updated_at?: string;
         };
@@ -273,6 +276,9 @@ export interface Database {
           force_rpe_required?: boolean | null;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -291,6 +297,9 @@ export interface Database {
           tempo?: string;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -310,6 +319,9 @@ export interface Database {
           tempo?: string;
           tempo_activo?: boolean;
           tipo_serie?: 'NORMAL' | 'WARMUP' | 'DROPSET';
+          tipo_medicion?: 'REPS' | 'TIEMPO';
+          tiempo_objetivo_segundos?: number | null;
+          es_unilateral?: boolean;
           force_rpe_required?: boolean;
           created_at?: string;
           updated_at?: string;

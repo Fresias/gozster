@@ -26,10 +26,10 @@ describe("validarRutina (GOZS-322)", () => {
     expect(rutina(ej({ series: s })).errores).toEqual({});
   });
 
-  it.each(["10", "10-8-6", "3x12", "100", "12-10-8-6"])("reps %s es válida", (r) => {
+  it.each(["10", "10-8-6", "3x12", "100", "12-10-8-6", "10-8-6-4", "8/12", "10/12", "AL FALLO", "al fallo"])("reps %s es válida", (r) => {
     expect(repsValidas(r)).toBe(true);
   });
-  it.each(["", "abc", "10--8", "💪", "0", "101", "10-0", "200x1", "1".repeat(200), "10-", "3x101"])("reps %j es inválida", (r) => {
+  it.each(["", "abc", "10--8", "💪", "0", "101", "10-0", "200x1", "1".repeat(200), "10-", "3x101", "10 8 6 4", "10 8", "8 / 12", "15/10"])("reps %j es inválida", (r) => {
     expect(rutina(ej({ repeticiones: r })).errores[claveEjercicio("e1", "reps")]).toBeDefined();
   });
 

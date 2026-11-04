@@ -7,7 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { nombreUnico } from "@/lib/rutinas-biblioteca";
 import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
 import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
+import { parsePyramidSeriesCount } from "@/lib/routine-helpers";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
+
+export const TAGS_RUTINA_PREDEFINIDAS = [
+  "Fuerza",
+  "Hipertrofia",
+  "Rehabilitación",
+  "Potencia",
+  "Peso Corporal",
+] as const;
+
+export type TagRutina = typeof TAGS_RUTINA_PREDEFINIDAS[number];
 
 interface BuilderExercise {
   id: string;
@@ -25,6 +36,9 @@ interface BuilderExercise {
   grupo_superserie: number | null;
   tipo_serie: "NORMAL" | "WARMUP" | "DROPSET";
   url_video?: string | null;
+  tipo_medicion?: "REPS" | "TIEMPO";
+  tiempo_objetivo_segundos?: number | null;
+  es_unilateral?: boolean;
 }
 
 interface BuilderDay {
@@ -73,6 +87,7 @@ export function buildGuardarRutinaPayload(input: {
   comentarios: string;
   alumnoId?: string;
   estado?: "BORRADOR" | "ACTIVO";
+  tags?: string[];
   days: BuilderDay[];
 }) {
   return {
@@ -81,6 +96,7 @@ export function buildGuardarRutinaPayload(input: {
     ...(input.comoNueva ? { como_nueva: true } : {}),
     nombre: input.nombre,
     comentarios: input.comentarios,
+    ...(input.tags ? { tags: input.tags } : {}),
     ...(input.alumnoId ? { alumno_id: input.alumnoId } : {}),
     ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
@@ -99,6 +115,9 @@ export function buildGuardarRutinaPayload(input: {
         tempo_activo: e.tempo_activo,
         tipo_serie: e.tipo_serie,
         force_rpe_required: e.force_rpe_required,
+        tipo_medicion: e.tipo_medicion ?? "REPS",
+        tiempo_objetivo_segundos: e.tiempo_objetivo_segundos ?? null,
+        es_unilateral: Boolean(e.es_unilateral),
       })),
     })),
   };
@@ -165,6 +184,12 @@ function mapPlanToBuilderDays(
           grupo_superserie: grupoNum,
           tipo_serie: er.tipo_serie ?? "NORMAL",
           url_video: ej?.url_video ?? null,
+          tipo_medicion: (er as any).tipo_medicion ?? "REPS",
+          tiempo_objetivo_segundos:
+            typeof (er as any).tiempo_objetivo_segundos === "number"
+              ? (er as any).tiempo_objetivo_segundos
+              : null,
+          es_unilateral: Boolean((er as any).es_unilateral),
         };
       });
 
@@ -227,9 +252,20 @@ export function RoutineBuilderModal({
   onRoutineSaved,
   embedded = false,
 }: RoutineBuilderModalProps) {
-  const [planName, setPlanName] = React.useState("");
-  const [comentarios, setComentarios] = React.useState("");
-  const [days, setDays] = React.useState<BuilderDay[]>(DEFAULT_BUILDER_DAYS);
+  const [planName, setPlanName] = React.useState(() => planInicial?.nombre ?? "");
+  const [comentarios, setComentarios] = React.useState(() => planInicial?.comentarios ?? "");
+  const [selectedTags, setSelectedTags] = React.useState<string[]>(() => (planInicial as any)?.tags ?? []);
+  const [days, setDays] = React.useState<BuilderDay[]>(() => {
+    if (planInicial) {
+      return mapPlanToBuilderDays(
+        planInicial.id,
+        diasIniciales ?? [],
+        ejerciciosEnRutinaIniciales ?? [],
+        catalogoEjercicios
+      );
+    }
+    return DEFAULT_BUILDER_DAYS;
+  });
   const baselineRef = React.useRef("");
   // Hasta que el efecto de abajo fija la línea base, el estado puede ser el de la apertura anterior
   const [baselineLista, setBaselineLista] = React.useState(false);
@@ -264,6 +300,8 @@ export function RoutineBuilderModal({
       setPlanName(planInicial.nombre);
       setComentarios(planInicial.comentarios ?? "");
       setEstado(planInicial.estado === "ACTIVO" ? "ACTIVO" : "BORRADOR");
+      const initTags = Array.isArray((planInicial as any).tags) ? (planInicial as any).tags : [];
+      setSelectedTags(initTags);
       const mapped = mapPlanToBuilderDays(
         planInicial.id,
         diasIniciales ?? [],
@@ -271,20 +309,28 @@ export function RoutineBuilderModal({
         catalogoEjercicios,
       );
       setDays(mapped);
-      baselineRef.current = JSON.stringify([planInicial.nombre, planInicial.comentarios ?? "", mapped]);
+      baselineRef.current = JSON.stringify([planInicial.nombre, planInicial.comentarios ?? "", initTags, mapped]);
     } else {
       setPlanName("");
       setComentarios("");
+      setSelectedTags([]);
       setEstado("BORRADOR");
       setDays(DEFAULT_BUILDER_DAYS);
       baselineRef.current = JSON.stringify([
         "",
         "",
+        [],
         DEFAULT_BUILDER_DAYS,
       ]);
     }
     setBaselineLista(true);
   }, [isOpen, planInicial, diasIniciales, ejerciciosEnRutinaIniciales, catalogoEjercicios]);
+
+  const handleToggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
 
   const [selectedDayIdx, setSelectedDayIdx] = React.useState(0);
   // Grupo del circuito de superserie abierto: los ejercicios nuevos entran hasta cerrarlo
@@ -328,7 +374,10 @@ export function RoutineBuilderModal({
   }, [isOpen]);
 
   const isDirty =
-    isOpen && baselineLista && !saveSuccess && JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+    isOpen &&
+    baselineLista &&
+    !saveSuccess &&
+    JSON.stringify([planName, comentarios, selectedTags, days]) !== baselineRef.current;
 
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
@@ -388,7 +437,7 @@ export function RoutineBuilderModal({
   };
 
   const handleClose = () => {
-    const dirty = JSON.stringify([planName, comentarios, days]) !== baselineRef.current;
+    const dirty = JSON.stringify([planName, comentarios, selectedTags, days]) !== baselineRef.current;
     if (dirty && !window.confirm("Tenés cambios sin guardar. ¿Descartarlos y salir?")) return;
     onClose();
   };
@@ -438,7 +487,7 @@ export function RoutineBuilderModal({
       id: `be-${Date.now()}`,
       ejercicio_id: ej.id,
       nombre: ej.nombre,
-      series: null,
+      series: openCircuit !== null ? 0 : null,
       repeticiones: "",
       descanso_segundos: 90,
       rpe_objetivo: null,
@@ -450,6 +499,9 @@ export function RoutineBuilderModal({
       grupo_superserie: openCircuit,
       tipo_serie: "NORMAL",
       url_video: ej.url_video,
+      tipo_medicion: "REPS",
+      tiempo_objetivo_segundos: null,
+      es_unilateral: false,
     };
 
     // Entra al final del día; con un circuito abierto queda en él y se acomoda con ▲/▼ o al guardar
@@ -470,6 +522,125 @@ export function RoutineBuilderModal({
               ejercicios: d.ejercicios.map((e) =>
                 e.id === exId ? { ...e, [field]: value } : e
               ),
+            }
+          : d
+      )
+    );
+  };
+
+  const handleUpdateSeries = (exId: string, value: number | null) => {
+    setDays((prev) =>
+      prev.map((d, idx) => {
+        if (idx !== selectedDayIdx) return d;
+        const targetEx = d.ejercicios.find((e) => e.id === exId);
+        if (!targetEx) return d;
+
+        // Propagación en superseries: si es el primer ejercicio del circuito, propaga a todos los demás del grupo
+        if (targetEx.es_superserie && targetEx.grupo_superserie !== null) {
+          const circuito = d.ejercicios.filter(
+            (e) => e.es_superserie && e.grupo_superserie === targetEx.grupo_superserie
+          );
+          const esPrimero = circuito.length > 0 && circuito[0]!.id === exId;
+          if (esPrimero) {
+            return {
+              ...d,
+              ejercicios: d.ejercicios.map((e) =>
+                e.es_superserie && e.grupo_superserie === targetEx.grupo_superserie
+                  ? { ...e, series: value }
+                  : e
+              ),
+            };
+          }
+        }
+
+        return {
+          ...d,
+          ejercicios: d.ejercicios.map((e) => (e.id === exId ? { ...e, series: value } : e)),
+        };
+      })
+    );
+  };
+
+  const handleUpdateReps = (exId: string, value: string) => {
+    const pyramidCount = parsePyramidSeriesCount(value);
+
+    setDays((prev) =>
+      prev.map((d, idx) => {
+        if (idx !== selectedDayIdx) return d;
+        const targetEx = d.ejercicios.find((e) => e.id === exId);
+        if (!targetEx) return d;
+
+        const nuevoSeries = pyramidCount !== null ? pyramidCount : targetEx.series;
+
+        if (
+          pyramidCount !== null &&
+          targetEx.es_superserie &&
+          targetEx.grupo_superserie !== null
+        ) {
+          const circuito = d.ejercicios.filter(
+            (e) => e.es_superserie && e.grupo_superserie === targetEx.grupo_superserie
+          );
+          const esPrimero = circuito.length > 0 && circuito[0]!.id === exId;
+          if (esPrimero) {
+            return {
+              ...d,
+              ejercicios: d.ejercicios.map((e) => {
+                if (e.id === exId) {
+                  return { ...e, repeticiones: value, series: nuevoSeries };
+                }
+                if (e.es_superserie && e.grupo_superserie === targetEx.grupo_superserie) {
+                  return { ...e, series: nuevoSeries };
+                }
+                return e;
+              }),
+            };
+          }
+        }
+
+        return {
+          ...d,
+          ejercicios: d.ejercicios.map((e) =>
+            e.id === exId
+              ? {
+                  ...e,
+                  repeticiones: value,
+                  ...(pyramidCount !== null ? { series: pyramidCount } : {}),
+                }
+              : e
+          ),
+        };
+      })
+    );
+  };
+
+  const handleUpdateMedicion = (exId: string, tipo: "REPS" | "TIEMPO") => {
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === selectedDayIdx
+          ? {
+              ...d,
+              ejercicios: d.ejercicios.map((e) => {
+                if (e.id !== exId) return e;
+                if (tipo === "TIEMPO") {
+                  const seg = e.tiempo_objetivo_segundos ?? 30;
+                  return {
+                    ...e,
+                    tipo_medicion: "TIEMPO",
+                    tiempo_objetivo_segundos: seg,
+                    repeticiones: String(seg),
+                  };
+                } else {
+                  return {
+                    ...e,
+                    tipo_medicion: "REPS",
+                    tiempo_objetivo_segundos: null,
+                    repeticiones:
+                      e.repeticiones && !isNaN(Number(e.repeticiones))
+                        ? e.repeticiones
+                        : "10",
+                  };
+                }
+              }),
             }
           : d
       )
@@ -511,7 +682,19 @@ export function RoutineBuilderModal({
       normalizarSuperseries(
         prev.map((d, idx) =>
           idx === selectedDayIdx
-            ? { ...d, ejercicios: d.ejercicios.map((e) => (e.id === exId ? { ...e, es_superserie: true, grupo_superserie: group } : e)) }
+            ? {
+                ...d,
+                ejercicios: d.ejercicios.map((e) =>
+                  e.id === exId
+                    ? {
+                        ...e,
+                        es_superserie: true,
+                        grupo_superserie: group,
+                        series: e.series ?? 0,
+                      }
+                    : e
+                ),
+              }
             : d
         ),
         group
@@ -526,7 +709,36 @@ export function RoutineBuilderModal({
 
   const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
     const ex = currentDay?.ejercicios.find((e) => e.id === exId);
-    handleUpdateExercise(exId, "tipo_serie", ex?.tipo_serie === tipo ? "NORMAL" : tipo);
+    const nuevoTipo = ex?.tipo_serie === tipo ? "NORMAL" : tipo;
+    setDays((prev) =>
+      prev.map((d, idx) =>
+        idx === selectedDayIdx
+          ? {
+              ...d,
+              ejercicios: d.ejercicios.map((e) => {
+                if (e.id !== exId) return e;
+                if (nuevoTipo === "DROPSET") {
+                  return {
+                    ...e,
+                    tipo_serie: "DROPSET",
+                    repeticiones: "AL FALLO",
+                    descanso_segundos: 0,
+                  };
+                }
+                if (e.tipo_serie === "DROPSET" && nuevoTipo === "NORMAL") {
+                  return {
+                    ...e,
+                    tipo_serie: "NORMAL",
+                    repeticiones: e.repeticiones === "AL FALLO" ? "10" : e.repeticiones,
+                    descanso_segundos: e.descanso_segundos === 0 ? 90 : e.descanso_segundos,
+                  };
+                }
+                return { ...e, tipo_serie: nuevoTipo };
+              }),
+            }
+          : d
+      )
+    );
   };
 
   // Guardado transaccional vía RPC guardar_rutina; los errores se registran en errores_app
@@ -543,6 +755,7 @@ export function RoutineBuilderModal({
       comoNueva: modo !== "guardar",
       nombre: modo === "nueva" && nombresExistentes ? nombreUnico(planName, nombresExistentes) : planName,
       comentarios,
+      tags: selectedTags,
       alumnoId: modo === "nueva" && !asignarAlumno ? undefined : alumnoId,
       // guardar_rutina solo aplica payload.estado a plantillas; INACTIVO se conserva y una versión nueva no cambia el estado
       estado: modo === "version" || !esPlantilla || planInicial?.estado === "INACTIVO" ? undefined : estado,
@@ -695,6 +908,33 @@ export function RoutineBuilderModal({
               placeholder="Ej. Enfocarse en sobrecarga progresiva y control excéntrico"
               className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
+          </div>
+          {/* Selector de Etiquetas del Plan (GOZS-360) */}
+          <div className="sm:col-span-2 space-y-1.5 pt-1">
+            <label className="text-xs font-semibold text-muted-foreground block">
+              Etiquetas del Plan (Multi-select):
+            </label>
+            <div className="flex items-center gap-1.5 flex-wrap" data-testid="routine-tags-selector">
+              {TAGS_RUTINA_PREDEFINIDAS.map((tag) => {
+                const isSelected = selectedTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleToggleTag(tag)}
+                    aria-pressed={isSelected}
+                    data-testid={`tag-${tag.toLowerCase().replace(/\s+/g, "-")}`}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer select-none ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-background text-muted-foreground border-border hover:bg-secondary hover:text-foreground"
+                    }`}
+                  >
+                    {isSelected ? `✓ ${tag}` : `+ ${tag}`}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -885,6 +1125,26 @@ export function RoutineBuilderModal({
                             <span>🎬</span> Video OK
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateExercise(
+                              ej.id,
+                              "es_unilateral",
+                              !ej.es_unilateral
+                            )
+                          }
+                          className={`text-[10px] font-bold rounded-lg px-2 py-0.5 border transition-colors cursor-pointer select-none ${
+                            ej.es_unilateral
+                              ? "bg-indigo-600 text-white border-indigo-500 shadow-xs"
+                              : "bg-secondary text-muted-foreground border-border/60 hover:text-foreground"
+                          }`}
+                          data-testid={`unilateral-toggle-${ej.id}`}
+                          aria-pressed={ej.es_unilateral}
+                          title="Indicar si el ejercicio se realiza de forma unilateral (ambos lados se registrarán unificados en la app)"
+                        >
+                          {ej.es_unilateral ? "⚡ Unilateral" : "Bilateral"}
+                        </button>
                       </div>
 
                       {/* Botones de ordenamiento y borrado con mayor ergonomía táctil */}
@@ -920,9 +1180,20 @@ export function RoutineBuilderModal({
 
                     {/* Banner de Superserie Conectada */}
                     {isSuperset && (
-                      <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 px-3 py-1.5 text-[11px] font-semibold text-purple-300 flex items-center gap-1.5">
-                        <span>🔗</span>
-                        <span>Bloque de Superserie A{ej.grupo_superserie || 1} • Ejecutar consecutivamente sin descanso previo</span>
+                      <div className="space-y-1">
+                        <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 px-3 py-1.5 text-[11px] font-semibold text-purple-300 flex items-center gap-1.5">
+                          <span>🔗</span>
+                          <span>Bloque de Superserie A{ej.grupo_superserie || 1} • Ejecutar consecutivamente sin descanso previo</span>
+                        </div>
+                        <div
+                          className="rounded-lg bg-secondary/60 border border-border/50 px-2.5 py-1 text-[10px] text-muted-foreground flex items-center gap-1.5"
+                          data-testid="superserie-hint"
+                        >
+                          <span>💡</span>
+                          <span>
+                            <strong>Recomendación:</strong> Agregá todos los ejercicios a la superserie antes de fijar las series; al definir el valor en el primero se propagará automáticamente a todo el circuito.
+                          </span>
+                        </div>
                       </div>
                     )}
 
@@ -937,7 +1208,7 @@ export function RoutineBuilderModal({
                           max="20"
                           step="1"
                           value={ej.series}
-                          onValue={(n) => handleUpdateExercise(ej.id, "series", n)}
+                          onValue={(n) => handleUpdateSeries(ej.id, n)}
                           data-testid="exercise-series-input"
                           {...propsCampo(claveEjercicio(ej.id, "series"))}
                           className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "series"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
@@ -946,38 +1217,104 @@ export function RoutineBuilderModal({
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
-                          Repeticiones:
-                        </label>
-                        <input
-                          type="text"
-                          value={ej.repeticiones}
-                          onChange={(e) =>
-                            handleUpdateExercise(ej.id, "repeticiones", e.target.value)
-                          }
-                          placeholder="10 · 10-8-6 · 3x12"
-                          maxLength={20}
-                          pattern="^\d{1,3}(-\d{1,3})*$|^\d{1,2}x\d{1,3}$"
-                          data-testid="exercise-reps-input"
-                          {...propsCampo(claveEjercicio(ej.id, "reps"))}
-                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "reps"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                            {ej.tipo_medicion === "TIEMPO" ? "Tiempo (s):" : "Reps:"}
+                          </label>
+                          <div className="flex items-center rounded-md bg-secondary p-0.5 text-[9px] font-bold">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateMedicion(ej.id, "REPS")}
+                              className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer select-none ${
+                                (ej.tipo_medicion ?? "REPS") === "REPS"
+                                  ? "bg-primary text-primary-foreground shadow-xs"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                              data-testid={`medicion-reps-${ej.id}`}
+                            >
+                              Reps
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateMedicion(ej.id, "TIEMPO")}
+                              className={`px-1.5 py-0.5 rounded transition-colors cursor-pointer select-none ${
+                                ej.tipo_medicion === "TIEMPO"
+                                  ? "bg-primary text-primary-foreground shadow-xs"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                              data-testid={`medicion-tiempo-${ej.id}`}
+                            >
+                              Tiempo
+                            </button>
+                          </div>
+                        </div>
+
+                        {ej.tipo_medicion === "TIEMPO" ? (
+                          <DraftNumberInput
+                            min="1"
+                            max="900"
+                            step="1"
+                            value={ej.tiempo_objetivo_segundos ?? null}
+                            onValue={(n) => {
+                              handleUpdateExercise(ej.id, "tiempo_objetivo_segundos", n);
+                              handleUpdateExercise(ej.id, "repeticiones", n !== null ? String(n) : "");
+                            }}
+                            data-testid="exercise-time-input"
+                            placeholder="30"
+                            {...propsCampo(claveEjercicio(ej.id, "reps"))}
+                            className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "reps"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={ej.repeticiones}
+                            readOnly={ej.tipo_serie === "DROPSET"}
+                            onChange={(e) =>
+                              handleUpdateReps(ej.id, e.target.value)
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === " " && ej.tipo_serie !== "DROPSET") {
+                                e.preventDefault();
+                              }
+                            }}
+                            placeholder="10 · 10-8-6 · 8/12"
+                            maxLength={20}
+                            pattern="^\d{1,3}(-\d{1,3})*$|^\d{1,2}x\d{1,3}$|^\d{1,3}\/\d{1,3}$|^AL FALLO$|^al fallo$"
+                            data-testid="exercise-reps-input"
+                            {...propsCampo(claveEjercicio(ej.id, "reps"))}
+                            className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "reps"))} ${
+                              ej.tipo_serie === "DROPSET"
+                                ? "bg-muted font-bold text-rose-500 cursor-not-allowed"
+                                : "bg-background"
+                            } px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
+                          />
+                        )}
                         {mensajeCampo(claveEjercicio(ej.id, "reps"))}
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
-                          Descanso (s):
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                            Descanso (s):
+                          </label>
+                          {ej.tipo_serie === "DROPSET" && (
+                            <span className="text-[9px] font-bold text-rose-500">0s (bloqueado)</span>
+                          )}
+                        </div>
                         <DraftNumberInput
                           step="1"
                           min="0"
                           max="900"
-                          value={ej.descanso_segundos}
+                          disabled={ej.tipo_serie === "DROPSET"}
+                          value={ej.tipo_serie === "DROPSET" ? 0 : ej.descanso_segundos}
                           onValue={(n) => handleUpdateExercise(ej.id, "descanso_segundos", n)}
                           data-testid="exercise-rest-input"
                           {...propsCampo(claveEjercicio(ej.id, "descanso"))}
-                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "descanso"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
+                          className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "descanso"))} ${
+                            ej.tipo_serie === "DROPSET"
+                              ? "opacity-60 bg-muted cursor-not-allowed text-muted-foreground"
+                              : "bg-background"
+                          } px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
                         {mensajeCampo(claveEjercicio(ej.id, "descanso"))}
                       </div>
