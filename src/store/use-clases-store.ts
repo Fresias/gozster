@@ -65,6 +65,7 @@ interface ClasesState {
   setDemoAlumnoId: (id: string) => void;
   setTestAhora: (fechaIso: string | null) => void;
   resetDemoDataset: (fechaRef?: Date) => void;
+  resetDemo: (fechaRef?: Date) => void;
 
   cargando: boolean;
   accionEnCurso: string | null;
@@ -172,6 +173,7 @@ export const useClasesStore = create<ClasesState>()(
           aviso: null,
         });
       },
+      resetDemo: (fechaRef?: Date) => get().resetDemoDataset(fechaRef),
 
       cargando: false,
       accionEnCurso: null,

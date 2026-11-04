@@ -26,7 +26,7 @@ const classAgendaCode = fs.readFileSync(
 
 describe("GOZS-356: Auditoría Integral QA - Clases sin Cupo por Defecto y Vista Dedicada Sankey reui.io", () => {
   beforeEach(() => {
-    useClasesStore.getState().resetDemo();
+    useClasesStore.getState().resetDemoDataset();
   });
 
   describe("A. Verificación de Clases sin Cupo por Defecto (GOZS-354)", () => {
