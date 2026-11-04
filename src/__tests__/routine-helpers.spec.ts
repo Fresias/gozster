@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   parseDefaultReps,
+  parseRepRange,
+  parsePyramidSeriesCount,
   isWarmupExercise,
   sortExercisesWithWarmupFirst,
   clampSeries,
@@ -17,6 +19,18 @@ describe("routine-helpers (Ponytail & Karpathy)", () => {
       expect(parseDefaultReps("10-8-6", 4)).toBe(6); // cap at last element
     });
 
+    it("interpreta secuencia piramidal '10-8-6-4'", () => {
+      expect(parseDefaultReps("10-8-6-4", 1)).toBe(10);
+      expect(parseDefaultReps("10-8-6-4", 2)).toBe(8);
+      expect(parseDefaultReps("10-8-6-4", 3)).toBe(6);
+      expect(parseDefaultReps("10-8-6-4", 4)).toBe(4);
+    });
+
+    it("interpreta notación de rango con barra '8/12' retornando el target máximo (12)", () => {
+      expect(parseDefaultReps("8/12", 1)).toBe(12);
+      expect(parseDefaultReps("10/12", 1)).toBe(12);
+    });
+
     it("parsea rangos como '4 a 6' o '8-10'", () => {
       expect(parseDefaultReps("4 a 6", 1)).toBe(4);
       expect(parseDefaultReps("8-10", 1)).toBe(8);
@@ -30,6 +44,47 @@ describe("routine-helpers (Ponytail & Karpathy)", () => {
       expect(parseDefaultReps("", 1)).toBe(10);
       expect(parseDefaultReps(undefined, 1)).toBe(10);
       expect(parseDefaultReps("DROP-SET", 1)).toBe(10);
+    });
+  });
+
+  describe("parseRepRange (GOZS-360)", () => {
+    it("reconoce notación con barra '8/12' con mínimo 8 y máximo 12", () => {
+      const res = parseRepRange("8/12");
+      expect(res).not.toBeNull();
+      expect(res?.isRange).toBe(true);
+      expect(res?.min).toBe(8);
+      expect(res?.max).toBe(12);
+    });
+
+    it("reconoce '10/12' ordenando mínimo y máximo correctamente", () => {
+      const res = parseRepRange("10/12");
+      expect(res).toEqual({ isRange: true, min: 10, max: 12 });
+    });
+
+    it("retorna null para formatos sin barra o no numéricos", () => {
+      expect(parseRepRange("10")).toBeNull();
+      expect(parseRepRange("10-8-6")).toBeNull();
+      expect(parseRepRange("")).toBeNull();
+      expect(parseRepRange(undefined)).toBeNull();
+    });
+  });
+
+  describe("parsePyramidSeriesCount (GOZS-360)", () => {
+    it("determina la cantidad de series para secuencias con guión '10-8-6-4'", () => {
+      expect(parsePyramidSeriesCount("10-8-6-4")).toBe(4);
+      expect(parsePyramidSeriesCount("12-10-8-6-4")).toBe(5);
+      expect(parsePyramidSeriesCount("12-10")).toBe(2);
+    });
+
+    it("rechaza espacios '10 8 6 4' retornando null", () => {
+      expect(parsePyramidSeriesCount("10 8 6 4")).toBeNull();
+      expect(parsePyramidSeriesCount("10 - 8 - 6")).toBeNull();
+    });
+
+    it("no interpreta un número simple como piramidal", () => {
+      expect(parsePyramidSeriesCount("10")).toBeNull();
+      expect(parsePyramidSeriesCount("")).toBeNull();
+      expect(parsePyramidSeriesCount(undefined)).toBeNull();
     });
   });
 

@@ -47,6 +47,7 @@ import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
+import { parseRepRange } from "@/lib/routine-helpers";
 // GOZS-275 / GOZS-351: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
 // GOZS-351: en Vista Técnica se elimina en runtime el bloque de ayuda y el popover de taxonomía W/N/F/D
@@ -425,7 +426,9 @@ export function LiveWorkout() {
   const handleAdjustReps = (delta: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    const newReps = Math.max(1, currentSet.reps_hechas + delta);
+    const repRange = parseRepRange(currentExercise.repeticiones_objetivo);
+    const maxLimit = repRange?.isRange ? repRange.max : Infinity;
+    const newReps = Math.min(maxLimit, Math.max(1, currentSet.reps_hechas + delta));
     updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", newReps);
   };
 
@@ -438,7 +441,9 @@ export function LiveWorkout() {
   const handleDirectUpdateReps = (val: number) => {
     if (!currentExercise || !currentSet) return;
     seriesTocadas.current.add(`${currentExercise.id}-${currentSet.numero_serie}`);
-    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.max(0, val));
+    const repRange = parseRepRange(currentExercise.repeticiones_objetivo);
+    const maxLimit = repRange?.isRange ? repRange.max : Infinity;
+    updateSetField(currentExercise.id, currentSet.numero_serie, "reps_hechas", Math.min(maxLimit, Math.max(0, val)));
   };
 
   const handleSaveEdit = (confirmarAtipica = false) => {

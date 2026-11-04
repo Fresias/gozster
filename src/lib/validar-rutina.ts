@@ -30,10 +30,22 @@ export const claveEjercicio = (exId: string, campo: "series" | "reps" | "descans
 
 const REPS_LISTA = /^\d{1,3}(-\d{1,3})*$/;
 const REPS_PRODUCTO = /^\d{1,2}x\d{1,3}$/;
+const REPS_RANGO_BARRA = /^\d{1,3}\/\d{1,3}$/;
+const REPS_AL_FALLO = /^al fallo$/i;
 
 export function repsValidas(raw: string): boolean {
-  if (!REPS_LISTA.test(raw) && !REPS_PRODUCTO.test(raw)) return false;
-  return raw.split(/[-x]/).every((n) => Number(n) >= 1 && Number(n) <= 100);
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  if (REPS_AL_FALLO.test(trimmed)) return true;
+  // Rechazar espacios (ej. "10 8 6 4" es inválido, forzando "10-8-6-4")
+  if (/\s/.test(trimmed)) return false;
+  if (REPS_RANGO_BARRA.test(trimmed)) {
+    const parts = trimmed.split("/").map(Number);
+    return parts.every((n) => n >= 1 && n <= 100) && parts[0]! <= parts[1]!;
+  }
+  if (!REPS_LISTA.test(trimmed) && !REPS_PRODUCTO.test(trimmed)) return false;
+  return trimmed.split(/[-x]/).every((n) => Number(n) >= 1 && Number(n) <= 100);
 }
 
 export function validarRutina(input: { nombre: string; days: DiaValidable[] }): ResultadoValidacion {
@@ -51,7 +63,7 @@ export function validarRutina(input: { nombre: string; days: DiaValidable[] }): 
         errores[claveEjercicio(e.id, "series")] = "Series: entre 1 y 20";
       }
       if (!repsValidas(e.repeticiones)) {
-        errores[claveEjercicio(e.id, "reps")] = "Repeticiones: ej. 10, 10-8-6 o 3x12 (1 a 100)";
+        errores[claveEjercicio(e.id, "reps")] = "Repeticiones: ej. 10, 10-8-6, 8/12 o AL FALLO (sin espacios)";
       }
       if (!Number.isInteger(e.descanso_segundos) || e.descanso_segundos! < 0 || e.descanso_segundos! > 900) {
         errores[claveEjercicio(e.id, "descanso")] = "Descanso: entre 0 y 900 s";
