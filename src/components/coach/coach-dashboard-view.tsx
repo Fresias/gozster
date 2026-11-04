@@ -167,7 +167,7 @@ export function CoachDashboardView({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Dashboard de Analíticas &amp; Retención
+            Métricas &amp; Retención
           </h1>
           <p className="text-sm text-muted-foreground">
             Métricas de retención del gimnasio y supervisión automática de sobrecarga progresiva.

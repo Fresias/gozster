@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
@@ -396,7 +395,7 @@ export function CoachStudioView({
       {/* Main view switcher */}
       {!selectedAlumno ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          {/* Header & Direct Link to Full Dashboard (Sin botón 'Constructor de Rutinas' aquí) */}
+          {/* Header de Coach Studio */}
           <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${leftCol}`}>
             <div>
               <div className="flex items-center gap-2">
@@ -412,29 +411,6 @@ export function CoachStudioView({
               <p className="text-sm text-muted-foreground">
                 Gestión operativa táctil de atletas, semáforos de salud M3 y supervisión activa.
               </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/studio/dashboard"
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity gap-2 shadow-xs active:scale-95"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <span>Vista Analíticas Completa →</span>
-              </Link>
             </div>
           </div>
 
