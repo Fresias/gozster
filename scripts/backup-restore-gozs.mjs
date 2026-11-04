@@ -54,6 +54,7 @@ export const TABLAS = [
   { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes" } },
   { nombre: "habitos_registros", fks: { alumno_id: "perfiles" } },
   { nombre: "nutricion_registros", fks: { alumno_id: "perfiles" } },
+  { nombre: "alumno_historial_dolor", fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios" } },
   {
     nombre: "alertas_entrenador",
     fks: {
@@ -65,7 +66,6 @@ export const TABLAS = [
       serie_id: "registro_series",
     },
   },
-  { nombre: "alumno_historial_dolor", fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios" } },
   { nombre: "alumno_cuestionario_inicial", fks: { alumno_id: "perfiles" } },
   { nombre: "feriados", fks: {} },
   { nombre: "errores_app", fks: { usuario_id: "perfiles" } },
