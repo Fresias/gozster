@@ -81,6 +81,7 @@ export interface StudentDetailProps {
   ) => Promise<unknown>;
   cuestionario?: AlumnoCuestionarioInicial | null;
   onQuickSwap?: (alert: CriticalAlert) => void;
+  onPreviewAthlete?: (alumno: Perfil) => void;
 }
 
 export function StudentDetail({
@@ -105,6 +106,7 @@ export function StudentDetail({
   onActualizarNivelVista,
   cuestionario: cuestionarioProp,
   onQuickSwap,
+  onPreviewAthlete,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
@@ -612,6 +614,18 @@ export function StudentDetail({
             <Badge variant="warning" className="text-[11px]">
               Modo Offline • Acciones en cola
             </Badge>
+          )}
+          {onPreviewAthlete && (
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={() => onPreviewAthlete(alumno)}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
+              data-testid="detail-preview-athlete-btn"
+            >
+              <span>👁️ Ver como Alumno</span>
+            </Button>
           )}
           <Button
             type="button"

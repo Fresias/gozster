@@ -48,6 +48,8 @@ interface RoutineBuilderModalProps {
   onRoutineSaved?: (newPlan: PlanEntrenamiento) => void;
   /** Plan archivado con versión sucesora: se consulta, no se guarda. */
   soloLectura?: boolean;
+  /** Modo incrustado a pantalla completa sin backdrop fijo (GOZS-345) */
+  embedded?: boolean;
 }
 
 const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
@@ -223,6 +225,7 @@ export function RoutineBuilderModal({
   ejerciciosEnRutinaIniciales,
   catalogoEjercicios,
   onRoutineSaved,
+  embedded = false,
 }: RoutineBuilderModalProps) {
   const [planName, setPlanName] = React.useState("");
   const [comentarios, setComentarios] = React.useState("");
@@ -614,10 +617,20 @@ export function RoutineBuilderModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-3 sm:p-6 backdrop-blur-sm animate-in fade-in"
+      className={
+        embedded
+          ? "w-full flex flex-col rounded-2xl border border-border bg-card shadow-xs overflow-hidden"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-3 sm:p-6 backdrop-blur-sm animate-in fade-in"
+      }
       data-testid="routine-builder-modal"
     >
-      <div className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div
+        className={
+          embedded
+            ? "w-full flex flex-col"
+            : "w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
+        }
+      >
         {/* Encabezado */}
         <div className="flex items-center justify-between border-b border-border/60 p-4 bg-secondary/10">
           <div className="flex items-center gap-2">
@@ -633,12 +646,25 @@ export function RoutineBuilderModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-md"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {embedded && (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-lg border border-border/70 hover:bg-secondary transition-colors"
+                data-testid="routine-builder-back-btn"
+              >
+                ← Volver a Biblioteca
+              </button>
+            )}
+            <button
+              onClick={handleClose}
+              className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-md"
+              aria-label="Cerrar constructor"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Formulario de Metadatos del Plan */}

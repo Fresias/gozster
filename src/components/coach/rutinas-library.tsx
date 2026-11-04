@@ -12,6 +12,7 @@ import type { PlanEntrenamiento } from "@/types/database.types";
 
 export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabaseDataset }) {
   const [dataset, setDataset] = React.useState(initialDataset);
+  const [activeMainTab, setActiveMainTab] = React.useState<"biblioteca" | "constructor">("biblioteca");
   const [builder, setBuilder] = React.useState<{ plan: PlanEntrenamiento | null; alumnoId?: string } | null>(null);
   const [asignando, setAsignando] = React.useState<PlanEntrenamiento | null>(null);
   const [alumnoElegido, setAlumnoElegido] = React.useState("");
@@ -63,7 +64,10 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
       const alumnoId = alumnoElegido;
       setAsignando(null);
       setAlumnoElegido("");
-      if (clon) setBuilder({ plan: clon, alumnoId });
+      if (clon) {
+        setBuilder({ plan: clon, alumnoId });
+        setActiveMainTab("constructor");
+      }
       else setAviso("La rutina se asignó, pero no pudimos cargarla. Recarga la página para verla.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "No pudimos asignar la rutina. Intenta de nuevo.");
@@ -114,7 +118,10 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
           <Button
             size="touch"
             variant="outline"
-            onClick={() => setBuilder({ plan, alumnoId: plan.alumno_id ?? undefined })}
+            onClick={() => {
+              setBuilder({ plan, alumnoId: plan.alumno_id ?? undefined });
+              setActiveMainTab("constructor");
+            }}
           >
             Abrir
           </Button>
@@ -152,38 +159,95 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   return (
     <section className="flex flex-col gap-4 p-4 sm:p-6" data-testid="rutinas-library">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-black">Rutinas</h1>
-        <Button size="touch" onClick={() => setBuilder({ plan: null })}>
-          Nueva rutina
-        </Button>
+        <div>
+          <h1 className="text-2xl font-black">Rutinas &amp; Constructor</h1>
+          <p className="text-xs text-muted-foreground">
+            Gestión unificada 2x1: Biblioteca de plantillas y constructor visual a pantalla completa
+          </p>
+        </div>
+        {activeMainTab === "biblioteca" && (
+          <Button
+            size="touch"
+            onClick={() => {
+              setBuilder({ plan: null });
+              setActiveMainTab("constructor");
+            }}
+            data-testid="btn-nueva-rutina"
+          >
+            Nueva rutina
+          </Button>
+        )}
       </header>
 
-      {aviso && (
-        <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/15 p-3 text-sm text-amber-300">
-          {aviso}
-        </p>
-      )}
-
-      <Tabs defaultValue="plantillas">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="plantillas">Plantillas ({plantillas.length})</TabsTrigger>
-          <TabsTrigger value="alumnos">De alumnos ({vigentes.length})</TabsTrigger>
-          <TabsTrigger value="borradores">Borradores ({borradores.length})</TabsTrigger>
-          <TabsTrigger value="archivadas">Archivadas ({archivadas.length})</TabsTrigger>
+      {/* Tabs principales 2x1: Tab 1 Biblioteca & Plantillas, Tab 2 Constructor Visual */}
+      <Tabs
+        value={activeMainTab}
+        onValueChange={(val) => {
+          if (val === "constructor" && !builder) {
+            setBuilder({ plan: null });
+          }
+          setActiveMainTab(val as "biblioteca" | "constructor");
+        }}
+        className="w-full"
+      >
+        <TabsList className="w-full sm:w-auto" data-testid="rutinas-main-nav-tabs">
+          <TabsTrigger value="biblioteca" data-testid="tab-biblioteca-plantillas">
+            Biblioteca &amp; Plantillas
+          </TabsTrigger>
+          <TabsTrigger value="constructor" data-testid="tab-constructor-visual">
+            Constructor Visual
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="plantillas">{lista(plantillas, {}, "Todavía no hay plantillas.")}</TabsContent>
-        <TabsContent value="alumnos">{lista(vigentes, { alumno: true }, "Ningún alumno tiene rutina.")}</TabsContent>
-        <TabsContent value="borradores">{lista(borradores, { alumno: true }, "No hay borradores.")}</TabsContent>
-        <TabsContent value="archivadas">
-          {lista(archivadas, { alumno: true, archivada: true }, "No hay rutinas archivadas.")}
+
+        <TabsContent value="biblioteca" className="space-y-4 pt-3">
+          {aviso && (
+            <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/15 p-3 text-sm text-amber-300">
+              {aviso}
+            </p>
+          )}
+
+          <Tabs defaultValue="plantillas">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="plantillas">Plantillas ({plantillas.length})</TabsTrigger>
+              <TabsTrigger value="alumnos">De alumnos ({vigentes.length})</TabsTrigger>
+              <TabsTrigger value="borradores">Borradores ({borradores.length})</TabsTrigger>
+              <TabsTrigger value="archivadas">Archivadas ({archivadas.length})</TabsTrigger>
+            </TabsList>
+            <TabsContent value="plantillas">{lista(plantillas, {}, "Todavía no hay plantillas.")}</TabsContent>
+            <TabsContent value="alumnos">{lista(vigentes, { alumno: true }, "Ningún alumno tiene rutina.")}</TabsContent>
+            <TabsContent value="borradores">{lista(borradores, { alumno: true }, "No hay borradores.")}</TabsContent>
+            <TabsContent value="archivadas">
+              {lista(archivadas, { alumno: true, archivada: true }, "No hay rutinas archivadas.")}
+            </TabsContent>
+          </Tabs>
+
+          {error && !asignando && (
+            <p role="alert" className="text-sm text-rose-300">
+              {error}
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="constructor" className="space-y-4 pt-3">
+          <RoutineBuilderModal
+            isOpen={activeMainTab === "constructor"}
+            embedded={true}
+            onClose={() => {
+              setBuilder(null);
+              setActiveMainTab("biblioteca");
+            }}
+            catalogoEjercicios={dataset.ejercicios}
+            alumnoId={builder?.alumnoId}
+            alumnoNombre={builder?.alumnoId ? nombreAlumno(builder.alumnoId) : "Plantilla Maestra"}
+            planInicial={builder?.plan ?? null}
+            nombresExistentes={nombresExistentes}
+            soloLectura={!!builder?.plan && builder.plan.estado === "INACTIVO" && dataset.planes.some((p) => p.plan_origen_id === builder.plan?.id)}
+            diasIniciales={dataset.dias}
+            ejerciciosEnRutinaIniciales={dataset.ejerciciosEnRutina}
+            onRoutineSaved={() => void recargar()}
+          />
         </TabsContent>
       </Tabs>
-
-      {error && !asignando && (
-        <p role="alert" className="text-sm text-rose-300">
-          {error}
-        </p>
-      )}
 
       <dialog
         ref={dialogRef}
@@ -221,20 +285,6 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
           </Button>
         </div>
       </dialog>
-
-      <RoutineBuilderModal
-        isOpen={builder !== null}
-        onClose={() => setBuilder(null)}
-        catalogoEjercicios={dataset.ejercicios}
-        alumnoId={builder?.alumnoId}
-        alumnoNombre={builder?.alumnoId ? nombreAlumno(builder.alumnoId) : "Plantilla Maestra"}
-        planInicial={builder?.plan ?? null}
-        nombresExistentes={nombresExistentes}
-        soloLectura={!!builder?.plan && builder.plan.estado === "INACTIVO" && dataset.planes.some((p) => p.plan_origen_id === builder.plan?.id)}
-        diasIniciales={dataset.dias}
-        ejerciciosEnRutinaIniciales={dataset.ejerciciosEnRutina}
-        onRoutineSaved={() => void recargar()}
-      />
     </section>
   );
 }
