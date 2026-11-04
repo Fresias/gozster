@@ -89,8 +89,22 @@ describe("Flujos de reserva sobre el dataset demo (Gherkin GH #122)", () => {
     expect(useClasesStore.getState().error).toBe("Tu membresía no está habilitada para reservar");
   });
 
-  it("GIVEN una clase con capacidad 3 y 3 anotados WHEN un cuarto alumno reserva THEN ve 'No quedan cupos' (GZ001)", async () => {
-    // Sofía Benítez (pase libre) intenta anotarse en la clase de miércoles que ya tiene 3 anotados
+  it("GIVEN un alumno reservando una clase sin cupo límite WHEN confirma su reserva THEN queda ANOTADO sin 'No quedan cupos' (GOZS-354)", async () => {
+    // Sofía Benítez (pase libre) se anota en la clase demo de miércoles (capacidad = null por defecto)
+    useClasesStore.getState().setDemoAlumnoId("demo-alumno-sofia");
+    await useClasesStore.getState().cargarClasesAlumno();
+
+    await useClasesStore.getState().reservar("demo-clase-func-miercoles");
+    expect(useClasesStore.getState().error).toBeNull();
+    const reserva = useClasesStore.getState().misReservas.find((r) => r.clase_id === "demo-clase-func-miercoles");
+    expect(reserva?.estado).toBe("ANOTADO");
+    expect(useClasesStore.getState().sinCupo).not.toContain("demo-clase-func-miercoles");
+  });
+
+  it("GIVEN una clase donde el coach edita el cupo a un límite específico y se llena WHEN un nuevo alumno reserva THEN ve 'No quedan cupos' (GZ001, GOZS-354)", async () => {
+    // El coach define un límite explícito de 5 cupos para la clase de miércoles (que ya tiene 5 anotados)
+    await useClasesStore.getState().actualizarCupoClase("demo-clase-func-miercoles", 5);
+
     useClasesStore.getState().setDemoAlumnoId("demo-alumno-sofia");
     await useClasesStore.getState().cargarClasesAlumno();
 
