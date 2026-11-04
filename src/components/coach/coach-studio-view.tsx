@@ -36,7 +36,7 @@ import {
   obtenerActividadesAlumno,
 } from "@/lib/alumno-actividades";
 
-import type { LiveSupabaseDataset } from "@/services/alumnos-service";
+import type { LiveSupabaseDataset, AlumnoEstancado } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import {
@@ -50,8 +50,10 @@ import {
 
 export function CoachStudioView({
   initialDataset,
+  estancados = [],
 }: {
   initialDataset?: LiveSupabaseDataset | null;
+  estancados?: AlumnoEstancado[];
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
@@ -63,6 +65,25 @@ export function CoachStudioView({
   const leftCol = hasPendingAlerts ? "xl:col-start-1" : "xl:col-span-2";
 
   const alumnos = DEMO_GIMNASIO.alumnos;
+
+  // Mapa de alumnos estancados (+30 días sin PR) (GOZS-351)
+  const estancadosMap = React.useMemo(() => {
+    const map = new Map<string, AlumnoEstancado>();
+    for (const e of estancados) {
+      map.set(e.alumnoId, e);
+    }
+    if (estancados.length === 0) {
+      const demoEstancado = alumnos.find(
+        (a) =>
+          a.nombre_completo.toLowerCase().includes("sofia") ||
+          a.nombre_completo.toLowerCase().includes("albarracín"),
+      );
+      if (demoEstancado) {
+        map.set(demoEstancado.id, { alumnoId: demoEstancado.id, diasSinPR: 42 });
+      }
+    }
+    return map;
+  }, [estancados, alumnos]);
   const planes = DEMO_GIMNASIO.planes;
   const dias =
     initialDataset && initialDataset.dias.length > 0
@@ -811,6 +832,7 @@ export function CoachStudioView({
 
                         // Badges de alerta por atleta
                         const badges = getDemoAlumnoAlerts(alumno.nombre_completo);
+                        const estancadoInfo = estancadosMap.get(alumno.id);
 
                         const rowPaddingClass = "min-h-[48px] py-2.5";
 
@@ -837,6 +859,15 @@ export function CoachStudioView({
                                     {esAlumnoNuevo(alumno.created_at) && (
                                       <span className="ml-1.5 align-middle text-[10px] rounded bg-secondary px-1.5 font-normal text-muted-foreground">
                                         Nuevo
+                                      </span>
+                                    )}
+                                    {estancadoInfo && (
+                                      <span
+                                        data-testid={`badge-estancado-nombre-${alumno.id}`}
+                                        className="ml-1.5 align-middle text-[10px] rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-600 dark:text-amber-400"
+                                        title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
+                                      >
+                                        +30d sin PR
                                       </span>
                                     )}
                                   </span>
@@ -883,7 +914,17 @@ export function CoachStudioView({
                             {/* 5. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
                             <td className={`${rowPaddingClass} px-3 text-left`}>
                               <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
-                                {badges.length === 0 ? (
+                                {estancadoInfo && (
+                                  <span
+                                    data-testid={`badge-estancado-${alumno.id}`}
+                                    className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-xs"
+                                    title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
+                                    aria-label="Alumno estancado (+30 días sin PR)"
+                                  >
+                                    <span>⚠️</span> +30d sin PR
+                                  </span>
+                                )}
+                                {badges.length === 0 && !estancadoInfo ? (
                                   <span className="text-muted-foreground/40 text-[11px] select-none">
                                     —
                                   </span>

@@ -47,8 +47,10 @@ import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { triggerHapticVibration } from "@/lib/sound";
-// GOZS-275: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
+// GOZS-275 / GOZS-351: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
+// GOZS-351: en Vista Técnica se elimina en runtime el bloque de ayuda y el popover de taxonomía W/N/F/D
+const MOSTRAR_AYUDA_TAXONOMIA_WNFD = false as boolean;
 
 
 /** "Biserie A1" (2 ejercicios) o "Circuito A1 · 3 ejercicios" (3 o más). */
@@ -1483,6 +1485,8 @@ export function LiveWorkout() {
                               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                                 Tipo de Serie
                               </span>
+                              {/* GOZS-351: Popover de taxonomía W/N/F/D no se renderiza en runtime para el atleta */}
+                              {MOSTRAR_AYUDA_TAXONOMIA_WNFD && (
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <button
@@ -1565,6 +1569,7 @@ export function LiveWorkout() {
                                   </div>
                                 </PopoverContent>
                               </Popover>
+                              )}
                             </div>
                             {/* Indicador de tipo de serie fijado por el constructor (sin selector manual W/N/F/D para el alumno - GOZS-275) */}
                             {currentExercise.tipo_serie === "DROPSET" ? (
@@ -2224,6 +2229,42 @@ export function LiveWorkout() {
               <p className="text-[11px] text-muted-foreground">
                 Define cuánto suman o restan los botones en cada toque (por defecto 2.5 kg).
               </p>
+            </div>
+
+            {/* Toggle de Rutina en Cascada / Colapsada (GOZS-351) */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <label
+                    htmlFor="toggle-colapsar-rutina"
+                    className="text-xs font-bold text-foreground block cursor-pointer"
+                  >
+                    Colapsar rutina en cascada
+                  </label>
+                  <p className="text-[11px] text-muted-foreground leading-tight">
+                    Minimiza los ejercicios mostrando únicamente el activo para llegar más rápido al registro.
+                  </p>
+                </div>
+                <button
+                  id="toggle-colapsar-rutina"
+                  type="button"
+                  role="switch"
+                  aria-checked={colapsarRutina}
+                  aria-label="Colapsar rutina en cascada"
+                  data-testid="toggle-colapsar-rutina"
+                  onClick={() => setColapsarRutina(!colapsarRutina)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none touch-manipulation ${
+                    colapsarRutina ? "bg-primary" : "bg-secondary"
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      colapsarRutina ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Acceso a Cuestionario Inicial Opcional */}
