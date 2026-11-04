@@ -387,7 +387,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 max-w-[1920px]`}>{children}</main>
+        <main className={`flex-1 w-full min-w-0 max-w-full p-4 sm:p-6 lg:p-8 max-w-[1920px] overflow-x-hidden`}>{children}</main>
       </div>
     </div>
   );

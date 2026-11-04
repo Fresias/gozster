@@ -576,13 +576,18 @@ export const useAthleteStore = create<AthleteStoreState>()(
             ...state.historialSesiones.filter((h) => h.sesion.id !== sessionId),
           ];
 
-          return {
+          const res = {
             sesionesCompletadas: nuevasSesiones,
             historialSesiones: nuevoHistorial,
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
           };
+          // Invalidar y recargar automáticamente miProgreso tras finalizar o marcar día
+          setTimeout(() => {
+            void get().cargarMiProgreso();
+          }, 0);
+          return res;
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
       setActivePainBanner: (banner) => set({ activePainBanner: banner }),
@@ -1214,8 +1219,40 @@ export const useAthleteStore = create<AthleteStoreState>()(
       // (mismo patrón que cargarUltimaVez). Sin red no consulta: queda lo persistido.
       cargarMiProgreso: async () => {
         if (!useOfflineQueueStore.getState().isOnline) return;
-        const session = get().currentSession;
-        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+
+        let alumnoId: string | null = null;
+
+        // 1. Intentar resolver usuario autenticado de la sesión Supabase
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id && UUID_RE.test(authData.user.id)) {
+            alumnoId = authData.user.id;
+          }
+        } catch (err) {
+          console.warn("Aviso al obtener usuario autenticado para MiProgreso:", err);
+        }
+
+        // 2. Si no hay auth, resolver desde el perfil de plan persistido
+        if (!alumnoId) {
+          const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
+          if (planStudentId && UUID_RE.test(planStudentId)) {
+            alumnoId = planStudentId;
+          }
+        }
+
+        // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
+        if (!alumnoId) {
+          const session = get().currentSession;
+          if (session?.studentId && UUID_RE.test(session.studentId)) {
+            alumnoId = session.studentId;
+          }
+        }
+
+        // 4. Fallback al atleta por defecto para entornos demo y testing
+        if (!alumnoId && DEFAULT_ATHLETE_ID && UUID_RE.test(DEFAULT_ATHLETE_ID)) {
+          alumnoId = DEFAULT_ATHLETE_ID;
+        }
+
         if (!alumnoId) return;
 
         set({ cargandoMiProgreso: true });
@@ -1492,6 +1529,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 { onConflict: "sesion_id, ejercicio_id, numero_serie" }
               );
             }
+
+            // Invalidar y recargar automáticamente miProgreso tras guardar sesión
+            void get().cargarMiProgreso();
 
             return { success: true };
           } catch (e: any) {

@@ -780,7 +780,7 @@ export function CoachStudioView({
 
             {/* Contenido según vista seleccionada */}
             {/* Cuadro Estadístico INDEC 1.1 con Semáforos M3 Puros y Ergonomía Táctil (Touch targets ≥ 48px) */}
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs w-full min-w-0 max-w-full">
               {/* Subheader & Metadatos INDEC */}
               <div className="border-b border-border/80 bg-secondary/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="flex items-center gap-3">
@@ -809,9 +809,12 @@ export function CoachStudioView({
                 </div>
               </div>
 
-              {/* Tabla Matriz con Semáforos M3 (Cero Texto Redundante) */}
-              <div className="w-full overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
+              {/* Tabla Matriz con Semáforos M3 (Contención estricta overflow-x-auto táctil) */}
+              <div
+                className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <table className="w-full min-w-[700px] text-xs border-collapse">
                   <thead>
                     <tr className="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2.5 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40">

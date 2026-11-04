@@ -16,6 +16,7 @@ import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
+import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import {
   TriangleAlert,
   Timer,
@@ -105,6 +106,8 @@ export function LiveWorkout() {
     ultimaVez,
     cargandoUltimaVez,
     cargarUltimaVez,
+    cargarMiProgreso,
+    planAlumno,
     marcas,
     registrarSerieEnMarcas,
   } = useAthleteStore();
@@ -500,6 +503,8 @@ export function LiveWorkout() {
     if (diaActivoId) {
       marcarDiaCompletado(diaActivoId);
     }
+    // Invalidar/recargar miProgreso inmediatamente tras finalizar
+    void cargarMiProgreso();
     setIsFinishing(false);
     setWorkoutFinished(true);
     setShowCelebrationModal(true);
@@ -1634,8 +1639,9 @@ export function LiveWorkout() {
                               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                                 RPE Objetivo
                               </span>
-                              <span className="text-xs font-mono font-bold text-primary">
-                                {serie.estimated1RM.toFixed(1)} kg 1RM
+                              <span className="text-xs font-mono font-bold text-primary inline-flex items-center gap-1">
+                                <span>{serie.estimated1RM.toFixed(1)} kg 1RM</span>
+                                <Tooltip1RM size="sm" />
                               </span>
                             </div>
                             <div
@@ -2410,10 +2416,13 @@ export function LiveWorkout() {
         seriesCompletadas={completedSetsCount}
         totalSeries={totalSets}
         duracionMinutos={Math.max(1, Math.round((Date.now() - sessionStartTimeRef.current) / 60000)) || 45}
-        rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 4)}
-        rachaPrevia={Math.max(0, (sesionesCompletadas?.length || 0) + 3)}
-        metaDiasSemana={4}
-        diasCompletadosSemana={Math.max(1, sesionesCompletadas?.length || 1)}
+        rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 1)}
+        rachaPrevia={Math.max(0, sesionesCompletadas?.length || 0)}
+        metaDiasSemana={planAlumno?.dias?.length || 3}
+        diasCompletadosSemana={Math.min(
+          planAlumno?.dias?.length || 3,
+          Math.max(1, (sesionesCompletadas?.length || 0) + 1)
+        )}
         recordsObtenidos={sessionPRs}
         studentName={currentSession.studentName || "Fernando Rosales"}
         diaNombre={cleanDiaTitle || "Día 1"}
