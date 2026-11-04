@@ -234,6 +234,7 @@ export function ChatFab({
       {isOpen && (
         <div
           id="coach-chat-drawer"
+          data-testid="coach-chat-drawer"
           role="dialog"
           aria-modal="true"
           aria-labelledby="chat-drawer-title"

@@ -281,9 +281,46 @@ export function InicioMisDias() {
     </div>
   ) : null;
 
+  const bannerMensajeNoLeido = latestUnreadStaffMessage ? (
+    <div
+      role="status"
+      onClick={() => setAthleteChatOpen(true)}
+      className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs"
+      data-testid="unread-coach-message-banner"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
+          !
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-primary">Mensaje nuevo del Coach</span>
+            <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+              No leído
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+            {latestUnreadStaffMessage.contenido}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setAthleteChatOpen(true);
+        }}
+        className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8"
+      >
+        Ver mensaje
+      </button>
+    </div>
+  ) : null;
+
   if (diasItems.length === 0) {
     return (
       <div className="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan">
+        {bannerMensajeNoLeido}
         {tarjetaRecordatorioPeso}
         <div className="text-center space-y-2">
           <p className="text-sm font-medium text-muted-foreground">
@@ -357,41 +394,7 @@ export function InicioMisDias() {
       )}
 
       {/* Aviso prominente de mensaje no leído del Coach */}
-      {latestUnreadStaffMessage && (
-        <div
-          role="status"
-          onClick={() => setAthleteChatOpen(true)}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs"
-          data-testid="unread-coach-message-banner"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
-              !
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-primary">Mensaje nuevo del Coach</span>
-                <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
-                  No leído
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-                {latestUnreadStaffMessage.contenido}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setAthleteChatOpen(true);
-            }}
-            className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8"
-          >
-            Ver mensaje
-          </button>
-        </div>
-      )}
+      {bannerMensajeNoLeido}
 
       {/* Recordatorio de RPE obligatorio sin bloqueo */}
       {(rpeReminderNotification || pendingRpeExercise) && (
