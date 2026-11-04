@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
@@ -163,6 +164,7 @@ export function CoachStudioView({
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "NUEVOS"
   >("ALL");
+  const router = useRouter();
   const [sinEntrenarFilter, setSinEntrenarFilter] = React.useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [isSankeyModalOpen, setIsSankeyModalOpen] = React.useState(false);
@@ -486,7 +488,11 @@ export function CoachStudioView({
               .map((a) => a.nombre_completo)}
             sinRutina={metricas.cantSinPlanEntrenamiento}
             onAsignarClick={() => setIsAssignModalOpen(true)}
-            onIngresosClick={() => setIsSankeyModalOpen(true)}
+            {/* Contrato GOZS-349: onIngresosClick={() => setIsSankeyModalOpen(true)} */}
+            onIngresosClick={() => {
+              setIsSankeyModalOpen(true);
+              router.push("/studio/ingresos");
+            }}
             onSinEntrenarClick={() => {
               setIsAlumnosExpanded(true);
               setSinEntrenarFilter(true);
