@@ -22,6 +22,7 @@ import {
   getMananaFechaString,
   validarVigenciaFutura,
 } from "@/lib/planes";
+import { HistorialCobrosDrawer } from "@/components/coach/historial-cobros-drawer";
 
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
@@ -306,9 +307,19 @@ export function CobrosPanel({
     }
   };
 
+  // Drawer lateral de Historial de Cobros y Pagos (GOZS-350)
+  const [historialAlumnoId, setHistorialAlumnoId] = React.useState<string | null>(null);
+  const [historialDrawerOpen, setHistorialDrawerOpen] = React.useState(false);
+
   const verHistorial = (alumnoId: string) => {
     selectAlumno(alumnoId);
-    router.push("/studio");
+    setHistorialAlumnoId(alumnoId);
+    setHistorialDrawerOpen(true);
+  };
+
+  const cerrarHistorial = () => {
+    setHistorialDrawerOpen(false);
+    setHistorialAlumnoId(null);
   };
 
   const abrirComprobante = (contratacionId: string) => {
@@ -1641,6 +1652,22 @@ export function CobrosPanel({
           </div>
         )}
       </dialog>
+
+      {/* Drawer lateral de Historial de Cobros y Pagos del Alumno (GOZS-350) */}
+      <HistorialCobrosDrawer
+        isOpen={historialDrawerOpen}
+        onClose={cerrarHistorial}
+        alumnoId={historialAlumnoId}
+        cobros={cobros}
+        onAbrirComprobante={abrirComprobante}
+        onRegistrarPago={(cobro) => {
+          setCobroSeleccionado(cobro);
+          setPagoMonto(cobro.monto);
+          setPagoMedio("TRANSFERENCIA");
+          setPagoNotas(cobro.notaDescuento || "");
+          registrarDialogRef.current?.showModal();
+        }}
+      />
     </section>
   );
 }
