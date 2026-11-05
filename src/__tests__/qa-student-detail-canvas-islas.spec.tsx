@@ -10,6 +10,7 @@ import {
   IslaRoutineWorkbench,
   IslaMetricas1RM,
   IslaSaludAnamnesis,
+  IslaAdministrativa,
   IslaCardShell,
 } from "@/components/coach/student-detail/islas";
 import { DEMO_ALUMNOS } from "@/services/coach-demo-dataset";
@@ -109,12 +110,13 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain("Timeline Biomecánico Ribbon");
     });
 
-    it("la arquitectura desacoplada exporta las 5 islas autónomas desde src/components/coach/student-detail/islas", () => {
+    it("la arquitectura desacoplada exporta las islas autónomas desde src/components/coach/student-detail/islas", () => {
       expect(IslaTimelineRibbon).toBeDefined();
       expect(IslaActivityFeed).toBeDefined();
       expect(IslaRoutineWorkbench).toBeDefined();
       expect(IslaMetricas1RM).toBeDefined();
       expect(IslaSaludAnamnesis).toBeDefined();
+      expect(IslaAdministrativa).toBeDefined();
       expect(IslaCardShell).toBeDefined();
     });
   });
@@ -140,12 +142,13 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
         />
       );
 
-      // Drag handles para cada una de las 5 islas
+      // Drag handles para cada una de las islas
       expect(html).toContain('data-testid="drag-handle-timeline"');
       expect(html).toContain('data-testid="drag-handle-activity_feed"');
       expect(html).toContain('data-testid="drag-handle-routine_workbench"');
       expect(html).toContain('data-testid="drag-handle-metricas_1rm"');
       expect(html).toContain('data-testid="drag-handle-salud_anamnesis"');
+      expect(html).toContain('data-testid="drag-handle-administracion"');
 
       // Botones de colapso para cada isla
       expect(html).toContain('data-testid="collapse-btn-timeline"');
@@ -153,6 +156,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="collapse-btn-routine_workbench"');
       expect(html).toContain('data-testid="collapse-btn-metricas_1rm"');
       expect(html).toContain('data-testid="collapse-btn-salud_anamnesis"');
+      expect(html).toContain('data-testid="collapse-btn-administracion"');
 
       // Menú de opciones
       expect(html).toContain('data-testid="menu-btn-timeline"');

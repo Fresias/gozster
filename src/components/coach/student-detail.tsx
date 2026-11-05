@@ -48,6 +48,7 @@ import {
   IslaRoutineWorkbench,
   IslaMetricas1RM,
   IslaSaludAnamnesis,
+  IslaAdministrativa,
 } from "@/components/coach/student-detail/islas";
 import {
   derivarActividadFrecuencia,
@@ -625,20 +626,41 @@ export function StudentDetail({
   const storageKey = `gozster_canvas_layout_${coachId}`;
 
   const [isCanvasMode, setIsCanvasMode] = React.useState(false);
-  const [islandOrder, setIslandOrder] = React.useState<string[]>([
+  const DEFAULT_ISLAND_ORDER = [
     "timeline",
     "activity_feed",
     "routine_workbench",
     "metricas_1rm",
     "salud_anamnesis",
-  ]);
+    "administracion",
+  ];
+  const [islandOrder, setIslandOrder] = React.useState<string[]>(DEFAULT_ISLAND_ORDER);
   const [collapsedIslands, setCollapsedIslands] = React.useState<Record<string, boolean>>({
     timeline: false,
     activity_feed: false,
     routine_workbench: false,
     metricas_1rm: false,
     salud_anamnesis: false,
+    administracion: false,
   });
+
+  const resetLayout = () => {
+    setIslandOrder(DEFAULT_ISLAND_ORDER);
+    setCollapsedIslands({
+      timeline: false,
+      activity_feed: false,
+      routine_workbench: false,
+      metricas_1rm: false,
+      salud_anamnesis: false,
+      administracion: false,
+    });
+    setIsFeedRailCollapsed(false);
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {}
+    }
+  };
   const [isFeedRailCollapsed, setIsFeedRailCollapsed] = React.useState(false);
   const [draggedIslandId, setDraggedIslandId] = React.useState<string | null>(null);
   const [dropTargetIslandId, setDropTargetIslandId] = React.useState<string | null>(null);
@@ -1556,277 +1578,9 @@ export function StudentDetail({
     </div>
   );
 
-  const renderIsland = (islandId: string) => {
-    const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
-    const isCollapsed = !!collapsedIslands[islandId];
-
-    switch (islandId) {
-      case "timeline":
-        return (
-          <IslaTimelineRibbon
-            key="timeline"
-            historialCargas={historialCargas}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapseIsland("timeline")}
-            isCanvasMode={isCanvasMode}
-            isDragTarget={isTarget}
-            onDragStart={handleDragStart("timeline")}
-            onDragOver={handleDragOver("timeline")}
-            onDragLeave={handleDragLeave("timeline")}
-            onDrop={handleDrop("timeline")}
-          />
-        );
-
-      case "activity_feed":
-        return (
-          <IslaActivityFeed
-            key="activity_feed"
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapseIsland("activity_feed")}
-            isRailCollapsed={isFeedRailCollapsed}
-            onToggleRail={toggleFeedRail}
-            isCanvasMode={isCanvasMode}
-            isDragTarget={isTarget}
-            onDragStart={handleDragStart("activity_feed")}
-            onDragOver={handleDragOver("activity_feed")}
-            onDragLeave={handleDragLeave("activity_feed")}
-            onDrop={handleDrop("activity_feed")}
-            historialPagosNode={historialPagosNode}
-            chatPanelNode={chatPanelNode}
-          />
-        );
-
-      case "routine_workbench":
-        return (
-          <IslaRoutineWorkbench
-            key="routine_workbench"
-            rutinaActiva={rutinaActiva}
-            dias={dias}
-            ejerciciosEnRutina={ejerciciosEnRutina}
-            ejerciciosCatalogo={ejerciciosCatalogo}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapseIsland("routine_workbench")}
-            isCanvasMode={isCanvasMode}
-            isDragTarget={isTarget}
-            onDragStart={handleDragStart("routine_workbench")}
-            onDragOver={handleDragOver("routine_workbench")}
-            onDragLeave={handleDragLeave("routine_workbench")}
-            onDrop={handleDrop("routine_workbench")}
-            onQuickSwap={
-              onQuickSwap && chatActivePainAlert
-                ? () => onQuickSwap(chatActivePainAlert)
-                : undefined
-            }
-            childrenTabs={routineTabsNode}
-          />
-        );
-
-      case "metricas_1rm":
-        return (
-          <IslaMetricas1RM
-            key="metricas_1rm"
-            historialCargas={historialCargas}
-            pesoCorporalActual={(alumno as any).peso_corporal_kg || 78.5}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapseIsland("metricas_1rm")}
-            isCanvasMode={isCanvasMode}
-            isDragTarget={isTarget}
-            onDragStart={handleDragStart("metricas_1rm")}
-            onDragOver={handleDragOver("metricas_1rm")}
-            onDragLeave={handleDragLeave("metricas_1rm")}
-            onDrop={handleDrop("metricas_1rm")}
-            adherenciaNode={adherenciaNode}
-          />
-        );
-
-      case "salud_anamnesis":
-        return (
-          <IslaSaludAnamnesis
-            key="salud_anamnesis"
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapseIsland("salud_anamnesis")}
-            isCanvasMode={isCanvasMode}
-            isDragTarget={isTarget}
-            onDragStart={handleDragStart("salud_anamnesis")}
-            onDragOver={handleDragOver("salud_anamnesis")}
-            onDragLeave={handleDragLeave("salud_anamnesis")}
-            onDrop={handleDrop("salud_anamnesis")}
-            cuestionarioNode={cuestionarioNode}
-            painAlertsNode={<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />}
-            evaDolorActual={chatActivePainAlert ? 5 : 0}
-            zonaDolorActual={chatActivePainAlert?.zona || "Ninguna"}
-            onQuickSwap={
-              onQuickSwap && chatActivePainAlert
-                ? () => onQuickSwap(chatActivePainAlert)
-                : undefined
-            }
-          />
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Top Bar / Back */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          size="default"
-          onClick={onBack}
-          className="min-h-11 gap-2 text-xs font-semibold"
-        >
-          <span>← Volver a Alumnos</span>
-        </Button>
-        <div className="flex items-center gap-2">
-          {isOffline && (
-            <Badge variant="warning" className="text-[11px]">
-              Modo Offline • Acciones en cola
-            </Badge>
-          )}
-          {onPreviewAthlete && (
-            <Button
-              type="button"
-              variant="outline"
-              size="default"
-              onClick={() => onPreviewAthlete(alumno)}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
-              data-testid="detail-preview-athlete-btn"
-            >
-              <span>👁️ Ver como Alumno</span>
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="default"
-            size="default"
-            onClick={() => {
-              onOpenChat?.();
-              openChatForAlumno(alumno.id);
-            }}
-            className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold"
-            data-testid="enviar-mensaje-btn"
-            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-          >
-            <span>💬 Enviar mensaje</span>
-          </Button>
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
-            data-testid="whatsapp-direct-btn"
-          >
-            <span>💬 WhatsApp 1-Clic</span>
-          </a>
-          <Button
-            type="button"
-            variant={isCanvasMode ? "default" : "outline"}
-            size="default"
-            onClick={() => setIsCanvasMode((prev) => !prev)}
-            className={`inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold ${isCanvasMode ? "bg-primary text-primary-foreground shadow-sm" : "border-primary/40 text-primary hover:bg-primary/10"}`}
-            data-testid="btn-modo-canvas"
-            aria-label="Alternar Modo Canvas Modular"
-          >
-            <span>⠿ Modo Canvas</span>
-            {isCanvasMode && (
-              <span className="rounded bg-primary-foreground/20 px-1 py-0.5 text-[10px] uppercase font-mono">
-                Activo
-              </span>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {isCanvasMode && (
-        <div
-          data-testid="banner-modo-canvas"
-          className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2.5 text-xs text-primary font-medium"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-base select-none">⠿</span>
-            <span>
-              <strong>Modo Canvas Activo:</strong> Arrastrá las islas mediante el drag handle (⠿) para reordenar la grilla modular o usá [-] para colapsar. La disposición se persiste automáticamente en localStorage.
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCanvasMode(false)}
-            className="h-7 text-xs font-bold text-primary hover:bg-primary/20"
-          >
-            Listo
-          </Button>
-        </div>
-      )}
-
-      {/* Ficha Header */}
-      <Card>
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground">
-                {alumno.nombre_completo
-                  .split(" ")
-                  .map((p) => p[0])
-                  .slice(0, 2)
-                  .join("")}
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">
-                    {alumno.nombre_completo}
-                  </h2>
-                  {getPaymentBadge(alumno.estado_membresia)}
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${healthScore.colorClass}`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                    Semáforo de Salud: {healthScore.score}/100 ({healthScore.badgeLabel})
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {alumno.email ?? "Sin email"} • Cliente desde{" "}
-                  {new Date(alumno.created_at).toLocaleDateString("es-AR", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="default"
-                onClick={onOpenHistoricalLoads}
-                className="min-h-11 w-full gap-2 text-xs font-semibold sm:w-auto"
-                aria-label="Revisar cargas y RPE históricos"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path d="M3 3v18h18" />
-                  <path d="m19 9-5 5-4-4-3 3" />
-                </svg>
-                <span>Cargas y RPE Históricos</span>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Resumen Comercial y Estado de Pago (GOZS-247) */}
-      <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
+  const suscripcionNode = (
+    /* Resumen Comercial y Estado de Pago (GOZS-247) */
+    <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
         <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
@@ -1930,9 +1684,11 @@ export function StudentDetail({
           )}
         </CardContent>
       </Card>
+  );
 
-      {/* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */}
-      <Card data-testid="coach-nivel-vista-card">
+  const nivelVistaNode = (
+    /* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */
+    <Card data-testid="coach-nivel-vista-card">
         <CardContent className="p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1991,9 +1747,11 @@ export function StudentDetail({
           </div>
         </CardContent>
       </Card>
+  );
 
-      {/* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */}
-      <Card data-testid="contratacion-panel">
+  const contratacionNode = (
+    /* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */
+    <Card data-testid="contratacion-panel">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-bold">
             Estado Comercial y Contratación
@@ -2286,6 +2044,308 @@ export function StudentDetail({
           </div>
         </CardContent>
       </Card>
+  );
+
+  const renderIsland = (islandId: string) => {
+    const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
+    const isCollapsed = !!collapsedIslands[islandId];
+
+    switch (islandId) {
+      case "timeline":
+        return (
+          <IslaTimelineRibbon
+            key="timeline"
+            historialCargas={historialCargas}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("timeline")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("timeline")}
+            onDragOver={handleDragOver("timeline")}
+            onDragLeave={handleDragLeave("timeline")}
+            onDrop={handleDrop("timeline")}
+          />
+        );
+
+      case "activity_feed":
+        return (
+          <IslaActivityFeed
+            key="activity_feed"
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("activity_feed")}
+            isRailCollapsed={isFeedRailCollapsed}
+            onToggleRail={toggleFeedRail}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("activity_feed")}
+            onDragOver={handleDragOver("activity_feed")}
+            onDragLeave={handleDragLeave("activity_feed")}
+            onDrop={handleDrop("activity_feed")}
+          />
+        );
+
+      case "routine_workbench":
+        return (
+          <IslaRoutineWorkbench
+            key="routine_workbench"
+            rutinaActiva={rutinaActiva}
+            dias={dias}
+            ejerciciosEnRutina={ejerciciosEnRutina}
+            ejerciciosCatalogo={ejerciciosCatalogo}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("routine_workbench")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("routine_workbench")}
+            onDragOver={handleDragOver("routine_workbench")}
+            onDragLeave={handleDragLeave("routine_workbench")}
+            onDrop={handleDrop("routine_workbench")}
+            onQuickSwap={
+              onQuickSwap && chatActivePainAlert
+                ? () => onQuickSwap(chatActivePainAlert)
+                : undefined
+            }
+            childrenTabs={routineTabsNode}
+          />
+        );
+
+      case "metricas_1rm":
+        return (
+          <IslaMetricas1RM
+            key="metricas_1rm"
+            historialCargas={historialCargas}
+            pesoCorporalActual={(alumno as any).peso_corporal_kg || 78.5}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("metricas_1rm")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("metricas_1rm")}
+            onDragOver={handleDragOver("metricas_1rm")}
+            onDragLeave={handleDragLeave("metricas_1rm")}
+            onDrop={handleDrop("metricas_1rm")}
+            adherenciaNode={adherenciaNode}
+          />
+        );
+
+      case "salud_anamnesis":
+        return (
+          <IslaSaludAnamnesis
+            key="salud_anamnesis"
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("salud_anamnesis")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("salud_anamnesis")}
+            onDragOver={handleDragOver("salud_anamnesis")}
+            onDragLeave={handleDragLeave("salud_anamnesis")}
+            onDrop={handleDrop("salud_anamnesis")}
+            cuestionarioNode={cuestionarioNode}
+            painAlertsNode={<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />}
+            evaDolorActual={chatActivePainAlert ? 5 : 0}
+            zonaDolorActual={chatActivePainAlert?.zona || "Ninguna"}
+            onQuickSwap={
+              onQuickSwap && chatActivePainAlert
+                ? () => onQuickSwap(chatActivePainAlert)
+                : undefined
+            }
+          />
+        );
+
+      case "administracion":
+        return (
+          <IslaAdministrativa
+            key="administracion"
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("administracion")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("administracion")}
+            onDragOver={handleDragOver("administracion")}
+            onDragLeave={handleDragLeave("administracion")}
+            onDrop={handleDrop("administracion")}
+            suscripcionNode={suscripcionNode}
+            historialPagosNode={historialPagosNode}
+            contratacionNode={contratacionNode}
+            chatResponsableNode={chatPanelNode}
+            nivelVistaNode={nivelVistaNode}
+            cuestionarioNode={cuestionarioNode}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 1. Header Bar Unificado y Compacto (h-16) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBack}
+            className="h-9 gap-1.5 text-xs font-semibold"
+          >
+            <span>← Volver</span>
+          </Button>
+
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
+            {alumno.nombre_completo
+              .split(" ")
+              .map((p) => p[0])
+              .slice(0, 2)
+              .join("")}
+          </div>
+
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-bold tracking-tight text-foreground">
+                {alumno.nombre_completo}
+              </h2>
+              {getPaymentBadge(alumno.estado_membresia)}
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold border ${healthScore.colorClass}`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                Salud: {healthScore.score}/100
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {alumno.email ?? "Sin email"} • Cliente desde{" "}
+              {new Date(alumno.created_at).toLocaleDateString("es-AR", {
+                month: "short",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isOffline && (
+            <Badge variant="warning" className="text-[10px]">
+              Offline
+            </Badge>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenHistoricalLoads}
+            className="h-9 gap-1.5 text-xs font-semibold"
+            aria-label="Revisar cargas y RPE históricos"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M3 3v18h18" />
+              <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            <span className="hidden sm:inline">Cargas Históricas</span>
+          </Button>
+
+          {onPreviewAthlete && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onPreviewAthlete(alumno)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
+              data-testid="detail-preview-athlete-btn"
+            >
+              <span>👁️ Ver como Alumno</span>
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => {
+              onOpenChat?.();
+              openChatForAlumno(alumno.id);
+            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold"
+            data-testid="enviar-mensaje-btn"
+            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+          >
+            <span>💬 Enviar mensaje</span>
+          </Button>
+
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+            data-testid="whatsapp-direct-btn"
+          >
+            <span>💬 WhatsApp</span>
+          </a>
+
+          <Button
+            type="button"
+            variant={isCanvasMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsCanvasMode((prev) => !prev)}
+            className={`inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold ${
+              isCanvasMode
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "border-primary/40 text-primary hover:bg-primary/10"
+            }`}
+            data-testid="btn-modo-canvas"
+            aria-label="Alternar Modo Canvas Modular"
+          >
+            <span>⠿ Modo Canvas</span>
+            {isCanvasMode && (
+              <span className="rounded bg-primary-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
+                ON
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Banner de Modo Canvas */}
+      {isCanvasMode && (
+        <div
+          data-testid="banner-modo-canvas"
+          className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2 text-xs text-primary font-medium"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base select-none">⠿</span>
+            <span>
+              <strong>Modo Canvas Activo:</strong> Arrastrá las islas mediante el drag handle (⠿) para reordenar la grilla modular o usá [-] para colapsar. La disposición se persiste automáticamente en localStorage.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetLayout}
+              className="h-7 text-xs font-semibold"
+            >
+              Restablecer
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCanvasMode(false)}
+              className="h-7 text-xs font-bold text-primary hover:bg-primary/20"
+            >
+              Listo
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Canvas Modular de Islas Autónomas y Colapsables (Issue #355 / docs/specs/student-detail-canvas-islas-spec.md) */}
       <div
@@ -2321,6 +2381,13 @@ export function StudentDetail({
                     isFeedRailCollapsed ? "lg:col-span-11" : "lg:col-span-8"
                   }
                 >
+                  {renderIsland(id)}
+                </div>
+              );
+            }
+            if (id === "administracion") {
+              return (
+                <div key={id} className="lg:col-span-12">
                   {renderIsland(id)}
                 </div>
               );
