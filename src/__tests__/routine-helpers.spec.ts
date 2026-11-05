@@ -31,6 +31,14 @@ describe("routine-helpers (Ponytail & Karpathy)", () => {
       expect(parseDefaultReps("10/12", 1)).toBe(12);
     });
 
+    it("soporta variantes con espacios tipo '8 / 12' y '10/15' retornando el máximo (GOZS-364)", () => {
+      expect(parseDefaultReps("8 / 12", 1)).toBe(12);
+      expect(parseDefaultReps("8/ 12", 1)).toBe(12);
+      expect(parseDefaultReps("8 /12", 1)).toBe(12);
+      expect(parseDefaultReps("10/15", 1)).toBe(15);
+      expect(parseDefaultReps("10 / 15", 1)).toBe(15);
+    });
+
     it("parsea rangos como '4 a 6' o '8-10'", () => {
       expect(parseDefaultReps("4 a 6", 1)).toBe(4);
       expect(parseDefaultReps("8-10", 1)).toBe(8);
@@ -59,6 +67,13 @@ describe("routine-helpers (Ponytail & Karpathy)", () => {
     it("reconoce '10/12' ordenando mínimo y máximo correctamente", () => {
       const res = parseRepRange("10/12");
       expect(res).toEqual({ isRange: true, min: 10, max: 12 });
+    });
+
+    it("soporta variantes limpias tipo '8 / 12', '8/ 12', '8 /12' y '10/15' (GOZS-364)", () => {
+      expect(parseRepRange("8 / 12")).toEqual({ isRange: true, min: 8, max: 12 });
+      expect(parseRepRange("8/ 12")).toEqual({ isRange: true, min: 8, max: 12 });
+      expect(parseRepRange("8 /12")).toEqual({ isRange: true, min: 8, max: 12 });
+      expect(parseRepRange("10/15")).toEqual({ isRange: true, min: 10, max: 15 });
     });
 
     it("retorna null para formatos sin barra o no numéricos", () => {

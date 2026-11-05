@@ -16,7 +16,7 @@ export interface RepRangeInfo {
 export function parseRepRange(repeticiones?: string): RepRangeInfo | null {
   if (!repeticiones) return null;
   const str = repeticiones.trim();
-  const slashMatch = str.match(/^(\d+)\/(\d+)$/);
+  const slashMatch = str.match(/^(\d+)\s*\/\s*(\d+)$/);
   if (slashMatch && slashMatch[1] && slashMatch[2]) {
     const n1 = parseInt(slashMatch[1], 10);
     const n2 = parseInt(slashMatch[2], 10);
@@ -55,14 +55,10 @@ export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: num
   if (!repeticionesObjetivo) return 10;
   const str = repeticionesObjetivo.trim();
 
-  // Caso: rango con barra "/" (ej. "8/12" o "10/12") -> target por defecto es el máximo
-  const slashMatch = str.match(/^(\d+)\/(\d+)$/);
-  if (slashMatch && slashMatch[1] && slashMatch[2]) {
-    const n1 = parseInt(slashMatch[1], 10);
-    const n2 = parseInt(slashMatch[2], 10);
-    if (!isNaN(n1) && !isNaN(n2)) {
-      return Math.max(n1, n2);
-    }
+  // Caso: rango con barra "/" (ej. "8/12", "8 / 12", "10/12") -> target por defecto es el máximo
+  const repRange = parseRepRange(str);
+  if (repRange?.isRange) {
+    return repRange.max;
   }
 
   // Caso: lista descendente como "10-8-6" o "12-10-8-6"
