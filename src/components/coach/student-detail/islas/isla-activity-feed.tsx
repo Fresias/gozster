@@ -27,9 +27,17 @@ export interface IslaActivityFeedProps {
   historialPagosNode?: React.ReactNode;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 const DEFAULT_FEED_ITEMS: ActivityFeedItem[] = [
@@ -91,9 +99,17 @@ export function IslaActivityFeed({
   historialPagosNode,
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow,
   onHide,
   canMoveUp,
   canMoveDown,
+  canMoveLeft,
+  canMoveRight,
 }: IslaActivityFeedProps) {
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
 
@@ -186,9 +202,17 @@ export function IslaActivityFeed({
       onDrop={onDrop}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
+      onMoveLeft={onMoveLeft}
+      onMoveRight={onMoveRight}
+      onSeparateRow={onSeparateRow}
+      onResizeWidth={onResizeWidth}
+      currentWidth={currentWidth}
+      isSharedRow={isSharedRow}
       onHide={onHide}
       canMoveUp={canMoveUp}
       canMoveDown={canMoveDown}
+      canMoveLeft={canMoveLeft}
+      canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>Bitácora compactada ({items.length} eventos registrados)</span>

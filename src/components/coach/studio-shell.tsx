@@ -81,7 +81,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`grid min-h-dvh grid-cols-1 ${isSidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[280px_1fr]"} bg-background text-foreground transition-all duration-200`}>
-      <aside className={`border-b border-border/80 bg-card/95 ${isSidebarCollapsed ? "p-3 lg:p-3" : "p-4 sm:p-6 lg:p-6"} lg:border-b-0 lg:border-r backdrop-blur-md transition-all duration-200`}>
+      <aside className={`border-b border-border/80 bg-card/95 ${isSidebarCollapsed ? "p-3 lg:p-2" : "p-4 sm:p-6 lg:p-6"} lg:border-b-0 lg:border-r backdrop-blur-md transition-all duration-200 overflow-x-hidden w-full max-w-full`}>
         <div className="flex flex-col gap-4 lg:gap-8">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-2.5" title="GOZSter Studio">
@@ -123,14 +123,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/studio/dashboard"
               data-testid="sidebar-metricas-link"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Métricas & Retención" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isDashboardActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -143,19 +146,22 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                 />
               </svg>
-              <span>Métricas &amp; Retención</span>
+              {!isSidebarCollapsed && <span>Métricas &amp; Retención</span>}
             </Link>
 
             <Link
               href="/studio"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Atletas & Rutinas" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isStudioActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -168,21 +174,23 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                 />
               </svg>
-              <span>Atletas &amp; Rutinas</span>
+              {!isSidebarCollapsed && <span>Atletas &amp; Rutinas</span>}
             </Link>
 
             <Link
               href="/studio/rutinas"
               data-testid="sidebar-routine-builder-btn"
-              title="Rutinas &amp; Constructor de Rutinas"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Rutinas & Constructor" : "Rutinas & Constructor de Rutinas"}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isRutinasActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -195,19 +203,22 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
                 />
               </svg>
-              <span>Rutinas &amp; Constructor</span>
+              {!isSidebarCollapsed && <span>Rutinas &amp; Constructor</span>}
             </Link>
 
             <Link
               href="/studio/agenda"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Agenda de Clases" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isAgendaActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -220,20 +231,23 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              <span>Agenda de Clases</span>
+              {!isSidebarCollapsed && <span>Agenda de Clases</span>}
             </Link>
 
             <Link
               href="/studio/ranking-funcional"
               data-testid="sidebar-ranking-link"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Ranking Funcional" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isRankingActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -252,14 +266,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/studio/cobros"
               data-testid="sidebar-cobros-link"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Cobros & Pagos" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isCobrosActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -278,14 +295,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/studio/documentacion"
               data-testid="sidebar-documentacion-link"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Documentación" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isDocumentacionActive
                   ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -303,14 +323,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
             <Link
               href="/athlete"
-              className={`inline-flex min-h-12 items-center rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+              title={isSidebarCollapsed ? "Vista Atleta (PWA)" : undefined}
+              className={`inline-flex min-h-12 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "px-3.5 py-2.5"
+              } ${
                 isAthleteActive
                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
               }`}
             >
               <svg
-                className="mr-2.5 h-4 w-4"
+                className={`${isSidebarCollapsed ? "h-5 w-5" : "mr-2.5 h-4 w-4"}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -333,7 +356,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               onClick={toggleSidebar}
               data-testid="sidebar-toggle-btn"
               className={`hidden lg:inline-flex min-h-11 items-center rounded-xl py-2.5 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all cursor-pointer ${
-                isSidebarCollapsed ? "justify-center px-2" : "justify-between px-3.5"
+                isSidebarCollapsed ? "justify-center px-0 w-full" : "justify-between px-3.5"
               }`}
               title={isSidebarCollapsed ? "Expandir menú de navegación" : "Colapsar menú a la izquierda"}
               aria-label={isSidebarCollapsed ? "Expandir menú de navegación" : "Colapsar menú a la izquierda"}

@@ -158,9 +158,11 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="collapse-btn-salud_anamnesis"');
       expect(html).toContain('data-testid="collapse-btn-administracion"');
 
-      // Menú de opciones
-      expect(html).toContain('data-testid="menu-btn-timeline"');
-      expect(html).toContain('data-testid="menu-btn-activity_feed"');
+      // Los botones "..." están eliminados a favor de controles directos y colapso explícito [-] / [+]
+      expect(html).not.toContain('data-testid="menu-btn-timeline"');
+      expect(html).not.toContain('data-testid="menu-btn-activity_feed"');
+      expect(html).toContain('data-testid="move-up-timeline"');
+      expect(html).toContain('data-testid="move-down-timeline"');
     });
   });
 
@@ -266,8 +268,8 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
     });
   });
 
-  describe("Criterio 6: IslaSaludAnamnesis con Escala EVA (1-10) y Red Flags", () => {
-    it("exhibe monitor visual de escala EVA de 1 a 10 y resumen colapsable de anamnesis", () => {
+  describe("Criterio 6: IslaSaludAnamnesis sin Escala EVA (1-10) y con Red Flags directos", () => {
+    it("elimina monitor visual de escala EVA 1-10 y exhibe reporte directo de molestia y anamnesis", () => {
       const html = renderToStaticMarkup(
         <IslaSaludAnamnesis
           isCollapsed={false}
@@ -279,9 +281,9 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       );
 
       expect(html).toContain('data-testid="isla-salud-anamnesis"');
-      expect(html).toContain('data-testid="eva-scale-display"');
+      // Directiva de Gabriel: EVA 1-10 eliminado
+      expect(html).not.toContain('data-testid="eva-scale-display"');
       expect(html).toContain('data-testid="red-flags-alert"');
-      expect(html).toContain("EVA 4/10");
       expect(html).toContain("Rodilla Izquierda");
       expect(html).toContain('data-testid="anamnesis-summary-collapsible"');
     });
@@ -306,8 +308,8 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
 
   describe("Criterio 8: Datos de Lucas Giménez (2 Meses Reales, 21 Sesiones y Cuestionario)", () => {
     it("MOCK_HISTORIAL_CARGAS contiene 21 sesiones reales espaciadas en 2 meses con progresión de sobrecarga", async () => {
-      const { MOCK_HISTORIAL_CARGAS } = await import("@/services/coach-mock-data");
-      const lucasLoads = MOCK_HISTORIAL_CARGAS["a1111111-1111-4111-8111-111111111101"];
+      const { MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } = await import("@/services/coach-mock-data");
+      const lucasLoads = LUCAS_2_MONTHS_HISTORIAL || MOCK_HISTORIAL_CARGAS["demo-alumno-01-lucas"];
 
       expect(lucasLoads).toBeDefined();
       expect(lucasLoads!.length).toBeGreaterThanOrEqual(20);
@@ -405,6 +407,83 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain("Configurar Islas");
       expect(html).toContain('data-testid="collapse-btn-timeline"');
       expect(html).toContain("[-]");
+    });
+  });
+
+  describe("Criterio 12: Sidebar Colapsable a la Izquierda sin Desbordamiento ni Superposición", () => {
+    it("studio-shell.tsx oculta etiquetas de texto y aplica overflow-x-hidden cuando isSidebarCollapsed es true", () => {
+      const source = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/coach/studio-shell.tsx"),
+        "utf-8"
+      );
+
+      // Verificación de overflow-x-hidden en el aside
+      expect(source).toContain("overflow-x-hidden");
+      expect(source).toContain("lg:grid-cols-[76px_1fr]");
+      expect(source).toContain("data-testid=\"sidebar-toggle-btn\"");
+
+      // Verificación de que los textos están condicionados a !isSidebarCollapsed
+      expect(source).toContain("{!isSidebarCollapsed && <span>Métricas &amp; Retención</span>}");
+      expect(source).toContain("{!isSidebarCollapsed && <span>Atletas &amp; Rutinas</span>}");
+      expect(source).toContain("{!isSidebarCollapsed && <span>Rutinas &amp; Constructor</span>}");
+      expect(source).toContain("{!isSidebarCollapsed && <span>Agenda de Clases</span>}");
+      expect(source).toContain("isSidebarCollapsed ? \"justify-center px-0 w-full\"");
+    });
+  });
+
+  describe("Criterio 13: Canvas por Filas con Ancho 100% por Defecto, Split 50/50 y Resize Horizontal", () => {
+    it("student-detail.tsx implementa canvasRows con soporte de filas independientes y resize adaptable", () => {
+      const source = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/coach/student-detail.tsx"),
+        "utf-8"
+      );
+
+      // Verificación del modelo de filas CanvasRow
+      expect(source).toContain("DEFAULT_CANVAS_ROWS");
+      expect(source).toContain("canvasRows");
+      expect(source).toContain("resizeIslandWidth");
+      expect(source).toContain("separateIslandToOwnRow");
+      expect(source).toContain("moveIslandLeft");
+      expect(source).toContain("moveIslandRight");
+
+      // Verificación del CSS Grid con fractional units para resize adaptable
+      expect(source).toContain("minmax(0,");
+      expect(source).toContain("gridTemplateColumns");
+    });
+
+    it("IslaCardShell incluye controles de resize horizontal (-, +, ⤢) y navegación relativa (⬅️, ➡️)", async () => {
+      const { IslaCardShell } = await import(
+        "@/components/coach/student-detail/islas/isla-card-shell"
+      );
+
+      const html = renderToStaticMarkup(
+        <IslaCardShell
+          id="test-shared"
+          title="Isla Compartida"
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isSharedRow={true}
+          currentWidth={60}
+          onResizeWidth={vi.fn()}
+          onSeparateRow={vi.fn()}
+          onMoveLeft={vi.fn()}
+          onMoveRight={vi.fn()}
+          canMoveLeft={true}
+          canMoveRight={true}
+        >
+          <div>Contenido de prueba</div>
+        </IslaCardShell>
+      );
+
+      // Controles de resize horizontal en fila compartida
+      expect(html).toContain('data-testid="resize-dec-test-shared"');
+      expect(html).toContain('data-testid="resize-inc-test-shared"');
+      expect(html).toContain('data-testid="separate-row-test-shared"');
+      expect(html).toContain("60%");
+
+      // Controles de movimiento relativo
+      expect(html).toContain('data-testid="move-left-test-shared"');
+      expect(html).toContain('data-testid="move-right-test-shared"');
     });
   });
 });

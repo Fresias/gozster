@@ -20,9 +20,17 @@ export interface IslaSaludAnamnesisProps {
   alumnoId?: string;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 export function IslaSaludAnamnesis({
@@ -42,14 +50,22 @@ export function IslaSaludAnamnesis({
   alumnoId = "demo-alumno-lucas",
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow,
   onHide,
   canMoveUp,
   canMoveDown,
+  canMoveLeft,
+  canMoveRight,
 }: IslaSaludAnamnesisProps) {
   const [anamnesisCollapsed, setAnamnesisCollapsed] = React.useState(true);
   const [isPainResolved, setIsPainResolved] = React.useState(false);
   const [coachLog, setCoachLog] = React.useState(
-    "28 Oct: Ante molestia en hombro anterior en Press de Banca, se pautó agarre neutro y se sustituyó temporalmente por Landmine Press a 45° (3x10 con 25kg) y Facepulls (3x15). Se reforzó retracción escapular previa al descenso. Dolor remitido de EVA 5/10 a EVA 0/10 en el último microciclo. Mantener agarre neutro."
+    "28 Oct: Ante molestia en hombro anterior en Press de Banca, se pautó agarre neutro y se sustituyó temporalmente por Landmine Press a 45° (3x10 con 25kg) y Facepulls (3x15). Se reforzó retracción escapular previa al descenso. Molestia remitida sin dolor en el último microciclo. Mantener agarre neutro."
   );
   const [saveSuccess, setSaveSuccess] = React.useState(false);
 
@@ -90,13 +106,6 @@ export function IslaSaludAnamnesis({
     }
   };
 
-  // Determinar color y severidad de escala EVA
-  const getEvaColor = (eva: number) => {
-    if (eva <= 3) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
-    if (eva <= 6) return "bg-amber-500/20 text-amber-400 border-amber-500/40";
-    return "bg-rose-500/20 text-rose-400 border-rose-500/40";
-  };
-
   return (
     <IslaCardShell
       id="salud_anamnesis"
@@ -104,13 +113,17 @@ export function IslaSaludAnamnesis({
       title="Clínica, Anamnesis &amp; Red Flags"
       icon={<span>🩺</span>}
       badge={
-        evaDolorActual > 0 ? (
+        zonaDolorActual && zonaDolorActual !== "Ninguna" ? (
           <Badge
             variant="outline"
             data-testid="red-flags-alert"
-            className={`text-[10px] font-bold border ${getEvaColor(evaDolorActual)}`}
+            className={`text-[10px] font-bold border ${
+              isPainResolved
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                : "bg-amber-500/20 text-amber-400 border-amber-500/40"
+            }`}
           >
-            EVA {evaDolorActual}/10 • {zonaDolorActual}
+            {isPainResolved ? "✓ Atendido" : `⚠️ Molestia: ${zonaDolorActual}`}
           </Badge>
         ) : (
           <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -128,13 +141,21 @@ export function IslaSaludAnamnesis({
       onDrop={onDrop}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
+      onMoveLeft={onMoveLeft}
+      onMoveRight={onMoveRight}
+      onSeparateRow={onSeparateRow}
+      onResizeWidth={onResizeWidth}
+      currentWidth={currentWidth}
+      isSharedRow={isSharedRow}
       onHide={onHide}
       canMoveUp={canMoveUp}
       canMoveDown={canMoveDown}
+      canMoveLeft={canMoveLeft}
+      canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>
-            Clínica: {zonaDolorActual} (EVA {evaDolorActual}/10) • Anamnesis revisada
+            Clínica: {zonaDolorActual} • {isPainResolved ? "Atendido" : "Pendiente"} • Anamnesis revisada
           </span>
         </div>
       }
@@ -200,7 +221,7 @@ export function IslaSaludAnamnesis({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                   isPainResolved
@@ -220,6 +241,18 @@ export function IslaSaludAnamnesis({
               >
                 {isPainResolved ? "Marcar como Pendiente" : "✓ Marcar como Atendido"}
               </Button>
+
+              {onQuickSwap && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onQuickSwap}
+                  className="h-7 text-xs font-semibold text-rose-400 border-rose-500/40 hover:bg-rose-500/10 cursor-pointer"
+                >
+                  ⚡ Sustitución Quirúrgica
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -259,62 +292,6 @@ export function IslaSaludAnamnesis({
             >
               💾 Guardar Registro en la Ficha
             </Button>
-          </div>
-        </div>
-
-        {/* Monitor Escala EVA (1-10) y Acceso a Sustitución Quirúrgica */}
-        <div
-          data-testid="eva-scale-display"
-          className="rounded-lg border border-border bg-secondary/15 p-3.5 space-y-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Escala Visual Analógica de Dolor (EVA 1-10)
-              </p>
-              <p className="text-xs font-semibold text-foreground mt-0.5">
-                Zona activa: <span className="text-amber-400">{zonaDolorActual}</span>
-              </p>
-            </div>
-            {onQuickSwap && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onQuickSwap}
-                className="h-7 text-xs font-semibold text-rose-400 border-rose-500/40 hover:bg-rose-500/10"
-              >
-                ⚡ Sustitución Quirúrgica
-              </Button>
-            )}
-          </div>
-
-          {/* Barra visual graduada de 1 a 10 */}
-          <div className="space-y-1">
-            <div className="grid grid-cols-10 gap-1 h-3 rounded overflow-hidden">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                const effectiveEva = isPainResolved ? 0 : evaDolorActual;
-                const isActive = num <= effectiveEva;
-                const bgClass =
-                  num <= 3
-                    ? isActive ? "bg-emerald-500" : "bg-emerald-950/40"
-                    : num <= 6
-                    ? isActive ? "bg-amber-500" : "bg-amber-950/40"
-                    : isActive ? "bg-rose-500" : "bg-rose-950/40";
-                return (
-                  <div
-                    key={num}
-                    className={`h-full rounded-xs transition-all ${bgClass}`}
-                    title={`Nivel EVA ${num}`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[9px] font-mono text-muted-foreground px-0.5">
-              <span>1 (Leve)</span>
-              <span>5 (Moderado)</span>
-              <span>10 (Agudo/Freno)</span>
-            </div>
           </div>
         </div>
 

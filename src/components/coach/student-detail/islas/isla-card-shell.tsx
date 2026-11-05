@@ -21,9 +21,17 @@ export interface IslaCardShellProps {
   dataTestId?: string;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 export function IslaCardShell({
@@ -42,15 +50,21 @@ export function IslaCardShell({
   compactSummary,
   children,
   className = "",
-  onMenuClick,
   dataTestId,
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow = false,
   onHide,
   canMoveUp = true,
   canMoveDown = true,
+  canMoveLeft = false,
+  canMoveRight = false,
 }: IslaCardShellProps) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
 
   return (
     <div
@@ -105,8 +119,120 @@ export function IslaCardShell({
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
 
-        {/* Acciones del Cabezal: Botón Colapso [-] y Menú ••• */}
+        {/* Acciones del Cabezal: Controles de Posición, Resize y Colapso (Sin '...') */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* Controles de Posicionamiento Relativo */}
+          {onMoveLeft && canMoveLeft && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onMoveLeft}
+              aria-label={`Mover a la izquierda ${title}`}
+              data-testid={`move-left-${id}`}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+              title="Mover a la izquierda / compartir fila"
+            >
+              <span className="text-xs select-none">⬅️</span>
+            </Button>
+          )}
+
+          {onMoveRight && canMoveRight && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onMoveRight}
+              aria-label={`Mover a la derecha ${title}`}
+              data-testid={`move-right-${id}`}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+              title="Mover a la derecha / compartir fila"
+            >
+              <span className="text-xs select-none">➡️</span>
+            </Button>
+          )}
+
+          {onMoveUp && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!canMoveUp}
+              onClick={onMoveUp}
+              aria-label={`Mover arriba ${title}`}
+              data-testid={`move-up-${id}`}
+              className={`h-7 w-7 p-0 ${
+                canMoveUp
+                  ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                  : "text-muted-foreground/30 cursor-not-allowed"
+              }`}
+              title="Mover arriba"
+            >
+              <span className="text-xs select-none">⬆️</span>
+            </Button>
+          )}
+
+          {onMoveDown && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!canMoveDown}
+              onClick={onMoveDown}
+              aria-label={`Mover abajo ${title}`}
+              data-testid={`move-down-${id}`}
+              className={`h-7 w-7 p-0 ${
+                canMoveDown
+                  ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                  : "text-muted-foreground/30 cursor-not-allowed"
+              }`}
+              title="Mover abajo"
+            >
+              <span className="text-xs select-none">⬇️</span>
+            </Button>
+          )}
+
+          {/* Controles de Resize Horizontal cuando comparte fila */}
+          {isSharedRow && onResizeWidth && (
+            <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/80 px-1 py-0.5">
+              <button
+                type="button"
+                onClick={() => onResizeWidth(-5)}
+                disabled={(currentWidth ?? 50) <= 25}
+                data-testid={`resize-dec-${id}`}
+                className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                title="Reducir ancho en la fila (-5%)"
+              >
+                -
+              </button>
+              <span className="font-mono text-[9px] font-bold text-foreground tabular-nums px-0.5 select-none">
+                {currentWidth ?? 50}%
+              </span>
+              <button
+                type="button"
+                onClick={() => onResizeWidth(+5)}
+                disabled={(currentWidth ?? 50) >= 75}
+                data-testid={`resize-inc-${id}`}
+                className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                title="Aumentar ancho en la fila (+5%)"
+              >
+                +
+              </button>
+              {onSeparateRow && (
+                <button
+                  type="button"
+                  onClick={onSeparateRow}
+                  data-testid={`separate-row-${id}`}
+                  className="ml-1 text-[10px] text-muted-foreground hover:text-primary font-bold cursor-pointer"
+                  title="Expandir a fila propia completa (100%)"
+                >
+                  ⤢
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Botón de Colapso Explícito [-] / [+] */}
           <Button
             type="button"
             variant="ghost"
@@ -121,88 +247,6 @@ export function IslaCardShell({
               {isCollapsed ? "[+]" : "[-]"}
             </span>
           </Button>
-
-          <div className="relative">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMenuOpen((prev) => !prev);
-                onMenuClick?.();
-              }}
-              aria-label={`Menú de opciones de isla ${title}`}
-              data-testid={`menu-btn-${id}`}
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="Opciones de la isla"
-            >
-              <span className="text-xs tracking-tighter">•••</span>
-            </Button>
-
-            {menuOpen && (
-              <div
-                className="absolute right-0 top-8 z-20 min-w-44 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md text-xs"
-                role="menu"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    onToggleCollapse();
-                    setMenuOpen(false);
-                  }}
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-muted font-medium flex items-center justify-between"
-                >
-                  <span>{isCollapsed ? "Expandir isla" : "Colapsar isla"}</span>
-                  <span className="font-mono text-xs">{isCollapsed ? "[+]" : "[-]"}</span>
-                </button>
-
-                {onMoveUp && (
-                  <button
-                    type="button"
-                    disabled={!canMoveUp}
-                    onClick={() => {
-                      onMoveUp();
-                      setMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-2 py-1.5 rounded font-medium flex items-center gap-1.5 ${
-                      canMoveUp ? "hover:bg-muted text-foreground cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed"
-                    }`}
-                  >
-                    <span>⬆️ Mover arriba / antes</span>
-                  </button>
-                )}
-
-                {onMoveDown && (
-                  <button
-                    type="button"
-                    disabled={!canMoveDown}
-                    onClick={() => {
-                      onMoveDown();
-                      setMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-2 py-1.5 rounded font-medium flex items-center gap-1.5 ${
-                      canMoveDown ? "hover:bg-muted text-foreground cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed"
-                    }`}
-                  >
-                    <span>⬇️ Mover abajo / después</span>
-                  </button>
-                )}
-
-                {onHide && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onHide();
-                      setMenuOpen(false);
-                    }}
-                    className="w-full text-left px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive font-medium flex items-center gap-1.5 border-t border-border/40 mt-1 pt-1.5 cursor-pointer"
-                  >
-                    <span>👁️ Ocultar del Canvas</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

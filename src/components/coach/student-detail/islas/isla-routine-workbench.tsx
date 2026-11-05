@@ -21,9 +21,17 @@ export interface IslaRoutineWorkbenchProps {
   childrenTabs?: React.ReactNode;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 export function IslaRoutineWorkbench({
@@ -43,9 +51,17 @@ export function IslaRoutineWorkbench({
   childrenTabs,
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow,
   onHide,
   canMoveUp,
   canMoveDown,
+  canMoveLeft,
+  canMoveRight,
 }: IslaRoutineWorkbenchProps) {
   // Estado de acordeones por día
   const [openDays, setOpenDays] = React.useState<Record<string, boolean>>({});
@@ -89,9 +105,17 @@ export function IslaRoutineWorkbench({
       onDrop={onDrop}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
+      onMoveLeft={onMoveLeft}
+      onMoveRight={onMoveRight}
+      onSeparateRow={onSeparateRow}
+      onResizeWidth={onResizeWidth}
+      currentWidth={currentWidth}
+      isSharedRow={isSharedRow}
       onHide={onHide}
       canMoveUp={canMoveUp}
       canMoveDown={canMoveDown}
+      canMoveLeft={canMoveLeft}
+      canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>

@@ -678,7 +678,38 @@ export function StudentDetail({
     "salud_anamnesis",
     "administracion",
   ];
-  const [islandOrder, setIslandOrder] = React.useState<string[]>(DEFAULT_ISLAND_ORDER);
+
+  interface CanvasRow {
+    id: string;
+    items: string[];
+    widths?: Record<string, number>;
+  }
+
+  const DEFAULT_CANVAS_ROWS: CanvasRow[] = [
+    { id: "row-timeline", items: ["timeline"] },
+    { id: "row-feed", items: ["activity_feed"] },
+    { id: "row-workbench", items: ["routine_workbench"] },
+    { id: "row-metricas", items: ["metricas_1rm"] },
+    { id: "row-salud", items: ["salud_anamnesis"] },
+    { id: "row-admin", items: ["administracion"] },
+  ];
+
+  const [canvasRows, setCanvasRows] = React.useState<CanvasRow[]>(DEFAULT_CANVAS_ROWS);
+  const islandOrder = React.useMemo(
+    () => canvasRows.flatMap((r) => r.items),
+    [canvasRows]
+  );
+
+  const [isLgScreen, setIsLgScreen] = React.useState(true);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsLgScreen(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsLgScreen(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const [collapsedIslands, setCollapsedIslands] = React.useState<Record<string, boolean>>({
     timeline: false,
     activity_feed: false,
@@ -698,8 +729,35 @@ export function StudentDetail({
   const [isConfigModalOpen, setIsConfigModalOpen] = React.useState(false);
   const [filtroRutinaRegistros, setFiltroRutinaRegistros] = React.useState<"TODAS" | "ACTUAL" | "PASADAS">("TODAS");
 
+  const saveLayoutToStorage = React.useCallback(
+    (
+      rows: CanvasRow[],
+      collapsed: Record<string, boolean>,
+      feedRail: boolean,
+      visible?: Record<string, boolean>
+    ) => {
+      if (typeof window !== "undefined" && window.localStorage) {
+        try {
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              rows,
+              order: rows.flatMap((r) => r.items),
+              collapsed,
+              feedRail,
+              visible: visible ?? visibleIslands,
+            })
+          );
+        } catch {
+          // Fallback silencioso
+        }
+      }
+    },
+    [storageKey, visibleIslands]
+  );
+
   const resetLayout = () => {
-    setIslandOrder(DEFAULT_ISLAND_ORDER);
+    setCanvasRows(DEFAULT_CANVAS_ROWS);
     setCollapsedIslands({
       timeline: false,
       activity_feed: false,
@@ -734,8 +792,15 @@ export function StudentDetail({
         const saved = localStorage.getItem(storageKey);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed.order) && parsed.order.length > 0) {
-            setIslandOrder(parsed.order);
+          if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
+            setCanvasRows(parsed.rows);
+          } else if (Array.isArray(parsed.order) && parsed.order.length > 0) {
+            setCanvasRows(
+              parsed.order.map((id: string, idx: number) => ({
+                id: `row-${id}-${idx}`,
+                items: [id],
+              }))
+            );
           }
           if (parsed.collapsed) {
             setCollapsedIslands((prev) => ({ ...prev, ...parsed.collapsed }));
@@ -753,62 +818,189 @@ export function StudentDetail({
     }
   }, [storageKey]);
 
-  const saveLayoutToStorage = React.useCallback(
-    (
-      order: string[],
-      collapsed: Record<string, boolean>,
-      feedRail: boolean,
-      visible?: Record<string, boolean>
-    ) => {
-      if (typeof window !== "undefined" && window.localStorage) {
-        try {
-          localStorage.setItem(
-            storageKey,
-            JSON.stringify({
-              order,
-              collapsed,
-              feedRail,
-              visible: visible ?? visibleIslands,
-            })
-          );
-        } catch {
-          // Fallback silencioso
-        }
-      }
-    },
-    [storageKey, visibleIslands]
-  );
-
   const moveIslandUp = (id: string) => {
-    setIslandOrder((prev) => {
-      const idx = prev.indexOf(id);
-      if (idx <= 0) return prev;
-      const next = [...prev];
-      const temp = next[idx - 1]!;
-      next[idx - 1] = next[idx]!;
-      next[idx] = temp;
-      saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
-      return next;
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+
+      // Si comparte fila, separarlo a su propia fila inmediatamente arriba
+      if (row.items.length > 1) {
+        const remaining = row.items.filter((it) => it !== id);
+        const nextRows = [...prev];
+        nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
+        nextRows.splice(rIdx, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      // Si está solo en la fila y no es el primero, intercambiar fila hacia arriba
+      if (rIdx <= 0) return prev;
+      const nextRows = [...prev];
+      const temp = nextRows[rIdx - 1]!;
+      nextRows[rIdx - 1] = nextRows[rIdx]!;
+      nextRows[rIdx] = temp;
+      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+      return nextRows;
     });
   };
 
   const moveIslandDown = (id: string) => {
-    setIslandOrder((prev) => {
-      const idx = prev.indexOf(id);
-      if (idx === -1 || idx >= prev.length - 1) return prev;
-      const next = [...prev];
-      const temp = next[idx + 1]!;
-      next[idx + 1] = next[idx]!;
-      next[idx] = temp;
-      saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
-      return next;
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+
+      // Si comparte fila, separarlo a su propia fila inmediatamente abajo
+      if (row.items.length > 1) {
+        const remaining = row.items.filter((it) => it !== id);
+        const nextRows = [...prev];
+        nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
+        nextRows.splice(rIdx + 1, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      // Si está solo en la fila y no es el último, intercambiar fila hacia abajo
+      if (rIdx >= prev.length - 1) return prev;
+      const nextRows = [...prev];
+      const temp = nextRows[rIdx + 1]!;
+      nextRows[rIdx + 1] = nextRows[rIdx]!;
+      nextRows[rIdx] = temp;
+      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+      return nextRows;
+    });
+  };
+
+  const moveIslandLeft = (id: string) => {
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+      const cIdx = row.items.indexOf(id);
+
+      // Si está en fila compartida y no es el primero, mover a la izquierda dentro de la fila
+      if (cIdx > 0) {
+        const newItems = [...row.items];
+        const temp = newItems[cIdx - 1]!;
+        newItems[cIdx - 1] = newItems[cIdx]!;
+        newItems[cIdx] = temp;
+        const nextRows = [...prev];
+        nextRows[rIdx] = { ...row, items: newItems };
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      // Si es el primero o único y hay fila superior, unirse a la fila superior a la izquierda
+      if (rIdx > 0) {
+        const targetRow = prev[rIdx - 1]!;
+        const nextRows = prev
+          .map((r, i) => {
+            if (i === rIdx - 1) {
+              return { ...r, items: [id, ...r.items], widths: undefined };
+            }
+            if (i === rIdx) {
+              const rem = r.items.filter((it) => it !== id);
+              return rem.length > 0 ? { ...r, items: rem, widths: undefined } : null;
+            }
+            return r;
+          })
+          .filter(Boolean) as CanvasRow[];
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      return prev;
+    });
+  };
+
+  const moveIslandRight = (id: string) => {
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+      const cIdx = row.items.indexOf(id);
+
+      // Si está en fila compartida y no es el último, mover a la derecha dentro de la fila
+      if (cIdx < row.items.length - 1) {
+        const newItems = [...row.items];
+        const temp = newItems[cIdx + 1]!;
+        newItems[cIdx + 1] = newItems[cIdx]!;
+        newItems[cIdx] = temp;
+        const nextRows = [...prev];
+        nextRows[rIdx] = { ...row, items: newItems };
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      // Si está solo y hay fila adyacente, unirse a la fila a la derecha (50/50)
+      const targetIdx = rIdx > 0 ? rIdx - 1 : rIdx < prev.length - 1 ? rIdx + 1 : -1;
+      if (targetIdx !== -1) {
+        const nextRows = prev
+          .map((r, i) => {
+            if (i === targetIdx) {
+              return { ...r, items: [...r.items, id], widths: undefined };
+            }
+            if (i === rIdx) {
+              const rem = r.items.filter((it) => it !== id);
+              return rem.length > 0 ? { ...r, items: rem, widths: undefined } : null;
+            }
+            return r;
+          })
+          .filter(Boolean) as CanvasRow[];
+        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+        return nextRows;
+      }
+
+      return prev;
+    });
+  };
+
+  const separateIslandToOwnRow = (id: string) => {
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+      if (row.items.length <= 1) return prev;
+
+      const remaining = row.items.filter((it) => it !== id);
+      const nextRows = [...prev];
+      nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
+      nextRows.splice(rIdx + 1, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
+      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+      return nextRows;
+    });
+  };
+
+  const resizeIslandWidth = (id: string, delta: number) => {
+    setCanvasRows((prev) => {
+      const rIdx = prev.findIndex((r) => r.items.includes(id));
+      if (rIdx === -1) return prev;
+      const row = prev[rIdx]!;
+      if (row.items.length !== 2) return prev;
+
+      const otherId = row.items.find((it) => it !== id)!;
+      const currentW = row.widths?.[id] ?? 50;
+      const nextW = Math.max(25, Math.min(75, currentW + delta));
+      const otherW = 100 - nextW;
+
+      const nextRows = [...prev];
+      nextRows[rIdx] = {
+        ...row,
+        widths: {
+          [id]: nextW,
+          [otherId]: otherW,
+        },
+      };
+      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+      return nextRows;
     });
   };
 
   const toggleIslandVisibility = (id: string) => {
     setVisibleIslands((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      saveLayoutToStorage(islandOrder, collapsedIslands, isFeedRailCollapsed, next);
+      saveLayoutToStorage(canvasRows, collapsedIslands, isFeedRailCollapsed, next);
       return next;
     });
   };
@@ -816,7 +1008,7 @@ export function StudentDetail({
   const toggleCollapseIsland = (id: string) => {
     setCollapsedIslands((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      saveLayoutToStorage(islandOrder, next, isFeedRailCollapsed);
+      saveLayoutToStorage(canvasRows, next, isFeedRailCollapsed);
       return next;
     });
   };
@@ -824,7 +1016,7 @@ export function StudentDetail({
   const toggleFeedRail = () => {
     setIsFeedRailCollapsed((prev) => {
       const next = !prev;
-      saveLayoutToStorage(islandOrder, collapsedIslands, next);
+      saveLayoutToStorage(canvasRows, collapsedIslands, next);
       return next;
     });
   };
@@ -858,15 +1050,28 @@ export function StudentDetail({
       return;
     }
 
-    setIslandOrder((prev) => {
-      const fromIdx = prev.indexOf(sourceId);
-      const toIdx = prev.indexOf(targetId);
-      if (fromIdx === -1 || toIdx === -1) return prev;
-      const nextOrder = [...prev];
-      const [item] = nextOrder.splice(fromIdx, 1);
-      nextOrder.splice(toIdx, 0, item!);
-      saveLayoutToStorage(nextOrder, collapsedIslands, isFeedRailCollapsed);
-      return nextOrder;
+    setCanvasRows((prev) => {
+      const cleaned = prev
+        .map((r) => ({
+          ...r,
+          items: r.items.filter((it) => it !== sourceId),
+          widths: undefined,
+        }))
+        .filter((r) => r.items.length > 0);
+
+      const targetRowIdx = cleaned.findIndex((r) => r.items.includes(targetId));
+      if (targetRowIdx === -1) return prev;
+
+      const targetRow = cleaned[targetRowIdx]!;
+      const tColIdx = targetRow.items.indexOf(targetId);
+
+      const newItems = [...targetRow.items];
+      newItems.splice(tColIdx + 1, 0, sourceId);
+
+      const nextRows = [...cleaned];
+      nextRows[targetRowIdx] = { ...targetRow, items: newItems, widths: undefined };
+      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
+      return nextRows;
     });
 
     setDraggedIslandId(null);
@@ -2218,10 +2423,24 @@ export function StudentDetail({
   const renderIsland = (islandId: string, index = 0, total = 6) => {
     const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
     const isCollapsed = !!collapsedIslands[islandId];
-    const canMoveUp = index > 0;
-    const canMoveDown = index < total - 1;
+
+    const row = canvasRows.find((r) => r.items.includes(islandId));
+    const rowIndex = canvasRows.findIndex((r) => r.items.includes(islandId));
+    const colIndex = row?.items.indexOf(islandId) ?? 0;
+    const isSharedRow = (row?.items.length ?? 1) > 1;
+    const currentWidth = isSharedRow && row?.widths ? row.widths[islandId] ?? 50 : isSharedRow ? 50 : 100;
+
+    const canMoveUp = rowIndex > 0 || isSharedRow;
+    const canMoveDown = rowIndex < canvasRows.length - 1 || isSharedRow;
+    const canMoveLeft = colIndex > 0 || rowIndex > 0;
+    const canMoveRight = (row && colIndex < row.items.length - 1) || (rowIndex > 0 || rowIndex < canvasRows.length - 1);
+
     const onMoveUp = () => moveIslandUp(islandId);
     const onMoveDown = () => moveIslandDown(islandId);
+    const onMoveLeft = () => moveIslandLeft(islandId);
+    const onMoveRight = () => moveIslandRight(islandId);
+    const onSeparateRow = () => separateIslandToOwnRow(islandId);
+    const onResizeWidth = (delta: number) => resizeIslandWidth(islandId, delta);
     const onHide = () => toggleIslandVisibility(islandId);
 
     switch (islandId) {
@@ -2240,9 +2459,17 @@ export function StudentDetail({
             onDrop={handleDrop("timeline")}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2262,9 +2489,17 @@ export function StudentDetail({
             onDrop={handleDrop("activity_feed")}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2292,9 +2527,17 @@ export function StudentDetail({
             childrenTabs={routineTabsNode}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2315,9 +2558,17 @@ export function StudentDetail({
             adherenciaNode={adherenciaNode}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2345,9 +2596,17 @@ export function StudentDetail({
             }
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2371,9 +2630,17 @@ export function StudentDetail({
             cuestionarioNode={cuestionarioNode}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
+            onMoveLeft={onMoveLeft}
+            onMoveRight={onMoveRight}
+            onSeparateRow={onSeparateRow}
+            onResizeWidth={onResizeWidth}
+            currentWidth={currentWidth}
+            isSharedRow={isSharedRow}
             onHide={onHide}
             canMoveUp={canMoveUp}
             canMoveDown={canMoveDown}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
           />
         );
 
@@ -2567,61 +2834,58 @@ export function StudentDetail({
         </div>
       )}
 
-      {/* Canvas Modular de Islas Autónomas y Colapsables (Issue #355 / docs/specs/student-detail-canvas-islas-spec.md) */}
+      {/* Canvas Modular de Islas Autónomas y Colapsables con Filas y Resize Horizontal */}
       <div
         data-testid="student-detail-modular-canvas"
         className="space-y-4 pt-2"
       >
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-start">
-          {islandOrder
-            .filter((id) => visibleIslands[id] !== false)
-            .map((id, index, arr) => {
-              const islandContent = renderIsland(id, index, arr.length);
-              if (id === "timeline") {
-                return (
-                  <div key={id} className="lg:col-span-12">
-                    {islandContent}
-                  </div>
-                );
-              }
-              if (id === "activity_feed") {
-                return (
-                  <div
-                    key={id}
-                    className={
-                      isFeedRailCollapsed ? "lg:col-span-1" : "lg:col-span-4"
+        {canvasRows.map((row, rIdx) => {
+          const visibleItems = row.items.filter((id) => visibleIslands[id] !== false);
+          if (visibleItems.length === 0) return null;
+
+          const count = visibleItems.length;
+          const hasCustomWidths =
+            count === 2 &&
+            row.widths &&
+            row.widths[visibleItems[0]!] !== undefined &&
+            row.widths[visibleItems[1]!] !== undefined;
+
+          return (
+            <div
+              key={row.id}
+              data-testid={`canvas-row-${rIdx}`}
+              className={`grid grid-cols-1 gap-4 items-start w-full ${
+                count === 1
+                  ? "lg:grid-cols-1"
+                  : count === 2 && !hasCustomWidths
+                  ? "lg:grid-cols-2"
+                  : count === 3 && !hasCustomWidths
+                  ? "lg:grid-cols-3"
+                  : count === 4 && !hasCustomWidths
+                  ? "lg:grid-cols-4"
+                  : ""
+              }`}
+              style={
+                isLgScreen && hasCustomWidths
+                  ? {
+                      gridTemplateColumns: `minmax(0, ${
+                        row.widths![visibleItems[0]!]
+                      }fr) minmax(0, ${row.widths![visibleItems[1]!]}fr)`,
                     }
-                  >
-                    {islandContent}
-                  </div>
-                );
+                  : undefined
               }
-              if (id === "routine_workbench") {
+            >
+              {visibleItems.map((id, index) => {
+                const islandContent = renderIsland(id, index, visibleItems.length);
                 return (
-                  <div
-                    key={id}
-                    className={
-                      isFeedRailCollapsed ? "lg:col-span-11" : "lg:col-span-8"
-                    }
-                  >
+                  <div key={id} className="w-full min-w-0">
                     {islandContent}
                   </div>
                 );
-              }
-              if (id === "administracion") {
-                return (
-                  <div key={id} className="lg:col-span-12">
-                    {islandContent}
-                  </div>
-                );
-              }
-              return (
-                <div key={id} className="lg:col-span-6">
-                  {islandContent}
-                </div>
-              );
-            })}
-        </div>
+              })}
+            </div>
+          );
+        })}
       </div>
 
       {/* Diálogo de Configuración de Visibilidad de Islas en el Canvas */}
@@ -2707,7 +2971,7 @@ export function StudentDetail({
                     administracion: true,
                   };
                   setVisibleIslands(allVisible);
-                  saveLayoutToStorage(islandOrder, collapsedIslands, isFeedRailCollapsed, allVisible);
+                  saveLayoutToStorage(canvasRows, collapsedIslands, isFeedRailCollapsed, allVisible);
                 }}
                 className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
               >

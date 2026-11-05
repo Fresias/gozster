@@ -17,9 +17,17 @@ export interface IslaMetricas1RMProps {
   adherenciaNode?: React.ReactNode;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 export function IslaMetricas1RM({
@@ -36,9 +44,17 @@ export function IslaMetricas1RM({
   adherenciaNode,
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow,
   onHide,
   canMoveUp,
   canMoveDown,
+  canMoveLeft,
+  canMoveRight,
 }: IslaMetricas1RMProps) {
   // Cálculo de máximos 1RM Brzycki y Epley y progresión real por ejercicio (sin sumatorias de tonelaje mensual)
   const { maxEpley, maxBrzycki, ejercicioLider, ejerciciosClave, pesoHistorial } = React.useMemo(() => {
@@ -170,9 +186,17 @@ export function IslaMetricas1RM({
       onDrop={onDrop}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
+      onMoveLeft={onMoveLeft}
+      onMoveRight={onMoveRight}
+      onSeparateRow={onSeparateRow}
+      onResizeWidth={onResizeWidth}
+      currentWidth={currentWidth}
+      isSharedRow={isSharedRow}
       onHide={onHide}
       canMoveUp={canMoveUp}
       canMoveDown={canMoveDown}
+      canMoveLeft={canMoveLeft}
+      canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>

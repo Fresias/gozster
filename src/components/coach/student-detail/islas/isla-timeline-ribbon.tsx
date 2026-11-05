@@ -15,9 +15,17 @@ export interface IslaTimelineRibbonProps {
   onDrop?: (e: React.DragEvent) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onSeparateRow?: () => void;
+  onResizeWidth?: (delta: number) => void;
+  currentWidth?: number;
+  isSharedRow?: boolean;
   onHide?: () => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
 }
 
 export function IslaTimelineRibbon({
@@ -32,9 +40,17 @@ export function IslaTimelineRibbon({
   onDrop,
   onMoveUp,
   onMoveDown,
+  onMoveLeft,
+  onMoveRight,
+  onSeparateRow,
+  onResizeWidth,
+  currentWidth,
+  isSharedRow,
   onHide,
   canMoveUp,
   canMoveDown,
+  canMoveLeft,
+  canMoveRight,
 }: IslaTimelineRibbonProps) {
   // Orden cronológico de las sesiones
   const sortedSessions = React.useMemo(() => {
@@ -80,9 +96,17 @@ export function IslaTimelineRibbon({
       onDrop={onDrop}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
+      onMoveLeft={onMoveLeft}
+      onMoveRight={onMoveRight}
+      onSeparateRow={onSeparateRow}
+      onResizeWidth={onResizeWidth}
+      currentWidth={currentWidth}
+      isSharedRow={isSharedRow}
       onHide={onHide}
       canMoveUp={canMoveUp}
       canMoveDown={canMoveDown}
+      canMoveLeft={canMoveLeft}
+      canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between py-0.5">
           <span>
