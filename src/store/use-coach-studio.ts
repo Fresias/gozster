@@ -37,7 +37,13 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
-import { DEMO_CONTRATACIONES_CLASES, DEMO_ALUMNO_ACTIVIDADES } from "@/services/coach-demo-dataset";
+import {
+  DEMO_CONTRATACIONES_CLASES,
+  DEMO_ALUMNO_ACTIVIDADES,
+  DEMO_PLANES_MEMBRESIA,
+} from "@/services/coach-demo-dataset";
+import { useCobrosStore } from "@/store/use-cobros-store";
+import type { PlanMembresiaConVigencia } from "@/lib/planes";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -156,6 +162,13 @@ interface CoachStudioState {
 
   // Contrataciones y Pagos (ADR-001)
   getContratacionAlumno: (alumno: Perfil) => Contratacion;
+  getContratacionesAlumno: (alumnoId: string) => Contratacion[];
+  vincularPlanMembresiaAlumno: (input: {
+    alumnoId: string;
+    planId: string;
+    esAdicional?: boolean;
+    notas?: string;
+  }) => Promise<Contratacion>;
   registrarRenovacionManual: (input: {
     contratacion: Contratacion;
     monto: number;
@@ -583,12 +596,111 @@ export const useCoachStudioStore = create<CoachStudioState>()(
 
     getContratacionAlumno: (alumno: Perfil) => {
       const stored = get().contrataciones.find(
-        (c) => c.alumno_id === alumno.id,
+        (c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA",
       );
       if (stored) return stored;
       const demoMembresia = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumno.id);
       if (demoMembresia) return demoMembresia;
       return derivarContratacionDesdePerfil(alumno);
+    },
+
+    getContratacionesAlumno: (alumnoId: string) => {
+      const stored = get().contrataciones.filter(
+        (c) => c.alumno_id === alumnoId && c.estado !== "VENCIDA",
+      );
+      if (stored.length > 0) return stored;
+      const demo = DEMO_CONTRATACIONES_CLASES.filter((c) => c.alumno_id === alumnoId);
+      if (demo.length > 0) return demo;
+      const alumno = get().alumnos.find((a) => a.id === alumnoId);
+      if (alumno) {
+        return [derivarContratacionDesdePerfil(alumno)];
+      }
+      return [];
+    },
+
+    vincularPlanMembresiaAlumno: async ({ alumnoId, planId, esAdicional = true, notas }) => {
+      const nowIso = new Date().toISOString();
+      const alumno = get().alumnos.find((a) => a.id === alumnoId);
+      if (!alumno) throw new Error(`Alumno con id ${alumnoId} no encontrado`);
+
+      const planesCobros = useCobrosStore.getState().planes;
+      const planCobros = planesCobros.find((p) => p.id === planId);
+      const demoPlan = DEMO_PLANES_MEMBRESIA.find((p) => p.id === planId);
+      const plan = planCobros ?? (demoPlan as PlanMembresiaConVigencia | undefined);
+
+      const nuevoId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `contratacion-${Date.now()}`;
+
+      const hoy = new Date();
+      const fechaFin = new Date(hoy);
+      fechaFin.setMonth(fechaFin.getMonth() + (plan?.duracion_meses ?? 1));
+      const fechaFinStr =
+        fechaFin.toISOString().split("T")[0] ?? new Date().toISOString().slice(0, 10);
+
+      const esRutina =
+        plan?.actividad_tipo === "RUTINAS" || /rutina|corpo/i.test(plan?.nombre ?? "");
+      const precio = plan?.precio ?? 0;
+
+      const nuevaContratacion: Contratacion = {
+        id: nuevoId,
+        alumno_id: alumnoId,
+        plan_membresia_id: planId,
+        actividad:
+          plan?.actividad_tipo === "FUNCIONAL_BOXEO"
+            ? null
+            : (plan?.actividad_tipo as any) ?? (esRutina ? null : "FUNCIONAL"),
+        tipo_servicio: esRutina ? "ASESORIA_ONLINE" : "PRESENCIAL",
+        precio_pactado: precio,
+        estado: "VIGENTE",
+        dia_vencimiento: 10,
+        dias_aviso_previo: 5,
+        fecha_inicio: nowIso.slice(0, 10),
+        fecha_fin: fechaFinStr,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      set((state) => {
+        let contratacionesActualizadas: Contratacion[];
+        if (esAdicional) {
+          contratacionesActualizadas = [...state.contrataciones, nuevaContratacion];
+        } else {
+          contratacionesActualizadas = [
+            ...state.contrataciones.filter((c) => c.alumno_id !== alumnoId),
+            nuevaContratacion,
+          ];
+        }
+
+        return {
+          contrataciones: contratacionesActualizadas,
+          toast: {
+            id: `toast-${Date.now()}`,
+            type: "success",
+            title: esAdicional ? "Plan adicional vinculado" : "Plan actualizado",
+            message: `Plan '${plan?.nombre ?? planId}' asignado a ${alumno.nombre_completo}.`,
+          },
+        };
+      });
+
+      // Sincronizar en useCobrosStore
+      useCobrosStore.getState().vincularCobroPlan({
+        contratacionId: nuevaContratacion.id,
+        alumnoId: alumno.id,
+        alumnoNombre: alumno.nombre_completo,
+        alumnoEmail: alumno.email ?? "",
+        alumnoTelefono: alumno.telefono ?? null,
+        servicioNombre: plan?.nombre ?? "Plan Membresía",
+        actividad: plan?.actividad_tipo ?? null,
+        monto: precio,
+        diaVencimiento: nuevaContratacion.dia_vencimiento,
+        fechaVencimiento: nuevaContratacion.fecha_fin,
+        esAdicional,
+        notas: notas ?? plan?.notas ?? null,
+      });
+
+      return nuevaContratacion;
     },
 
     registrarRenovacionManual: async ({ contratacion, monto, medioPago }) => {

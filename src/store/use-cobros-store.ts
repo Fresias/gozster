@@ -155,6 +155,7 @@ interface CobrosState {
     limiteSemanal: number | null;
     precio: number;
     fechaVigencia: string;
+    notas?: string | null;
   }) => Promise<PlanMembresiaConVigencia>;
 
   modificarPlan: (params: {
@@ -164,7 +165,23 @@ interface CobrosState {
     fechaVigencia: string;
     duracionMeses?: 1 | 3 | 6 | 12;
     limiteSemanal?: number | null;
+    notas?: string | null;
   }) => Promise<PlanMembresiaConVigencia>;
+
+  vincularCobroPlan: (params: {
+    contratacionId: string;
+    alumnoId: string;
+    alumnoNombre: string;
+    alumnoEmail: string;
+    alumnoTelefono?: string | null;
+    servicioNombre: string;
+    actividad?: string | null;
+    monto: number;
+    diaVencimiento: number;
+    fechaVencimiento: string;
+    esAdicional?: boolean;
+    notas?: string | null;
+  }) => void;
 }
 
 
@@ -837,7 +854,7 @@ export const useCobrosStore = create<CobrosState>()(
       },
 
       crearPlan: async (params) => {
-        const { nombre, actividad, duracionMeses, limiteSemanal, precio, fechaVigencia } = params;
+        const { nombre, actividad, duracionMeses, limiteSemanal, precio, fechaVigencia, notas } = params;
         const validacion = validarVigenciaFutura(fechaVigencia);
         if (!validacion.valida) {
           const errorMsg = validacion.error ?? "La fecha de vigencia debe ser posterior a hoy (fecha futura)";
@@ -852,10 +869,11 @@ export const useCobrosStore = create<CobrosState>()(
         const nuevoPlan: PlanMembresiaConVigencia = {
           id: nuevoPlanId,
           nombre: nombre.trim(),
-          limite_semanal: limiteSemanal,
+          limite_semanal: actividad === "RUTINAS" ? null : limiteSemanal,
           cantidad_actividades: cantidadActividades,
           duracion_meses: duracionMeses,
           precio,
+          notas: notas ? notas.trim() : null,
           activo: true,
           actividad_tipo: actividad,
           vigente_desde: fechaVigencia,
@@ -875,7 +893,7 @@ export const useCobrosStore = create<CobrosState>()(
       },
 
       modificarPlan: async (params) => {
-        const { planId, nombre, precio, fechaVigencia, duracionMeses, limiteSemanal } = params;
+        const { planId, nombre, precio, fechaVigencia, duracionMeses, limiteSemanal, notas } = params;
         const validacion = validarVigenciaFutura(fechaVigencia);
         if (!validacion.valida) {
           const errorMsg = validacion.error ?? "La fecha de vigencia debe ser posterior a hoy (fecha futura)";
@@ -898,7 +916,13 @@ export const useCobrosStore = create<CobrosState>()(
           vigente_desde: fechaVigencia,
           precio_anterior: precioAnterior,
           duracion_meses: duracionMeses ?? planExistente.duracion_meses,
-          limite_semanal: limiteSemanal !== undefined ? limiteSemanal : planExistente.limite_semanal,
+          limite_semanal:
+            planExistente.actividad_tipo === "RUTINAS"
+              ? null
+              : limiteSemanal !== undefined
+                ? limiteSemanal
+                : planExistente.limite_semanal,
+          notas: notas !== undefined ? (notas ? notas.trim() : null) : planExistente.notas,
           updated_at: new Date().toISOString(),
         };
 
@@ -911,6 +935,60 @@ export const useCobrosStore = create<CobrosState>()(
         }));
 
         return planActualizado;
+      },
+
+      vincularCobroPlan: (params) => {
+        const {
+          contratacionId,
+          alumnoId,
+          alumnoNombre,
+          alumnoEmail,
+          alumnoTelefono,
+          servicioNombre,
+          actividad,
+          monto,
+          diaVencimiento,
+          fechaVencimiento,
+          esAdicional = true,
+          notas,
+        } = params;
+
+        const nuevoCobro: CobroItem = {
+          id: `cobro-${contratacionId}`,
+          alumnoId,
+          alumnoNombre,
+          alumnoEmail,
+          alumnoTelefono: alumnoTelefono ?? null,
+          contratacionId,
+          servicioNombre,
+          actividad: actividad ?? null,
+          monto,
+          montoLista: monto,
+          notaDescuento: notas ?? undefined,
+          diaVencimiento,
+          fechaVencimiento,
+          estado: monto === 0 ? "PAGADO" : "PENDIENTE",
+          ultimoPago:
+            monto === 0
+              ? {
+                  id: `pago-${contratacionId}`,
+                  monto: 0,
+                  montoLista: 0,
+                  medioPago: "TRANSFERENCIA",
+                  fechaPago: new Date().toISOString(),
+                  confirmadoPor: "Convenio $0",
+                  notas: notas ?? "Plan $0",
+                }
+              : undefined,
+        };
+
+        set((state) => {
+          if (esAdicional) {
+            return { cobros: [nuevoCobro, ...state.cobros] };
+          }
+          const otros = state.cobros.filter((c) => c.alumnoId !== alumnoId);
+          return { cobros: [nuevoCobro, ...otros] };
+        });
       },
     }),
     {
