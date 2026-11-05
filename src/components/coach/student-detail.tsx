@@ -43,6 +43,13 @@ import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
 import {
+  IslaTimelineRibbon,
+  IslaActivityFeed,
+  IslaRoutineWorkbench,
+  IslaMetricas1RM,
+  IslaSaludAnamnesis,
+} from "@/components/coach/student-detail/islas";
+import {
   derivarActividadFrecuencia,
   derivarEstadoPagoAlumno,
   derivarMontoSuscripcion,
@@ -612,232 +619,132 @@ export function StudentDetail({
     ? dias.filter((d) => d.plan_id === rutinaActiva.id)
     : [];
 
-  return (
-    <div className="space-y-6">
-      {/* Top Bar / Back */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          size="default"
-          onClick={onBack}
-          className="min-h-11 gap-2 text-xs font-semibold"
-        >
-          <span>← Volver a Alumnos</span>
-        </Button>
-        <div className="flex items-center gap-2">
-          {isOffline && (
-            <Badge variant="warning" className="text-[11px]">
-              Modo Offline • Acciones en cola
-            </Badge>
-          )}
-          {onPreviewAthlete && (
-            <Button
-              type="button"
-              variant="outline"
-              size="default"
-              onClick={() => onPreviewAthlete(alumno)}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
-              data-testid="detail-preview-athlete-btn"
-            >
-              <span>👁️ Ver como Alumno</span>
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="default"
-            size="default"
-            onClick={() => {
-              onOpenChat?.();
-              openChatForAlumno(alumno.id);
-            }}
-            className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold"
-            data-testid="enviar-mensaje-btn"
-            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-          >
-            <span>💬 Enviar mensaje</span>
-          </Button>
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
-            data-testid="whatsapp-direct-btn"
-          >
-            <span>💬 WhatsApp 1-Clic</span>
-          </a>
-        </div>
-      </div>
 
-      {/* Ficha Header */}
-      <Card>
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground">
-                {alumno.nombre_completo
-                  .split(" ")
-                  .map((p) => p[0])
-                  .slice(0, 2)
-                  .join("")}
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">
-                    {alumno.nombre_completo}
-                  </h2>
-                  {getPaymentBadge(alumno.estado_membresia)}
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${healthScore.colorClass}`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                    Semáforo de Salud: {healthScore.score}/100 ({healthScore.badgeLabel})
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {alumno.email ?? "Sin email"} • Cliente desde{" "}
-                  {new Date(alumno.created_at).toLocaleDateString("es-AR", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
+  // Canvas State & Persistence (Issue #355 / docs/specs/student-detail-canvas-islas-spec.md)
+  const coachId = (alumno as any).entrenador_id || (alumno as any).coach_id || "default";
+  const storageKey = `gozster_canvas_layout_${coachId}`;
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="default"
-                onClick={onOpenHistoricalLoads}
-                className="min-h-11 w-full gap-2 text-xs font-semibold sm:w-auto"
-                aria-label="Revisar cargas y RPE históricos"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path d="M3 3v18h18" />
-                  <path d="m19 9-5 5-4-4-3 3" />
-                </svg>
-                <span>Cargas y RPE Históricos</span>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+  const [isCanvasMode, setIsCanvasMode] = React.useState(false);
+  const [islandOrder, setIslandOrder] = React.useState<string[]>([
+    "timeline",
+    "activity_feed",
+    "routine_workbench",
+    "metricas_1rm",
+    "salud_anamnesis",
+  ]);
+  const [collapsedIslands, setCollapsedIslands] = React.useState<Record<string, boolean>>({
+    timeline: false,
+    activity_feed: false,
+    routine_workbench: false,
+    metricas_1rm: false,
+    salud_anamnesis: false,
+  });
+  const [isFeedRailCollapsed, setIsFeedRailCollapsed] = React.useState(false);
+  const [draggedIslandId, setDraggedIslandId] = React.useState<string | null>(null);
+  const [dropTargetIslandId, setDropTargetIslandId] = React.useState<string | null>(null);
 
-      {/* Resumen Comercial y Estado de Pago (GOZS-247) */}
-      <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
-              {/* 1. Actividad y frecuencia */}
-              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Actividad y Frecuencia
-                </p>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-sm font-black text-foreground"
-                    data-testid="ficha-actividad-frecuencia"
-                  >
-                    {actividadFrecuencia.etiqueta}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground" data-testid="ficha-actividad-detalle">
-                  {actividadFrecuencia.detalle}
-                </p>
-              </div>
+  // Carga inicial de persistencia local
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.order) && parsed.order.length > 0) {
+            setIslandOrder(parsed.order);
+          }
+          if (parsed.collapsed) {
+            setCollapsedIslands((prev) => ({ ...prev, ...parsed.collapsed }));
+          }
+          if (typeof parsed.feedRail === "boolean") {
+            setIsFeedRailCollapsed(parsed.feedRail);
+          }
+        }
+      } catch {
+        // Fallback silencioso
+      }
+    }
+  }, [storageKey]);
 
-              {/* 2. Estado de pago (si pagó o no) */}
-              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Estado de Pago
-                </p>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black border ${
-                      estadoPagoInfo.pago
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
-                        : estadoPagoInfo.estado === "VENCIDO"
-                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
-                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
-                    }`}
-                    data-testid="ficha-estado-pago"
-                  >
-                    <span
-                      className={`h-2 w-2 rounded-full ${
-                        estadoPagoInfo.pago
-                          ? "bg-emerald-500"
-                          : estadoPagoInfo.estado === "VENCIDO"
-                          ? "bg-rose-500"
-                          : "bg-amber-500"
-                      }`}
-                    />
-                    {estadoPagoInfo.etiquetaPrincipal} • {estadoPagoInfo.etiquetaDetalle}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {estadoPagoInfo.pago
-                    ? "Cuota vigente al día"
-                    : estadoPagoInfo.estado === "VENCIDO"
-                    ? "Cuota vencida impaga"
-                    : "Esperando confirmación de cobro"}
-                </p>
-              </div>
+  const saveLayoutToStorage = React.useCallback(
+    (order: string[], collapsed: Record<string, boolean>, feedRail: boolean) => {
+      if (typeof window !== "undefined" && window.localStorage) {
+        try {
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify({ order, collapsed, feedRail })
+          );
+        } catch {
+          // Fallback silencioso
+        }
+      }
+    },
+    [storageKey]
+  );
 
-              {/* 3. Monto de la suscripción */}
-              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Monto de la Suscripción
-                </p>
-                <div className="flex items-baseline gap-1.5">
-                  <span
-                    className="text-lg font-black text-foreground tabular-nums"
-                    data-testid="ficha-monto-sub"
-                  >
-                    {montoSuscripcion.formateado}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground font-semibold">/mes</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Día {contratacion.dia_vencimiento} anclado • Vence {formatFecha(contratacion.fecha_fin)}
-                </p>
-              </div>
-            </div>
+  const toggleCollapseIsland = (id: string) => {
+    setCollapsedIslands((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveLayoutToStorage(islandOrder, next, isFeedRailCollapsed);
+      return next;
+    });
+  };
 
-            {/* 4. Botón para registrar el pago */}
-            <div className="flex items-center justify-end pt-1 lg:pt-0">
-              <Button
-                variant={estadoPagoInfo.pago ? "outline" : "default"}
-                size="default"
-                onClick={handleAbrirDialogoPago}
-                className="min-h-11 w-full gap-2 text-xs font-bold sm:w-auto px-5 shadow-sm"
-                data-testid="btn-registrar-pago"
-                aria-label={`Registrar pago para ${alumno.nombre_completo}`}
-              >
-                <span>💳 Registrar pago</span>
-              </Button>
-            </div>
-          </div>
+  const toggleFeedRail = () => {
+    setIsFeedRailCollapsed((prev) => {
+      const next = !prev;
+      saveLayoutToStorage(islandOrder, collapsedIslands, next);
+      return next;
+    });
+  };
 
-          {avisoPago && (
-            <div
-              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 font-medium"
-              data-testid="aviso-pago-exitoso"
-            >
-              ✓ {avisoPago}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+  const handleDragStart = (id: string) => (e: React.DragEvent) => {
+    setDraggedIslandId(id);
+    e.dataTransfer.setData("text/plain", id);
+    e.dataTransfer.effectAllowed = "move";
+  };
 
-      {/* GOZS-257: historial completo de cuotas/pagos del alumno */}
-      <Card data-testid="historial-pagos-card">
+  const handleDragOver = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dropTargetIslandId !== id) {
+      setDropTargetIslandId(id);
+    }
+  };
+
+  const handleDragLeave = (id: string) => () => {
+    if (dropTargetIslandId === id) {
+      setDropTargetIslandId(null);
+    }
+  };
+
+  const handleDrop = (targetId: string) => (e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceId = draggedIslandId || e.dataTransfer.getData("text/plain");
+    if (!sourceId || sourceId === targetId) {
+      setDraggedIslandId(null);
+      setDropTargetIslandId(null);
+      return;
+    }
+
+    setIslandOrder((prev) => {
+      const fromIdx = prev.indexOf(sourceId);
+      const toIdx = prev.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const nextOrder = [...prev];
+      const [item] = nextOrder.splice(fromIdx, 1);
+      nextOrder.splice(toIdx, 0, item!);
+      saveLayoutToStorage(nextOrder, collapsedIslands, isFeedRailCollapsed);
+      return nextOrder;
+    });
+
+    setDraggedIslandId(null);
+    setDropTargetIslandId(null);
+  };
+
+  // Nodos auxiliares para las Islas Modulares (Issue #355)
+  const historialPagosNode = (
+    <Card data-testid="historial-pagos-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-bold text-foreground">Historial de pagos</CardTitle>
         </CardHeader>
@@ -865,77 +772,18 @@ export function StudentDetail({
           )}
         </CardContent>
       </Card>
+  );
 
-      {/* Calendario de adherencia y "días sin entrenar" (GOZS-163, spec §5) */}
-      <AdherenciaCard
+  const adherenciaNode = (
+    <AdherenciaCard
         estado={estadoAdherencia}
         data={adherencia}
         onReintentar={() => setRecargaAdherencia((n) => n + 1)}
       />
+  );
 
-      {/* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */}
-      <Card data-testid="coach-nivel-vista-card">
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-foreground">
-                  Vista recomendada
-                </h3>
-                <Badge
-                  variant={nivelVista === "SIMPLE" ? "secondary" : "default"}
-                  className="text-[10px] font-bold"
-                  data-testid="coach-nivel-vista-badge"
-                >
-                  {nivelVista === "SIMPLE" ? "SIMPLE (Minimalista)" : "TÉCNICA (Avanzada)"}
-                </Badge>
-              </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {nivelVista === "SIMPLE"
-                  ? "Vista minimalista: El alumno visualiza únicamente Series × Reps × Peso + Video + Descanso (sin RPE ni 1RM)."
-                  : "Vista técnica completa: Expone RPE objetivo/real, %1RM y fórmulas para atletas avanzados."}
-              </p>
-              {errorNivelVista && (
-                <p
-                  className="mt-1 text-xs font-semibold text-destructive"
-                  data-testid="coach-nivel-vista-error"
-                >
-                  {errorNivelVista}
-                </p>
-              )}
-            </div>
-
-            <div
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 p-1"
-              data-testid="coach-nivel-vista-switcher"
-            >
-              <Button
-                variant={nivelVista === "SIMPLE" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleToggleNivelVista("SIMPLE")}
-                disabled={isUpdatingNivel}
-                className="min-h-11 text-xs font-bold sm:min-h-9"
-                data-testid="coach-toggle-vista-simple"
-              >
-                Vista Simple (Minimalista)
-              </Button>
-              <Button
-                variant={nivelVista === "TECNICA" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleToggleNivelVista("TECNICA")}
-                disabled={isUpdatingNivel}
-                className="min-h-11 text-xs font-bold sm:min-h-9"
-                data-testid="coach-toggle-vista-tecnica"
-              >
-                Vista Técnica Avanzada
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Cuestionario Inicial del Alumno (ADR-004 / Issue #65) */}
-      <Card data-testid="coach-cuestionario-card">
+  const cuestionarioNode = (
+    <Card data-testid="coach-cuestionario-card">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -1040,306 +888,10 @@ export function StudentDetail({
           )}
         </CardContent>
       </Card>
+  );
 
-      <StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />
-
-      {/* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */}
-      <Card data-testid="contratacion-panel">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-bold">
-            Estado Comercial y Contratación
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5 p-4 pt-0 sm:p-6 sm:pt-0">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Estado de Cuenta
-              </p>
-              <div className="mt-1.5" data-testid="estado-cuenta">
-                {getCuentaBadge(estadoCuenta)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Estado de Contratación
-              </p>
-              <div className="mt-1.5" data-testid="estado-contratacion">
-                {getContratacionBadge(contratacion.estado)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Vencimiento
-              </p>
-              <p
-                className="mt-1 text-sm font-bold text-foreground"
-                data-testid="fecha-vencimiento"
-              >
-                {formatFecha(contratacion.fecha_fin)}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Día {contratacion.dia_vencimiento} anclado
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Estado de Rutina
-              </p>
-              <div className="mt-1.5" data-testid="estado-rutina">
-                {rutinaActiva ? (
-                  getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)
-                ) : (
-                  <Badge variant="outline">Sin rutina</Badge>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Cabecera y Acción Rápida de Asignación / Cambio de Plan */}
-          <div className="flex items-center justify-between pt-2">
-            <div>
-              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                Planes de Membresía & Multiactividad
-                {todasContratacionesAlumno.length > 1 && (
-                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold">
-                    Multiactividad ({todasContratacionesAlumno.length} planes)
-                  </Badge>
-                )}
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Membresías activas vinculadas al atleta.
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setModalAsignarPlanAbierto(true)}
-                data-testid="btn-asignar-nuevo-plan"
-                className="text-xs font-semibold h-8"
-              >
-                + Asignar / Cambiar Plan
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setModalAsignarPlanAbierto(true)}
-                data-testid="btn-asignar-plan"
-                className="sr-only"
-                aria-hidden="true"
-                tabIndex={-1}
-              >
-                Asignar
-              </Button>
-            </div>
-          </div>
-
-          {/* Plan de Membresía y Actividad Presencial (GH #122 / GOZS-362 Multiactividad) */}
-          <div className="space-y-3" data-testid="membresia-clases-panel">
-            {todasContratacionesAlumno.map((c, idx) => {
-              const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
-              const nombrePlan =
-                plan?.nombre ??
-                (c.plan_membresia_id === "demo-plan-funcional-2x"
-                  ? "Funcional 2x semana"
-                  : c.plan_membresia_id === "demo-plan-pase-libre"
-                  ? "Pase libre Funcional + Boxeo"
-                  : c.plan_membresia_id ?? "Plan Presencial");
-
-              const esGratis = c.precio_pactado === 0 || plan?.precio === 0;
-
-              return (
-                <div
-                  key={c.id || idx}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-border/70 bg-secondary/20 p-3"
-                  data-testid="item-plan-desglose"
-                >
-                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Plan {todasContratacionesAlumno.length > 1 ? `#${idx + 1}` : "de Membresía"}
-                      </p>
-                      {esGratis ? (
-                        <Badge
-                          variant="default"
-                          className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 text-[10px] font-bold"
-                          data-testid="badge-corpo-0"
-                        >
-                          CORPO $0
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px] font-bold">
-                          {c.precio_pactado ? formatearDinero(c.precio_pactado) : "Membresía"}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
-                      {nombrePlan}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
-                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
-                        ? "Asesoría Online · Sin límite de clases"
-                        : c.plan_membresia_id === "demo-plan-funcional-2x"
-                        ? "Límite: 2 clases por semana · $25.000/mes"
-                        : c.plan_membresia_id === "demo-plan-pase-libre"
-                        ? "Pase libre sin límite semanal · $40.000/mes"
-                        : plan?.limite_semanal
-                        ? `Límite: ${plan.limite_semanal} clases/sem`
-                        : "Pase libre sin límite semanal"}
-                    </p>
-                    {plan?.notas && (
-                      <p className="mt-1 text-[11px] text-muted-foreground italic" data-testid="plan-membresia-notas">
-                        📝 {plan.notas}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Actividad de la Contratación
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
-                      {c.actividad
-                        ? c.actividad === "FUNCIONAL"
-                          ? "Funcional"
-                          : c.actividad === "BOXEO"
-                          ? "Boxeo"
-                          : c.actividad
-                        : c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
-                        ? "Rutinas Online (Asesoría)"
-                        : "Funcional + Boxeo (Pase libre)"}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
-                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
-                        ? "Modalidad Online"
-                        : "Modalidad Presencial"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Renovación manual (Transferencia / Efectivo) */}
-            <div
-              className="space-y-3 rounded-lg border border-border p-3.5"
-              data-testid="renovacion-manual"
-            >
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">
-                  Renovación manual
-                </h4>
-                <p className="text-[11px] text-muted-foreground">
-                  No se corre la fecha: el próximo corte queda el{" "}
-                  <strong className="text-foreground">
-                    {formatFecha(proximaFechaAnclada)}
-                  </strong>{" "}
-                  (día {contratacion.dia_vencimiento}).
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
-                  Medio de pago
-                  <select
-                    value={renovMedio}
-                    onChange={(e) =>
-                      setRenovMedio(e.target.value as MedioPago)
-                    }
-                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
-                    data-testid="renovacion-medio"
-                  >
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="EFECTIVO">Efectivo</option>
-                  </select>
-                </label>
-                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
-                  Monto
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    value={renovMonto}
-                    onChange={(e) => setRenovMonto(e.target.value)}
-                    placeholder="0"
-                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
-                    data-testid="renovacion-monto"
-                  />
-                </label>
-              </div>
-              <Button
-                size="default"
-                className="min-h-11 w-full text-xs font-semibold"
-                onClick={handleRegistrarRenovacion}
-                disabled={isRenovando || !onRegistrarRenovacion}
-                data-testid="renovacion-confirmar"
-              >
-                {isRenovando
-                  ? "Confirmando…"
-                  : "Confirmar renovación y pago"}
-              </Button>
-            </div>
-
-            {/* Extensión excepcional (motivo obligatorio) */}
-            <div
-              className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3.5"
-              data-testid="extension-excepcional"
-            >
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">
-                  Extensión excepcional
-                </h4>
-                <p className="text-[11px] text-muted-foreground">
-                  Fuera de ciclo. Requiere motivo obligatorio para auditoría.
-                </p>
-              </div>
-              <label className="block text-[11px] font-semibold text-muted-foreground">
-                Nueva fecha de vencimiento
-                <input
-                  type="date"
-                  value={extFecha}
-                  onChange={(e) => setExtFecha(e.target.value)}
-                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
-                  data-testid="extension-fecha"
-                />
-              </label>
-              <label className="block text-[11px] font-semibold text-muted-foreground">
-                Motivo (obligatorio)
-                <textarea
-                  value={extMotivo}
-                  onChange={(e) => setExtMotivo(e.target.value)}
-                  rows={2}
-                  placeholder="Ej.: compensación por lesión / viaje coordinado con el equipo."
-                  className="mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground"
-                  data-testid="extension-motivo"
-                  required
-                />
-              </label>
-              <Button
-                variant="outline"
-                size="default"
-                className="min-h-11 w-full text-xs font-semibold"
-                onClick={handleExtenderExcepcional}
-                disabled={
-                  isExtendiendoExc ||
-                  !onExtenderExcepcional ||
-                  !extFecha ||
-                  !extMotivo.trim()
-                }
-                data-testid="extension-confirmar"
-              >
-                {isExtendiendoExc
-                  ? "Aplicando…"
-                  : "Aplicar extensión excepcional"}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Atención y Chat GOZS: Responsable Asignado y Transferencia (ADR-004) */}
-      <Card data-testid="chat-responsable-panel">
+  const chatPanelNode = (
+    <Card data-testid="chat-responsable-panel">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1503,8 +1055,10 @@ export function StudentDetail({
           </div>
         </CardContent>
       </Card>
+  );
 
-      {/* Tab Selector (Pestañas de Planes) */}
+  const routineTabsNode = (
+    <div className="space-y-4">
       <div
         role="tablist"
         aria-label="Pestañas de la Ficha del Alumno"
@@ -1999,6 +1553,786 @@ export function StudentDetail({
           )}
         </div>
       )}
+    </div>
+  );
+
+  const renderIsland = (islandId: string) => {
+    const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
+    const isCollapsed = !!collapsedIslands[islandId];
+
+    switch (islandId) {
+      case "timeline":
+        return (
+          <IslaTimelineRibbon
+            key="timeline"
+            historialCargas={historialCargas}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("timeline")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("timeline")}
+            onDragOver={handleDragOver("timeline")}
+            onDragLeave={handleDragLeave("timeline")}
+            onDrop={handleDrop("timeline")}
+          />
+        );
+
+      case "activity_feed":
+        return (
+          <IslaActivityFeed
+            key="activity_feed"
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("activity_feed")}
+            isRailCollapsed={isFeedRailCollapsed}
+            onToggleRail={toggleFeedRail}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("activity_feed")}
+            onDragOver={handleDragOver("activity_feed")}
+            onDragLeave={handleDragLeave("activity_feed")}
+            onDrop={handleDrop("activity_feed")}
+            historialPagosNode={historialPagosNode}
+            chatPanelNode={chatPanelNode}
+          />
+        );
+
+      case "routine_workbench":
+        return (
+          <IslaRoutineWorkbench
+            key="routine_workbench"
+            rutinaActiva={rutinaActiva}
+            dias={dias}
+            ejerciciosEnRutina={ejerciciosEnRutina}
+            ejerciciosCatalogo={ejerciciosCatalogo}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("routine_workbench")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("routine_workbench")}
+            onDragOver={handleDragOver("routine_workbench")}
+            onDragLeave={handleDragLeave("routine_workbench")}
+            onDrop={handleDrop("routine_workbench")}
+            onQuickSwap={
+              onQuickSwap && chatActivePainAlert
+                ? () => onQuickSwap(chatActivePainAlert)
+                : undefined
+            }
+            childrenTabs={routineTabsNode}
+          />
+        );
+
+      case "metricas_1rm":
+        return (
+          <IslaMetricas1RM
+            key="metricas_1rm"
+            historialCargas={historialCargas}
+            pesoCorporalActual={(alumno as any).peso_corporal_kg || 78.5}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("metricas_1rm")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("metricas_1rm")}
+            onDragOver={handleDragOver("metricas_1rm")}
+            onDragLeave={handleDragLeave("metricas_1rm")}
+            onDrop={handleDrop("metricas_1rm")}
+            adherenciaNode={adherenciaNode}
+          />
+        );
+
+      case "salud_anamnesis":
+        return (
+          <IslaSaludAnamnesis
+            key="salud_anamnesis"
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapseIsland("salud_anamnesis")}
+            isCanvasMode={isCanvasMode}
+            isDragTarget={isTarget}
+            onDragStart={handleDragStart("salud_anamnesis")}
+            onDragOver={handleDragOver("salud_anamnesis")}
+            onDragLeave={handleDragLeave("salud_anamnesis")}
+            onDrop={handleDrop("salud_anamnesis")}
+            cuestionarioNode={cuestionarioNode}
+            painAlertsNode={<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />}
+            evaDolorActual={chatActivePainAlert ? 5 : 0}
+            zonaDolorActual={chatActivePainAlert?.zona || "Ninguna"}
+            onQuickSwap={
+              onQuickSwap && chatActivePainAlert
+                ? () => onQuickSwap(chatActivePainAlert)
+                : undefined
+            }
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Bar / Back */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="outline"
+          size="default"
+          onClick={onBack}
+          className="min-h-11 gap-2 text-xs font-semibold"
+        >
+          <span>← Volver a Alumnos</span>
+        </Button>
+        <div className="flex items-center gap-2">
+          {isOffline && (
+            <Badge variant="warning" className="text-[11px]">
+              Modo Offline • Acciones en cola
+            </Badge>
+          )}
+          {onPreviewAthlete && (
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={() => onPreviewAthlete(alumno)}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
+              data-testid="detail-preview-athlete-btn"
+            >
+              <span>👁️ Ver como Alumno</span>
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="default"
+            size="default"
+            onClick={() => {
+              onOpenChat?.();
+              openChatForAlumno(alumno.id);
+            }}
+            className="inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold"
+            data-testid="enviar-mensaje-btn"
+            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+          >
+            <span>💬 Enviar mensaje</span>
+          </Button>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
+            data-testid="whatsapp-direct-btn"
+          >
+            <span>💬 WhatsApp 1-Clic</span>
+          </a>
+          <Button
+            type="button"
+            variant={isCanvasMode ? "default" : "outline"}
+            size="default"
+            onClick={() => setIsCanvasMode((prev) => !prev)}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 text-xs font-bold ${isCanvasMode ? "bg-primary text-primary-foreground shadow-sm" : "border-primary/40 text-primary hover:bg-primary/10"}`}
+            data-testid="btn-modo-canvas"
+            aria-label="Alternar Modo Canvas Modular"
+          >
+            <span>⠿ Modo Canvas</span>
+            {isCanvasMode && (
+              <span className="rounded bg-primary-foreground/20 px-1 py-0.5 text-[10px] uppercase font-mono">
+                Activo
+              </span>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {isCanvasMode && (
+        <div
+          data-testid="banner-modo-canvas"
+          className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2.5 text-xs text-primary font-medium"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-base select-none">⠿</span>
+            <span>
+              <strong>Modo Canvas Activo:</strong> Arrastrá las islas mediante el drag handle (⠿) para reordenar la grilla modular o usá [-] para colapsar. La disposición se persiste automáticamente en localStorage.
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCanvasMode(false)}
+            className="h-7 text-xs font-bold text-primary hover:bg-primary/20"
+          >
+            Listo
+          </Button>
+        </div>
+      )}
+
+      {/* Ficha Header */}
+      <Card>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-bold text-secondary-foreground">
+                {alumno.nombre_completo
+                  .split(" ")
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join("")}
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">
+                    {alumno.nombre_completo}
+                  </h2>
+                  {getPaymentBadge(alumno.estado_membresia)}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border ${healthScore.colorClass}`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    Semáforo de Salud: {healthScore.score}/100 ({healthScore.badgeLabel})
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {alumno.email ?? "Sin email"} • Cliente desde{" "}
+                  {new Date(alumno.created_at).toLocaleDateString("es-AR", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="default"
+                onClick={onOpenHistoricalLoads}
+                className="min-h-11 w-full gap-2 text-xs font-semibold sm:w-auto"
+                aria-label="Revisar cargas y RPE históricos"
+              >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M3 3v18h18" />
+                  <path d="m19 9-5 5-4-4-3 3" />
+                </svg>
+                <span>Cargas y RPE Históricos</span>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Resumen Comercial y Estado de Pago (GOZS-247) */}
+      <Card data-testid="ficha-suscripcion-resumen" className="border-primary/25 bg-card shadow-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
+              {/* 1. Actividad y frecuencia */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Actividad y Frecuencia
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-sm font-black text-foreground"
+                    data-testid="ficha-actividad-frecuencia"
+                  >
+                    {actividadFrecuencia.etiqueta}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground" data-testid="ficha-actividad-detalle">
+                  {actividadFrecuencia.detalle}
+                </p>
+              </div>
+
+              {/* 2. Estado de pago (si pagó o no) */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Estado de Pago
+                </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black border ${
+                      estadoPagoInfo.pago
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : estadoPagoInfo.estado === "VENCIDO"
+                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
+                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                    }`}
+                    data-testid="ficha-estado-pago"
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        estadoPagoInfo.pago
+                          ? "bg-emerald-500"
+                          : estadoPagoInfo.estado === "VENCIDO"
+                          ? "bg-rose-500"
+                          : "bg-amber-500"
+                      }`}
+                    />
+                    {estadoPagoInfo.etiquetaPrincipal} • {estadoPagoInfo.etiquetaDetalle}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {estadoPagoInfo.pago
+                    ? "Cuota vigente al día"
+                    : estadoPagoInfo.estado === "VENCIDO"
+                    ? "Cuota vencida impaga"
+                    : "Esperando confirmación de cobro"}
+                </p>
+              </div>
+
+              {/* 3. Monto de la suscripción */}
+              <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Monto de la Suscripción
+                </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className="text-lg font-black text-foreground tabular-nums"
+                    data-testid="ficha-monto-sub"
+                  >
+                    {montoSuscripcion.formateado}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground font-semibold">/mes</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Día {contratacion.dia_vencimiento} anclado • Vence {formatFecha(contratacion.fecha_fin)}
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Botón para registrar el pago */}
+            <div className="flex items-center justify-end pt-1 lg:pt-0">
+              <Button
+                variant={estadoPagoInfo.pago ? "outline" : "default"}
+                size="default"
+                onClick={handleAbrirDialogoPago}
+                className="min-h-11 w-full gap-2 text-xs font-bold sm:w-auto px-5 shadow-sm"
+                data-testid="btn-registrar-pago"
+                aria-label={`Registrar pago para ${alumno.nombre_completo}`}
+              >
+                <span>💳 Registrar pago</span>
+              </Button>
+            </div>
+          </div>
+
+          {avisoPago && (
+            <div
+              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 font-medium"
+              data-testid="aviso-pago-exitoso"
+            >
+              ✓ {avisoPago}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Configuración de Modo de Vista del Alumno (ADR-004: SIMPLE vs TECNICA) */}
+      <Card data-testid="coach-nivel-vista-card">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-foreground">
+                  Vista recomendada
+                </h3>
+                <Badge
+                  variant={nivelVista === "SIMPLE" ? "secondary" : "default"}
+                  className="text-[10px] font-bold"
+                  data-testid="coach-nivel-vista-badge"
+                >
+                  {nivelVista === "SIMPLE" ? "SIMPLE (Minimalista)" : "TÉCNICA (Avanzada)"}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {nivelVista === "SIMPLE"
+                  ? "Vista minimalista: El alumno visualiza únicamente Series × Reps × Peso + Video + Descanso (sin RPE ni 1RM)."
+                  : "Vista técnica completa: Expone RPE objetivo/real, %1RM y fórmulas para atletas avanzados."}
+              </p>
+              {errorNivelVista && (
+                <p
+                  className="mt-1 text-xs font-semibold text-destructive"
+                  data-testid="coach-nivel-vista-error"
+                >
+                  {errorNivelVista}
+                </p>
+              )}
+            </div>
+
+            <div
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/30 p-1"
+              data-testid="coach-nivel-vista-switcher"
+            >
+              <Button
+                variant={nivelVista === "SIMPLE" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleToggleNivelVista("SIMPLE")}
+                disabled={isUpdatingNivel}
+                className="min-h-11 text-xs font-bold sm:min-h-9"
+                data-testid="coach-toggle-vista-simple"
+              >
+                Vista Simple (Minimalista)
+              </Button>
+              <Button
+                variant={nivelVista === "TECNICA" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleToggleNivelVista("TECNICA")}
+                disabled={isUpdatingNivel}
+                className="min-h-11 text-xs font-bold sm:min-h-9"
+                data-testid="coach-toggle-vista-tecnica"
+              >
+                Vista Técnica Avanzada
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Estado Comercial y Contratación (ADR-001: entidades/estados separados) */}
+      <Card data-testid="contratacion-panel">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-bold">
+            Estado Comercial y Contratación
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5 p-4 pt-0 sm:p-6 sm:pt-0">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Cuenta
+              </p>
+              <div className="mt-1.5" data-testid="estado-cuenta">
+                {getCuentaBadge(estadoCuenta)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Contratación
+              </p>
+              <div className="mt-1.5" data-testid="estado-contratacion">
+                {getContratacionBadge(contratacion.estado)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Vencimiento
+              </p>
+              <p
+                className="mt-1 text-sm font-bold text-foreground"
+                data-testid="fecha-vencimiento"
+              >
+                {formatFecha(contratacion.fecha_fin)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Día {contratacion.dia_vencimiento} anclado
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/30 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Estado de Rutina
+              </p>
+              <div className="mt-1.5" data-testid="estado-rutina">
+                {rutinaActiva ? (
+                  getPlanBadge(rutinaActiva.estado, rutinaActiva.fecha_fin)
+                ) : (
+                  <Badge variant="outline">Sin rutina</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Cabecera y Acción Rápida de Asignación / Cambio de Plan */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                Planes de Membresía & Multiactividad
+                {todasContratacionesAlumno.length > 1 && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold">
+                    Multiactividad ({todasContratacionesAlumno.length} planes)
+                  </Badge>
+                )}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Membresías activas vinculadas al atleta.
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModalAsignarPlanAbierto(true)}
+                data-testid="btn-asignar-nuevo-plan"
+                className="text-xs font-semibold h-8"
+              >
+                + Asignar / Cambiar Plan
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setModalAsignarPlanAbierto(true)}
+                data-testid="btn-asignar-plan"
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+              >
+                Asignar
+              </Button>
+            </div>
+          </div>
+
+          {/* Plan de Membresía y Actividad Presencial (GH #122 / GOZS-362 Multiactividad) */}
+          <div className="space-y-3" data-testid="membresia-clases-panel">
+            {todasContratacionesAlumno.map((c, idx) => {
+              const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
+              const nombrePlan =
+                plan?.nombre ??
+                (c.plan_membresia_id === "demo-plan-funcional-2x"
+                  ? "Funcional 2x semana"
+                  : c.plan_membresia_id === "demo-plan-pase-libre"
+                  ? "Pase libre Funcional + Boxeo"
+                  : c.plan_membresia_id ?? "Plan Presencial");
+
+              const esGratis = c.precio_pactado === 0 || plan?.precio === 0;
+
+              return (
+                <div
+                  key={c.id || idx}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl border border-border/70 bg-secondary/20 p-3"
+                  data-testid="item-plan-desglose"
+                >
+                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Plan {todasContratacionesAlumno.length > 1 ? `#${idx + 1}` : "de Membresía"}
+                      </p>
+                      {esGratis ? (
+                        <Badge
+                          variant="default"
+                          className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 text-[10px] font-bold"
+                          data-testid="badge-corpo-0"
+                        >
+                          CORPO $0
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          {c.precio_pactado ? formatearDinero(c.precio_pactado) : "Membresía"}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
+                      {nombrePlan}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
+                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Asesoría Online · Sin límite de clases"
+                        : c.plan_membresia_id === "demo-plan-funcional-2x"
+                        ? "Límite: 2 clases por semana · $25.000/mes"
+                        : c.plan_membresia_id === "demo-plan-pase-libre"
+                        ? "Pase libre sin límite semanal · $40.000/mes"
+                        : plan?.limite_semanal
+                        ? `Límite: ${plan.limite_semanal} clases/sem`
+                        : "Pase libre sin límite semanal"}
+                    </p>
+                    {plan?.notas && (
+                      <p className="mt-1 text-[11px] text-muted-foreground italic" data-testid="plan-membresia-notas">
+                        📝 {plan.notas}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-secondary/30 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Actividad de la Contratación
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
+                      {c.actividad
+                        ? c.actividad === "FUNCIONAL"
+                          ? "Funcional"
+                          : c.actividad === "BOXEO"
+                          ? "Boxeo"
+                          : c.actividad
+                        : c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Rutinas Online (Asesoría)"
+                        : "Funcional + Boxeo (Pase libre)"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
+                      {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
+                        ? "Modalidad Online"
+                        : "Modalidad Presencial"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Renovación manual (Transferencia / Efectivo) */}
+            <div
+              className="space-y-3 rounded-lg border border-border p-3.5"
+              data-testid="renovacion-manual"
+            >
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  Renovación manual
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  No se corre la fecha: el próximo corte queda el{" "}
+                  <strong className="text-foreground">
+                    {formatFecha(proximaFechaAnclada)}
+                  </strong>{" "}
+                  (día {contratacion.dia_vencimiento}).
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                  Medio de pago
+                  <select
+                    value={renovMedio}
+                    onChange={(e) =>
+                      setRenovMedio(e.target.value as MedioPago)
+                    }
+                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                    data-testid="renovacion-medio"
+                  >
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                  </select>
+                </label>
+                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                  Monto
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    value={renovMonto}
+                    onChange={(e) => setRenovMonto(e.target.value)}
+                    placeholder="0"
+                    className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                    data-testid="renovacion-monto"
+                  />
+                </label>
+              </div>
+              <Button
+                size="default"
+                className="min-h-11 w-full text-xs font-semibold"
+                onClick={handleRegistrarRenovacion}
+                disabled={isRenovando || !onRegistrarRenovacion}
+                data-testid="renovacion-confirmar"
+              >
+                {isRenovando
+                  ? "Confirmando…"
+                  : "Confirmar renovación y pago"}
+              </Button>
+            </div>
+
+            {/* Extensión excepcional (motivo obligatorio) */}
+            <div
+              className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3.5"
+              data-testid="extension-excepcional"
+            >
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">
+                  Extensión excepcional
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Fuera de ciclo. Requiere motivo obligatorio para auditoría.
+                </p>
+              </div>
+              <label className="block text-[11px] font-semibold text-muted-foreground">
+                Nueva fecha de vencimiento
+                <input
+                  type="date"
+                  value={extFecha}
+                  onChange={(e) => setExtFecha(e.target.value)}
+                  className="mt-1 min-h-11 w-full rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground"
+                  data-testid="extension-fecha"
+                />
+              </label>
+              <label className="block text-[11px] font-semibold text-muted-foreground">
+                Motivo (obligatorio)
+                <textarea
+                  value={extMotivo}
+                  onChange={(e) => setExtMotivo(e.target.value)}
+                  rows={2}
+                  placeholder="Ej.: compensación por lesión / viaje coordinado con el equipo."
+                  className="mt-1 w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground"
+                  data-testid="extension-motivo"
+                  required
+                />
+              </label>
+              <Button
+                variant="outline"
+                size="default"
+                className="min-h-11 w-full text-xs font-semibold"
+                onClick={handleExtenderExcepcional}
+                disabled={
+                  isExtendiendoExc ||
+                  !onExtenderExcepcional ||
+                  !extFecha ||
+                  !extMotivo.trim()
+                }
+                data-testid="extension-confirmar"
+              >
+                {isExtendiendoExc
+                  ? "Aplicando…"
+                  : "Aplicar extensión excepcional"}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Canvas Modular de Islas Autónomas y Colapsables (Issue #355 / docs/specs/student-detail-canvas-islas-spec.md) */}
+      <div
+        data-testid="student-detail-modular-canvas"
+        className="space-y-4 pt-2"
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-start">
+          {islandOrder.map((id) => {
+            if (id === "timeline") {
+              return (
+                <div key={id} className="lg:col-span-12">
+                  {renderIsland(id)}
+                </div>
+              );
+            }
+            if (id === "activity_feed") {
+              return (
+                <div
+                  key={id}
+                  className={
+                    isFeedRailCollapsed ? "lg:col-span-1" : "lg:col-span-4"
+                  }
+                >
+                  {renderIsland(id)}
+                </div>
+              );
+            }
+            if (id === "routine_workbench") {
+              return (
+                <div
+                  key={id}
+                  className={
+                    isFeedRailCollapsed ? "lg:col-span-11" : "lg:col-span-8"
+                  }
+                >
+                  {renderIsland(id)}
+                </div>
+              );
+            }
+            return (
+              <div key={id} className="lg:col-span-6">
+                {renderIsland(id)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* DIÁLOGO ACCESIBLE PARA REGISTRAR PAGO (GOZS-247) */}
       <dialog
