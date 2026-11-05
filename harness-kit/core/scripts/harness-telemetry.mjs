@@ -127,6 +127,43 @@ export function summarize(events) {
       p90Ms: ttfe.length ? percentile(ttfe, 90) : null,
     },
     repeatedBlockSessions,
+    ppcTrigger: evaluatePpcTrigger(list, 2),
+  };
+}
+
+/**
+ * Evaluates telemetry for repeated failures and signals whether a PPC probe should be triggered.
+ * Trigger criteria: >= threshold repeated blocks on the same rule in a session.
+ */
+export function evaluatePpcTrigger(events, threshold = 2) {
+  const list = Array.isArray(events) ? events : [];
+  const sessionRuleBlocks = new Map();
+
+  for (const e of list) {
+    if (e.decision === "block" && e.rule) {
+      const sess = e.session || "default";
+      const key = `${sess}::${e.rule}`;
+      sessionRuleBlocks.set(key, (sessionRuleBlocks.get(key) || 0) + 1);
+    }
+  }
+
+  const triggers = [];
+  for (const [key, count] of sessionRuleBlocks.entries()) {
+    if (count >= threshold) {
+      const [session, rule] = key.split("::");
+      triggers.push({
+        session,
+        rule,
+        block_count: count,
+        recommendation: `Repeated failures (${count} blocks on '${rule}'). Trigger harness-proposer or run harness-probe.mjs --batch.`,
+      });
+    }
+  }
+
+  return {
+    should_trigger: triggers.length > 0,
+    threshold,
+    triggers,
   };
 }
 

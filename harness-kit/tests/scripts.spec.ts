@@ -12,6 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
 const initScript = path.resolve(here, "..", "core", "scripts", "harness-init.sh").replace(/\\/g, "/");
 const gateScript = path.resolve(here, "..", "core", "scripts", "harness-gate.sh").replace(/\\/g, "/");
+const learnScript = path.resolve(here, "..", "core", "scripts", "harness-learn.sh").replace(/\\/g, "/");
 
 const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
 const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
@@ -230,5 +231,24 @@ describe("H-04: harness-gate.sh — Sello .harness/complete.json e invalidación
 
     const res = runBash(gateScript, [], dir);
     expect(res.code).toBe(2);
+  });
+
+  it("H-13: harness-learn.sh registra lecciones en experience_library.jsonl", () => {
+    const { dir } = createTempGitRepo();
+    const expLib = path.join(dir, "harness", "experience_library.jsonl");
+
+    const res = runBash(
+      learnScript,
+      ["--issue", "GOZS-999", "--lesson", "Prueba de aprendizaje autonomo", "--tags", "db,test"],
+      dir,
+    );
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("[harness-learn OK]");
+
+    expect(existsSync(expLib)).toBe(true);
+    const content = readFileSync(expLib, "utf8");
+    expect(content).toContain("GOZS-999");
+    expect(content).toContain("Prueba de aprendizaje autonomo");
+    expect(content).toContain('"tags":["db","test"]');
   });
 });
