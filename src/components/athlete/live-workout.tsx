@@ -391,6 +391,7 @@ export function LiveWorkout() {
   // Variable alias `ejercicio` y `serie` requeridas por tests de string matching
   const ejercicio = currentExercise!;
   const serie = currentSet;
+  const repRange = currentExercise ? parseRepRange(currentExercise.repeticiones_objetivo) : null;
 
   // Sugerencia de carga (GOZS-160, spec historial-progreso §2) para la serie visible.
   const sugerencia =
@@ -1783,13 +1784,24 @@ export function LiveWorkout() {
 
                       {/* Stepper Repeticiones / Tiempo */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label
-                            htmlFor={`reps-${currentExercise.id}-${serie.numero_serie}`}
-                            className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
-                          >
-                            {currentExercise.tipo_medicion === "TIEMPO" ? "Tiempo (segundos)" : "Repeticiones"}
-                          </label>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <label
+                              htmlFor={`reps-${currentExercise.id}-${serie.numero_serie}`}
+                              className="text-xs font-bold text-muted-foreground uppercase tracking-wider block"
+                            >
+                              {currentExercise.tipo_medicion === "TIEMPO" ? "Tiempo (segundos)" : "Repeticiones"}
+                            </label>
+                            {currentExercise.tipo_medicion !== "TIEMPO" && repRange?.isRange && (
+                              <Badge
+                                variant="outline"
+                                className="font-mono font-semibold text-[11px] px-2 py-0.5 border-primary/30 bg-primary/10 text-primary"
+                                data-testid="rep-range-badge"
+                              >
+                                {`Rango: ${repRange.min} a ${repRange.max} reps (máx. ${repRange.max})`}
+                              </Badge>
+                            )}
+                          </div>
                           {currentExercise.es_unilateral && (
                             <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1" data-testid="unilateral-indicator">
                               (c/lado)
@@ -1813,7 +1825,13 @@ export function LiveWorkout() {
                               type="number"
                               step="1"
                               min="0"
-                              max={currentExercise.tipo_medicion === "TIEMPO" ? "3600" : "100"}
+                              max={
+                                currentExercise.tipo_medicion === "TIEMPO"
+                                  ? "3600"
+                                  : repRange?.isRange
+                                    ? String(repRange.max)
+                                    : "100"
+                              }
                               inputMode="numeric"
                               value={serie.reps_hechas}
                               onChange={(e) => {
@@ -1838,8 +1856,15 @@ export function LiveWorkout() {
                           </div>
                           <button
                             type="button"
+                            disabled={
+                              currentExercise.tipo_medicion === "TIEMPO"
+                                ? serie.reps_hechas >= 3600
+                                : repRange?.isRange
+                                  ? serie.reps_hechas >= repRange.max
+                                  : serie.reps_hechas >= 100
+                            }
                             onClick={() => handleAdjustReps(currentExercise.tipo_medicion === "TIEMPO" ? 5 : 1)}
-                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all touch-manipulation cursor-pointer border border-border/40"
+                            className="h-14 rounded-xl bg-secondary font-mono font-bold text-base text-foreground flex items-center justify-center hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-30 touch-manipulation cursor-pointer border border-border/40"
                             aria-label={currentExercise.tipo_medicion === "TIEMPO" ? "Sumar 5 segundos" : "Sumar 1 repetición"}
                             data-testid="reps-increment-btn"
                           >

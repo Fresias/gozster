@@ -26,10 +26,10 @@ describe("QA Edge Cases Suite — GOZS-360 Routine Builder & Athlete App", () =>
       expect(parseRepRange("12/8")).toEqual({ isRange: true, min: 8, max: 12 });
     });
 
-    it("rejects internal spaces in range", () => {
-      expect(parseRepRange("8 / 12")).toBeNull();
-      expect(parseRepRange("8/ 12")).toBeNull();
-      expect(parseRepRange("8 /12")).toBeNull();
+    it("supports clean spacing variants in range (GOZS-364)", () => {
+      expect(parseRepRange("8 / 12")).toEqual({ isRange: true, min: 8, max: 12 });
+      expect(parseRepRange("8/ 12")).toEqual({ isRange: true, min: 8, max: 12 });
+      expect(parseRepRange("8 /12")).toEqual({ isRange: true, min: 8, max: 12 });
     });
 
     it("rejects non-numeric and negative values", () => {
