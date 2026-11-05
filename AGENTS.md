@@ -69,9 +69,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-10-19 | task: docs/GLOSSARY.md] Training hierarchy: planes_entrenamiento → dias_rutina → ejercicios_en_rutina → registro_sesiones → registro_series.
-- [lesson 2026-10-19 | task: package.json] `npm run lint` == `tsc --noEmit` (same as typecheck).
-- [lesson 2026-11-03 | task: GOZS-284] fix(ui): stores del alumno con clave por usuario y logout que limpia datos (GOZS-284) (#315)
+- [lesson 2026-11-05 | task: GOZS-362] Coach Studio: alta de planes corpo  con notas, asignacion multiactividad simultanea y badges apilables en listado de atletas.
+- [lesson 2026-11-05 | task: GOZS-364] Athlete App: en rangos de repeticiones con barra 'X/Y', la app precarga el maximo Y y el stepper bloquea incrementos superiores al limite prescrito.
+- [lesson 2026-11-05 | task: GOZS-365] Coach Studio: filtro interactivo por chips de tags (Fuerza, Hipertrofia, etc.) y badges semanticos de categoria en biblioteca de rutinas.
 
 # Tool Guidance & Execution Rules
 
