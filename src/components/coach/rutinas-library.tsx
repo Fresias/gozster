@@ -5,7 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
-import { clasificarRutinas, formatFecha, nombreUnico, separarBorradores } from "@/lib/rutinas-biblioteca";
+import {
+  clasificarRutinas,
+  filtrarRutinas,
+  formatFecha,
+  getTagBadgeStyles,
+  getTagChipFilterStyles,
+  heredarTagsDePlantilla,
+  nombreUnico,
+  separarBorradores,
+  TAGS_FILTRO_BIBLIOTECA,
+  tagToSlug,
+} from "@/lib/rutinas-biblioteca";
 import { fetchLiveDatasetFromSupabase, type LiveSupabaseDataset } from "@/services/alumnos-service";
 import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
@@ -19,6 +30,8 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   const [enCurso, setEnCurso] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [aviso, setAviso] = React.useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = React.useState<string>("Todos");
+  const [busqueda, setBusqueda] = React.useState<string>("");
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   const { plantillas, deAlumnos, archivadas } = clasificarRutinas(dataset.planes);
@@ -26,6 +39,23 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   const nombresExistentes = dataset.planes.map((p) => p.nombre);
   const nombreAlumno = (id: string | null) =>
     dataset.alumnos.find((a) => a.id === id)?.nombre_completo ?? "Alumno";
+
+  const plantillasFiltradas = React.useMemo(
+    () => filtrarRutinas(plantillas, selectedTag, busqueda),
+    [plantillas, selectedTag, busqueda],
+  );
+  const vigentesFiltradas = React.useMemo(
+    () => filtrarRutinas(vigentes, selectedTag, busqueda),
+    [vigentes, selectedTag, busqueda],
+  );
+  const borradoresFiltrados = React.useMemo(
+    () => filtrarRutinas(borradores, selectedTag, busqueda),
+    [borradores, selectedTag, busqueda],
+  );
+  const archivadasFiltradas = React.useMemo(
+    () => filtrarRutinas(archivadas, selectedTag, busqueda),
+    [archivadas, selectedTag, busqueda],
+  );
 
   const recargar = async () => {
     const fresco = await fetchLiveDatasetFromSupabase();
@@ -60,7 +90,10 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
         nombrePropuesto !== asignando.nombre ? nombrePropuesto : undefined,
       );
       const fresco = await recargar();
-      const clon = fresco.planes.find((p) => p.id === nuevoId) ?? null;
+      let clon = fresco.planes.find((p) => p.id === nuevoId) ?? null;
+      if (clon && (!clon.tags || clon.tags.length === 0) && asignando.tags && asignando.tags.length > 0) {
+        clon.tags = heredarTagsDePlantilla(asignando, clon);
+      }
       const alumnoId = alumnoElegido;
       setAsignando(null);
       setAlumnoElegido("");
@@ -103,6 +136,25 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             <Badge variant={plan.estado === "ACTIVO" ? "success" : plan.estado === "BORRADOR" ? "warning" : "secondary"}>
               {plan.estado}
             </Badge>
+          )}
+          {plan.tags && plan.tags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5" data-testid="rutina-tags-badges">
+              {plan.tags.map((tag) => {
+                const styles = getTagBadgeStyles(tag);
+                const slug = tagToSlug(tag);
+                return (
+                  <span
+                    key={tag}
+                    data-testid={`badge-tag-${slug}`}
+                    data-tag={tag}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold select-none transition-colors ${styles.className}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${styles.dotColor}`} />
+                    {tag}
+                  </span>
+                );
+              })}
+            </div>
           )}
         </div>
         {plan.alumno_id && <p className="text-sm text-muted-foreground">{nombreAlumno(plan.alumno_id)}</p>}
@@ -206,18 +258,108 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             </p>
           )}
 
+          {/* Barra de Filtros: Búsqueda Reactiva y Chips de Tags de Rutina */}
+          <div
+            className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:p-4"
+            data-testid="rutinas-filters-container"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Buscador reactivo */}
+              <div className="relative w-full sm:max-w-xs">
+                <input
+                  type="search"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar rutina por nombre o notas..."
+                  aria-label="Buscar rutinas"
+                  data-testid="search-rutinas-input"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                />
+                {busqueda && (
+                  <button
+                    type="button"
+                    onClick={() => setBusqueda("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Chips horizontales de Tags */}
+              <div
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none"
+                role="toolbar"
+                aria-label="Filtro por tags de rutina"
+                data-testid="rutinas-tags-filter"
+              >
+                {TAGS_FILTRO_BIBLIOTECA.map((tag) => {
+                  const isSelected = selectedTag === tag || (tag === "Todos" && (!selectedTag || selectedTag === "Todos"));
+                  const slug = tagToSlug(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTag(isSelected && tag !== "Todos" ? "Todos" : tag)}
+                      aria-pressed={isSelected}
+                      data-testid={`tag-filter-${slug}`}
+                      data-filter-tag={tag}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-all cursor-pointer font-bold select-none ${getTagChipFilterStyles(
+                        tag,
+                        isSelected,
+                      )}`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <Tabs defaultValue="plantillas">
             <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="plantillas">Plantillas ({plantillas.length})</TabsTrigger>
-              <TabsTrigger value="alumnos">De alumnos ({vigentes.length})</TabsTrigger>
-              <TabsTrigger value="borradores">Borradores ({borradores.length})</TabsTrigger>
-              <TabsTrigger value="archivadas">Archivadas ({archivadas.length})</TabsTrigger>
+              <TabsTrigger value="plantillas">Plantillas ({plantillasFiltradas.length})</TabsTrigger>
+              <TabsTrigger value="alumnos">De alumnos ({vigentesFiltradas.length})</TabsTrigger>
+              <TabsTrigger value="borradores">Borradores ({borradoresFiltrados.length})</TabsTrigger>
+              <TabsTrigger value="archivadas">Archivadas ({archivadasFiltradas.length})</TabsTrigger>
             </TabsList>
-            <TabsContent value="plantillas">{lista(plantillas, {}, "Todavía no hay plantillas.")}</TabsContent>
-            <TabsContent value="alumnos">{lista(vigentes, { alumno: true }, "Ningún alumno tiene rutina.")}</TabsContent>
-            <TabsContent value="borradores">{lista(borradores, { alumno: true }, "No hay borradores.")}</TabsContent>
+            <TabsContent value="plantillas">
+              {lista(
+                plantillasFiltradas,
+                {},
+                selectedTag !== "Todos" || busqueda
+                  ? "No se encontraron plantillas con los filtros seleccionados."
+                  : "Todavía no hay plantillas.",
+              )}
+            </TabsContent>
+            <TabsContent value="alumnos">
+              {lista(
+                vigentesFiltradas,
+                { alumno: true },
+                selectedTag !== "Todos" || busqueda
+                  ? "No se encontraron rutinas vigentes con los filtros seleccionados."
+                  : "Ningún alumno tiene rutina.",
+              )}
+            </TabsContent>
+            <TabsContent value="borradores">
+              {lista(
+                borradoresFiltrados,
+                { alumno: true },
+                selectedTag !== "Todos" || busqueda
+                  ? "No se encontraron borradores con los filtros seleccionados."
+                  : "No hay borradores.",
+              )}
+            </TabsContent>
             <TabsContent value="archivadas">
-              {lista(archivadas, { alumno: true, archivada: true }, "No hay rutinas archivadas.")}
+              {lista(
+                archivadasFiltradas,
+                { alumno: true, archivada: true },
+                selectedTag !== "Todos" || busqueda
+                  ? "No se encontraron rutinas archivadas con los filtros seleccionados."
+                  : "No hay rutinas archivadas.",
+              )}
             </TabsContent>
           </Tabs>
 
