@@ -117,3 +117,5 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
 - `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
 - `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:
+
+<!-- intentional-harness-drift-test -->
