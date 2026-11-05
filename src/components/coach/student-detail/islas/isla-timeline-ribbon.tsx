@@ -13,6 +13,11 @@ export interface IslaTimelineRibbonProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onHide?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function IslaTimelineRibbon({
@@ -25,6 +30,11 @@ export function IslaTimelineRibbon({
   onDragOver,
   onDragLeave,
   onDrop,
+  onMoveUp,
+  onMoveDown,
+  onHide,
+  canMoveUp,
+  canMoveDown,
 }: IslaTimelineRibbonProps) {
   // Orden cronológico de las sesiones
   const sortedSessions = React.useMemo(() => {
@@ -33,13 +43,21 @@ export function IslaTimelineRibbon({
     );
   }, [historialCargas]);
 
-  // Encontrar la sesión con mayor volumen para asignarle badge de PR
-  const maxVolumen = React.useMemo(() => {
-    if (sortedSessions.length === 0) return 0;
-    return Math.max(...sortedSessions.map((s) => s.sesion.volumen_total_kg || 0));
+  // Encontrar el récord personal de carga (peso máximo absoluto levantado en cualquier serie)
+  const maxPesoLevantado = React.useMemo(() => {
+    let best = 0;
+    sortedSessions.forEach((s) => {
+      s.series.forEach((ser) => {
+        if (ser.peso_kg > best) best = ser.peso_kg;
+      });
+    });
+    return best;
   }, [sortedSessions]);
 
   const ultimaSesion = sortedSessions[sortedSessions.length - 1];
+  const ultimaSeriePico = ultimaSesion?.series?.length
+    ? [...ultimaSesion.series].sort((a, b) => b.peso_kg - a.peso_kg)[0]
+    : null;
 
   return (
     <IslaCardShell
@@ -60,6 +78,11 @@ export function IslaTimelineRibbon({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onHide={onHide}
+      canMoveUp={canMoveUp}
+      canMoveDown={canMoveDown}
       compactSummary={
         <div className="flex items-center justify-between py-0.5">
           <span>
@@ -67,7 +90,11 @@ export function IslaTimelineRibbon({
               ? `Última sesión: ${new Date(ultimaSesion.sesion.fecha).toLocaleDateString("es-AR", {
                   day: "2-digit",
                   month: "short",
-                })} • ${ultimaSesion.sesion.volumen_total_kg.toLocaleString("es-AR")} kg`
+                })}${
+                  ultimaSeriePico
+                    ? ` • ${ultimaSeriePico.ejercicioNombre} ${ultimaSeriePico.peso_kg} kg × ${ultimaSeriePico.reps_hechas} (${ultimaSesion.series.length} series)`
+                    : ` • ${ultimaSesion.series.length} series registradas`
+                }`
               : "Sin sesiones previas registradas"}
           </span>
           <button
@@ -98,13 +125,17 @@ export function IslaTimelineRibbon({
                 day: "2-digit",
                 month: "short",
               });
-              const esPR = entry.sesion.volumen_total_kg > 0 && entry.sesion.volumen_total_kg === maxVolumen;
+              const seriePico = entry.series?.length
+                ? [...entry.series].sort((a, b) => b.peso_kg - a.peso_kg)[0]
+                : null;
+              const esPR =
+                seriePico && maxPesoLevantado > 0 && seriePico.peso_kg >= maxPesoLevantado;
 
               return (
                 <div
                   key={entry.sesion.id || `ribbon-node-${index}`}
                   data-testid="ribbon-node"
-                  className="flex h-20 min-w-[130px] shrink-0 flex-col justify-between rounded-lg border border-border bg-card p-2 shadow-xs hover:border-primary/50 transition-all text-xs"
+                  className="flex h-20 min-w-[145px] shrink-0 flex-col justify-between rounded-lg border border-border bg-card p-2 shadow-xs hover:border-primary/50 transition-all text-xs"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-bold text-foreground text-[11px] capitalize">
@@ -122,11 +153,13 @@ export function IslaTimelineRibbon({
                   </div>
 
                   <div className="space-y-0.5">
-                    <p className="font-mono text-[11px] font-bold text-foreground tabular-nums">
-                      {entry.sesion.volumen_total_kg.toLocaleString("es-AR")} kg
+                    <p className="font-mono text-[11px] font-bold text-foreground tabular-nums truncate" title={seriePico ? `${seriePico.ejercicioNombre}: ${seriePico.peso_kg} kg × ${seriePico.reps_hechas}` : `${entry.series.length} series`}>
+                      {seriePico
+                        ? `${seriePico.ejercicioNombre.replace("Press de ", "").replace("Trasera", "").trim()}: ${seriePico.peso_kg}kg × ${seriePico.reps_hechas}`
+                        : `${entry.series.length} series`}
                     </p>
                     <p className="text-[10px] text-muted-foreground font-mono">
-                      {entry.sesion.duracion_minutos ? `${entry.sesion.duracion_minutos} min` : "45 min"}
+                      {entry.series.length} series • {entry.sesion.duracion_minutos ? `${entry.sesion.duracion_minutos}m` : "45m"}
                     </p>
                   </div>
                 </div>

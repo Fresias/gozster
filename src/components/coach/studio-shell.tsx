@@ -38,6 +38,30 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   }, [setOnlineStatus]);
 
   const [userEmail, setUserEmail] = React.useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const saved = localStorage.getItem("gozster_coach_sidebar_collapsed");
+        if (saved !== null) {
+          setIsSidebarCollapsed(saved === "true");
+        }
+      } catch {}
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined" && window.localStorage) {
+        try {
+          localStorage.setItem("gozster_coach_sidebar_collapsed", String(next));
+        } catch {}
+      }
+      return next;
+    });
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -56,22 +80,24 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-[280px_1fr] bg-background text-foreground transition-colors duration-150">
-      <aside className="border-b border-border/80 bg-card/95 p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-6 backdrop-blur-md">
+    <div className={`grid min-h-dvh grid-cols-1 ${isSidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[280px_1fr]"} bg-background text-foreground transition-all duration-200`}>
+      <aside className={`border-b border-border/80 bg-card/95 ${isSidebarCollapsed ? "p-3 lg:p-3" : "p-4 sm:p-6 lg:p-6"} lg:border-b-0 lg:border-r backdrop-blur-md transition-all duration-200`}>
         <div className="flex flex-col gap-4 lg:gap-8">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-2.5">
+            <Link href="/" className="flex min-h-[44px] min-w-[44px] items-center gap-2.5" title="GOZSter Studio">
               <span className="flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-sm">
                 G
               </span>
-              <div>
-                <span className="text-base sm:text-lg font-black tracking-tight text-foreground block">
-                  GOZSter <span className="text-primary font-bold">Studio</span>
-                </span>
-                <span className="text-[10px] text-muted-foreground block -mt-0.5 font-medium">
-                  Executive Workspace • M3 Edition
-                </span>
-              </div>
+              {!isSidebarCollapsed && (
+                <div>
+                  <span className="text-base sm:text-lg font-black tracking-tight text-foreground block">
+                    GOZSter <span className="text-primary font-bold">Studio</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block -mt-0.5 font-medium">
+                    Executive Workspace • M3 Edition
+                  </span>
+                </div>
+              )}
             </Link>
             <div className="flex items-center gap-2 lg:hidden">
               <ModeSwitcher current="studio" />
@@ -220,7 +246,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.504-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.004 0V9.75m-5.004 4.5V9.75m0 0a3 3 0 013-3h.008a3 3 0 013 3m-6 0h6"
                 />
               </svg>
-              <span>Ranking Funcional</span>
+              {!isSidebarCollapsed && <span>Ranking Funcional</span>}
             </Link>
 
             <Link
@@ -246,7 +272,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span>Cobros &amp; Pagos</span>
+              {!isSidebarCollapsed && <span>Cobros &amp; Pagos</span>}
             </Link>
 
             <Link
@@ -272,7 +298,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                 />
               </svg>
-              <span>Documentación</span>
+              {!isSidebarCollapsed && <span>Documentación</span>}
             </Link>
 
             <Link
@@ -297,63 +323,90 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
                 />
               </svg>
-              <span>Vista Atleta (PWA)</span>
+              {!isSidebarCollapsed && <span>Vista Atleta (PWA)</span>}
             </Link>
 
+          
+            {/* Toggle button para colapsar/expandir Sidebar a la izquierda */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              data-testid="sidebar-toggle-btn"
+              className={`hidden lg:inline-flex min-h-11 items-center rounded-xl py-2.5 text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all cursor-pointer ${
+                isSidebarCollapsed ? "justify-center px-2" : "justify-between px-3.5"
+              }`}
+              title={isSidebarCollapsed ? "Expandir menú de navegación" : "Colapsar menú a la izquierda"}
+              aria-label={isSidebarCollapsed ? "Expandir menú de navegación" : "Colapsar menú a la izquierda"}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs">{isSidebarCollapsed ? "▶" : "◀"}</span>
+                {!isSidebarCollapsed && <span>Colapsar Menú</span>}
+              </div>
+            </button>
           </nav>
 
-          <div className="hidden lg:block mt-auto pt-6 border-t border-border/60">
-            <div
-              role="status"
-              aria-live="polite"
-              className="rounded-xl bg-secondary/40 border border-border/40 p-3 space-y-1.5"
-              data-testid="studio-sync-status"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold text-foreground">Sincronización GOZS</p>
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
-                    isOnline
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300 animate-pulse"
-                  }`}
+          <div className={`hidden lg:block mt-auto pt-6 border-t border-border/60 ${isSidebarCollapsed ? "text-center" : ""}`}>
+            {!isSidebarCollapsed ? (
+              <>
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-xl bg-secondary/40 border border-border/40 p-3 space-y-1.5"
+                  data-testid="studio-sync-status"
                 >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      isOnline ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"
-                    }`}
-                  />
-                  {isOnline ? "GOZS Cloud" : "Modo Avión"}
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {isOnline
-                  ? pendingEvents.length > 0
-                    ? `Sincronizando ${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} de la cola offline…`
-                    : "Datos al día con GOZS Cloud."
-                  : pendingEvents.length > 0
-                    ? `${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} en cola · se sincronizarán al reconectar.`
-                    : "Sin conexión · los cambios se guardan localmente."}
-              </p>
-            </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-foreground">Sincronización GOZS</p>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all ${
+                        isOnline
+                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                          : "border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-300 animate-pulse"
+                      }`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isOnline ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"
+                        }`}
+                      />
+                      {isOnline ? "GOZS Cloud" : "Modo Avión"}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {isOnline
+                      ? pendingEvents.length > 0
+                        ? `Sincronizando ${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} de la cola offline…`
+                        : "Datos al día con GOZS Cloud."
+                      : pendingEvents.length > 0
+                        ? `${pendingEvents.length} ${pendingEvents.length === 1 ? "evento" : "eventos"} en cola · se sincronizarán al reconectar.`
+                        : "Sin conexión · los cambios se guardan localmente."}
+                  </p>
+                </div>
 
-            {/* Perfil de Coach y Botón de Cerrar Sesión en Sidebar */}
-            <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-foreground truncate" title={userEmail || "Coach Studio"}>
-                  {userEmail || "Coach Studio"}
-                </p>
-                <p className="text-[10px] text-muted-foreground">Sesión Activa</p>
+                <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-foreground truncate" title={userEmail || "Coach Studio"}>
+                      {userEmail || "Coach Studio"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Sesión Activa</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void cerrarSesion()}
+                    className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border/70 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors cursor-pointer"
+                    aria-label="Cerrar sesión"
+                  >
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} title={isOnline ? "Online" : "Offline"} />
+                <button type="button" onClick={() => void cerrarSesion()} className="p-1 rounded text-muted-foreground hover:text-destructive cursor-pointer" title="Cerrar sesión" aria-label="Cerrar sesión">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => void cerrarSesion()}
-                className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-border/70 px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors cursor-pointer"
-                aria-label="Cerrar sesión"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </aside>

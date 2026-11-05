@@ -18,6 +18,11 @@ export interface IslaAdministrativaProps {
   chatResponsableNode: React.ReactNode;
   nivelVistaNode: React.ReactNode;
   cuestionarioNode: React.ReactNode;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onHide?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function IslaAdministrativa({
@@ -35,6 +40,11 @@ export function IslaAdministrativa({
   chatResponsableNode,
   nivelVistaNode,
   cuestionarioNode,
+  onMoveUp,
+  onMoveDown,
+  onHide,
+  canMoveUp,
+  canMoveDown,
 }: IslaAdministrativaProps) {
   const [activeTab, setActiveTab] = React.useState<"pagos" | "contratacion" | "atencion" | "config">("pagos");
 
@@ -57,6 +67,11 @@ export function IslaAdministrativa({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onHide={onHide}
+      canMoveUp={canMoveUp}
+      canMoveDown={canMoveDown}
       compactSummary={
         <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
           <span>💳 Cuota y Pagos</span>

@@ -1,4 +1,4 @@
-import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import { type HistoricalLoadEntry, MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
 import { TrendingUp } from "@/components/athlete/icons";
 import * as React from "react";
 import type {
@@ -179,8 +179,43 @@ export function StudentDetail({
   const [nivelVista, setNivelVista] = React.useState<NivelVistaAlumno>(
     alumno.nivel_vista_alumno ?? "SIMPLE",
   );
+
+  const demoCuestionarioLucas: AlumnoCuestionarioInicial = React.useMemo(() => ({
+    id: "cuestionario-lucas",
+    alumno_id: alumno.id,
+    objetivo_principal: "Hipertrofia / Ganancia Muscular y Fuerza Base",
+    experiencia_previa: "Intermedio (2 años entrenando en sala de musculación)",
+    dias_disponibles_semana: 4,
+    equipamiento_disponible: "Gimnasio comercial completo (Barras, Mancuernas, Máquinas)",
+    molestias_o_lesiones_previas: "Molestia ocasional en hombro anterior derecho en press plano pesado.",
+    respuestas_extra: {
+      comentarios: "Busco progresar cargas en banca y sentadilla sin comprometer la articulación del hombro.",
+      suplementacion: "Creatina monohidrato 5g/día y proteína de suero.",
+      cirugias_previas: "Ninguna",
+    },
+    completado_at: "2026-09-02T15:00:00Z",
+    created_at: "2026-09-02T15:00:00Z",
+    updated_at: "2026-09-02T15:00:00Z",
+  }), [alumno.id]);
+
+  const isLucasStudent = React.useMemo(() => {
+    return (
+      alumno.nombre_completo.toLowerCase().includes("lucas") ||
+      alumno.id.includes("lucas") ||
+      alumno.id === "a1111111-1111-4111-8111-111111111101"
+    );
+  }, [alumno.id, alumno.nombre_completo]);
+
+  const effectiveHistorialCargas = React.useMemo(() => {
+    if (historialCargas && historialCargas.length > 0) return historialCargas;
+    if (isLucasStudent) {
+      return LUCAS_2_MONTHS_HISTORIAL;
+    }
+    return MOCK_HISTORIAL_CARGAS[alumno.id] ?? [];
+  }, [historialCargas, isLucasStudent, alumno.id]);
+
   const [cuestionario, setCuestionario] = React.useState<AlumnoCuestionarioInicial | null>(
-    cuestionarioProp ?? null,
+    cuestionarioProp ?? (isLucasStudent ? demoCuestionarioLucas : null),
   );
   const [isUpdatingNivel, setIsUpdatingNivel] = React.useState(false);
   const [errorNivelVista, setErrorNivelVista] = React.useState<string | null>(null);
@@ -205,7 +240,12 @@ export function StudentDetail({
     let isMounted = true;
     async function loadCuestionario() {
       try {
-        if (!supabase) return;
+        if (!supabase) {
+          if (isMounted && isLucasStudent) {
+            setCuestionario(demoCuestionarioLucas);
+          }
+          return;
+        }
         const { data, error } = await supabase
           .from("alumno_cuestionario_inicial")
           .select("*")
@@ -213,16 +253,20 @@ export function StudentDetail({
           .maybeSingle();
         if (!error && data && isMounted) {
           setCuestionario(data as AlumnoCuestionarioInicial);
+        } else if (isMounted && isLucasStudent) {
+          setCuestionario(demoCuestionarioLucas);
         }
       } catch (e) {
-        // offline fallback
+        if (isMounted && isLucasStudent) {
+          setCuestionario(demoCuestionarioLucas);
+        }
       }
     }
     loadCuestionario();
     return () => {
       isMounted = false;
     };
-  }, [alumno.id, cuestionarioProp]);
+  }, [alumno.id, cuestionarioProp, isLucasStudent, demoCuestionarioLucas]);
 
   // GOZS-163 (§5): calendario de adherencia. Lee registro_sesiones del alumno con el
   // cliente del coach (RLS lo permite) y arma el modelo con la función pura.
@@ -643,6 +687,16 @@ export function StudentDetail({
     salud_anamnesis: false,
     administracion: false,
   });
+  const [visibleIslands, setVisibleIslands] = React.useState<Record<string, boolean>>({
+    timeline: true,
+    activity_feed: true,
+    routine_workbench: true,
+    metricas_1rm: true,
+    salud_anamnesis: true,
+    administracion: true,
+  });
+  const [isConfigModalOpen, setIsConfigModalOpen] = React.useState(false);
+  const [filtroRutinaRegistros, setFiltroRutinaRegistros] = React.useState<"TODAS" | "ACTUAL" | "PASADAS">("TODAS");
 
   const resetLayout = () => {
     setIslandOrder(DEFAULT_ISLAND_ORDER);
@@ -653,6 +707,14 @@ export function StudentDetail({
       metricas_1rm: false,
       salud_anamnesis: false,
       administracion: false,
+    });
+    setVisibleIslands({
+      timeline: true,
+      activity_feed: true,
+      routine_workbench: true,
+      metricas_1rm: true,
+      salud_anamnesis: true,
+      administracion: true,
     });
     setIsFeedRailCollapsed(false);
     if (typeof window !== "undefined" && window.localStorage) {
@@ -678,6 +740,9 @@ export function StudentDetail({
           if (parsed.collapsed) {
             setCollapsedIslands((prev) => ({ ...prev, ...parsed.collapsed }));
           }
+          if (parsed.visible) {
+            setVisibleIslands((prev) => ({ ...prev, ...parsed.visible }));
+          }
           if (typeof parsed.feedRail === "boolean") {
             setIsFeedRailCollapsed(parsed.feedRail);
           }
@@ -689,20 +754,64 @@ export function StudentDetail({
   }, [storageKey]);
 
   const saveLayoutToStorage = React.useCallback(
-    (order: string[], collapsed: Record<string, boolean>, feedRail: boolean) => {
+    (
+      order: string[],
+      collapsed: Record<string, boolean>,
+      feedRail: boolean,
+      visible?: Record<string, boolean>
+    ) => {
       if (typeof window !== "undefined" && window.localStorage) {
         try {
           localStorage.setItem(
             storageKey,
-            JSON.stringify({ order, collapsed, feedRail })
+            JSON.stringify({
+              order,
+              collapsed,
+              feedRail,
+              visible: visible ?? visibleIslands,
+            })
           );
         } catch {
           // Fallback silencioso
         }
       }
     },
-    [storageKey]
+    [storageKey, visibleIslands]
   );
+
+  const moveIslandUp = (id: string) => {
+    setIslandOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      const temp = next[idx - 1]!;
+      next[idx - 1] = next[idx]!;
+      next[idx] = temp;
+      saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+      return next;
+    });
+  };
+
+  const moveIslandDown = (id: string) => {
+    setIslandOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx === -1 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      const temp = next[idx + 1]!;
+      next[idx + 1] = next[idx]!;
+      next[idx] = temp;
+      saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+      return next;
+    });
+  };
+
+  const toggleIslandVisibility = (id: string) => {
+    setVisibleIslands((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveLayoutToStorage(islandOrder, collapsedIslands, isFeedRailCollapsed, next);
+      return next;
+    });
+  };
 
   const toggleCollapseIsland = (id: string) => {
     setCollapsedIslands((prev) => {
@@ -1124,7 +1233,7 @@ export function StudentDetail({
           }`}
           data-testid="tab-registros-sesiones"
         >
-          Registros ({historialCargas?.length ?? 0})
+          Registros ({effectiveHistorialCargas.length})
         </button>
       </div>
 
@@ -1486,93 +1595,153 @@ export function StudentDetail({
       {/* TAB 3: Registros de Sesiones y Cargas */}
       {activeTab === "registros_sesiones" && (
         <div className="space-y-4" data-testid="panel-registros-sesiones">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                 Registros de Entrenamiento & Cargas
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Sesiones registradas y series ejecutadas con pesos reales
+                Sesiones registradas y series ejecutadas con pesos y reps reales (sin sumatorias de tonelaje)
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onOpenHistoricalLoads}
-              className="text-xs gap-1.5"
-            >
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <span>Ver Gráficos 1RM</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenHistoricalLoads}
+                className="text-xs gap-1.5"
+              >
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span>Ver Gráficos 1RM</span>
+              </Button>
+            </div>
           </div>
 
-          {(!historialCargas || historialCargas.length === 0) ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground text-sm">
-                No hay sesiones de entrenamiento registradas aún para este alumno.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {historialCargas.map((entry, idx) => {
-                const fechaStr = new Date(entry.sesion.fecha).toLocaleDateString("es-AR", {
-                  weekday: "short",
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                });
-                return (
-                  <Card key={entry.sesion.id || `ses-${idx}`} className="border-border">
-                    <CardHeader className="py-3 px-4 border-b border-border/50 bg-muted/20">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-foreground capitalize">{fechaStr}</span>
-                          {entry.plan?.nombre && (
-                            <Badge variant="outline" className="text-[11px] font-normal">
-                              {entry.plan.nombre}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-                          {Boolean(entry.sesion.duracion_minutos && entry.sesion.duracion_minutos > 0) && (
-                            <span>{entry.sesion.duracion_minutos} min</span>
-                          )}
-                          <span className="font-semibold text-foreground">
-                            {entry.sesion.volumen_total_kg.toLocaleString("es-AR")} kg
-                          </span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-4 space-y-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {entry.series.map((s, sIdx) => (
-                          <div
-                            key={s.id || `ser-${sIdx}`}
-                            className="flex items-center justify-between rounded-md bg-secondary/30 px-3 py-2 text-xs"
-                          >
-                            <span className="font-medium text-foreground truncate max-w-[160px]" title={s.ejercicioNombre}>
-                              {s.ejercicioNombre}
-                            </span>
-                            <div className="flex items-center gap-1.5 font-mono text-muted-foreground shrink-0">
-                              <span className="font-semibold text-foreground">
-                                {s.peso_kg} kg × {s.reps_hechas}
-                              </span>
-                              {s.rpe_real ? (
-                                <Badge variant="secondary" className="text-[10px] py-0 px-1">
-                                  @{s.rpe_real}
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+          {/* Filtro de Rutina para explorar sesiones de la rutina actual o pasadas */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Filtro de Rutina:
+            </span>
+            <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border/60 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setFiltroRutinaRegistros("TODAS")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  filtroRutinaRegistros === "TODAS"
+                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Todas ({effectiveHistorialCargas.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroRutinaRegistros("ACTUAL")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  filtroRutinaRegistros === "ACTUAL"
+                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Rutina Activa
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroRutinaRegistros("PASADAS")}
+                className={`px-2.5 py-1 rounded transition-colors ${
+                  filtroRutinaRegistros === "PASADAS"
+                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Rutinas Pasadas
+              </button>
             </div>
-          )}
+          </div>
+
+          {(() => {
+            const displayed = effectiveHistorialCargas.filter((entry) => {
+              if (filtroRutinaRegistros === "ACTUAL" && rutinaActiva) {
+                return entry.plan?.id === rutinaActiva.id || entry.sesion.dia_id?.startsWith("d");
+              }
+              if (filtroRutinaRegistros === "PASADAS" && rutinaActiva) {
+                return entry.plan?.id !== rutinaActiva.id && !entry.sesion.dia_id?.startsWith("d");
+              }
+              return true;
+            });
+
+            if (displayed.length === 0) {
+              return (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground text-sm">
+                    No hay sesiones registradas para este filtro de rutina.
+                  </CardContent>
+                </Card>
+              );
+            }
+
+            return (
+              <div className="space-y-3">
+                {displayed.map((entry, idx) => {
+                  const fechaStr = new Date(entry.sesion.fecha).toLocaleDateString("es-AR", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  });
+                  return (
+                    <Card key={entry.sesion.id || `ses-${idx}`} className="border-border">
+                      <CardHeader className="py-3 px-4 border-b border-border/50 bg-muted/20">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-foreground capitalize">{fechaStr}</span>
+                            {entry.plan?.nombre && (
+                              <Badge variant="outline" className="text-[11px] font-normal">
+                                {entry.plan.nombre}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
+                            {Boolean(entry.sesion.duracion_minutos && entry.sesion.duracion_minutos > 0) && (
+                              <span>{entry.sesion.duracion_minutos} min</span>
+                            )}
+                            <span className="font-semibold text-foreground">
+                              {entry.series.length} series registradas
+                            </span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-3 sm:p-4 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {entry.series.map((s, sIdx) => (
+                            <div
+                              key={s.id || `ser-${sIdx}`}
+                              className="flex items-center justify-between rounded-md bg-secondary/30 px-3 py-2 text-xs"
+                            >
+                              <span className="font-medium text-foreground truncate max-w-[160px]" title={s.ejercicioNombre}>
+                                {s.ejercicioNombre}
+                              </span>
+                              <div className="flex items-center gap-1.5 font-mono text-muted-foreground shrink-0">
+                                <span className="font-semibold text-foreground">
+                                  {s.peso_kg} kg × {s.reps_hechas}
+                                </span>
+                                {s.rpe_real ? (
+                                  <Badge variant="secondary" className="text-[10px] py-0 px-1">
+                                    @{s.rpe_real}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -2046,16 +2215,21 @@ export function StudentDetail({
       </Card>
   );
 
-  const renderIsland = (islandId: string) => {
+  const renderIsland = (islandId: string, index = 0, total = 6) => {
     const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
     const isCollapsed = !!collapsedIslands[islandId];
+    const canMoveUp = index > 0;
+    const canMoveDown = index < total - 1;
+    const onMoveUp = () => moveIslandUp(islandId);
+    const onMoveDown = () => moveIslandDown(islandId);
+    const onHide = () => toggleIslandVisibility(islandId);
 
     switch (islandId) {
       case "timeline":
         return (
           <IslaTimelineRibbon
             key="timeline"
-            historialCargas={historialCargas}
+            historialCargas={effectiveHistorialCargas}
             isCollapsed={isCollapsed}
             onToggleCollapse={() => toggleCollapseIsland("timeline")}
             isCanvasMode={isCanvasMode}
@@ -2064,6 +2238,11 @@ export function StudentDetail({
             onDragOver={handleDragOver("timeline")}
             onDragLeave={handleDragLeave("timeline")}
             onDrop={handleDrop("timeline")}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2081,6 +2260,11 @@ export function StudentDetail({
             onDragOver={handleDragOver("activity_feed")}
             onDragLeave={handleDragLeave("activity_feed")}
             onDrop={handleDrop("activity_feed")}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2106,6 +2290,11 @@ export function StudentDetail({
                 : undefined
             }
             childrenTabs={routineTabsNode}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2113,7 +2302,7 @@ export function StudentDetail({
         return (
           <IslaMetricas1RM
             key="metricas_1rm"
-            historialCargas={historialCargas}
+            historialCargas={effectiveHistorialCargas}
             pesoCorporalActual={(alumno as any).peso_corporal_kg || 78.5}
             isCollapsed={isCollapsed}
             onToggleCollapse={() => toggleCollapseIsland("metricas_1rm")}
@@ -2124,6 +2313,11 @@ export function StudentDetail({
             onDragLeave={handleDragLeave("metricas_1rm")}
             onDrop={handleDrop("metricas_1rm")}
             adherenciaNode={adherenciaNode}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2131,6 +2325,7 @@ export function StudentDetail({
         return (
           <IslaSaludAnamnesis
             key="salud_anamnesis"
+            alumnoId={alumno.id}
             isCollapsed={isCollapsed}
             onToggleCollapse={() => toggleCollapseIsland("salud_anamnesis")}
             isCanvasMode={isCanvasMode}
@@ -2148,6 +2343,11 @@ export function StudentDetail({
                 ? () => onQuickSwap(chatActivePainAlert)
                 : undefined
             }
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2169,6 +2369,11 @@ export function StudentDetail({
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onHide={onHide}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
           />
         );
 
@@ -2309,6 +2514,21 @@ export function StudentDetail({
               </span>
             )}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsConfigModalOpen(true)}
+            className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold border-border/80 hover:bg-muted"
+            data-testid="btn-configurar-islas"
+            title="Configurar qué islas ver u ocultar"
+          >
+            <span>⚙️ Configurar Islas</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+              {Object.values(visibleIslands).filter(Boolean).length}/6
+            </span>
+          </Button>
         </div>
       </div>
 
@@ -2353,53 +2573,159 @@ export function StudentDetail({
         className="space-y-4 pt-2"
       >
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 items-start">
-          {islandOrder.map((id) => {
-            if (id === "timeline") {
+          {islandOrder
+            .filter((id) => visibleIslands[id] !== false)
+            .map((id, index, arr) => {
+              const islandContent = renderIsland(id, index, arr.length);
+              if (id === "timeline") {
+                return (
+                  <div key={id} className="lg:col-span-12">
+                    {islandContent}
+                  </div>
+                );
+              }
+              if (id === "activity_feed") {
+                return (
+                  <div
+                    key={id}
+                    className={
+                      isFeedRailCollapsed ? "lg:col-span-1" : "lg:col-span-4"
+                    }
+                  >
+                    {islandContent}
+                  </div>
+                );
+              }
+              if (id === "routine_workbench") {
+                return (
+                  <div
+                    key={id}
+                    className={
+                      isFeedRailCollapsed ? "lg:col-span-11" : "lg:col-span-8"
+                    }
+                  >
+                    {islandContent}
+                  </div>
+                );
+              }
+              if (id === "administracion") {
+                return (
+                  <div key={id} className="lg:col-span-12">
+                    {islandContent}
+                  </div>
+                );
+              }
               return (
-                <div key={id} className="lg:col-span-12">
-                  {renderIsland(id)}
+                <div key={id} className="lg:col-span-6">
+                  {islandContent}
                 </div>
               );
-            }
-            if (id === "activity_feed") {
-              return (
-                <div
-                  key={id}
-                  className={
-                    isFeedRailCollapsed ? "lg:col-span-1" : "lg:col-span-4"
-                  }
-                >
-                  {renderIsland(id)}
-                </div>
-              );
-            }
-            if (id === "routine_workbench") {
-              return (
-                <div
-                  key={id}
-                  className={
-                    isFeedRailCollapsed ? "lg:col-span-11" : "lg:col-span-8"
-                  }
-                >
-                  {renderIsland(id)}
-                </div>
-              );
-            }
-            if (id === "administracion") {
-              return (
-                <div key={id} className="lg:col-span-12">
-                  {renderIsland(id)}
-                </div>
-              );
-            }
-            return (
-              <div key={id} className="lg:col-span-6">
-                {renderIsland(id)}
-              </div>
-            );
-          })}
+            })}
         </div>
       </div>
+
+      {/* Diálogo de Configuración de Visibilidad de Islas en el Canvas */}
+      {isConfigModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div
+            data-testid="dialog-configurar-islas"
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4 text-foreground"
+          >
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚙️</span>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    Personalizar Islas del Canvas
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Elegí qué componentes ver u ocultar en la vista del alumno.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfigModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 cursor-pointer"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {[
+                { id: "timeline", title: "Timeline Biomecánico Ribbon", desc: "Cronología de sesiones y cargas pico", icon: "⏱️" },
+                { id: "activity_feed", title: "Bitácora Omnicanal (Feed)", desc: "Eventos, cobros y mensajes en vivo", icon: "📋" },
+                { id: "routine_workbench", title: "Workbench de Rutinas", desc: "Rutina activa, pasadas y registros", icon: "⚡" },
+                { id: "metricas_1rm", title: "Telemetría de Cargas & 1RM", desc: "Sobrecarga progresiva y peso corporal", icon: "📊" },
+                { id: "salud_anamnesis", title: "Clínica & Dolor", desc: "Anamnesis, molestias y bitácora del coach", icon: "🩺" },
+                { id: "administracion", title: "Gestión Administrativa", desc: "Cuotas, historial de pagos y staff", icon: "💳" },
+              ].map((item) => {
+                const isChecked = visibleIslands[item.id] !== false;
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border transition-colors cursor-pointer ${
+                      isChecked ? "border-primary/40 bg-primary/5" : "border-border/60 bg-muted/20 opacity-70"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-base">{item.icon}</span>
+                      <div>
+                        <span className="text-xs font-bold text-foreground block">
+                          {item.title}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block">
+                          {item.desc}
+                        </span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleIslandVisibility(item.id)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border/60 pt-3">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const allVisible = {
+                    timeline: true,
+                    activity_feed: true,
+                    routine_workbench: true,
+                    metricas_1rm: true,
+                    salud_anamnesis: true,
+                    administracion: true,
+                  };
+                  setVisibleIslands(allVisible);
+                  saveLayoutToStorage(islandOrder, collapsedIslands, isFeedRailCollapsed, allVisible);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                Mostrar Todas
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => setIsConfigModalOpen(false)}
+                className="text-xs font-bold cursor-pointer"
+              >
+                Listo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DIÁLOGO ACCESIBLE PARA REGISTRAR PAGO (GOZS-247) */}
       <dialog

@@ -25,6 +25,11 @@ export interface IslaActivityFeedProps {
   items?: ActivityFeedItem[];
   chatPanelNode?: React.ReactNode;
   historialPagosNode?: React.ReactNode;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onHide?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 const DEFAULT_FEED_ITEMS: ActivityFeedItem[] = [
@@ -32,7 +37,7 @@ const DEFAULT_FEED_ITEMS: ActivityFeedItem[] = [
     id: "act-1",
     tipo: "sesion",
     titulo: "Sesión de Entrenamiento Registrada",
-    detalle: "Completó Día 1 Piernas con 4.200 kg de volumen total.",
+    detalle: "Completó Día 1 Piernas: Sentadilla 120 kg × 3 reps (4 series) y Prensa 180 kg.",
     fechaGrupo: "HOY",
     horaOFecha: "10:30 hs",
   },
@@ -84,6 +89,11 @@ export function IslaActivityFeed({
   items = DEFAULT_FEED_ITEMS,
   chatPanelNode,
   historialPagosNode,
+  onMoveUp,
+  onMoveDown,
+  onHide,
+  canMoveUp,
+  canMoveDown,
 }: IslaActivityFeedProps) {
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
 
@@ -174,6 +184,11 @@ export function IslaActivityFeed({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onHide={onHide}
+      canMoveUp={canMoveUp}
+      canMoveDown={canMoveDown}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>Bitácora compactada ({items.length} eventos registrados)</span>

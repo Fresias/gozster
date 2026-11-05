@@ -303,4 +303,108 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(source).toContain("data-testid=\"student-detail-modular-canvas\"");
     });
   });
+
+  describe("Criterio 8: Datos de Lucas Giménez (2 Meses Reales, 21 Sesiones y Cuestionario)", () => {
+    it("MOCK_HISTORIAL_CARGAS contiene 21 sesiones reales espaciadas en 2 meses con progresión de sobrecarga", async () => {
+      const { MOCK_HISTORIAL_CARGAS } = await import("@/services/coach-mock-data");
+      const lucasLoads = MOCK_HISTORIAL_CARGAS["a1111111-1111-4111-8111-111111111101"];
+
+      expect(lucasLoads).toBeDefined();
+      expect(lucasLoads!.length).toBeGreaterThanOrEqual(20);
+
+      // Verificación de rango temporal de 2 meses (Sep a Nov 2026)
+      const fechas = lucasLoads!.map((l) => new Date(l.sesion.fecha).getTime());
+      const minFecha = Math.min(...fechas);
+      const maxFecha = Math.max(...fechas);
+      const diffDays = Math.round((maxFecha - minFecha) / (1000 * 60 * 60 * 24));
+      expect(diffDays).toBeGreaterThanOrEqual(55);
+
+      // Verificación de progresión de cargas reales en ejercicios clave
+      const allSeries = lucasLoads!.flatMap((l) => l.series);
+      const bancaSeries = allSeries.filter((s) => s.ejercicioNombre.includes("Press de Banca"));
+      expect(bancaSeries.length).toBeGreaterThanOrEqual(4);
+      const maxBanca = Math.max(...bancaSeries.map((s) => s.peso_kg));
+      expect(maxBanca).toBeGreaterThanOrEqual(95); // PR de 95kg
+    });
+  });
+
+  describe("Criterio 9: Erradicación del Tonelaje Mensual y Sustitución por Cargas por Ejercicio", () => {
+    it("isla-metricas-1rm no exhibe 'Sparkline de Tonelaje Mensual' sino Progresión Real de Cargas Clave", () => {
+      const html = renderToStaticMarkup(
+        <IslaMetricas1RM
+          historialCargas={mockHistoricalLoads as any}
+          pesoCorporalActual={78.5}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      );
+
+      // data-testid conservado para compatibilidad
+      expect(html).toContain('data-testid="sparkline-tonelaje"');
+      // Progresión por ejercicio presente
+      expect(html).toContain("Progresión Real de Cargas");
+      expect(html).toContain("Sobrecarga");
+      expect(html).not.toContain("Sparkline de Tonelaje Mensual");
+    });
+
+    it("isla-timeline-ribbon exhibe ejercicio principal y series en vez de sumatoria de volumen", () => {
+      const html = renderToStaticMarkup(
+        <IslaTimelineRibbon
+          historialCargas={mockHistoricalLoads as any}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+        />
+      );
+
+      expect(html).toContain('data-testid="ribbon-node"');
+      expect(html).toContain("Sentadilla");
+      expect(html).toContain("110kg");
+    });
+  });
+
+  describe("Criterio 10: Sección Clínica con Acceso Rápido a Cuestionario, Toggle de Dolor y Bitácora", () => {
+    it("IslaSaludAnamnesis exhibe acceso rápido a cuestionario, estado de molestia atendido y bitácora del coach", () => {
+      const html = renderToStaticMarkup(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          evaDolorActual={3}
+          zonaDolorActual="Hombro derecho"
+        />
+      );
+
+      expect(html).toContain("Ficha de Anamnesis &amp; Cuestionario Inicial");
+      expect(html).toContain("Reporte de Molestia en Ejercicio");
+      expect(html).toContain("Bitácora de Intervención del Entrenador");
+      expect(html).toContain("Guardar Registro en la Ficha");
+    });
+  });
+
+  describe("Criterio 11: Configuración de Visibilidad y Posicionamiento en el Canvas", () => {
+    it("student-detail.tsx incluye botón de configuración de islas y acciones de movimiento en IslaCardShell", () => {
+      const html = renderToStaticMarkup(
+        <StudentDetail
+          alumno={alumnoLucas}
+          activeTab="rutina_actual"
+          onTabChange={vi.fn()}
+          onBack={vi.fn()}
+          rutinaActiva={null}
+          historialPlanes={[]}
+          dias={[]}
+          ejerciciosEnRutina={[]}
+          ejerciciosCatalogo={[]}
+          historialCargas={mockHistoricalLoads as any}
+          onOpenHistoricalLoads={vi.fn()}
+          onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
+          onExtenderVigencia={vi.fn().mockResolvedValue(null)}
+          isOffline={false}
+        />
+      );
+
+      expect(html).toContain('data-testid="btn-configurar-islas"');
+      expect(html).toContain("Configurar Islas");
+      expect(html).toContain('data-testid="collapse-btn-timeline"');
+      expect(html).toContain("[-]");
+    });
+  });
 });

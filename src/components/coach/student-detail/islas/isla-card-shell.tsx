@@ -19,6 +19,11 @@ export interface IslaCardShellProps {
   className?: string;
   onMenuClick?: () => void;
   dataTestId?: string;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onHide?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function IslaCardShell({
@@ -39,6 +44,11 @@ export function IslaCardShell({
   className = "",
   onMenuClick,
   dataTestId,
+  onMoveUp,
+  onMoveDown,
+  onHide,
+  canMoveUp = true,
+  canMoveDown = true,
 }: IslaCardShellProps) {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -104,10 +114,10 @@ export function IslaCardShell({
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? `Expandir isla ${title}` : `Colapsar isla ${title}`}
             data-testid={`collapse-btn-${id}`}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-            title={isCollapsed ? "Expandir isla" : "Colapsar isla"}
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted font-mono"
+            title={isCollapsed ? "Expandir isla [+]" : "Colapsar isla [-]"}
           >
-            <span className="font-mono text-sm font-bold">
+            <span className="font-mono text-xs font-black select-none">
               {isCollapsed ? "[+]" : "[-]"}
             </span>
           </Button>
@@ -131,7 +141,7 @@ export function IslaCardShell({
 
             {menuOpen && (
               <div
-                className="absolute right-0 top-8 z-20 min-w-36 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md text-xs"
+                className="absolute right-0 top-8 z-20 min-w-44 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md text-xs"
                 role="menu"
               >
                 <button
@@ -140,10 +150,56 @@ export function IslaCardShell({
                     onToggleCollapse();
                     setMenuOpen(false);
                   }}
-                  className="w-full text-left px-2 py-1.5 rounded hover:bg-muted font-medium"
+                  className="w-full text-left px-2 py-1.5 rounded hover:bg-muted font-medium flex items-center justify-between"
                 >
-                  {isCollapsed ? "Expandir isla" : "Colapsar isla"}
+                  <span>{isCollapsed ? "Expandir isla" : "Colapsar isla"}</span>
+                  <span className="font-mono text-xs">{isCollapsed ? "[+]" : "[-]"}</span>
                 </button>
+
+                {onMoveUp && (
+                  <button
+                    type="button"
+                    disabled={!canMoveUp}
+                    onClick={() => {
+                      onMoveUp();
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-2 py-1.5 rounded font-medium flex items-center gap-1.5 ${
+                      canMoveUp ? "hover:bg-muted text-foreground cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed"
+                    }`}
+                  >
+                    <span>⬆️ Mover arriba / antes</span>
+                  </button>
+                )}
+
+                {onMoveDown && (
+                  <button
+                    type="button"
+                    disabled={!canMoveDown}
+                    onClick={() => {
+                      onMoveDown();
+                      setMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-2 py-1.5 rounded font-medium flex items-center gap-1.5 ${
+                      canMoveDown ? "hover:bg-muted text-foreground cursor-pointer" : "text-muted-foreground/40 cursor-not-allowed"
+                    }`}
+                  >
+                    <span>⬇️ Mover abajo / después</span>
+                  </button>
+                )}
+
+                {onHide && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onHide();
+                      setMenuOpen(false);
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive font-medium flex items-center gap-1.5 border-t border-border/40 mt-1 pt-1.5 cursor-pointer"
+                  >
+                    <span>👁️ Ocultar del Canvas</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

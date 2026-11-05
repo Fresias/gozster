@@ -19,6 +19,11 @@ export interface IslaRoutineWorkbenchProps {
   onDrop?: (e: React.DragEvent) => void;
   onQuickSwap?: () => void;
   childrenTabs?: React.ReactNode;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  onHide?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }
 
 export function IslaRoutineWorkbench({
@@ -36,6 +41,11 @@ export function IslaRoutineWorkbench({
   onDrop,
   onQuickSwap,
   childrenTabs,
+  onMoveUp,
+  onMoveDown,
+  onHide,
+  canMoveUp,
+  canMoveDown,
 }: IslaRoutineWorkbenchProps) {
   // Estado de acordeones por día
   const [openDays, setOpenDays] = React.useState<Record<string, boolean>>({});
@@ -77,6 +87,11 @@ export function IslaRoutineWorkbench({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onHide={onHide}
+      canMoveUp={canMoveUp}
+      canMoveDown={canMoveDown}
       compactSummary={
         <div className="flex items-center justify-between">
           <span>
