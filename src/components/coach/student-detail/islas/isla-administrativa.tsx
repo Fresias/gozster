@@ -71,7 +71,7 @@ export function IslaAdministrativa({
       title="Gestión Comercial, Membresía & Configuración"
       icon={<span>💳</span>}
       badge={
-        <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+        <Badge variant="outline" className="text-[10px] font-mono border-border/80 text-muted-foreground">
           Administración
         </Badge>
       }
@@ -107,15 +107,15 @@ export function IslaAdministrativa({
       }
     >
       <div className="p-4 sm:p-5 space-y-4">
-        {/* Navegación interna por tabs para evitar scroll masivo */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+        {/* Navegación interna por tabs estilo Zen (sobria, sin saturación) */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 pb-2.5">
           <button
             type="button"
             onClick={() => setActiveTab("pagos")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === "pagos"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-secondary text-foreground font-bold shadow-xs"
+                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
             💳 Cuota &amp; Historial
@@ -123,10 +123,10 @@ export function IslaAdministrativa({
           <button
             type="button"
             onClick={() => setActiveTab("contratacion")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === "contratacion"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-secondary text-foreground font-bold shadow-xs"
+                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
             📋 Contratación &amp; Renovación
@@ -134,10 +134,10 @@ export function IslaAdministrativa({
           <button
             type="button"
             onClick={() => setActiveTab("atencion")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === "atencion"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-secondary text-foreground font-bold shadow-xs"
+                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
             💬 Staff &amp; Chat
@@ -145,10 +145,10 @@ export function IslaAdministrativa({
           <button
             type="button"
             onClick={() => setActiveTab("config")}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === "config"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "bg-secondary/40 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-secondary text-foreground font-bold shadow-xs"
+                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
             ⚙️ Nivel de Vista &amp; Anamnesis

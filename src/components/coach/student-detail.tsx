@@ -2702,10 +2702,10 @@ export function StudentDetail({
           )}
 
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={onOpenHistoricalLoads}
-            className="h-9 gap-1.5 text-xs font-semibold"
+            className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             aria-label="Revisar cargas y RPE históricos"
           >
             <svg
@@ -2725,77 +2725,82 @@ export function StudentDetail({
           {onPreviewAthlete && (
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => onPreviewAthlete(alumno)}
-              className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10"
+              className="inline-flex h-8 items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
               data-testid="detail-preview-athlete-btn"
             >
               <span>👁️ Ver como Alumno</span>
             </Button>
           )}
 
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={() => {
-              onOpenChat?.();
-              openChatForAlumno(alumno.id);
-            }}
-            className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold"
-            data-testid="enviar-mensaje-btn"
-            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-          >
-            <span>💬 Enviar mensaje</span>
-          </Button>
+          {/* Grupo de Comunicación Zen */}
+          <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onOpenChat?.();
+                openChatForAlumno(alumno.id);
+              }}
+              className="h-7 px-2.5 text-xs font-semibold text-foreground hover:bg-muted"
+              data-testid="enviar-mensaje-btn"
+              aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+            >
+              <span>💬 Enviar mensaje</span>
+            </Button>
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+              className="inline-flex h-7 items-center justify-center gap-1 rounded px-2 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+              data-testid="whatsapp-direct-btn"
+            >
+              <span>📱 WhatsApp</span>
+            </a>
+          </div>
 
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 active:scale-[0.99]"
-            data-testid="whatsapp-direct-btn"
-          >
-            <span>💬 WhatsApp</span>
-          </a>
+          {/* Grupo de Personalización Zen */}
+          <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCanvasMode((prev) => !prev)}
+              className={`h-7 px-2.5 text-xs font-semibold transition-colors ${
+                isCanvasMode
+                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              data-testid="btn-modo-canvas"
+              aria-label="Alternar Modo Canvas Modular"
+            >
+              <span>⠿ Modo Canvas</span>
+              {isCanvasMode && (
+                <span className="ml-1 rounded bg-primary-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
+                  ON
+                </span>
+              )}
+            </Button>
 
-          <Button
-            type="button"
-            variant={isCanvasMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setIsCanvasMode((prev) => !prev)}
-            className={`inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold ${
-              isCanvasMode
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "border-primary/40 text-primary hover:bg-primary/10"
-            }`}
-            data-testid="btn-modo-canvas"
-            aria-label="Alternar Modo Canvas Modular"
-          >
-            <span>⠿ Modo Canvas</span>
-            {isCanvasMode && (
-              <span className="rounded bg-primary-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
-                ON
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+              data-testid="btn-configurar-islas"
+              title="Configurar qué islas ver u ocultar"
+            >
+              <span>⚙️ Configurar Islas</span>
+              <span className="ml-1 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
+                {Object.values(visibleIslands).filter(Boolean).length}/6
               </span>
-            )}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsConfigModalOpen(true)}
-            className="inline-flex h-9 items-center justify-center gap-1.5 text-xs font-bold border-border/80 hover:bg-muted"
-            data-testid="btn-configurar-islas"
-            title="Configurar qué islas ver u ocultar"
-          >
-            <span>⚙️ Configurar Islas</span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-              {Object.values(visibleIslands).filter(Boolean).length}/6
-            </span>
-          </Button>
+            </Button>
+          </div>
         </div>
       </div>
 

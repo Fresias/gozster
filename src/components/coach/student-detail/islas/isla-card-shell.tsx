@@ -98,10 +98,10 @@ export function IslaCardShell({
             aria-label={`Arrastrar isla ${title}`}
             data-testid={`drag-handle-${id}`}
             title="Arrastrar isla para reordenar en la grilla"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors ${
+            className={`inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-all ${
               isCanvasMode
                 ? "bg-primary/20 text-primary font-black hover:bg-primary/30"
-                : "hover:bg-muted hover:text-foreground"
+                : "opacity-30 group-hover:opacity-100 hover:bg-muted hover:text-foreground"
             }`}
           >
             <span className="text-base leading-none select-none">⠿</span>
@@ -121,116 +121,125 @@ export function IslaCardShell({
 
         {/* Acciones del Cabezal: Controles de Posición, Resize y Colapso (Sin '...') */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* Controles de Posicionamiento Relativo */}
-          {onMoveLeft && canMoveLeft && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onMoveLeft}
-              aria-label={`Mover a la izquierda ${title}`}
-              data-testid={`move-left-${id}`}
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-              title="Mover a la izquierda / compartir fila"
-            >
-              <span className="text-xs select-none">⬅️</span>
-            </Button>
-          )}
-
-          {onMoveRight && canMoveRight && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onMoveRight}
-              aria-label={`Mover a la derecha ${title}`}
-              data-testid={`move-right-${id}`}
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-              title="Mover a la derecha / compartir fila"
-            >
-              <span className="text-xs select-none">➡️</span>
-            </Button>
-          )}
-
-          {onMoveUp && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!canMoveUp}
-              onClick={onMoveUp}
-              aria-label={`Mover arriba ${title}`}
-              data-testid={`move-up-${id}`}
-              className={`h-7 w-7 p-0 ${
-                canMoveUp
-                  ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                  : "text-muted-foreground/30 cursor-not-allowed"
-              }`}
-              title="Mover arriba"
-            >
-              <span className="text-xs select-none">⬆️</span>
-            </Button>
-          )}
-
-          {onMoveDown && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!canMoveDown}
-              onClick={onMoveDown}
-              aria-label={`Mover abajo ${title}`}
-              data-testid={`move-down-${id}`}
-              className={`h-7 w-7 p-0 ${
-                canMoveDown
-                  ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                  : "text-muted-foreground/30 cursor-not-allowed"
-              }`}
-              title="Mover abajo"
-            >
-              <span className="text-xs select-none">⬇️</span>
-            </Button>
-          )}
-
-          {/* Controles de Resize Horizontal cuando comparte fila */}
-          {isSharedRow && onResizeWidth && (
-            <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/80 px-1 py-0.5">
-              <button
+          {/* Controles de Layout contextuales (Canvas Mode o Hover) */}
+          <div
+            className={`items-center gap-1 ${
+              isCanvasMode
+                ? "flex"
+                : "hidden sm:inline-flex opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+            }`}
+          >
+            {/* Controles de Posicionamiento Relativo */}
+            {onMoveLeft && canMoveLeft && (
+              <Button
                 type="button"
-                onClick={() => onResizeWidth(-5)}
-                disabled={(currentWidth ?? 50) <= 25}
-                data-testid={`resize-dec-${id}`}
-                className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                title="Reducir ancho en la fila (-5%)"
+                variant="ghost"
+                size="sm"
+                onClick={onMoveLeft}
+                aria-label={`Mover a la izquierda ${title}`}
+                data-testid={`move-left-${id}`}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                title="Mover a la izquierda / compartir fila"
               >
-                -
-              </button>
-              <span className="font-mono text-[9px] font-bold text-foreground tabular-nums px-0.5 select-none">
-                {currentWidth ?? 50}%
-              </span>
-              <button
+                <span className="text-xs select-none">⬅️</span>
+              </Button>
+            )}
+
+            {onMoveRight && canMoveRight && (
+              <Button
                 type="button"
-                onClick={() => onResizeWidth(+5)}
-                disabled={(currentWidth ?? 50) >= 75}
-                data-testid={`resize-inc-${id}`}
-                className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                title="Aumentar ancho en la fila (+5%)"
+                variant="ghost"
+                size="sm"
+                onClick={onMoveRight}
+                aria-label={`Mover a la derecha ${title}`}
+                data-testid={`move-right-${id}`}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                title="Mover a la derecha / compartir fila"
               >
-                +
-              </button>
-              {onSeparateRow && (
+                <span className="text-xs select-none">➡️</span>
+              </Button>
+            )}
+
+            {onMoveUp && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!canMoveUp}
+                onClick={onMoveUp}
+                aria-label={`Mover arriba ${title}`}
+                data-testid={`move-up-${id}`}
+                className={`h-7 w-7 p-0 ${
+                  canMoveUp
+                    ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                    : "text-muted-foreground/30 cursor-not-allowed"
+                }`}
+                title="Mover arriba"
+              >
+                <span className="text-xs select-none">⬆️</span>
+              </Button>
+            )}
+
+            {onMoveDown && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={!canMoveDown}
+                onClick={onMoveDown}
+                aria-label={`Mover abajo ${title}`}
+                data-testid={`move-down-${id}`}
+                className={`h-7 w-7 p-0 ${
+                  canMoveDown
+                    ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                    : "text-muted-foreground/30 cursor-not-allowed"
+                }`}
+                title="Mover abajo"
+              >
+                <span className="text-xs select-none">⬇️</span>
+              </Button>
+            )}
+
+            {/* Controles de Resize Horizontal cuando comparte fila */}
+            {isSharedRow && onResizeWidth && (
+              <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/80 px-1 py-0.5">
                 <button
                   type="button"
-                  onClick={onSeparateRow}
-                  data-testid={`separate-row-${id}`}
-                  className="ml-1 text-[10px] text-muted-foreground hover:text-primary font-bold cursor-pointer"
-                  title="Expandir a fila propia completa (100%)"
+                  onClick={() => onResizeWidth(-5)}
+                  disabled={(currentWidth ?? 50) <= 25}
+                  data-testid={`resize-dec-${id}`}
+                  className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                  title="Reducir ancho en la fila (-5%)"
                 >
-                  ⤢
+                  -
                 </button>
-              )}
-            </div>
-          )}
+                <span className="font-mono text-[9px] font-bold text-foreground tabular-nums px-0.5 select-none">
+                  {currentWidth ?? 50}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onResizeWidth(+5)}
+                  disabled={(currentWidth ?? 50) >= 75}
+                  data-testid={`resize-inc-${id}`}
+                  className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                  title="Aumentar ancho en la fila (+5%)"
+                >
+                  +
+                </button>
+                {onSeparateRow && (
+                  <button
+                    type="button"
+                    onClick={onSeparateRow}
+                    data-testid={`separate-row-${id}`}
+                    className="ml-1 text-[10px] text-muted-foreground hover:text-primary font-bold cursor-pointer"
+                    title="Expandir a fila propia completa (100%)"
+                  >
+                    ⤢
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Botón de Colapso Explícito [-] / [+] */}
           <Button

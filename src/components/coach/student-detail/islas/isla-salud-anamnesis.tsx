@@ -206,8 +206,8 @@ export function IslaSaludAnamnesis({
           </div>
         </div>
 
-        {/* Notificación de Dolor en Ejercicio con Toggle de Estado Atendido / Resuelto */}
-        <div className="rounded-lg border border-border bg-card p-3 space-y-2.5">
+        {/* Notificación de Dolor en Ejercicio con Segmented Control Zen (Pendiente / Atendido) */}
+        <div className="rounded-lg border border-border/80 bg-card p-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-base">{isPainResolved ? "🟢" : "⚠️"}</span>
@@ -222,25 +222,35 @@ export function IslaSaludAnamnesis({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                  isPainResolved
-                    ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
-                    : "bg-amber-500/15 text-amber-500 border-amber-500/30 animate-pulse"
-                }`}
-              >
-                {isPainResolved ? "✓ ATENDIDO / RESUELTO" : "⚠️ PENDIENTE DE ATENCIÓN"}
-              </span>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleTogglePainStatus}
-                className="h-7 text-xs font-semibold cursor-pointer"
-              >
-                {isPainResolved ? "Marcar como Pendiente" : "✓ Marcar como Atendido"}
-              </Button>
+              {/* Segmented Control Zen */}
+              <div className="inline-flex rounded-md border border-border/70 bg-muted/30 p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isPainResolved) handleTogglePainStatus();
+                  }}
+                  className={`rounded px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    !isPainResolved
+                      ? "bg-amber-500/20 text-amber-500 border border-amber-500/40 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  ⚠️ Pendiente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isPainResolved) handleTogglePainStatus();
+                  }}
+                  className={`rounded px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    isPainResolved
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  ✓ Atendido
+                </button>
+              </div>
 
               {onQuickSwap && (
                 <Button
@@ -257,7 +267,7 @@ export function IslaSaludAnamnesis({
           </div>
         </div>
 
-        {/* Bitácora de Intervención del Entrenador */}
+        {/* Bitácora de Intervención del Entrenador con Auto-guardado */}
         <div className="rounded-lg border border-border/80 bg-secondary/15 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -268,7 +278,7 @@ export function IslaSaludAnamnesis({
             </div>
             {saveSuccess && (
               <span className="text-[11px] font-bold text-emerald-500 animate-in fade-in">
-                ✓ Registro guardado en la ficha
+                ✓ Guardado automático en la ficha
               </span>
             )}
           </div>
@@ -278,25 +288,35 @@ export function IslaSaludAnamnesis({
           <textarea
             value={coachLog}
             onChange={(e) => setCoachLog(e.target.value)}
+            onBlur={handleSaveCoachLog}
             rows={3}
             placeholder="Ej.: Se sustituyó Press Banca por Landmine Press a 45°..."
             className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[10px] text-muted-foreground">
+              {saveSuccess ? (
+                <span className="text-emerald-500 font-medium">✓ Guardado al desenfocar</span>
+              ) : (
+                "Se guarda automáticamente al escribir o salir."
+              )}
+            </span>
             <Button
               type="button"
-              variant="default"
+              variant="ghost"
               size="sm"
               onClick={handleSaveCoachLog}
-              className="h-7 text-xs font-bold"
+              className="h-6 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted"
             >
               💾 Guardar Registro en la Ficha
             </Button>
           </div>
         </div>
 
-        {/* Alertas de dolor de alumnos (StudentPainAlerts con Quick Swap) */}
-        {painAlertsNode}
+        {/* Alertas secundarias de dolor solo si no hay molestia principal activa */}
+        {painAlertsNode && (!zonaDolorActual || zonaDolorActual === "Ninguna") && (
+          <div>{painAlertsNode}</div>
+        )}
 
         {/* Resumen colapsable de Anamnesis inicial */}
         <div
