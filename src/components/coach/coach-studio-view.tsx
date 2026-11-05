@@ -162,6 +162,7 @@ export function CoachStudioView({
   }, [initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
+  // GOZS-131 contrato: const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);
   const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(initialAlumnosExpanded);
   const showAlumnosBody = isAlumnosExpanded;
   const [filterQuery, setFilterQuery] = React.useState("");
