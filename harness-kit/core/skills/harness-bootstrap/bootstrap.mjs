@@ -65,6 +65,13 @@ function write(rel, content) {
 
 write("harness.json", JSON.stringify({ kit: "harness-kit", version, out: ".harness" }, null, 2) + "\n");
 write("project.json", render("project.json.tmpl", { project_name: opts.name || pkg.name || path.basename(repoDir), gate_command: gate }));
+write("guardrails.local.md", render("guardrails.local.md.tmpl", {}));
+write("LongTermMEMORY.md", render("LongTermMEMORY.md.tmpl", {}));
+write("experience_library.jsonl", render("experience_library.jsonl.tmpl", {}));
+write("tool_guidance.local.md", render("tool_guidance.local.md.tmpl", {}));
+write("subagents/.gitkeep", "");
+write("scripts/.gitkeep", "");
+write("plugins/.gitkeep", "");
 
 if (opts.domain) {
   write(

@@ -140,11 +140,12 @@ const adapterGuardrails = adapters
   .filter(Boolean);
 const localGuardrails = readFileSafe(path.join(overlayDir, "guardrails.local.md"));
 
-// C4: tool guidance (core -> adapters)
+// C4: tool guidance (core -> adapters -> local)
 const coreToolGuidance = readFileSafe(path.join(kitDir, "core", "tool_guidance.md"));
 const adapterToolGuidance = adapters
   .map((a) => readFileSafe(path.join(kitDir, "adapters", a, "tool_guidance.md")))
   .filter(Boolean);
+const localToolGuidance = readFileSafe(path.join(overlayDir, "tool_guidance.local.md"));
 
 // C6: skills (core -> overlay). Cada `skills/<n>/SKILL.md` declara su
 // `autotrigger` en el frontmatter; el render lo publica en AGENTS.md.
@@ -179,6 +180,67 @@ for (const line of memory?.split("\n") ?? []) {
   }
 }
 
+// C3b: Experience Library (Harness² JSONL con filtrado por scope)
+const expLibPath = path.join(overlayDir, "experience_library.jsonl");
+let expLibSection = null;
+if (existsSync(expLibPath)) {
+  const rawLines = readFileSafe(expLibPath).split("\n").filter((l) => l.trim().length > 0);
+  const validLessons = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    try {
+      const parsed = JSON.parse(rawLines[i]);
+      if (!parsed.task || !parsed.lesson) {
+        fail(`invalid entry in experience_library.jsonl (line ${i + 1}): missing task or lesson`);
+      }
+      if (parsed.verified !== false) {
+        validLessons.push(parsed);
+      }
+    } catch {
+      fail(`invalid json in experience_library.jsonl (line ${i + 1})`);
+    }
+  }
+  if (validLessons.length > 0) {
+    let activeScope = [];
+    const targetRoot = path.resolve(overlayDir, "..");
+    const scopePaths = [
+      path.join(targetRoot, ".harness", "scope.json"),
+      path.join(overlayDir, "scope.json"),
+      path.join(repoRoot(), ".harness", "scope.json"),
+    ];
+    for (const sp of scopePaths) {
+      if (existsSync(sp)) {
+        try {
+          const parsedScope = JSON.parse(readFileSafe(sp));
+          if (Array.isArray(parsedScope.scope)) activeScope = parsedScope.scope.map((s) => s.toLowerCase());
+          break;
+        } catch {}
+      }
+    }
+
+    let selected = [];
+    if (activeScope.length > 0) {
+      const scored = validLessons.map((l) => {
+        const lTags = Array.isArray(l.tags) ? l.tags.map((t) => t.toLowerCase()) : [];
+        const taskText = `${l.task || ""} ${l.lesson || ""}`.toLowerCase();
+        let matches = 0;
+        for (const s of activeScope) {
+          if (lTags.includes(s) || taskText.includes(s)) matches++;
+        }
+        return { lesson: l, matches };
+      });
+      const matching = scored.filter((s) => s.matches > 0).sort((a, b) => b.matches - a.matches).map((s) => s.lesson);
+      if (matching.length > 0) selected = matching.slice(-3);
+    }
+
+    if (selected.length === 0) {
+      selected = validLessons.slice(-3);
+    }
+
+    const lines = selected.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
+    expLibSection = `### Experience Library (Harness²)\n\n${lines.join("\n")}`;
+  }
+}
+
 // C7: índice de scripts, desde la primera línea de comentario de cada uno (D8).
 const scriptsDir = path.join(kitDir, "core", "scripts");
 const scriptLines = readdirSync(scriptsDir)
@@ -192,6 +254,22 @@ const scriptLines = readdirSync(scriptsDir)
       .find(Boolean);
     return `- \`${path.relative(repoRoot(), path.join(scriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
   });
+
+const overlayScriptsDir = path.join(overlayDir, "scripts");
+if (existsSync(overlayScriptsDir)) {
+  const overlayScriptLines = readdirSync(overlayScriptsDir)
+    .filter((f) => /\.(sh|mjs)$/.test(f))
+    .sort()
+    .map((f) => {
+      const doc = readFileSafe(path.join(overlayScriptsDir, f))
+        .split("\n")
+        .slice(1)
+        .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
+        .find(Boolean) || "project script";
+      return `- \`${path.relative(repoRoot(), path.join(overlayScriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
+    });
+  scriptLines.push(...overlayScriptLines);
+}
 const scriptsSection = `# Helper scripts (run via bash)\n\n${scriptLines.join("\n")}`;
 
 // Orden canónico (spec §5): systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
@@ -202,8 +280,10 @@ const agentSections = [
   localGuardrails?.trimEnd(),
   skillsSection,
   memory?.trimEnd(),
+  expLibSection,
   coreToolGuidance?.trimEnd(),
   ...adapterToolGuidance.map((s) => s.trimEnd()),
+  localToolGuidance?.trimEnd(),
   scriptsSection,
 ].filter(Boolean);
 
@@ -417,10 +497,11 @@ function parseSubagent(filePath) {
   return { name: fm.name, description: fm.description, body: m[2].trim() };
 }
 
-/** Recolecta subagentes de core y de los adapters configurados. */
+/** Recolecta subagentes de core, adapters y overlay. */
 function collectSubagents() {
   const dirs = [path.join(kitDir, "core", "subagents")];
   for (const a of adapters) dirs.push(path.join(kitDir, "adapters", a, "subagents"));
+  dirs.push(path.join(overlayDir, "subagents"));
   const subs = [];
   for (const dir of dirs) {
     if (!existsSync(dir)) continue;
