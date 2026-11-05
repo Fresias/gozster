@@ -462,6 +462,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         comentarios: `Clonado optimísticamente el ${new Date().toLocaleDateString("es-AR")}. Basado en ${planBase?.id ?? "plantilla"}.`,
         fecha_inicio: nowIso,
         fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tags: planBase?.tags ? [...planBase.tags] : [],
         created_at: nowIso,
         updated_at: nowIso,
       };
@@ -786,6 +787,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         comentarios: "Plan asignado con urgencia desde el Dashboard de Retención.",
         fecha_inicio: nowIso,
         fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tags: ["Fuerza"],
         created_at: nowIso,
         updated_at: nowIso,
       };
@@ -864,6 +866,10 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const nuevoPlanId = await asignarRutinaAAlumno(plantillaId, alumnoId);
       const dataset = await fetchLiveDatasetFromSupabase();
       const nuevoPlan = dataset.planes.find((p) => p.id === nuevoPlanId) ?? null;
+      const plantilla = dataset.planes.find((p) => p.id === plantillaId);
+      if (nuevoPlan && (!nuevoPlan.tags || nuevoPlan.tags.length === 0) && plantilla?.tags && plantilla.tags.length > 0) {
+        nuevoPlan.tags = [...plantilla.tags];
+      }
       const alumno = get().alumnos.find((a) => a.id === alumnoId);
       const nombreAlumno = alumno?.nombre_completo ?? "alumno";
 
