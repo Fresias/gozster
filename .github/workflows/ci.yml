@@ -25,8 +25,11 @@ jobs:
       - name: Clean install dependencies
         run: npm ci
 
-      - name: Harness drift check
-        run: node harness-kit/core/scripts/harness-render.mjs --check
+      - name: Harness² audit & drift check
+        run: node scripts/qa-harness-audit.mjs
+
+      - name: Run Harness² Kit specs & invariants
+        run: npx vitest run harness-kit/tests/
 
       - name: Typecheck (TypeScript)
         run: npx tsc --noEmit

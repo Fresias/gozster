@@ -58,7 +58,7 @@ multica issue wakeup create <issue-id> \
   --expires-in 2h \
   --on-timeout wake \
   --instruction "1. Verificar resultado con 'gh pr view --json statusCheckRollup'.
-2. Si está en verde (SUCCESS): Validar diff con Karpathy/Ponytail, hacer merge squash a main, cerrar el issue y emitir reporte ejecutivo.
+2. Si está en verde (SUCCESS): Validar diff con Karpathy/Ponytail, hacer merge squash a main, ejecutar 'harness-kit/core/scripts/harness-learn.sh --issue <issue-id> --lesson "<título>"', comitear/pushear la lección a main, cerrar el issue y emitir reporte ejecutivo.
 3. Si falló (FAILURE):
    a. Extraer error con 'gh run view --log-failed'.
    b. Si intentos de fix >= 3: marcar issue 'blocked', desarmar wakeup y reportar autopsia al usuario.
