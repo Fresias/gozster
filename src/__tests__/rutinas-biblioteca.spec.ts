@@ -1,5 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
-import { clasificarRutinas, nombreUnico, separarBorradores } from "@/lib/rutinas-biblioteca";
+import {
+  clasificarRutinas,
+  filtrarRutinas,
+  filtrarRutinasPorBusqueda,
+  filtrarRutinasPorTag,
+  getTagBadgeStyles,
+  getTagChipFilterStyles,
+  heredarTagsDePlantilla,
+  nombreUnico,
+  separarBorradores,
+} from "@/lib/rutinas-biblioteca";
 import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
 
@@ -179,5 +189,63 @@ describe("GOZS-319: activarRutina / archivarRutina", () => {
     expect(rpc).toHaveBeenLastCalledWith("asignar_rutina_a_alumno", { p_plan_id: "p", p_alumno_id: "a" });
     await asignarRutinaAAlumno("p", "a", client, "X (copia)");
     expect(rpc).toHaveBeenLastCalledWith("asignar_rutina_a_alumno", { p_plan_id: "p", p_alumno_id: "a", p_nombre: "X (copia)" });
+  });
+});
+
+describe("GOZS-365: filtros por tags, badges semánticos y herencia en asignación", () => {
+  it("filtrarRutinasPorTag filtra exactamente por el tag especificado", () => {
+    const planes = [
+      plan({ id: "p1", nombre: "Fuerza 5x5", tags: ["Fuerza", "Potencia"] }),
+      plan({ id: "p2", nombre: "Hipertrofia Piernas", tags: ["Hipertrofia"] }),
+      plan({ id: "p3", nombre: "Sin tags", tags: [] }),
+    ];
+    expect(filtrarRutinasPorTag(planes, "Hipertrofia").map((p) => p.id)).toEqual(["p2"]);
+    expect(filtrarRutinasPorTag(planes, "Fuerza").map((p) => p.id)).toEqual(["p1"]);
+    expect(filtrarRutinasPorTag(planes, "Todos").map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+    expect(filtrarRutinasPorTag(planes, null).map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("filtrarRutinasPorBusqueda filtra por nombre o comentarios", () => {
+    const planes = [
+      plan({ id: "p1", nombre: "Torso Fuerza", comentarios: "Enfoque banca" }),
+      plan({ id: "p2", nombre: "Pierna Bombeo", comentarios: "Sentadilla libre" }),
+    ];
+    expect(filtrarRutinasPorBusqueda(planes, "torso").map((p) => p.id)).toEqual(["p1"]);
+    expect(filtrarRutinasPorBusqueda(planes, "banca").map((p) => p.id)).toEqual(["p1"]);
+    expect(filtrarRutinasPorBusqueda(planes, "libre").map((p) => p.id)).toEqual(["p2"]);
+    expect(filtrarRutinasPorBusqueda(planes, "").map((p) => p.id)).toEqual(["p1", "p2"]);
+  });
+
+  it("filtrarRutinas combina reactivamente tag y búsqueda", () => {
+    const planes = [
+      plan({ id: "p1", nombre: "Fuerza Torso", tags: ["Fuerza"] }),
+      plan({ id: "p2", nombre: "Fuerza Pierna", tags: ["Fuerza"] }),
+      plan({ id: "p3", nombre: "Hipertrofia Torso", tags: ["Hipertrofia"] }),
+    ];
+    expect(filtrarRutinas(planes, "Fuerza", "Pierna").map((p) => p.id)).toEqual(["p2"]);
+    expect(filtrarRutinas(planes, "Hipertrofia", "Torso").map((p) => p.id)).toEqual(["p3"]);
+    expect(filtrarRutinas(planes, "Fuerza", "Glúteo").map((p) => p.id)).toEqual([]);
+  });
+
+  it("heredarTagsDePlantilla preserva fielmente los tags de la plantilla", () => {
+    const plantilla = plan({ id: "pt", tags: ["Fuerza", "Potencia"] });
+    const clon = heredarTagsDePlantilla(plantilla);
+    expect(clon).toEqual(["Fuerza", "Potencia"]);
+    expect(clon).not.toBe(plantilla.tags); // copia inmutable
+  });
+
+  it("getTagBadgeStyles entrega clases y dots semánticos contrastantes para cada tag del catálogo", () => {
+    expect(getTagBadgeStyles("Fuerza").className).toContain("border-amber-500");
+    expect(getTagBadgeStyles("Hipertrofia").className).toContain("border-emerald-500");
+    expect(getTagBadgeStyles("Rehabilitación").className).toContain("border-sky-500");
+    expect(getTagBadgeStyles("Potencia").className).toContain("border-purple-500");
+    expect(getTagBadgeStyles("Peso Corporal").className).toContain("border-slate-500");
+  });
+
+  it("getTagChipFilterStyles entrega estilos diferenciados para estado activo/inactivo", () => {
+    const inactivo = getTagChipFilterStyles("Hipertrofia", false);
+    const activo = getTagChipFilterStyles("Hipertrofia", true);
+    expect(inactivo).toContain("text-muted-foreground");
+    expect(activo).toContain("border-emerald-500");
   });
 });
