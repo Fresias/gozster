@@ -69,9 +69,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-05 | task: GOZS-362] Coach Studio: alta de planes corpo  con notas, asignacion multiactividad simultanea y badges apilables en listado de atletas.
-- [lesson 2026-11-05 | task: GOZS-364] Athlete App: en rangos de repeticiones con barra 'X/Y', la app precarga el maximo Y y el stepper bloquea incrementos superiores al limite prescrito.
-- [lesson 2026-11-05 | task: GOZS-365] Coach Studio: filtro interactivo por chips de tags (Fuerza, Hipertrofia, etc.) y badges semanticos de categoria en biblioteca de rutinas.
+- [lesson 2026-11-06 | task: GOZS-388] Stage 5 (#384): Regresion E2E multi-viewport (1440, 1366, 768, 390px) con cero scroll horizontal en Coach Studio.
+- [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
+- [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
 
 # Tool Guidance & Execution Rules
 

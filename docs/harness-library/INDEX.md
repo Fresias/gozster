@@ -57,4 +57,4 @@ node harness-kit/core/scripts/harness-telemetry.mjs ruta/al/events.jsonl --json
 ## Entradas
 
 - [`LEDGER.json`](./LEDGER.json) — el ledger versionado.
-- [`EXPERIENCE-L-000.md`](./EXPERIENCE-L-000.md) — línea base del harness (`measuring`).
+- [`EXPERIENCE-L-000.md`](./EXPERIENCE-L-000.md) — línea base del harness (`completed`).
