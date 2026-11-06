@@ -33,6 +33,14 @@ import type {
 } from "@/types/database.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCoachStudioStore, type CoachStudioTab } from "@/store/use-coach-studio";
 import { supabase } from "@/lib/supabase/client";
@@ -108,6 +116,12 @@ export interface StudentDetailProps {
   cuestionario?: AlumnoCuestionarioInicial | null;
   onQuickSwap?: (alert: CriticalAlert) => void;
   onPreviewAthlete?: (alumno: Perfil) => void;
+  onAssignRoutine?: (alumno: Perfil) => void;
+  onEditProfile?: (alumno: Perfil) => void;
+  onRegisterPayment?: (alumno: Perfil) => void;
+  onExportStudentSheet?: (alumno: Perfil) => void;
+  headerMenuOpen?: boolean;
+  onHeaderMenuOpenChange?: (open: boolean) => void;
 }
 
 export function StudentDetail({
@@ -133,9 +147,45 @@ export function StudentDetail({
   cuestionario: cuestionarioProp,
   onQuickSwap,
   onPreviewAthlete,
+  onAssignRoutine,
+  onEditProfile,
+  onRegisterPayment,
+  onExportStudentSheet,
+  headerMenuOpen,
+  onHeaderMenuOpenChange,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [isExtending, setIsExtending] = React.useState(false);
+
+  const handleAsignarRutina = () => {
+    if (onAssignRoutine) {
+      onAssignRoutine(alumno);
+    } else {
+      onTabChange("rutina_actual");
+    }
+  };
+
+  const handleEditarPerfil = () => {
+    if (onEditProfile) {
+      onEditProfile(alumno);
+    }
+  };
+
+  const handleRegistrarPago = () => {
+    if (onRegisterPayment) {
+      onRegisterPayment(alumno);
+    } else {
+      handleAbrirDialogoPago();
+    }
+  };
+
+  const handleExportarFicha = () => {
+    if (onExportStudentSheet) {
+      onExportStudentSheet(alumno);
+    } else if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   // Integración Chat GOZS (ADR-004)
   const { getConversation, transferirConversacion } = useChatStore();
@@ -2670,7 +2720,10 @@ export function StudentDetail({
   return (
     <div className="space-y-4">
       {/* 1. Header Bar Unificado y Compacto (h-16) */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-xs">
+      <div
+        data-testid="student-detail-header"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-xs"
+      >
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -2681,13 +2734,18 @@ export function StudentDetail({
             <span>← Volver</span>
           </Button>
 
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
-            {alumno.nombre_completo
-              .split(" ")
-              .map((p) => p[0])
-              .slice(0, 2)
-              .join("")}
-          </div>
+          <Avatar className="h-10 w-10 shrink-0" data-testid="student-avatar">
+            <AvatarFallback
+              className="bg-primary/10 text-primary font-bold text-sm"
+              aria-label={alumno.nombre_completo}
+            >
+              {alumno.nombre_completo
+                .split(" ")
+                .map((p) => p[0])
+                .slice(0, 2)
+                .join("")}
+            </AvatarFallback>
+          </Avatar>
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2753,52 +2811,25 @@ export function StudentDetail({
             </Button>
           )}
 
-          {/* Grupo de Comunicación Zen */}
-          <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                onOpenChat?.();
-                openChatForAlumno(alumno.id);
-              }}
-              className="h-7 px-2.5 text-xs font-semibold text-foreground hover:bg-muted"
-              data-testid="enviar-mensaje-btn"
-              aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-            >
-              <span>💬 Enviar mensaje</span>
-            </Button>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-              className="inline-flex h-7 items-center justify-center gap-1 rounded px-2 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-              data-testid="whatsapp-direct-btn"
-            >
-              <span>📱 WhatsApp</span>
-            </a>
-          </div>
-
-          {/* Grupo de Personalización Zen */}
+          {/* Grupo de Personalización Zen (Discreto) */}
           <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setIsCanvasMode((prev) => !prev)}
-              className={`h-7 px-2.5 text-xs font-semibold transition-colors ${
+              className={`h-8 px-2.5 text-xs font-semibold transition-colors ${
                 isCanvasMode
-                  ? "bg-primary text-primary-foreground shadow-2xs"
+                  ? "bg-secondary text-secondary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
               data-testid="btn-modo-canvas"
               aria-label="Alternar Modo Canvas Modular"
+              title="Personalizar layout (Modo Canvas)"
             >
               <span>⠿ Modo Canvas</span>
               {isCanvasMode && (
-                <span className="ml-1 rounded bg-primary-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
+                <span className="ml-1 rounded bg-muted-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
                   ON
                 </span>
               )}
@@ -2809,9 +2840,10 @@ export function StudentDetail({
               variant="ghost"
               size="sm"
               onClick={() => setIsConfigModalOpen(true)}
-              className="h-7 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+              className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
               data-testid="btn-configurar-islas"
               title="Configurar qué islas ver u ocultar"
+              aria-label="Configurar islas visibles"
             >
               <span>⚙️ Configurar Islas</span>
               <span className="ml-1 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
@@ -2819,6 +2851,84 @@ export function StudentDetail({
               </span>
             </Button>
           </div>
+
+          {/* WhatsApp directo */}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
+            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-border/70 px-2.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+            data-testid="whatsapp-direct-btn"
+          >
+            <span>📱 WhatsApp</span>
+          </a>
+
+          {/* Acción Secundaria: Asignar rutina (outline/ghost) */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAsignarRutina}
+            className="h-8 px-3 text-xs font-semibold"
+            data-testid="btn-asignar-rutina"
+            aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
+          >
+            <span>Asignar rutina</span>
+          </Button>
+
+          {/* Acción Primaria Destacada: Enviar mensaje (Única variante primaria) */}
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => {
+              onOpenChat?.();
+              openChatForAlumno(alumno.id);
+            }}
+            className="h-8 px-3 text-xs font-semibold shadow-xs"
+            data-testid="enviar-mensaje-btn"
+            aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+          >
+            <span>💬 Enviar mensaje</span>
+          </Button>
+
+          {/* Menú de Acciones Complementarias ⋯ (DropdownMenu accesible) */}
+          <DropdownMenu
+            open={headerMenuOpen}
+            onOpenChange={onHeaderMenuOpenChange}
+          >
+            <DropdownMenuTrigger
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-transparent text-foreground hover:bg-secondary/60 hover:border-border active:scale-[0.98] text-sm font-semibold transition-all select-none touch-manipulation cursor-pointer"
+              aria-label={`Más acciones para ${alumno.nombre_completo}`}
+              data-testid="student-header-menu-trigger"
+            >
+              <span aria-hidden="true" className="leading-none text-base">⋯</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={handleEditarPerfil}
+                data-testid="student-menu-editar-perfil"
+                className="cursor-pointer"
+              >
+                <span>Editar perfil</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleRegistrarPago}
+                data-testid="student-menu-registrar-pago"
+                className="cursor-pointer"
+              >
+                <span>Registrar pago</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleExportarFicha}
+                data-testid="student-menu-exportar-ficha"
+                className="cursor-pointer"
+              >
+                <span>Exportar ficha</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
