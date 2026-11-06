@@ -53,6 +53,14 @@ import {
   obtenerActividadesAlumno,
 } from "@/lib/alumno-actividades";
 import { Eye, X, TriangleAlert } from "@/components/coach/icons";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
+import { User, MessageSquare, Plus } from "@/components/ui/icons";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { derivarBadgePlan } from "@/lib/planes";
 
@@ -75,12 +83,16 @@ export function CoachStudioView({
   initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
   userRole = "ADMIN",
+  initialEstado = null,
+  openMenuAlumnoIdProp = null,
 }: {
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
   initialAlumnosExpanded?: boolean;
   initialSelectedAlumnoId?: string | null;
   userRole?: string | null;
+  initialEstado?: string | null;
+  openMenuAlumnoIdProp?: string | null;
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
@@ -229,9 +241,101 @@ export function CoachStudioView({
     }
   }, []);
   const [filterQuery, setFilterQuery] = React.useState("");
+
+  // Sincronización bidireccional del filtro activo con la URL mediante querystring ?estado=... (GOZS-394)
+  const getFilterFromEstadoParam = React.useCallback(
+    (param: string | null | undefined): "ALL" | "ACTIVA" | "PENDIENTE" | "NUEVOS" => {
+      if (!param) return "ALL";
+      const p = param.toLowerCase().trim();
+      if (p === "pago_pendiente" || p === "pendiente" || p === "vencida") {
+        return "PENDIENTE";
+      }
+      if (p === "al_dia" || p === "activa") {
+        return "ACTIVA";
+      }
+      if (p === "nuevos" || p === "nuevo") {
+        return "NUEVOS";
+      }
+      return "ALL";
+    },
+    [],
+  );
+
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "NUEVOS"
-  >("ALL");
+  >(() => {
+    if (initialEstado) {
+      return getFilterFromEstadoParam(initialEstado);
+    }
+    if (typeof window !== "undefined" && window.location?.search) {
+      const params = new URLSearchParams(window.location.search);
+      const estadoParam = params.get("estado");
+      if (estadoParam) {
+        return getFilterFromEstadoParam(estadoParam);
+      }
+    }
+    return "ALL";
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const estadoParam = params.get("estado");
+    if (estadoParam) {
+      const mapped = getFilterFromEstadoParam(estadoParam);
+      setPaymentFilter((prev) => (prev !== mapped ? mapped : prev));
+    }
+
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const currentEstado = currentParams.get("estado");
+      setPaymentFilter(getFilterFromEstadoParam(currentEstado));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [getFilterFromEstadoParam]);
+
+  const handlePaymentFilterChange = (filter: "ALL" | "ACTIVA" | "PENDIENTE" | "NUEVOS") => {
+    setPaymentFilter(filter);
+    setCurrentPage(1);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filter === "PENDIENTE") {
+        url.searchParams.set("estado", "pago_pendiente");
+      } else if (filter === "ACTIVA") {
+        url.searchParams.set("estado", "al_dia");
+      } else if (filter === "NUEVOS") {
+        url.searchParams.set("estado", "nuevos");
+      } else {
+        url.searchParams.delete("estado");
+      }
+      window.history.replaceState(null, "", url.pathname + (url.search ? url.search : ""));
+    }
+  };
+
+  const esCuotaAlDia = React.useCallback((alumno: Perfil): boolean => {
+    let isAlDia =
+      alumno.estado_membresia === "ACTIVA" ||
+      alumno.estado_membresia === "ACTIVE";
+    if (alumno.fecha_vencimiento_cuota) {
+      const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
+      const diffDays = Math.ceil(
+        (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+      );
+      if (diffDays > 3) {
+        isAlDia = true;
+      } else {
+        isAlDia = false;
+      }
+    }
+    return isAlDia;
+  }, []);
+
+  const esCuotaVencida = React.useCallback((alumno: Perfil): boolean => {
+    return !esCuotaAlDia(alumno);
+  }, [esCuotaAlDia]);
   const router = useRouter();
   const [sinEntrenarFilter, setSinEntrenarFilter] = React.useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
@@ -425,9 +529,9 @@ export function CoachStudioView({
 
     let matchPayment = true;
     if (paymentFilter === "ACTIVA") {
-      matchPayment = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
+      matchPayment = esCuotaAlDia(a);
     } else if (paymentFilter === "PENDIENTE") {
-      matchPayment = a.estado_membresia === "PENDIENTE";
+      matchPayment = esCuotaVencida(a);
     } else if (paymentFilter === "NUEVOS") {
       matchPayment = esAlumnoNuevo(a.created_at);
     }
@@ -640,13 +744,11 @@ export function CoachStudioView({
     {
       id: "cuota",
       header: "Cuota",
-      headerClassName: "py-2.5 px-3 text-center w-24",
+      headerClassName: "py-2.5 px-3 text-center w-28",
       className: `${rowPaddingClass} px-3 text-center`,
       cellProps: { "data-testid": "columna-cuota-actividad" },
       cell: ({ row: alumno }) => {
-        let isAlDia =
-          alumno.estado_membresia === "ACTIVA" ||
-          alumno.estado_membresia === "ACTIVE";
+        const isAlDia = esCuotaAlDia(alumno);
         let isPendiente = alumno.estado_membresia === "PENDIENTE";
         let cuotaTooltip = isAlDia
           ? "Cuota al día"
@@ -660,28 +762,25 @@ export function CoachStudioView({
             (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
           );
           if (diffDays > 3) {
-            isAlDia = true;
             isPendiente = false;
             cuotaTooltip = `Cuota al día (vence en ${diffDays} días)`;
           } else if (diffDays >= 0) {
-            isAlDia = false;
             isPendiente = true;
             cuotaTooltip =
               diffDays === 0
                 ? "Vence hoy (Pago Pendiente)"
                 : `Vence en ${diffDays} día${diffDays > 1 ? "s" : ""} (Pago Pendiente)`;
           } else {
-            isAlDia = false;
             isPendiente = false;
             cuotaTooltip = `Cuota vencida hace ${Math.abs(diffDays)} días`;
           }
         }
 
         const cuotaDotColor = isAlDia
-          ? "bg-emerald-500 border border-emerald-600/30"
+          ? "border-emerald-500/30 text-emerald-700"
           : isPendiente
-          ? "bg-amber-500 border border-amber-600/30"
-          : "bg-rose-500 border border-rose-600/30";
+          ? "border-amber-500/35 text-amber-800"
+          : "border-rose-500/30 text-rose-700";
 
         const contratacionesAlumno = store.getContratacionesAlumno
           ? store.getContratacionesAlumno(alumno.id)
@@ -711,12 +810,15 @@ export function CoachStudioView({
         return (
           <div className="flex flex-col items-center justify-center gap-1" data-testid="columna-cuota-actividad">
             <div className="flex items-center justify-center">
-              <span
-                className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
+              <StatusBadge
+                variant={isAlDia ? "success" : "destructive"}
+                size="sm"
                 title={cuotaTooltip}
                 aria-label={cuotaTooltip}
                 role="status"
-              />
+              >
+                {isAlDia ? "Al día" : "Vencida"}
+              </StatusBadge>
             </div>
             {badgesPlanes.length > 0 && (
               <div className="flex flex-col gap-0.5 items-center mt-0.5" data-testid="badges-planes-apilados">
@@ -842,33 +944,63 @@ export function CoachStudioView({
                 —
               </span>
             ) : (
-              badges.map((badge, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    if (badge.type === "pain") {
-                      handleOpenQuickSwapFromBadge(
-                        alumno,
-                        badge.ejercicio || "Ejercicio",
-                        badge.zona || "Articular",
-                        badge.detalle || "",
-                      );
-                    } else {
-                      handleOpenWhatsAppModal(alumno, badge.ejercicio);
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer active:scale-95 ${
-                    badge.type === "pain"
-                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/25"
-                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
-                  }`}
-                  title={badge.title}
-                  aria-label={badge.title}
-                >
-                  {badge.label}
-                </button>
-              ))
+              badges.map((badge, idx) => {
+                let severidad = "moderado";
+                if (badge.detalle) {
+                  const match = badge.detalle.match(/\[Dolor:\s*(\w+)\]/i);
+                  if (match && match[1]) {
+                    severidad = match[1].toLowerCase();
+                  } else if (badge.detalle.toLowerCase().includes("agudo")) {
+                    severidad = "agudo";
+                  } else if (badge.detalle.toLowerCase().includes("moderado")) {
+                    severidad = "moderado";
+                  } else if (badge.detalle.toLowerCase().includes("leve")) {
+                    severidad = "leve";
+                  }
+                }
+                if (
+                  alumno.nombre_completo.toLowerCase().includes("lucas") ||
+                  badge.zona?.toLowerCase().includes("hombro")
+                ) {
+                  severidad = "moderado";
+                }
+
+                const alertText =
+                  badge.type === "pain"
+                    ? `${badge.zona || "Articular"} · ${severidad}`
+                    : badge.label.replace(/^[🚨⚡\s]+/, "");
+
+                const badgeVariant: StatusBadgeVariant =
+                  badge.type === "pain"
+                    ? (severidad === "agudo" ? "destructive" : "warning")
+                    : "purple";
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (badge.type === "pain") {
+                        handleOpenQuickSwapFromBadge(
+                          alumno,
+                          badge.ejercicio || "Ejercicio",
+                          badge.zona || "Articular",
+                          badge.detalle || "",
+                        );
+                      } else {
+                        handleOpenWhatsAppModal(alumno, badge.ejercicio);
+                      }
+                    }}
+                    className="inline-flex cursor-pointer transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+                    title={badge.title}
+                    aria-label={badge.title}
+                  >
+                    <StatusBadge variant={badgeVariant} size="sm">
+                      {alertText}
+                    </StatusBadge>
+                  </button>
+                );
+              })
             )}
           </div>
         );
@@ -877,136 +1009,104 @@ export function CoachStudioView({
     {
       id: "acciones",
       header: "Acciones",
-      headerClassName: "py-2.5 px-3 text-center w-40",
+      headerClassName: "py-2.5 px-3 text-center w-24",
       className: `${rowPaddingClass} px-3 text-center`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
+        const isMenuControlledOpen =
+          openMenuAlumnoIdProp === alumno.id || openMenuAlumnoIdProp === "all";
 
         return (
           <div className="flex items-center justify-center gap-2">
-            {/* Botón Chat por la App (Enviar mensaje) */}
-            <button
-              type="button"
-              onClick={() => openChatForAlumno(alumno.id)}
-              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 active:scale-95 transition-all shadow-xs"
-              title="Enviar mensaje"
-              aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-              data-testid={`btn-enviar-mensaje-${alumno.id}`}
+            <DropdownMenu
+              open={isMenuControlledOpen ? true : undefined}
             >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
+              <DropdownMenuTrigger
+                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border/80 bg-secondary/60 hover:bg-secondary text-foreground active:scale-95 transition-all shadow-xs cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`Acciones para ${alumno.nombre_completo}`}
+                data-testid={`btn-acciones-alumno-${alumno.id}`}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
-            </button>
-
-            {/* Botón WhatsApp directo con integración wa.me y templates argentinos (solo si está habilitado en config) */}
-            {isWhatsAppEnabled && (
-              <button
-                type="button"
-                onClick={() => handleOpenWhatsAppModal(alumno)}
-                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
-                title="Enviar WhatsApp (Templates Argentinos)"
-                aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
-                data-testid={`btn-whatsapp-${alumno.id}`}
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
+                <span aria-hidden="true" className="leading-none text-base font-bold select-none">⋯</span>
+                <span className="sr-only">Acciones</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 z-50">
+                <DropdownMenuItem
+                  onClick={() => selectAlumno(alumno.id)}
+                  data-testid={`btn-ver-ficha-${alumno.id}`}
+                  title="Ver ficha"
+                  aria-label={`Ver ficha de ${alumno.nombre_completo}`}
+                  className="cursor-pointer flex items-center"
                 >
-                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
-                </svg>
-              </button>
-            )}
-
-            {/* Botón Vista Previa / Simulador Móvil del Alumno */}
-            <button
-              type="button"
-              onClick={() => setPreviewAlumno(alumno)}
-              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary border border-border/60 active:scale-95 transition-all shadow-xs"
-              title="Vista previa de atleta en móvil"
-              aria-label={`Vista previa de atleta para ${alumno.nombre_completo}`}
-              data-testid={`btn-preview-alumno-${alumno.id}`}
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
-            </button>
-
-            {/* Botón Ver Ficha / Detalle */}
-            <button
-              type="button"
-              onClick={() => selectAlumno(alumno.id)}
-              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border/60 active:scale-95 transition-all shadow-xs"
-              title="Ver Ficha y Rutinas del Atleta"
-              aria-label={`Ver ficha de ${alumno.nombre_completo}`}
-              data-testid={`btn-ver-ficha-${alumno.id}`}
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </button>
-
-            {/* Si no tiene plan: Asignar Plan Urgente */}
-            {!planActivo && (
-              <button
-                type="button"
-                onClick={() => setAssignRoutineTarget(alumno)}
-                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
-                title="Asignar rutina"
-                aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
-                data-testid={`btn-asignar-plan-${alumno.id}`}
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  aria-hidden="true"
+                  <User className="mr-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <span>Ver ficha</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => openChatForAlumno(alumno.id)}
+                  data-testid={`btn-enviar-mensaje-${alumno.id}`}
+                  title="Enviar mensaje"
+                  aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+                  className="cursor-pointer flex items-center"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </button>
-            )}
+                  <MessageSquare className="mr-2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <span>Enviar mensaje</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => selectAlumno(alumno.id)}
+                  data-testid={`btn-editar-datos-${alumno.id}`}
+                  title="Editar datos"
+                  aria-label={`Editar datos de ${alumno.nombre_completo}`}
+                  className="cursor-pointer flex items-center"
+                >
+                  <svg
+                    className="mr-2 h-4 w-4 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  <span>Editar datos</span>
+                </DropdownMenuItem>
+                {isWhatsAppEnabled && (
+                  <DropdownMenuItem
+                    onClick={() => handleOpenWhatsAppModal(alumno)}
+                    data-testid={`btn-whatsapp-${alumno.id}`}
+                    title="Enviar WhatsApp"
+                    aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
+                    className="cursor-pointer flex items-center"
+                  >
+                    <svg
+                      className="mr-2 h-4 w-4 text-emerald-600 dark:text-emerald-400"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
+                    </svg>
+                    <span>Enviar WhatsApp</span>
+                  </DropdownMenuItem>
+                )}
+                {!planActivo && (
+                  <DropdownMenuItem
+                    onClick={() => setAssignRoutineTarget(alumno)}
+                    data-testid={`btn-asignar-plan-${alumno.id}`}
+                    title="Asignar rutina"
+                    aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
+                    className="cursor-pointer flex items-center"
+                  >
+                    <Plus className="mr-2 h-4 w-4 text-amber-500" aria-hidden="true" />
+                    <span>Asignar rutina</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         );
       },
@@ -1026,6 +1126,8 @@ export function CoachStudioView({
     isWhatsAppEnabled,
     setPreviewAlumno,
     setAssignRoutineTarget,
+    openMenuAlumnoIdProp,
+    esCuotaAlDia,
   ]);
 
   return (
@@ -1205,13 +1307,13 @@ export function CoachStudioView({
                 <span className="text-xs text-muted-foreground font-medium">Filtro:</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentFilter("ALL");
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handlePaymentFilterChange("ALL")}
+                  data-testid="chip-filtro-todos"
+                  aria-pressed={paymentFilter === "ALL"}
+                  data-selected={paymentFilter === "ALL"}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
                     paymentFilter === "ALL"
-                      ? "bg-secondary text-foreground"
+                      ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
@@ -1219,41 +1321,41 @@ export function CoachStudioView({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentFilter("ACTIVA");
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handlePaymentFilterChange("ACTIVA")}
+                  data-testid="chip-filtro-al-dia"
+                  aria-pressed={paymentFilter === "ACTIVA"}
+                  data-selected={paymentFilter === "ACTIVA"}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
                     paymentFilter === "ACTIVA"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs ring-1 ring-emerald-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
-                  Al día ({alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length})
+                  Al día ({alumnos.filter((a) => esCuotaAlDia(a)).length})
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentFilter("PENDIENTE");
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handlePaymentFilterChange("PENDIENTE")}
+                  data-testid="chip-filtro-pago-pendiente"
+                  aria-pressed={paymentFilter === "PENDIENTE"}
+                  data-selected={paymentFilter === "PENDIENTE"}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
                     paymentFilter === "PENDIENTE"
-                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs ring-1 ring-amber-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
-                  Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
+                  Pago pendiente ({alumnos.filter((a) => esCuotaVencida(a)).length})
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentFilter("NUEVOS");
-                    setCurrentPage(1);
-                  }}
+                  onClick={() => handlePaymentFilterChange("NUEVOS")}
+                  data-testid="chip-filtro-nuevos"
+                  aria-pressed={paymentFilter === "NUEVOS"}
+                  data-selected={paymentFilter === "NUEVOS"}
                   className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
                     paymentFilter === "NUEVOS"
-                      ? "bg-secondary text-foreground"
+                      ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
