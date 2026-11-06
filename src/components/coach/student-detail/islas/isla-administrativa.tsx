@@ -1,7 +1,9 @@
 import * as React from "react";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CreditCard, ClipboardList, MessageSquare, Settings } from "@/components/coach/icons";
+import type { KpisNegocio } from "@/lib/kpis-negocio";
 
 export interface IslaAdministrativaProps {
   isCollapsed: boolean;
@@ -13,12 +15,21 @@ export interface IslaAdministrativaProps {
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
   // Sub-bloques administrativos
-  suscripcionNode: React.ReactNode;
-  historialPagosNode: React.ReactNode;
-  contratacionNode: React.ReactNode;
-  chatResponsableNode: React.ReactNode;
-  nivelVistaNode: React.ReactNode;
-  cuestionarioNode: React.ReactNode;
+  suscripcionNode?: React.ReactNode;
+  historialPagosNode?: React.ReactNode;
+  contratacionNode?: React.ReactNode;
+  chatResponsableNode?: React.ReactNode;
+  nivelVistaNode?: React.ReactNode;
+  cuestionarioNode?: React.ReactNode;
+  // Datos específicos de Membresía (alineados con KpisNegocio y visual del PDF pág. 5)
+  planActivo?: string;
+  monto?: number | string;
+  fechaVencimiento?: string | Date;
+  estadoCobro?: "AL_DIA" | "PAGADO" | "PENDIENTE" | "VENCIDO" | string;
+  detalleCobro?: string;
+  kpisNegocio?: KpisNegocio;
+  onRegistrarPago?: () => void;
+  onVerHistorialPagos?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onMoveLeft?: () => void;
@@ -49,6 +60,14 @@ export function IslaAdministrativa({
   chatResponsableNode,
   nivelVistaNode,
   cuestionarioNode,
+  planActivo,
+  monto,
+  fechaVencimiento,
+  estadoCobro,
+  detalleCobro,
+  kpisNegocio,
+  onRegistrarPago,
+  onVerHistorialPagos,
   onMoveUp,
   onMoveDown,
   onMoveLeft,
@@ -65,15 +84,65 @@ export function IslaAdministrativa({
 }: IslaAdministrativaProps) {
   const [activeTab, setActiveTab] = React.useState<"pagos" | "contratacion" | "atencion" | "config">("pagos");
 
+  // Derivación de plan activo y montos (fieles a Page 5 del PDF y KpisNegocio)
+  const displayPlanActivo = planActivo || "Pase libre · Funcional + Boxeo";
+
+  const displayMonto = React.useMemo(() => {
+    if (typeof monto === "number") {
+      return `$${monto.toLocaleString("es-AR")}`;
+    }
+    return monto || "$40.000";
+  }, [monto]);
+
+  // Alineación con KpisNegocio: verificar si es mora, al día o pendiente
+  const estadoNormalizado = (estadoCobro || "AL_DIA").toUpperCase();
+  const esVencido = estadoNormalizado === "VENCIDO" || estadoNormalizado === "MOROSO";
+  const esPendiente = estadoNormalizado === "PENDIENTE" || estadoNormalizado === "POR_VENCER";
+
+  const displayDetalleCobro = React.useMemo(() => {
+    if (detalleCobro) return detalleCobro;
+    const vencStr = typeof fechaVencimiento === "string" ? fechaVencimiento : "26 nov";
+    if (esVencido) {
+      return `Cuota vencida · venció ${vencStr}`;
+    }
+    if (esPendiente) {
+      return `Pendiente de cobro · vence ${vencStr}`;
+    }
+    return `Pagado el 1 nov por transferencia · vence ${vencStr}`;
+  }, [detalleCobro, fechaVencimiento, esVencido, esPendiente]);
+
+  const estadoBadge = React.useMemo(() => {
+    if (esVencido) {
+      return {
+        texto: "Vencido",
+        className: "border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10",
+      };
+    }
+    if (esPendiente) {
+      return {
+        texto: "Pendiente",
+        className: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10",
+      };
+    }
+    return {
+      texto: "Al día",
+      className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+    };
+  }, [esVencido, esPendiente]);
+
   return (
     <IslaCardShell
       id="administracion"
       dataTestId="isla-administrativa"
-      title="Gestión Comercial, Membresía & Configuración"
-      icon={<CreditCard className="h-4 w-4 text-primary" aria-label="Administración" />}
+      title="Membresía"
+      icon={<CreditCard className="h-4 w-4 text-primary" aria-label="Membresía" />}
       badge={
-        <Badge variant="outline" className="text-[10px] font-mono border-border/80 text-muted-foreground">
-          Administración
+        <Badge
+          variant="outline"
+          data-testid="badge-estado-cobro"
+          className={`text-[10px] font-bold ${estadoBadge.className}`}
+        >
+          {estadoBadge.texto}
         </Badge>
       }
       isCollapsed={isCollapsed}
@@ -98,22 +167,68 @@ export function IslaAdministrativa({
       canMoveLeft={canMoveLeft}
       canMoveRight={canMoveRight}
       compactSummary={
-        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-          <span className="inline-flex items-center gap-1">
-            <CreditCard className="h-3 w-3 inline" aria-hidden="true" /> Cuota y Pagos
-          </span>
-          <span>•</span>
-          <span className="inline-flex items-center gap-1">
-            <ClipboardList className="h-3 w-3 inline" aria-hidden="true" /> Contratos y Membresía
-          </span>
-          <span>•</span>
-          <span className="inline-flex items-center gap-1">
-            <MessageSquare className="h-3 w-3 inline" aria-hidden="true" /> Atención
-          </span>
+        <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+          <span className="truncate">{displayPlanActivo} • {estadoBadge.texto}</span>
+          <span className="font-bold text-foreground shrink-0">{displayMonto}</span>
         </div>
       }
     >
       <div className="p-4 sm:p-5 space-y-4">
+        {/* Bloque principal de Membresía según PDF Página 5 */}
+        <div
+          data-testid="isla-membresia-resumen"
+          className="rounded-xl border border-border/70 bg-secondary/15 p-3.5 sm:p-4 space-y-3"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <p
+                className="text-xs font-bold text-foreground"
+                data-testid="membresia-plan-activo"
+              >
+                {displayPlanActivo}
+              </p>
+              <p
+                className="text-[11px] text-muted-foreground"
+                data-testid="membresia-vencimiento-estado"
+              >
+                {displayDetalleCobro}
+              </p>
+            </div>
+            {displayMonto && (
+              <span
+                className="text-sm font-black text-foreground tabular-nums shrink-0"
+                data-testid="membresia-monto"
+              >
+                {displayMonto}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 pt-1">
+            <Button
+              type="button"
+              size="sm"
+              onClick={onRegistrarPago}
+              data-testid="btn-registrar-pago"
+              className="h-8 text-xs font-semibold px-3 gap-1.5 shadow-xs"
+            >
+              <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Registrar pago</span>
+            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onVerHistorialPagos) onVerHistorialPagos();
+                setActiveTab("pagos");
+              }}
+              data-testid="btn-historial-pagos"
+              className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-2 py-1 rounded hover:bg-secondary/40"
+            >
+              Historial de pagos
+            </button>
+          </div>
+        </div>
+
         {/* Navegación interna por tabs estilo Zen (sobria, sin saturación) */}
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 pb-2.5">
           <button

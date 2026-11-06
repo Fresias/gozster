@@ -1331,7 +1331,7 @@ export function CoachStudioView({
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
-                  Al día ({alumnos.filter((a) => esCuotaAlDia(a)).length})
+                  Al día ({alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length})
                 </button>
                 <button
                   type="button"
@@ -1345,7 +1345,7 @@ export function CoachStudioView({
                       : "text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
-                  Pago pendiente ({alumnos.filter((a) => esCuotaVencida(a)).length})
+                  Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
                 </button>
                 <button
                   type="button"

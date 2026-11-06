@@ -14,7 +14,7 @@ import {
 
 export interface ActivityFeedItem {
   id: string;
-  tipo: "pago" | "sesion" | "molestia" | "sustitucion" | "chat";
+  tipo: "pago" | "sesion" | "molestia" | "sustitucion" | "chat" | "rutina";
   titulo: string;
   detalle: string;
   fechaGrupo: "HOY" | "AYER" | "ESTA SEMANA" | "ANTERIORES";
@@ -54,42 +54,42 @@ const DEFAULT_FEED_ITEMS: ActivityFeedItem[] = [
   {
     id: "act-1",
     tipo: "sesion",
-    titulo: "Sesión de Entrenamiento Registrada",
-    detalle: "Completó Día 1 Piernas: Sentadilla 120 kg × 3 reps (4 series) y Prensa 180 kg.",
+    titulo: "Sesión registrada",
+    detalle: "Día 2 · sentadilla 120 kg × 3 (4 series)",
     fechaGrupo: "HOY",
-    horaOFecha: "10:30 hs",
+    horaOFecha: "Hoy 10:30",
   },
   {
     id: "act-2",
     tipo: "chat",
-    titulo: "Mensaje en Chat GOZS",
-    detalle: "Consultó sobre descanso entre series de sentadilla.",
+    titulo: "Mensaje",
+    detalle: "Preguntó por el descanso en sentadilla",
     fechaGrupo: "HOY",
-    horaOFecha: "09:15 hs",
+    horaOFecha: "Hoy 09:15",
   },
   {
     id: "act-3",
     tipo: "pago",
-    titulo: "Cobro / Pago Registrado",
-    detalle: "Pago de suscripción mensual vía transferencia acreditado.",
+    titulo: "Pago acreditado",
+    detalle: "Cuota de noviembre · transferencia",
     fechaGrupo: "AYER",
-    horaOFecha: "18:45 hs",
+    horaOFecha: "Ayer",
   },
   {
     id: "act-4",
     tipo: "sustitucion",
-    titulo: "Sustitución de Ejercicio",
-    detalle: "Press Militar sustituido por Elevaciones Laterales con Mancuerna.",
+    titulo: "Ejercicio cambiado",
+    detalle: "Press militar → elevaciones laterales",
     fechaGrupo: "ESTA SEMANA",
-    horaOFecha: "Lun 14:20 hs",
+    horaOFecha: "Lun",
   },
   {
     id: "act-5",
     tipo: "molestia",
-    titulo: "Alerta de Molestia Articular",
-    detalle: "Reportó dolor leve en hombro derecho (EVA 3).",
+    titulo: "Reportó dolor",
+    detalle: "Hombro anterior · EVA 5",
     fechaGrupo: "ESTA SEMANA",
-    horaOFecha: "Dom 19:10 hs",
+    horaOFecha: "Dom",
   },
 ];
 
@@ -150,31 +150,52 @@ export function IslaActivityFeed({
     switch (tipo) {
       case "pago":
         return (
-          <span className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+          <span
+            role="img"
+            aria-label="Pago confirmado"
+            className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"
+          >
             <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         );
       case "sesion":
         return (
-          <span className="h-6 w-6 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center">
+          <span
+            role="img"
+            aria-label="Sesión completada"
+            className="h-6 w-6 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center"
+          >
             <Dumbbell className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         );
       case "molestia":
         return (
-          <span className="h-6 w-6 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center">
+          <span
+            role="img"
+            aria-label="Alerta de dolor"
+            className="h-6 w-6 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center"
+          >
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         );
       case "sustitucion":
+      case "rutina":
         return (
-          <span className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center">
+          <span
+            role="img"
+            aria-label="Cambio de rutina"
+            className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center"
+          >
             <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         );
       case "chat":
         return (
-          <span className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+          <span
+            role="img"
+            aria-label="Mensaje enviado"
+            className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center"
+          >
             <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         );
@@ -193,8 +214,8 @@ export function IslaActivityFeed({
           onClick={onToggleRail}
           data-testid="toggle-collapse-feed"
           aria-label="Expandir Feed de Actividad"
-          title="Expandir bitácora omnicanal"
-          className="h-8 w-8 rounded-md bg-secondary/80 hover:bg-secondary flex items-center justify-center text-xs font-bold text-foreground"
+          title="Expandir feed de actividad"
+          className="h-8 w-8 rounded-md bg-secondary/80 hover:bg-secondary flex items-center justify-center text-xs font-bold text-foreground cursor-pointer"
         >
           ▶
         </button>
@@ -220,7 +241,7 @@ export function IslaActivityFeed({
     <IslaCardShell
       id="activity_feed"
       dataTestId="isla-activity-feed"
-      title="Bitácora Omnicanal (Feed)"
+      title="Actividad"
       icon={<Activity className="h-4 w-4 text-primary" aria-label="Actividad" />}
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
@@ -245,7 +266,7 @@ export function IslaActivityFeed({
       canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center justify-between">
-          <span>Bitácora compactada ({items.length} eventos registrados)</span>
+          <span>Actividad ({items.length} eventos registrados)</span>
         </div>
       }
     >
