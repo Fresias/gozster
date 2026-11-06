@@ -299,3 +299,33 @@ export function calcularSemanaPlan(
 export function etiquetaDia(dia: { orden: number; nombre: string }): string {
   return /^\s*d[ií]a\s*\d+\s*[:·.\-–]/i.test(dia.nombre) ? dia.nombre.trim() : `Día ${dia.orden} · ${dia.nombre}`;
 }
+
+/**
+ * Helper defensivo para extraer el primer nombre de un alumno.
+ * Si nombreCompleto es null, undefined, vacío o sólo espacios, retorna fallback (por defecto "Hola").
+ * Si se especifica un fallback distinto (ej: "" o "Atleta"), retorna ese valor.
+ */
+export function primerNombre(
+  nombreCompleto?: string | null,
+  fallback: string = "Hola"
+): string {
+  if (!nombreCompleto || typeof nombreCompleto !== "string") {
+    return fallback;
+  }
+  const limpio = nombreCompleto.trim();
+  if (!limpio) {
+    return fallback;
+  }
+  const primer = limpio.split(/\s+/)[0];
+  return primer || fallback;
+}
+
+/**
+ * Saludo defensivo para la cabecera del alumno:
+ * - Si tiene nombre: "Hola, {primerNombre}"
+ * - Si no tiene nombre o está vacío: "Hola"
+ */
+export function saludoAlumno(nombreCompleto?: string | null): string {
+  const nombre = primerNombre(nombreCompleto, "");
+  return nombre ? `Hola, ${nombre}` : "Hola";
+}
