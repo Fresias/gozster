@@ -58,10 +58,12 @@ export function CoachStudioView({
   initialDataset,
   estancados = [],
   initialAlumnosExpanded = false,
+  initialSelectedAlumnoId = null,
 }: {
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
   initialAlumnosExpanded?: boolean;
+  initialSelectedAlumnoId?: string | null;
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
@@ -72,7 +74,19 @@ export function CoachStudioView({
     );
   const leftCol = hasPendingAlerts ? "xl:col-start-1" : "xl:col-span-2";
 
-  const alumnos = DEMO_GIMNASIO.alumnos;
+  // Coherencia relacional: si initialDataset contiene datos (alumnos, planes o días),
+  // garantizamos que planes y días provengan de la misma entidad relacional.
+  // Si está vacío (modo demo puro), se deriva coherentemente de DEMO_GIMNASIO.
+  const hasInitialData = Boolean(
+    initialDataset &&
+      ((initialDataset.alumnos && initialDataset.alumnos.length > 0) ||
+        (initialDataset.planes && initialDataset.planes.length > 0) ||
+        (initialDataset.dias && initialDataset.dias.length > 0)),
+  );
+
+  const alumnos = hasInitialData
+    ? (store.isLiveDatabase && store.alumnos.length > 0 ? store.alumnos : initialDataset!.alumnos)
+    : DEMO_GIMNASIO.alumnos;
 
   // Mapa de alumnos estancados (+30 días sin PR) (GOZS-351)
   const estancadosMap = React.useMemo(() => {
@@ -92,19 +106,30 @@ export function CoachStudioView({
     }
     return map;
   }, [estancados, alumnos]);
-  const planes = DEMO_GIMNASIO.planes;
-  const dias =
-    initialDataset && initialDataset.dias.length > 0
-      ? initialDataset.dias
-      : store.dias;
-  const ejerciciosEnRutina =
-    initialDataset && initialDataset.ejerciciosEnRutina.length > 0
-      ? initialDataset.ejerciciosEnRutina
-      : store.ejerciciosEnRutina;
-  const ejercicios =
-    initialDataset && initialDataset.ejercicios.length > 0
-      ? initialDataset.ejercicios
-      : store.ejercicios;
+
+  const planes = hasInitialData
+    ? (store.isLiveDatabase && store.planes.length > 0 ? store.planes : initialDataset!.planes)
+    : DEMO_GIMNASIO.planes;
+
+  const dias = hasInitialData
+    ? (store.isLiveDatabase && store.dias.length > 0 ? store.dias : initialDataset!.dias)
+    : (DEMO_GIMNASIO.dias && DEMO_GIMNASIO.dias.length > 0 ? DEMO_GIMNASIO.dias : store.dias);
+
+  const ejerciciosEnRutina = hasInitialData
+    ? (store.isLiveDatabase && store.ejerciciosEnRutina.length > 0
+        ? store.ejerciciosEnRutina
+        : initialDataset!.ejerciciosEnRutina)
+    : (DEMO_GIMNASIO.ejerciciosEnRutina && DEMO_GIMNASIO.ejerciciosEnRutina.length > 0
+        ? DEMO_GIMNASIO.ejerciciosEnRutina
+        : store.ejerciciosEnRutina);
+
+  const ejercicios = hasInitialData
+    ? (store.isLiveDatabase && store.ejercicios.length > 0
+        ? store.ejercicios
+        : initialDataset!.ejercicios)
+    : (DEMO_GIMNASIO.ejercicios && DEMO_GIMNASIO.ejercicios.length > 0
+        ? DEMO_GIMNASIO.ejercicios
+        : store.ejercicios);
 
   const {
     selectedAlumnoId,
@@ -152,14 +177,14 @@ export function CoachStudioView({
   };
 
   React.useEffect(() => {
-    if (initialDataset && initialDataset.alumnos.length > 0) {
+    if (hasInitialData && initialDataset) {
       const timer = setTimeout(() => {
         useCoachStudioStore.setState({
-          alumnos: initialDataset.alumnos,
-          planes: initialDataset.planes,
-          dias: initialDataset.dias,
-          ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
-          ejercicios: initialDataset.ejercicios,
+          alumnos: initialDataset.alumnos || [],
+          planes: initialDataset.planes || [],
+          dias: initialDataset.dias || [],
+          ejerciciosEnRutina: initialDataset.ejerciciosEnRutina || [],
+          ejercicios: initialDataset.ejercicios || [],
           isLiveDatabase: true,
         });
       }, 0);
@@ -167,7 +192,7 @@ export function CoachStudioView({
     } else {
       loadLiveSupabaseData();
     }
-  }, [initialDataset, loadLiveSupabaseData]);
+  }, [hasInitialData, initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
   // GOZS-131 contrato: const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);
@@ -317,8 +342,9 @@ export function CoachStudioView({
     currentPage * itemsPerPage,
   );
 
-  const selectedAlumno = selectedAlumnoId
-    ? alumnos.find((a) => a.id === selectedAlumnoId) ?? getSelectedAlumno()
+  const currentSelectedId = selectedAlumnoId ?? initialSelectedAlumnoId;
+  const selectedAlumno = currentSelectedId
+    ? alumnos.find((a) => a.id === currentSelectedId) ?? getSelectedAlumno()
     : null;
   const chatAlumno = React.useMemo(() => {
     if (chatAlumnoId) {
@@ -326,11 +352,24 @@ export function CoachStudioView({
     }
     return selectedAlumno;
   }, [chatAlumnoId, alumnos, selectedAlumno]);
-  const activePlan = selectedAlumno
-    ? planes.find((p) => p.alumno_id === selectedAlumno.id && p.estado === "ACTIVO") ??
+  const activePlan = React.useMemo(() => {
+    if (!selectedAlumno) return null;
+    return (
+      planes.find((p) => p.alumno_id === selectedAlumno.id && p.estado === "ACTIVO") ??
+      planes.find((p) => p.alumno_id === selectedAlumno.id) ??
       getRutinaActivaAlumno(selectedAlumno.id)
-    : null;
-  const historialPlanes = selectedAlumno ? getPlanesAlumnoCronologico(selectedAlumno.id) : [];
+    );
+  }, [selectedAlumno, planes, getRutinaActivaAlumno]);
+  const historialPlanes = React.useMemo(() => {
+    if (!selectedAlumno) return [];
+    const planesAlumno = planes
+      .filter((p) => p.alumno_id === selectedAlumno.id)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+    return planesAlumno.length > 0 ? planesAlumno : getPlanesAlumnoCronologico(selectedAlumno.id);
+  }, [selectedAlumno, planes, getPlanesAlumnoCronologico]);
   const historialCargas = selectedAlumno ? getHistorialCargas(selectedAlumno.id) : [];
   const contratacionAlumno = selectedAlumno
     ? getContratacionAlumno(selectedAlumno)
@@ -397,6 +436,8 @@ export function CoachStudioView({
   const handleSwapSuccess = (originalExercise: string, newExercise: string, motivo?: string) => {
     const store = useCoachStudioStore.getState();
     const planActivo =
+      planes.find((p) => p.alumno_id === quickSwapData.alumnoId && p.estado === "ACTIVO") ||
+      planes.find((p) => p.alumno_id === quickSwapData.alumnoId) ||
       store.planes.find((p) => p.alumno_id === quickSwapData.alumnoId && p.estado === "ACTIVO") ||
       store.planes.find((p) => p.alumno_id === quickSwapData.alumnoId);
     const planId = quickSwapData.planId || planActivo?.id || "demo-plan-1";
