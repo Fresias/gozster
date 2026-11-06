@@ -34,6 +34,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/sheet";
 import { MoreHorizontal } from "@/components/ui/icons";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
@@ -42,6 +51,9 @@ export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
   initialFiltroActividad?: ActividadKpi;
   initialFiltroEstado?: FiltroCobros;
+  initialSheetPagoOpen?: boolean;
+  initialCobroSeleccionado?: CobroItem;
+  initialRowMenuOpen?: boolean;
   kpis?: KpisNegocio;
 }
 
@@ -49,6 +61,9 @@ export function CobrosPanel({
   initialKpiAnualAbierto,
   initialFiltroActividad,
   initialFiltroEstado,
+  initialSheetPagoOpen,
+  initialCobroSeleccionado,
+  initialRowMenuOpen,
   kpis: propKpis,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
@@ -184,12 +199,32 @@ export function CobrosPanel({
     }
   };
 
-  // Modal registrar pago
-  const [cobroSeleccionado, setCobroSeleccionado] = React.useState<CobroItem | null>(null);
-  const [pagoMonto, setPagoMonto] = React.useState<number>(25000);
-  const [pagoMedio, setPagoMedio] = React.useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
+  // Sheet lateral registrar pago (GOZS-398)
+  const [sheetPagoAbierto, setSheetPagoAbierto] = React.useState<boolean>(
+    initialSheetPagoOpen ?? false
+  );
+  const [cobroSeleccionado, setCobroSeleccionado] = React.useState<CobroItem | null>(() => {
+    if (initialCobroSeleccionado) return initialCobroSeleccionado;
+    return cobros.find((c) => c.estado === "VENCIDO" || c.estado === "PENDIENTE") ?? cobros[0] ?? null;
+  });
+  const [pagoMonto, setPagoMonto] = React.useState<number | "">(() => {
+    if (initialCobroSeleccionado) return initialCobroSeleccionado.monto;
+    const initialItem = cobros.find((c) => c.estado === "VENCIDO" || c.estado === "PENDIENTE") ?? cobros[0];
+    return initialItem?.monto ?? 25000;
+  });
+  const [pagoMedio, setPagoMedio] = React.useState<"TRANSFERENCIA" | "EFECTIVO" | "">("TRANSFERENCIA");
+  const [pagoFecha, setPagoFecha] = React.useState<string>(() => new Date().toISOString().slice(0, 10));
   const [pagoNotas, setPagoNotas] = React.useState("");
+  const [formEnviado, setFormEnviado] = React.useState(false);
+  const ultimoTriggerRef = React.useRef<HTMLElement | null>(null);
   const registrarDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  // Optimistic deltas para actualización reactiva inmediata de KPIs superiores
+  const [optimisticCobradoDelta, setOptimisticCobradoDelta] = React.useState(0);
+  const [optimisticVencidoDelta, setOptimisticVencidoDelta] = React.useState(0);
+  const [optimisticPorCobrarDelta, setOptimisticPorCobrarDelta] = React.useState(0);
+  const [optimisticAlumnosAlDiaDelta, setOptimisticAlumnosAlDiaDelta] = React.useState(0);
+  const [optimisticAlumnosMorososDelta, setOptimisticAlumnosMorososDelta] = React.useState(0);
 
   // Modal recibo
   const reciboDialogRef = React.useRef<HTMLDialogElement>(null);
@@ -266,16 +301,40 @@ export function CobrosPanel({
 
   const kpis = metricas();
   const kpisNegocio = propKpis ?? DEMO_KPIS_NEGOCIO;
-  const cobradoValor = propKpis ? (propKpis.cobrado ?? 0) : kpis.ingresosMes;
-  const porCobrarValor = propKpis ? (propKpis.porCobrar ?? 0) : kpis.cobranzaPendiente;
-  const vencidoValor = propKpis ? (propKpis.vencido ?? 0) : kpis.cobranzaVencida;
-  const tasaCobroPctValor = propKpis ? (propKpis.tasaCobroPct ?? 0) : kpis.tasaCobranzaPct;
-  const alumnosAlDiaValor = propKpis
-    ? (propKpis.alumnos_al_dia ?? propKpis.alumnosAlDia ?? 0)
-    : kpis.alumnosAlDia;
-  const alumnosMorososValor = propKpis
-    ? (propKpis.alumnos_morosos ?? propKpis.alumnosMorosos ?? 0)
-    : kpis.alumnosMorosos;
+  const cobradoValor =
+    (propKpis ? (propKpis.cobrado ?? 0) : kpis.ingresosMes) +
+    (propKpis ? optimisticCobradoDelta : 0);
+  const porCobrarValor = Math.max(
+    0,
+    (propKpis ? (propKpis.porCobrar ?? 0) : kpis.cobranzaPendiente) -
+      (propKpis ? optimisticPorCobrarDelta : 0)
+  );
+  const vencidoValor = Math.max(
+    0,
+    (propKpis ? (propKpis.vencido ?? 0) : kpis.cobranzaVencida) -
+      (propKpis ? optimisticVencidoDelta : 0)
+  );
+  const tasaCobroPctValor = propKpis
+    ? Math.round(
+        (((propKpis.cobrado ?? 0) + optimisticCobradoDelta) /
+          Math.max(
+            1,
+            (propKpis.cobrado ?? 0) +
+              optimisticCobradoDelta +
+              Math.max(0, (propKpis.porCobrar ?? 0) - optimisticPorCobrarDelta) +
+              Math.max(0, (propKpis.vencido ?? 0) - optimisticVencidoDelta)
+          )) *
+          100
+      )
+    : kpis.tasaCobranzaPct;
+  const alumnosAlDiaValor =
+    (propKpis ? (propKpis.alumnos_al_dia ?? propKpis.alumnosAlDia ?? 0) : kpis.alumnosAlDia) +
+    (propKpis ? optimisticAlumnosAlDiaDelta : 0);
+  const alumnosMorososValor = Math.max(
+    0,
+    (propKpis ? (propKpis.alumnos_morosos ?? propKpis.alumnosMorosos ?? 0) : kpis.alumnosMorosos) -
+      (propKpis ? optimisticAlumnosMorososDelta : 0)
+  );
 
   const hoyIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -350,28 +409,90 @@ export function CobrosPanel({
     });
   }, [cobrosFiltrados, hoyIso]);
 
-  const abrirModalPago = (item: CobroItem) => {
+  const abrirModalPago = (item: CobroItem, triggerEl?: HTMLElement | null) => {
+    if (triggerEl) {
+      ultimoTriggerRef.current = triggerEl;
+    }
     setCobroSeleccionado(item);
     setPagoMonto(item.monto);
     setPagoMedio("TRANSFERENCIA");
-    setPagoNotas("");
-    registrarDialogRef.current?.showModal();
+    setPagoFecha(new Date().toISOString().slice(0, 10));
+    setPagoNotas(item.notaDescuento || "");
+    setFormEnviado(false);
+    setSheetPagoAbierto(true);
+  };
+
+  const retornarFocoAFila = React.useCallback((contratacionId: string) => {
+    if (typeof window === "undefined") return;
+    setTimeout(() => {
+      if (
+        ultimoTriggerRef.current &&
+        document.body.contains(ultimoTriggerRef.current) &&
+        !ultimoTriggerRef.current.hasAttribute("disabled")
+      ) {
+        ultimoTriggerRef.current.focus();
+        return;
+      }
+      const contenedorFila = document.querySelector<HTMLElement>(
+        `[data-contratacion-id="${contratacionId}"]`
+      );
+      if (contenedorFila) {
+        const botonFila = contenedorFila.querySelector<HTMLElement>("button:not([disabled])");
+        if (botonFila) {
+          botonFila.focus();
+          return;
+        }
+        contenedorFila.focus();
+        return;
+      }
+      const fila = document.getElementById(`cobro-row-${contratacionId}`);
+      fila?.focus();
+    }, 50);
+  }, []);
+
+  const handleSheetPagoOpenChange = (open: boolean) => {
+    setSheetPagoAbierto(open);
+    if (!open && cobroSeleccionado) {
+      retornarFocoAFila(cobroSeleccionado.contratacionId);
+    }
   };
 
   const handleConfirmarPago = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormEnviado(true);
     if (!cobroSeleccionado) return;
 
+    const montoNum = Number(pagoMonto);
+    if (montoNum <= 0 || isNaN(montoNum) || !pagoMedio || !pagoFecha) {
+      return;
+    }
+
     try {
+      const contratacionId = cobroSeleccionado.contratacionId;
+      const estadoAnterior = cobroSeleccionado.estado;
+
       const comprobante = await registrarPago({
-        contratacionId: cobroSeleccionado.contratacionId,
-        monto: pagoMonto,
+        contratacionId,
+        monto: montoNum,
         montoLista: cobroSeleccionado.montoLista ?? cobroSeleccionado.monto,
         medioPago: pagoMedio,
         notas: pagoNotas.trim() || undefined,
+        fechaPago: pagoFecha,
       });
-      registrarDialogRef.current?.close();
+
+      // Mutación optimista reactiva de KPIs
+      if (estadoAnterior === "VENCIDO") {
+        setOptimisticVencidoDelta((prev) => prev + montoNum);
+        setOptimisticAlumnosMorososDelta((prev) => prev + 1);
+        setOptimisticAlumnosAlDiaDelta((prev) => prev + 1);
+      } else if (estadoAnterior === "PENDIENTE") {
+        setOptimisticPorCobrarDelta((prev) => prev + montoNum);
+      }
+      setOptimisticCobradoDelta((prev) => prev + montoNum);
+
+      setSheetPagoAbierto(false);
       setComprobanteActivo(comprobante);
+      retornarFocoAFila(contratacionId);
       reciboDialogRef.current?.showModal();
     } catch {
       // Error manejado en store
@@ -556,7 +677,12 @@ export function CobrosPanel({
         cell: ({ row }) => {
           const esPagado = row.estado === "PAGADO";
           return (
-            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+            <div
+              className="flex items-center justify-end gap-1.5 flex-wrap"
+              data-contratacion-id={row.contratacionId}
+              id={`cobro-row-${row.contratacionId}`}
+              tabIndex={-1}
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -582,6 +708,7 @@ export function CobrosPanel({
                   size="sm"
                   onClick={() => abrirComprobante(row.contratacionId)}
                   data-testid="ver-recibo-btn"
+                  aria-label="Ver comprobante"
                   className="h-8 px-2.5 text-xs font-semibold"
                 >
                   Ver recibo
@@ -591,7 +718,7 @@ export function CobrosPanel({
                   variant="default"
                   size="sm"
                   disabled={accionEnCurso === row.contratacionId}
-                  onClick={() => abrirModalPago(row)}
+                  onClick={(e) => abrirModalPago(row, e.currentTarget)}
                   data-testid="registrar-pago-btn"
                   className="h-8 px-2.5 text-xs font-semibold"
                 >
@@ -599,7 +726,7 @@ export function CobrosPanel({
                 </Button>
               )}
 
-              <DropdownMenu>
+              <DropdownMenu open={initialRowMenuOpen}>
                 <DropdownMenuTrigger
                   className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
                   aria-label={`Más acciones para ${row.alumnoNombre}`}
@@ -613,13 +740,14 @@ export function CobrosPanel({
                   {esPagado ? (
                     <DropdownMenuItem
                       onClick={() => abrirComprobante(row.contratacionId)}
-                      data-testid="menu-item-ver-recibo"
+                      data-testid="menu-item-ver-comprobante"
+                      aria-label="Ver comprobante"
                     >
-                      📄 Ver recibo interno
+                      📄 Ver comprobante
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem
-                      onClick={() => abrirModalPago(row)}
+                      onClick={(e) => abrirModalPago(row, e.currentTarget)}
                       disabled={accionEnCurso === row.contratacionId}
                       data-testid="menu-item-registrar-pago"
                     >
@@ -1035,133 +1163,215 @@ export function CobrosPanel({
         />
       )}
 
-      {/* DIÁLOGO: REGISTRAR PAGO */}
-      <dialog
-        ref={registrarDialogRef}
-        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
-        aria-labelledby="registrar-pago-titulo"
-        data-testid="registrar-pago-dialog"
-      >
-        {cobroSeleccionado && (
-          <form onSubmit={handleConfirmarPago} className="space-y-4">
-            <h2 id="registrar-pago-titulo" className="text-lg font-black">
-              Registrar Pago de Cuota
-            </h2>
+      {/* SHEET LATERAL: REGISTRAR PAGO (GOZS-398) */}
+      <Sheet open={sheetPagoAbierto} onOpenChange={handleSheetPagoOpenChange}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md overflow-y-auto"
+          data-testid="registrar-pago-dialog"
+          aria-labelledby="registrar-pago-titulo"
+        >
+          {cobroSeleccionado && (
+            <form onSubmit={handleConfirmarPago} className="space-y-4" data-testid="sheet-registrar-pago-form" noValidate>
+              <SheetHeader>
+                <SheetTitle id="registrar-pago-titulo" className="text-lg font-black text-foreground">
+                  Registrar Pago de Cuota
+                </SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground">
+                  Formulario lateral para registrar cobro y actualizar estado y métricas.
+                </SheetDescription>
+              </SheetHeader>
 
-            <div className="rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs space-y-1">
-              <p>
-                <span className="font-bold">Alumno:</span> {cobroSeleccionado.alumnoNombre}
-              </p>
-              <p>
-                <span className="font-bold">Servicio:</span> {cobroSeleccionado.servicioNombre}
-              </p>
-              <p className="text-muted-foreground">
-                Ciclo anclado al día {cobroSeleccionado.diaVencimiento} de cada mes.
-              </p>
-            </div>
-
-            <label className="block space-y-1.5 text-sm font-semibold">
-              Monto a abonar ($ ARS)
-              <input
-                type="number"
-                required
-                min="0"
-                step="100"
-                value={pagoMonto}
-                onChange={(e) => setPagoMonto(Number(e.target.value))}
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums"
-                data-testid="input-pago-monto"
-              />
-            </label>
-
-            {pagoMonto > 0 && pagoMonto < (cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) && (
-              <div
-                className="rounded-xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-xs text-amber-800 dark:text-amber-200 space-y-1"
-                data-testid="aviso-descuento-detectado"
-              >
-                <div className="flex items-center gap-1.5 font-bold">
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-black font-black text-[10px]">
-                    N
-                  </span>
-                  <span>
-                    Descuento detectado: -{formatearDinero((cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) - pagoMonto)}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  El monto a abonar es menor al precio de lista ({formatearDinero(cobroSeleccionado.montoLista ?? cobroSeleccionado.monto)}). Se registrará con indicador &apos;N&apos; y la nota en el listado.
+              <div className="rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs space-y-1" data-testid="pago-alumno-resumen">
+                <p>
+                  <span className="font-bold">Alumno:</span> {cobroSeleccionado.alumnoNombre}
+                </p>
+                <p>
+                  <span className="font-bold">Servicio:</span> {cobroSeleccionado.servicioNombre}
+                </p>
+                <p className="text-muted-foreground">
+                  Ciclo anclado al día {cobroSeleccionado.diaVencimiento} de cada mes.
                 </p>
               </div>
-            )}
 
-            <div className="space-y-1.5 text-sm font-semibold">
-              <span>Medio de Pago</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPagoMedio("TRANSFERENCIA")}
-                  className={`rounded-xl border p-3 text-left transition-all ${
-                    pagoMedio === "TRANSFERENCIA"
-                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                      : "border-border/80 hover:bg-secondary/40"
-                  }`}
-                  data-testid="medio-transferencia-btn"
-                >
-                  <p className="text-xs font-bold text-foreground">Transferencia</p>
-                  <p className="text-[10px] text-muted-foreground">CBU / Alias / MP</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPagoMedio("EFECTIVO")}
-                  className={`rounded-xl border p-3 text-left transition-all ${
-                    pagoMedio === "EFECTIVO"
-                      ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                      : "border-border/80 hover:bg-secondary/40"
-                  }`}
-                  data-testid="medio-efectivo-btn"
-                >
-                  <p className="text-xs font-bold text-foreground">Efectivo</p>
-                  <p className="text-[10px] text-muted-foreground">En gimnasio</p>
-                </button>
+              <div className="space-y-1.5">
+                <label htmlFor="input-pago-monto" className="block text-sm font-semibold">
+                  Monto a abonar ($ ARS) <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="input-pago-monto"
+                  type="number"
+                  required
+                  min="1"
+                  step="100"
+                  value={pagoMonto}
+                  onChange={(e) => setPagoMonto(e.target.value === "" ? "" : Number(e.target.value))}
+                  aria-invalid={pagoMonto === "" || Number(pagoMonto) <= 0}
+                  aria-describedby={
+                    pagoMonto === "" || Number(pagoMonto) <= 0 ? "error-pago-monto" : undefined
+                  }
+                  className="w-full rounded-xl border border-border bg-background p-2.5 text-sm font-bold tabular-nums"
+                  data-testid="input-pago-monto"
+                  autoFocus
+                />
+                {(pagoMonto === "" || Number(pagoMonto) <= 0) && (
+                  <p
+                    id="error-pago-monto"
+                    role="alert"
+                    aria-live="polite"
+                    className="text-xs font-semibold text-destructive mt-1 flex items-center gap-1"
+                    data-testid="error-pago-monto"
+                  >
+                    <span>⚠️</span>
+                    <span>El monto debe ser mayor a 0</span>
+                  </p>
+                )}
               </div>
-            </div>
 
-            <label className="block space-y-1.5 text-xs font-semibold text-muted-foreground">
-              Notas / Referencia interna (opcional)
-              <input
-                type="text"
-                value={pagoNotas}
-                onChange={(e) => setPagoNotas(e.target.value)}
-                placeholder="Ej.: Banco Galicia, comprobante #84912"
-                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-normal text-foreground"
-                data-testid="input-pago-notas"
-              />
-            </label>
+              {Number(pagoMonto) > 0 &&
+                Number(pagoMonto) < (cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) && (
+                  <div
+                    className="rounded-xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-xs text-amber-800 dark:text-amber-200 space-y-1"
+                    data-testid="aviso-descuento-detectado"
+                  >
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-black font-black text-[10px]">
+                        N
+                      </span>
+                      <span>
+                        Descuento detectado: -{formatearDinero((cobroSeleccionado.montoLista ?? cobroSeleccionado.monto) - Number(pagoMonto))}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      El monto a abonar es menor al precio de lista ({formatearDinero(cobroSeleccionado.montoLista ?? cobroSeleccionado.monto)}). Se registrará con indicador &apos;N&apos; y la nota en el listado.
+                    </p>
+                  </div>
+                )}
 
-            <p className="text-[11px] text-muted-foreground italic">
-              ℹ️ Al confirmar, el entrenador valida manualmente el pago. Se renovará la
-              cuota conservando el día {cobroSeleccionado.diaVencimiento} de corte.
-            </p>
+              <div className="space-y-1.5">
+                <span className="block text-sm font-semibold">
+                  Medio de Pago <span className="text-destructive">*</span>
+                </span>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Medio de Pago">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={pagoMedio === "TRANSFERENCIA"}
+                    onClick={() => setPagoMedio(pagoMedio === "TRANSFERENCIA" ? "" : "TRANSFERENCIA")}
+                    className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                      pagoMedio === "TRANSFERENCIA"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                        : "border-border/80 hover:bg-secondary/40"
+                    }`}
+                    data-testid="medio-transferencia-btn"
+                  >
+                    <p className="text-xs font-bold text-foreground">Transferencia</p>
+                    <p className="text-[10px] text-muted-foreground">CBU / Alias / MP</p>
+                  </button>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={() => registrarDialogRef.current?.close()}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={pagoMonto <= 0 || accionEnCurso === cobroSeleccionado.contratacionId}
-                data-testid="confirmar-pago-submit-btn"
-              >
-                Confirmar Pago
-              </Button>
-            </div>
-          </form>
-        )}
-      </dialog>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={pagoMedio === "EFECTIVO"}
+                    onClick={() => setPagoMedio(pagoMedio === "EFECTIVO" ? "" : "EFECTIVO")}
+                    className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                      pagoMedio === "EFECTIVO"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/30"
+                        : "border-border/80 hover:bg-secondary/40"
+                    }`}
+                    data-testid="medio-efectivo-btn"
+                  >
+                    <p className="text-xs font-bold text-foreground">Efectivo</p>
+                    <p className="text-[10px] text-muted-foreground">En gimnasio</p>
+                  </button>
+                </div>
+                {!pagoMedio && (
+                  <p
+                    id="error-pago-medio"
+                    role="alert"
+                    aria-live="polite"
+                    className="text-xs font-semibold text-destructive mt-1 flex items-center gap-1"
+                    data-testid="error-pago-medio"
+                  >
+                    <span>⚠️</span>
+                    <span>Debe seleccionar un método de pago</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="input-pago-fecha" className="block text-sm font-semibold">
+                  Fecha de cobro <span className="text-destructive">*</span>
+                </label>
+                <input
+                  id="input-pago-fecha"
+                  type="date"
+                  required
+                  value={pagoFecha}
+                  onChange={(e) => setPagoFecha(e.target.value)}
+                  aria-invalid={!pagoFecha}
+                  aria-describedby={!pagoFecha ? "error-pago-fecha" : undefined}
+                  className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  data-testid="input-pago-fecha"
+                />
+                {!pagoFecha && (
+                  <p
+                    id="error-pago-fecha"
+                    role="alert"
+                    aria-live="polite"
+                    className="text-xs font-semibold text-destructive mt-1 flex items-center gap-1"
+                    data-testid="error-pago-fecha"
+                  >
+                    <span>⚠️</span>
+                    <span>Debe seleccionar la fecha de cobro</span>
+                  </p>
+                )}
+              </div>
+
+              <label className="block space-y-1.5 text-xs font-semibold text-muted-foreground">
+                Notas / Referencia interna (opcional)
+                <input
+                  type="text"
+                  value={pagoNotas}
+                  onChange={(e) => setPagoNotas(e.target.value)}
+                  placeholder="Ej.: Banco Galicia, comprobante #84912"
+                  className="w-full rounded-xl border border-border bg-background p-2.5 text-xs font-normal text-foreground"
+                  data-testid="input-pago-notas"
+                />
+              </label>
+
+              <p className="text-[11px] text-muted-foreground italic">
+                ℹ️ Al confirmar, el entrenador valida manualmente el pago. Se renovará la
+                cuota conservando el día {cobroSeleccionado.diaVencimiento} de corte.
+              </p>
+
+              <SheetFooter className="flex justify-end gap-2 pt-2 border-t border-border/40">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => handleSheetPagoOpenChange(false)}
+                  data-testid="cancelar-pago-btn"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    pagoMonto === "" ||
+                    Number(pagoMonto) <= 0 ||
+                    !pagoMedio ||
+                    !pagoFecha ||
+                    accionEnCurso === cobroSeleccionado.contratacionId
+                  }
+                  data-testid="confirmar-pago-submit-btn"
+                >
+                  Confirmar Pago
+                </Button>
+              </SheetFooter>
+            </form>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* DIÁLOGO: COMPROBANTE / RECIBO INTERNO (NO FISCAL) */}
       <dialog
@@ -1856,11 +2066,7 @@ export function CobrosPanel({
         cobros={cobros}
         onAbrirComprobante={abrirComprobante}
         onRegistrarPago={(cobro) => {
-          setCobroSeleccionado(cobro);
-          setPagoMonto(cobro.monto);
-          setPagoMedio("TRANSFERENCIA");
-          setPagoNotas(cobro.notaDescuento || "");
-          registrarDialogRef.current?.showModal();
+          abrirModalPago(cobro);
         }}
       />
 
