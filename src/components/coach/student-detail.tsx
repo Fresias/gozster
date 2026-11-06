@@ -2696,7 +2696,11 @@ export function StudentDetail({
             onDrop={handleDrop("salud_anamnesis")}
             cuestionarioNode={cuestionarioNode}
             painAlertsNode={<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />}
-            evaDolorActual={chatActivePainAlert ? 5 : 0}
+            evaDolorActual={
+              chatActivePainAlert
+                ? (/agudo/i.test(chatActivePainAlert.detalle) ? 8 : 5)
+                : 0
+            }
             zonaDolorActual={chatActivePainAlert?.zona || "Ninguna"}
             reporteId={chatActivePainAlert?.id}
             ejercicioNombre={chatActivePainAlert?.ejercicioNombre}
