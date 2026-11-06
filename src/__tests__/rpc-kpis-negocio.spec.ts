@@ -267,9 +267,6 @@ describe("GOZS-135 / GOZS-369: obtener_kpis_negocio (PGlite)", () => {
       ejerciciosEnRutina: [],
       ejercicios: [],
       historial: {},
-      dias: [],
-      ejerciciosEnRutina: [],
-      ejercicios: [],
     };
     const seedPlanes = [{ id: PLAN, nombre: "Trimestral", cantidad_actividades: 1, duracion_meses: 3, precio: 30000 } as any];
 
@@ -306,9 +303,6 @@ describe("GOZS-135 / GOZS-369: obtener_kpis_negocio (PGlite)", () => {
       ejerciciosEnRutina: [],
       ejercicios: [],
       historial: {},
-      dias: [],
-      ejerciciosEnRutina: [],
-      ejercicios: [],
     };
     const planes = [
       { id: "p-1", duracion_meses: 1, precio: 15000 },
