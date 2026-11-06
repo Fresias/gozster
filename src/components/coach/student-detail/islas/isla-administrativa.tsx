@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
+import { CreditCard, ClipboardList, MessageSquare, Settings } from "@/components/coach/icons";
 
 export interface IslaAdministrativaProps {
   isCollapsed: boolean;
@@ -69,7 +70,7 @@ export function IslaAdministrativa({
       id="administracion"
       dataTestId="isla-administrativa"
       title="Gestión Comercial, Membresía & Configuración"
-      icon={<span>💳</span>}
+      icon={<CreditCard className="h-4 w-4 text-primary" aria-label="Administración" />}
       badge={
         <Badge variant="outline" className="text-[10px] font-mono border-border/80 text-muted-foreground">
           Administración
@@ -98,11 +99,17 @@ export function IslaAdministrativa({
       canMoveRight={canMoveRight}
       compactSummary={
         <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-          <span>💳 Cuota y Pagos</span>
+          <span className="inline-flex items-center gap-1">
+            <CreditCard className="h-3 w-3 inline" aria-hidden="true" /> Cuota y Pagos
+          </span>
           <span>•</span>
-          <span>📋 Contratos y Membresía</span>
+          <span className="inline-flex items-center gap-1">
+            <ClipboardList className="h-3 w-3 inline" aria-hidden="true" /> Contratos y Membresía
+          </span>
           <span>•</span>
-          <span>💬 Atención</span>
+          <span className="inline-flex items-center gap-1">
+            <MessageSquare className="h-3 w-3 inline" aria-hidden="true" /> Atención
+          </span>
         </div>
       }
     >
@@ -118,7 +125,9 @@ export function IslaAdministrativa({
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
-            💳 Cuota &amp; Historial
+            <span className="inline-flex items-center gap-1.5">
+              <CreditCard className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cuota &amp; Historial
+            </span>
           </button>
           <button
             type="button"
@@ -129,7 +138,9 @@ export function IslaAdministrativa({
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
-            📋 Contratación &amp; Renovación
+            <span className="inline-flex items-center gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5 inline" aria-hidden="true" /> Contratación &amp; Renovación
+            </span>
           </button>
           <button
             type="button"
@@ -140,7 +151,9 @@ export function IslaAdministrativa({
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
-            💬 Staff &amp; Chat
+            <span className="inline-flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5 inline" aria-hidden="true" /> Staff &amp; Chat
+            </span>
           </button>
           <button
             type="button"
@@ -151,7 +164,9 @@ export function IslaAdministrativa({
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
-            ⚙️ Nivel de Vista &amp; Anamnesis
+            <span className="inline-flex items-center gap-1.5">
+              <Settings className="h-3.5 w-3.5 inline" aria-hidden="true" /> Nivel de Vista &amp; Anamnesis
+            </span>
           </button>
         </div>
 

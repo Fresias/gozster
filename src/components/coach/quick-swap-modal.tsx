@@ -5,6 +5,7 @@ import type { Ejercicio } from "@/types/database.types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase/client";
+import { TriangleAlert, X, Lock, Check, ArrowRightLeft } from "@/components/coach/icons";
 
 export interface QuickSwapModalProps {
   isOpen: boolean;
@@ -286,8 +287,8 @@ export function QuickSwapModal({
         {/* Header con botón de cierre */}
         <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive text-lg font-bold border border-destructive/30">
-              🚨
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive border border-destructive/30">
+              <TriangleAlert className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
               <h3
@@ -296,7 +297,7 @@ export function QuickSwapModal({
               >
                 <span>Sustituir Ejercicio por Molestia Articular (Exclusivo Coach)</span>
                 <Badge className="bg-amber-500 text-slate-950 font-bold text-[10px]">
-                  ADR-002 Inmutable
+                  Registro Inmutable
                 </Badge>
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -312,7 +313,7 @@ export function QuickSwapModal({
             className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
             aria-label="Cerrar modal"
           >
-            ✕
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -342,7 +343,7 @@ export function QuickSwapModal({
           data-testid="biomechanical-safety-notice"
         >
           <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-amber-500">
-            <span className="text-base">⚠️</span>
+            <TriangleAlert className="h-4 w-4 text-amber-500 inline" aria-hidden="true" />
             <span>Aviso de Seguridad Biomecánica para el Entrenador</span>
           </div>
           <p className="font-bold text-foreground text-xs leading-relaxed">
@@ -354,7 +355,7 @@ export function QuickSwapModal({
           </p>
         </div>
 
-        {/* Motivo de la Sustitución (Trazabilidad obligatoria ADR-002) */}
+        {/* Motivo de la Sustitución (Trazabilidad obligatoria) */}
         <div className="space-y-1.5">
           <label htmlFor="swap-motive-input" className="text-xs font-bold text-foreground block">
             Motivo de la Sustitución (Registro en Ficha Histórica):
@@ -428,7 +429,7 @@ export function QuickSwapModal({
                 </div>
 
                 <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  🛡️ {alt.ventaja}
+                  {alt.ventaja}
                 </p>
 
                 {/* Explicación Técnica Visible */}
@@ -448,9 +449,9 @@ export function QuickSwapModal({
                     {alt.restricciones_articulares.map((res) => (
                       <span
                         key={res}
-                        className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20"
+                        className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20 inline-flex items-center gap-1"
                       >
-                        ✓ {res}
+                        <Check className="h-2.5 w-2.5 inline text-emerald-500" aria-hidden="true" /> {res}
                       </span>
                     ))}
                   </div>
@@ -465,7 +466,14 @@ export function QuickSwapModal({
                 className="min-h-12 w-full md:w-auto px-4 text-xs font-black bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-xs shrink-0 active:scale-95 transition-transform"
                 data-testid={`confirm-swap-btn-${alt.nombre.toLowerCase().replace(/\s+/g, "-")}`}
               >
-                {isSubmitting ? "Sustituyendo..." : "🔄 Sustituir en 1-Toque"}
+                {isSubmitting ? (
+                  "Sustituyendo..."
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" />
+                    Sustituir en 1-Toque
+                  </span>
+                )}
               </Button>
             </div>
           ))}
@@ -511,9 +519,12 @@ export function QuickSwapModal({
 
         {/* Footer con recordatorio de inmutabilidad */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-border/60 text-xs text-muted-foreground">
-          <p className="text-[11px]">
-            🔒 <strong>Inmutabilidad garantizada:</strong> Las sesiones y series finalizadas
-            previamente no serán alteradas.
+          <p className="text-[11px] inline-flex items-center gap-1">
+            <Lock className="h-3.5 w-3.5 text-primary inline" aria-hidden="true" />
+            <span>
+              <strong>Inmutabilidad garantizada:</strong> Las sesiones y series finalizadas
+              previamente no serán alteradas.
+            </span>
           </p>
           <Button
             type="button"

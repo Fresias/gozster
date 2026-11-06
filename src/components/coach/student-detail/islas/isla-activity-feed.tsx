@@ -1,6 +1,16 @@
 import * as React from "react";
 import { IslaCardShell } from "./isla-card-shell";
 import { Button } from "@/components/ui/button";
+import {
+  Activity,
+  CreditCard,
+  Dumbbell,
+  TriangleAlert,
+  ArrowRightLeft,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+} from "@/components/coach/icons";
 
 export interface ActivityFeedItem {
   id: string;
@@ -68,7 +78,7 @@ const DEFAULT_FEED_ITEMS: ActivityFeedItem[] = [
   {
     id: "act-4",
     tipo: "sustitucion",
-    titulo: "Sustitución Biomecánica (ADR-002)",
+    titulo: "Sustitución de Ejercicio",
     detalle: "Press Militar sustituido por Elevaciones Laterales con Mancuerna.",
     fechaGrupo: "ESTA SEMANA",
     horaOFecha: "Lun 14:20 hs",
@@ -139,15 +149,35 @@ export function IslaActivityFeed({
   const getTipoIcon = (tipo: ActivityFeedItem["tipo"]) => {
     switch (tipo) {
       case "pago":
-        return <span className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs">💳</span>;
+        return (
+          <span className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+            <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        );
       case "sesion":
-        return <span className="h-6 w-6 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs">🏋️</span>;
+        return (
+          <span className="h-6 w-6 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center">
+            <Dumbbell className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        );
       case "molestia":
-        return <span className="h-6 w-6 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs">🚨</span>;
+        return (
+          <span className="h-6 w-6 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center">
+            <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        );
       case "sustitucion":
-        return <span className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs">🔄</span>;
+        return (
+          <span className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center">
+            <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        );
       case "chat":
-        return <span className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs">💬</span>;
+        return (
+          <span className="h-6 w-6 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        );
     }
   };
 
@@ -191,7 +221,7 @@ export function IslaActivityFeed({
       id="activity_feed"
       dataTestId="isla-activity-feed"
       title="Bitácora Omnicanal (Feed)"
-      icon={<span>📋</span>}
+      icon={<Activity className="h-4 w-4 text-primary" aria-label="Actividad" />}
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
       isCanvasMode={isCanvasMode}
@@ -254,7 +284,11 @@ export function IslaActivityFeed({
                 >
                   <span className="tracking-wider">{group.nombre}</span>
                   <span className="text-[10px] font-mono">
-                    {isGroupCollapsed ? "[+]" : "[-]"}
+                    {isGroupCollapsed ? (
+                      <ChevronDown className="h-3 w-3 inline text-muted-foreground" aria-hidden="true" />
+                    ) : (
+                      <ChevronUp className="h-3 w-3 inline text-muted-foreground" aria-hidden="true" />
+                    )}
                   </span>
                 </button>
 

@@ -13,6 +13,7 @@ import {
 import { MOCK_ALUMNOS } from "@/services/coach-mock-data";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { X, Check, TriangleAlert, CloudOff, Timer } from "@/components/coach/icons";
 
 export interface ChatFabProps {
   alumno: Perfil | null;
@@ -263,7 +264,7 @@ export function ChatFab({
                 aria-label="Cerrar chat"
                 className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground touch-manipulation min-h-8 min-w-8"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -307,7 +308,12 @@ export function ChatFab({
                       {filter === "TODOS" && "Todos"}
                       {filter === "NUEVOS" && `Nuevos (${count})`}
                       {filter === "PENDIENTES" && `Pendientes (${count})`}
-                      {filter === "MOLESTIAS" && `🚨 Molestias (${count})`}
+                      {filter === "MOLESTIAS" && (
+                        <span className="inline-flex items-center gap-1">
+                          <TriangleAlert className="h-3 w-3 inline text-destructive" aria-hidden="true" />
+                          Molestias ({count})
+                        </span>
+                      )}
                     </button>
                   );
                 },
@@ -341,9 +347,9 @@ export function ChatFab({
                             a.nombre_completo.toLowerCase()),
                     );
                     const tag = hasPain
-                      ? "🚨 Molestia"
+                      ? "Molestia"
                       : hasUnread
-                      ? "🔴 Nuevo"
+                      ? "Nuevo"
                       : a.estado_membresia;
                     return (
                       <option key={a.id} value={a.id}>
@@ -440,18 +446,18 @@ export function ChatFab({
                   </div>
                   {transferSuccessMsg && (
                     <p
-                      className="text-[10px] text-emerald-400 font-semibold"
+                      className="text-[10px] text-emerald-400 font-semibold inline-flex items-center gap-1"
                       data-testid="transfer-success-msg"
                     >
-                      ✓ {transferSuccessMsg}
+                      <Check className="h-3 w-3 inline" aria-hidden="true" /> {transferSuccessMsg}
                     </p>
                   )}
                   {transferErrorMsg && (
                     <p
-                      className="text-[10px] text-destructive font-semibold"
+                      className="text-[10px] text-destructive font-semibold inline-flex items-center gap-1"
                       data-testid="transfer-error-msg"
                     >
-                      ✕ {transferErrorMsg}
+                      <X className="h-3 w-3 inline" aria-hidden="true" /> {transferErrorMsg}
                     </p>
                   )}
                 </div>
@@ -492,7 +498,9 @@ export function ChatFab({
               data-testid="chat-pain-alert-banner"
             >
               <div className="flex items-center gap-1.5">
-                <span className="font-bold">🚨 Molestia:</span>
+                <span className="font-bold inline-flex items-center gap-1">
+                  <TriangleAlert className="h-3.5 w-3.5 text-destructive inline" aria-hidden="true" /> Molestia:
+                </span>
                 <span className="line-clamp-1">{activePainAlert.detalle}</span>
               </div>
               <span className="rounded bg-destructive/20 px-1.5 py-0.2 text-[9px] font-extrabold uppercase">
@@ -504,7 +512,9 @@ export function ChatFab({
           {/* Banner de estado offline */}
           {!isOnline && (
             <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 text-[11px] text-amber-300 flex items-center justify-between">
-              <span>⚠️ Modo Offline: los mensajes se enviarán al reconectar</span>
+              <span className="inline-flex items-center gap-1.5">
+                <CloudOff className="h-3.5 w-3.5 text-amber-300 inline" aria-hidden="true" /> Modo Offline: los mensajes se enviarán al reconectar
+              </span>
               <span className="font-semibold text-[10px]">Cola activa</span>
             </div>
           )}
@@ -539,10 +549,10 @@ export function ChatFab({
                           Staff
                         </span>
                         <span
-                          className="text-[9px] text-muted-foreground font-mono"
-                          title={`ID del autor: ${msg.remitente_id}`}
+                          className="text-[9px] text-muted-foreground"
+                          title="Rol: Staff Coach"
                         >
-                          ({msg.remitente_id.slice(0, 8)})
+                          (Coach)
                         </span>
                       </div>
 
@@ -565,8 +575,8 @@ export function ChatFab({
                           {msg.hora}
                         </span>
                         {msg.estado_envio === "pendiente" && (
-                          <span className="text-amber-400 font-semibold">
-                            ⏳ Pendiente
+                          <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
+                            <Timer className="h-3 w-3 inline" aria-hidden="true" /> Pendiente
                           </span>
                         )}
                       </div>

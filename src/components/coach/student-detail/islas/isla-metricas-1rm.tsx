@@ -2,6 +2,7 @@ import * as React from "react";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
+import { TrendingUp } from "@/components/coach/icons";
 
 export interface IslaMetricas1RMProps {
   historialCargas?: HistoricalLoadEntry[];
@@ -170,7 +171,7 @@ export function IslaMetricas1RM({
       id="metricas_1rm"
       dataTestId="isla-metricas-1rm"
       title="Telemetría de Fuerza &amp; Sobrecarga"
-      icon={<span>📊</span>}
+      icon={<TrendingUp className="h-4 w-4 text-primary" aria-label="Métricas" />}
       badge={
         <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
           Epley / Brzycki

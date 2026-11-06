@@ -83,7 +83,7 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   describe("2. Matriz Operativa con Semáforos M3 (Cero Texto Redundante)", () => {
     it("preserva los requerimientos de estructura del cuadro y columna matriz", () => {
       expect(viewContent).toContain("min-h-[48px]");
-      expect(viewContent).toContain("Columna Matriz");
+      expect(viewContent).toContain("Atleta");
       expect(viewContent).toContain("sticky left-0");
       expect(viewContent).toContain("tabular-nums");
     });

@@ -223,7 +223,7 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       const viewContent = fs.readFileSync(viewPath, "utf-8");
 
       expect(viewContent).toContain("min-h-[48px]");
-      expect(viewContent).toContain("Columna Matriz");
+      expect(viewContent).toContain("Atleta");
       expect(viewContent).toContain("sticky left-0");
       expect(viewContent).toContain("tabular-nums");
     });

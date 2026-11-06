@@ -94,7 +94,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                     GOZSter <span className="text-primary font-bold">Studio</span>
                   </span>
                   <span className="text-[10px] text-muted-foreground block -mt-0.5 font-medium">
-                    Executive Workspace • M3 Edition
+                    Panel de Gestión
                   </span>
                 </div>
               )}

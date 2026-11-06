@@ -3,6 +3,7 @@ import type { DiaRutina, Ejercicio, EjercicioEnRutina, PlanEntrenamiento } from 
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dumbbell, ArrowRightLeft, LinkIcon } from "@/components/coach/icons";
 
 export interface IslaRoutineWorkbenchProps {
   rutinaActiva: PlanEntrenamiento | null;
@@ -83,7 +84,7 @@ export function IslaRoutineWorkbench({
       id="routine_workbench"
       dataTestId="isla-routine-workbench"
       title="Workbench de Entrenamiento Activo"
-      icon={<span>⚡</span>}
+      icon={<Dumbbell className="h-4 w-4 text-primary" aria-label="Rutina" />}
       badge={
         rutinaActiva ? (
           <Badge variant="default" className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -143,7 +144,9 @@ export function IslaRoutineWorkbench({
                   data-testid="workbench-quick-swap-btn"
                   className="h-7 text-xs font-semibold text-amber-500 border-amber-500/40 hover:bg-amber-500/10"
                 >
-                  ⚡ Quick Swap
+                  <span className="inline-flex items-center gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cambiar ejercicio
+                  </span>
                 </Button>
               )}
             </div>
@@ -213,7 +216,7 @@ export function IslaRoutineWorkbench({
                                         data-testid="workbench-superserie-connector"
                                         className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-500 border border-amber-500/30"
                                       >
-                                        🔗 Superserie G{item.grupo_superserie}
+                                        <LinkIcon className="h-3 w-3 inline" aria-hidden="true" /> Superserie G{item.grupo_superserie}
                                       </span>
                                     )}
                                   </div>
