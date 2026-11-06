@@ -5,7 +5,18 @@ import { useRouter } from "next/navigation";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { BusinessKpiStrip } from "@/components/coach/business-kpi-strip";
-import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
+import { DEMO_KPIS_NEGOCIO, DEMO_PLANES_MEMBRESIA } from "@/services/coach-demo-dataset";
+import { Segmented } from "@/components/ui/segmented";
+import {
+  rangoPeriodo,
+  obtenerKpisNegocio,
+  puedeVerMontos,
+  mapearRpcAKpis,
+  type TipoRangoPeriodo,
+  type KpisNegocio,
+} from "@/lib/kpis-negocio";
+import { derivarKpisNegocio } from "@/services/coach-demo-generator";
+import { createClient } from "@/lib/supabase/browser";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
 import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-preview-modal";
 import { AthletePreviewModal } from "@/components/coach/athlete-preview-modal";
@@ -61,11 +72,13 @@ export function CoachStudioView({
   estancados = [],
   initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
+  userRole = "ADMIN",
 }: {
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
   initialAlumnosExpanded?: boolean;
   initialSelectedAlumnoId?: string | null;
+  userRole?: string | null;
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
@@ -227,6 +240,88 @@ export function CoachStudioView({
   const isInviteModalOpen = store.isInviteModalOpen;
   const setIsInviteModalOpen = store.setInviteModalOpen;
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
+
+  // Selector de período reactivo ('semana', 'mes', 'trimestre') y KPIs únicos (GOZS-379)
+  const [tipoPeriodo, setTipoPeriodo] = React.useState<TipoRangoPeriodo>("mes");
+  const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ADMIN");
+
+  React.useEffect(() => {
+    if (userRole) {
+      setActiveRole(userRole);
+      return;
+    }
+    let active = true;
+    async function detectRole() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!active || !user) return;
+        const metaRol = (user.user_metadata as Record<string, unknown> | undefined)?.rol;
+        if (typeof metaRol === "string" && metaRol) {
+          setActiveRole(metaRol);
+        } else {
+          const { data: perfil } = await supabase
+            .from("perfiles")
+            .select("rol")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (active && perfil?.rol) {
+            setActiveRole(perfil.rol);
+          }
+        }
+      } catch {
+        // Fallback a ADMIN
+      }
+    }
+    detectRole();
+    return () => {
+      active = false;
+    };
+  }, [userRole]);
+
+  const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
+    const rango = rangoPeriodo("mes");
+    const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
+    if (!puedeVerMontos(userRole ?? "ADMIN")) {
+      return mapearRpcAKpis({ ...base, ingresos: null }, "oct.", userRole ?? "ENTRENADOR");
+    }
+    return base;
+  });
+
+  React.useEffect(() => {
+    let active = true;
+    async function actualizarKpis() {
+      const rango = rangoPeriodo(tipoPeriodo);
+      if (store.isLiveDatabase || hasInitialData) {
+        try {
+          const supabase = createClient();
+          const nuevosKpis = await obtenerKpisNegocio(supabase, {
+            desde: rango.desde,
+            hasta: rango.hasta,
+            rol: activeRole,
+          });
+          if (active && nuevosKpis) {
+            setKpis(nuevosKpis);
+            return;
+          }
+        } catch {
+          // Fallback a derivación local si falla RPC o estamos en modo demo
+        }
+      }
+      const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
+      if (active) {
+        if (!puedeVerMontos(activeRole)) {
+          setKpis(mapearRpcAKpis({ ...base, ingresos: null }, "oct.", activeRole));
+        } else {
+          setKpis(base);
+        }
+      }
+    }
+    actualizarKpis();
+    return () => {
+      active = false;
+    };
+  }, [tipoPeriodo, activeRole, store.isLiveDatabase, hasInitialData]);
 
   // Estados para Modales de Quick Swap y WhatsApp
   const [quickSwapData, setQuickSwapData] = React.useState<{
@@ -990,6 +1085,21 @@ export function CoachStudioView({
                 Gestión operativa de atletas, estado de salud y supervisión activa.
               </p>
             </div>
+            {/* Selector de Período Reactivo ('Semana', 'Mes', 'Trimestre') (GOZS-379) */}
+            <div className="flex items-center gap-2" data-testid="periodo-selector-container">
+              <Segmented<TipoRangoPeriodo>
+                data-testid="selector-periodo"
+                value={tipoPeriodo}
+                onChange={(val) => setTipoPeriodo(val)}
+                options={[
+                  { value: "semana", label: "Semana" },
+                  { value: "mes", label: "Mes" },
+                  { value: "trimestre", label: "Trimestre" },
+                ]}
+                aria-label="Selector de período"
+                size="sm"
+              />
+            </div>
           </div>
 
           {/* Bandeja de Alertas Críticas Compacta (Exclusiva Dolor Articular con Quick Swap) */}
@@ -1002,29 +1112,33 @@ export function CoachStudioView({
             </aside>
           )}
 
-          {/* Banner Ejecutivo Compacto de Alumnos Activos (Poda de Bloatware Churn/Sin Plan Gigantes) */}
+          {/* Fila superior de 4 KPIs consumiendo la fuente única de verdad KpisNegocio (GOZS-379) */}
           <div className={leftCol}>
-          <BusinessKpiStrip
-            kpis={DEMO_KPIS_NEGOCIO}
-            sinEntrenarNombres={alumnos
-              .filter((a) => DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id))
-              .map((a) => a.nombre_completo)}
-            sinRutina={metricas.cantSinPlanEntrenamiento}
-            onAsignarClick={() => setIsAssignModalOpen(true)}
-            onIngresosClick={() => {
-              router.push("/studio/ingresos");
-            }}
-            onSinEntrenarClick={() => {
-              setIsAlumnosExpanded(true);
-              setSinEntrenarFilter(true);
-              if (typeof window !== "undefined" && window.localStorage) {
-                try {
-                  localStorage.setItem("gozster_directorio_alumnos_expanded", "true");
-                } catch {}
-              }
-              setCurrentPage(1);
-            }}
-          />
+            <BusinessKpiStrip
+              kpis={kpis}
+              rol={activeRole}
+              periodo={tipoPeriodo}
+              onPeriodoChange={(p) => setTipoPeriodo(p)}
+              totalAlumnos={alumnos.length}
+              sinEntrenarNombres={alumnos
+                .filter((a) => (kpis.sin_entrenar_7d_ids?.length ? kpis.sin_entrenar_7d_ids : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids).includes(a.id))
+                .map((a) => a.nombre_completo)}
+              sinRutina={metricas.cantSinPlanEntrenamiento}
+              onAsignarClick={() => setIsAssignModalOpen(true)}
+              onIngresosClick={() => {
+                router.push("/studio/ingresos");
+              }}
+              onSinEntrenarClick={() => {
+                setIsAlumnosExpanded(true);
+                setSinEntrenarFilter(true);
+                if (typeof window !== "undefined" && window.localStorage) {
+                  try {
+                    localStorage.setItem("gozster_directorio_alumnos_expanded", "true");
+                  } catch {}
+                }
+                setCurrentPage(1);
+              }}
+            />
           </div>
 
           {/* Directorio de Atletas */}

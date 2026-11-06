@@ -8,9 +8,34 @@ export default async function CoachStudioPage() {
   // Cliente de servidor autenticado: PostgREST recibe el JWT del entrenador y RLS
   // devuelve únicamente a sus alumnos y rutinas asignados.
   const supabase = await createClient();
-  const [initialDataset, estancados] = await Promise.all([
+  const [initialDataset, estancados, authUser] = await Promise.all([
     fetchLiveDatasetFromSupabase(supabase),
     fetchAlumnosEstancados(supabase),
+    supabase.auth.getUser().catch(() => ({ data: { user: null } })),
   ]);
-  return <CoachStudioView initialDataset={initialDataset} estancados={estancados} />;
+
+  let userRole: string = "ADMIN";
+  if (authUser?.data?.user) {
+    const metaRol = (authUser.data.user.user_metadata as Record<string, unknown> | undefined)?.rol;
+    if (typeof metaRol === "string" && metaRol) {
+      userRole = metaRol;
+    } else {
+      const { data: perfil } = await supabase
+        .from("perfiles")
+        .select("rol")
+        .eq("id", authUser.data.user.id)
+        .maybeSingle();
+      if (perfil?.rol) {
+        userRole = perfil.rol;
+      }
+    }
+  }
+
+  return (
+    <CoachStudioView
+      initialDataset={initialDataset}
+      estancados={estancados}
+      userRole={userRole}
+    />
+  );
 }

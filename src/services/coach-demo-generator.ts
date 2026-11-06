@@ -577,16 +577,28 @@ export function derivarKpisNegocio(
   g: DemoGimnasio,
   planesMembresia: PlanMembresia[],
   ahora: Date,
+  rango?: { desde: string; hasta: string },
 ): KpisNegocio {
   const hoy = inicioDia(ahora);
   const hoyIso = ymd(hoy);
   const inicioMes = ymd(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+  const fechaDesde = rango ? rango.desde : inicioMes;
+  const fechaHasta = rango ? rango.hasta : hoyIso;
   const esActivo = (a: Perfil) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
   const activos = new Set(g.alumnos.filter((a) => a.rol === "ALUMNO" && esActivo(a)).map((a) => a.id));
   const precioPlan = (id: string | null) => planesMembresia.find((p) => p.id === id);
 
+  const pagoEnRango = (p: { confirmado_at: string | null }) => {
+    if (!p.confirmado_at) return false;
+    if (rango) {
+      const pFecha = p.confirmado_at.slice(0, 10);
+      return pFecha >= fechaDesde && pFecha <= fechaHasta;
+    }
+    return mismoMes(p.confirmado_at, ahora);
+  };
+
   const ingresos = g.pagos
-    .filter((p) => p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, ahora))
+    .filter((p) => p.estado === "CONFIRMADO" && pagoEnRango(p))
     .reduce((acc, p) => acc + p.monto, 0);
 
   // Cuotas adeudadas de activos con fecha_fin <= hoy
@@ -624,14 +636,14 @@ export function derivarKpisNegocio(
     const previa = primeraPorAlumno.get(c.alumno_id);
     if (!previa || c.fecha_inicio < previa) primeraPorAlumno.set(c.alumno_id, c.fecha_inicio);
   }
-  const altas = [...primeraPorAlumno.values()].filter((f) => f >= inicioMes && f <= hoyIso).length;
+  const altas = [...primeraPorAlumno.values()].filter((f) => f >= fechaDesde && f <= fechaHasta).length;
   const bajas = g.alumnos.filter(
     (a) =>
       a.rol === "ALUMNO" &&
       (a.estado_membresia === "INACTIVA" || a.estado_membresia === "BAJA" || a.estado_membresia === "ARCHIVED") &&
       a.fecha_baja !== null &&
-      a.fecha_baja >= inicioMes &&
-      a.fecha_baja <= hoyIso,
+      a.fecha_baja >= fechaDesde &&
+      a.fecha_baja <= fechaHasta,
   ).length;
 
   // Si hay pagos de meses previos en el dataset, calcular serie histórica exacta
@@ -661,7 +673,7 @@ export function derivarKpisNegocio(
   let ingresosPresencial = 0;
   let ingresosOnline = 0;
   for (const p of g.pagos) {
-    if (p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, ahora)) {
+    if (p.estado === "CONFIRMADO" && pagoEnRango(p)) {
       const c = g.contrataciones.find((x) => x.id === p.contratacion_id);
       const plan = c ? precioPlan(c.plan_membresia_id) : null;
       const esOnline =

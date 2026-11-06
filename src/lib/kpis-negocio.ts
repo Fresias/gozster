@@ -6,7 +6,7 @@ export interface PeriodoKpisNegocio {
   mesAnteriorLabel: string; // ej. "sept."
 }
 
-export type TipoRangoPeriodo = "mes" | "semana" | "anio" | "hoy";
+export type TipoRangoPeriodo = "mes" | "semana" | "anio" | "hoy" | "trimestre";
 
 export interface RangoPeriodoResultado {
   desde: string; // "YYYY-MM-DD"
@@ -16,6 +16,8 @@ export interface RangoPeriodoResultado {
 /**
  * Delimita el rango de fechas en hora de Argentina (America/Argentina/Buenos_Aires).
  * Para 'mes': desde el 1 del mes hasta el último día del mes.
+ * Para 'semana': lunes a domingo de la semana civil en hora de Argentina.
+ * Para 'trimestre': primer día del trimestre calendario (Q1..Q4) al último día del trimestre.
  */
 export function rangoPeriodo(
   tipo: TipoRangoPeriodo | string = "mes",
@@ -28,9 +30,10 @@ export function rangoPeriodo(
     day: "2-digit",
   });
   const fechaIso = formateador.format(fecha);
-  const [anioStr, mesStr] = fechaIso.split("-");
+  const [anioStr, mesStr, diaStr] = fechaIso.split("-");
   const anio = Number(anioStr);
   const mes = Number(mesStr);
+  const dia = Number(diaStr);
 
   if (tipo === "mes") {
     const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
@@ -44,6 +47,29 @@ export function rangoPeriodo(
       desde: `${anioStr}-01-01`,
       hasta: `${anioStr}-12-31`,
     };
+  }
+
+  if (tipo === "trimestre") {
+    const startMonth = Math.floor((mes - 1) / 3) * 3 + 1;
+    const endMonth = startMonth + 2;
+    const ultimoDia = new Date(Date.UTC(anio, endMonth, 0)).getUTCDate();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const desde = `${anioStr}-${pad(startMonth)}-01`;
+    const hasta = `${anioStr}-${pad(endMonth)}-${pad(ultimoDia)}`;
+    return { desde, hasta };
+  }
+
+  if (tipo === "semana") {
+    const fechaCivil = new Date(Date.UTC(anio, mes - 1, dia));
+    const dayOfWeek = fechaCivil.getUTCDay();
+    const diffLunes = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const lunesUtc = new Date(fechaCivil.getTime() + diffLunes * 86_400_000);
+    const domingoUtc = new Date(lunesUtc.getTime() + 6 * 86_400_000);
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const desde = `${lunesUtc.getUTCFullYear()}-${pad(lunesUtc.getUTCMonth() + 1)}-${pad(lunesUtc.getUTCDate())}`;
+    const hasta = `${domingoUtc.getUTCFullYear()}-${pad(domingoUtc.getUTCMonth() + 1)}-${pad(domingoUtc.getUTCDate())}`;
+    return { desde, hasta };
   }
 
   if (tipo === "hoy") {
