@@ -1,0 +1,433 @@
+{
+ "inicio": {
+  "prohibidos": [],
+  "emojis": [],
+  "sinNombre": [
+   "<input type=\"search\" placeholder=\"Buscar atleta…\" class=\"min-h-11 w-full rounded-xl border border-input bg-car"
+  ],
+  "nSinNombre": 1,
+  "divClick": 149,
+  "contrasteBajo": 40,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"15\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)",
+   "4.49 \"Ranking Funcional\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "8px": 11,
+   "6px": 7,
+   "16px": 9,
+   "12px": 57,
+   "4px": 44
+  },
+  "sombras": 11,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 44,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 3605,
+  "errores": [],
+  "kpiCobrado": "$25.000 ← Coach Studio Gestión operativa de atletas, estado de salud y supervisión activa. Semana Me",
+  "bloquesAlertas": {
+   "bandejaVieja": true,
+   "paraRevisar": true,
+   "itemsParaRevisar": 5,
+   "itemsCuota": 7,
+   "textoHeader": "Coach Studio",
+   "directorioAbierto": "true",
+   "filasDirectorio": 15
+  },
+  "alertasVisibles": [
+   "Celeste Gerardi Alto EVA 8/10 Rodilla · Sentadilla Trasera con Barra Hoy, 10:45 Ver ficha ",
+   "Martina Gómez Alto EVA 8/10 Rodilla · Prensa de Piernas 45° Hace 5 días Ver ficha →",
+   "Lucas Giménez Alto EVA 7/10 Hombro · Press de Banca Plano Ayer, 18:30 Ver ficha →",
+   "Facundo Medina Moderado EVA 5/10 Lumbar · Peso Muerto Rumano Hace 2 días Ver ficha →",
+   "Camila Navarro Moderado EVA 5/10 Codo · Press Francés con Barra Z Hace 4 días Ver ficha →"
+  ]
+ },
+ "cobros": {
+  "prohibidos": [],
+  "emojis": [
+   "🏷",
+   "➕"
+  ],
+  "sinNombre": [
+   "<input type=\"search\" placeholder=\"Buscar por alumno o servicio…\" class=\"w-full rounded-xl border border-border"
+  ],
+  "nSinNombre": 1,
+  "divClick": 0,
+  "contrasteBajo": 32,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"6\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "12px": 53,
+   "16px": 4,
+   "8px": 19,
+   "4px": 6,
+   "6px": 2
+  },
+  "sombras": 13,
+  "fonts": [
+   "Geist"
+  ],
+  "textoMenor11": 36,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 2051,
+  "errores": [],
+  "kpiCobrado": "$767.000 ← Cobrado $ $767.000 Recaudado en el ciclo actual Ver año →",
+  "filas": 22
+ },
+ "ingresos": {
+  "prohibidos": [],
+  "emojis": [
+   "✓"
+  ],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 0,
+  "contrasteBajo": 38,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"6\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "8px": 9,
+   "6px": 3,
+   "12px": 6,
+   "4px": 10,
+   "16px": 2
+  },
+  "sombras": 1,
+  "fonts": [
+   "Geist",
+   "monospace"
+  ],
+  "textoMenor11": 11,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 1828,
+  "errores": [],
+  "kpiCobrado": "$800.000 ← Cobrado ($800.000)"
+ },
+ "metricas": {
+  "prohibidos": [],
+  "emojis": [
+   "👥",
+   "🏆",
+   "🔥",
+   "📈"
+  ],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 0,
+  "contrasteBajo": 33,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"15\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "6px": 5,
+   "12px": 6,
+   "16px": 4
+  },
+  "sombras": 5,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 0,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 900,
+  "errores": [],
+  "activos": "ACTIVOS Al día 32"
+ },
+ "agenda": {
+  "prohibidos": [],
+  "emojis": [],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 0,
+  "contrasteBajo": 24,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"6\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Ranking Funcional\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "8px": 3,
+   "6px": 14,
+   "12px": 4,
+   "16px": 2
+  },
+  "sombras": 3,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 0,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 928,
+  "errores": []
+ },
+ "rutinas": {
+  "prohibidos": [],
+  "emojis": [],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 0,
+  "contrasteBajo": 44,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"6\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)",
+   "4.49 \"Ranking Funcional\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "12px": 47,
+   "8px": 12
+  },
+  "sombras": 3,
+  "fonts": [
+   "Geist"
+  ],
+  "textoMenor11": 0,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 1814,
+  "errores": []
+ },
+ "ranking": {
+  "prohibidos": [],
+  "emojis": [
+   "🏆",
+   "🥇"
+  ],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 12,
+  "contrasteBajo": 22,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Inicio\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"6\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "12px": 9,
+   "16px": 3,
+   "8px": 20
+  },
+  "sombras": 6,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 2,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 1137,
+  "errores": []
+ },
+ "athlete": {
+  "prohibidos": [],
+  "emojis": [
+   "⚖",
+   "✕"
+  ],
+  "sinNombre": [],
+  "nSinNombre": 0,
+  "divClick": 7,
+  "contrasteBajo": 13,
+  "ejemplosContraste": [
+   "3.61 \"Online\" rgb(5, 150, 105)",
+   "4.49 \"Cerrar Sesión\" rgb(101, 117, 139)",
+   "4.49 \"Historial\" rgb(101, 117, 139)",
+   "4.49 \"Progreso\" rgb(101, 117, 139)",
+   "4.49 \"Clases\" rgb(101, 117, 139)",
+   "1.84 \"No leído\" rgb(52, 211, 153)",
+   "4.49 \"Totalmente de acuerdo con Félix. Si sent\" rgb(101, 117, 139)",
+   "4.49 \"Calibración en kilogramos puros sin métr\" rgb(101, 117, 139)",
+   "4.49 \"✕\" rgb(101, 117, 139)",
+   "4.49 \"kg\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "16px": 2,
+   "12px": 4,
+   "8px": 2
+  },
+  "sombras": 2,
+  "fonts": [
+   "Geist"
+  ],
+  "textoMenor11": 1,
+  "logoutVisibles": 1,
+  "overflowX": 0,
+  "alto": 900,
+  "errores": []
+ },
+ "ficha": {
+  "prohibidos": [],
+  "emojis": [],
+  "sinNombre": [
+   "<input type=\"search\" placeholder=\"Buscar atleta…\" class=\"min-h-11 w-full rounded-xl border border-input bg-car"
+  ],
+  "nSinNombre": 1,
+  "divClick": 149,
+  "contrasteBajo": 40,
+  "ejemplosContraste": [
+   "4.49 \"Coach Studio\" rgb(101, 117, 139)",
+   "4.49 \"◀\" rgb(101, 117, 139)",
+   "4.49 \"Colapsar Menú\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.49 \"Alumnos\" rgb(101, 117, 139)",
+   "4.30 \"15\" rgb(101, 117, 139)",
+   "4.49 \"Rutinas & Constructor\" rgb(101, 117, 139)",
+   "4.49 \"Operación\" rgb(101, 117, 139)",
+   "4.49 \"Agenda de Clases\" rgb(101, 117, 139)",
+   "4.49 \"Ranking Funcional\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "8px": 11,
+   "6px": 7,
+   "16px": 9,
+   "12px": 57,
+   "4px": 44
+  },
+  "sombras": 11,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 44,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 3605,
+  "salud": "",
+  "headerBotones": [
+   "Semana",
+   "Mes",
+   "Trimestre",
+   "5 Bandeja de alertas críticas ▼",
+   "Cobrado nov — 6 cuotas en mora Ver flujo",
+   "Asignales una desde Rutinas",
+   "Sin entrenar +7 días +7 días 7 Ver quién",
+   "Contactar rápido →",
+   "Contactar rápido →",
+   "Contactar rápido →",
+   "Alumnos 15 ▲",
+   "Todos (15)",
+   "Al día (15)",
+   "Pago pendiente (0)"
+  ],
+  "islas": [],
+  "fuerza": ""
+ },
+ "cobrosSheet": {
+  "abierto": true,
+  "foco": "<input id=\"input-pago-monto\" required=\"\" min=\"1\" step=\"100\" aria-invalid=\"false\" class=\"w-full round",
+  "texto": "Registrar Pago de Cuota Formulario lateral para registrar cobro y actualizar estado y métricas. Alumno: Santiago Ojeda Servicio: Funcional 2x semana Ciclo anclado al día 11 de cada mes. Monto a abonar",
+  "cerroConEscape": true
+ },
+ "movil": {
+  "prohibidos": [],
+  "emojis": [],
+  "sinNombre": [
+   "<input type=\"search\" placeholder=\"Buscar atleta…\" class=\"min-h-11 w-full rounded-xl border border-input bg-car"
+  ],
+  "nSinNombre": 1,
+  "divClick": 149,
+  "contrasteBajo": 22,
+  "ejemplosContraste": [
+   "4.49 \"Gestión operativa de atletas, estado de \" rgb(101, 117, 139)",
+   "4.49 \"Semana\" rgb(101, 117, 139)",
+   "4.49 \"Trimestre\" rgb(101, 117, 139)",
+   "3.78 \"5\" rgb(255, 255, 255)",
+   "4.49 \"▼\" rgb(101, 117, 139)",
+   "4.30 \"Nuevo\" rgb(101, 117, 139)",
+   "4.30 \"Nuevo\" rgb(101, 117, 139)",
+   "4.30 \"Nuevo\" rgb(101, 117, 139)",
+   "4.30 \"Nuevo\" rgb(101, 117, 139)",
+   "4.30 \"Nuevo\" rgb(101, 117, 139)"
+  ],
+  "radios": {
+   "8px": 11,
+   "6px": 7,
+   "16px": 9,
+   "12px": 57,
+   "4px": 44
+  },
+  "sombras": 9,
+  "fonts": [
+   "Geist",
+   "\"Geist Mono\""
+  ],
+  "textoMenor11": 43,
+  "logoutVisibles": 0,
+  "overflowX": 0,
+  "alto": 4242,
+  "barraInferior": "Inicio Alumnos Agenda Mensajes Más",
+  "primerKpiY": 1316
+ },
+ "athleteMovil": {
+  "errores": [],
+  "texto": "Paso 1 de 3 Saltar GOZSTER Hola, Fernando. Tu plan ya está listo. Tu coach te armó tu plan. Antes de empezar, elegí dos cosas para que la app se adapte a vos"
+ }
+}

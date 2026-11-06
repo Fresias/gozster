@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objetivo · Rutinas</title>
+<!-- Referencia visual estática del rediseño (canvas "GOZSter — Review UX/UI"). Solo estilos inline; sin interacción. Abrir en el navegador e inspeccionar valores con DevTools. -->
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#fff}a{color:#18181b}</style>
+</head><body>
+<div data-dc-tpl="3" style="font-family: Geist, Inter, system-ui, sans-serif; color: rgb(9, 9, 11); background: rgb(255, 255, 255); min-height: 100vh; display: flex; flex-wrap: wrap; font-size: 14px;">
+
+  <aside data-dc-tpl="4" aria-label="Navegación" style="flex: 0 0 56px; border-right: 1px solid rgb(228, 228, 231); background: rgb(250, 250, 250); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 0px;">
+    <div data-dc-tpl="5" style="width: 32px; height: 32px; border-radius: 8px; background: rgb(24, 24, 27); color: rgb(250, 250, 250); display: flex; align-items: center; justify-content: center; font-weight: 700; margin-bottom: 12px;">G</div>
+    <a data-dc-tpl="6" href="Inicio.dc.html" aria-label="Inicio" style="width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgb(82, 82, 91);"><svg data-dc-tpl="7" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path data-dc-tpl="8" d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+    <a data-dc-tpl="9" href="Ficha.dc.html" aria-label="Alumnos" style="width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgb(82, 82, 91);"><svg data-dc-tpl="10" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path data-dc-tpl="11" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle data-dc-tpl="12" cx="9" cy="7" r="4"></circle></svg></a>
+    <a data-dc-tpl="13" href="#" aria-label="Rutinas" aria-current="page" style="width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgb(228, 228, 231); color: rgb(9, 9, 11);"><svg data-dc-tpl="14" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect data-dc-tpl="15" x="8" y="2" width="8" height="4" rx="1"></rect><path data-dc-tpl="16" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path></svg></a>
+    <a data-dc-tpl="17" href="Agenda.dc.html" aria-label="Agenda" style="width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: rgb(82, 82, 91);"><svg data-dc-tpl="18" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect data-dc-tpl="19" x="3" y="4" width="18" height="18" rx="2"></rect><path data-dc-tpl="20" d="M16 2v4M8 2v4M3 10h18"></path></svg></a>
+  </aside>
+
+  <main data-dc-tpl="21" style="flex: 999 1 560px; min-width: 0px; padding: 28px 24px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; max-width: 1240px;">
+    <div data-dc-tpl="22" style="display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap;">
+      <div data-dc-tpl="23" style="display: flex; flex-direction: column; gap: 4px;">
+        <h1 data-dc-tpl="24" style="margin: 0px; font-size: 24px; letter-spacing: -0.02em; font-weight: 600;">Rutinas</h1>
+        <p data-dc-tpl="25" style="margin: 0px; color: rgb(82, 82, 91);">Plantillas reutilizables y rutinas asignadas a cada alumno.</p>
+      </div>
+      <button data-dc-tpl="26" type="button" style="height: 36px; padding: 0px 14px; border: 0px; border-radius: 8px; background: rgb(24, 24, 27); color: rgb(250, 250, 250); font-style: inherit; font-variant: inherit; font-stretch: inherit; font-size: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-language-override: inherit; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;"><svg data-dc-tpl="27" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path data-dc-tpl="28" d="M12 5v14M5 12h14"></path></svg>Nueva rutina</button>
+    </div>
+
+    <div data-dc-tpl="29" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid rgb(228, 228, 231); padding-bottom: 12px;">
+      <div data-dc-tpl="30" role="tablist" aria-label="Colección" style="display: flex; background: rgb(244, 244, 245); padding: 3px; border-radius: 8px;">
+        
+          <button data-dc-tpl="32" type="button" role="tab" aria-selected="true" style="height: 30px; padding: 0px 12px; border: 0px; border-radius: 6px; font-style: inherit; font-variant: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-language-override: inherit; font-size: 13px; cursor: pointer; background: rgb(255, 255, 255); font-weight: 500; box-shadow: rgba(0, 0, 0, 0.08) 0px 1px 2px;"><span class="sc-interp">De alumnos</span> <span data-dc-tpl="33" style="color: rgb(113, 113, 122);"><span class="sc-interp">14</span></span></button>
+        
+          <button data-dc-tpl="32" type="button" role="tab" aria-selected="false" style="height: 30px; padding: 0px 12px; border: 0px; border-radius: 6px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-language-override: inherit; font-size: 13px; cursor: pointer; background: transparent; color: rgb(82, 82, 91);"><span class="sc-interp">Plantillas</span> <span data-dc-tpl="33" style="color: rgb(113, 113, 122);"><span class="sc-interp">0</span></span></button>
+        
+          <button data-dc-tpl="32" type="button" role="tab" aria-selected="false" style="height: 30px; padding: 0px 12px; border: 0px; border-radius: 6px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-language-override: inherit; font-size: 13px; cursor: pointer; background: transparent; color: rgb(82, 82, 91);"><span class="sc-interp">Borradores</span> <span data-dc-tpl="33" style="color: rgb(113, 113, 122);"><span class="sc-interp">0</span></span></button>
+        
+          <button data-dc-tpl="32" type="button" role="tab" aria-selected="false" style="height: 30px; padding: 0px 12px; border: 0px; border-radius: 6px; font-style: inherit; font-variant: inherit; font-weight: inherit; font-stretch: inherit; line-height: inherit; font-family: inherit; font-optical-sizing: inherit; font-size-adjust: inherit; font-kerning: inherit; font-feature-settings: inherit; font-variation-settings: inherit; font-language-override: inherit; font-size: 13px; cursor: pointer; background: transparent; color: rgb(82, 82, 91);"><span class="sc-interp">Archivadas</span> <span data-dc-tpl="33" style="color: rgb(113, 113, 122);"><span class="sc-interp">0</span></span></button>
+        
+      </div>
+      <label data-dc-tpl="34" style="margin-left: auto; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0px 10px; border: 1px solid rgb(228, 228, 231); border-radius: 8px; color: rgb(113, 113, 122); width: 240px; max-width: 100%; box-sizing: border-box;">
+        <svg data-dc-tpl="35" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="36" cx="11" cy="11" r="8"></circle><path data-dc-tpl="37" d="m21 21-4.3-4.3"></path></svg>
+        <input data-dc-tpl="38" aria-label="Buscar rutina" placeholder="Buscar por nombre o alumno" style="border: 0px; outline: 0px; font: inherit; flex: 1 1 0%; min-width: 0px;">
+      </label>
+      <select data-dc-tpl="39" aria-label="Objetivo" style="height: 36px; padding: 0px 10px; border: 1px solid rgb(228, 228, 231); border-radius: 8px; font: inherit; background: rgb(255, 255, 255);"><option data-dc-tpl="40">Todos los objetivos</option><option data-dc-tpl="41">Fuerza</option><option data-dc-tpl="42">Hipertrofia</option><option data-dc-tpl="43">Rehabilitación</option><option data-dc-tpl="44">Potencia</option><option data-dc-tpl="45">Peso corporal</option></select>
+    </div>
+
+    
+
+    <div data-dc-tpl="56" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;">
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Hipertrofia Torso-Pierna v2</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Lucas Giménez</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Hipertrofia Torso-Pierna v2" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Hipertrofia</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(240, 253, 244); color: rgb(22, 101, 52); border: 1px solid rgb(187, 247, 208);"><span class="sc-interp">Vigente</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">4 días</span></span><span data-dc-tpl="73"><span class="sc-interp">14 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 10 días</span></span>
+          </div>
+        </article>
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Fuerza base</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Celeste Gerardi</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Fuerza base" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Fuerza</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(240, 253, 244); color: rgb(22, 101, 52); border: 1px solid rgb(187, 247, 208);"><span class="sc-interp">Vigente</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">3 días</span></span><span data-dc-tpl="73"><span class="sc-interp">12 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 6 días</span></span>
+          </div>
+        </article>
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Adaptación 4 semanas</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Facundo Medina</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Adaptación 4 semanas" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Rehabilitación</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(240, 253, 244); color: rgb(22, 101, 52); border: 1px solid rgb(187, 247, 208);"><span class="sc-interp">Vigente</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">3 días</span></span><span data-dc-tpl="73"><span class="sc-interp">9 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 3 días</span></span>
+          </div>
+        </article>
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Potencia tren inferior</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Sofía Albarracín</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Potencia tren inferior" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Potencia</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(255, 251, 235); color: rgb(146, 64, 14); border: 1px solid rgb(253, 230, 138);"><span class="sc-interp">Vence en 2 d</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">3 días</span></span><span data-dc-tpl="73"><span class="sc-interp">10 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 28 días</span></span>
+          </div>
+        </article>
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Funcional 2x</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Valentina Quiroga</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Funcional 2x" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Peso corporal</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(240, 253, 244); color: rgb(22, 101, 52); border: 1px solid rgb(187, 247, 208);"><span class="sc-interp">Vigente</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">2 días</span></span><span data-dc-tpl="73"><span class="sc-interp">8 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 12 días</span></span>
+          </div>
+        </article>
+      
+        <article data-dc-tpl="58" style="border: 1px solid rgb(228, 228, 231); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <div data-dc-tpl="59" style="display: flex; align-items: start; gap: 8px;">
+            <div data-dc-tpl="60" style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 0%; min-width: 0px;">
+              <h3 data-dc-tpl="61" style="margin: 0px; font-size: 15px; font-weight: 600;"><span class="sc-interp">Hipertrofia full body</span></h3>
+              <span data-dc-tpl="62" style="font-size: 13px; color: rgb(82, 82, 91);"><span class="sc-interp">Camila Navarro</span></span>
+            </div>
+            <button data-dc-tpl="63" type="button" aria-label="Acciones para Hipertrofia full body" style="width: 32px; height: 32px; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="64" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52525b" stroke-width="2" aria-hidden="true"><circle data-dc-tpl="65" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="66" cx="19" cy="12" r="1"></circle><circle data-dc-tpl="67" cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+          <div data-dc-tpl="68" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span data-dc-tpl="69" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(244, 244, 245); border: 1px solid rgb(228, 228, 231);"><span class="sc-interp">Hipertrofia</span></span>
+            <span data-dc-tpl="70" style="font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: rgb(255, 251, 235); color: rgb(146, 64, 14); border: 1px solid rgb(253, 230, 138);"><span class="sc-interp">Vence en 5 d</span></span>
+          </div>
+          <div data-dc-tpl="71" style="display: flex; gap: 16px; font-size: 13px; color: rgb(63, 63, 70); border-top: 1px solid rgb(244, 244, 245); padding-top: 10px;">
+            <span data-dc-tpl="72"><span class="sc-interp">3 días</span></span><span data-dc-tpl="73"><span class="sc-interp">11 ejercicios</span></span><span data-dc-tpl="74" style="margin-left: auto; color: rgb(113, 113, 122);"><span class="sc-interp">hace 25 días</span></span>
+          </div>
+        </article>
+      
+    </div>
+  </main></div>
+</body></html>
