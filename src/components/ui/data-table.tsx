@@ -44,6 +44,8 @@ export interface DataTableProps<TData> {
   emptyDescription?: string;
   className?: string;
   onRowClick?: (row: TData) => void;
+  tableTestId?: string;
+  rowTestId?: string | ((row: TData, index: number) => string);
 }
 
 export function DataTable<TData>({
@@ -57,6 +59,8 @@ export function DataTable<TData>({
   emptyDescription = "No se encontraron elementos que coincidan con la búsqueda.",
   className,
   onRowClick,
+  tableTestId,
+  rowTestId,
 }: DataTableProps<TData>) {
   const [pageIndex, setPageIndex] = React.useState(0);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -154,7 +158,7 @@ export function DataTable<TData>({
       )}
 
       <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden">
-        <Table>
+        <Table data-testid={tableTestId}>
           <TableHeader>
             <TableRow>
               {columns.map((col, idx) => {
@@ -220,6 +224,11 @@ export function DataTable<TData>({
               paginatedData.map((row, rowIdx) => (
                 <TableRow
                   key={rowIdx}
+                  data-testid={
+                    typeof rowTestId === "function"
+                      ? rowTestId(row, rowIdx)
+                      : rowTestId
+                  }
                   onClick={() => onRowClick?.(row)}
                   className={cn(
                     onRowClick && "cursor-pointer hover:bg-muted/60 transition-colors",

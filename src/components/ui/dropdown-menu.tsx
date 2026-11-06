@@ -60,7 +60,7 @@ export function DropdownMenu({
 export const DropdownMenuTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
->(({ className, children, onClick, onKeyDown, ...props }, ref) => {
+>(({ className, children, onClick, onKeyDown, asChild, ...props }, ref) => {
   const { open, setOpen, triggerRef } = useDropdownMenu();
 
   const handleRef = (node: HTMLButtonElement | null) => {
