@@ -704,6 +704,7 @@ export function derivarKpisNegocio(
     ingresos_online: ingresosOnline,
 
     alumnos_activos: activos.size,
+    cantActivas: activos.size,
     alumnos_al_dia: alumnosAlDia,
     alumnosAlDia,
     alumnos_morosos: alumnosMorosos,

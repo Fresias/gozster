@@ -137,6 +137,7 @@ export interface KpisNegocio {
 
   // Alumnos y estados:
   alumnos_activos: number;
+  cantActivas?: number;
   alumnos_al_dia: number;
   alumnosAlDia: number;
   alumnos_morosos: number;
@@ -190,6 +191,7 @@ export function mapearRpcAKpis(
       ingresos_online: null,
 
       alumnos_activos: activos,
+      cantActivas: activos,
       alumnos_al_dia: alDia,
       alumnosAlDia: alDia,
       alumnos_morosos: morosos,
@@ -265,6 +267,7 @@ export function mapearRpcAKpis(
     ingresos_online: online,
 
     alumnos_activos: activos,
+    cantActivas: activos,
     alumnos_al_dia: alDia,
     alumnosAlDia: alDia,
     alumnos_morosos: morosos,
