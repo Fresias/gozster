@@ -20,6 +20,7 @@ export interface SegmentedProps<T extends string = string> {
   className?: string;
   name?: string;
   "aria-label"?: string;
+  "data-testid"?: string;
 }
 
 const sizeContainerClasses: Record<SegmentedSize, string> = {
@@ -43,6 +44,7 @@ export function Segmented<T extends string = string>({
   className,
   name,
   "aria-label": ariaLabel,
+  "data-testid": dataTestId,
 }: SegmentedProps<T>) {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -98,6 +100,7 @@ export function Segmented<T extends string = string>({
       ref={containerRef}
       role="tablist"
       aria-label={ariaLabel || name}
+      data-testid={dataTestId}
       className={cn(
         "inline-flex items-center bg-muted/60 border border-border/50 text-muted-foreground select-none",
         sizeContainerClasses[size],
@@ -115,6 +118,7 @@ export function Segmented<T extends string = string>({
             type="button"
             role="tab"
             data-value={option.value}
+            data-testid={dataTestId ? `${dataTestId}-${option.value}` : `segmented-option-${option.value}`}
             aria-selected={isSelected}
             tabIndex={isSelected ? 0 : -1}
             disabled={isOptionDisabled}
