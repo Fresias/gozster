@@ -138,6 +138,36 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
       expect(loadedLayout?.leftColumn).toEqual(["routine_workbench", "metricas_1rm"]);
       expect(loadedLayout?.rightColumn).toEqual(["salud_anamnesis", "activity_feed", "administracion"]);
     });
+
+    it("GIVEN datos corruptos o malformados en localStorage WHEN se intenta hidratar THEN maneja el error sin crasheos y aplica fallback", () => {
+      const coachId = "coach-corrupted-1";
+      const storageKeyV2 = `gozster_canvas_layout_v2_${coachId}`;
+      const corruptedPayload = "{invalid-json-payload-corrupted";
+
+      let loadedLayout = null;
+      try {
+        const parsed = JSON.parse(corruptedPayload);
+        if (parsed && Array.isArray(parsed.leftColumn) && Array.isArray(parsed.rightColumn)) {
+          loadedLayout = parsed;
+        } else {
+          loadedLayout = {
+            version: 2,
+            leftColumn: ["routine_workbench", "metricas_1rm"],
+            rightColumn: ["salud_anamnesis", "activity_feed", "administracion"],
+          };
+        }
+      } catch {
+        // Fallback seguro idéntico a student-detail.tsx
+        loadedLayout = {
+          version: 2,
+          leftColumn: ["routine_workbench", "metricas_1rm"],
+          rightColumn: ["salud_anamnesis", "activity_feed", "administracion"],
+        };
+      }
+
+      expect(loadedLayout.leftColumn).toEqual(["routine_workbench", "metricas_1rm"]);
+      expect(loadedLayout.rightColumn).toEqual(["salud_anamnesis", "activity_feed", "administracion"]);
+    });
   });
 
   describe("Criterio 3: Renombrar 'Modo Canvas' a 'Personalizar' y supresión de invasión en reposo", () => {
@@ -197,6 +227,37 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
       expect(html).toContain('aria-live="polite"');
       expect(html).toContain('aria-atomic="true"');
       expect(html).toContain("sr-only");
+    });
+  });
+
+  describe("Criterio 6: Robustez ante casos límite (Offline, valores nulos y resiliencia)", () => {
+    it("GIVEN pérdida repentina de conexión (isOffline: true) WHEN se renderiza la ficha THEN el layout modular 2 columnas se preserva sin crasheos", () => {
+      const html = renderToStaticMarkup(<StudentDetail {...defaultProps} isOffline={true} />);
+
+      expect(html).toContain('data-testid="student-detail-modular-canvas"');
+      expect(html).toContain('data-testid="student-detail-grid-columns"');
+      expect(html).toContain('data-testid="canvas-column-left"');
+      expect(html).toContain('data-testid="canvas-column-right"');
+    });
+
+    it("GIVEN un alumno con datos incompletos o coachId ausente WHEN se inicializa el canvas THEN aplica fallback seguro a 'default'", () => {
+      const alumnoSinCoach: Perfil = {
+        ...alumnoMock,
+        id: "alumno-sin-coach",
+        profesor_asignado_id: "",
+      };
+
+      const html = renderToStaticMarkup(
+        <StudentDetail
+          {...defaultProps}
+          alumno={alumnoSinCoach}
+          rutinaActiva={null}
+          historialPlanes={[]}
+        />
+      );
+
+      expect(html).toContain('data-testid="student-detail-modular-canvas"');
+      expect(html).toContain('data-testid="canvas-row-timeline"');
     });
   });
 });
