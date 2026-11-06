@@ -2592,6 +2592,15 @@ export function StudentDetail({
                 ? () => onQuickSwap(chatActivePainAlert)
                 : undefined
             }
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            alumno={alumno}
+            alumnoId={alumno.id}
+            alumnoNombre={alumno.nombre_completo}
+            alertasDolor={chatActivePainAlert ? [chatActivePainAlert] : []}
+            historialCargas={effectiveHistorialCargas}
+            historialPlanes={historialPlanes}
+            onOpenHistoricalLoads={onOpenHistoricalLoads}
             childrenTabs={routineTabsNode}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
