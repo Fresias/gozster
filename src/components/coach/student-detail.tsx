@@ -2607,6 +2607,9 @@ export function StudentDetail({
             painAlertsNode={<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />}
             evaDolorActual={chatActivePainAlert ? 5 : 0}
             zonaDolorActual={chatActivePainAlert?.zona || "Ninguna"}
+            reporteId={chatActivePainAlert?.id}
+            ejercicioNombre={chatActivePainAlert?.ejercicioNombre}
+            fechaReporte={chatActivePainAlert?.fecha}
             onQuickSwap={
               onQuickSwap && chatActivePainAlert
                 ? () => onQuickSwap(chatActivePainAlert)
