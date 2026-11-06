@@ -385,6 +385,7 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
     detalle: "[Dolor: MODERADO] Rodilla - Pinchazo en la fase concéntrica al subir",
     fecha: "Hoy, 10:45",
     resolved: false,
+    zona: "Rodilla",
   },
   {
     id: "demo-alert-lucas-hombro",
@@ -396,6 +397,7 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
     detalle: "[Dolor: LEVE] Hombro - Molestia anterior al descender la barra",
     fecha: "Ayer, 18:30",
     resolved: false,
+    zona: "Hombro",
   },
   {
     id: "demo-alert-facundo-lumbar",
@@ -407,6 +409,7 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
     detalle: "[Dolor: MODERADO] Lumbar - Fatiga aguda en zona baja de espalda",
     fecha: "Hace 2 días",
     resolved: false,
+    zona: "Lumbar",
   },
   {
     id: "demo-alert-camila-codo",
@@ -418,6 +421,7 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
     detalle: "[Dolor: LEVE] Codo - Sobrecarga en tendón de tríceps",
     fecha: "Hace 4 días",
     resolved: false,
+    zona: "Codo",
   },
   {
     id: "demo-alert-martina-rodilla",
@@ -429,6 +433,7 @@ export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
     detalle: "[Dolor: AGUDO] Rodilla - Molestia patelar en flexión profunda",
     fecha: "Hace 5 días",
     resolved: false,
+    zona: "Rodilla",
   },
 ];
 
