@@ -1,0 +1,159 @@
+import * as React from "react";
+import { describe, expect, it, beforeEach } from "vitest";
+import { renderToString } from "react-dom/server";
+import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
+import { useCobrosStore } from "@/store/use-cobros-store";
+import type { CobroItem } from "@/store/use-cobros-store";
+import type { DolorActivo } from "@/lib/dolor";
+
+describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA y Cuotas)", () => {
+  beforeEach(() => {
+    useCobrosStore.getState().resetDemoDataset();
+  });
+
+  it("GIVEN un reporte de molestia activo con EVA = 7 WHEN el coach ingresa a /studio THEN la alerta encabeza la lista con badge semántico 'Alto', zona articular y ejercicio", () => {
+    const molestiaEva7: Partial<DolorActivo> = {
+      id: "reporte-eva-7",
+      alumno_id: "alumno-test-1",
+      alumno_nombre: "Sofía Martínez",
+      zona_articular: "Rodilla",
+      ejercicio_nombre: "Sentadilla Búlgara",
+      eva: 7,
+      severidad: "AGUDO",
+      nivel: "alto",
+      estado: "PENDIENTE",
+      fecha_reporte: "Hoy, 09:30",
+    };
+
+    const cuotaVencida: CobroItem = {
+      id: "cobro-test-1",
+      contratacionId: "cont-test-1",
+      alumnoId: "alumno-test-2",
+      alumnoNombre: "Lucas Gómez",
+      alumnoEmail: "lucas@example.com",
+      alumnoTelefono: null,
+      servicioNombre: "Musculación Libre",
+      actividad: "MUSCULACION",
+      diaVencimiento: 1,
+      monto: 35000,
+      montoLista: 35000,
+      fechaVencimiento: "2026-11-01",
+      estado: "VENCIDO",
+      ultimoPago: {
+        id: "pago-1",
+        fechaPago: "2026-10-01",
+        monto: 35000,
+        medioPago: "EFECTIVO",
+        confirmadoPor: "admin",
+      },
+    };
+
+    const html = renderToString(
+      <ParaRevisarHoy
+        molestias={[molestiaEva7 as DolorActivo]}
+        cuotasVencidas={[cuotaVencida]}
+      />
+    );
+
+    // Contenedor y título
+    expect(html).toContain('data-testid="para-revisar-hoy-container"');
+    expect(html).toContain("Para revisar hoy");
+
+    // La alerta encabeza la lista
+    expect(html).toContain("Sofía Martínez");
+    expect(html).toContain("Rodilla");
+    expect(html).toContain("Sentadilla Búlgara");
+    expect(html).toContain("EVA 7/10");
+    expect(html).toContain("Alto");
+
+    // Posicionamiento relativo: la molestia aparece ANTES de la cuota vencida
+    const posMolestia = html.indexOf("Sofía Martínez");
+    const posCuota = html.indexOf("Lucas Gómez");
+    expect(posMolestia).toBeGreaterThan(-1);
+    expect(posCuota).toBeGreaterThan(-1);
+    expect(posMolestia).toBeLessThan(posCuota);
+  });
+
+  it("GIVEN un atleta con cuota vencida y sin molestias THEN se lista inmediatamente debajo de las alertas de molestia activa", () => {
+    const cuotaVencida: CobroItem = {
+      id: "cobro-test-vencida",
+      contratacionId: "cont-test-vencida",
+      alumnoId: "alumno-test-3",
+      alumnoNombre: "Martín Benítez",
+      alumnoEmail: "martin@example.com",
+      alumnoTelefono: null,
+      servicioNombre: "Funcional 3x Semana",
+      actividad: "FUNCIONAL",
+      diaVencimiento: 3,
+      monto: 28000,
+      montoLista: 28000,
+      fechaVencimiento: "2026-11-03",
+      estado: "VENCIDO",
+      ultimoPago: {
+        id: "pago-2",
+        fechaPago: "2026-10-03",
+        monto: 28000,
+        medioPago: "TRANSFERENCIA",
+        confirmadoPor: "admin",
+      },
+    };
+
+    const html = renderToString(
+      <ParaRevisarHoy
+        molestias={[]}
+        cuotasVencidas={[cuotaVencida]}
+      />
+    );
+
+    expect(html).toContain("Martín Benítez");
+    expect(html).toContain("Vencido");
+    expect(html).toContain("$28.000");
+    expect(html).toContain("Funcional 3x Semana");
+    expect(html).toContain("2026-11-03");
+  });
+
+  it("GIVEN 0 alertas o cuotas vencidas pendientes THEN se renderiza el EmptyState con el texto exacto 'Nada urgente por hoy.'", () => {
+    const html = renderToString(
+      <ParaRevisarHoy
+        molestias={[]}
+        cuotasVencidas={[]}
+      />
+    );
+
+    expect(html).toContain('data-testid="para-revisar-hoy-empty"');
+    expect(html).toContain("Nada urgente por hoy.");
+    expect(html).toContain("0 pendientes");
+  });
+
+  it("GIVEN múltiples reportes de molestia THEN los ordena por severidad clínica (EVA 8-10 primero, luego EVA 4-7)", () => {
+    const molestias: Partial<DolorActivo>[] = [
+      {
+        id: "mol-eva-5",
+        alumno_nombre: "Alumno Moderado",
+        zona_articular: "Hombro",
+        ejercicio_nombre: "Press Militar",
+        eva: 5,
+      },
+      {
+        id: "mol-eva-9",
+        alumno_nombre: "Alumno Crítico",
+        zona_articular: "Lumbar",
+        ejercicio_nombre: "Peso Muerto",
+        eva: 9,
+      },
+    ];
+
+    const html = renderToString(
+      <ParaRevisarHoy molestias={molestias as DolorActivo[]} cuotasVencidas={[]} />
+    );
+
+    const posCritico = html.indexOf("Alumno Crítico");
+    const posModerado = html.indexOf("Alumno Moderado");
+    expect(posCritico).toBeGreaterThan(-1);
+    expect(posModerado).toBeGreaterThan(-1);
+    expect(posCritico).toBeLessThan(posModerado);
+
+    expect(html).toContain("Alto");
+    expect(html).toContain("Moderado");
+  });
+});

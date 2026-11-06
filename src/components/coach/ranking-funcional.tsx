@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { claveDia, horaLocal } from "@/lib/clases";
+import { cn } from "@/lib/utils";
 import { useClasesStore } from "@/store/use-clases-store";
 import {
   ResultadoRanking,
@@ -12,8 +13,36 @@ import {
 } from "@/store/use-ranking-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { Ejercicio, Perfil } from "@/types/database.types";
-import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, generarDemoReservasIniciales } from "@/services/coach-demo-dataset";
 import { REAL_EJERCICIOS } from "@/services/real-mynter-data";
+
+/**
+ * Chip semántico neutro de categoría (Masculino / Femenino).
+ * Garantiza contraste de color >= 4.5:1 (WCAG AA) en modo claro y oscuro,
+ * sin recurrir a tonalidades pastel inaccesibles.
+ */
+export function CategoryChip({
+  categoria,
+  className,
+}: {
+  categoria: "Masculino" | "Femenino" | "M" | "F";
+  className?: string;
+}) {
+  const isMale = categoria === "Masculino" || categoria === "M";
+  const label = isMale ? "Masculino" : "Femenino";
+  return (
+    <span
+      data-testid={`chip-categoria-${isMale ? "masculino" : "femenino"}`}
+      className={cn(
+        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold select-none border",
+        "bg-zinc-100 text-zinc-900 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:border-zinc-700",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
 
 interface RankingFuncionalProps {
   initialClaseId?: string | null;
@@ -21,6 +50,45 @@ interface RankingFuncionalProps {
   alumnosDisponibles?: Perfil[];
   ejerciciosDisponibles?: Ejercicio[];
 }
+
+type SortCol = "posicion" | "atleta" | "carga" | "peso_corporal" | "ratio";
+type SortDir = "asc" | "desc";
+
+const DEMO_PREFILL_DATA: Record<
+  string,
+  { peso_kg: string; reps: string; peso_corporal_kg: string; sexo: "M" | "F" }
+> = {
+  "demo-alumno-08-camila": {
+    peso_kg: "10",
+    reps: "3",
+    peso_corporal_kg: "62",
+    sexo: "F",
+  },
+  "demo-alumno-01-lucas": {
+    peso_kg: "20",
+    reps: "3",
+    peso_corporal_kg: "78",
+    sexo: "M",
+  },
+  "demo-alumno-05-mateo": {
+    peso_kg: "15",
+    reps: "4",
+    peso_corporal_kg: "84",
+    sexo: "M",
+  },
+  "demo-alumno-ext-mie-4": {
+    peso_kg: "5",
+    reps: "5",
+    peso_corporal_kg: "58",
+    sexo: "F",
+  },
+  "demo-alumno-ext-mie-5": {
+    peso_kg: "12.5",
+    reps: "3",
+    peso_corporal_kg: "65",
+    sexo: "F",
+  },
+};
 
 export function RankingFuncional({
   initialClaseId,
@@ -34,13 +102,13 @@ export function RankingFuncional({
     clases,
     agendaReservas,
     anotarAlumnoCoach,
-    cargarAgenda,
   } = useClasesStore();
 
   const {
     claseIdSeleccionada,
     ejercicioIdSeleccionado,
     prs,
+    perfilesActualizados,
     guardandoPrId,
     aviso,
     error,
@@ -48,6 +116,7 @@ export function RankingFuncional({
     setEjercicioId,
     cargarPrsClase,
     registrarPr,
+    guardarFilaRegistro,
     actualizarPerfilAlumno,
     calcularRanking,
     limpiarAviso,
@@ -55,10 +124,15 @@ export function RankingFuncional({
 
   // Alumnos y ejercicios combinados (props o fallback demo/real)
   const todosAlumnos: Perfil[] = React.useMemo(() => {
+    const defaultList = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
     if (alumnosDisponibles && alumnosDisponibles.length > 0) {
-      return alumnosDisponibles;
+      const mapa = new Map(defaultList.map((a) => [a.id, a]));
+      for (const a of alumnosDisponibles) {
+        mapa.set(a.id, a);
+      }
+      return Array.from(mapa.values());
     }
-    return [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
+    return defaultList;
   }, [alumnosDisponibles]);
 
   const listaEjercicios: Ejercicio[] = React.useMemo(() => {
@@ -99,8 +173,8 @@ export function RankingFuncional({
   const activeEjercicioId =
     ejercicioIdSeleccionado ??
     initialEjercicioId ??
-    (listaEjercicios.find((e) => e.nombre.toLowerCase().includes("dominadas"))?.id ||
-      listaEjercicios.find((e) => e.nombre.toLowerCase().includes("banca"))?.id ||
+    (listaEjercicios.find((e) => e.nombre.toLowerCase().includes("dominadas con carga") || e.id === "ej-dominadas-c-carga")?.id ||
+      listaEjercicios.find((e) => e.nombre.toLowerCase().includes("dominadas"))?.id ||
       listaEjercicios[0]?.id ||
       null);
 
@@ -138,13 +212,20 @@ export function RankingFuncional({
     );
   }, [listaEjercicios, activeEjercicioId]);
 
+  const reservasClase = React.useMemo(() => {
+    if (agendaReservas && agendaReservas.length > 0) {
+      return agendaReservas;
+    }
+    return generarDemoReservasIniciales();
+  }, [agendaReservas]);
+
   // Participantes anotados en la clase seleccionada
   const participantes = React.useMemo(() => {
     if (!activeClaseId) return [];
-    return agendaReservas.filter(
+    return reservasClase.filter(
       (r) => r.clase_id === activeClaseId && (r.estado === "ANOTADO" || r.estado === "AUSENTE"),
     );
-  }, [agendaReservas, activeClaseId]);
+  }, [reservasClase, activeClaseId]);
 
   // Alumnos que aún no participan para poder agregarlos
   const alumnosNoParticipantes = React.useMemo(() => {
@@ -166,70 +247,100 @@ export function RankingFuncional({
     Record<string, { peso_corporal_kg: string; sexo: "M" | "F" }>
   >({});
 
-  // Sincronizar inputs de PR con valores existentes
+  // Estado de tracking de fila guardada localmente
+  const [filasGuardadasLocal, setFilasGuardadasLocal] = React.useState<Record<string, boolean>>({});
+
+  // Sincronizar inputs de PR y perfil con valores existentes o prefill
   React.useEffect(() => {
-    if (!claseIdSeleccionada || !ejercicioIdSeleccionado) return;
-    const nuevoMap: Record<string, { peso_kg: string; reps: string }> = {};
+    if (!activeClaseId || !activeEjercicioId) return;
+    const nuevoMapPr: Record<string, { peso_kg: string; reps: string }> = {};
+    const nuevoMapPerfil: Record<string, { peso_corporal_kg: string; sexo: "M" | "F" }> = {};
+
     for (const part of participantes) {
       const prExistente = prs.find(
         (p) =>
-          p.clase_id === claseIdSeleccionada &&
+          p.clase_id === activeClaseId &&
           p.alumno_id === part.alumno_id &&
-          p.ejercicio_id === ejercicioIdSeleccionado,
+          p.ejercicio_id === activeEjercicioId,
       );
+
+      const prefill = DEMO_PREFILL_DATA[part.alumno_id];
+      const alumno = todosAlumnos.find((a) => a.id === part.alumno_id);
+      const perfilStore = perfilesActualizados[part.alumno_id];
+
+      // PR input
       if (prExistente) {
-        nuevoMap[part.alumno_id] = {
+        nuevoMapPr[part.alumno_id] = {
           peso_kg: String(prExistente.peso_kg),
           reps: String(prExistente.reps),
         };
+      } else if (prefill) {
+        nuevoMapPr[part.alumno_id] = {
+          peso_kg: prefill.peso_kg,
+          reps: prefill.reps,
+        };
       }
+
+      // Perfil input
+      const pesoCorp =
+        perfilStore?.peso_corporal_kg ??
+        alumno?.peso_corporal_kg ??
+        (prefill ? parseFloat(prefill.peso_corporal_kg) : undefined);
+      const sexoVal =
+        perfilStore?.sexo ??
+        alumno?.sexo ??
+        prefill?.sexo ??
+        "M";
+
+      nuevoMapPerfil[part.alumno_id] = {
+        peso_corporal_kg: pesoCorp ? String(pesoCorp) : "",
+        sexo: sexoVal,
+      };
     }
-    setPrInputs((prev) => ({ ...nuevoMap, ...prev }));
-  }, [activeClaseId, activeEjercicioId, participantes, prs]);
 
-  // Manejo de guardado de PR
-  const handleGuardarPr = async (alumnoId: string) => {
+    setPrInputs((prev) => ({ ...nuevoMapPr, ...prev }));
+    setPerfilInputs((prev) => ({ ...nuevoMapPerfil, ...prev }));
+  }, [activeClaseId, activeEjercicioId, participantes, prs, todosAlumnos, perfilesActualizados]);
+
+  // Fila unificada de guardado rápido: persiste peso corporal, carga y reps simultáneamente
+  const handleGuardarFila = async (alumnoId: string) => {
     if (!activeClaseId || !activeEjercicioId) return;
-    const inputVal = prInputs[alumnoId];
-    const peso = parseFloat(inputVal?.peso_kg ?? "0");
-    const reps = parseInt(inputVal?.reps ?? "1", 10) || 1;
 
-    if (isNaN(peso) || peso < 0) {
-      alert("Por favor ingresá un peso válido (mayor o igual a 0 kg).");
+    const inputVal = prInputs[alumnoId] ?? { peso_kg: "", reps: "1" };
+    const perfilInput = perfilInputs[alumnoId] ?? { peso_corporal_kg: "", sexo: "M" };
+
+    const pesoPr = parseFloat(inputVal.peso_kg);
+    const repsPr = parseInt(inputVal.reps, 10) || 1;
+    const pesoCorporal = perfilInput.peso_corporal_kg
+      ? parseFloat(perfilInput.peso_corporal_kg)
+      : undefined;
+    const sexo = perfilInput.sexo;
+
+    if (isNaN(pesoPr) || pesoPr < 0) {
+      alert("Por favor ingresá una carga válida (mayor o igual a 0 kg).");
       return;
     }
 
-    await registrarPr({
-      clase_id: activeClaseId,
-      alumno_id: alumnoId,
-      ejercicio_id: activeEjercicioId,
-      peso_kg: peso,
-      reps,
-    });
-  };
-
-  // Manejo de actualización de perfil inline (peso corporal y sexo)
-  const handleGuardarPerfil = async (alumnoId: string) => {
-    const p = perfilInputs[alumnoId];
-    if (!p) return;
-    const peso = parseFloat(p.peso_corporal_kg);
-    if (isNaN(peso) || peso <= 0 || peso > 500) {
+    if (
+      pesoCorporal !== undefined &&
+      (isNaN(pesoCorporal) || pesoCorporal <= 0 || pesoCorporal > 500)
+    ) {
       alert("El peso corporal debe ser un número positivo (ej: 75.5 kg).");
       return;
     }
-    if (p.sexo !== "M" && p.sexo !== "F") {
-      alert("Seleccioná el sexo biológico del alumno ('M' o 'F') para el ranking.");
-      return;
-    }
 
-    const res = await actualizarPerfilAlumno(alumnoId, peso, p.sexo);
+    const res = await guardarFilaRegistro({
+      clase_id: activeClaseId,
+      alumno_id: alumnoId,
+      ejercicio_id: activeEjercicioId,
+      peso_kg: pesoPr,
+      reps: repsPr,
+      peso_corporal_kg: pesoCorporal,
+      sexo,
+    });
+
     if (res.ok) {
-      // Actualizar también en la lista local de alumnos para recalcular inmediatamente
-      const idx = todosAlumnos.findIndex((a) => a.id === alumnoId);
-      if (idx !== -1) {
-        todosAlumnos[idx]!.peso_corporal_kg = peso;
-        todosAlumnos[idx]!.sexo = p.sexo;
-      }
+      setFilasGuardadasLocal((prev) => ({ ...prev, [alumnoId]: true }));
     }
   };
 
@@ -253,9 +364,73 @@ export function RankingFuncional({
       alumnos: todosAlumnos,
       reservas: participantes,
     });
-  }, [activeClaseId, activeEjercicioId, calcularRanking, todosAlumnos, participantes, prs]);
+  }, [activeClaseId, activeEjercicioId, calcularRanking, todosAlumnos, participantes, prs, perfilesActualizados]);
 
-  // Filtro de búsqueda de ejercicios y estado de combobox desplegable
+  // Conteo de participantes con récord cargado
+  const participantesConRecord = React.useMemo(() => {
+    if (!activeClaseId || !activeEjercicioId) return 0;
+    const idsConPr = new Set(
+      prs
+        .filter((p) => p.clase_id === activeClaseId && p.ejercicio_id === activeEjercicioId)
+        .map((p) => p.alumno_id),
+    );
+    return participantes.filter((p) => idsConPr.has(p.alumno_id)).length;
+  }, [activeClaseId, activeEjercicioId, prs, participantes]);
+
+  // Estado y accesibilidad por teclado en ordenamiento de columnas
+  const [sortColHombres, setSortColHombres] = React.useState<SortCol>("ratio");
+  const [sortDirHombres, setSortDirHombres] = React.useState<SortDir>("desc");
+
+  const [sortColMujeres, setSortColMujeres] = React.useState<SortCol>("ratio");
+  const [sortDirMujeres, setSortDirMujeres] = React.useState<SortDir>("desc");
+
+  const handleSortHombres = (col: SortCol) => {
+    if (sortColHombres === col) {
+      setSortDirHombres((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColHombres(col);
+      setSortDirHombres(col === "atleta" ? "asc" : "desc");
+    }
+  };
+
+  const handleSortMujeres = (col: SortCol) => {
+    if (sortColMujeres === col) {
+      setSortDirMujeres((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColMujeres(col);
+      setSortDirMujeres(col === "atleta" ? "asc" : "desc");
+    }
+  };
+
+  const rankingHombresOrdenados = React.useMemo(() => {
+    const list = [...ranking.hombres];
+    list.sort((a, b) => {
+      let diff = 0;
+      if (sortColHombres === "ratio") diff = (a.ratio ?? 0) - (b.ratio ?? 0);
+      else if (sortColHombres === "carga") diff = a.peso_kg - b.peso_kg;
+      else if (sortColHombres === "peso_corporal") diff = (a.peso_corporal_kg ?? 0) - (b.peso_corporal_kg ?? 0);
+      else if (sortColHombres === "atleta") diff = a.nombre_completo.localeCompare(b.nombre_completo);
+      else if (sortColHombres === "posicion") diff = (a.posicion ?? 0) - (b.posicion ?? 0);
+      return sortDirHombres === "asc" ? diff : -diff;
+    });
+    return list;
+  }, [ranking.hombres, sortColHombres, sortDirHombres]);
+
+  const rankingMujeresOrdenadas = React.useMemo(() => {
+    const list = [...ranking.mujeres];
+    list.sort((a, b) => {
+      let diff = 0;
+      if (sortColMujeres === "ratio") diff = (a.ratio ?? 0) - (b.ratio ?? 0);
+      else if (sortColMujeres === "carga") diff = a.peso_kg - b.peso_kg;
+      else if (sortColMujeres === "peso_corporal") diff = (a.peso_corporal_kg ?? 0) - (b.peso_corporal_kg ?? 0);
+      else if (sortColMujeres === "atleta") diff = a.nombre_completo.localeCompare(b.nombre_completo);
+      else if (sortColMujeres === "posicion") diff = (a.posicion ?? 0) - (b.posicion ?? 0);
+      return sortDirMujeres === "asc" ? diff : -diff;
+    });
+    return list;
+  }, [ranking.mujeres, sortColMujeres, sortDirMujeres]);
+
+  // Buscador de ejercicios (combobox)
   const [filtroEjercicio, setFiltroEjercicio] = React.useState<string>("");
   const [comboboxAbierto, setComboboxAbierto] = React.useState<boolean>(false);
   const comboboxRef = React.useRef<HTMLDivElement>(null);
@@ -266,17 +441,13 @@ export function RankingFuncional({
         setComboboxAbierto(false);
       }
     }
-    if (comboboxAbierto) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => {
-        document.removeEventListener("mousedown", handleClickOutside);
-      };
-    }
-  }, [comboboxAbierto]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const ejerciciosFiltrados = React.useMemo(() => {
-    if (!filtroEjercicio.trim()) return listaEjercicios.slice(0, 50);
     const q = filtroEjercicio.toLowerCase().trim();
+    if (!q) return listaEjercicios.slice(0, 50);
     return listaEjercicios
       .filter((e) => e.nombre.toLowerCase().includes(q))
       .slice(0, 50);
@@ -290,12 +461,12 @@ export function RankingFuncional({
           <div className="flex items-center gap-2">
             <span className="text-2xl" aria-hidden="true">🏆</span>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Ranking Funcional</h1>
-            <Badge variant="purple" className="ml-2 font-bold uppercase tracking-wider">
+            <Badge variant="secondary" className="ml-2 font-semibold uppercase tracking-wider border border-border/80 text-foreground">
               PR / Peso Corporal
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Registrá los Personal Records (PR) de los alumnos de la clase y comparalos relativos a su peso corporal, divididos por sexo.
+            Cargá el récord de cada alumno; el ranking compara kg levantados por kg de peso corporal.
           </p>
         </div>
 
@@ -340,214 +511,194 @@ export function RankingFuncional({
         </div>
       )}
 
-      {/* Selectores de Clase y Ejercicio */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Barra superior de Clase, Ejercicio y Sumar Alumno (Página 9) */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
         {/* Selector de Clase */}
-        <Card className="border-border/80 bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center justify-between">
-              <span>1. Clase Seleccionada</span>
-              {claseActiva && (
-                <Badge
-                  variant={claseActiva.actividad === "FUNCIONAL" ? "default" : "secondary"}
-                  className="font-bold uppercase text-[10px]"
-                >
-                  {claseActiva.actividad}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <label htmlFor="select-clase" className="sr-only">Seleccionar Clase</label>
-            <select
-              id="select-clase"
-              data-testid="clase-select"
-              value={activeClaseId ?? ""}
-              onChange={(e) => setClaseId(e.target.value || null)}
-              className="w-full min-h-[44px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none"
-            >
-              <option value="">-- Seleccionar una clase --</option>
-              {listaClases.map((c) => {
-                const fecha = claveDia(c.inicio);
-                const hora = horaLocal(c.inicio);
-                const insc = agendaReservas.filter((r) => r.clase_id === c.id && r.estado === "ANOTADO").length;
-                return (
-                  <option key={c.id} value={c.id}>
-                    {fecha} · {hora} · {c.actividad} ({insc} inscriptos)
-                  </option>
-                );
-              })}
-            </select>
-            {claseActiva && (
-              <p className="text-xs text-muted-foreground">
-                Inscriptos: {participantes.length} alumno(s) {claseActiva.capacidad ? `/ ${claseActiva.capacidad} cupos` : ""}
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-5 space-y-1.5">
+          <label htmlFor="select-clase" className="text-xs font-bold text-foreground">
+            Clase
+          </label>
+          <select
+            id="select-clase"
+            data-testid="clase-select"
+            value={activeClaseId ?? ""}
+            onChange={(e) => setClaseId(e.target.value || null)}
+            className="w-full min-h-[42px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none transition-colors"
+          >
+            <option value="">-- Seleccionar una clase --</option>
+            {listaClases.map((c) => {
+              const fecha = claveDia(c.inicio);
+              const hora = horaLocal(c.inicio);
+              const insc = agendaReservas.filter((r) => r.clase_id === c.id && r.estado === "ANOTADO").length;
+              return (
+                <option key={c.id} value={c.id}>
+                  {fecha} · {hora} · {c.actividad} ({insc})
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
         {/* Selector de Ejercicio */}
-        <Card className="border-border/80 bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold flex items-center justify-between">
-              <span>2. Ejercicio de Prueba</span>
-              {ejercicioActivo && (
-                <Badge variant="outline" className="text-[10px]">
-                  {ejercicioActivo.musculos_principales?.[0] || "General"}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="relative" ref={comboboxRef} data-testid="ejercicio-combobox">
-              <button
-                type="button"
-                id="select-ejercicio"
-                data-testid="ejercicio-select"
-                aria-haspopup="listbox"
-                aria-expanded={comboboxAbierto}
-                onClick={() => setComboboxAbierto((prev) => !prev)}
-                className="w-full min-h-[44px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium flex items-center justify-between text-left focus:ring-2 focus:ring-primary focus:outline-none shadow-xs transition-colors hover:border-primary/50"
-              >
-                <span className={ejercicioActivo ? "text-foreground font-semibold truncate" : "text-muted-foreground truncate"}>
-                  {ejercicioActivo ? ejercicioActivo.nombre : "-- Seleccionar ejercicio --"}
-                </span>
-                <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                  {comboboxAbierto ? "▲" : "▼"}
-                </span>
-              </button>
+        <div className="lg:col-span-5 space-y-1.5">
+          <label htmlFor="select-ejercicio" className="text-xs font-bold text-foreground">
+            Ejercicio de Prueba
+          </label>
+          <div className="relative" ref={comboboxRef} data-testid="ejercicio-combobox">
+            <button
+              type="button"
+              id="select-ejercicio"
+              data-testid="ejercicio-select"
+              aria-haspopup="listbox"
+              aria-expanded={comboboxAbierto}
+              onClick={() => setComboboxAbierto((prev) => !prev)}
+              className="w-full min-h-[42px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium flex items-center justify-between text-left focus:ring-2 focus:ring-primary focus:outline-none shadow-xs transition-colors hover:border-primary/50"
+            >
+              <span className={ejercicioActivo ? "text-foreground font-semibold truncate" : "text-muted-foreground truncate"}>
+                {ejercicioActivo ? ejercicioActivo.nombre : "-- Seleccionar ejercicio --"}
+              </span>
+              <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                {comboboxAbierto ? "▲" : "▼"}
+              </span>
+            </button>
 
-              {comboboxAbierto && (
-                <div
-                  className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border/80 bg-card p-2 shadow-xl animate-in fade-in-0 zoom-in-95"
-                  data-testid="ejercicio-combobox-dropdown"
-                >
-                  <div className="p-1 pb-2 border-b border-border/60">
-                    <input
-                      type="text"
-                      placeholder="Buscar ejercicio..."
-                      value={filtroEjercicio}
-                      onChange={(e) => setFiltroEjercicio(e.target.value)}
-                      data-testid="ejercicio-combobox-input"
-                      className="w-full min-h-[38px] rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto py-1 space-y-0.5" role="listbox">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEjercicioId(null);
-                        setComboboxAbierto(false);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted"
-                    >
-                      -- Ninguno / Deseleccionar --
-                    </button>
-                    {ejerciciosFiltrados.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                        No se encontraron ejercicios
-                      </div>
-                    ) : (
-                      ejerciciosFiltrados.map((ej) => (
-                        <button
-                          key={ej.id}
-                          type="button"
-                          role="option"
-                          aria-selected={ej.id === activeEjercicioId}
-                          onClick={() => {
-                            setEjercicioId(ej.id);
-                            setComboboxAbierto(false);
-                          }}
-                          data-testid={`ejercicio-option-${ej.id}`}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
-                            ej.id === activeEjercicioId
-                              ? "bg-primary/10 text-primary font-bold"
-                              : "hover:bg-accent text-foreground"
-                          }`}
-                        >
-                          <span className="truncate">{ej.nombre}</span>
-                          {ej.musculos_principales?.[0] && (
-                            <span className="text-[10px] text-muted-foreground ml-2 shrink-0">
-                              {ej.musculos_principales[0]}
-                            </span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
+            {comboboxAbierto && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border/80 bg-card p-2 shadow-xl animate-in fade-in-0 zoom-in-95"
+                data-testid="ejercicio-combobox-dropdown"
+              >
+                <div className="p-1 pb-2 border-b border-border/60">
+                  <input
+                    type="text"
+                    placeholder="Buscar ejercicio..."
+                    value={filtroEjercicio}
+                    onChange={(e) => setFiltroEjercicio(e.target.value)}
+                    data-testid="ejercicio-combobox-input"
+                    className="w-full min-h-[38px] rounded-lg border border-border/80 bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                    autoFocus
+                  />
                 </div>
-              )}
-            </div>
-            {ejercicioActivo && (
-              <p className="text-xs text-muted-foreground truncate">
-                Músculos: {ejercicioActivo.musculos_principales?.join(", ") || "Todos"}
-              </p>
+                <div className="max-h-60 overflow-y-auto py-1 space-y-0.5" role="listbox">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEjercicioId(null);
+                      setComboboxAbierto(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs text-muted-foreground hover:bg-muted"
+                  >
+                    -- Ninguno / Deseleccionar --
+                  </button>
+                  {ejerciciosFiltrados.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                      No se encontraron ejercicios
+                    </div>
+                  ) : (
+                    ejerciciosFiltrados.map((ej) => (
+                      <button
+                        key={ej.id}
+                        type="button"
+                        onClick={() => {
+                          setEjercicioId(ej.id);
+                          setComboboxAbierto(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between ${
+                          ej.id === activeEjercicioId
+                            ? "bg-primary text-primary-foreground font-bold"
+                            : "hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        <span className="truncate">{ej.nombre}</span>
+                        {ej.musculos_principales?.[0] && (
+                          <span className="text-[10px] opacity-70 ml-2 shrink-0">
+                            {ej.musculos_principales[0]}
+                          </span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Botón / Selector Sumar Alumno */}
+        <div className="lg:col-span-2 flex justify-end">
+          {alumnosNoParticipantes.length > 0 ? (
+            <div className="flex items-center gap-1.5 w-full">
+              <select
+                data-testid="add-student-select"
+                aria-label="Sumar alumno"
+                value={alumnoAnotarId}
+                onChange={(e) => setAlumnoAnotarId(e.target.value)}
+                className="w-full min-h-[42px] rounded-xl border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                <option value="">+ Sumar alumno...</option>
+                {alumnosNoParticipantes.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nombre_completo}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!alumnoAnotarId || agregandoAlumno}
+                onClick={handleAgregarParticipante}
+                data-testid="add-student-btn"
+                className="min-h-[42px] text-xs px-3 shrink-0"
+              >
+                {agregandoAlumno ? "..." : "Sumar"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled
+              data-testid="add-student-btn"
+              className="w-full min-h-[42px] text-xs"
+            >
+              Sumar alumno
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Sección de Registro de PRs por Alumno de la Clase */}
+      {/* SECCIÓN PARTICIPANTES: Fila Unificada de Guardado Rápido */}
       {claseActiva && ejercicioActivo && (
-        <Card className="border-border/80 bg-card shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/60">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="border-border/80 bg-card overflow-hidden shadow-xs">
+          <CardHeader className="border-b border-border/60 py-4 px-5">
+            <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <span>Participantes de la Clase ({participantes.length})</span>
+                <CardTitle className="text-base font-bold text-foreground">
+                  Participantes
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Ingresá el PR (peso y repeticiones) logrado en <strong className="text-foreground">{ejercicioActivo.nombre}</strong>.
+                  {participantesConRecord} de {participantes.length} con récord cargado
                 </p>
               </div>
-
-              {/* Agregar alumno a la clase */}
-              {alumnosNoParticipantes.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <select
-                    data-testid="add-student-select"
-                    value={alumnoAnotarId}
-                    onChange={(e) => setAlumnoAnotarId(e.target.value)}
-                    className="min-h-[40px] rounded-xl border border-border/80 bg-background px-3 py-1.5 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none"
-                  >
-                    <option value="">+ Sumar otro alumno...</option>
-                    {alumnosNoParticipantes.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre_completo}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!alumnoAnotarId || agregandoAlumno}
-                    onClick={handleAgregarParticipante}
-                    data-testid="add-student-btn"
-                  >
-                    {agregandoAlumno ? "Sumando..." : "Sumar a Clase"}
-                  </Button>
-                </div>
-              )}
             </div>
           </CardHeader>
 
-          <CardContent className="pt-4">
+          <CardContent className="p-0">
             {participantes.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/80 p-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-border/80 p-8 text-center text-sm text-muted-foreground m-4">
                 <p>Todavía no hay alumnos anotados en esta clase.</p>
-                <p className="text-xs mt-1">Usá el selector de arriba para sumar alumnos y registrar sus marcas.</p>
+                <p className="text-xs mt-1">Usá el selector superior para sumar alumnos y registrar sus marcas.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-sm" data-testid="participants-table">
                   <thead>
-                    <tr className="border-b border-border/60 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="py-2.5 px-3">Alumno</th>
-                      <th className="py-2.5 px-3">Sexo</th>
-                      <th className="py-2.5 px-3">Peso Corporal</th>
-                      <th className="py-2.5 px-3">PR en Ejercicio</th>
-                      <th className="py-2.5 px-3 text-right">Acción</th>
+                    <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="py-2.5 px-4">Alumno</th>
+                      <th className="py-2.5 px-3">Categoría</th>
+                      <th className="py-2.5 px-3">Peso corporal</th>
+                      <th className="py-2.5 px-3">Carga</th>
+                      <th className="py-2.5 px-3">Reps</th>
+                      <th className="py-2.5 px-4 text-right">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
@@ -570,8 +721,16 @@ export function RankingFuncional({
                         sexo: alumno?.sexo ?? "M",
                       };
 
-                      const tieneDatosCompletos =
-                        Boolean(alumno?.peso_corporal_kg && alumno?.peso_corporal_kg > 0 && alumno?.sexo);
+                      // Determinar estado de guardado
+                      const estaGuardado =
+                        filasGuardadasLocal[part.alumno_id] ||
+                        Boolean(
+                          prExistente &&
+                            String(prExistente.peso_kg) === inputVal.peso_kg &&
+                            String(prExistente.reps) === inputVal.reps,
+                        );
+
+                      const isSaving = guardandoPrId === part.alumno_id;
 
                       return (
                         <tr
@@ -580,151 +739,161 @@ export function RankingFuncional({
                           data-testid={`student-row-${part.alumno_id}`}
                         >
                           {/* Alumno */}
-                          <td className="py-3 px-3">
-                            <span className="font-semibold block">{part.alumno_nombre}</span>
-                            <span className="text-[11px] text-muted-foreground">{part.estado}</span>
+                          <td className="py-3 px-4">
+                            <span className="font-semibold block text-foreground">
+                              {part.alumno_nombre}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {part.estado}
+                            </span>
                           </td>
 
-                          {/* Sexo */}
+                          {/* Categoría (Select neutro de Masculino / Femenino) */}
                           <td className="py-3 px-3">
-                            {alumno?.sexo ? (
-                              <Badge
-                                variant={alumno.sexo === "M" ? "info" : "purple"}
-                                className="font-bold text-xs"
-                              >
-                                {alumno.sexo === "M" ? "♂ Hombre" : "♀ Mujer"}
-                              </Badge>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <select
-                                  aria-label={`Sexo de ${part.alumno_nombre}`}
-                                  value={perfilInput.sexo}
-                                  onChange={(e) =>
-                                    setPerfilInputs((prev) => ({
-                                      ...prev,
-                                      [part.alumno_id]: {
-                                        ...perfilInput,
-                                        sexo: e.target.value as "M" | "F",
-                                      },
-                                    }))
-                                  }
-                                  className="h-9 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold"
-                                >
-                                  <option value="M">♂ M</option>
-                                  <option value="F">♀ F</option>
-                                </select>
-                              </div>
-                            )}
+                            <select
+                              aria-label={`Categoría de ${part.alumno_nombre}`}
+                              data-testid={`select-categoria-${part.alumno_id}`}
+                              value={perfilInput.sexo}
+                              onChange={(e) => {
+                                const nuevoSexo = e.target.value as "M" | "F";
+                                setPerfilInputs((prev) => ({
+                                  ...prev,
+                                  [part.alumno_id]: {
+                                    ...perfilInput,
+                                    sexo: nuevoSexo,
+                                  },
+                                }));
+                                setFilasGuardadasLocal((prev) => ({
+                                  ...prev,
+                                  [part.alumno_id]: false,
+                                }));
+                              }}
+                              className="h-9 rounded-lg border border-border/80 bg-background px-2.5 text-xs font-semibold text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                            >
+                              <option value="M">Masculino</option>
+                              <option value="F">Femenino</option>
+                            </select>
                           </td>
 
                           {/* Peso Corporal */}
                           <td className="py-3 px-3">
-                            {alumno?.peso_corporal_kg ? (
-                              <span className="font-bold text-foreground">
-                                {alumno.peso_corporal_kg} kg
-                              </span>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  min="1"
-                                  placeholder="ej: 75"
-                                  aria-label={`Peso corporal de ${part.alumno_nombre}`}
-                                  value={perfilInput.peso_corporal_kg}
-                                  onChange={(e) =>
-                                    setPerfilInputs((prev) => ({
-                                      ...prev,
-                                      [part.alumno_id]: {
-                                        ...perfilInput,
-                                        peso_corporal_kg: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  className="h-9 w-20 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold"
-                                />
-                                <span className="text-xs text-muted-foreground">kg</span>
-                                {!tieneDatosCompletos && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleGuardarPerfil(part.alumno_id)}
-                                    title="Guardar peso y sexo"
-                                    className="h-9 text-xs px-2"
-                                  >
-                                    Guardar
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Input PR */}
-                          <td className="py-3 px-3">
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  step="0.5"
-                                  min="0"
-                                  placeholder="0"
-                                  aria-label={`PR de ${part.alumno_nombre} en kg`}
-                                  value={inputVal.peso_kg}
-                                  onChange={(e) =>
-                                    setPrInputs((prev) => ({
-                                      ...prev,
-                                      [part.alumno_id]: {
-                                        ...inputVal,
-                                        peso_kg: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  className="h-10 w-24 rounded-lg border border-border/80 bg-background px-2.5 text-sm font-bold text-right"
-                                  data-testid={`input-pr-peso-${part.alumno_id}`}
-                                />
-                                <span className="text-xs text-muted-foreground font-semibold">kg</span>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  step="1"
-                                  min="1"
-                                  placeholder="1"
-                                  aria-label={`Reps de ${part.alumno_nombre}`}
-                                  value={inputVal.reps}
-                                  onChange={(e) =>
-                                    setPrInputs((prev) => ({
-                                      ...prev,
-                                      [part.alumno_id]: {
-                                        ...inputVal,
-                                        reps: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  className="h-10 w-14 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold text-center"
-                                  data-testid={`input-pr-reps-${part.alumno_id}`}
-                                />
-                                <span className="text-[11px] text-muted-foreground">reps</span>
-                              </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="1"
+                                placeholder="65"
+                                aria-label={`Peso corporal de ${part.alumno_nombre}`}
+                                data-testid={`input-peso-corporal-${part.alumno_id}`}
+                                value={perfilInput.peso_corporal_kg}
+                                onChange={(e) => {
+                                  const nuevoVal = e.target.value;
+                                  setPerfilInputs((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: {
+                                      ...perfilInput,
+                                      peso_corporal_kg: nuevoVal,
+                                    },
+                                  }));
+                                  setFilasGuardadasLocal((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: false,
+                                  }));
+                                }}
+                                className="h-9 w-20 rounded-lg border border-border/80 bg-background px-2.5 text-xs font-semibold text-right text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                              />
+                              <span className="text-xs text-muted-foreground font-semibold">kg</span>
                             </div>
                           </td>
 
-                          {/* Botón Guardar PR */}
-                          <td className="py-3 px-3 text-right">
-                            <Button
-                              size="sm"
-                              variant={prExistente ? "secondary" : "default"}
-                              disabled={guardandoPrId === part.alumno_id || !inputVal.peso_kg}
-                              onClick={() => handleGuardarPr(part.alumno_id)}
-                              data-testid={`save-pr-btn-${part.alumno_id}`}
-                            >
-                              {guardandoPrId === part.alumno_id
-                                ? "Guardando..."
-                                : prExistente
-                                ? "Actualizar"
-                                : "Guardar PR"}
-                            </Button>
+                          {/* Carga (PR peso en kg) */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                placeholder="0"
+                                aria-label={`Carga de ${part.alumno_nombre} en kg`}
+                                data-testid={`input-pr-peso-${part.alumno_id}`}
+                                value={inputVal.peso_kg}
+                                onChange={(e) => {
+                                  const nuevoVal = e.target.value;
+                                  setPrInputs((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: {
+                                      ...inputVal,
+                                      peso_kg: nuevoVal,
+                                    },
+                                  }));
+                                  setFilasGuardadasLocal((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: false,
+                                  }));
+                                }}
+                                className="h-9 w-20 rounded-lg border border-border/80 bg-background px-2.5 text-xs font-bold text-right text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                              />
+                              <span className="text-xs text-muted-foreground font-semibold">kg</span>
+                            </div>
+                          </td>
+
+                          {/* Reps */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                placeholder="1"
+                                aria-label={`Reps de ${part.alumno_nombre}`}
+                                data-testid={`input-pr-reps-${part.alumno_id}`}
+                                value={inputVal.reps}
+                                onChange={(e) => {
+                                  const nuevoVal = e.target.value;
+                                  setPrInputs((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: {
+                                      ...inputVal,
+                                      reps: nuevoVal,
+                                    },
+                                  }));
+                                  setFilasGuardadasLocal((prev) => ({
+                                    ...prev,
+                                    [part.alumno_id]: false,
+                                  }));
+                                }}
+                                className="h-9 w-14 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold text-center text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                              />
+                            </div>
+                          </td>
+
+                          {/* Botón Único de Guardado / Guardado (Página 9) */}
+                          <td className="py-3 px-4 text-right">
+                            {estaGuardado ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 text-xs px-3 font-semibold bg-emerald-600/15 text-emerald-800 dark:text-emerald-300 border border-emerald-600/40 hover:bg-emerald-600/25 transition-all cursor-default select-none shadow-xs"
+                                data-testid={`save-pr-btn-${part.alumno_id}`}
+                                data-state="guardado"
+                                disabled={isSaving}
+                                onClick={() => handleGuardarFila(part.alumno_id)}
+                              >
+                                {isSaving ? "Guardando..." : "Guardado"}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="h-9 text-xs px-3 font-semibold bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-all select-none shadow-xs"
+                                disabled={isSaving || !inputVal.peso_kg}
+                                onClick={() => handleGuardarFila(part.alumno_id)}
+                                data-testid={`save-pr-btn-${part.alumno_id}`}
+                                data-state="guardar"
+                              >
+                                {isSaving ? "Guardando..." : "Guardar"}
+                              </Button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -737,37 +906,28 @@ export function RankingFuncional({
         </Card>
       )}
 
-      {/* Tablas de Ranking Relativo por Sexo */}
+      {/* Tablas de Ranking Relativo por Sexo (Página 9) */}
       {claseActiva && ejercicioActivo && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-black">Tablas de Ranking Relativo</h2>
-              <p className="text-xs text-muted-foreground">
-                Ordenado por <strong className="text-foreground">Ratio = PR (kg) / Peso Corporal (kg)</strong> en tablas separadas por sexo biológico.
-              </p>
-            </div>
-          </div>
-
           <div className="grid gap-6 lg:grid-cols-2">
             {/* TABLA RANKING MASCULINO */}
             <Card className="border-border/80 bg-card overflow-hidden shadow-xs" data-testid="ranking-hombres-card">
-              <CardHeader className="bg-sky-500/10 border-b border-border/60 py-3.5 px-5">
+              <CardHeader className="border-b border-border/60 py-3.5 px-5 bg-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl" aria-hidden="true">♂</span>
-                    <CardTitle className="text-base font-bold text-sky-400">
+                    <CategoryChip categoria="Masculino" />
+                    <CardTitle className="text-base font-bold text-foreground">
                       Ranking Masculino (Hombres)
                     </CardTitle>
                   </div>
-                  <Badge variant="info" className="font-bold text-xs">
-                    {ranking.hombres.length} clasificado(s)
-                  </Badge>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {rankingHombresOrdenados.length} con récord
+                  </span>
                 </div>
               </CardHeader>
 
               <CardContent className="p-0">
-                {ranking.hombres.length === 0 ? (
+                {rankingHombresOrdenados.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">
                     No hay marcas masculinas registradas aún para este ejercicio.
                   </div>
@@ -776,16 +936,120 @@ export function RankingFuncional({
                     <table className="w-full text-left border-collapse text-sm" data-testid="ranking-hombres-table">
                       <thead>
                         <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          <th className="py-2.5 px-3.5 text-center w-12">#</th>
-                          <th className="py-2.5 px-3">Atleta</th>
-                          <th className="py-2.5 px-3 text-right">PR (kg)</th>
-                          <th className="py-2.5 px-3 text-right">Peso Corp.</th>
-                          <th className="py-2.5 px-3.5 text-right font-black">Ratio Relativo</th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColHombres === "posicion" ? (sortDirHombres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por posición"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortHombres("posicion");
+                              }
+                            }}
+                            onClick={() => handleSortHombres("posicion")}
+                            className="py-2.5 px-3.5 text-center w-12 cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-center gap-1">
+                              #
+                              {sortColHombres === "posicion" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirHombres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColHombres === "atleta" ? (sortDirHombres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por nombre de atleta"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortHombres("atleta");
+                              }
+                            }}
+                            onClick={() => handleSortHombres("atleta")}
+                            className="py-2.5 px-3 cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center gap-1">
+                              Atleta
+                              {sortColHombres === "atleta" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirHombres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColHombres === "carga" ? (sortDirHombres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por carga levantada"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortHombres("carga");
+                              }
+                            }}
+                            onClick={() => handleSortHombres("carga")}
+                            className="py-2.5 px-3 text-right cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              PR (kg)
+                              {sortColHombres === "carga" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirHombres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColHombres === "peso_corporal" ? (sortDirHombres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por peso corporal"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortHombres("peso_corporal");
+                              }
+                            }}
+                            onClick={() => handleSortHombres("peso_corporal")}
+                            className="py-2.5 px-3 text-right cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              Peso Corp.
+                              {sortColHombres === "peso_corporal" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirHombres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColHombres === "ratio" ? (sortDirHombres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por ratio de fuerza relativa"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortHombres("ratio");
+                              }
+                            }}
+                            onClick={() => handleSortHombres("ratio")}
+                            className="py-2.5 px-3.5 text-right font-black cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              Ratio Relativo
+                              {sortColHombres === "ratio" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirHombres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
-                        {ranking.hombres.map((item) => {
-                          const esPodio = (item.posicion ?? 0) <= 3;
+                        {rankingHombresOrdenados.map((item) => {
                           const medalla =
                             item.posicion === 1 ? "🥇" : item.posicion === 2 ? "🥈" : item.posicion === 3 ? "🥉" : "";
 
@@ -794,7 +1058,7 @@ export function RankingFuncional({
                               key={item.alumno_id}
                               className={`transition-colors ${
                                 item.posicion === 1
-                                  ? "bg-amber-500/10 font-medium"
+                                  ? "bg-primary/5 font-medium"
                                   : "hover:bg-secondary/20"
                               }`}
                               data-testid={`ranking-row-m-${item.alumno_id}`}
@@ -810,21 +1074,21 @@ export function RankingFuncional({
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 px-3 font-semibold">
+                              <td className="py-3 px-3 font-semibold text-foreground">
                                 {item.nombre_completo}
                               </td>
                               <td className="py-3 px-3 text-right font-bold text-foreground">
                                 {item.peso_kg} kg
                                 <span className="text-[11px] text-muted-foreground block font-normal">
-                                  {item.reps} {item.reps === 1 ? "rep" : "reps"}
+                                  × {item.reps}
                                 </span>
                               </td>
                               <td className="py-3 px-3 text-right text-muted-foreground font-medium">
                                 {item.peso_corporal_kg} kg
                               </td>
                               <td className="py-3 px-3.5 text-right">
-                                <Badge variant="success" className="font-black text-sm px-2.5 py-0.5">
-                                  {item.ratio?.toFixed(2)}x
+                                <Badge variant="secondary" className="font-mono font-bold text-sm px-2.5 py-0.5 border border-border/80 text-foreground bg-muted/60">
+                                  {`${item.ratio?.toFixed(2)}×`}
                                 </Badge>
                               </td>
                             </tr>
@@ -839,22 +1103,22 @@ export function RankingFuncional({
 
             {/* TABLA RANKING FEMENINO */}
             <Card className="border-border/80 bg-card overflow-hidden shadow-xs" data-testid="ranking-mujeres-card">
-              <CardHeader className="bg-purple-500/10 border-b border-border/60 py-3.5 px-5">
+              <CardHeader className="border-b border-border/60 py-3.5 px-5 bg-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl" aria-hidden="true">♀</span>
-                    <CardTitle className="text-base font-bold text-purple-300">
+                    <CategoryChip categoria="Femenino" />
+                    <CardTitle className="text-base font-bold text-foreground">
                       Ranking Femenino (Mujeres)
                     </CardTitle>
                   </div>
-                  <Badge variant="purple" className="font-bold text-xs">
-                    {ranking.mujeres.length} clasificada(s)
-                  </Badge>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {rankingMujeresOrdenadas.length} con récord
+                  </span>
                 </div>
               </CardHeader>
 
               <CardContent className="p-0">
-                {ranking.mujeres.length === 0 ? (
+                {rankingMujeresOrdenadas.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">
                     No hay marcas femeninas registradas aún para este ejercicio.
                   </div>
@@ -863,15 +1127,120 @@ export function RankingFuncional({
                     <table className="w-full text-left border-collapse text-sm" data-testid="ranking-mujeres-table">
                       <thead>
                         <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                          <th className="py-2.5 px-3.5 text-center w-12">#</th>
-                          <th className="py-2.5 px-3">Atleta</th>
-                          <th className="py-2.5 px-3 text-right">PR (kg)</th>
-                          <th className="py-2.5 px-3 text-right">Peso Corp.</th>
-                          <th className="py-2.5 px-3.5 text-right font-black">Ratio Relativo</th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColMujeres === "posicion" ? (sortDirMujeres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por posición"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortMujeres("posicion");
+                              }
+                            }}
+                            onClick={() => handleSortMujeres("posicion")}
+                            className="py-2.5 px-3.5 text-center w-12 cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-center gap-1">
+                              #
+                              {sortColMujeres === "posicion" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirMujeres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColMujeres === "atleta" ? (sortDirMujeres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por nombre de atleta"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortMujeres("atleta");
+                              }
+                            }}
+                            onClick={() => handleSortMujeres("atleta")}
+                            className="py-2.5 px-3 cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center gap-1">
+                              Atleta
+                              {sortColMujeres === "atleta" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirMujeres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColMujeres === "carga" ? (sortDirMujeres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por carga levantada"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortMujeres("carga");
+                              }
+                            }}
+                            onClick={() => handleSortMujeres("carga")}
+                            className="py-2.5 px-3 text-right cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              PR (kg)
+                              {sortColMujeres === "carga" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirMujeres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColMujeres === "peso_corporal" ? (sortDirMujeres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por peso corporal"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortMujeres("peso_corporal");
+                              }
+                            }}
+                            onClick={() => handleSortMujeres("peso_corporal")}
+                            className="py-2.5 px-3 text-right cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              Peso Corp.
+                              {sortColMujeres === "peso_corporal" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirMujeres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
+                          <th
+                            scope="col"
+                            role="columnheader"
+                            tabIndex={0}
+                            aria-sort={sortColMujeres === "ratio" ? (sortDirMujeres === "desc" ? "descending" : "ascending") : "none"}
+                            aria-label="Ordenar por ratio de fuerza relativa"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSortMujeres("ratio");
+                              }
+                            }}
+                            onClick={() => handleSortMujeres("ratio")}
+                            className="py-2.5 px-3.5 text-right font-black cursor-pointer select-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus:bg-muted/40 transition-colors"
+                          >
+                            <span className="flex items-center justify-end gap-1">
+                              Ratio Relativo
+                              {sortColMujeres === "ratio" && (
+                                <span className="text-[10px]" aria-hidden="true">{sortDirMujeres === "desc" ? "▼" : "▲"}</span>
+                              )}
+                            </span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
-                        {ranking.mujeres.map((item) => {
+                        {rankingMujeresOrdenadas.map((item) => {
                           const medalla =
                             item.posicion === 1 ? "🥇" : item.posicion === 2 ? "🥈" : item.posicion === 3 ? "🥉" : "";
 
@@ -880,7 +1249,7 @@ export function RankingFuncional({
                               key={item.alumno_id}
                               className={`transition-colors ${
                                 item.posicion === 1
-                                  ? "bg-purple-500/10 font-medium"
+                                  ? "bg-primary/5 font-medium"
                                   : "hover:bg-secondary/20"
                               }`}
                               data-testid={`ranking-row-f-${item.alumno_id}`}
@@ -896,21 +1265,21 @@ export function RankingFuncional({
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 px-3 font-semibold">
+                              <td className="py-3 px-3 font-semibold text-foreground">
                                 {item.nombre_completo}
                               </td>
                               <td className="py-3 px-3 text-right font-bold text-foreground">
                                 {item.peso_kg} kg
                                 <span className="text-[11px] text-muted-foreground block font-normal">
-                                  {item.reps} {item.reps === 1 ? "rep" : "reps"}
+                                  × {item.reps}
                                 </span>
                               </td>
                               <td className="py-3 px-3 text-right text-muted-foreground font-medium">
                                 {item.peso_corporal_kg} kg
                               </td>
                               <td className="py-3 px-3.5 text-right">
-                                <Badge variant="purple" className="font-black text-sm px-2.5 py-0.5">
-                                  {item.ratio?.toFixed(2)}x
+                                <Badge variant="secondary" className="font-mono font-bold text-sm px-2.5 py-0.5 border border-border/80 text-foreground bg-muted/60">
+                                  {`${item.ratio?.toFixed(2)}×`}
                                 </Badge>
                               </td>
                             </tr>
@@ -998,14 +1367,19 @@ export function RankingFuncional({
                                   }
                                   className="h-8 rounded border border-border/80 bg-background px-1.5 text-xs font-semibold"
                                 >
-                                  <option value="M">♂ M</option>
-                                  <option value="F">♀ F</option>
+                                  <option value="M">Masculino</option>
+                                  <option value="F">Femenino</option>
                                 </select>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   className="h-8 text-xs px-2.5"
-                                  onClick={() => handleGuardarPerfil(sc.alumno_id)}
+                                  onClick={async () => {
+                                    const peso = parseFloat(perfilInput.peso_corporal_kg);
+                                    if (peso > 0) {
+                                      await actualizarPerfilAlumno(sc.alumno_id, peso, perfilInput.sexo);
+                                    }
+                                  }}
                                 >
                                   Clasificar
                                 </Button>
