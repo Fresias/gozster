@@ -27,6 +27,7 @@ export interface RankingState {
   claseIdSeleccionada: string | null;
   ejercicioIdSeleccionado: string | null;
   prs: RankingPR[];
+  perfilesActualizados: Record<string, { peso_corporal_kg?: number; sexo?: "M" | "F" }>;
   cargando: boolean;
   guardandoPrId: string | null;
   error: string | null;
@@ -39,6 +40,16 @@ export interface RankingState {
     clase_id: string;
     alumno_id: string;
     ejercicio_id: string;
+    peso_kg: number;
+    reps?: number;
+    fecha?: string;
+  }) => Promise<{ ok: boolean; pr?: RankingPR; error?: string }>;
+  guardarFilaRegistro: (datos: {
+    clase_id: string;
+    alumno_id: string;
+    ejercicio_id: string;
+    peso_corporal_kg?: number;
+    sexo?: "M" | "F";
     peso_kg: number;
     reps?: number;
     fecha?: string;
@@ -57,39 +68,50 @@ export interface RankingState {
   limpiarAviso: () => void;
 }
 
+export const DEMO_PERFILES_INICIALES: Record<
+  string,
+  { peso_corporal_kg?: number; sexo?: "M" | "F" }
+> = {
+  "demo-alumno-01-lucas": { peso_corporal_kg: 78, sexo: "M" },
+  "demo-alumno-08-camila": { peso_corporal_kg: 62, sexo: "F" },
+  "demo-alumno-05-mateo": { peso_corporal_kg: 84, sexo: "M" },
+  "demo-alumno-ext-mie-4": { peso_corporal_kg: 58, sexo: "F" },
+  "demo-alumno-ext-mie-5": { peso_corporal_kg: 65, sexo: "F" },
+};
+
 export const DEMO_RANKING_PRS_INICIALES: RankingPR[] = [
   {
     id: "demo-pr-01-lucas",
     clase_id: "demo-clase-func-miercoles",
     alumno_id: "demo-alumno-01-lucas",
-    ejercicio_id: "ej-demo-dominadas",
+    ejercicio_id: "ej-dominadas-c-carga",
     fecha: new Date().toISOString().substring(0, 10),
-    peso_kg: 35,
-    reps: 1,
+    peso_kg: 20,
+    reps: 3,
     registrado_por: "00000000-0000-4000-a000-000000000001",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   {
-    id: "demo-pr-02-mateo",
+    id: "demo-pr-01-lucas-legacy",
     clase_id: "demo-clase-func-miercoles",
-    alumno_id: "demo-alumno-05-mateo",
+    alumno_id: "demo-alumno-01-lucas",
     ejercicio_id: "ej-demo-dominadas",
     fecha: new Date().toISOString().substring(0, 10),
-    peso_kg: 30,
-    reps: 1,
+    peso_kg: 20,
+    reps: 3,
     registrado_por: "00000000-0000-4000-a000-000000000001",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   {
-    id: "demo-pr-03-camila",
+    id: "demo-pr-05-emilia",
     clase_id: "demo-clase-func-miercoles",
-    alumno_id: "demo-alumno-08-camila",
-    ejercicio_id: "ej-demo-dominadas",
+    alumno_id: "demo-alumno-ext-mie-5",
+    ejercicio_id: "ej-dominadas-c-carga",
     fecha: new Date().toISOString().substring(0, 10),
-    peso_kg: 15,
-    reps: 1,
+    peso_kg: 12.5,
+    reps: 3,
     registrado_por: "00000000-0000-4000-a000-000000000001",
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -207,6 +229,7 @@ export const useRankingStore = create<RankingState>()(
       claseIdSeleccionada: null,
       ejercicioIdSeleccionado: null,
       prs: DEMO_RANKING_PRS_INICIALES,
+      perfilesActualizados: DEMO_PERFILES_INICIALES,
       cargando: false,
       guardandoPrId: null,
       error: null,
@@ -258,6 +281,72 @@ export const useRankingStore = create<RankingState>()(
         return { ok: true, pr: nuevoPr };
       },
 
+      guardarFilaRegistro: async (datos) => {
+        const reps = datos.reps ?? 1;
+        const fecha = datos.fecha ?? new Date().toISOString().substring(0, 10);
+        const nuevoId = `pr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+        set({ guardandoPrId: datos.alumno_id, error: null });
+
+        if (datos.peso_kg < 0 || isNaN(datos.peso_kg)) {
+          set({ guardandoPrId: null, error: "La carga debe ser mayor o igual a 0 kg." });
+          return { ok: false, error: "La carga debe ser mayor o igual a 0 kg." };
+        }
+
+        if (datos.peso_corporal_kg !== undefined) {
+          if (datos.peso_corporal_kg <= 0 || datos.peso_corporal_kg > 500 || isNaN(datos.peso_corporal_kg)) {
+            set({ guardandoPrId: null, error: "El peso corporal debe ser mayor a 0 y hasta 500 kg." });
+            return { ok: false, error: "El peso corporal debe ser mayor a 0 y hasta 500 kg." };
+          }
+        }
+
+        if (datos.sexo !== undefined && datos.sexo !== "M" && datos.sexo !== "F") {
+          set({ guardandoPrId: null, error: "El sexo debe ser 'M' o 'F'." });
+          return { ok: false, error: "El sexo debe ser 'M' o 'F'." };
+        }
+
+        const nuevoPr: RankingPR = {
+          id: nuevoId,
+          clase_id: datos.clase_id,
+          alumno_id: datos.alumno_id,
+          ejercicio_id: datos.ejercicio_id,
+          peso_kg: datos.peso_kg,
+          reps,
+          fecha,
+          registrado_por: "coach-actual",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const prsActuales = get().prs.filter(
+          (p) =>
+            !(
+              p.clase_id === datos.clase_id &&
+              p.alumno_id === datos.alumno_id &&
+              p.ejercicio_id === datos.ejercicio_id
+            ),
+        );
+
+        const prevPerfiles = get().perfilesActualizados;
+        const perfilesActualizados = {
+          ...prevPerfiles,
+          [datos.alumno_id]: {
+            ...prevPerfiles[datos.alumno_id],
+            ...(datos.peso_corporal_kg !== undefined ? { peso_corporal_kg: datos.peso_corporal_kg } : {}),
+            ...(datos.sexo !== undefined ? { sexo: datos.sexo } : {}),
+          },
+        };
+
+        set({
+          prs: [...prsActuales, nuevoPr],
+          perfilesActualizados,
+          guardandoPrId: null,
+          aviso: "Registro guardado con éxito.",
+        });
+
+        return { ok: true, pr: nuevoPr };
+      },
+
       actualizarPerfilAlumno: async (alumnoId, peso_corporal_kg, sexo) => {
         if (peso_corporal_kg <= 0 || peso_corporal_kg > 500) {
           return { ok: false, error: "El peso corporal debe ser mayor a 0 y hasta 500 kg." };
@@ -266,16 +355,94 @@ export const useRankingStore = create<RankingState>()(
           return { ok: false, error: "El sexo debe ser 'M' o 'F'." };
         }
 
-        set({ aviso: "Datos de peso y sexo guardados en el perfil del alumno." });
+        const prev = get().perfilesActualizados;
+        const perfilesActualizados = {
+          ...prev,
+          [alumnoId]: { ...prev[alumnoId], peso_corporal_kg, sexo },
+        };
+
+        set({
+          perfilesActualizados,
+          aviso: "Datos de peso y sexo guardados en el perfil del alumno.",
+        });
         return { ok: true };
       },
 
       calcularRanking: (params) => {
+        const perfiles = get().perfilesActualizados;
+        const mapaExistentes = new Set(params.alumnos.map((a) => a.id));
+        const alumnosCombinados: Perfil[] = params.alumnos.map((a) => {
+          const override = perfiles[a.id];
+          if (override) {
+            return {
+              ...a,
+              peso_corporal_kg: override.peso_corporal_kg ?? a.peso_corporal_kg,
+              sexo: override.sexo ?? a.sexo,
+            };
+          }
+          return a;
+        });
+
+        // Completar con stubs si hay alumnos en reservas o en perfilesActualizados no presentes en alumnos
+        if (params.reservas) {
+          for (const r of params.reservas) {
+            if (!mapaExistentes.has(r.alumno_id)) {
+              const override = perfiles[r.alumno_id];
+              alumnosCombinados.push({
+                id: r.alumno_id,
+                nombre_completo: (r as any).alumno_nombre ?? "Alumno",
+                email: `${r.alumno_id}@gozster.test`,
+                rol: "ALUMNO",
+                estado_membresia: "ACTIVA",
+                peso_corporal_kg: override?.peso_corporal_kg ?? null,
+                sexo: override?.sexo ?? null,
+                profesor_asignado_id: "",
+                fecha_baja: null,
+                fecha_vencimiento_cuota: null,
+                ultimo_entreno_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+              mapaExistentes.add(r.alumno_id);
+            }
+          }
+        }
+
+        // Asegurar que alumnos con PR registrado tengan su perfil cargado desde perfilesActualizados
+        for (const p of get().prs) {
+          if (!mapaExistentes.has(p.alumno_id)) {
+            const override = perfiles[p.alumno_id];
+            let nombre = "Alumno Desconocido";
+            if (p.alumno_id === "demo-alumno-01-lucas") nombre = "Lucas Giménez";
+            else if (p.alumno_id === "demo-alumno-ext-mie-5") nombre = "Emilia Castro";
+            else if (p.alumno_id === "demo-alumno-08-camila") nombre = "Camila Navarro";
+            else if (p.alumno_id === "demo-alumno-05-mateo") nombre = "Mateo Rossi";
+            else if (p.alumno_id === "demo-alumno-ext-mie-4") nombre = "Renata Quiroga";
+
+            alumnosCombinados.push({
+              id: p.alumno_id,
+              nombre_completo: nombre,
+              email: `${p.alumno_id}@gozster.test`,
+              rol: "ALUMNO",
+              estado_membresia: "ACTIVA",
+              peso_corporal_kg: override?.peso_corporal_kg ?? null,
+              sexo: override?.sexo ?? null,
+              profesor_asignado_id: "",
+              fecha_baja: null,
+              fecha_vencimiento_cuota: null,
+              ultimo_entreno_at: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            mapaExistentes.add(p.alumno_id);
+          }
+        }
+
         return calcularRankingRelativo({
           prs: get().prs,
           claseId: params.claseId,
           ejercicioId: params.ejercicioId,
-          alumnos: params.alumnos,
+          alumnos: alumnosCombinados,
           reservas: params.reservas,
         });
       },
@@ -287,6 +454,7 @@ export const useRankingStore = create<RankingState>()(
         claseIdSeleccionada: state.claseIdSeleccionada,
         ejercicioIdSeleccionado: state.ejercicioIdSeleccionado,
         prs: state.prs,
+        perfilesActualizados: state.perfilesActualizados,
       }),
     },
   ),

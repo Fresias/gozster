@@ -7,7 +7,7 @@ import {
   type ResultadoRanking,
 } from "@/store/use-ranking-store";
 import { useClasesStore } from "@/store/use-clases-store";
-import { RankingFuncional } from "@/components/coach/ranking-funcional";
+import { RankingFuncional, CategoryChip } from "@/components/coach/ranking-funcional";
 import type { Perfil, RankingPR } from "@/types/database.types";
 
 describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH #262)", () => {
@@ -446,6 +446,160 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
       );
       expect(agendaCode).toContain("/studio/ranking-funcional?claseId=");
       expect(agendaCode).toContain("class-ranking-btn");
+    });
+  });
+
+  describe("Rediseño UX/UI Ranking Funcional (GOZS-400 - PDF Página 9)", () => {
+    it("GIVEN la fila de registro rápido en Ranking Funcional, WHEN el usuario completa peso corporal, ejercicio, carga y reps y pulsa 'Guardar', THEN los tres valores se guardan en una sola operación transaccional y el botón pasa a 'Guardado'", async () => {
+      const store = useRankingStore.getState();
+
+      // Guardar de forma transaccional peso corporal, carga y reps
+      const res = await store.guardarFilaRegistro({
+        clase_id: claseIdMock,
+        alumno_id: "alumno-transaccional-test",
+        ejercicio_id: ejercicioIdMock,
+        peso_corporal_kg: 75.0,
+        sexo: "M",
+        peso_kg: 25.0,
+        reps: 3,
+      });
+
+      expect(res.ok).toBe(true);
+      expect(res.pr).toBeDefined();
+      expect(res.pr?.peso_kg).toBe(25.0);
+      expect(res.pr?.reps).toBe(3);
+
+      // Verificar que ambos datos (PR y perfil) quedaron persistidos simultáneamente
+      const prGuardado = useRankingStore
+        .getState()
+        .prs.find(
+          (p) =>
+            p.alumno_id === "alumno-transaccional-test" &&
+            p.clase_id === claseIdMock &&
+            p.ejercicio_id === ejercicioIdMock,
+        );
+      expect(prGuardado).toBeDefined();
+      expect(prGuardado?.peso_kg).toBe(25.0);
+
+      const perfilGuardado =
+        useRankingStore.getState().perfilesActualizados["alumno-transaccional-test"];
+      expect(perfilGuardado).toBeDefined();
+      expect(perfilGuardado?.peso_corporal_kg).toBe(75.0);
+      expect(perfilGuardado?.sexo).toBe("M");
+
+      // Verificar cálculo del ranking relativo automático tras la transacción
+      const ranking = store.calcularRanking({
+        claseId: claseIdMock,
+        ejercicioId: ejercicioIdMock,
+        alumnos: [
+          {
+            ...alumnosMock[0]!,
+            id: "alumno-transaccional-test",
+            nombre_completo: "Alumno Transaccional",
+            peso_corporal_kg: null, // Viene null pero se sobreescribe con el perfil actualizado
+            sexo: null,
+          },
+        ],
+      });
+
+      expect(ranking.hombres.length).toBe(1);
+      expect(ranking.hombres[0]!.ratio).toBe(0.33); // 25 / 75 = 0.3333 -> 0.33
+
+      // Verificar renderizado de la UI con la fila unificada
+      const html = renderToString(
+        React.createElement(RankingFuncional, {
+          initialClaseId: "demo-clase-func-miercoles",
+          initialEjercicioId: "ej-dominadas-c-carga",
+          alumnosDisponibles: alumnosMock,
+        }),
+      );
+
+      // Tabla de participantes con columnas unificadas
+      expect(html).toContain("data-testid=\"participants-table\"");
+      expect(html).toContain("Categoría");
+      expect(html).toContain("Peso corporal");
+      expect(html).toContain("Carga");
+      expect(html).toContain("Reps");
+      expect(html).toContain("Acción");
+
+      // Inputs accesibles por alumno
+      expect(html).toContain("data-testid=\"input-peso-corporal-demo-alumno-01-lucas\"");
+      expect(html).toContain("data-testid=\"input-pr-peso-demo-alumno-01-lucas\"");
+      expect(html).toContain("data-testid=\"input-pr-reps-demo-alumno-01-lucas\"");
+      expect(html).toContain("data-testid=\"select-categoria-demo-alumno-01-lucas\"");
+
+      // Un solo botón de guardado con transición a 'Guardado' y feedback verde accesible
+      expect(html).toContain("data-testid=\"save-pr-btn-demo-alumno-01-lucas\"");
+      expect(html).toContain("data-state=\"guardado\"");
+      expect(html).toContain("Guardado");
+      expect(html).toContain("bg-emerald-600/15");
+      expect(html).toContain("text-emerald-800");
+    });
+
+    it("GIVEN las tablas de clasificación de atletas, THEN el ordenamiento se calcula por ratio relativo de fuerza y las columnas son accesibles por teclado", () => {
+      const html = renderToString(
+        React.createElement(RankingFuncional, {
+          initialClaseId: "demo-clase-func-miercoles",
+          initialEjercicioId: "ej-dominadas-c-carga",
+          alumnosDisponibles: alumnosMock,
+        }),
+      );
+
+      // Accesibilidad de teclado en columnas de tabla
+      expect(html).toContain("role=\"columnheader\"");
+      expect(html).toContain("tabindex=\"0\"");
+      expect(html).toContain("aria-sort=");
+      expect(html).toContain("aria-label=\"Ordenar por ratio de fuerza relativa\"");
+      expect(html).toContain("aria-label=\"Ordenar por carga levantada\"");
+      expect(html).toContain("aria-label=\"Ordenar por peso corporal\"");
+
+      // Ratio relativo y formato visual accesible
+      expect(html).toContain("Ratio Relativo");
+      expect(html).toContain("0.26×");
+    });
+
+    it("GIVEN los chips de categoría Masculino y Femenino, THEN presentan contraste de color ≥ 4.5:1 en temas claro y oscuro sin recurrir a tonalidades pastel inaccesibles", () => {
+      const chipMasculinoHtml = renderToString(
+        React.createElement(CategoryChip, { categoria: "Masculino" }),
+      );
+      const chipFemeninoHtml = renderToString(
+        React.createElement(CategoryChip, { categoria: "Femenino" }),
+      );
+
+      // Test IDs
+      expect(chipMasculinoHtml).toContain("data-testid=\"chip-categoria-masculino\"");
+      expect(chipFemeninoHtml).toContain("data-testid=\"chip-categoria-femenino\"");
+
+      // Verificar que NO contienen tonalidades pastel de bajo contraste (prohibido púrpura/rosa/celeste pastel)
+      expect(chipMasculinoHtml).not.toContain("bg-sky-500/10");
+      expect(chipMasculinoHtml).not.toContain("text-sky-300");
+      expect(chipFemeninoHtml).not.toContain("bg-purple-500/10");
+      expect(chipFemeninoHtml).not.toContain("text-purple-300");
+
+      // Verificar uso estricto de tokens neutros con alto contraste (zinc-100 / zinc-900 en claro, zinc-800 / zinc-100 en oscuro)
+      // Contraste modo claro: #18181b (zinc-900) sobre #f4f4f5 (zinc-100) = 15.2:1 (>> 4.5:1 WCAG AA)
+      // Contraste modo oscuro: #f4f4f5 (zinc-100) sobre #27272a (zinc-800) = 12.6:1 (>> 4.5:1 WCAG AA)
+      expect(chipMasculinoHtml).toContain("bg-zinc-100");
+      expect(chipMasculinoHtml).toContain("text-zinc-900");
+      expect(chipMasculinoHtml).toContain("dark:bg-zinc-800");
+      expect(chipMasculinoHtml).toContain("dark:text-zinc-100");
+
+      expect(chipFemeninoHtml).toContain("bg-zinc-100");
+      expect(chipFemeninoHtml).toContain("text-zinc-900");
+      expect(chipFemeninoHtml).toContain("dark:bg-zinc-800");
+      expect(chipFemeninoHtml).toContain("dark:text-zinc-100");
+
+      // Render completo de la vista: verificar ausencia de fondos pastel en cabeceras de tarjetas
+      const viewHtml = renderToString(
+        React.createElement(RankingFuncional, {
+          initialClaseId: "demo-clase-func-miercoles",
+          initialEjercicioId: "ej-dominadas-c-carga",
+          alumnosDisponibles: alumnosMock,
+        }),
+      );
+
+      expect(viewHtml).not.toContain("text-purple-300");
+      expect(viewHtml).not.toContain("text-sky-400");
     });
   });
 });
