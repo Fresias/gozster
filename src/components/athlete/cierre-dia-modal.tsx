@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Trophy, Flame, Check, ArrowLeft, X, TrendingUp } from "@/components/athlete/icons";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
+import { primerNombre } from "@/lib/athlete-dias";
 
 export interface RecordSesionItem {
   exerciseName: string;
@@ -46,7 +47,7 @@ export function CierreDiaModal({
   metaDiasSemana = 3,
   diasCompletadosSemana = 1,
   recordsObtenidos = [],
-  studentName = "Fernando",
+  studentName,
   diaNombre = "Día 1",
 }: CierreDiaModalProps) {
   // Manejo de tecla Escape
@@ -154,7 +155,7 @@ export function CierreDiaModal({
               className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-outfit"
               data-testid="cierre-dia-titulo"
             >
-              ¡Gran entrenamiento, {studentName.split(" ")[0]}!
+              ¡Gran entrenamiento{studentName && primerNombre(studentName, "") ? `, ${primerNombre(studentName, "")}` : ""}!
             </h2>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Completaste tu sesión de <span className="font-semibold text-foreground">{diaNombre}</span>

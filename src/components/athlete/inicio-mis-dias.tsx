@@ -8,9 +8,13 @@ import {
   calcularUltimoDiaRealizado,
   calcularSemanaPlan,
   etiquetaDia,
+  primerNombre,
+  saludoAlumno,
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
+
+export { primerNombre, saludoAlumno };
 import type { MotivoCambioDia } from "@/types/database.types";
 
 export const CHIPS_MOTIVOS_CAMBIO: Array<{
@@ -324,7 +328,7 @@ export function InicioMisDias() {
         {tarjetaRecordatorioPeso}
         <div className="text-center space-y-2">
           <p className="text-sm font-medium text-muted-foreground">
-            {student ? `Hola, ${student.nombre_completo.split(" ")[0]}` : "Hola"}
+            {saludoAlumno(student?.nombre_completo)}
           </p>
           <h1 className="font-outfit text-xl font-extrabold text-foreground">
             {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
@@ -342,7 +346,7 @@ export function InicioMisDias() {
       {/* Saludo y Plan */}
       <div className="pt-2">
         <p className="text-sm font-medium text-muted-foreground">
-          Hola, {student?.nombre_completo?.split(" ")[0] ?? ""}
+          {saludoAlumno(student?.nombre_completo)}
         </p>
         <h1 className="font-outfit text-2xl sm:text-[26px] font-extrabold tracking-tight text-foreground mt-0.5">
           {plan?.nombre ?? "Tu plan"}
