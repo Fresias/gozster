@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import {
+  calcularRangoHorarioUtil,
   claveDia,
   detectarSolapes,
   diasDeLaSemana,
@@ -197,15 +198,20 @@ export function ClaseBlock({
   );
 }
 
+export interface ClassAgendaProps {
+  clases?: Clase[];
+  testAhora?: string | Date;
+}
+
 // Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191):
 // Tokens de actividad, cabecera con navegación, atajos de teclado y grilla horaria semanal/diaria.
-export function ClassAgenda() {
+export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: ClassAgendaProps = {}) {
   const {
     vista,
     setVista,
-    clases,
+    clases: clasesStore,
     agendaReservas,
-    testAhora,
+    testAhora: testAhoraStore,
     cargando,
     accionEnCurso,
     error,
@@ -223,6 +229,19 @@ export function ClassAgenda() {
   } = useClasesStore();
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
+
+  const testAhora =
+    testAhoraProp ??
+    testAhoraStore ??
+    (typeof window === "undefined" ? useClasesStore.getState().testAhora : null);
+
+  const clases =
+    clasesProp ??
+    (clasesStore.length > 0
+      ? clasesStore
+      : typeof window === "undefined"
+      ? useClasesStore.getState().clases
+      : clasesStore);
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
@@ -474,19 +493,10 @@ export function ClassAgenda() {
     setEditandoHora(false);
   };
 
-  // Cálculo de rango horario para la grilla
-  const { horaMin, horaMax } = React.useMemo(() => {
-    let minH = 7;
-    let maxH = 21;
+  // Cálculo de rango horario dinámico para la grilla según clases activas (GOZS-385)
+  const { horaMin, horaMax, tieneClases, textoLeyenda } = React.useMemo(() => {
     const lista = vista === "dia" ? delDia : clasesSemana;
-    for (const c of lista) {
-      const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
-      const durH = (c.duracion_minutos || 60) / 60;
-      const finH = Math.ceil(hora + minuto / 60 + durH);
-      minH = Math.min(minH, hora);
-      maxH = Math.max(maxH, finH);
-    }
-    return { horaMin: Math.max(0, minH), horaMax: Math.min(24, maxH) };
+    return calcularRangoHorarioUtil(lista);
   }, [vista, delDia, clasesSemana]);
 
   // Detección de tramos >= 3h sin clases para banda colapsada (Sección 5)
@@ -621,35 +631,47 @@ export function ClassAgenda() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Botón Hoy */}
-          <button
-            type="button"
-            onClick={irAHoy}
-            className="h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+          {/* Selector de semana y controles de navegación temporal accesibles (GOZS-385) */}
+          <div
+            role="group"
+            aria-label="Navegación temporal y selector de semana"
+            data-testid="week-selector"
+            className="flex items-center gap-1.5"
           >
-            Hoy
-          </button>
+            {/* Botón Hoy */}
+            <button
+              type="button"
+              onClick={irAHoy}
+              data-testid="today-btn"
+              aria-label="Ir a la fecha de hoy"
+              className="h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+            >
+              Hoy
+            </button>
 
-          {/* Flechas unidas */}
-          <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
-            <button
-              type="button"
-              onClick={() => navegarFecha(-1)}
-              className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Período anterior"
-              title="Anterior (←)"
-            >
-              <span className="text-sm font-bold">‹</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => navegarFecha(1)}
-              className="-ml-px flex h-9 w-9 items-center justify-center border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Período siguiente"
-              title="Siguiente (→)"
-            >
-              <span className="text-sm font-bold">›</span>
-            </button>
+            {/* Flechas de navegación semanal / periódica */}
+            <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
+              <button
+                type="button"
+                onClick={() => navegarFecha(-1)}
+                className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                aria-label={vista === "semana" ? "Semana anterior" : vista === "dia" ? "Día anterior" : "Mes anterior"}
+                title="Anterior (←)"
+                data-testid="prev-week-btn"
+              >
+                <span className="text-sm font-bold" aria-hidden="true">‹</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navegarFecha(1)}
+                className="-ml-px flex h-9 w-9 items-center justify-center border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                aria-label={vista === "semana" ? "Semana siguiente" : vista === "dia" ? "Día siguiente" : "Mes siguiente"}
+                title="Siguiente (→)"
+                data-testid="next-week-btn"
+              >
+                <span className="text-sm font-bold" aria-hidden="true">›</span>
+              </button>
+            </div>
           </div>
 
           {/* Segmented Día/Semana/Mes */}
@@ -920,7 +942,7 @@ export function ClassAgenda() {
                   return (
                     <React.Fragment key={`hora-${slot.hora}`}>
                       <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                        {String(slot.hora).padStart(2, "0")}:00
+                        {`${String(slot.hora).padStart(2, "0")}:00`}
                       </div>
                       {diasSemana.map((d) => {
                         const esHoy = d.clave === hoy;
@@ -999,6 +1021,13 @@ export function ClassAgenda() {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* Leyenda informativa de acotamiento dinámico (GOZS-385) */}
+            <div className="border-t border-border/60 px-4 py-2.5 bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+              <span data-testid="agenda-rango-dinamico-leyenda">
+                {textoLeyenda}
+              </span>
             </div>
           </div>
 
@@ -1107,7 +1136,7 @@ export function ClassAgenda() {
                     return (
                       <React.Fragment key={`dia-hora-${slot.hora}`}>
                         <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
-                          {String(slot.hora).padStart(2, "0")}:00
+                          {`${String(slot.hora).padStart(2, "0")}:00`}
                         </div>
                         <div
                           className={`h-[56px] border-t border-l border-border/40 ${
@@ -1159,6 +1188,13 @@ export function ClassAgenda() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Leyenda informativa de acotamiento dinámico (GOZS-385) */}
+              <div className="border-t border-border/60 px-4 py-2.5 bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+                <span data-testid="agenda-dia-rango-dinamico-leyenda">
+                  {textoLeyenda}
+                </span>
               </div>
             </div>
 
