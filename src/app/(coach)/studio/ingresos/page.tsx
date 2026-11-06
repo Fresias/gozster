@@ -1,5 +1,4 @@
 import { StudioSankeyView } from "@/components/coach/studio-sankey-view";
-import { CANONICAL_SANKEY_DATA } from "@/components/coach/studio-sankey-modal";
 
 export const dynamic = "force-dynamic";
 
@@ -9,5 +8,6 @@ export const metadata = {
 };
 
 export default function StudioIngresosPage() {
-  return <StudioSankeyView initialData={CANONICAL_SANKEY_DATA} />;
+  return <StudioSankeyView />;
 }
+
