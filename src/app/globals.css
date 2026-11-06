@@ -25,7 +25,7 @@
   --border: 214 32% 91%;              /* #E2E8F0 */
   --input: 214 32% 91%;
   --ring: 221 83% 53%;
-  --radius: 0.875rem;
+  --radius: 0.5rem;
 
   /* Semántica deportiva suave */
   --success: 160 84% 39%;             /* #10B981 Esmeralda */
@@ -34,6 +34,23 @@
   --warning-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;           /* #EF4444 Rosa Coral */
   --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de estado suave para badges y alertas (contraste texto ≥ 4.5:1) */
+  --success-soft: 152 81% 96%;
+  --success-soft-foreground: 164 86% 16%;
+  --success-soft-border: 152 76% 80%;
+
+  --warning-soft: 48 100% 96%;
+  --warning-soft-foreground: 22 78% 26%;
+  --warning-soft-border: 48 95% 76%;
+
+  --danger-soft: 0 86% 97%;
+  --danger-soft-foreground: 0 72% 32%;
+  --danger-soft-border: 0 96% 89%;
+
+  --neutral-soft: 210 40% 96%;
+  --neutral-soft-foreground: 217 33% 17%;
+  --neutral-soft-border: 214 32% 91%;
 
   /* Tokens de actividad deportiva (Agenda de Clases, GOZS-190 / GOZS-191) */
   --act-funcional-bg: 204 94% 94%;    /* sky-100 */
@@ -66,7 +83,7 @@
   --border: 217 33% 22%;
   --input: 217 33% 22%;
   --ring: 199 89% 48%;
-  --radius: 0.875rem;
+  --radius: 0.5rem;
 
   /* Semántica deportiva noche */
   --success: 158 64% 52%;             /* #34D399 Menta */
@@ -75,6 +92,23 @@
   --warning-foreground: 222 47% 11%;
   --destructive: 0 72% 51%;           /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de estado suave para badges y alertas en dark mode (contraste texto ≥ 4.5:1) */
+  --success-soft: 158 60% 10%;
+  --success-soft-foreground: 158 64% 75%;
+  --success-soft-border: 158 64% 25%;
+
+  --warning-soft: 38 60% 11%;
+  --warning-soft-foreground: 45 93% 75%;
+  --warning-soft-border: 38 60% 25%;
+
+  --danger-soft: 0 55% 12%;
+  --danger-soft-foreground: 0 85% 80%;
+  --danger-soft-border: 0 55% 25%;
+
+  --neutral-soft: 217 33% 17%;
+  --neutral-soft-foreground: 210 40% 96%;
+  --neutral-soft-border: 217 33% 25%;
 
   /* Tokens de actividad deportiva noche */
   --act-funcional-bg: 204 80% 16%;
@@ -90,9 +124,16 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/25 selection:text-primary;
+    @apply bg-background text-foreground antialiased selection:bg-primary/25 selection:text-primary font-sans;
     -webkit-tap-highlight-color: transparent;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Geist Mono exclusivamente para números tabulares (pesos, montos, horas) */
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
 
   /* Custom scrollbar for dark mode */

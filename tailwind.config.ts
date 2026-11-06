@@ -53,6 +53,31 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        "success-soft": {
+          DEFAULT: "hsl(var(--success-soft))",
+          foreground: "hsl(var(--success-soft-foreground))",
+          border: "hsl(var(--success-soft-border))",
+        },
+        "warning-soft": {
+          DEFAULT: "hsl(var(--warning-soft))",
+          foreground: "hsl(var(--warning-soft-foreground))",
+          border: "hsl(var(--warning-soft-border))",
+        },
+        "danger-soft": {
+          DEFAULT: "hsl(var(--danger-soft))",
+          foreground: "hsl(var(--danger-soft-foreground))",
+          border: "hsl(var(--danger-soft-border))",
+        },
+        "neutral-soft": {
+          DEFAULT: "hsl(var(--neutral-soft))",
+          foreground: "hsl(var(--neutral-soft-foreground))",
+          border: "hsl(var(--neutral-soft-border))",
+        },
+        "destructive-soft": {
+          DEFAULT: "hsl(var(--danger-soft))",
+          foreground: "hsl(var(--danger-soft-foreground))",
+          border: "hsl(var(--danger-soft-border))",
+        },
         "act-funcional": {
           bg: "hsl(var(--act-funcional-bg) / <alpha-value>)",
           fg: "hsl(var(--act-funcional-fg) / <alpha-value>)",
@@ -63,6 +88,10 @@ const config: Config = {
           fg: "hsl(var(--act-boxeo-fg) / <alpha-value>)",
           bar: "hsl(var(--act-boxeo-bar) / <alpha-value>)",
         },
+      },
+      fontFamily: {
+        sans: ["Geist", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        mono: ["Geist Mono", "JetBrains Mono", "Menlo", "monospace"],
       },
       borderRadius: {
         sm: "calc(var(--radius) - 4px)",
