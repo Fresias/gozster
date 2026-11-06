@@ -53,9 +53,15 @@ http
     }
     if (url.startsWith("/rest/v1/perfiles")) {
       // La consulta del propio perfil (id=eq.<uid>) devuelve fila; el listado de alumnos queda vacío salvo fixture.
-      const row = { id: USER.id, rol: "ENTRENADOR" };
+      const row = { id: USER.id, rol: fixtures.rol || "ENTRENADOR", ...(fixtures.perfil || {}) };
       if (url.includes(`id=eq.${USER.id}`)) return send(200, [row]);
       return send(200, url.includes("rol=eq.ALUMNO") ? fixtures.alumnos ?? [] : []);
+    }
+    if (url.startsWith("/rest/v1/rpc/obtener_kpis_negocio") && fixtures.kpis_negocio) {
+      return send(200, fixtures.kpis_negocio);
+    }
+    if (url.startsWith("/rest/v1/rpc/actualizar_estado_dolor")) {
+      return send(200, fixtures.actualizar_estado_dolor ?? { ok: true });
     }
     const tabla = url.match(/^\/rest\/v1\/(\w+)\?/)?.[1];
     if (req.method === "GET" && tabla && fixtures[tabla]) return send(200, fixtures[tabla]);
