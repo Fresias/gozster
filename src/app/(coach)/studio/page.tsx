@@ -4,7 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function CoachStudioPage() {
+export default async function CoachStudioPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ estado?: string }>;
+}) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
+  const initialEstado = resolvedParams?.estado;
+
   // Cliente de servidor autenticado: PostgREST recibe el JWT del entrenador y RLS
   // devuelve únicamente a sus alumnos y rutinas asignados.
   const supabase = await createClient();
@@ -36,6 +43,7 @@ export default async function CoachStudioPage() {
       initialDataset={initialDataset}
       estancados={estancados}
       userRole={userRole}
+      initialEstado={initialEstado}
     />
   );
 }
