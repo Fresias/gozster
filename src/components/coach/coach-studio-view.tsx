@@ -26,6 +26,7 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
+import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
 import {
   CriticalAlertsInbox,
   type CriticalAlert,
@@ -1139,6 +1140,11 @@ export function CoachStudioView({
                 setCurrentPage(1);
               }}
             />
+          </div>
+
+          {/* Bloque central 'Para revisar hoy' (GOZS-392) */}
+          <div className={leftCol}>
+            <ParaRevisarHoy onSelectAlumno={(id) => selectAlumno(id)} />
           </div>
 
           {/* Directorio de Atletas */}
