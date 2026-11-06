@@ -24,17 +24,32 @@ import {
 } from "@/lib/planes";
 import { HistorialCobrosDrawer } from "@/components/coach/historial-cobros-drawer";
 import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "@/components/ui/icons";
+import type { KpisNegocio } from "@/lib/kpis-negocio";
+import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
   initialFiltroActividad?: ActividadKpi;
   initialFiltroEstado?: FiltroCobros;
+  kpis?: KpisNegocio;
 }
 
 export function CobrosPanel({
   initialKpiAnualAbierto,
   initialFiltroActividad,
   initialFiltroEstado,
+  kpis: propKpis,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros,
@@ -250,6 +265,19 @@ export function CobrosPanel({
   }, [cargarCobros]);
 
   const kpis = metricas();
+  const kpisNegocio = propKpis ?? DEMO_KPIS_NEGOCIO;
+  const cobradoValor = propKpis ? (propKpis.cobrado ?? 0) : kpis.ingresosMes;
+  const porCobrarValor = propKpis ? (propKpis.porCobrar ?? 0) : kpis.cobranzaPendiente;
+  const vencidoValor = propKpis ? (propKpis.vencido ?? 0) : kpis.cobranzaVencida;
+  const tasaCobroPctValor = propKpis ? (propKpis.tasaCobroPct ?? 0) : kpis.tasaCobranzaPct;
+  const alumnosAlDiaValor = propKpis
+    ? (propKpis.alumnos_al_dia ?? propKpis.alumnosAlDia ?? 0)
+    : kpis.alumnosAlDia;
+  const alumnosMorososValor = propKpis
+    ? (propKpis.alumnos_morosos ?? propKpis.alumnosMorosos ?? 0)
+    : kpis.alumnosMorosos;
+
+  const hoyIso = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const cobrosConDescuento = React.useMemo(() => {
     return cobros.filter(
@@ -265,7 +293,12 @@ export function CobrosPanel({
     return ultimaSuscripcionPorAlumno(cobros).filter((c) => {
       // Filtro de estado
       if (filtroEstado === "PENDIENTES" && c.estado !== "PENDIENTE") return false;
-      if (filtroEstado === "VENCIDOS" && c.estado !== "VENCIDO") return false;
+      if (filtroEstado === "VENCIDOS") {
+        const esVencido =
+          c.estado === "VENCIDO" ||
+          (Boolean(c.fechaVencimiento) && c.fechaVencimiento < hoyIso && c.estado !== "PAGADO");
+        if (!esVencido) return false;
+      }
       if (filtroEstado === "PAGADOS" && c.estado !== "PAGADO") return false;
       if (filtroEstado === "DESCUENTOS") {
         const tieneDesc =
@@ -282,12 +315,40 @@ export function CobrosPanel({
         const coincideNombre = c.alumnoNombre.toLowerCase().includes(query);
         const coincideEmail = c.alumnoEmail.toLowerCase().includes(query);
         const coincideServicio = c.servicioNombre.toLowerCase().includes(query);
-        if (!coincideNombre && !coincideEmail && !coincideServicio) return false;
+        const coincideContrato =
+          c.contratacionId.toLowerCase().includes(query) || c.id.toLowerCase().includes(query);
+        if (!coincideNombre && !coincideEmail && !coincideServicio && !coincideContrato) return false;
       }
 
       return true;
     });
-  }, [cobros, filtroEstado, busqueda]);
+  }, [cobros, filtroEstado, busqueda, hoyIso]);
+
+  const cobrosOrdenados = React.useMemo(() => {
+    const esVencido = (c: CobroItem) =>
+      c.estado === "VENCIDO" ||
+      (Boolean(c.fechaVencimiento) && c.fechaVencimiento < hoyIso && c.estado !== "PAGADO");
+
+    return [...cobrosFiltrados].sort((a, b) => {
+      const aVencido = esVencido(a);
+      const bVencido = esVencido(b);
+
+      // Contratos vencidos al tope (primer orden)
+      if (aVencido && !bVencido) return -1;
+      if (!aVencido && bVencido) return 1;
+
+      // Si ambos son vencidos, ordenar por vencimiento ascendente
+      if (aVencido && bVencido) {
+        return a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+      }
+
+      // Pendientes antes de pagados
+      if (a.estado === "PENDIENTE" && b.estado === "PAGADO") return -1;
+      if (a.estado === "PAGADO" && b.estado === "PENDIENTE") return 1;
+
+      return a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+    });
+  }, [cobrosFiltrados, hoyIso]);
 
   const abrirModalPago = (item: CobroItem) => {
     setCobroSeleccionado(item);
@@ -348,6 +409,244 @@ export function CobrosPanel({
     const [anio, mes, dia] = fechaStr.split("-");
     return `${dia}/${mes}/${anio}`;
   };
+
+  const columns: ColumnDef<CobroItem>[] = React.useMemo(
+    () => [
+      {
+        id: "alumno",
+        accessorKey: "alumnoNombre",
+        header: "Alumno",
+        sortable: true,
+        cell: ({ row }) => (
+          <div>
+            <span className="font-bold text-foreground block text-sm">
+              {row.alumnoNombre}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {row.alumnoEmail}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: "servicio",
+        accessorKey: "servicioNombre",
+        header: "Servicio",
+        sortable: true,
+        cell: ({ row }) => (
+          <div>
+            <span className="font-semibold text-foreground block">
+              {row.servicioNombre}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {row.actividad ? `Actividad: ${row.actividad}` : "Combinado"}
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: "vencimiento",
+        accessorKey: "fechaVencimiento",
+        header: "Vencimiento",
+        sortable: true,
+        cell: ({ row }) => (
+          <div>
+            <span className="tabular-nums font-semibold block">
+              {formatearFecha(row.fechaVencimiento)}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Día {row.diaVencimiento} anclado
+            </span>
+          </div>
+        ),
+      },
+      {
+        id: "monto",
+        accessorKey: "monto",
+        header: "Monto",
+        sortable: true,
+        cell: ({ row }) => (
+          <div className="tabular-nums text-sm text-foreground">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-black text-foreground" data-testid="cobro-monto">
+                {formatearDinero(row.monto)}
+              </span>
+              {(row.ultimoPago?.notas || row.notaDescuento) && (
+                <span
+                  className="inline-flex items-center justify-center rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black px-1.5 py-0.5 text-[11px] border border-amber-500/40 cursor-help"
+                  title={`Nota: ${row.ultimoPago?.notas || row.notaDescuento}`}
+                  data-testid="cobro-nota-n"
+                  aria-label={`Nota: ${row.ultimoPago?.notas || row.notaDescuento}`}
+                >
+                  N
+                </span>
+              )}
+            </div>
+
+            {row.montoLista && row.montoLista > row.monto && (
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                <span className="line-through">{formatearDinero(row.montoLista)}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
+                  (-{formatearDinero(row.montoLista - row.monto)})
+                </span>
+              </div>
+            )}
+
+            {(row.ultimoPago?.notas || row.notaDescuento) && (
+              <p
+                className="text-[11px] text-muted-foreground font-medium italic mt-0.5 max-w-[200px] truncate"
+                title={row.ultimoPago?.notas || row.notaDescuento}
+                data-testid="cobro-nota-texto"
+              >
+                Nota: {row.ultimoPago?.notas || row.notaDescuento}
+              </p>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "estado",
+        accessorKey: "estado",
+        header: "Estado",
+        sortable: true,
+        cell: ({ row }) => {
+          const esPagado = row.estado === "PAGADO";
+          const esVencido = row.estado === "VENCIDO";
+          return (
+            <StatusBadge
+              variant={esPagado ? "success" : esVencido ? "destructive" : "warning"}
+              dot
+              size="sm"
+              data-testid="estado-cobro-badge"
+            >
+              {esPagado ? "Pagado" : esVencido ? "Vencido" : "Por vencer"}
+            </StatusBadge>
+          );
+        },
+      },
+      {
+        id: "ultimoPago",
+        header: "Último Pago",
+        cell: ({ row }) => (
+          <div>
+            {row.ultimoPago ? (
+              <div>
+                <span className="font-bold text-foreground">
+                  {row.ultimoPago.medioPago === "TRANSFERENCIA"
+                    ? "Transferencia"
+                    : "Efectivo"}
+                </span>
+                <span className="text-[10px] text-muted-foreground block tabular-nums">
+                  {formatearFecha(row.ultimoPago.fechaPago.slice(0, 10))}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground italic text-[11px]">
+                Sin pago registrado
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: "acciones",
+        header: "Acción",
+        className: "text-right",
+        headerClassName: "text-right",
+        cell: ({ row }) => {
+          const esPagado = row.estado === "PAGADO";
+          return (
+            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => verHistorial(row.alumnoId)}
+                data-testid="ver-historial-btn"
+                className="h-8 px-2 text-xs font-medium"
+              >
+                Historial
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAlumnoParaAsignar(row)}
+                data-testid="btn-cambiar-plan-cobros"
+                className="h-8 px-2 text-xs font-medium"
+                title="Asignar o cambiar plan de membresía"
+              >
+                Plan
+              </Button>
+              {esPagado ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => abrirComprobante(row.contratacionId)}
+                  data-testid="ver-recibo-btn"
+                  className="h-8 px-2.5 text-xs font-semibold"
+                >
+                  Ver recibo
+                </Button>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={accionEnCurso === row.contratacionId}
+                  onClick={() => abrirModalPago(row)}
+                  data-testid="registrar-pago-btn"
+                  className="h-8 px-2.5 text-xs font-semibold"
+                >
+                  Registrar pago
+                </Button>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label={`Más acciones para ${row.alumnoNombre}`}
+                  data-testid="cobro-acciones-menu-btn"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="text-xs">Acciones de contrato</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {esPagado ? (
+                    <DropdownMenuItem
+                      onClick={() => abrirComprobante(row.contratacionId)}
+                      data-testid="menu-item-ver-recibo"
+                    >
+                      📄 Ver recibo interno
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      onClick={() => abrirModalPago(row)}
+                      disabled={accionEnCurso === row.contratacionId}
+                      data-testid="menu-item-registrar-pago"
+                    >
+                      💳 Registrar pago
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => verHistorial(row.alumnoId)}
+                    data-testid="menu-item-historial"
+                  >
+                    📋 Historial de cobros
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setAlumnoParaAsignar(row)}
+                    data-testid="menu-item-plan"
+                  >
+                    🏷️ Cambiar / Asignar plan
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
+      },
+    ],
+    [accionEnCurso],
+  );
 
   return (
     <section className="space-y-6" aria-labelledby="cobros-titulo" data-testid="cobros-panel" suppressHydrationWarning>
@@ -421,18 +720,22 @@ export function CobrosPanel({
         </div>
       )}
 
-      {/* Franja de KPIs del mes */}
+      {/* Franja de 4 KPIs superiores derivados de KpisNegocio */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" data-testid="cobros-kpis" suppressHydrationWarning>
-        {/* Ingresos del mes */}
+        {/* Cobrado */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Ingresos del Mes</span>
+            <span>Cobrado</span>
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black">
               $
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums" data-testid="kpi-ingresos-mes" suppressHydrationWarning>
-            {formatearDinero(kpis.ingresosMes)}
+          <p
+            className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+            data-testid="kpi-ingresos-mes"
+            suppressHydrationWarning
+          >
+            {formatearDinero(cobradoValor)}
           </p>
           <div className="flex items-center justify-between gap-1 mt-1">
             <p className="text-[11px] text-muted-foreground">
@@ -451,34 +754,42 @@ export function CobrosPanel({
           </div>
         </div>
 
-        {/* Cobranza Pendiente */}
+        {/* Por cobrar */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Cobranza Pendiente</span>
+            <span>Por cobrar</span>
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold">
               ⏳
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums" data-testid="kpi-cobranza-pendiente" suppressHydrationWarning>
-            {formatearDinero(kpis.cobranzaPendiente)}
+          <p
+            className="mt-2 text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums"
+            data-testid="kpi-cobranza-pendiente"
+            suppressHydrationWarning
+          >
+            {formatearDinero(porCobrarValor)}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Cuotas próximas a vencer
           </p>
         </div>
 
-        {/* Morosos / Cuotas Vencidas */}
+        {/* Vencido */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Alumnos Morosos</span>
+            <span>Vencido</span>
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold">
               !
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums" data-testid="kpi-alumnos-morosos" suppressHydrationWarning>
-            {kpis.alumnosMorosos}{" "}
-            <span className="text-xs font-semibold text-muted-foreground">
-              ({formatearDinero(kpis.cobranzaVencida)})
+          <p
+            className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums"
+            data-testid="kpi-alumnos-morosos"
+            suppressHydrationWarning
+          >
+            {alumnosMorososValor}{" "}
+            <span className="text-xs font-semibold text-muted-foreground" data-testid="kpi-vencido">
+              ({formatearDinero(vencidoValor)})
             </span>
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -486,27 +797,31 @@ export function CobrosPanel({
           </p>
         </div>
 
-        {/* Tasa de Cobranza */}
+        {/* Tasa de cobro */}
         <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Tasa de Cobranza</span>
+            <span>Tasa de cobro</span>
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold">
               %
             </span>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums" data-testid="kpi-tasa-cobranza" suppressHydrationWarning>
-            {kpis.tasaCobranzaPct}%
+          <p
+            className="mt-2 text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums"
+            data-testid="kpi-tasa-cobranza"
+            suppressHydrationWarning
+          >
+            {tasaCobroPctValor}%
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {kpis.alumnosAlDia} alumnos al día
+            {alumnosAlDiaValor} alumnos al día
           </p>
         </div>
       </div>
 
-      {/* Controles de Filtros y Búsqueda */}
+      {/* Controles de Filtros Rápidos y Buscador de Contratos */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Pestañas de estado */}
+          {/* Pestañas de estado: Todos, Vencidos, Por vencer, Pagados */}
           <div
             className="flex items-center rounded-xl border border-border/80 bg-secondary/40 p-1"
             role="group"
@@ -514,18 +829,21 @@ export function CobrosPanel({
           >
             {(
               [
-                { key: "TODOS", label: `Todos (${cobros.length})` },
-                {
-                  key: "PENDIENTES",
-                  label: `Pendientes (${cobros.filter((c) => c.estado === "PENDIENTE").length})`,
-                },
+                { key: "TODOS", label: `Todos (${cobros.length})`, testId: "filtro-todos-btn" },
                 {
                   key: "VENCIDOS",
-                  label: `Vencidos (${cobros.filter((c) => c.estado === "VENCIDO").length})`,
+                  label: `Vencidos (${cobros.filter((c) => c.estado === "VENCIDO" || (Boolean(c.fechaVencimiento) && c.fechaVencimiento < hoyIso && c.estado !== "PAGADO")).length})`,
+                  testId: "filtro-vencidos-btn",
+                },
+                {
+                  key: "PENDIENTES",
+                  label: `Por vencer (${cobros.filter((c) => c.estado === "PENDIENTE").length})`,
+                  testId: "filtro-pendientes-btn",
                 },
                 {
                   key: "PAGADOS",
                   label: `Pagados (${cobros.filter((c) => c.estado === "PAGADO").length})`,
+                  testId: "filtro-pagados-btn",
                 },
               ] as const
             ).map((tab) => (
@@ -538,7 +856,7 @@ export function CobrosPanel({
                     ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                data-testid={`filtro-${tab.key.toLowerCase()}-btn`}
+                data-testid={tab.testId}
                 suppressHydrationWarning
               >
                 {tab.label}
@@ -565,7 +883,7 @@ export function CobrosPanel({
           </button>
         </div>
 
-        {/* Input de búsqueda */}
+        {/* Buscador de contratos */}
         <div className="relative min-w-64 max-w-sm flex-1">
           <input
             type="search"
@@ -695,206 +1013,27 @@ export function CobrosPanel({
         </div>
       )}
 
-      {/* Tabla de Cobros */}
-      <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-        {cargando && cobros.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">Cargando cobros…</p>
-        ) : cobrosFiltrados.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground space-y-1">
-            <p className="font-semibold text-foreground">No se encontraron cobros</p>
-            <p className="text-xs">
-              {busqueda
-                ? `No hay coincidencias para "${busqueda}".`
-                : "No hay cuotas registradas bajo este filtro."}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs" data-testid="cobros-table">
-              <thead className="border-b border-border/60 bg-secondary/30 text-muted-foreground uppercase font-bold tracking-wider text-[11px]">
-                <tr>
-                  <th className="px-4 py-3.5">Alumno</th>
-                  <th className="px-4 py-3.5">Servicio</th>
-                  <th className="px-4 py-3.5">Vencimiento</th>
-                  <th className="px-4 py-3.5">Monto</th>
-                  <th className="px-4 py-3.5">Estado</th>
-                  <th className="px-4 py-3.5">Último Pago</th>
-                  <th className="px-4 py-3.5 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {cobrosFiltrados.map((item) => {
-                  const esPagado = item.estado === "PAGADO";
-                  const esVencido = item.estado === "VENCIDO";
-                  const esPendiente = item.estado === "PENDIENTE";
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-secondary/20 transition-colors"
-                      data-testid="cobro-row"
-                    >
-                      {/* Alumno */}
-                      <td className="px-4 py-3">
-                        <span className="font-bold text-foreground block text-sm">
-                          {item.alumnoNombre}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {item.alumnoEmail}
-                        </span>
-                      </td>
-
-                      {/* Servicio */}
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-foreground block">
-                          {item.servicioNombre}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {item.actividad ? `Actividad: ${item.actividad}` : "Combinado"}
-                        </span>
-                      </td>
-
-                      {/* Vencimiento */}
-                      <td className="px-4 py-3">
-                        <span className="tabular-nums font-semibold block">
-                          {formatearFecha(item.fechaVencimiento)}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          Día {item.diaVencimiento} anclado
-                        </span>
-                      </td>
-
-                      {/* Monto */}
-                      <td className="px-4 py-3 tabular-nums text-sm text-foreground">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-black text-foreground" data-testid="cobro-monto">
-                            {formatearDinero(item.monto)}
-                          </span>
-                          {(item.ultimoPago?.notas || item.notaDescuento) && (
-                            <span
-                              className="inline-flex items-center justify-center rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black px-1.5 py-0.5 text-[11px] border border-amber-500/40 cursor-help"
-                              title={`Nota: ${item.ultimoPago?.notas || item.notaDescuento}`}
-                              data-testid="cobro-nota-n"
-                              aria-label={`Nota: ${item.ultimoPago?.notas || item.notaDescuento}`}
-                            >
-                              N
-                            </span>
-                          )}
-                        </div>
-
-                        {item.montoLista && item.montoLista > item.monto && (
-                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                            <span className="line-through">{formatearDinero(item.montoLista)}</span>
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
-                              (-{formatearDinero(item.montoLista - item.monto)})
-                            </span>
-                          </div>
-                        )}
-
-                        {(item.ultimoPago?.notas || item.notaDescuento) && (
-                          <p
-                            className="text-[11px] text-muted-foreground font-medium italic mt-0.5 max-w-[200px] truncate"
-                            title={item.ultimoPago?.notas || item.notaDescuento}
-                            data-testid="cobro-nota-texto"
-                          >
-                            Nota: {item.ultimoPago?.notas || item.notaDescuento}
-                          </p>
-                        )}
-                      </td>
-
-                      {/* Estado */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                            esPagado
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
-                              : esVencido
-                                ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                          }`}
-                          data-testid="estado-cobro-badge"
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              esPagado
-                                ? "bg-emerald-500"
-                                : esVencido
-                                  ? "bg-rose-500"
-                                  : "bg-amber-500"
-                            }`}
-                          />
-                          {esPagado ? "Pagado" : esVencido ? "Vencido" : "Pendiente"}
-                        </span>
-                      </td>
-
-                      {/* Último Pago */}
-                      <td className="px-4 py-3">
-                        {item.ultimoPago ? (
-                          <div>
-                            <span className="font-bold text-foreground">
-                              {item.ultimoPago.medioPago === "TRANSFERENCIA"
-                                ? "Transferencia"
-                                : "Efectivo"}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground block tabular-nums">
-                              {formatearFecha(item.ultimoPago.fechaPago.slice(0, 10))}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground italic text-[11px]">
-                            Sin pago registrado
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Acciones */}
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => verHistorial(item.alumnoId)}
-                          data-testid="ver-historial-btn"
-                        >
-                          Historial
-                        </Button>{" "}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAlumnoParaAsignar(item)}
-                          data-testid="btn-cambiar-plan-cobros"
-                          title="Asignar o cambiar plan de membresía"
-                        >
-                          Plan
-                        </Button>{" "}
-                        {esPagado ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => abrirComprobante(item.contratacionId)}
-                            data-testid="ver-recibo-btn"
-                          >
-                            Ver recibo
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="default"
-                            size="sm"
-                            disabled={accionEnCurso === item.contratacionId}
-                            onClick={() => abrirModalPago(item)}
-                            data-testid="registrar-pago-btn"
-                          >
-                            Registrar pago
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Tabla de Cobros con DataTable paginada */}
+      {cargando && cobros.length === 0 ? (
+        <div className="rounded-2xl border border-border/80 bg-card p-12 text-center text-sm text-muted-foreground">
+          Cargando cobros…
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={cobrosOrdenados}
+          pageSize={15}
+          showPagination={true}
+          tableTestId="cobros-table"
+          rowTestId="cobro-row"
+          emptyTitle="No se encontraron cobros"
+          emptyDescription={
+            busqueda
+              ? `No hay coincidencias para "${busqueda}".`
+              : "No hay cuotas registradas bajo este filtro."
+          }
+        />
+      )}
 
       {/* DIÁLOGO: REGISTRAR PAGO */}
       <dialog
