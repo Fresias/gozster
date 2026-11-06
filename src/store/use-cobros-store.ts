@@ -128,6 +128,7 @@ interface CobrosState {
     montoLista?: number;
     medioPago: "TRANSFERENCIA" | "EFECTIVO";
     notas?: string;
+    fechaPago?: string;
   }) => Promise<ComprobanteInterno>;
   registrarCobroInicial: (params: {
     alumnoId: string;
@@ -501,7 +502,7 @@ export const useCobrosStore = create<CobrosState>()(
         }
       },
 
-      registrarPago: async ({ contratacionId, monto, montoLista, medioPago, notas }) => {
+      registrarPago: async ({ contratacionId, monto, montoLista, medioPago, notas, fechaPago }) => {
         const item = get().cobros.find((c) => c.contratacionId === contratacionId);
         if (!item) {
           throw new Error("Contratación no encontrada");
@@ -515,7 +516,9 @@ export const useCobrosStore = create<CobrosState>()(
         // Regla ADR-001: anclaje de fecha (vence 10/10, paga 18/10 -> vence 10/11)
         const nuevaFechaFin = computeAnchoredRenewalDate(item.fechaVencimiento, item.diaVencimiento);
         const pagoId = `pago-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const ahoraIso = new Date().toISOString();
+        const ahoraIso = fechaPago
+          ? (fechaPago.includes("T") ? fechaPago : `${fechaPago}T12:00:00.000Z`)
+          : new Date().toISOString();
         const reciboNumero = `REC-${pagoId.slice(-6).toUpperCase()}`;
 
         const comprobante: ComprobanteInterno = {
