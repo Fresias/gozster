@@ -268,7 +268,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const res = await db.query<{ id: string; eva: number }>(
         `SELECT id, eva FROM public.alumno_historial_dolor WHERE id = '${idAgudo}'`
       );
-      expect(res.rows[0].eva).toBe(8);
+      expect(res.rows[0]!.eva).toBe(8);
     });
 
     it('GIVEN un caso con eva = 7 THEN severidad = "AGUDO", v_dolor_activo.nivel = "alto" y la alerta en alertas_entrenador tiene severidad = "ALTA"', async () => {
@@ -283,25 +283,25 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const casoRes = await db.query<{ severidad: string; eva: number; estado: string }>(
         `SELECT severidad, eva, estado FROM public.alumno_historial_dolor WHERE id = '${caso7Id}'`
       );
-      expect(casoRes.rows[0].severidad).toBe('AGUDO');
-      expect(casoRes.rows[0].eva).toBe(7);
+      expect(casoRes.rows[0]!.severidad).toBe('AGUDO');
+      expect(casoRes.rows[0]!.eva).toBe(7);
 
       // 2. v_dolor_activo muestra nivel = 'alto'
       const vistaRes = await db.query<{ nivel: string; severidad: string }>(
         `SELECT nivel, severidad FROM public.v_dolor_activo WHERE id = '${caso7Id}'`
       );
       expect(vistaRes.rows.length).toBe(1);
-      expect(vistaRes.rows[0].nivel).toBe('alto');
-      expect(vistaRes.rows[0].severidad).toBe('AGUDO');
+      expect(vistaRes.rows[0]!.nivel).toBe('alto');
+      expect(vistaRes.rows[0]!.severidad).toBe('AGUDO');
 
       // 3. Alerta en alertas_entrenador creada con severidad = 'ALTA' (no CRITICA al no haber sintoma de alarma)
       const alertaRes = await db.query<{ severidad: string; estado: string; tipo_alerta: string }>(
         `SELECT severidad, estado, tipo_alerta FROM public.alertas_entrenador WHERE reporte_dolor_id = '${caso7Id}'`
       );
       expect(alertaRes.rows.length).toBe(1);
-      expect(alertaRes.rows[0].severidad).toBe('ALTA');
-      expect(alertaRes.rows[0].estado).toBe('PENDIENTE');
-      expect(alertaRes.rows[0].tipo_alerta).toBe('DOLOR_ARTICULAR');
+      expect(alertaRes.rows[0]!.severidad).toBe('ALTA');
+      expect(alertaRes.rows[0]!.estado).toBe('PENDIENTE');
+      expect(alertaRes.rows[0]!.tipo_alerta).toBe('DOLOR_ARTICULAR');
     });
 
     it('GIVEN un caso PENDIENTE WHEN se invoca actualizar_estado_dolor(caso, "ATENDIDO") THEN tanto el caso como su alerta espejada pasan a ATENDIDO', async () => {
@@ -314,20 +314,20 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const casoRes = await db.query<{ estado: string }>(
         `SELECT estado FROM public.alumno_historial_dolor WHERE id = '${caso7Id}'`
       );
-      expect(casoRes.rows[0].estado).toBe('ATENDIDO');
+      expect(casoRes.rows[0]!.estado).toBe('ATENDIDO');
 
       // 2. Alerta espejada pasa a ATENDIDO
       const alertaRes = await db.query<{ estado: string }>(
         `SELECT estado FROM public.alertas_entrenador WHERE reporte_dolor_id = '${caso7Id}'`
       );
-      expect(alertaRes.rows[0].estado).toBe('ATENDIDO');
+      expect(alertaRes.rows[0]!.estado).toBe('ATENDIDO');
 
       // Sigue figurando en v_dolor_activo por ser caso activo (ATENDIDO)
       const vistaRes = await db.query<{ estado: string }>(
         `SELECT estado FROM public.v_dolor_activo WHERE id = '${caso7Id}'`
       );
       expect(vistaRes.rows.length).toBe(1);
-      expect(vistaRes.rows[0].estado).toBe('ATENDIDO');
+      expect(vistaRes.rows[0]!.estado).toBe('ATENDIDO');
     });
 
     it('GIVEN un caso RESUELTO WHEN se intenta reabrir sin nota THEN la RPC rechaza con error de validación', async () => {
@@ -339,7 +339,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const resueltoCheck = await db.query<{ estado: string }>(
         `SELECT estado FROM public.alumno_historial_dolor WHERE id = '${caso7Id}'`
       );
-      expect(resueltoCheck.rows[0].estado).toBe('RESUELTO');
+      expect(resueltoCheck.rows[0]!.estado).toBe('RESUELTO');
 
       // En v_dolor_activo ya no aparece porque está RESUELTO
       const vistaRes = await db.query(`SELECT id FROM public.v_dolor_activo WHERE id = '${caso7Id}'`);
@@ -362,7 +362,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const checkPost = await db.query<{ estado: string }>(
         `SELECT estado FROM public.alumno_historial_dolor WHERE id = '${caso7Id}'`
       );
-      expect(checkPost.rows[0].estado).toBe('RESUELTO');
+      expect(checkPost.rows[0]!.estado).toBe('RESUELTO');
 
       // Pero si se incluye una nota explicativa, la reapertura tiene éxito
       await expect(
@@ -372,14 +372,14 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       const reabierto = await db.query<{ estado: string; notas_profesor: string }>(
         `SELECT estado, notas_profesor FROM public.alumno_historial_dolor WHERE id = '${caso7Id}'`
       );
-      expect(reabierto.rows[0].estado).toBe('ATENDIDO');
-      expect(reabierto.rows[0].notas_profesor).toContain('Reapertura: alumno reportó molestia');
+      expect(reabierto.rows[0]!.estado).toBe('ATENDIDO');
+      expect(reabierto.rows[0]!.notas_profesor).toContain('Reapertura: alumno reportó molestia');
 
       // La alerta espejada también se reactiva a ATENDIDO
       const alertaReabierta = await db.query<{ estado: string }>(
         `SELECT estado FROM public.alertas_entrenador WHERE reporte_dolor_id = '${caso7Id}'`
       );
-      expect(alertaReabierta.rows[0].estado).toBe('ATENDIDO');
+      expect(alertaReabierta.rows[0]!.estado).toBe('ATENDIDO');
     });
 
     it('RLS en v_dolor_activo: un alumno solo ve sus propios reportes de dolor', async () => {
