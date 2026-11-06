@@ -2,7 +2,23 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import {
   calcularRangoHorarioUtil,
@@ -14,7 +30,12 @@ import {
   ocupaCupo,
 } from "@/lib/clases";
 import { feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
-import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, DEMO_CONTRATACIONES_CLASES } from "@/services/coach-demo-dataset";
+import {
+  DEMO_ALUMNOS,
+  DEMO_ALUMNOS_CLASES,
+  DEMO_COACH_LUCIA,
+  DEMO_CONTRATACIONES_CLASES,
+} from "@/services/coach-demo-dataset";
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { ActividadClase, Clase } from "@/types/database.types";
@@ -129,6 +150,13 @@ export function ClaseBlock({
     <button
       type="button"
       onClick={() => onSelect(clase.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(clase.id);
+        }
+      }}
+      aria-haspopup="dialog"
       aria-label={`${NOMBRE_ACTIVIDAD[clase.actividad]}, ${horaLocal(clase.inicio)}, ${ocupados} de ${capacidad ?? "sin límite"} cupos${cancelada ? ", Cancelada" : ""}`}
       className={`absolute rounded-md border overflow-hidden pl-2.5 pr-1.5 py-1.5 text-left transition-all z-10 hover:brightness-[0.98] focus-visible:ring-2 focus-visible:ring-ring ${
         activa ? "ring-2 ring-primary ring-offset-1 z-20" : ""
@@ -201,16 +229,25 @@ export function ClaseBlock({
 export interface ClassAgendaProps {
   clases?: Clase[];
   testAhora?: string | Date;
+  initialSheetOpen?: boolean;
+  initialClaseId?: string;
+  initialCancelDialogOpen?: boolean;
 }
 
-// Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191):
-// Tokens de actividad, cabecera con navegación, atajos de teclado y grilla horaria semanal/diaria.
-export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: ClassAgendaProps = {}) {
+// Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191 / GOZS-399):
+// Tokens de actividad, cabecera con navegación, atajos de teclado, grilla horaria y Sheet lateral.
+export function ClassAgenda({
+  clases: clasesProp,
+  testAhora: testAhoraProp,
+  initialSheetOpen,
+  initialClaseId,
+  initialCancelDialogOpen,
+}: ClassAgendaProps = {}) {
   const {
     vista,
     setVista,
     clases: clasesStore,
-    agendaReservas,
+    agendaReservas: agendaReservasStore,
     testAhora: testAhoraStore,
     cargando,
     accionEnCurso,
@@ -232,16 +269,16 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
 
   const testAhora =
     testAhoraProp ??
-    testAhoraStore ??
-    (typeof window === "undefined" ? useClasesStore.getState().testAhora : null);
+    (typeof window === "undefined" ? useClasesStore.getState().testAhora : testAhoraStore);
 
   const clases =
     clasesProp ??
-    (clasesStore.length > 0
-      ? clasesStore
-      : typeof window === "undefined"
-      ? useClasesStore.getState().clases
-      : clasesStore);
+    (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+
+  const agendaReservas =
+    typeof window === "undefined"
+      ? useClasesStore.getState().agendaReservas
+      : agendaReservasStore;
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
@@ -252,13 +289,19 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
     setFeriados(feriadosDemo());
   }, []);
   const [dia, setDia] = React.useState(hoy);
-  const [claseId, setClaseId] = React.useState<string | null>(null);
+  const [claseId, setClaseId] = React.useState<string | null>(initialClaseId ?? null);
+  const [sheetDetalleAbierto, setSheetDetalleAbierto] = React.useState<boolean>(
+    initialSheetOpen ?? false
+  );
 
   // Gaps colapsados (tramos >= 3h sin clases)
   const [expandedGaps, setExpandedGaps] = React.useState<Set<number>>(new Set());
 
   // Estados de modales y formularios
   const [motivo, setMotivo] = React.useState("");
+  const [cancelDialogAbierto, setCancelDialogAbierto] = React.useState<boolean>(
+    initialCancelDialogOpen ?? false
+  );
   const cancelDialogRef = React.useRef<HTMLDialogElement>(null);
 
   // Modal Crear Clase
@@ -345,7 +388,8 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
       if (
         createDialogRef.current?.open ||
         enrollDialogRef.current?.open ||
-        cancelDialogRef.current?.open
+        cancelDialogRef.current?.open ||
+        cancelDialogAbierto
       ) {
         return;
       }
@@ -433,11 +477,15 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
     return [...unicos.values()].sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
   }, []);
 
+  const abrirDialogoCancelar = React.useCallback(() => {
+    setCancelDialogAbierto(true);
+  }, []);
+
   const confirmarCancelacion = async () => {
     if (!seleccionada) return;
     if (await cancelarClase(seleccionada.id, motivo.trim())) {
       setMotivo("");
-      setClaseId(null);
+      setCancelDialogAbierto(false);
       cancelDialogRef.current?.close();
     }
   };
@@ -1012,6 +1060,7 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
                               onSelect={(id) => {
                                 setClaseId(id);
                                 setDia(claveDia(c.inicio));
+                                setSheetDetalleAbierto(true);
                               }}
                             />
                           );
@@ -1031,15 +1080,15 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
             </div>
           </div>
 
-          {/* Panel de detalle de la clase seleccionada en vista semanal */}
-          {seleccionada && (
+          {/* Panel de detalle de la clase seleccionada en vista semanal (cuando el Sheet no está desplegado) */}
+          {!sheetDetalleAbierto && seleccionada && (
             <div className="max-w-2xl">
               {renderDetalleClase(
                 seleccionada,
                 anotados,
                 claseIniciada,
                 abrirAnotarAlumno,
-                cancelDialogRef,
+                abrirDialogoCancelar,
                 redimensionarClase,
                 editandoHora,
                 nuevaHora,
@@ -1181,7 +1230,10 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
                             vista="dia"
                             top={topPx}
                             height={heightPx}
-                            onSelect={(id) => setClaseId(id)}
+                            onSelect={(id) => {
+                              setClaseId(id);
+                              setSheetDetalleAbierto(true);
+                            }}
                           />
                         );
                       })}
@@ -1199,13 +1251,13 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
             </div>
 
             {/* Panel de detalle/gestión existente a la derecha */}
-            {seleccionada ? (
+            {!sheetDetalleAbierto && seleccionada ? (
               renderDetalleClase(
                 seleccionada,
                 anotados,
                 claseIniciada,
                 abrirAnotarAlumno,
-                cancelDialogRef,
+                abrirDialogoCancelar,
                 redimensionarClase,
                 editandoHora,
                 nuevaHora,
@@ -1221,7 +1273,7 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
                 accionEnCurso,
                 quitarAnotadoCoach
               )
-            ) : (
+            ) : !seleccionada ? (
               <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-3">
                 <p>No hay clases programadas para este día.</p>
                 <Button
@@ -1238,7 +1290,7 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
                   + Crear clase el {dia}
                 </Button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -1456,64 +1508,131 @@ export function ClassAgenda({ clases: clasesProp, testAhora: testAhoraProp }: Cl
         </div>
       </dialog>
 
-      {/* DIÁLOGO: CANCELAR CLASE */}
-      <dialog
-        ref={cancelDialogRef}
-        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
-        aria-labelledby="cancelar-clase-titulo"
-      >
-        <div className="space-y-4">
-          <h2 id="cancelar-clase-titulo" className="text-lg font-black">
-            {inscriptosClase.length === 0 ? "Eliminar clase" : "Cancelar clase"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {inscriptosClase.length === 0
-              ? "Esta clase no tiene alumnos inscriptos. Se eliminará de la agenda sin enviar mensajes."
-              : "Al cancelar, se anularán las reservas de todos los alumnos anotados y se les notificará por chat."}
-          </p>
+      {/* SHEET LATERAL: DETALLE DE CLASE (GOZS-399) */}
+      <Sheet open={sheetDetalleAbierto} onOpenChange={setSheetDetalleAbierto}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-lg overflow-y-auto"
+          data-testid="class-detail-sheet"
+          aria-labelledby="sheet-detalle-clase-titulo"
+        >
+          {seleccionada && (
+            <div className="space-y-4">
+              <SheetHeader className="pb-2 border-b border-border/60">
+                <SheetTitle id="sheet-detalle-clase-titulo" className="text-lg font-black text-foreground">
+                  Detalle de sesión · {NOMBRE_ACTIVIDAD[seleccionada.actividad]} ({horaLocal(seleccionada.inicio)})
+                </SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground">
+                  Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo} · {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
+                </SheetDescription>
+              </SheetHeader>
+              {renderDetalleClase(
+                seleccionada,
+                anotados,
+                claseIniciada,
+                abrirAnotarAlumno,
+                abrirDialogoCancelar,
+                redimensionarClase,
+                editandoHora,
+                nuevaHora,
+                setNuevaHora,
+                guardarNuevaHora,
+                setEditandoHora,
+                editandoCupo,
+                nuevoCupo,
+                setNuevoCupo,
+                guardarNuevoCupo,
+                setEditandoCupo,
+                marcarAusente,
+                accionEnCurso,
+                quitarAnotadoCoach
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
-          <div className="space-y-1">
-            <label htmlFor="motivo-cancelacion" className="text-xs font-bold text-muted-foreground">
-              {inscriptosClase.length === 0
-                ? "Motivo o nota (opcional)"
-                : `Motivo de la cancelación (mínimo ${MOTIVO_MINIMO} caracteres)`}
-            </label>
-            <textarea
-              id="motivo-cancelacion"
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              minLength={MOTIVO_MINIMO}
-              rows={3}
-              className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-hidden"
-              placeholder={
-                inscriptosClase.length === 0
-                  ? "Opcional: motivo o nota..."
-                  : "Ej.: Feriado nacional, indisposición del coach..."
-              }
-              data-testid="cancel-class-reason"
-            />
-          </div>
+      {/* DIÁLOGO MODAL ACCESIBLE: CANCELAR CLASE (GOZS-399) */}
+      <Dialog open={cancelDialogAbierto} onOpenChange={setCancelDialogAbierto}>
+        <DialogContent
+          forceMount
+          ref={cancelDialogRef}
+          className="w-[min(92vw,28rem)]"
+          aria-labelledby="cancelar-clase-titulo"
+          data-testid="cancel-class-dialog"
+        >
+          <div className="space-y-4">
+            <DialogHeader>
+              <DialogTitle id="cancelar-clase-titulo" className="text-lg font-black">
+                {inscriptosClase.length === 0 ? "Eliminar clase" : "Cancelar clase"}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                {inscriptosClase.length === 0
+                  ? "Esta clase no tiene alumnos inscriptos. Se eliminará de la agenda sin enviar mensajes."
+                  : "Al cancelar, se anularán las reservas de todos los alumnos anotados y se les notificará por chat."}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => cancelDialogRef.current?.close()}
-            >
-              Volver
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={inscriptosClase.length > 0 && motivo.trim().length < MOTIVO_MINIMO}
-              onClick={() => void confirmarCancelacion()}
-              data-testid="confirm-cancel-class-btn"
-            >
-              {inscriptosClase.length === 0 ? "Confirmar eliminación" : "Confirmar cancelación"}
-            </Button>
+            {inscriptosClase.length > 0 && (
+              <div
+                className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs font-semibold text-amber-800 dark:text-amber-300"
+                data-testid="cancel-affected-athletes-warning"
+                role="alert"
+              >
+                Atención: {inscriptosClase.length}{" "}
+                {inscriptosClase.length === 1
+                  ? "atleta inscripto se verá afectado"
+                  : "atletas inscriptos se verán afectados"}{" "}
+                y recibirán aviso de cancelación.
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label htmlFor="motivo-cancelacion" className="text-xs font-bold text-muted-foreground">
+                {inscriptosClase.length === 0
+                  ? "Motivo o nota (opcional)"
+                  : `Motivo de la cancelación (mínimo ${MOTIVO_MINIMO} caracteres)`}
+              </label>
+              <textarea
+                id="motivo-cancelacion"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                minLength={MOTIVO_MINIMO}
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-hidden"
+                placeholder={
+                  inscriptosClase.length === 0
+                    ? "Opcional: motivo o nota..."
+                    : "Ej.: Feriado nacional, indisposición del coach..."
+                }
+                data-testid="cancel-class-reason"
+              />
+            </div>
+
+            <DialogFooter className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCancelDialogAbierto(false);
+                  cancelDialogRef.current?.close();
+                }}
+              >
+                Volver
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={inscriptosClase.length > 0 && motivo.trim().length < MOTIVO_MINIMO}
+                onClick={() => void confirmarCancelacion()}
+                data-testid="confirm-cancel-class-btn"
+              >
+                {inscriptosClase.length === 0 ? "Confirmar eliminación" : "Confirmar cancelación"}
+              </Button>
+            </DialogFooter>
           </div>
-        </div>
-      </dialog>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -1524,7 +1643,7 @@ function renderDetalleClase(
   anotados: ReturnType<typeof useClasesStore.getState>["agendaReservas"],
   claseIniciada: boolean,
   abrirAnotarAlumno: () => void,
-  cancelDialogRef: React.RefObject<HTMLDialogElement | null>,
+  abrirDialogoCancelar: () => void,
   redimensionarClase: (id: string, duracion: number) => Promise<boolean>,
   editandoHora: boolean,
   nuevaHora: string,
@@ -1540,6 +1659,15 @@ function renderDetalleClase(
   accionEnCurso: string | null,
   quitarAnotadoCoach: (reservaId: string) => Promise<void | boolean>
 ) {
+  const ocupadosCount = anotados.filter((r) => ocupaCupo(r)).length;
+  const capacidad = seleccionada.capacidad;
+  const cupoLleno = capacidad !== null && ocupadosCount >= capacidad;
+  const disponibles = capacidad !== null ? Math.max(0, capacidad - ocupadosCount) : null;
+  const porcentajeOcupacion =
+    capacidad !== null && capacidad > 0
+      ? Math.min(100, Math.round((ocupadosCount / capacidad) * 100))
+      : 0;
+
   return (
     <div
       className="rounded-2xl border border-border/80 bg-card p-5 space-y-5"
@@ -1547,16 +1675,24 @@ function renderDetalleClase(
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[seleccionada.actividad]}`}
             >
               {NOMBRE_ACTIVIDAD[seleccionada.actividad]}
             </span>
             <h2 className="text-xl font-black">{horaLocal(seleccionada.inicio)}</h2>
+            {cupoLleno && (
+              <Badge variant="warning" data-testid="class-full-badge">
+                Cupo lleno
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             Duración: {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
+          </p>
+          <p className="text-xs font-semibold text-foreground/90 mt-1" data-testid="class-detail-coach">
+            Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo}
           </p>
         </div>
 
@@ -1567,6 +1703,8 @@ function renderDetalleClase(
                 variant="default"
                 size="sm"
                 onClick={abrirAnotarAlumno}
+                disabled={cupoLleno}
+                title={cupoLleno ? "Cupo lleno: no se admiten nuevas inscripciones" : undefined}
                 data-testid="enroll-student-dialog-btn"
               >
                 + Anotar alumno
@@ -1585,7 +1723,7 @@ function renderDetalleClase(
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => cancelDialogRef.current?.showModal()}
+                onClick={abrirDialogoCancelar}
                 data-testid="cancel-class-dialog-btn"
               >
                 Cancelar clase
@@ -1593,6 +1731,45 @@ function renderDetalleClase(
             </>
           )}
         </div>
+      </div>
+
+      {/* Barra de cupos ocupados vs disponibles (GOZS-399) */}
+      <div
+        className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2"
+        data-testid="class-capacity-bar"
+      >
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold text-foreground">
+            Ocupación:{" "}
+            {capacidad !== null
+              ? `${ocupadosCount} / ${capacidad} cupos ocupados`
+              : `${ocupadosCount} inscriptos`}
+          </span>
+          <span className="font-semibold text-muted-foreground">
+            {capacidad !== null
+              ? cupoLleno
+                ? "0 disponibles · Cupo lleno"
+                : `${disponibles} disponibles`
+              : "Sin límite de cupo"}
+          </span>
+        </div>
+        {capacidad !== null && (
+          <div
+            className="h-2 w-full rounded-full bg-secondary overflow-hidden"
+            role="progressbar"
+            aria-valuenow={ocupadosCount}
+            aria-valuemin={0}
+            aria-valuemax={capacidad}
+            aria-label="Cupos ocupados de la clase"
+          >
+            <div
+              className={`h-full rounded-full transition-all ${
+                cupoLleno ? "bg-amber-500" : "bg-primary"
+              }`}
+              style={{ width: `${porcentajeOcupacion}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {seleccionada.estado === "CANCELADA" && (

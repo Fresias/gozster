@@ -91,8 +91,9 @@ export const DialogContent = React.forwardRef<
   HTMLDialogElement,
   React.HTMLAttributes<HTMLDivElement> & {
     onCloseAutoFocus?: () => void;
+    forceMount?: boolean;
   }
->(({ className, children, ...props }, ref) => {
+>(({ className, children, forceMount = false, ...props }, ref) => {
   const { open, setOpen, triggerRef } = useDialog();
   const dialogRef = React.useRef<HTMLDialogElement | null>(null);
 
@@ -191,7 +192,7 @@ export const DialogContent = React.forwardRef<
     }
   };
 
-  if (!open) return null;
+  if (!open && !forceMount) return null;
 
   return (
     <dialog
@@ -201,7 +202,10 @@ export const DialogContent = React.forwardRef<
       onCancel={handleCancel}
       onKeyDown={handleKeyDown}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 bg-black/60 p-0 backdrop-blur-sm flex items-center justify-center overflow-y-auto"
+      className={cn(
+        "fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 bg-black/60 p-0 backdrop-blur-sm items-center justify-center overflow-y-auto",
+        open ? "flex" : "hidden",
+      )}
     >
       <div
         className={cn(
