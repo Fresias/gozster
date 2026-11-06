@@ -2744,6 +2744,18 @@ export function StudentDetail({
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
+            planActivo={cobroItem?.servicioNombre || "Pase libre · Funcional + Boxeo"}
+            monto={montoSuscripcion.formateado}
+            fechaVencimiento={contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "26 nov"}
+            estadoCobro={estadoPagoInfo.estado}
+            detalleCobro={
+              estadoPagoInfo.pago
+                ? `Pagado por transferencia · vence ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "26 nov"}`
+                : estadoPagoInfo.estado === "VENCIDO"
+                ? `Cuota vencida · venció ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "el 20 nov"}`
+                : `Pendiente de cobro · vence ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "el 26 nov"}`
+            }
+            onRegistrarPago={handleAbrirDialogoPago}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onMoveLeft={onMoveLeft}
