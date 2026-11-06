@@ -1,5 +1,8 @@
 import type {
   Contratacion,
+  DiaRutina,
+  Ejercicio,
+  EjercicioEnRutina,
   Pago,
   Perfil,
   PlanEntrenamiento,
@@ -7,7 +10,12 @@ import type {
   RegistroSerie,
   RegistroSesion,
 } from "@/types/database.types";
-import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import {
+  type HistoricalLoadEntry,
+  MOCK_DIAS,
+  MOCK_EJERCICIOS,
+  MOCK_EJERCICIOS_RUTINA,
+} from "@/services/coach-mock-data";
 import { esSinEntrenar7d } from "@/lib/sin-entrenar";
 
 // Generador del gimnasio demo (GOZS-139): ~40 alumnos con un mes de historia.
@@ -33,6 +41,9 @@ export interface DemoGimnasio {
   contrataciones: Contratacion[];
   pagos: Pago[];
   historial: Record<string, HistoricalLoadEntry[]>;
+  dias: DiaRutina[];
+  ejerciciosEnRutina: EjercicioEnRutina[];
+  ejercicios: Ejercicio[];
 }
 
 function mulberry32(seed: number): () => number {
@@ -403,7 +414,162 @@ export function generarDemoGimnasio(base: DemoGimnasioBase, ahora: Date): DemoGi
     }
   });
 
-  return { alumnos, planes: [...base.planes, ...planesNuevos], contrataciones, pagos, historial };
+  const planes = [...base.planes, ...planesNuevos];
+  const { dias, ejerciciosEnRutina } = derivarDiasYEjerciciosDemo(planes, meta);
+
+  return {
+    alumnos,
+    planes,
+    contrataciones,
+    pagos,
+    historial,
+    dias,
+    ejerciciosEnRutina,
+    ejercicios: MOCK_EJERCICIOS,
+  };
+}
+
+function getNombreDiaDemo(freq: number, d: number): string {
+  if (freq === 2) {
+    return d === 1 ? "Día 1: Torso Pesado & Potencia" : "Día 2: Pierna Fuerza & Cadena Posterior";
+  }
+  if (freq === 3) {
+    return d === 1
+      ? "Día 1: Empuje (Push) & Pectoral"
+      : d === 2
+        ? "Día 2: Tracción (Pull) & Espalda"
+        : "Día 3: Piernas & Core";
+  }
+  if (freq === 4) {
+    return d === 1
+      ? "Día 1: Torso Pesado & Hipertrofia"
+      : d === 2
+        ? "Día 2: Pierna Fuerza & Sentadilla"
+        : d === 3
+          ? "Día 3: Torso Volumen & Brazos"
+          : "Día 4: Pierna Posterior & Glúteos";
+  }
+  if (freq === 5) {
+    return d === 1
+      ? "Día 1: Pecho & Hombros"
+      : d === 2
+        ? "Día 2: Espalda & Core"
+        : d === 3
+          ? "Día 3: Cuádriceps & Gemelos"
+          : d === 4
+            ? "Día 4: Brazos & Hombros"
+            : "Día 5: Isquios & Glúteos";
+  }
+  return `Día ${d}: Full Body & Fuerza`;
+}
+
+export function derivarDiasYEjerciciosDemo(
+  planes: PlanEntrenamiento[],
+  meta?: Map<string, { freq: number }>,
+): {
+  dias: DiaRutina[];
+  ejerciciosEnRutina: EjercicioEnRutina[];
+} {
+  const dias: DiaRutina[] = [];
+  const ejerciciosEnRutina: EjercicioEnRutina[] = [];
+
+  // MOCK_DIAS canónicos para planes legacy (p101-lucas-activo)
+  for (const md of MOCK_DIAS) {
+    dias.push(md);
+  }
+  for (const me of MOCK_EJERCICIOS_RUTINA) {
+    ejerciciosEnRutina.push(me);
+  }
+
+  for (const plan of planes) {
+    // Si ya es el plan canónico de Lucas, ya está en MOCK_DIAS
+    if (plan.id === "p101-lucas-activo") {
+      continue;
+    }
+
+    // Lucas en dataset demo ("demo-plan-lucas")
+    if (plan.id === "demo-plan-lucas" || plan.alumno_id === "demo-alumno-01-lucas") {
+      dias.push({
+        id: "d1-torso",
+        plan_id: plan.id,
+        nombre: "Día 1: Torso Pesado & Potencia",
+        orden: 1,
+        created_at: plan.created_at,
+        updated_at: plan.updated_at,
+      });
+      dias.push({
+        id: "d2-pierna",
+        plan_id: plan.id,
+        nombre: "Día 2: Pierna Fuerza & Cadena Posterior",
+        orden: 2,
+        created_at: plan.created_at,
+        updated_at: plan.updated_at,
+      });
+      continue;
+    }
+
+    let freq = plan.alumno_id ? meta?.get(plan.alumno_id)?.freq : undefined;
+    if (!freq) {
+      const nLower = plan.nombre.toLowerCase();
+      if (
+        nLower.includes("4 días") ||
+        nLower.includes("4d") ||
+        nLower.includes("torso-pierna") ||
+        nLower.includes("torso/pierna") ||
+        nLower.includes("powerlifting") ||
+        nLower.includes("upper/lower")
+      ) {
+        freq = 4;
+      } else if (
+        nLower.includes("5 días") ||
+        nLower.includes("push/pull/legs") ||
+        nLower.includes("recomposición")
+      ) {
+        freq = 5;
+      } else if (nLower.includes("2 días") || nLower.includes("2x")) {
+        freq = 2;
+      } else {
+        freq = 3;
+      }
+    }
+
+    const alumnoKey = plan.alumno_id ?? plan.id;
+    for (let d = 1; d <= freq; d++) {
+      const diaId = `${alumnoKey}-d${d}`;
+      const nombreDia = getNombreDiaDemo(freq, d);
+
+      dias.push({
+        id: diaId,
+        plan_id: plan.id,
+        nombre: nombreDia,
+        orden: d,
+        created_at: plan.created_at,
+        updated_at: plan.updated_at,
+      });
+
+      for (let k = 0; k < 3; k++) {
+        const ejIndex = ((d - 1) * 3 + k) % MOCK_EJERCICIOS.length;
+        const ej = MOCK_EJERCICIOS[ejIndex]!;
+        ejerciciosEnRutina.push({
+          id: `er-${diaId}-${k + 1}`,
+          dia_id: diaId,
+          ejercicio_id: ej.id,
+          orden: k + 1,
+          series: 4,
+          repeticiones: "8-10",
+          descanso_segundos: 90,
+          rpe_objetivo: 8.0,
+          notas: "Cadencia 2-0-1 y control articular.",
+          es_superserie: false,
+          grupo_superserie: null,
+          created_at: plan.created_at,
+          updated_at: plan.updated_at,
+        });
+      }
+    }
+  }
+
+  return { dias, ejerciciosEnRutina };
 }
 
 /** KPIs de negocio con las mismas reglas que la RPC obtener_kpis_negocio (GOZS-135). */
