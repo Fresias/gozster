@@ -3,10 +3,13 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Dumbbell, FileText, Plus, Search, X } from "@/components/ui/icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 import {
   clasificarRutinas,
+  determinarPestanaPorDefecto,
   filtrarRutinas,
   formatFecha,
   getTagBadgeStyles,
@@ -21,7 +24,13 @@ import { fetchLiveDatasetFromSupabase, type LiveSupabaseDataset } from "@/servic
 import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
 
-export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabaseDataset }) {
+export function RutinasLibrary({
+  initialDataset,
+  defaultSubTab,
+}: {
+  initialDataset: LiveSupabaseDataset;
+  defaultSubTab?: "plantillas" | "alumnos" | "borradores" | "archivadas";
+}) {
   const [dataset, setDataset] = React.useState(initialDataset);
   const [activeMainTab, setActiveMainTab] = React.useState<"biblioteca" | "constructor">("biblioteca");
   const [builder, setBuilder] = React.useState<{ plan: PlanEntrenamiento | null; alumnoId?: string } | null>(null);
@@ -39,6 +48,10 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
   const nombresExistentes = dataset.planes.map((p) => p.nombre);
   const nombreAlumno = (id: string | null) =>
     dataset.alumnos.find((a) => a.id === id)?.nombre_completo ?? "Alumno";
+
+  const [subTab, setSubTab] = React.useState<string>(() =>
+    defaultSubTab ?? determinarPestanaPorDefecto(initialDataset.planes),
+  );
 
   const plantillasFiltradas = React.useMemo(
     () => filtrarRutinas(plantillas, selectedTag, busqueda),
@@ -201,9 +214,189 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     );
   };
 
-  const lista = (planes: PlanEntrenamiento[], opciones: { alumno?: boolean; archivada?: boolean }, vacio: string) =>
+  const renderEmptyState = (tipo: "plantillas" | "alumnos" | "borradores" | "archivadas") => {
+    const tieneFiltros = (selectedTag && selectedTag !== "Todos") || busqueda.trim().length > 0;
+
+    if (tipo === "plantillas") {
+      if (tieneFiltros) {
+        return (
+          <EmptyState
+            data-testid="empty-state-plantillas-filtradas"
+            icon={<FileText className="h-6 w-6" />}
+            title="No se encontraron plantillas"
+            description="No hay plantillas maestras que coincidan con los filtros seleccionados."
+            action={
+              <Button
+                size="touch"
+                variant="outline"
+                onClick={() => {
+                  setSelectedTag("Todos");
+                  setBusqueda("");
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            }
+          />
+        );
+      }
+
+      return (
+        <EmptyState
+          data-testid="empty-state-plantillas"
+          icon={<FileText className="h-6 w-6" />}
+          title="Todavía no hay plantillas."
+          description="Creá una plantilla base reutilizable para acelerar la asignación a tus alumnos o explorá las rutinas ya asignadas."
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                size="touch"
+                onClick={() => {
+                  setBuilder({ plan: null });
+                  setActiveMainTab("constructor");
+                }}
+                data-testid="btn-crear-plantilla"
+              >
+                Crear plantilla
+              </Button>
+              {deAlumnos.length > 0 && (
+                <Button
+                  size="touch"
+                  variant="outline"
+                  onClick={() => setSubTab("alumnos")}
+                  data-testid="btn-ver-rutinas-alumnos"
+                >
+                  Ver rutinas de alumnos
+                </Button>
+              )}
+            </div>
+          }
+        />
+      );
+    }
+
+    if (tipo === "alumnos") {
+      if (tieneFiltros) {
+        return (
+          <EmptyState
+            data-testid="empty-state-alumnos-filtradas"
+            icon={<Dumbbell className="h-6 w-6" />}
+            title="No se encontraron rutinas vigentes"
+            description="No hay rutinas de alumnos que coincidan con los filtros seleccionados."
+            action={
+              <Button
+                size="touch"
+                variant="outline"
+                onClick={() => {
+                  setSelectedTag("Todos");
+                  setBusqueda("");
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            }
+          />
+        );
+      }
+
+      return (
+        <EmptyState
+          data-testid="empty-state-alumnos"
+          icon={<Dumbbell className="h-6 w-6" />}
+          title="Ningún alumno tiene rutina."
+          description="Asigná una rutina a tus alumnos desde una plantilla o creá una nueva rutina desde cero."
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                size="touch"
+                onClick={() => {
+                  setBuilder({ plan: null });
+                  setActiveMainTab("constructor");
+                }}
+                data-testid="btn-crear-rutina-alumnos"
+              >
+                Crear plantilla
+              </Button>
+              {plantillas.length > 0 && (
+                <Button
+                  size="touch"
+                  variant="outline"
+                  onClick={() => setSubTab("plantillas")}
+                  data-testid="btn-ver-plantillas"
+                >
+                  Ver plantillas
+                </Button>
+              )}
+            </div>
+          }
+        />
+      );
+    }
+
+    if (tipo === "borradores") {
+      return (
+        <EmptyState
+          data-testid="empty-state-borradores"
+          icon={<FileText className="h-6 w-6" />}
+          title={tieneFiltros ? "No se encontraron borradores" : "No hay borradores."}
+          description={
+            tieneFiltros
+              ? "No hay borradores que coincidan con los filtros seleccionados."
+              : "Las rutinas en edición o pendientes de asignación aparecerán aquí."
+          }
+          action={
+            tieneFiltros ? (
+              <Button
+                size="touch"
+                variant="outline"
+                onClick={() => {
+                  setSelectedTag("Todos");
+                  setBusqueda("");
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            ) : undefined
+          }
+        />
+      );
+    }
+
+    return (
+      <EmptyState
+        data-testid="empty-state-archivadas"
+        icon={<FileText className="h-6 w-6" />}
+        title={tieneFiltros ? "No se encontraron rutinas archivadas" : "No hay rutinas archivadas."}
+        description={
+          tieneFiltros
+            ? "No hay rutinas archivadas que coincidan con los filtros seleccionados."
+            : "Las rutinas dadas de baja o reemplazadas se guardan aquí para consulta histórica."
+        }
+        action={
+          tieneFiltros ? (
+            <Button
+              size="touch"
+              variant="outline"
+              onClick={() => {
+                setSelectedTag("Todos");
+                setBusqueda("");
+              }}
+            >
+              Limpiar filtros
+            </Button>
+          ) : undefined
+        }
+      />
+    );
+  };
+
+  const lista = (
+    planes: PlanEntrenamiento[],
+    opciones: { alumno?: boolean; archivada?: boolean },
+    tipo: "plantillas" | "alumnos" | "borradores" | "archivadas",
+  ) =>
     planes.length === 0 ? (
-      <p className="py-8 text-center text-sm text-muted-foreground">{vacio}</p>
+      renderEmptyState(tipo)
     ) : (
       <ul className="flex flex-col gap-3">{planes.map((p) => fila(p, opciones))}</ul>
     );
@@ -212,9 +405,9 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
     <section className="flex flex-col gap-4 p-4 sm:p-6" data-testid="rutinas-library">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black">Rutinas &amp; Constructor</h1>
+          <h1 className="text-2xl font-black">Rutinas</h1>
           <p className="text-xs text-muted-foreground">
-            Gestión unificada 2x1: Biblioteca de plantillas y constructor visual a pantalla completa
+            Plantillas reutilizables y rutinas asignadas a cada alumno.
           </p>
         </div>
         {activeMainTab === "biblioteca" && (
@@ -226,6 +419,7 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             }}
             data-testid="btn-nueva-rutina"
           >
+            <Plus className="mr-1.5 h-4 w-4" />
             Nueva rutina
           </Button>
         )}
@@ -258,108 +452,112 @@ export function RutinasLibrary({ initialDataset }: { initialDataset: LiveSupabas
             </p>
           )}
 
-          {/* Barra de Filtros: Búsqueda Reactiva y Chips de Tags de Rutina */}
-          <div
-            className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:p-4"
-            data-testid="rutinas-filters-container"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Buscador reactivo */}
-              <div className="relative w-full sm:max-w-xs">
-                <input
-                  type="search"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar rutina por nombre o notas..."
-                  aria-label="Buscar rutinas"
-                  data-testid="search-rutinas-input"
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                />
-                {busqueda && (
-                  <button
-                    type="button"
-                    onClick={() => setBusqueda("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                    aria-label="Limpiar búsqueda"
+          <Tabs value={subTab} onValueChange={setSubTab} className="w-full space-y-4">
+            {/* Header Unificado: Selectores de Pestañas ('De alumnos', 'Plantillas', ...) + Barra de Filtros (Búsqueda y Objetivos) */}
+            <div
+              className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:p-4"
+              data-testid="rutinas-filters-container"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                {/* Selectores de pestañas */}
+                <TabsList className="w-full sm:w-auto self-start" data-testid="rutinas-sub-tabs">
+                  <TabsTrigger
+                    value="alumnos"
+                    data-testid="tab-de-alumnos"
+                    aria-label="De alumnos"
                   >
-                    ✕
-                  </button>
-                )}
-              </div>
+                    De alumnos ({vigentesFiltradas.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="plantillas"
+                    data-testid="tab-plantillas-maestras"
+                    aria-label="Plantillas maestras"
+                  >
+                    Plantillas ({plantillasFiltradas.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="borradores"
+                    data-testid="tab-borradores"
+                  >
+                    Borradores ({borradoresFiltrados.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="archivadas"
+                    data-testid="tab-archivadas"
+                  >
+                    Archivadas ({archivadasFiltradas.length})
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Chips horizontales de Tags */}
-              <div
-                className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none"
-                role="toolbar"
-                aria-label="Filtro por tags de rutina"
-                data-testid="rutinas-tags-filter"
-              >
-                {TAGS_FILTRO_BIBLIOTECA.map((tag) => {
-                  const isSelected = selectedTag === tag || (tag === "Todos" && (!selectedTag || selectedTag === "Todos"));
-                  const slug = tagToSlug(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => setSelectedTag(isSelected && tag !== "Todos" ? "Todos" : tag)}
-                      aria-pressed={isSelected}
-                      data-testid={`tag-filter-${slug}`}
-                      data-filter-tag={tag}
-                      className={`px-3 py-1.5 text-xs rounded-lg border transition-all cursor-pointer font-bold select-none ${getTagChipFilterStyles(
-                        tag,
-                        isSelected,
-                      )}`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
+                {/* Filtros: Búsqueda y Chips de Objetivos */}
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                  {/* Buscador reactivo */}
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="search"
+                      value={busqueda}
+                      onChange={(e) => setBusqueda(e.target.value)}
+                      placeholder="Buscar por nombre o alumno..."
+                      aria-label="Buscar rutinas"
+                      data-testid="search-rutinas-input"
+                      className="w-full rounded-xl border border-border bg-background pl-9 pr-8 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    />
+                    {busqueda && (
+                      <button
+                        type="button"
+                        onClick={() => setBusqueda("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+                        aria-label="Limpiar búsqueda"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Chips horizontales de Tags por Objetivo */}
+                  <div
+                    className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none"
+                    role="toolbar"
+                    aria-label="Filtro por tags de rutina"
+                    data-testid="rutinas-tags-filter"
+                  >
+                    {TAGS_FILTRO_BIBLIOTECA.map((tag) => {
+                      const isSelected = selectedTag === tag || (tag === "Todos" && (!selectedTag || selectedTag === "Todos"));
+                      const slug = tagToSlug(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setSelectedTag(isSelected && tag !== "Todos" ? "Todos" : tag)}
+                          aria-pressed={isSelected}
+                          data-testid={`tag-filter-${slug}`}
+                          data-filter-tag={tag}
+                          className={`px-3 py-1.5 text-xs rounded-lg border transition-all cursor-pointer font-bold select-none whitespace-nowrap ${getTagChipFilterStyles(
+                            tag,
+                            isSelected,
+                          )}`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <Tabs defaultValue="plantillas">
-            <TabsList className="w-full sm:w-auto">
-              <TabsTrigger value="plantillas">Plantillas ({plantillasFiltradas.length})</TabsTrigger>
-              <TabsTrigger value="alumnos">De alumnos ({vigentesFiltradas.length})</TabsTrigger>
-              <TabsTrigger value="borradores">Borradores ({borradoresFiltrados.length})</TabsTrigger>
-              <TabsTrigger value="archivadas">Archivadas ({archivadasFiltradas.length})</TabsTrigger>
-            </TabsList>
-            <TabsContent value="plantillas">
-              {lista(
-                plantillasFiltradas,
-                {},
-                selectedTag !== "Todos" || busqueda
-                  ? "No se encontraron plantillas con los filtros seleccionados."
-                  : "Todavía no hay plantillas.",
-              )}
-            </TabsContent>
             <TabsContent value="alumnos">
-              {lista(
-                vigentesFiltradas,
-                { alumno: true },
-                selectedTag !== "Todos" || busqueda
-                  ? "No se encontraron rutinas vigentes con los filtros seleccionados."
-                  : "Ningún alumno tiene rutina.",
-              )}
+              {lista(vigentesFiltradas, { alumno: true }, "alumnos")}
+            </TabsContent>
+            <TabsContent value="plantillas">
+              {lista(plantillasFiltradas, {}, "plantillas")}
             </TabsContent>
             <TabsContent value="borradores">
-              {lista(
-                borradoresFiltrados,
-                { alumno: true },
-                selectedTag !== "Todos" || busqueda
-                  ? "No se encontraron borradores con los filtros seleccionados."
-                  : "No hay borradores.",
-              )}
+              {lista(borradoresFiltrados, { alumno: true }, "borradores")}
             </TabsContent>
             <TabsContent value="archivadas">
-              {lista(
-                archivadasFiltradas,
-                { alumno: true, archivada: true },
-                selectedTag !== "Todos" || busqueda
-                  ? "No se encontraron rutinas archivadas con los filtros seleccionados."
-                  : "No hay rutinas archivadas.",
-              )}
+              {lista(archivadasFiltradas, { alumno: true, archivada: true }, "archivadas")}
             </TabsContent>
           </Tabs>
 

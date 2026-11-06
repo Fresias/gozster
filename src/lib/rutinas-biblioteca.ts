@@ -22,6 +22,16 @@ export function clasificarRutinas(planes: PlanEntrenamiento[]): RutinasClasifica
   return out;
 }
 
+/**
+ * Si no existen plantillas maestras pero sí rutinas asignadas a alumnos,
+ * la biblioteca abre por defecto en la pestaña 'alumnos' ('De alumnos') para evitar
+ * mostrar una pantalla vacía confusa. En cualquier otro caso abre en 'plantillas'.
+ */
+export function determinarPestanaPorDefecto(planes: PlanEntrenamiento[]): "alumnos" | "plantillas" {
+  const { plantillas, deAlumnos } = clasificarRutinas(planes);
+  return plantillas.length === 0 && deAlumnos.length > 0 ? "alumnos" : "plantillas";
+}
+
 /** "De alumnos" muestra lo vigente; los BORRADOR van aparte para que no se confundan con la ACTIVA. */
 export function separarBorradores(deAlumnos: PlanEntrenamiento[]) {
   return {
