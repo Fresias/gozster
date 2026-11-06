@@ -865,6 +865,7 @@ export interface Database {
           alumno_id: string;
           ejercicio_id: string;
           zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          eva?: number | null;
           severidad: 'LEVE' | 'MODERADO' | 'AGUDO';
           notas_alumno: string | null;
           notas_profesor: string | null;
@@ -873,7 +874,7 @@ export interface Database {
           momento_aparicion: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
           es_sintoma_alarma: boolean;
           sintomas_alarma: string[];
-          estado: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
+          estado: 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO' | 'CERRADO';
           created_at: string;
           updated_at: string;
         };
@@ -882,6 +883,7 @@ export interface Database {
           alumno_id: string;
           ejercicio_id: string;
           zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          eva?: number | null;
           severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
           notas_alumno?: string | null;
           notas_profesor?: string | null;
@@ -890,7 +892,7 @@ export interface Database {
           momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
           es_sintoma_alarma?: boolean;
           sintomas_alarma?: string[];
-          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -899,6 +901,7 @@ export interface Database {
           alumno_id?: string;
           ejercicio_id?: string;
           zona_articular?: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          eva?: number | null;
           severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
           notas_alumno?: string | null;
           notas_profesor?: string | null;
@@ -907,7 +910,7 @@ export interface Database {
           momento_aparicion?: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
           es_sintoma_alarma?: boolean;
           sintomas_alarma?: string[];
-          estado?: 'PENDIENTE' | 'ATENDIDO' | 'CERRADO';
+          estado?: 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO' | 'CERRADO';
           created_at?: string;
           updated_at?: string;
         };
@@ -1797,6 +1800,46 @@ export interface Database {
       };
     };
     Views: {
+      v_dolor_activo: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          alumno_nombre: string | null;
+          alumno_email: string | null;
+          ejercicio_id: string | null;
+          ejercicio_nombre: string | null;
+          zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
+          eva?: number | null;
+          severidad: 'LEVE' | 'MODERADO' | 'AGUDO';
+          nivel: 'bajo' | 'medio' | 'alto';
+          estado: 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO' | 'CERRADO';
+          estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
+          momento_aparicion: 'CALENTAMIENTO' | 'EN_SERIE' | 'POST_EJERCICIO' | null;
+          es_sintoma_alarma: boolean;
+          sintomas_alarma: string[];
+          notas_alumno: string | null;
+          notas_profesor: string | null;
+          fecha_reporte: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'alumno_historial_dolor_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'alumno_historial_dolor_ejercicio_id_fkey';
+            columns: ['ejercicio_id'];
+            isOneToOne: false;
+            referencedRelation: 'ejercicios';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       v_descuentos_otorgados: {
         Row: {
           pago_id: string;
@@ -1824,6 +1867,14 @@ export interface Database {
       };
     };
     Functions: {
+      actualizar_estado_dolor: {
+        Args: {
+          p_reporte_id: string;
+          p_nuevo_estado: string;
+          p_nota?: string | null;
+        };
+        Returns: Database['public']['Tables']['alumno_historial_dolor']['Row'];
+      };
       actualizar_peso_sexo_alumno: {
         Args: {
           p_alumno_id: string;
@@ -2306,3 +2357,5 @@ export type TagPlanEntrenamiento =
   | 'Peso Corporal';
 export type TipoMedicionEjercicio = 'REPS' | 'TIEMPO';
 
+
+export type DolorActivoView = Database['public']['Views']['v_dolor_activo']['Row'];
