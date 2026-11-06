@@ -1,0 +1,82 @@
+[
+  {
+    "id": "UX-S",
+    "nombre": "Shell (Sidebar/Topbar en desktop y Barra Inferior en móvil)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-S.png"
+  },
+  {
+    "id": "UX-I",
+    "nombre": "Inicio (Fila de 4 KPIs, Selector de Período y Bloques Centrales)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-I.png"
+  },
+  {
+    "id": "UX-D",
+    "nombre": "Directorio (DataTable de 15 Filas y Paginación)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-D.png"
+  },
+  {
+    "id": "UX-F",
+    "nombre": "Ficha (Cabecera Limpia e Islas Modulares de Salud, Rutina y 1RM)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-F.png"
+  },
+  {
+    "id": "UX-C",
+    "nombre": "Cobros (KPIs Superiores y DataTable en formato es-AR)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-C.png"
+  },
+  {
+    "id": "UX-A",
+    "nombre": "Agenda (Grilla Semanal Horaria Dinámica)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-A.png"
+  },
+  {
+    "id": "UX-R",
+    "nombre": "Rutinas (Biblioteca con Tabs y Apertura por Defecto)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-R.png"
+  },
+  {
+    "id": "UX-K",
+    "nombre": "Ranking (Ranking Funcional con Chips Neutros y Selector)",
+    "viewport": "1440x900",
+    "proyecto": "desktop",
+    "estado": "PASS",
+    "desbordePx": 0,
+    "erroresConsola": 0,
+    "evidencia": "docs/qa/demo-evidencia/desktop/UX-K.png"
+  }
+]
