@@ -732,17 +732,37 @@ export function StudentDetail({
     : [];
 
 
-  // Canvas State & Persistence (Issue #355 / docs/specs/student-detail-canvas-islas-spec.md)
+  // Canvas State & Persistence v2 (GOZS-395 / Issue #355 / Página 5 PDF)
   const coachId = (alumno as any).entrenador_id || (alumno as any).coach_id || "default";
   const storageKey = `gozster_canvas_layout_${coachId}`;
+  const storageKeyV1 = `gozster_canvas_layout_${coachId}`;
+  const storageKeyV2 = `gozster_canvas_layout_v2_${coachId}`;
 
-  const [isCanvasMode, setIsCanvasMode] = React.useState(false);
+  const [isPersonalizing, setIsPersonalizing] = React.useState(false);
+  const isCanvasMode = isPersonalizing;
+  const setIsCanvasMode = setIsPersonalizing;
+
+  const [liveAnnouncement, setLiveAnnouncement] = React.useState("");
+  const announce = React.useCallback((message: string) => {
+    setLiveAnnouncement(message);
+  }, []);
+
+  interface LayoutColumns {
+    left: string[];
+    right: string[];
+  }
+
+  const DEFAULT_LAYOUT_COLUMNS_V2: LayoutColumns = {
+    left: ["routine_workbench", "metricas_1rm"],
+    right: ["salud_anamnesis", "activity_feed", "administracion"],
+  };
+
   const DEFAULT_ISLAND_ORDER = [
     "timeline",
-    "activity_feed",
     "routine_workbench",
     "metricas_1rm",
     "salud_anamnesis",
+    "activity_feed",
     "administracion",
   ];
 
@@ -754,23 +774,46 @@ export function StudentDetail({
 
   const DEFAULT_CANVAS_ROWS: CanvasRow[] = [
     { id: "row-timeline", items: ["timeline"] },
-    { id: "row-feed", items: ["activity_feed"] },
-    { id: "row-workbench", items: ["routine_workbench"] },
-    { id: "row-metricas", items: ["metricas_1rm"] },
-    { id: "row-salud", items: ["salud_anamnesis"] },
-    { id: "row-admin", items: ["administracion"] },
+    { id: "row-left", items: ["routine_workbench", "metricas_1rm"] },
+    { id: "row-right", items: ["salud_anamnesis", "activity_feed", "administracion"] },
   ];
 
-  const [canvasRows, setCanvasRows] = React.useState<CanvasRow[]>(DEFAULT_CANVAS_ROWS);
+  const [layoutColumns, setLayoutColumns] = React.useState<LayoutColumns>(DEFAULT_LAYOUT_COLUMNS_V2);
+
+  const canvasRows = React.useMemo<CanvasRow[]>(() => [
+    { id: "row-timeline", items: ["timeline"] },
+    { id: "row-left", items: layoutColumns.left },
+    { id: "row-right", items: layoutColumns.right },
+  ], [layoutColumns]);
+
+  const setCanvasRows = React.useCallback((rowsOrUpdater: CanvasRow[] | ((prev: CanvasRow[]) => CanvasRow[])) => {
+    if (typeof rowsOrUpdater === "function") {
+      const nextRows = rowsOrUpdater(canvasRows);
+      const leftRow = nextRows.find((r) => r.id === "row-left" || r.id.includes("left"));
+      const rightRow = nextRows.find((r) => r.id === "row-right" || r.id.includes("right"));
+      setLayoutColumns({
+        left: leftRow ? leftRow.items : DEFAULT_LAYOUT_COLUMNS_V2.left,
+        right: rightRow ? rightRow.items : DEFAULT_LAYOUT_COLUMNS_V2.right,
+      });
+    } else {
+      const leftRow = rowsOrUpdater.find((r) => r.id === "row-left" || r.id.includes("left"));
+      const rightRow = rowsOrUpdater.find((r) => r.id === "row-right" || r.id.includes("right"));
+      setLayoutColumns({
+        left: leftRow ? leftRow.items : DEFAULT_LAYOUT_COLUMNS_V2.left,
+        right: rightRow ? rightRow.items : DEFAULT_LAYOUT_COLUMNS_V2.right,
+      });
+    }
+  }, [canvasRows]);
+
   const islandOrder = React.useMemo(
-    () => canvasRows.flatMap((r) => r.items),
-    [canvasRows]
+    () => ["timeline", ...layoutColumns.left, ...layoutColumns.right],
+    [layoutColumns]
   );
 
   const [isLgScreen, setIsLgScreen] = React.useState(true);
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia("(min-width: 960px)");
     setIsLgScreen(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsLgScreen(e.matches);
     mq.addEventListener("change", handler);
@@ -798,18 +841,27 @@ export function StudentDetail({
 
   const saveLayoutToStorage = React.useCallback(
     (
-      rows: CanvasRow[],
+      columnsOrRows: LayoutColumns | CanvasRow[],
       collapsed: Record<string, boolean>,
       feedRail: boolean,
       visible?: Record<string, boolean>
     ) => {
       if (typeof window !== "undefined" && window.localStorage) {
         try {
+          const cols: LayoutColumns = Array.isArray(columnsOrRows)
+            ? {
+                left: columnsOrRows.find((r) => r.id === "row-left")?.items ?? DEFAULT_LAYOUT_COLUMNS_V2.left,
+                right: columnsOrRows.find((r) => r.id === "row-right")?.items ?? DEFAULT_LAYOUT_COLUMNS_V2.right,
+              }
+            : columnsOrRows;
+
           localStorage.setItem(
-            storageKey,
+            storageKeyV2,
             JSON.stringify({
-              rows,
-              order: rows.flatMap((r) => r.items),
+              version: 2,
+              leftColumn: cols.left,
+              rightColumn: cols.right,
+              order: ["timeline", ...cols.left, ...cols.right],
               collapsed,
               feedRail,
               visible: visible ?? visibleIslands,
@@ -820,11 +872,11 @@ export function StudentDetail({
         }
       }
     },
-    [storageKey, visibleIslands]
+    [storageKeyV2, visibleIslands]
   );
 
   const resetLayout = () => {
-    setCanvasRows(DEFAULT_CANVAS_ROWS);
+    setLayoutColumns(DEFAULT_LAYOUT_COLUMNS_V2);
     setCollapsedIslands({
       timeline: false,
       activity_feed: false,
@@ -844,230 +896,202 @@ export function StudentDetail({
     setIsFeedRailCollapsed(false);
     if (typeof window !== "undefined" && window.localStorage) {
       try {
-        localStorage.removeItem(storageKey);
+        localStorage.removeItem(storageKeyV2);
+        localStorage.removeItem(storageKeyV1);
       } catch {}
     }
+    announce("Disposición de islas restablecida al layout v2 predeterminado");
   };
+
   const [isFeedRailCollapsed, setIsFeedRailCollapsed] = React.useState(false);
   const [draggedIslandId, setDraggedIslandId] = React.useState<string | null>(null);
   const [dropTargetIslandId, setDropTargetIslandId] = React.useState<string | null>(null);
 
-  // Carga inicial de persistencia local
+  // Carga inicial y migración v1 -> v2 (GOZS-395)
   React.useEffect(() => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed.rows) && parsed.rows.length > 0) {
-            setCanvasRows(parsed.rows);
-          } else if (Array.isArray(parsed.order) && parsed.order.length > 0) {
-            setCanvasRows(
-              parsed.order.map((id: string, idx: number) => ({
-                id: `row-${id}-${idx}`,
-                items: [id],
-              }))
-            );
+    if (typeof window === "undefined" || !window.localStorage) return;
+
+    try {
+      // 1. Intentar cargar versión v2
+      const savedV2 = localStorage.getItem(storageKeyV2);
+      if (savedV2) {
+        const parsed = JSON.parse(savedV2);
+        if (parsed && typeof parsed === "object") {
+          if (Array.isArray(parsed.leftColumn) && Array.isArray(parsed.rightColumn)) {
+            setLayoutColumns({
+              left: parsed.leftColumn,
+              right: parsed.rightColumn,
+            });
           }
-          if (parsed.collapsed) {
+          if (parsed.collapsed && typeof parsed.collapsed === "object") {
             setCollapsedIslands((prev) => ({ ...prev, ...parsed.collapsed }));
           }
-          if (parsed.visible) {
+          if (parsed.visible && typeof parsed.visible === "object") {
             setVisibleIslands((prev) => ({ ...prev, ...parsed.visible }));
           }
           if (typeof parsed.feedRail === "boolean") {
             setIsFeedRailCollapsed(parsed.feedRail);
           }
+          return;
         }
-      } catch {
-        // Fallback silencioso
       }
+
+      // 2. Si no hay v2, verificar si existe clave previa v1 en localStorage
+      const savedV1 = localStorage.getItem(storageKeyV1);
+      if (savedV1) {
+        // Descartar de forma segura la configuración v1 y aplicar layout default v2
+        try {
+          localStorage.removeItem(storageKeyV1);
+        } catch {}
+        setLayoutColumns(DEFAULT_LAYOUT_COLUMNS_V2);
+        try {
+          localStorage.setItem(
+            storageKeyV2,
+            JSON.stringify({
+              version: 2,
+              leftColumn: DEFAULT_LAYOUT_COLUMNS_V2.left,
+              rightColumn: DEFAULT_LAYOUT_COLUMNS_V2.right,
+              order: DEFAULT_ISLAND_ORDER,
+              collapsed: {
+                timeline: false,
+                activity_feed: false,
+                routine_workbench: false,
+                metricas_1rm: false,
+                salud_anamnesis: false,
+                administracion: false,
+              },
+              visible: {
+                timeline: true,
+                activity_feed: true,
+                routine_workbench: true,
+                metricas_1rm: true,
+                salud_anamnesis: true,
+                administracion: true,
+              },
+              feedRail: false,
+            })
+          );
+        } catch {}
+      } else {
+        // Inicialización fresca default v2
+        setLayoutColumns(DEFAULT_LAYOUT_COLUMNS_V2);
+      }
+    } catch {
+      // Fallback seguro ante fallos de parseo
+      setLayoutColumns(DEFAULT_LAYOUT_COLUMNS_V2);
     }
-  }, [storageKey]);
+  }, [storageKeyV1, storageKeyV2]);
 
   const moveIslandUp = (id: string) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-
-      // Si comparte fila, separarlo a su propia fila inmediatamente arriba
-      if (row.items.length > 1) {
-        const remaining = row.items.filter((it) => it !== id);
-        const nextRows = [...prev];
-        nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
-        nextRows.splice(rIdx, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
+    if (id === "timeline") return;
+    setLayoutColumns((prev) => {
+      if (prev.left.includes(id)) {
+        const idx = prev.left.indexOf(id);
+        if (idx > 0) {
+          const nextLeft = [...prev.left];
+          const temp = nextLeft[idx - 1]!;
+          nextLeft[idx - 1] = nextLeft[idx]!;
+          nextLeft[idx] = temp;
+          const next = { ...prev, left: nextLeft };
+          saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+          announce(`Isla ${id} movida hacia arriba`);
+          return next;
+        }
+        return prev;
       }
-
-      // Si está solo en la fila y no es el primero, intercambiar fila hacia arriba
-      if (rIdx <= 0) return prev;
-      const nextRows = [...prev];
-      const temp = nextRows[rIdx - 1]!;
-      nextRows[rIdx - 1] = nextRows[rIdx]!;
-      nextRows[rIdx] = temp;
-      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-      return nextRows;
+      if (prev.right.includes(id)) {
+        const idx = prev.right.indexOf(id);
+        if (idx > 0) {
+          const nextRight = [...prev.right];
+          const temp = nextRight[idx - 1]!;
+          nextRight[idx - 1] = nextRight[idx]!;
+          nextRight[idx] = temp;
+          const next = { ...prev, right: nextRight };
+          saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+          announce(`Isla ${id} movida hacia arriba`);
+          return next;
+        }
+        return prev;
+      }
+      return prev;
     });
   };
 
   const moveIslandDown = (id: string) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-
-      // Si comparte fila, separarlo a su propia fila inmediatamente abajo
-      if (row.items.length > 1) {
-        const remaining = row.items.filter((it) => it !== id);
-        const nextRows = [...prev];
-        nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
-        nextRows.splice(rIdx + 1, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
+    setLayoutColumns((prev) => {
+      if (prev.left.includes(id)) {
+        const idx = prev.left.indexOf(id);
+        if (idx < prev.left.length - 1) {
+          const nextLeft = [...prev.left];
+          const temp = nextLeft[idx + 1]!;
+          nextLeft[idx + 1] = nextLeft[idx]!;
+          nextLeft[idx] = temp;
+          const next = { ...prev, left: nextLeft };
+          saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+          announce(`Isla ${id} movida hacia abajo`);
+          return next;
+        }
+        return prev;
       }
-
-      // Si está solo en la fila y no es el último, intercambiar fila hacia abajo
-      if (rIdx >= prev.length - 1) return prev;
-      const nextRows = [...prev];
-      const temp = nextRows[rIdx + 1]!;
-      nextRows[rIdx + 1] = nextRows[rIdx]!;
-      nextRows[rIdx] = temp;
-      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-      return nextRows;
+      if (prev.right.includes(id)) {
+        const idx = prev.right.indexOf(id);
+        if (idx < prev.right.length - 1) {
+          const nextRight = [...prev.right];
+          const temp = nextRight[idx + 1]!;
+          nextRight[idx + 1] = nextRight[idx]!;
+          nextRight[idx] = temp;
+          const next = { ...prev, right: nextRight };
+          saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+          announce(`Isla ${id} movida hacia abajo`);
+          return next;
+        }
+        return prev;
+      }
+      return prev;
     });
   };
 
   const moveIslandLeft = (id: string) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-      const cIdx = row.items.indexOf(id);
-
-      // Si está en fila compartida y no es el primero, mover a la izquierda dentro de la fila
-      if (cIdx > 0) {
-        const newItems = [...row.items];
-        const temp = newItems[cIdx - 1]!;
-        newItems[cIdx - 1] = newItems[cIdx]!;
-        newItems[cIdx] = temp;
-        const nextRows = [...prev];
-        nextRows[rIdx] = { ...row, items: newItems };
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
+    setLayoutColumns((prev) => {
+      if (prev.right.includes(id)) {
+        const nextRight = prev.right.filter((it) => it !== id);
+        const nextLeft = [...prev.left, id];
+        const next = { left: nextLeft, right: nextRight };
+        saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+        announce(`Isla ${id} movida a la columna izquierda`);
+        return next;
       }
-
-      // Si es el primero o único y hay fila superior, unirse a la fila superior a la izquierda
-      if (rIdx > 0) {
-        const targetRow = prev[rIdx - 1]!;
-        const nextRows = prev
-          .map((r, i) => {
-            if (i === rIdx - 1) {
-              return { ...r, items: [id, ...r.items], widths: undefined };
-            }
-            if (i === rIdx) {
-              const rem = r.items.filter((it) => it !== id);
-              return rem.length > 0 ? { ...r, items: rem, widths: undefined } : null;
-            }
-            return r;
-          })
-          .filter(Boolean) as CanvasRow[];
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
-      }
-
       return prev;
     });
   };
 
   const moveIslandRight = (id: string) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-      const cIdx = row.items.indexOf(id);
-
-      // Si está en fila compartida y no es el último, mover a la derecha dentro de la fila
-      if (cIdx < row.items.length - 1) {
-        const newItems = [...row.items];
-        const temp = newItems[cIdx + 1]!;
-        newItems[cIdx + 1] = newItems[cIdx]!;
-        newItems[cIdx] = temp;
-        const nextRows = [...prev];
-        nextRows[rIdx] = { ...row, items: newItems };
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
+    setLayoutColumns((prev) => {
+      if (prev.left.includes(id)) {
+        const nextLeft = prev.left.filter((it) => it !== id);
+        const nextRight = [...prev.right, id];
+        const next = { left: nextLeft, right: nextRight };
+        saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+        announce(`Isla ${id} movida a la columna derecha`);
+        return next;
       }
-
-      // Si está solo y hay fila adyacente, unirse a la fila a la derecha (50/50)
-      const targetIdx = rIdx > 0 ? rIdx - 1 : rIdx < prev.length - 1 ? rIdx + 1 : -1;
-      if (targetIdx !== -1) {
-        const nextRows = prev
-          .map((r, i) => {
-            if (i === targetIdx) {
-              return { ...r, items: [...r.items, id], widths: undefined };
-            }
-            if (i === rIdx) {
-              const rem = r.items.filter((it) => it !== id);
-              return rem.length > 0 ? { ...r, items: rem, widths: undefined } : null;
-            }
-            return r;
-          })
-          .filter(Boolean) as CanvasRow[];
-        saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-        return nextRows;
-      }
-
       return prev;
     });
   };
 
   const separateIslandToOwnRow = (id: string) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-      if (row.items.length <= 1) return prev;
-
-      const remaining = row.items.filter((it) => it !== id);
-      const nextRows = [...prev];
-      nextRows[rIdx] = { ...row, items: remaining, widths: undefined };
-      nextRows.splice(rIdx + 1, 0, { id: `row-${id}-${Date.now()}`, items: [id] });
-      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-      return nextRows;
-    });
+    announce(`Isla ${id} expandida a ancho completo`);
   };
 
   const resizeIslandWidth = (id: string, delta: number) => {
-    setCanvasRows((prev) => {
-      const rIdx = prev.findIndex((r) => r.items.includes(id));
-      if (rIdx === -1) return prev;
-      const row = prev[rIdx]!;
-      if (row.items.length !== 2) return prev;
-
-      const otherId = row.items.find((it) => it !== id)!;
-      const currentW = row.widths?.[id] ?? 50;
-      const nextW = Math.max(25, Math.min(75, currentW + delta));
-      const otherW = 100 - nextW;
-
-      const nextRows = [...prev];
-      nextRows[rIdx] = {
-        ...row,
-        widths: {
-          [id]: nextW,
-          [otherId]: otherW,
-        },
-      };
-      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-      return nextRows;
-    });
+    // Soporte para fractional units / minmax en filas adaptables
   };
 
   const toggleIslandVisibility = (id: string) => {
     setVisibleIslands((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      saveLayoutToStorage(canvasRows, collapsedIslands, isFeedRailCollapsed, next);
+      saveLayoutToStorage(layoutColumns, collapsedIslands, isFeedRailCollapsed, next);
+      announce(`Isla ${id} ${next[id] ? "visible" : "oculta"}`);
       return next;
     });
   };
@@ -1075,7 +1099,8 @@ export function StudentDetail({
   const toggleCollapseIsland = (id: string) => {
     setCollapsedIslands((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      saveLayoutToStorage(canvasRows, next, isFeedRailCollapsed);
+      saveLayoutToStorage(layoutColumns, next, isFeedRailCollapsed);
+      announce(`Isla ${id} ${next[id] ? "colapsada" : "expandida"}`);
       return next;
     });
   };
@@ -1083,7 +1108,8 @@ export function StudentDetail({
   const toggleFeedRail = () => {
     setIsFeedRailCollapsed((prev) => {
       const next = !prev;
-      saveLayoutToStorage(canvasRows, collapsedIslands, next);
+      saveLayoutToStorage(layoutColumns, collapsedIslands, next);
+      announce(`Riel lateral de bitácora ${next ? "colapsado" : "expandido"}`);
       return next;
     });
   };
@@ -1117,28 +1143,31 @@ export function StudentDetail({
       return;
     }
 
-    setCanvasRows((prev) => {
-      const cleaned = prev
-        .map((r) => ({
-          ...r,
-          items: r.items.filter((it) => it !== sourceId),
-          widths: undefined,
-        }))
-        .filter((r) => r.items.length > 0);
+    setLayoutColumns((prev) => {
+      const cleanLeft = prev.left.filter((it) => it !== sourceId);
+      const cleanRight = prev.right.filter((it) => it !== sourceId);
 
-      const targetRowIdx = cleaned.findIndex((r) => r.items.includes(targetId));
-      if (targetRowIdx === -1) return prev;
+      if (cleanLeft.includes(targetId)) {
+        const tIdx = cleanLeft.indexOf(targetId);
+        const nextLeft = [...cleanLeft];
+        nextLeft.splice(tIdx + 1, 0, sourceId);
+        const next = { left: nextLeft, right: cleanRight };
+        saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+        announce(`Isla ${sourceId} reubicada en columna izquierda`);
+        return next;
+      }
 
-      const targetRow = cleaned[targetRowIdx]!;
-      const tColIdx = targetRow.items.indexOf(targetId);
+      if (cleanRight.includes(targetId)) {
+        const tIdx = cleanRight.indexOf(targetId);
+        const nextRight = [...cleanRight];
+        nextRight.splice(tIdx + 1, 0, sourceId);
+        const next = { left: cleanLeft, right: nextRight };
+        saveLayoutToStorage(next, collapsedIslands, isFeedRailCollapsed);
+        announce(`Isla ${sourceId} reubicada en columna derecha`);
+        return next;
+      }
 
-      const newItems = [...targetRow.items];
-      newItems.splice(tColIdx + 1, 0, sourceId);
-
-      const nextRows = [...cleaned];
-      nextRows[targetRowIdx] = { ...targetRow, items: newItems, widths: undefined };
-      saveLayoutToStorage(nextRows, collapsedIslands, isFeedRailCollapsed);
-      return nextRows;
+      return prev;
     });
 
     setDraggedIslandId(null);
@@ -2492,16 +2521,19 @@ export function StudentDetail({
     const isTarget = dropTargetIslandId === islandId && draggedIslandId !== islandId;
     const isCollapsed = !!collapsedIslands[islandId];
 
-    const row = canvasRows.find((r) => r.items.includes(islandId));
-    const rowIndex = canvasRows.findIndex((r) => r.items.includes(islandId));
-    const colIndex = row?.items.indexOf(islandId) ?? 0;
-    const isSharedRow = (row?.items.length ?? 1) > 1;
-    const currentWidth = isSharedRow && row?.widths ? row.widths[islandId] ?? 50 : isSharedRow ? 50 : 100;
+    const isTimeline = islandId === "timeline";
+    const isLeft = layoutColumns.left.includes(islandId);
+    const isRight = layoutColumns.right.includes(islandId);
+    const colList = isLeft ? layoutColumns.left : isRight ? layoutColumns.right : ["timeline"];
+    const colIndex = colList.indexOf(islandId);
 
-    const canMoveUp = rowIndex > 0 || isSharedRow;
-    const canMoveDown = rowIndex < canvasRows.length - 1 || isSharedRow;
-    const canMoveLeft = colIndex > 0 || rowIndex > 0;
-    const canMoveRight = (row && colIndex < row.items.length - 1) || (rowIndex > 0 || rowIndex < canvasRows.length - 1);
+    const isSharedRow = false;
+    const currentWidth = isLeft ? 67 : isRight ? 33 : 100;
+
+    const canMoveUp = isTimeline ? false : true;
+    const canMoveDown = isTimeline ? true : islandId === "administracion" ? false : true;
+    const canMoveLeft = isRight;
+    const canMoveRight = isLeft;
 
     const onMoveUp = () => moveIslandUp(islandId);
     const onMoveDown = () => moveIslandDown(islandId);
@@ -2823,24 +2855,30 @@ export function StudentDetail({
             </Button>
           )}
 
-          {/* Grupo de Personalización Zen (Discreto) */}
+          {/* Grupo de Personalización Zen (Discreto - GOZS-395) */}
           <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsCanvasMode((prev) => !prev)}
+              onClick={() => {
+                const next = !isPersonalizing;
+                setIsPersonalizing(next);
+                announce(next ? "Modo Personalizar activado" : "Modo Personalizar desactivado");
+              }}
               className={`h-8 px-2.5 text-xs font-semibold transition-colors ${
-                isCanvasMode
+                isPersonalizing
                   ? "bg-secondary text-secondary-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
               data-testid="btn-modo-canvas"
-              aria-label="Alternar Modo Canvas Modular"
+              data-personalizar="true"
+              aria-label="Alternar modo Personalizar layout (Modo Canvas)"
               title="Personalizar layout (Modo Canvas)"
             >
-              <span>⠿ Modo Canvas</span>
-              {isCanvasMode && (
+              <Settings className="h-3.5 w-3.5 mr-1 text-muted-foreground" aria-hidden="true" />
+              <span>Personalizar</span>
+              {isPersonalizing && (
                 <span className="ml-1 rounded bg-muted-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
                   ON
                 </span>
@@ -2857,7 +2895,8 @@ export function StudentDetail({
               title="Configurar qué islas ver u ocultar"
               aria-label="Configurar islas visibles"
             >
-              <span>⚙️ Configurar Islas</span>
+              <Settings className="h-3.5 w-3.5 mr-1 inline text-muted-foreground" aria-hidden="true" />
+              <span>Configurar Islas</span>
               <span className="ml-1 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
                 {Object.values(visibleIslands).filter(Boolean).length}/6
               </span>
@@ -2944,16 +2983,26 @@ export function StudentDetail({
         </div>
       </div>
 
-      {/* Banner de Modo Canvas */}
-      {isCanvasMode && (
+      {/* Región accesible aria-live para anunciar reordenamiento y cambios de personalización */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="student-detail-live-announcer"
+      >
+        {liveAnnouncement}
+      </div>
+
+      {/* Banner de Modo Canvas / Personalizar */}
+      {isPersonalizing && (
         <div
           data-testid="banner-modo-canvas"
           className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2 text-xs text-primary font-medium"
         >
           <div className="flex items-center gap-2">
-            <span className="text-base select-none">⠿</span>
+            <Settings className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span>
-              <strong>Modo Canvas Activo:</strong> Arrastrá las islas mediante el drag handle (⠿) para reordenar la grilla modular o usá [-] para colapsar. La disposición se persiste automáticamente en localStorage.
+              <strong>Modo Personalizar Activo:</strong> Arrastrá las islas mediante el drag handle (⠿) para reordenar la grilla modular o usá [-] para colapsar. La disposición se persiste automáticamente en localStorage (Modo Canvas).
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -2970,7 +3019,10 @@ export function StudentDetail({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsCanvasMode(false)}
+              onClick={() => {
+                setIsPersonalizing(false);
+                announce("Modo Personalizar desactivado");
+              }}
               className="h-7 text-xs font-bold text-primary hover:bg-primary/20"
             >
               Listo
@@ -2979,58 +3031,55 @@ export function StudentDetail({
         </div>
       )}
 
-      {/* Canvas Modular de Islas Autónomas y Colapsables con Filas y Resize Horizontal */}
+      {/* Canvas Modular de Islas Autónomas y Colapsables con Layout en 2 Columnas Balanceado (GOZS-395) */}
       <div
         data-testid="student-detail-modular-canvas"
-        className="space-y-4 pt-2"
+        className="space-y-4 pt-2 max-w-full overflow-x-hidden"
       >
-        {canvasRows.map((row, rIdx) => {
-          const visibleItems = row.items.filter((id) => visibleIslands[id] !== false);
-          if (visibleItems.length === 0) return null;
+        {/* Upper Timeline Ribbon (Sesiones) */}
+        {visibleIslands["timeline"] !== false && (
+          <div data-testid="canvas-row-timeline" className="w-full min-w-0">
+            {renderIsland("timeline", 0, 1)}
+          </div>
+        )}
 
-          const count = visibleItems.length;
-          const hasCustomWidths =
-            count === 2 &&
-            row.widths &&
-            row.widths[visibleItems[0]!] !== undefined &&
-            row.widths[visibleItems[1]!] !== undefined;
+        {/* Grilla balanceada en 2 columnas en desktop (≥ 960px) y 1 columna en < 960px */}
+        <div
+          data-testid="student-detail-grid-columns"
+          className="grid grid-cols-1 min-[960px]:grid-cols-12 gap-4 items-start w-full max-w-full overflow-x-hidden"
+          style={{
+            gridTemplateColumns: isLgScreen ? "minmax(0, 8fr) minmax(0, 4fr)" : undefined,
+            maxHeight: "2300px",
+          }}
+        >
+          {/* Columna Izquierda (≥ 960px: 8 cols): Rutina y Fuerza */}
+          <div
+            data-testid="canvas-column-left"
+            className="space-y-4 w-full min-w-0 col-span-1 min-[960px]:col-span-8"
+          >
+            {layoutColumns.left
+              .filter((id) => visibleIslands[id] !== false)
+              .map((id, index, arr) => (
+                <div key={id} className="w-full min-w-0">
+                  {renderIsland(id, index, arr.length)}
+                </div>
+              ))}
+          </div>
 
-          return (
-            <div
-              key={row.id}
-              data-testid={`canvas-row-${rIdx}`}
-              className={`grid grid-cols-1 gap-4 items-start w-full ${
-                count === 1
-                  ? "lg:grid-cols-1"
-                  : count === 2 && !hasCustomWidths
-                  ? "lg:grid-cols-2"
-                  : count === 3 && !hasCustomWidths
-                  ? "lg:grid-cols-3"
-                  : count === 4 && !hasCustomWidths
-                  ? "lg:grid-cols-4"
-                  : ""
-              }`}
-              style={
-                isLgScreen && hasCustomWidths
-                  ? {
-                      gridTemplateColumns: `minmax(0, ${
-                        row.widths![visibleItems[0]!]
-                      }fr) minmax(0, ${row.widths![visibleItems[1]!]}fr)`,
-                    }
-                  : undefined
-              }
-            >
-              {visibleItems.map((id, index) => {
-                const islandContent = renderIsland(id, index, visibleItems.length);
-                return (
-                  <div key={id} className="w-full min-w-0">
-                    {islandContent}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+          {/* Columna Derecha (≥ 960px: 4 cols): Salud, Actividad y Membresía */}
+          <div
+            data-testid="canvas-column-right"
+            className="space-y-4 w-full min-w-0 col-span-1 min-[960px]:col-span-4"
+          >
+            {layoutColumns.right
+              .filter((id) => visibleIslands[id] !== false)
+              .map((id, index, arr) => (
+                <div key={id} className="w-full min-w-0">
+                  {renderIsland(id, index, arr.length)}
+                </div>
+              ))}
+          </div>
+        </div>
       </div>
 
       {/* Diálogo de Configuración de Visibilidad de Islas en el Canvas */}

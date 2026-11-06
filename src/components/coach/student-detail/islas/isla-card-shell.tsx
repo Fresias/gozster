@@ -102,7 +102,7 @@ export function IslaCardShell({
             className={`inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-all ${
               isCanvasMode
                 ? "bg-primary/20 text-primary font-black hover:bg-primary/30"
-                : "opacity-30 group-hover:opacity-100 hover:bg-muted hover:text-foreground"
+                : "opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground"
             }`}
           >
             <span className="text-base leading-none select-none">⠿</span>
