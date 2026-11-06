@@ -1898,16 +1898,22 @@ export interface Database {
           p_hasta: string;
         };
         Returns: {
-          ingresos: number;
-          ingresos_6m: number[];
-          ingresos_periodo_anterior: number;
-          cobranza_esperada: number;
-          cobranza_pendiente_monto: number;
+          ingresos: number | null;
+          ingresos_6m: number[] | null;
+          ingresos_periodo_anterior: number | null;
+          cobranza_esperada: number | null;
+          cobranza_pendiente_monto: number | null;
           cobranza_vencidas_cant: number;
           sin_entrenar_7d_ids: string[];
           activos_fin: number;
           altas: number;
           bajas: number;
+          ingresos_presencial?: number | null;
+          ingresos_online?: number | null;
+          cobranza_vencida_monto?: number | null;
+          cobranza_por_vencer_monto?: number | null;
+          alumnos_al_dia?: number;
+          alumnos_morosos?: number;
         }[];
       };
       obtener_metricas_retencion: {
