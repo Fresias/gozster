@@ -15,19 +15,58 @@
     {
       "id": "L-000",
       "title": "Línea base del harness (guard telemetry)",
-      "status": "measuring",
+      "status": "completed",
       "hypothesis": "Antes de intervenir el harness necesitamos una línea base determinista de fricción: cuánto bloquea el guard por regla, cuánto tarda un agente en su primer edit (TTFE) y cuántas sesiones chocan repetidamente contra la misma regla.",
       "experience": "EXPERIENCE-L-000.md",
       "window": {
-        "durationDays": 7,
-        "before": { "start": null, "end": null },
-        "after": { "start": null, "end": null }
+        "durationDays": 17,
+        "before": {
+          "start": "2026-10-20T17:38:21Z",
+          "end": "2026-11-06T23:05:00Z"
+        },
+        "after": {
+          "start": null,
+          "end": null
+        }
       },
       "metrics": {
         "before": {
-          "blocksByRule": null,
-          "timeToFirstEditMs": { "median": null, "p90": null },
-          "repeatedBlockSessions": null
+          "totalEvents": 4355,
+          "totalSessions": 45,
+          "actionsByKind": {
+            "shell": 1886,
+            "read": 943,
+            "write": 114,
+            "read_many": 103
+          },
+          "blocksByRule": {
+            "git.force-push": 428,
+            "read.oversize": 412,
+            "fs.bloatware": 222,
+            "git.reset-hard": 206,
+            "shell.rm-rf": 206,
+            "shell.env-leak": 206,
+            "db.append-only": 114,
+            "multica.comment-bounded": 103,
+            "multica.issue-bounded": 103
+          },
+          "injectionsByRule": {
+            "git.gh007-noreply": 599,
+            "db.migration-test-reminder": 359,
+            "remediate.cwd-lost": 234,
+            "remediate.oversize-output": 117
+          },
+          "timeToFirstEditMs": {
+            "median": 1687,
+            "p90": 3936
+          },
+          "repeatedBlockSessions": [
+            { "session": "task-be9941668636", "rule": "git.force-push", "count": 104 },
+            { "session": "task-be9941668636", "rule": "read.oversize", "count": 104 },
+            { "session": "task-d707304f5d12", "rule": "git.force-push", "count": 23 },
+            { "session": "task-35b074bc45b2", "rule": "git.force-push", "count": 22 },
+            { "session": "task-35b074bc45b2", "rule": "read.oversize", "count": 20 }
+          ]
         },
         "after": {
           "blocksByRule": null,
@@ -35,7 +74,7 @@
           "repeatedBlockSessions": null
         }
       },
-      "notes": "La ventana de 7 días (window.before) arranca cuando GOZS-81 (matchers de escritura → guard) y GOZS-82 (plugin de OpenCode) estén en main; antes de eso la cobertura del guard es parcial y la base quedaría 'confounded'. El PR de H-12 se mergea con L-000 en 'measuring'; el cierre del issue espera los 7 días de datos."
+      "notes": "Cierre de línea base L-000 consolidado tras 17 días de operación real (2026-10-20 a 2026-11-06) cubriendo los 4 runtimes (Claude Code, Gemini CLI, Antigravity y OpenCode) y los 5 Stages del rediseño integral GOZS-368 (45 sesiones, 4.355 eventos). Mediana de TTFE: 1.687 ms (p90: 3.936 ms)."
     }
   ]
 }
