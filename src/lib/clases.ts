@@ -398,3 +398,63 @@ export function validarAnotacionCoach(args: {
     tipoAviso: "NINGUNO",
   };
 }
+
+export interface RangoHorarioUtil {
+  horaMin: number;
+  horaMax: number;
+  tieneClases: boolean;
+  textoLeyenda: string;
+}
+
+/**
+ * Calcula automáticamente la franja horaria útil a partir de las clases programadas activas (GOZS-385).
+ * - Acota la grilla semanal y diaria visualmente al rango entre la clase más temprana y la más tardía.
+ *   Ej.: si las clases van de 17:00 a 20:30, la grilla se ajusta de 17:00 a 21:00.
+ * - Si no hay clases programadas, devuelve un rango por defecto (ej. 07:00 a 21:00).
+ * - Genera la leyenda informativa para el pie del calendario.
+ */
+export function calcularRangoHorarioUtil(
+  clases: Array<Pick<Clase, "inicio"> & { duracion_minutos?: number | null; estado?: string | null }>,
+  opciones?: { fallbackMin?: number; fallbackMax?: number }
+): RangoHorarioUtil {
+  const fallbackMin = opciones?.fallbackMin ?? 7;
+  const fallbackMax = opciones?.fallbackMax ?? 21;
+
+  if (!clases || clases.length === 0) {
+    const minStr = `${String(fallbackMin).padStart(2, "0")}:00`;
+    const maxStr = `${String(fallbackMax).padStart(2, "0")}:00`;
+    return {
+      horaMin: fallbackMin,
+      horaMax: fallbackMax,
+      tieneClases: false,
+      textoLeyenda: `Sin clases programadas · Mostrando horario general: ${minStr} - ${maxStr}`,
+    };
+  }
+
+  let minH = 24;
+  let maxH = 0;
+
+  for (const c of clases) {
+    const horaLocalStr = horaLocal(c.inicio);
+    const [hStr, mStr] = horaLocalStr.split(":");
+    const hora = Number(hStr) || 0;
+    const minuto = Number(mStr) || 0;
+    const durH = (c.duracion_minutos || 60) / 60;
+    const finH = Math.ceil(hora + minuto / 60 + durH);
+
+    minH = Math.min(minH, hora);
+    maxH = Math.max(maxH, finH);
+  }
+
+  const horaMin = Math.max(0, Math.min(minH, 23));
+  const horaMax = Math.min(24, Math.max(maxH, horaMin + 1));
+  const minStr = `${String(horaMin).padStart(2, "0")}:00`;
+  const maxStr = `${String(horaMax).padStart(2, "0")}:00`;
+
+  return {
+    horaMin,
+    horaMax,
+    tieneClases: true,
+    textoLeyenda: `Mostrando horario con actividad: ${minStr} - ${maxStr} · las horas sin clases se ocultan automáticamente.`,
+  };
+}
