@@ -189,11 +189,10 @@ export function ChatFab({
 
   return (
     <>
-      {/* Floating Action Button (FAB) */}
-      {/* Posicionado en bottom-5 right-5 sm:bottom-6 sm:right-6 con z-40 desacoplado */}
+      {/* Floating Action Button (FAB) Desktop - en viewports móviles se accede desde la barra inferior */}
       <aside
         aria-label="Acceso flotante a mensajería"
-        className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-40"
+        className="hidden lg:block fixed bottom-6 right-6 z-40"
       >
         <button
           type="button"

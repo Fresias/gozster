@@ -57,7 +57,7 @@ export function Tooltip({
 export const TooltipTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
->(({ children, className, onMouseEnter, onMouseLeave, onFocus, onBlur, onKeyDown, ...props }, ref) => {
+>(({ asChild, children, className, onMouseEnter, onMouseLeave, onFocus, onBlur, onKeyDown, ...props }, ref) => {
   const ctx = React.useContext(TooltipContext);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -92,6 +92,41 @@ export const TooltipTrigger = React.forwardRef<
       ctx?.setOpen(false);
     }
   };
+
+  if (asChild && React.isValidElement(children)) {
+    const child = children as React.ReactElement<any>;
+    return React.cloneElement(child, {
+      ref: (node: any) => {
+        if (typeof ref === "function") ref(node);
+        else if (ref) (ref as React.MutableRefObject<any>).current = node;
+        const childRef = (child as any).ref;
+        if (typeof childRef === "function") childRef(node);
+        else if (childRef) childRef.current = node;
+      },
+      "aria-describedby": ctx?.open ? ctx.tooltipId : child.props["aria-describedby"],
+      onMouseEnter: (e: any) => {
+        child.props.onMouseEnter?.(e);
+        handleMouseEnter(e);
+      },
+      onMouseLeave: (e: any) => {
+        child.props.onMouseLeave?.(e);
+        handleMouseLeave(e);
+      },
+      onFocus: (e: any) => {
+        child.props.onFocus?.(e);
+        handleFocus(e);
+      },
+      onBlur: (e: any) => {
+        child.props.onBlur?.(e);
+        handleBlur(e);
+      },
+      onKeyDown: (e: any) => {
+        child.props.onKeyDown?.(e);
+        handleKeyDown(e);
+      },
+      className: cn(child.props.className, className),
+    });
+  }
 
   return (
     <button

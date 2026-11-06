@@ -263,10 +263,10 @@ describe("GOZS-135 / GOZS-369: obtener_kpis_negocio (PGlite)", () => {
         { contratacion_id: "10000000-0000-0000-0000-000000000002", alumno_id: A_6D, monto: 88888, medio_pago: "EFECTIVO", estado: "RECHAZADO", confirmado_at: null } as any,
         { contratacion_id: "10000000-0000-0000-0000-000000000001", alumno_id: A_8D, monto: 7000, medio_pago: "EFECTIVO", estado: "CONFIRMADO", confirmado_at: mesPrevio } as any,
       ],
-      historial: {},
       dias: [],
       ejerciciosEnRutina: [],
       ejercicios: [],
+      historial: {},
     };
     const seedPlanes = [{ id: PLAN, nombre: "Trimestral", cantidad_actividades: 1, duracion_meses: 3, precio: 30000 } as any];
 
@@ -299,10 +299,10 @@ describe("GOZS-135 / GOZS-369: obtener_kpis_negocio (PGlite)", () => {
         { contratacion_id: "c-1", monto: 20000, estado: "CONFIRMADO", confirmado_at: "2026-10-16T12:00:00Z" } as any,
         { contratacion_id: "c-1", monto: 30000, estado: "CONFIRMADO", confirmado_at: "2026-10-17T12:00:00Z" } as any,
       ],
-      historial: {},
       dias: [],
       ejerciciosEnRutina: [],
       ejercicios: [],
+      historial: {},
     };
     const planes = [
       { id: "p-1", duracion_meses: 1, precio: 15000 },

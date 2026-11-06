@@ -210,7 +210,8 @@ export function CoachStudioView({
   const filtroActividad = store.filtroActividad ?? "TODAS";
   const setFiltroActividad = store.setFiltroActividad;
   const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
-  const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
+  const isInviteModalOpen = store.isInviteModalOpen;
+  const setIsInviteModalOpen = store.setInviteModalOpen;
   const [localIsBuilderOpen, setLocalIsBuilderOpen] = React.useState(false);
 
   // Estados para Modales de Quick Swap y WhatsApp
