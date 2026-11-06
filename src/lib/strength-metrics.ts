@@ -378,3 +378,18 @@ export function generateWhatsAppArgentinoUrl(params: {
   return { url, message };
 }
 
+// Re-exportación de cálculo de progresión de cargas y 1RM derivado (GOZS-371)
+export {
+  estimar1RM,
+  calcularProgresion,
+  esSerieEfectiva,
+  esSerieCalentamiento,
+  type ProgresionEjercicio,
+  type ResultadoProgresion,
+  type TendenciaCarga,
+  type TopSetInfo,
+  type EjercicioExcluido,
+  type OpcionesProgresion,
+} from './progresion';
+
+
