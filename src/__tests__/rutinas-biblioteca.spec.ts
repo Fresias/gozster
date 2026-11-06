@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   clasificarRutinas,
+  determinarPestanaPorDefecto,
   filtrarRutinas,
   filtrarRutinasPorBusqueda,
   filtrarRutinasPorTag,
@@ -247,5 +248,26 @@ describe("GOZS-365: filtros por tags, badges semánticos y herencia en asignaci�
     const activo = getTagChipFilterStyles("Hipertrofia", true);
     expect(inactivo).toContain("text-muted-foreground");
     expect(activo).toContain("border-emerald-500");
+  });
+
+  describe("GOZS-386: determinarPestanaPorDefecto", () => {
+    it("GIVEN una base con 14 rutinas de alumnos y 0 plantillas maestras, THEN devuelve 'alumnos'", () => {
+      const rutinasAlumnos = Array.from({ length: 14 }, (_, i) =>
+        plan({ id: `alumno-plan-${i + 1}`, tipo: "DE_ALUMNO", alumno_id: `alumno-${i + 1}`, nombre: `Rutina ${i + 1}` }),
+      );
+      expect(determinarPestanaPorDefecto(rutinasAlumnos)).toBe("alumnos");
+    });
+
+    it("GIVEN una base con al menos 1 plantilla maestra, THEN devuelve 'plantillas'", () => {
+      const planes = [
+        plan({ id: "pt-1", tipo: "PLANTILLA", alumno_id: null, nombre: "Plantilla 1" }),
+        plan({ id: "al-1", tipo: "DE_ALUMNO", alumno_id: "a1", nombre: "Rutina Alumno" }),
+      ];
+      expect(determinarPestanaPorDefecto(planes)).toBe("plantillas");
+    });
+
+    it("GIVEN una base vacía (0 plantillas y 0 alumnos), THEN devuelve 'plantillas'", () => {
+      expect(determinarPestanaPorDefecto([])).toBe("plantillas");
+    });
   });
 });
