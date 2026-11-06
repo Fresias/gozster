@@ -7,9 +7,13 @@ const view = fs.readFileSync(
   "utf-8",
 );
 
-describe("GOZS-131: tabla de alumnos colapsable y colapsada", () => {
-  it("el estado arranca colapsado", () => {
-    expect(view).toContain("const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);");
+describe("GOZS-131 / GOZS-380: tabla de alumnos colapsable, abierta por defecto y con DataTable", () => {
+  it("el estado arranca abierto por defecto (reversión GOZS-131 / GOZS-380) y persiste en localStorage", () => {
+    expect(view).toContain("initialAlumnosExpanded = true");
+    expect(view).toContain(
+      "const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(initialAlumnosExpanded);",
+    );
+    expect(view).toContain("gozster_directorio_alumnos_expanded");
   });
 
   it("el cuerpo depende del toggle", () => {
@@ -34,5 +38,17 @@ describe("GOZS-131: tabla de alumnos colapsable y colapsada", () => {
   it("el título interno 'Alumnos' del cuadro no se duplica", () => {
     expect(view).not.toContain('"Alumnos" : "Cuadro 1.1"');
     expect(view).not.toContain("Cuadro 1.1</span>");
+  });
+
+  it("utiliza la primitiva DataTable con pageSize={15} y paginación activa", () => {
+    expect(view).toContain("<DataTable");
+    expect(view).toContain("columns={columnsAlumnos}");
+    expect(view).toContain("pageSize={15}");
+    expect(view).toContain("showPagination={true}");
+  });
+
+  it("persiste la preferencia de colapso/apertura manual en localStorage bajo 'gozster_directorio_alumnos_expanded'", () => {
+    expect(view).toContain('localStorage.getItem("gozster_directorio_alumnos_expanded")');
+    expect(view).toContain('localStorage.setItem("gozster_directorio_alumnos_expanded"');
   });
 });
