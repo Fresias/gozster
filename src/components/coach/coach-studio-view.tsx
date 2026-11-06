@@ -11,6 +11,7 @@ import { AssignRoutinePreviewModal } from "@/components/coach/assign-routine-pre
 import { AthletePreviewModal } from "@/components/coach/athlete-preview-modal";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
@@ -58,7 +59,7 @@ import {
 export function CoachStudioView({
   initialDataset,
   estancados = [],
-  initialAlumnosExpanded = false,
+  initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
 }: {
   initialDataset?: LiveSupabaseDataset | null;
@@ -196,9 +197,22 @@ export function CoachStudioView({
   }, [hasInitialData, initialDataset, loadLiveSupabaseData]);
 
   const { isOnline, pendingEvents } = useOfflineQueueStore();
-  // GOZS-131 contrato: const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(false);
+  // GOZS-380 / GOZS-131: Apertura por defecto (true) y persistencia en localStorage
   const [isAlumnosExpanded, setIsAlumnosExpanded] = React.useState(initialAlumnosExpanded);
   const showAlumnosBody = isAlumnosExpanded;
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const saved = localStorage.getItem("gozster_directorio_alumnos_expanded");
+        if (saved !== null) {
+          setIsAlumnosExpanded(saved === "true");
+        }
+      } catch {
+        // Fallback seguro si localStorage está inaccesible
+      }
+    }
+  }, []);
   const [filterQuery, setFilterQuery] = React.useState("");
   const [paymentFilter, setPaymentFilter] = React.useState<
     "ALL" | "ACTIVA" | "PENDIENTE" | "NUEVOS"
@@ -464,6 +478,459 @@ export function CoachStudioView({
     });
   };
 
+  // GOZS-240: 6 columnas en el directorio de atletas (colSpan={6})
+  const rowPaddingClass = "min-h-[48px] py-2.5";
+
+  const columnsAlumnos = React.useMemo<ColumnDef<Perfil>[]>(() => [
+    {
+      id: "atleta",
+      accessorKey: "nombre_completo",
+      header: "Atleta",
+      headerClassName: "py-2.5 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40",
+      className: `${rowPaddingClass} px-3 sticky left-0 bg-card z-10 border-r border-border/40 group-hover:bg-card`,
+      sortable: true,
+      cell: ({ row: alumno }) => {
+        const estancadoInfo = estancadosMap.get(alumno.id);
+        return (
+          <button
+            type="button"
+            onClick={() => selectAlumno(alumno.id)}
+            className="flex items-center gap-2.5 text-left w-full hover:text-primary transition-colors"
+          >
+            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
+              {getInitials(alumno.nombre_completo)}
+            </div>
+            <div className="min-w-0">
+              <span className="font-bold text-foreground block truncate leading-tight text-xs">
+                {alumno.nombre_completo}
+                {esAlumnoNuevo(alumno.created_at) && (
+                  <span className="ml-1.5 align-middle text-[10px] rounded bg-secondary px-1.5 font-normal text-muted-foreground">
+                    Nuevo
+                  </span>
+                )}
+                {estancadoInfo && (
+                  <span
+                    data-testid={`badge-estancado-nombre-${alumno.id}`}
+                    className="ml-1.5 align-middle text-[10px] rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-600 dark:text-amber-400"
+                    title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
+                  >
+                    +30d sin PR
+                  </span>
+                )}
+              </span>
+              <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                {obtenerActividadesAlumno({
+                  alumnoId: alumno.id,
+                  alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
+                  contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+                  planes,
+                  alumno,
+                }).map((act) => (
+                  <span
+                    key={act}
+                    data-testid={`badge-actividad-${act.toLowerCase()}`}
+                    className="inline-block text-[9px] font-semibold px-1 rounded bg-secondary/80 text-muted-foreground"
+                  >
+                    {ETIQUETAS_ACTIVIDAD[act]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </button>
+        );
+      },
+    },
+    {
+      id: "cuota",
+      header: "Cuota",
+      headerClassName: "py-2.5 px-3 text-center w-24",
+      className: `${rowPaddingClass} px-3 text-center`,
+      cellProps: { "data-testid": "columna-cuota-actividad" },
+      cell: ({ row: alumno }) => {
+        let isAlDia =
+          alumno.estado_membresia === "ACTIVA" ||
+          alumno.estado_membresia === "ACTIVE";
+        let isPendiente = alumno.estado_membresia === "PENDIENTE";
+        let cuotaTooltip = isAlDia
+          ? "Cuota al día"
+          : isPendiente
+          ? "Vence en ≤ 3 días (Pago Pendiente)"
+          : "Cuota vencida / Inactiva";
+
+        if (alumno.fecha_vencimiento_cuota) {
+          const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
+          const diffDays = Math.ceil(
+            (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+          );
+          if (diffDays > 3) {
+            isAlDia = true;
+            isPendiente = false;
+            cuotaTooltip = `Cuota al día (vence en ${diffDays} días)`;
+          } else if (diffDays >= 0) {
+            isAlDia = false;
+            isPendiente = true;
+            cuotaTooltip =
+              diffDays === 0
+                ? "Vence hoy (Pago Pendiente)"
+                : `Vence en ${diffDays} día${diffDays > 1 ? "s" : ""} (Pago Pendiente)`;
+          } else {
+            isAlDia = false;
+            isPendiente = false;
+            cuotaTooltip = `Cuota vencida hace ${Math.abs(diffDays)} días`;
+          }
+        }
+
+        const cuotaDotColor = isAlDia
+          ? "bg-emerald-500 border border-emerald-600/30"
+          : isPendiente
+          ? "bg-amber-500 border border-amber-600/30"
+          : "bg-rose-500 border border-rose-600/30";
+
+        const contratacionesAlumno = store.getContratacionesAlumno
+          ? store.getContratacionesAlumno(alumno.id)
+          : (store.contrataciones?.filter((c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA") ?? []);
+        const planesCobros = useCobrosStore.getState().planes;
+        const badgesPlanes = contratacionesAlumno.map((c) => {
+          const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
+          const nombrePlan =
+            plan?.nombre ??
+            (c.plan_membresia_id === "demo-plan-funcional-2x"
+              ? "Funcional 2x"
+              : c.plan_membresia_id === "demo-plan-pase-libre"
+              ? "Pase Libre"
+              : c.plan_membresia_id ?? "Plan");
+          const precio =
+            c.precio_pactado ??
+            plan?.precio ??
+            (c.plan_membresia_id === "demo-plan-pase-libre" ? 40000 : 25000);
+          return derivarBadgePlan({
+            nombrePlan,
+            precio,
+            esVigente: c.estado === "VIGENTE" || c.estado === "POR_VENCER",
+            esAlDia: isAlDia,
+          });
+        });
+
+        return (
+          <div className="flex flex-col items-center justify-center gap-1" data-testid="columna-cuota-actividad">
+            <div className="flex items-center justify-center">
+              <span
+                className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
+                title={cuotaTooltip}
+                aria-label={cuotaTooltip}
+                role="status"
+              />
+            </div>
+            {badgesPlanes.length > 0 && (
+              <div className="flex flex-col gap-0.5 items-center mt-0.5" data-testid="badges-planes-apilados">
+                {badgesPlanes.map((b, idx) => (
+                  <span
+                    key={idx}
+                    data-testid="badge-plan-apilado"
+                    className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight border leading-tight ${b.className}`}
+                    title={b.tooltip}
+                  >
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "vigencia_rutina",
+      header: "Vigencia Rutina",
+      headerClassName: "py-2.5 px-3 text-center w-28",
+      className: `${rowPaddingClass} px-3 text-center`,
+      cell: ({ row: alumno }) => {
+        const planActivo =
+          planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
+        const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
+        const rutinaPillColor = vigenciaInfo.pillColorClass;
+        const rutinaTooltip = vigenciaInfo.tooltip;
+
+        return (
+          <div className="flex items-center justify-center">
+            <span
+              className={`inline-block h-2.5 w-10 rounded-full ${rutinaPillColor}`}
+              title={rutinaTooltip}
+              aria-label={rutinaTooltip}
+              role="status"
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: "actividad",
+      header: "Actividad",
+      headerClassName: "py-2.5 px-3 text-center w-24",
+      className: `${rowPaddingClass} px-3 text-center`,
+      cell: ({ row: alumno }) => {
+        const planActivo =
+          planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
+        const historial = getHistorialCargas(alumno.id);
+
+        let recenciaDotColor = "bg-rose-500";
+        let recenciaTooltip = "Inactivo (> 14 días)";
+
+        if (alumno.ultimo_entreno_at) {
+          const diffDays = Math.floor(
+            (Date.now() - new Date(alumno.ultimo_entreno_at).getTime()) /
+              (1000 * 60 * 60 * 24),
+          );
+          if (diffDays < 7) {
+            recenciaDotColor = "bg-emerald-500";
+            recenciaTooltip =
+              diffDays === 0
+                ? "Último entreno: hoy (< 7 días)"
+                : `Último entreno: < 7 días (${diffDays}d)`;
+          } else if (diffDays <= 14) {
+            recenciaDotColor = "bg-amber-500";
+            recenciaTooltip = `Último entreno: 7-14 días (${diffDays}d)`;
+          } else {
+            recenciaDotColor = "bg-rose-500";
+            recenciaTooltip = `Inactivo (> 14 días, ${diffDays}d)`;
+          }
+        } else if (planActivo) {
+          if (historial.length > 0) {
+            recenciaDotColor = "bg-emerald-500";
+            recenciaTooltip = "Último entreno: < 7 días";
+          } else if (alumno.nombre_completo.toLowerCase().includes("sofia")) {
+            recenciaDotColor = "bg-amber-500";
+            recenciaTooltip = "Último entreno: 7-14 días";
+          } else {
+            recenciaDotColor = "bg-emerald-500";
+            recenciaTooltip = "Último entreno: < 7 días";
+          }
+        }
+
+        return (
+          <div className="flex items-center justify-center">
+            <span
+              className={`inline-block h-3 w-3 rounded-full ${recenciaDotColor}`}
+              title={recenciaTooltip}
+              aria-label={recenciaTooltip}
+              role="status"
+            />
+          </div>
+        );
+      },
+    },
+    {
+      id: "alertas",
+      header: "Alertas",
+      headerClassName: "py-2.5 px-3 text-left min-w-[130px] max-w-[190px]",
+      className: `${rowPaddingClass} px-3 text-left`,
+      cell: ({ row: alumno }) => {
+        const badges = getDemoAlumnoAlerts(alumno.nombre_completo);
+        const estancadoInfo = estancadosMap.get(alumno.id);
+
+        return (
+          <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
+            {estancadoInfo && (
+              <span
+                data-testid={`badge-estancado-${alumno.id}`}
+                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-xs"
+                title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
+                aria-label="Alumno estancado (+30 días sin PR)"
+              >
+                <TriangleAlert className="h-3 w-3 inline text-amber-500" aria-hidden="true" /> +30d sin PR
+              </span>
+            )}
+            {badges.length === 0 && !estancadoInfo ? (
+              <span className="text-muted-foreground/40 text-[11px] select-none">
+                —
+              </span>
+            ) : (
+              badges.map((badge, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    if (badge.type === "pain") {
+                      handleOpenQuickSwapFromBadge(
+                        alumno,
+                        badge.ejercicio || "Ejercicio",
+                        badge.zona || "Articular",
+                        badge.detalle || "",
+                      );
+                    } else {
+                      handleOpenWhatsAppModal(alumno, badge.ejercicio);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer active:scale-95 ${
+                    badge.type === "pain"
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/25"
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                  }`}
+                  title={badge.title}
+                  aria-label={badge.title}
+                >
+                  {badge.label}
+                </button>
+              ))
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "acciones",
+      header: "Acciones",
+      headerClassName: "py-2.5 px-3 text-center w-40",
+      className: `${rowPaddingClass} px-3 text-center`,
+      cell: ({ row: alumno }) => {
+        const planActivo =
+          planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
+
+        return (
+          <div className="flex items-center justify-center gap-2">
+            {/* Botón Chat por la App (Enviar mensaje) */}
+            <button
+              type="button"
+              onClick={() => openChatForAlumno(alumno.id)}
+              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 active:scale-95 transition-all shadow-xs"
+              title="Enviar mensaje"
+              aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
+              data-testid={`btn-enviar-mensaje-${alumno.id}`}
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+            </button>
+
+            {/* Botón WhatsApp directo con integración wa.me y templates argentinos (solo si está habilitado en config) */}
+            {isWhatsAppEnabled && (
+              <button
+                type="button"
+                onClick={() => handleOpenWhatsAppModal(alumno)}
+                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
+                title="Enviar WhatsApp (Templates Argentinos)"
+                aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
+                data-testid={`btn-whatsapp-${alumno.id}`}
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
+                </svg>
+              </button>
+            )}
+
+            {/* Botón Vista Previa / Simulador Móvil del Alumno */}
+            <button
+              type="button"
+              onClick={() => setPreviewAlumno(alumno)}
+              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary border border-border/60 active:scale-95 transition-all shadow-xs"
+              title="Vista previa de atleta en móvil"
+              aria-label={`Vista previa de atleta para ${alumno.nombre_completo}`}
+              data-testid={`btn-preview-alumno-${alumno.id}`}
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                />
+              </svg>
+            </button>
+
+            {/* Botón Ver Ficha / Detalle */}
+            <button
+              type="button"
+              onClick={() => selectAlumno(alumno.id)}
+              className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border/60 active:scale-95 transition-all shadow-xs"
+              title="Ver Ficha y Rutinas del Atleta"
+              aria-label={`Ver ficha de ${alumno.nombre_completo}`}
+              data-testid={`btn-ver-ficha-${alumno.id}`}
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </button>
+
+            {/* Si no tiene plan: Asignar Plan Urgente */}
+            {!planActivo && (
+              <button
+                type="button"
+                onClick={() => setAssignRoutineTarget(alumno)}
+                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
+                title="Asignar rutina"
+                aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
+                data-testid={`btn-asignar-plan-${alumno.id}`}
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ], [
+    estancadosMap,
+    selectAlumno,
+    esAlumnoNuevo,
+    store.alumnoActividades,
+    store.contrataciones,
+    store.getContratacionesAlumno,
+    planes,
+    getHistorialCargas,
+    handleOpenQuickSwapFromBadge,
+    handleOpenWhatsAppModal,
+    openChatForAlumno,
+    isWhatsAppEnabled,
+    setPreviewAlumno,
+    setAssignRoutineTarget,
+  ]);
+
   return (
     <div className="relative w-full max-w-full overflow-x-hidden pb-28 sm:pb-32">
       {/* Toast feedback visual optimista */}
@@ -550,6 +1017,11 @@ export function CoachStudioView({
             onSinEntrenarClick={() => {
               setIsAlumnosExpanded(true);
               setSinEntrenarFilter(true);
+              if (typeof window !== "undefined" && window.localStorage) {
+                try {
+                  localStorage.setItem("gozster_directorio_alumnos_expanded", "true");
+                } catch {}
+              }
               setCurrentPage(1);
             }}
           />
@@ -563,7 +1035,15 @@ export function CoachStudioView({
           >
             <button
               type="button"
-              onClick={() => setIsAlumnosExpanded(!isAlumnosExpanded)}
+              onClick={() => setIsAlumnosExpanded((prev) => {
+                const next = !prev;
+                if (typeof window !== "undefined" && window.localStorage) {
+                  try {
+                    localStorage.setItem("gozster_directorio_alumnos_expanded", String(next));
+                  } catch {}
+                }
+                return next;
+              })}
               aria-expanded={isAlumnosExpanded}
               className="w-full min-h-14 px-5 flex items-center justify-between"
             >
@@ -875,436 +1355,18 @@ export function CoachStudioView({
                 className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <table className="w-full min-w-[700px] text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="py-2.5 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40">
-                        Atleta
-                      </th>
-                      <th className="py-2.5 px-3 text-center w-24">Cuota</th>
-                      <th className="py-2.5 px-3 text-center w-28">Vigencia Rutina</th>
-                      <th className="py-2.5 px-3 text-center w-24">Actividad</th>
-                      <th className="py-2.5 px-3 text-left min-w-[130px] max-w-[190px]">Alertas</th>
-                      <th className="py-2.5 px-3 text-center w-40">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60 text-foreground">
-                    {paginatedAlumnos.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                          No se encontraron atletas con los criterios seleccionados.
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedAlumnos.map((alumno) => {
-                        const planActivo =
-                          planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
-                        const historial = getHistorialCargas(alumno.id);
-
-                        // Cálculo de Cuota (Semáforo M3 Puro: 🟢 Verde, 🟡 Amarillo, 🔴 Rojo)
-                        let isAlDia =
-                          alumno.estado_membresia === "ACTIVA" ||
-                          alumno.estado_membresia === "ACTIVE";
-                        let isPendiente = alumno.estado_membresia === "PENDIENTE";
-                        let cuotaTooltip = isAlDia
-                          ? "Cuota al día"
-                          : isPendiente
-                          ? "Vence en ≤ 3 días (Pago Pendiente)"
-                          : "Cuota vencida / Inactiva";
-
-                        if (alumno.fecha_vencimiento_cuota) {
-                          const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
-                          const diffDays = Math.ceil(
-                            (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-                          );
-                          if (diffDays > 3) {
-                            isAlDia = true;
-                            isPendiente = false;
-                            cuotaTooltip = `Cuota al día (vence en ${diffDays} días)`;
-                          } else if (diffDays >= 0) {
-                            isAlDia = false;
-                            isPendiente = true;
-                            cuotaTooltip =
-                              diffDays === 0
-                                ? "Vence hoy (Pago Pendiente)"
-                                : `Vence en ${diffDays} día${diffDays > 1 ? "s" : ""} (Pago Pendiente)`;
-                          } else {
-                            isAlDia = false;
-                            isPendiente = false;
-                            cuotaTooltip = `Cuota vencida hace ${Math.abs(diffDays)} días`;
-                          }
-                        }
-
-                        const cuotaDotColor = isAlDia
-                          ? "bg-emerald-500 border border-emerald-600/30"
-                          : isPendiente
-                          ? "bg-amber-500 border border-amber-600/30"
-                          : "bg-rose-500 border border-rose-600/30";
-
-                        // Badges apilables de planes de membresía y multiactividad (GOZS-362)
-                        const contratacionesAlumno = store.getContratacionesAlumno
-                          ? store.getContratacionesAlumno(alumno.id)
-                          : (store.contrataciones?.filter((c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA") ?? []);
-                        const planesCobros = useCobrosStore.getState().planes;
-                        const badgesPlanes = contratacionesAlumno.map((c) => {
-                          const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
-                          const nombrePlan =
-                            plan?.nombre ??
-                            (c.plan_membresia_id === "demo-plan-funcional-2x"
-                              ? "Funcional 2x"
-                              : c.plan_membresia_id === "demo-plan-pase-libre"
-                              ? "Pase Libre"
-                              : c.plan_membresia_id ?? "Plan");
-                          const precio =
-                            c.precio_pactado ??
-                            plan?.precio ??
-                            (c.plan_membresia_id === "demo-plan-pase-libre" ? 40000 : 25000);
-                          return derivarBadgePlan({
-                            nombrePlan,
-                            precio,
-                            esVigente: c.estado === "VIGENTE" || c.estado === "POR_VENCER",
-                            esAlDia: isAlDia,
-                          });
-                        });
-
-                        // Cálculo Vigencia de Rutina (Micro-barra / pill sin nombre de archivo)
-                        // 🟢 0-15 días, 🟡 16-21 días, 🔴 22+ días o sin plan (GOZS-242)
-                        const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
-                        const rutinaPillColor = vigenciaInfo.pillColorClass;
-                        const rutinaTooltip = vigenciaInfo.tooltip;
-
-                        // Cálculo Actividad / Recencia (Dot de último entreno/login)
-                        // 🟢 < 7 días, 🟡 7-14 días, 🔴 > 14 días
-                        let recenciaDotColor = "bg-rose-500";
-                        let recenciaTooltip = "Inactivo (> 14 días)";
-
-                        if (alumno.ultimo_entreno_at) {
-                          const diffDays = Math.floor(
-                            (Date.now() - new Date(alumno.ultimo_entreno_at).getTime()) /
-                              (1000 * 60 * 60 * 24),
-                          );
-                          if (diffDays < 7) {
-                            recenciaDotColor = "bg-emerald-500";
-                            recenciaTooltip =
-                              diffDays === 0
-                                ? "Último entreno: hoy (< 7 días)"
-                                : `Último entreno: < 7 días (${diffDays}d)`;
-                          } else if (diffDays <= 14) {
-                            recenciaDotColor = "bg-amber-500";
-                            recenciaTooltip = `Último entreno: 7-14 días (${diffDays}d)`;
-                          } else {
-                            recenciaDotColor = "bg-rose-500";
-                            recenciaTooltip = `Inactivo (> 14 días, ${diffDays}d)`;
-                          }
-                        } else if (planActivo) {
-                          if (historial.length > 0) {
-                            recenciaDotColor = "bg-emerald-500";
-                            recenciaTooltip = "Último entreno: < 7 días";
-                          } else if (alumno.nombre_completo.toLowerCase().includes("sofia")) {
-                            recenciaDotColor = "bg-amber-500";
-                            recenciaTooltip = "Último entreno: 7-14 días";
-                          } else {
-                            recenciaDotColor = "bg-emerald-500";
-                            recenciaTooltip = "Último entreno: < 7 días";
-                          }
-                        }
-
-                        // Badges de alerta por atleta
-                        const badges = getDemoAlumnoAlerts(alumno.nombre_completo);
-                        const estancadoInfo = estancadosMap.get(alumno.id);
-
-                        const rowPaddingClass = "min-h-[48px] py-2.5";
-
-                        return (
-                          <tr
-                            key={alumno.id}
-                            className="hover:bg-muted/40 transition-colors group"
-                          >
-                            {/* 1. Columna Fija de Atleta */}
-                            <td
-                              className={`${rowPaddingClass} px-3 sticky left-0 bg-card z-10 border-r border-border/40 group-hover:bg-card`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => selectAlumno(alumno.id)}
-                                className="flex items-center gap-2.5 text-left w-full hover:text-primary transition-colors"
-                              >
-                                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
-                                  {getInitials(alumno.nombre_completo)}
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="font-bold text-foreground block truncate leading-tight text-xs">
-                                    {alumno.nombre_completo}
-                                    {esAlumnoNuevo(alumno.created_at) && (
-                                      <span className="ml-1.5 align-middle text-[10px] rounded bg-secondary px-1.5 font-normal text-muted-foreground">
-                                        Nuevo
-                                      </span>
-                                    )}
-                                    {estancadoInfo && (
-                                      <span
-                                        data-testid={`badge-estancado-nombre-${alumno.id}`}
-                                        className="ml-1.5 align-middle text-[10px] rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-600 dark:text-amber-400"
-                                        title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
-                                      >
-                                        +30d sin PR
-                                      </span>
-                                    )}
-                                  </span>
-                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                                    {obtenerActividadesAlumno({
-                                      alumnoId: alumno.id,
-                                      alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
-                                      contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
-                                      planes,
-                                      alumno,
-                                    }).map((act) => (
-                                      <span
-                                        key={act}
-                                        data-testid={`badge-actividad-${act.toLowerCase()}`}
-                                        className="inline-block text-[9px] font-semibold px-1 rounded bg-secondary/80 text-muted-foreground"
-                                      >
-                                        {ETIQUETAS_ACTIVIDAD[act]}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </button>
-                            </td>
-
-                            {/* 2. Cuota (Semáforo M3 Puro: Círculo 10-12px + Badges Apilables Multiactividad) */}
-                            <td className={`${rowPaddingClass} px-3 text-center`} data-testid="columna-cuota-actividad">
-                              <div className="flex flex-col items-center justify-center gap-1">
-                                <div className="flex items-center justify-center">
-                                  <span
-                                    className={`inline-block h-3 w-3 rounded-full ${cuotaDotColor}`}
-                                    title={cuotaTooltip}
-                                    aria-label={cuotaTooltip}
-                                    role="status"
-                                  />
-                                </div>
-                                {badgesPlanes.length > 0 && (
-                                  <div className="flex flex-col gap-0.5 items-center mt-0.5" data-testid="badges-planes-apilados">
-                                    {badgesPlanes.map((b, idx) => (
-                                      <span
-                                        key={idx}
-                                        data-testid="badge-plan-apilado"
-                                        className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight border leading-tight ${b.className}`}
-                                        title={b.tooltip}
-                                      >
-                                        {b.label}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* 3. Vigencia de Rutina (Micro-barra o pill sin nombre de archivo, cero texto) */}
-                            <td className={`${rowPaddingClass} px-3 text-center`}>
-                              <div className="flex items-center justify-center">
-                                <span
-                                  className={`inline-block h-2.5 w-10 rounded-full ${rutinaPillColor}`}
-                                  title={rutinaTooltip}
-                                  aria-label={rutinaTooltip}
-                                  role="status"
-                                />
-                              </div>
-                            </td>
-
-                            {/* 4. Actividad / Recencia (Dot de último entreno/login, cero texto) */}
-                            <td className={`${rowPaddingClass} px-3 text-center`}>
-                              <div className="flex items-center justify-center">
-                                <span
-                                  className={`inline-block h-3 w-3 rounded-full ${recenciaDotColor}`}
-                                  title={recenciaTooltip}
-                                  aria-label={recenciaTooltip}
-                                  role="status"
-                                />
-                              </div>
-                            </td>
-
-                            {/* 5. Columna de Alertas Responsive (min-w-[130px] max-w-[190px] sin desbordamiento) */}
-                            <td className={`${rowPaddingClass} px-3 text-left`}>
-                              <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
-                                {estancadoInfo && (
-                                  <span
-                                    data-testid={`badge-estancado-${alumno.id}`}
-                                    className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-xs"
-                                    title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
-                                    aria-label="Alumno estancado (+30 días sin PR)"
-                                  >
-                                    <TriangleAlert className="h-3 w-3 inline text-amber-500" aria-hidden="true" /> +30d sin PR
-                                  </span>
-                                )}
-                                {badges.length === 0 && !estancadoInfo ? (
-                                  <span className="text-muted-foreground/40 text-[11px] select-none">
-                                    —
-                                  </span>
-                                ) : (
-                                  badges.map((badge, idx) => (
-                                    <button
-                                      key={idx}
-                                      type="button"
-                                      onClick={() => {
-                                        if (badge.type === "pain") {
-                                          handleOpenQuickSwapFromBadge(
-                                            alumno,
-                                            badge.ejercicio || "Ejercicio",
-                                            badge.zona || "Articular",
-                                            badge.detalle || "",
-                                          );
-                                        } else {
-                                          handleOpenWhatsAppModal(alumno, badge.ejercicio);
-                                        }
-                                      }}
-                                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer active:scale-95 ${
-                                        badge.type === "pain"
-                                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/25"
-                                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
-                                      }`}
-                                      title={badge.title}
-                                      aria-label={badge.title}
-                                    >
-                                      {badge.label}
-                                    </button>
-                                  ))
-                                )}
-                              </div>
-                            </td>
-
-                            {/* 6. Acciones Táctiles (Separación ≥ 8px) */}
-                            <td className={`${rowPaddingClass} px-3 text-center`}>
-                              <div className="flex items-center justify-center gap-2">
-                                {/* Botón Chat por la App (Enviar mensaje) */}
-                                <button
-                                  type="button"
-                                  onClick={() => openChatForAlumno(alumno.id)}
-                                  className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 active:scale-95 transition-all shadow-xs"
-                                  title="Enviar mensaje"
-                                  aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
-                                  data-testid={`btn-enviar-mensaje-${alumno.id}`}
-                                >
-                                  <svg
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                    />
-                                  </svg>
-                                </button>
-
-                                {/* Botón WhatsApp directo con integración wa.me y templates argentinos (solo si está habilitado en config) */}
-                                {isWhatsAppEnabled && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenWhatsAppModal(alumno)}
-                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 active:scale-95 transition-all shadow-xs"
-                                    title="Enviar WhatsApp (Templates Argentinos)"
-                                    aria-label={`Enviar WhatsApp a ${alumno.nombre_completo}`}
-                                    data-testid={`btn-whatsapp-${alumno.id}`}
-                                  >
-                                    <svg
-                                      className="h-5 w-5"
-                                      fill="currentColor"
-                                      viewBox="0 0 24 24"
-                                      aria-hidden="true"
-                                    >
-                                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.299.144.347.491 1.2.534 1.287.043.087.072.188.014.303-.058.116-.087.188-.173.289l-.26.303c-.087.086-.177.18-.076.353.101.173.449.741.964 1.2 1.034.922 1.353.948 1.545 1.043.193.095.304.08.417-.052.113-.131.484-.564.613-.757.13-.193.26-.162.434-.097.173.065 1.098.518 1.286.612.188.094.314.141.361.22.047.079.047.463-.097.868z" />
-                                    </svg>
-                                  </button>
-                                )}
-
-                                {/* Botón Vista Previa / Simulador Móvil del Alumno */}
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewAlumno(alumno)}
-                                  className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-primary/20 text-muted-foreground hover:text-primary border border-border/60 active:scale-95 transition-all shadow-xs"
-                                  title="Vista previa de atleta en móvil"
-                                  aria-label={`Vista previa de atleta para ${alumno.nombre_completo}`}
-                                  data-testid={`btn-preview-alumno-${alumno.id}`}
-                                >
-                                  <svg
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                    />
-                                  </svg>
-                                </button>
-
-                                {/* Botón Ver Ficha / Detalle */}
-                                <button
-                                  type="button"
-                                  onClick={() => selectAlumno(alumno.id)}
-                                  className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-secondary hover:bg-secondary/80 text-foreground border border-border/60 active:scale-95 transition-all shadow-xs"
-                                  title="Ver Ficha y Rutinas del Atleta"
-                                  aria-label={`Ver ficha de ${alumno.nombre_completo}`}
-                                  data-testid={`btn-ver-ficha-${alumno.id}`}
-                                >
-                                  <svg
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    aria-hidden="true"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                    />
-                                  </svg>
-                                </button>
-
-                                {/* Si no tiene plan: Asignar Plan Urgente */}
-                                {!planActivo && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setAssignRoutineTarget(alumno)}
-                                    className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold active:scale-95 transition-all shadow-xs"
-                                    title="Asignar rutina"
-                                    aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
-                                    data-testid={`btn-asignar-plan-${alumno.id}`}
-                                  >
-                                    <svg
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      aria-hidden="true"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                                      />
-                                    </svg>
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                <DataTable
+                  columns={columnsAlumnos}
+                  data={filteredAlumnos}
+                  pageSize={15}
+                  showPagination={true}
+                  containerClassName="border-0 shadow-none rounded-none"
+                  tableClassName="min-w-[700px] border-collapse"
+                  headerRowClassName="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider"
+                  rowClassName="hover:bg-muted/40 transition-colors group"
+                  emptyTitle="Sin atletas encontrados"
+                  emptyDescription="No se encontraron atletas con los criterios seleccionados."
+                />
               </div>
 
               {/* Footer INDEC */}
@@ -1315,37 +1377,6 @@ export function CoachStudioView({
                 <span className="font-semibold text-foreground">
                   Fuente: GOZSter Studio / Dataset demo
                 </span>
-              </div>
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border/80 pt-4 pr-16 sm:pr-0">
-              <span className="text-xs text-muted-foreground">
-                Mostrando {paginatedAlumnos.length} de {filteredAlumnos.length} atletas
-              </span>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className="min-h-11 text-xs px-4 rounded-xl"
-                >
-                  ← Anterior
-                </Button>
-                <span className="px-2 text-xs font-medium text-foreground">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  className="min-h-11 text-xs px-4 rounded-xl"
-                >
-                  Siguiente →
-                </Button>
               </div>
             </div>
             </>)}

@@ -31,6 +31,13 @@ export interface ColumnDef<TData, TValue = unknown> {
   enableSorting?: boolean;
   className?: string;
   headerClassName?: string;
+  cellProps?:
+    | (React.TdHTMLAttributes<HTMLTableCellElement> & Record<string, any>)
+    | ((context: {
+        row: TData;
+        value: TValue;
+        index: number;
+      }) => React.TdHTMLAttributes<HTMLTableCellElement> & Record<string, any>);
 }
 
 export interface DataTableProps<TData> {
@@ -43,6 +50,11 @@ export interface DataTableProps<TData> {
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
+  containerClassName?: string;
+  tableClassName?: string;
+  headerRowClassName?: string;
+  rowClassName?: string | ((row: TData, index: number) => string);
+  paginationClassName?: string;
   onRowClick?: (row: TData) => void;
 }
 
@@ -56,6 +68,11 @@ export function DataTable<TData>({
   emptyTitle = "Sin resultados",
   emptyDescription = "No se encontraron elementos que coincidan con la búsqueda.",
   className,
+  containerClassName,
+  tableClassName,
+  headerRowClassName,
+  rowClassName,
+  paginationClassName,
   onRowClick,
 }: DataTableProps<TData>) {
   const [pageIndex, setPageIndex] = React.useState(0);
@@ -107,15 +124,16 @@ export function DataTable<TData>({
     });
   }, [filteredData, sortKey, sortOrder, columns]);
 
-  // Reset page when filter changes
+  // Reset page when filter or data changes
   React.useEffect(() => {
     setPageIndex(0);
-  }, [searchTerm]);
+  }, [searchTerm, data]);
 
   // Pagination calculation
   const totalRows = sortedData.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
   const currentPage = Math.min(pageIndex, totalPages - 1);
+  const currentCount = totalRows === 0 ? 0 : Math.min((currentPage + 1) * pageSize, totalRows);
 
   const paginatedData = React.useMemo(() => {
     if (!showPagination) return sortedData;
@@ -153,10 +171,10 @@ export function DataTable<TData>({
         </div>
       )}
 
-      <div className="rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden">
-        <Table>
+      <div className={cn("rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden", containerClassName)}>
+        <Table className={tableClassName}>
           <TableHeader>
-            <TableRow>
+            <TableRow className={headerRowClassName}>
               {columns.map((col, idx) => {
                 const colId = (col.id || col.accessorKey || idx).toString();
                 const isSortable = col.sortable ?? col.enableSorting ?? false;
@@ -223,13 +241,17 @@ export function DataTable<TData>({
                   onClick={() => onRowClick?.(row)}
                   className={cn(
                     onRowClick && "cursor-pointer hover:bg-muted/60 transition-colors",
+                    typeof rowClassName === "function" ? rowClassName(row, rowIdx) : rowClassName,
                   )}
                 >
                   {columns.map((col, colIdx) => {
                     const colId = (col.id || col.accessorKey || colIdx).toString();
                     const val = getCellValue(row, col);
+                    const extraProps = typeof col.cellProps === "function"
+                      ? col.cellProps({ row, value: val, index: rowIdx })
+                      : col.cellProps;
                     return (
-                      <TableCell key={colId} className={col.className}>
+                      <TableCell key={colId} className={col.className} {...extraProps}>
                         {col.cell
                           ? col.cell({ row, value: val, index: rowIdx })
                           : (val as React.ReactNode) ?? "—"}
@@ -257,9 +279,9 @@ export function DataTable<TData>({
       </div>
 
       {showPagination && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground select-none">
+        <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground select-none", paginationClassName)}>
           <div data-testid="data-table-legend">
-            Mostrando {paginatedData.length} de {totalRows}
+            Mostrando {currentCount} de {totalRows}
           </div>
           <div className="flex items-center gap-2">
             <Button
