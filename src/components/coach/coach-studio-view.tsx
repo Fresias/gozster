@@ -26,6 +26,7 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
+import { ClasesHoyAtajosChat } from "@/components/coach/clases-hoy-atajos-chat";
 import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
 import {
   CriticalAlertsInbox,
@@ -1145,6 +1146,13 @@ export function CoachStudioView({
           {/* Bloque central 'Para revisar hoy' (GOZS-392) */}
           <div className={leftCol}>
             <ParaRevisarHoy onSelectAlumno={(id) => selectAlumno(id)} />
+          </div>
+
+          {/* Bloque complementario 'Clases de hoy' y atajos de chat (GOZS-393) */}
+          <div className={leftCol}>
+            <ClasesHoyAtajosChat
+              onOpenChat={(alumnoId) => openChatForAlumno(alumnoId)}
+            />
           </div>
 
           {/* Directorio de Atletas */}
