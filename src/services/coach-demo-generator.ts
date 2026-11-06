@@ -16,22 +16,8 @@ import { esSinEntrenar7d } from "@/lib/sin-entrenar";
 const DIA_MS = 86_400_000;
 const DIAS_HISTORIAL = 30;
 
-export interface KpisNegocio {
-  ingresos_mes: number;
-  ingresos_presencial?: number;
-  ingresos_online?: number;
-  a_cobrar?: number;
-  ingresos_variacion_pct: number;
-  ingresos_mes_anterior_label: string;
-  ingresos_ultimos_6_meses: number[];
-  cobranza_pct: number;
-  cobranza_faltante: number;
-  cobranza_vencidas: number;
-  sin_entrenar_7d_ids: string[];
-  alumnos_activos: number;
-  altas_mes: number;
-  bajas_mes: number;
-}
+import type { KpisNegocio } from "@/lib/kpis-negocio";
+export type { KpisNegocio };
 
 export interface DemoGimnasioBase {
   profesorId: string;
@@ -437,20 +423,36 @@ export function derivarKpisNegocio(
     .filter((p) => p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, ahora))
     .reduce((acc, p) => acc + p.monto, 0);
 
-  // Cuota mensual = precio / duración; se debe una por cada contratación de un activo con fecha_fin <= hoy.
+  // Cuotas adeudadas de activos con fecha_fin <= hoy
   const adeudadas = g.contrataciones.filter((c) => {
     const plan = precioPlan(c.plan_membresia_id);
     return plan && activos.has(c.alumno_id) && c.estado !== "EN_PAUSA" && c.fecha_fin <= hoyIso;
   });
-  const pendiente = adeudadas.reduce((acc, c) => {
+
+  const cuotasVencidas = adeudadas.filter((c) => c.fecha_fin < hoyIso);
+  const cuotasPorVencer = adeudadas.filter((c) => c.fecha_fin >= hoyIso);
+
+  const vencido = cuotasVencidas.reduce((acc, c) => {
     const plan = precioPlan(c.plan_membresia_id)!;
     return acc + plan.precio / plan.duracion_meses;
   }, 0);
-  const vencidas = g.contrataciones.filter(
-    (c) => activos.has(c.alumno_id) && c.estado !== "EN_PAUSA" && c.fecha_fin < hoyIso,
-  ).length;
 
-  const esperada = ingresos + pendiente;
+  const porCobrar = cuotasPorVencer.reduce((acc, c) => {
+    const plan = precioPlan(c.plan_membresia_id)!;
+    return acc + plan.precio / plan.duracion_meses;
+  }, 0);
+
+  const pendiente = vencido + porCobrar;
+  const vencidas = cuotasVencidas.length;
+
+  const cobrado = ingresos;
+  const facturado = cobrado + porCobrar + vencido;
+  const tasaCobroPct = facturado > 0 ? Math.round((cobrado / facturado) * 100) : 0;
+
+  const morososIds = new Set(cuotasVencidas.map((c) => c.alumno_id));
+  const alumnosMorosos = morososIds.size;
+  const alumnosAlDia = Math.max(0, activos.size - alumnosMorosos);
+
   const primeraPorAlumno = new Map<string, string>();
   for (const c of g.contrataciones) {
     const previa = primeraPorAlumno.get(c.alumno_id);
@@ -460,15 +462,33 @@ export function derivarKpisNegocio(
   const bajas = g.alumnos.filter(
     (a) =>
       a.rol === "ALUMNO" &&
-      (a.estado_membresia === "INACTIVA" || a.estado_membresia === "BAJA") &&
+      (a.estado_membresia === "INACTIVA" || a.estado_membresia === "BAJA" || a.estado_membresia === "ARCHIVED") &&
       a.fecha_baja !== null &&
       a.fecha_baja >= inicioMes &&
       a.fecha_baja <= hoyIso,
   ).length;
 
-  // Los 5 meses anteriores salen de una serie creciente; el último es el valor calculado.
-  const previos = [0.62, 0.69, 0.77, 0.85, 0.92].map((f) => Math.round((ingresos * f) / 100) * 100);
-  const anterior = previos[4]!;
+  // Si hay pagos de meses previos en el dataset, calcular serie histórica exacta
+  const tienePagosPrevios = g.pagos.some((p) => p.confirmado_at && !mismoMes(p.confirmado_at, ahora));
+  let ultimos6: number[];
+  let anterior: number;
+
+  if (tienePagosPrevios) {
+    ultimos6 = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+      const totalMes = g.pagos
+        .filter((p) => p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, d))
+        .reduce((s, p) => s + p.monto, 0);
+      ultimos6.push(totalMes);
+    }
+    anterior = ultimos6[4]!;
+  } else {
+    const previos = [0.62, 0.69, 0.77, 0.85, 0.92].map((f) => Math.round((ingresos * f) / 100) * 100);
+    ultimos6 = [...previos, ingresos];
+    anterior = previos[4]!;
+  }
+
   const mesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
 
   // Desagregado presencial (funcional + boxeo) y online (rutinas)
@@ -478,7 +498,10 @@ export function derivarKpisNegocio(
     if (p.estado === "CONFIRMADO" && p.confirmado_at && mismoMes(p.confirmado_at, ahora)) {
       const c = g.contrataciones.find((x) => x.id === p.contratacion_id);
       const plan = c ? precioPlan(c.plan_membresia_id) : null;
-      const esOnline = c?.tipo_servicio === "ASESORIA_ONLINE" || (plan?.nombre && /rutina|online/i.test(plan.nombre));
+      const esOnline =
+        c?.tipo_servicio === "ASESORIA_ONLINE" ||
+        (Boolean(plan?.nombre) && /rutina|online/i.test(plan!.nombre)) ||
+        (c?.actividad as string) === "RUTINAS";
       if (esOnline) {
         ingresosOnline += p.monto;
       } else {
@@ -487,25 +510,40 @@ export function derivarKpisNegocio(
     }
   }
 
-  if (ingresosOnline === 0 && ingresos > 0) {
+  if (ingresosOnline === 0 && ingresos > 0 && g.alumnos.length >= 30) {
     ingresosPresencial = Math.round((ingresos * 0.65) / 1000) * 1000;
     ingresosOnline = ingresos - ingresosPresencial;
   }
 
   return {
-    ingresos_mes: ingresos,
+    cobrado,
+    porCobrar,
+    vencido,
+    facturado,
+    tasaCobroPct,
+
     ingresos_presencial: ingresosPresencial,
     ingresos_online: ingresosOnline,
-    a_cobrar: Math.round(pendiente),
-    ingresos_variacion_pct: anterior > 0 ? Math.round(((ingresos - anterior) / anterior) * 100) : 0,
-    ingresos_mes_anterior_label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(mesAnterior),
-    ingresos_ultimos_6_meses: [...previos, ingresos],
-    cobranza_pct: esperada > 0 ? Math.round((ingresos / esperada) * 100) : 100,
-    cobranza_faltante: Math.round(pendiente),
-    cobranza_vencidas: vencidas,
-    sin_entrenar_7d_ids: g.alumnos.filter((a) => esSinEntrenar7d(a, ahora.getTime())).map((a) => a.id),
+
     alumnos_activos: activos.size,
+    alumnos_al_dia: alumnosAlDia,
+    alumnosAlDia,
+    alumnos_morosos: alumnosMorosos,
+    alumnosMorosos,
+
+    sin_entrenar_7d_ids: g.alumnos
+      .filter((a) => (a.rol === "ALUMNO" || !a.rol) && esSinEntrenar7d(a, ahora.getTime()))
+      .map((a) => a.id),
     altas_mes: altas,
     bajas_mes: bajas,
+
+    ingresos_mes: ingresos,
+    ingresos_variacion_pct: anterior > 0 ? Math.round(((ingresos - anterior) / anterior) * 100) : 0,
+    ingresos_mes_anterior_label: new Intl.DateTimeFormat("es-AR", { month: "short" }).format(mesAnterior),
+    ingresos_ultimos_6_meses: ultimos6,
+    a_cobrar: Math.round(pendiente),
+    cobranza_pct: facturado > 0 ? Math.round((cobrado / facturado) * 100) : 100,
+    cobranza_faltante: Math.round(pendiente),
+    cobranza_vencidas: vencidas,
   };
 }
