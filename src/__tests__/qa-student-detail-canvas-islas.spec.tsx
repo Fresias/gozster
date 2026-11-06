@@ -107,7 +107,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       // Upper Timeline Ribbon presente con sus nodos cronológicos
       expect(html).toContain('data-testid="isla-timeline-ribbon"');
       expect(html).toContain('data-testid="ribbon-node"');
-      expect(html).toContain("Timeline Biomecánico Ribbon");
+      expect(html).toContain("Sesiones");
     });
 
     it("la arquitectura desacoplada exporta las islas autónomas desde src/components/coach/student-detail/islas", () => {
@@ -406,7 +406,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="btn-configurar-islas"');
       expect(html).toContain("Configurar Islas");
       expect(html).toContain('data-testid="collapse-btn-timeline"');
-      expect(html).toContain("[-]");
+      expect(html).toContain('aria-label="Colapsar isla Sesiones"');
     });
   });
 

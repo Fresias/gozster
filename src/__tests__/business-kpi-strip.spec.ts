@@ -19,7 +19,7 @@ describe("GOZS-136: franja de 4 KPIs de negocio", () => {
     expect(view).toMatch(/setIsAlumnosExpanded\(true\);\s*setSinEntrenarFilter\(true\);/);
     expect(view).toContain("!sinEntrenarFilter || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id)");
     expect(view).toContain("sin_entrenar_7d_ids.includes(a.id)");
-    expect(view).toContain("Sin entrenar +7 días ✕");
+    expect(view).toContain("Sin entrenar +7 días");
   });
 
   it("sin entrenar: membresía activa y >7 días o nulo; ids del demo salen de los alumnos", () => {

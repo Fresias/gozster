@@ -332,7 +332,7 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
 
     it("renderiza la sección de Historial de Sustituciones en la pestaña de historial", () => {
       expect(studentDetailContent).toContain('data-testid="routine-substitutions-history-section"');
-      expect(studentDetailContent).toContain("Registro de Sustituciones Trazables (ADR-002)");
+      expect(studentDetailContent).toContain("Registro de Sustituciones Trazables");
       expect(studentDetailContent).toContain('data-testid={`substitution-record-${sust.id}`}');
     });
 

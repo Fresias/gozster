@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp } from "@/components/coach/icons";
 
 export interface IslaCardShellProps {
   id: string;
@@ -241,7 +242,7 @@ export function IslaCardShell({
             )}
           </div>
 
-          {/* Botón de Colapso Explícito [-] / [+] */}
+          {/* Botón de Colapso Explícito */}
           <Button
             type="button"
             variant="ghost"
@@ -250,11 +251,13 @@ export function IslaCardShell({
             aria-label={isCollapsed ? `Expandir isla ${title}` : `Colapsar isla ${title}`}
             data-testid={`collapse-btn-${id}`}
             className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted font-mono"
-            title={isCollapsed ? "Expandir isla [+]" : "Colapsar isla [-]"}
+            title={isCollapsed ? "Expandir isla" : "Colapsar isla"}
           >
-            <span className="font-mono text-xs font-black select-none">
-              {isCollapsed ? "[+]" : "[-]"}
-            </span>
+            {isCollapsed ? (
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <ChevronUp className="h-4 w-4" aria-hidden="true" />
+            )}
           </Button>
         </div>
       </div>
@@ -267,7 +270,7 @@ export function IslaCardShell({
         data-testid={`isla-collapsed-summary-${id}`}
       >
         {compactSummary || (
-          <span className="italic">Isla colapsada — hacé clic en [+] para ver detalles.</span>
+          <span className="italic">Isla colapsada — hacé clic para ver detalles.</span>
         )}
       </div>
 

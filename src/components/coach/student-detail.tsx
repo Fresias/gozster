@@ -1,5 +1,22 @@
 import { type HistoricalLoadEntry, MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
 import { TrendingUp } from "@/components/athlete/icons";
+import {
+  ClipboardList,
+  Check,
+  TriangleAlert,
+  X,
+  ArrowRightLeft,
+  CreditCard,
+  FileText,
+  Eye,
+  MessageSquare,
+  Settings,
+  LayoutGrid,
+  RotateCcw,
+  Timer,
+  Activity,
+  Dumbbell,
+} from "@/components/coach/icons";
 import * as React from "react";
 import type {
   AlumnoCuestionarioInicial,
@@ -1123,7 +1140,7 @@ export function StudentDetail({
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-base">📋</span>
+              <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
               <CardTitle className="text-sm font-bold text-foreground">
                 Cuestionario Inicial del Alumno
               </CardTitle>
@@ -1131,10 +1148,10 @@ export function StudentDetail({
             {cuestionario?.completado_at ? (
               <Badge
                 variant="success"
-                className="text-[10px] font-bold"
+                className="text-[10px] font-bold inline-flex items-center gap-1"
                 data-testid="coach-cuestionario-badge-completado"
               >
-                ✓ Completado ({formatFecha(cuestionario.completado_at)})
+                <Check className="h-3 w-3 inline" aria-hidden="true" /> Completado ({formatFecha(cuestionario.completado_at)})
               </Badge>
             ) : (
               <Badge
@@ -1239,10 +1256,11 @@ export function StudentDetail({
             <div className="flex items-center gap-2">
               {chatActivePainAlert && (
                 <span
-                  className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive"
+                  className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive inline-flex items-center gap-1"
                   data-testid="student-pain-alert-badge"
                 >
-                  🚨 Molestia: {chatActivePainAlert.zona || "Articular"}
+                  <TriangleAlert className="h-3 w-3 inline text-destructive" aria-hidden="true" />
+                  Molestia: {chatActivePainAlert.zona || "Articular"}
                 </span>
               )}
               <span
@@ -1373,18 +1391,18 @@ export function StudentDetail({
 
               {transferSuccess && (
                 <span
-                  className="text-xs font-semibold text-emerald-400"
+                  className="text-xs font-semibold text-emerald-400 inline-flex items-center gap-1"
                   data-testid="student-transfer-success"
                 >
-                  ✓ {transferSuccess}
+                  <Check className="h-3 w-3 inline" aria-hidden="true" /> {transferSuccess}
                 </span>
               )}
               {transferError && (
                 <span
-                  className="text-xs font-semibold text-destructive"
+                  className="text-xs font-semibold text-destructive inline-flex items-center gap-1"
                   data-testid="student-transfer-error"
                 >
-                  ✕ {transferError}
+                  <X className="h-3 w-3 inline" aria-hidden="true" /> {transferError}
                 </span>
               )}
             </div>
@@ -1648,13 +1666,13 @@ export function StudentDetail({
             </div>
           </div>
 
-          {/* Registro Histórico de Sustituciones Trazables (ADR-002) */}
+          {/* Registro Histórico de Sustituciones Trazables */}
           <div className="space-y-3" data-testid="routine-substitutions-history-section">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">🔄</span>
+                <ArrowRightLeft className="h-4 w-4 text-primary" aria-hidden="true" />
                 <h3 className="text-sm font-bold text-foreground">
-                  Registro de Sustituciones Trazables (ADR-002)
+                  Registro de Sustituciones Trazables
                 </h3>
                 <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 font-bold">
                   Inmutabilidad Garantizada
@@ -2918,18 +2936,18 @@ export function StudentDetail({
                 className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 cursor-pointer"
                 aria-label="Cerrar modal"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="space-y-2">
               {[
-                { id: "timeline", title: "Timeline Biomecánico Ribbon", desc: "Cronología de sesiones y cargas pico", icon: "⏱️" },
-                { id: "activity_feed", title: "Bitácora Omnicanal (Feed)", desc: "Eventos, cobros y mensajes en vivo", icon: "📋" },
-                { id: "routine_workbench", title: "Workbench de Rutinas", desc: "Rutina activa, pasadas y registros", icon: "⚡" },
-                { id: "metricas_1rm", title: "Telemetría de Cargas & 1RM", desc: "Sobrecarga progresiva y peso corporal", icon: "📊" },
-                { id: "salud_anamnesis", title: "Clínica & Dolor", desc: "Anamnesis, molestias y bitácora del coach", icon: "🩺" },
-                { id: "administracion", title: "Gestión Administrativa", desc: "Cuotas, historial de pagos y staff", icon: "💳" },
+                { id: "timeline", title: "Sesiones", desc: "Cronología de sesiones y cargas pico", icon: <Timer className="h-4 w-4 text-primary" aria-hidden="true" /> },
+                { id: "activity_feed", title: "Bitácora Omnicanal (Feed)", desc: "Eventos, cobros y mensajes en vivo", icon: <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" /> },
+                { id: "routine_workbench", title: "Workbench de Rutinas", desc: "Rutina activa, pasadas y registros", icon: <Dumbbell className="h-4 w-4 text-primary" aria-hidden="true" /> },
+                { id: "metricas_1rm", title: "Telemetría de Cargas & 1RM", desc: "Sobrecarga progresiva y peso corporal", icon: <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" /> },
+                { id: "salud_anamnesis", title: "Clínica & Dolor", desc: "Anamnesis, molestias y bitácora del coach", icon: <Activity className="h-4 w-4 text-primary" aria-hidden="true" /> },
+                { id: "administracion", title: "Gestión Administrativa", desc: "Cuotas, historial de pagos y staff", icon: <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" /> },
               ].map((item) => {
                 const isChecked = visibleIslands[item.id] !== false;
                 return (
@@ -2940,7 +2958,7 @@ export function StudentDetail({
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-base">{item.icon}</span>
+                      <span className="flex items-center justify-center w-5 h-5">{item.icon}</span>
                       <div>
                         <span className="text-xs font-bold text-foreground block">
                           {item.title}

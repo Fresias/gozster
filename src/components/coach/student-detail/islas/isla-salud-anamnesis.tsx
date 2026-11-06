@@ -2,6 +2,17 @@ import * as React from "react";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Activity,
+  Check,
+  TriangleAlert,
+  ClipboardList,
+  ArrowRightLeft,
+  FileText,
+  Save,
+  ChevronDown,
+  ChevronUp,
+} from "@/components/coach/icons";
 
 export interface IslaSaludAnamnesisProps {
   isCollapsed: boolean;
@@ -111,7 +122,7 @@ export function IslaSaludAnamnesis({
       id="salud_anamnesis"
       dataTestId="isla-salud-anamnesis"
       title="Clínica, Anamnesis &amp; Red Flags"
-      icon={<span>🩺</span>}
+      icon={<Activity className="h-4 w-4 text-primary" aria-label="Salud" />}
       badge={
         zonaDolorActual && zonaDolorActual !== "Ninguna" ? (
           <Badge
@@ -123,7 +134,15 @@ export function IslaSaludAnamnesis({
                 : "bg-amber-500/20 text-amber-400 border-amber-500/40"
             }`}
           >
-            {isPainResolved ? "✓ Atendido" : `⚠️ Molestia: ${zonaDolorActual}`}
+            {isPainResolved ? (
+              <span className="inline-flex items-center gap-1">
+                <Check className="h-3 w-3 inline" aria-hidden="true" /> Atendido
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <TriangleAlert className="h-3 w-3 inline" aria-hidden="true" /> Molestia: {zonaDolorActual}
+              </span>
+            )}
           </Badge>
         ) : (
           <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -165,7 +184,7 @@ export function IslaSaludAnamnesis({
         <div className="rounded-lg border border-border/80 bg-secondary/20 p-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-base">📋</span>
+              <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
               <div>
                 <h4 className="text-xs font-bold text-foreground">
                   Ficha de Anamnesis &amp; Cuestionario Inicial
@@ -182,7 +201,7 @@ export function IslaSaludAnamnesis({
               onClick={() => setAnamnesisCollapsed((prev) => !prev)}
               className="h-7 text-xs font-semibold gap-1"
             >
-              <span>{anamnesisCollapsed ? "👁️ Ver Cuestionario Completo [+]" : "[-] Ocultar Cuestionario"}</span>
+              <span>{anamnesisCollapsed ? "Ver cuestionario completo" : "Ocultar cuestionario"}</span>
             </Button>
           </div>
 
@@ -210,7 +229,11 @@ export function IslaSaludAnamnesis({
         <div className="rounded-lg border border-border/80 bg-card p-3 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-base">{isPainResolved ? "🟢" : "⚠️"}</span>
+              {isPainResolved ? (
+                <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+              ) : (
+                <TriangleAlert className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              )}
               <div>
                 <span className="text-xs font-bold text-foreground block">
                   Reporte de Molestia en Ejercicio
@@ -235,7 +258,9 @@ export function IslaSaludAnamnesis({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  ⚠️ Pendiente
+                  <span className="inline-flex items-center gap-1">
+                    <TriangleAlert className="h-3 w-3 inline" aria-hidden="true" /> Pendiente
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -248,7 +273,9 @@ export function IslaSaludAnamnesis({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  ✓ Atendido
+                  <span className="inline-flex items-center gap-1">
+                    <Check className="h-3 w-3 inline" aria-hidden="true" /> Atendido
+                  </span>
                 </button>
               </div>
 
@@ -260,7 +287,9 @@ export function IslaSaludAnamnesis({
                   onClick={onQuickSwap}
                   className="h-7 text-xs font-semibold text-rose-400 border-rose-500/40 hover:bg-rose-500/10 cursor-pointer"
                 >
-                  ⚡ Sustitución Quirúrgica
+                  <span className="inline-flex items-center gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cambiar ejercicio
+                  </span>
                 </Button>
               )}
             </div>
@@ -271,14 +300,14 @@ export function IslaSaludAnamnesis({
         <div className="rounded-lg border border-border/80 bg-secondary/15 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className="text-sm">📝</span>
+              <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
               <span className="text-xs font-bold text-foreground">
                 Bitácora de Intervención del Entrenador
               </span>
             </div>
             {saveSuccess && (
-              <span className="text-[11px] font-bold text-emerald-500 animate-in fade-in">
-                ✓ Guardado automático en la ficha
+              <span className="text-[11px] font-bold text-emerald-500 animate-in fade-in inline-flex items-center gap-1">
+                <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado automático en la ficha
               </span>
             )}
           </div>
@@ -296,7 +325,9 @@ export function IslaSaludAnamnesis({
           <div className="flex items-center justify-between pt-1">
             <span className="text-[10px] text-muted-foreground">
               {saveSuccess ? (
-                <span className="text-emerald-500 font-medium">✓ Guardado al desenfocar</span>
+                <span className="text-emerald-500 font-medium inline-flex items-center gap-1">
+                  <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado al desenfocar
+                </span>
               ) : (
                 "Se guarda automáticamente al escribir o salir."
               )}
@@ -308,7 +339,9 @@ export function IslaSaludAnamnesis({
               onClick={handleSaveCoachLog}
               className="h-6 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted"
             >
-              💾 Guardar Registro en la Ficha
+              <span className="inline-flex items-center gap-1">
+                <Save className="h-3.5 w-3.5 inline" aria-hidden="true" /> Guardar Registro en la Ficha
+              </span>
             </Button>
           </div>
         </div>
@@ -329,12 +362,17 @@ export function IslaSaludAnamnesis({
             className="flex w-full items-center justify-between p-3 text-left hover:bg-secondary/20 transition-colors"
           >
             <div className="flex items-center gap-2">
+              <ClipboardList className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
               <span className="text-xs font-bold text-foreground">
-                📋 Cuestionario Inicial Completo del Alumno
+                Cuestionario Inicial Completo del Alumno
               </span>
             </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              {anamnesisCollapsed ? "[+]" : "[-]"}
+            <span className="text-xs text-muted-foreground">
+              {anamnesisCollapsed ? (
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronUp className="h-4 w-4" aria-hidden="true" />
+              )}
             </span>
           </button>
 

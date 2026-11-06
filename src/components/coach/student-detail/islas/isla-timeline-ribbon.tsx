@@ -2,6 +2,7 @@ import * as React from "react";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
+import { Timer } from "@/components/coach/icons";
 
 export interface IslaTimelineRibbonProps {
   historialCargas?: HistoricalLoadEntry[];
@@ -79,8 +80,8 @@ export function IslaTimelineRibbon({
     <IslaCardShell
       id="timeline"
       dataTestId="isla-timeline-ribbon"
-      title="Timeline Biomecánico Ribbon"
-      icon={<span>⏱️</span>}
+      title="Sesiones"
+      icon={<Timer className="h-4 w-4 text-primary" aria-label="Sesiones" />}
       badge={
         <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
           {sortedSessions.length} {sortedSessions.length === 1 ? "sesión" : "sesiones"}
@@ -127,7 +128,7 @@ export function IslaTimelineRibbon({
             data-testid="ribbon-collapse-btn"
             className="text-[11px] font-semibold text-primary hover:underline"
           >
-            [^ Expandir Ribbon]
+            Expandir sesiones
           </button>
         </div>
       }

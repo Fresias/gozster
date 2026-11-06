@@ -389,8 +389,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         </IslaCardShell>
       );
 
-      // Botón muestra [+]
-      expect(html).toContain("[+]");
+      // Botón muestra estado expandir
+      expect(html).toContain('aria-label="Expandir isla Métricas de Carga"');
       // Resumen compacto visible
       expect(html).toContain('data-testid="isla-collapsed-summary-sample-collapse"');
       expect(html).toContain("Resumen: 1RM Sentadilla 140kg");
@@ -414,8 +414,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         />
       );
 
-      expect(html).toContain("⚠️ Pendiente");
-      expect(html).toContain("✓ Atendido");
+      expect(html).toContain("Pendiente");
+      expect(html).toContain("Atendido");
       expect(html).toContain("Reporte de Molestia en Ejercicio");
     });
 
