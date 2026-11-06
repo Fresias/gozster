@@ -122,6 +122,7 @@ interface CoachStudioState {
   isChatOpen: boolean;
   isWhatsAppEnabled: boolean;
   isRoutineBuilderOpen: boolean;
+  isInviteModalOpen: boolean;
   toast: ToastNotification | null;
 
   currentPage: number;
@@ -144,6 +145,7 @@ interface CoachStudioState {
   setAlumnoActividades: (actividades: AlumnoActividad[]) => void;
   setCurrentPage: (page: number) => void;
   setRoutineBuilderOpen: (open: boolean) => void;
+  setInviteModalOpen: (open: boolean) => void;
   dismissToast: () => void;
 
   clonarUltimaRutina: (alumnoId: string) => Promise<PlanEntrenamiento | null>;
@@ -258,6 +260,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     isChatOpen: false,
     isWhatsAppEnabled: false,
     isRoutineBuilderOpen: false,
+    isInviteModalOpen: false,
     toast: null,
 
     currentPage: 1,
@@ -319,6 +322,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     setCurrentPage: (currentPage) => set({ currentPage }),
 
     setRoutineBuilderOpen: (isRoutineBuilderOpen) => set({ isRoutineBuilderOpen }),
+
+    setInviteModalOpen: (isInviteModalOpen) => set({ isInviteModalOpen }),
 
     dismissToast: () => set({ toast: null }),
 
