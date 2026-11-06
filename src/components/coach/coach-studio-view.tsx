@@ -44,6 +44,7 @@ import { derivarBadgePlan } from "@/lib/planes";
 import type { LiveSupabaseDataset, AlumnoEstancado } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import { MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
 import {
   REAL_ALUMNOS,
   REAL_PLANES,
@@ -140,8 +141,15 @@ export function CoachStudioView({
     actualizarNivelVistaAlumno,
   } = store;
 
-  const getHistorialCargas = (alumnoId: string): HistoricalLoadEntry[] =>
-    DEMO_GIMNASIO.historial[alumnoId] ?? [];
+  const getHistorialCargas = (alumnoId: string): HistoricalLoadEntry[] => {
+    if (
+      alumnoId === "demo-alumno-01-lucas" ||
+      alumnoId.includes("lucas")
+    ) {
+      return LUCAS_2_MONTHS_HISTORIAL;
+    }
+    return DEMO_GIMNASIO.historial[alumnoId] ?? MOCK_HISTORIAL_CARGAS[alumnoId] ?? [];
+  };
 
   React.useEffect(() => {
     if (initialDataset && initialDataset.alumnos.length > 0) {
@@ -1305,6 +1313,7 @@ export function CoachStudioView({
           onBack={() => selectAlumno(null)}
           rutinaActiva={activePlan}
           historialPlanes={historialPlanes}
+          historialCargas={historialCargas}
           dias={dias}
           ejerciciosEnRutina={ejerciciosEnRutina}
           ejerciciosCatalogo={ejercicios}

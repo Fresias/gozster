@@ -752,3 +752,1531 @@ export const MOCK_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
     updated_at: "2026-04-05T09:00:00Z",
   },
 ];
+
+/** 21 sesiones reales espaciadas en 2 meses (Sep-Nov 2026) con sobrecarga progresiva real para Lucas Giménez. */
+export const LUCAS_2_MONTHS_HISTORIAL: HistoricalLoadEntry[] = [
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-1",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-11-04T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1735,
+      "created_at": "2026-11-04T18:30:00Z",
+      "updated_at": "2026-11-04T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-1-1",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e6666666-6666-4666-8666-666666666606",
+        "numero_serie": 1,
+        "peso_kg": 20,
+        "reps_hechas": 10,
+        "rpe_real": 7,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Landmine Press 45°"
+      },
+      {
+        "id": "ser-lucas-1-2",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e6666666-6666-4666-8666-666666666606",
+        "numero_serie": 2,
+        "peso_kg": 22.5,
+        "reps_hechas": 10,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Landmine Press 45°"
+      },
+      {
+        "id": "ser-lucas-1-3",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e6666666-6666-4666-8666-666666666606",
+        "numero_serie": 3,
+        "peso_kg": 25,
+        "reps_hechas": 10,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Landmine Press 45°"
+      },
+      {
+        "id": "ser-lucas-1-4",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e5555555-5555-4555-8555-555555555505",
+        "numero_serie": 1,
+        "peso_kg": 15,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Dominadas Pronas (Lastre)"
+      },
+      {
+        "id": "ser-lucas-1-5",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e5555555-5555-4555-8555-555555555505",
+        "numero_serie": 2,
+        "peso_kg": 15,
+        "reps_hechas": 8,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Dominadas Pronas (Lastre)"
+      },
+      {
+        "id": "ser-lucas-1-6",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 57.5,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      },
+      {
+        "id": "ser-lucas-1-7",
+        "sesion_id": "ses-lucas-2m-1",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 2,
+        "peso_kg": 60,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-11-04T18:30:00Z",
+        "updated_at": "2026-11-04T18:30:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-2",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-11-02T19:00:00Z",
+      "duracion_minutos": 70,
+      "volumen_total_kg": 2510,
+      "created_at": "2026-11-02T19:00:00Z",
+      "updated_at": "2026-11-02T19:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-2-1",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-2-2",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 90,
+        "reps_hechas": 5,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-2-3",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 92.5,
+        "reps_hechas": 4,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-2-4",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 4,
+        "peso_kg": 95,
+        "reps_hechas": 4,
+        "rpe_real": 9.5,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-2-5",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 55,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      },
+      {
+        "id": "ser-lucas-2-6",
+        "sesion_id": "ses-lucas-2m-2",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 2,
+        "peso_kg": 60,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-11-02T19:00:00Z",
+        "updated_at": "2026-11-02T19:00:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-3",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-10-30T18:00:00Z",
+      "duracion_minutos": 75,
+      "volumen_total_kg": 3632.5,
+      "created_at": "2026-10-30T18:00:00Z",
+      "updated_at": "2026-10-30T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-3-1",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 105,
+        "reps_hechas": 6,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-3-2",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 112.5,
+        "reps_hechas": 5,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-3-3",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 117.5,
+        "reps_hechas": 4,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-3-4",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 4,
+        "peso_kg": 120,
+        "reps_hechas": 4,
+        "rpe_real": 9.5,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-3-5",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 100,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      },
+      {
+        "id": "ser-lucas-3-6",
+        "sesion_id": "ses-lucas-2m-3",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 2,
+        "peso_kg": 115,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-30T18:00:00Z",
+        "updated_at": "2026-10-30T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-4",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-10-28T18:30:00Z",
+      "duracion_minutos": 55,
+      "volumen_total_kg": 1472.5,
+      "created_at": "2026-10-28T18:30:00Z",
+      "updated_at": "2026-10-28T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-4-1",
+        "sesion_id": "ses-lucas-2m-4",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-28T18:30:00Z",
+        "updated_at": "2026-10-28T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-4-2",
+        "sesion_id": "ses-lucas-2m-4",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 92.5,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-28T18:30:00Z",
+        "updated_at": "2026-10-28T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-4-3",
+        "sesion_id": "ses-lucas-2m-4",
+        "ejercicio_id": "e6666666-6666-4666-8666-666666666606",
+        "numero_serie": 1,
+        "peso_kg": 20,
+        "reps_hechas": 10,
+        "rpe_real": 7,
+        "completada": true,
+        "created_at": "2026-10-28T18:30:00Z",
+        "updated_at": "2026-10-28T18:30:00Z",
+        "ejercicioNombre": "Landmine Press 45°"
+      },
+      {
+        "id": "ser-lucas-4-4",
+        "sesion_id": "ses-lucas-2m-4",
+        "ejercicio_id": "e6666666-6666-4666-8666-666666666606",
+        "numero_serie": 2,
+        "peso_kg": 20,
+        "reps_hechas": 10,
+        "rpe_real": 7,
+        "completada": true,
+        "created_at": "2026-10-28T18:30:00Z",
+        "updated_at": "2026-10-28T18:30:00Z",
+        "ejercicioNombre": "Landmine Press 45°"
+      },
+      {
+        "id": "ser-lucas-4-5",
+        "sesion_id": "ses-lucas-2m-4",
+        "ejercicio_id": "e5555555-5555-4555-8555-555555555505",
+        "numero_serie": 1,
+        "peso_kg": 12.5,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-28T18:30:00Z",
+        "updated_at": "2026-10-28T18:30:00Z",
+        "ejercicioNombre": "Dominadas Pronas"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-5",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-10-25T18:00:00Z",
+      "duracion_minutos": 65,
+      "volumen_total_kg": 3245,
+      "created_at": "2026-10-25T18:00:00Z",
+      "updated_at": "2026-10-25T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-5-1",
+        "sesion_id": "ses-lucas-2m-5",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 105,
+        "reps_hechas": 6,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-25T18:00:00Z",
+        "updated_at": "2026-10-25T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-5-2",
+        "sesion_id": "ses-lucas-2m-5",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 110,
+        "reps_hechas": 5,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-25T18:00:00Z",
+        "updated_at": "2026-10-25T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-5-3",
+        "sesion_id": "ses-lucas-2m-5",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 115,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-25T18:00:00Z",
+        "updated_at": "2026-10-25T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-5-4",
+        "sesion_id": "ses-lucas-2m-5",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 100,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-25T18:00:00Z",
+        "updated_at": "2026-10-25T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      },
+      {
+        "id": "ser-lucas-5-5",
+        "sesion_id": "ses-lucas-2m-5",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 2,
+        "peso_kg": 115,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-25T18:00:00Z",
+        "updated_at": "2026-10-25T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-6",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-10-22T19:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 2155,
+      "created_at": "2026-10-22T19:00:00Z",
+      "updated_at": "2026-10-22T19:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-6-1",
+        "sesion_id": "ses-lucas-2m-6",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 82.5,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-22T19:00:00Z",
+        "updated_at": "2026-10-22T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-6-2",
+        "sesion_id": "ses-lucas-2m-6",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 87.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-22T19:00:00Z",
+        "updated_at": "2026-10-22T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-6-3",
+        "sesion_id": "ses-lucas-2m-6",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 90,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-22T19:00:00Z",
+        "updated_at": "2026-10-22T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-6-4",
+        "sesion_id": "ses-lucas-2m-6",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 55,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-22T19:00:00Z",
+        "updated_at": "2026-10-22T19:00:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      },
+      {
+        "id": "ser-lucas-6-5",
+        "sesion_id": "ses-lucas-2m-6",
+        "ejercicio_id": "e5555555-5555-4555-8555-555555555505",
+        "numero_serie": 1,
+        "peso_kg": 10,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-22T19:00:00Z",
+        "updated_at": "2026-10-22T19:00:00Z",
+        "ejercicioNombre": "Dominadas Pronas"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-7",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-10-19T18:00:00Z",
+      "duracion_minutos": 65,
+      "volumen_total_kg": 2752.5,
+      "created_at": "2026-10-19T18:00:00Z",
+      "updated_at": "2026-10-19T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-7-1",
+        "sesion_id": "ses-lucas-2m-7",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 100,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-19T18:00:00Z",
+        "updated_at": "2026-10-19T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-7-2",
+        "sesion_id": "ses-lucas-2m-7",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 105,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-19T18:00:00Z",
+        "updated_at": "2026-10-19T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-7-3",
+        "sesion_id": "ses-lucas-2m-7",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 112.5,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-19T18:00:00Z",
+        "updated_at": "2026-10-19T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-7-4",
+        "sesion_id": "ses-lucas-2m-7",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 95,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-19T18:00:00Z",
+        "updated_at": "2026-10-19T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-8",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-10-15T18:30:00Z",
+      "duracion_minutos": 65,
+      "volumen_total_kg": 2167.5,
+      "created_at": "2026-10-15T18:30:00Z",
+      "updated_at": "2026-10-15T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-8-1",
+        "sesion_id": "ses-lucas-2m-8",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 82.5,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-15T18:30:00Z",
+        "updated_at": "2026-10-15T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-8-2",
+        "sesion_id": "ses-lucas-2m-8",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 87.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-15T18:30:00Z",
+        "updated_at": "2026-10-15T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-8-3",
+        "sesion_id": "ses-lucas-2m-8",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 92.5,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-15T18:30:00Z",
+        "updated_at": "2026-10-15T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-8-4",
+        "sesion_id": "ses-lucas-2m-8",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 55,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-15T18:30:00Z",
+        "updated_at": "2026-10-15T18:30:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      },
+      {
+        "id": "ser-lucas-8-5",
+        "sesion_id": "ses-lucas-2m-8",
+        "ejercicio_id": "e5555555-5555-4555-8555-555555555505",
+        "numero_serie": 1,
+        "peso_kg": 10,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-15T18:30:00Z",
+        "updated_at": "2026-10-15T18:30:00Z",
+        "ejercicioNombre": "Dominadas Pronas"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-9",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-10-12T18:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 2850,
+      "created_at": "2026-10-12T18:00:00Z",
+      "updated_at": "2026-10-12T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-9-1",
+        "sesion_id": "ses-lucas-2m-9",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 100,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-12T18:00:00Z",
+        "updated_at": "2026-10-12T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-9-2",
+        "sesion_id": "ses-lucas-2m-9",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 105,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-12T18:00:00Z",
+        "updated_at": "2026-10-12T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-9-3",
+        "sesion_id": "ses-lucas-2m-9",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 110,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-12T18:00:00Z",
+        "updated_at": "2026-10-12T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-9-4",
+        "sesion_id": "ses-lucas-2m-9",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 95,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-12T18:00:00Z",
+        "updated_at": "2026-10-12T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-10",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-10-09T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 2020,
+      "created_at": "2026-10-09T18:30:00Z",
+      "updated_at": "2026-10-09T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-10-1",
+        "sesion_id": "ses-lucas-2m-10",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 80,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-09T18:30:00Z",
+        "updated_at": "2026-10-09T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-10-2",
+        "sesion_id": "ses-lucas-2m-10",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-09T18:30:00Z",
+        "updated_at": "2026-10-09T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-10-3",
+        "sesion_id": "ses-lucas-2m-10",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 90,
+        "reps_hechas": 5,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-09T18:30:00Z",
+        "updated_at": "2026-10-09T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-10-4",
+        "sesion_id": "ses-lucas-2m-10",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 52.5,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-09T18:30:00Z",
+        "updated_at": "2026-10-09T18:30:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-11",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-10-06T18:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 2740,
+      "created_at": "2026-10-06T18:00:00Z",
+      "updated_at": "2026-10-06T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-11-1",
+        "sesion_id": "ses-lucas-2m-11",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 95,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-06T18:00:00Z",
+        "updated_at": "2026-10-06T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-11-2",
+        "sesion_id": "ses-lucas-2m-11",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 102.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-06T18:00:00Z",
+        "updated_at": "2026-10-06T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-11-3",
+        "sesion_id": "ses-lucas-2m-11",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 107.5,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-06T18:00:00Z",
+        "updated_at": "2026-10-06T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-11-4",
+        "sesion_id": "ses-lucas-2m-11",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 90,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-06T18:00:00Z",
+        "updated_at": "2026-10-06T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-12",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-10-02T19:00:00Z",
+      "duracion_minutos": 65,
+      "volumen_total_kg": 2075,
+      "created_at": "2026-10-02T19:00:00Z",
+      "updated_at": "2026-10-02T19:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-12-1",
+        "sesion_id": "ses-lucas-2m-12",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 80,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-10-02T19:00:00Z",
+        "updated_at": "2026-10-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-12-2",
+        "sesion_id": "ses-lucas-2m-12",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-02T19:00:00Z",
+        "updated_at": "2026-10-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-12-3",
+        "sesion_id": "ses-lucas-2m-12",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 87.5,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-10-02T19:00:00Z",
+        "updated_at": "2026-10-02T19:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-12-4",
+        "sesion_id": "ses-lucas-2m-12",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 50,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-10-02T19:00:00Z",
+        "updated_at": "2026-10-02T19:00:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-13",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-09-29T18:00:00Z",
+      "duracion_minutos": 65,
+      "volumen_total_kg": 2710,
+      "created_at": "2026-09-29T18:00:00Z",
+      "updated_at": "2026-09-29T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-13-1",
+        "sesion_id": "ses-lucas-2m-13",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 95,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-29T18:00:00Z",
+        "updated_at": "2026-09-29T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-13-2",
+        "sesion_id": "ses-lucas-2m-13",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 100,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-29T18:00:00Z",
+        "updated_at": "2026-09-29T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-13-3",
+        "sesion_id": "ses-lucas-2m-13",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 105,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-29T18:00:00Z",
+        "updated_at": "2026-09-29T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-13-4",
+        "sesion_id": "ses-lucas-2m-13",
+        "ejercicio_id": "e3333333-3333-4333-8333-333333333303",
+        "numero_serie": 1,
+        "peso_kg": 90,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-29T18:00:00Z",
+        "updated_at": "2026-09-29T18:00:00Z",
+        "ejercicioNombre": "Peso Muerto Convencional"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-14",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-09-26T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 2025,
+      "created_at": "2026-09-26T18:30:00Z",
+      "updated_at": "2026-09-26T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-14-1",
+        "sesion_id": "ses-lucas-2m-14",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 77.5,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-26T18:30:00Z",
+        "updated_at": "2026-09-26T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-14-2",
+        "sesion_id": "ses-lucas-2m-14",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 82.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-26T18:30:00Z",
+        "updated_at": "2026-09-26T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-14-3",
+        "sesion_id": "ses-lucas-2m-14",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-26T18:30:00Z",
+        "updated_at": "2026-09-26T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-14-4",
+        "sesion_id": "ses-lucas-2m-14",
+        "ejercicio_id": "e4444444-4444-4444-8444-444444444404",
+        "numero_serie": 1,
+        "peso_kg": 50,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-26T18:30:00Z",
+        "updated_at": "2026-09-26T18:30:00Z",
+        "ejercicioNombre": "Press Militar de Pie"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-15",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-09-23T18:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1920,
+      "created_at": "2026-09-23T18:00:00Z",
+      "updated_at": "2026-09-23T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-15-1",
+        "sesion_id": "ses-lucas-2m-15",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 90,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-23T18:00:00Z",
+        "updated_at": "2026-09-23T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-15-2",
+        "sesion_id": "ses-lucas-2m-15",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 97.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-23T18:00:00Z",
+        "updated_at": "2026-09-23T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-15-3",
+        "sesion_id": "ses-lucas-2m-15",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 102.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-23T18:00:00Z",
+        "updated_at": "2026-09-23T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-16",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-09-20T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1750,
+      "created_at": "2026-09-20T18:30:00Z",
+      "updated_at": "2026-09-20T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-16-1",
+        "sesion_id": "ses-lucas-2m-16",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 75,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-20T18:30:00Z",
+        "updated_at": "2026-09-20T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-16-2",
+        "sesion_id": "ses-lucas-2m-16",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 80,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-20T18:30:00Z",
+        "updated_at": "2026-09-20T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-16-3",
+        "sesion_id": "ses-lucas-2m-16",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 85,
+        "reps_hechas": 6,
+        "rpe_real": 8.5,
+        "completada": true,
+        "created_at": "2026-09-20T18:30:00Z",
+        "updated_at": "2026-09-20T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-17",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-09-16T18:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1890,
+      "created_at": "2026-09-16T18:00:00Z",
+      "updated_at": "2026-09-16T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-17-1",
+        "sesion_id": "ses-lucas-2m-17",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 90,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-16T18:00:00Z",
+        "updated_at": "2026-09-16T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-17-2",
+        "sesion_id": "ses-lucas-2m-17",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 95,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-16T18:00:00Z",
+        "updated_at": "2026-09-16T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-17-3",
+        "sesion_id": "ses-lucas-2m-17",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 100,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-16T18:00:00Z",
+        "updated_at": "2026-09-16T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-18",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-09-13T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1715,
+      "created_at": "2026-09-13T18:30:00Z",
+      "updated_at": "2026-09-13T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-18-1",
+        "sesion_id": "ses-lucas-2m-18",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 75,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-13T18:30:00Z",
+        "updated_at": "2026-09-13T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-18-2",
+        "sesion_id": "ses-lucas-2m-18",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 77.5,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-13T18:30:00Z",
+        "updated_at": "2026-09-13T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-18-3",
+        "sesion_id": "ses-lucas-2m-18",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 82.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-13T18:30:00Z",
+        "updated_at": "2026-09-13T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-19",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d2-pierna",
+      "fecha": "2026-09-09T18:00:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1970,
+      "created_at": "2026-09-09T18:00:00Z",
+      "updated_at": "2026-09-09T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-19-1",
+        "sesion_id": "ses-lucas-2m-19",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 1,
+        "peso_kg": 85,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-09T18:00:00Z",
+        "updated_at": "2026-09-09T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-19-2",
+        "sesion_id": "ses-lucas-2m-19",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 2,
+        "peso_kg": 90,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-09T18:00:00Z",
+        "updated_at": "2026-09-09T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      },
+      {
+        "id": "ser-lucas-19-3",
+        "sesion_id": "ses-lucas-2m-19",
+        "ejercicio_id": "e1111111-1111-4111-8111-111111111101",
+        "numero_serie": 3,
+        "peso_kg": 95,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-09T18:00:00Z",
+        "updated_at": "2026-09-09T18:00:00Z",
+        "ejercicioNombre": "Sentadilla Trasera"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-20",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-09-06T18:30:00Z",
+      "duracion_minutos": 60,
+      "volumen_total_kg": 1680,
+      "created_at": "2026-09-06T18:30:00Z",
+      "updated_at": "2026-09-06T18:30:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-20-1",
+        "sesion_id": "ses-lucas-2m-20",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 72.5,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-06T18:30:00Z",
+        "updated_at": "2026-09-06T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-20-2",
+        "sesion_id": "ses-lucas-2m-20",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 77.5,
+        "reps_hechas": 8,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-06T18:30:00Z",
+        "updated_at": "2026-09-06T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-20-3",
+        "sesion_id": "ses-lucas-2m-20",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 80,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-06T18:30:00Z",
+        "updated_at": "2026-09-06T18:30:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  },
+  {
+    "sesion": {
+      "id": "ses-lucas-2m-21",
+      "alumno_id": "demo-alumno-01-lucas",
+      "dia_id": "d1-torso",
+      "fecha": "2026-09-04T18:00:00Z",
+      "duracion_minutos": 55,
+      "volumen_total_kg": 1625,
+      "created_at": "2026-09-04T18:00:00Z",
+      "updated_at": "2026-09-04T18:00:00Z"
+    },
+    "series": [
+      {
+        "id": "ser-lucas-21-1",
+        "sesion_id": "ses-lucas-2m-21",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 1,
+        "peso_kg": 70,
+        "reps_hechas": 8,
+        "rpe_real": 7,
+        "completada": true,
+        "created_at": "2026-09-04T18:00:00Z",
+        "updated_at": "2026-09-04T18:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-21-2",
+        "sesion_id": "ses-lucas-2m-21",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 2,
+        "peso_kg": 75,
+        "reps_hechas": 8,
+        "rpe_real": 7.5,
+        "completada": true,
+        "created_at": "2026-09-04T18:00:00Z",
+        "updated_at": "2026-09-04T18:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      },
+      {
+        "id": "ser-lucas-21-3",
+        "sesion_id": "ses-lucas-2m-21",
+        "ejercicio_id": "e2222222-2222-4222-8222-222222222202",
+        "numero_serie": 3,
+        "peso_kg": 77.5,
+        "reps_hechas": 6,
+        "rpe_real": 8,
+        "completada": true,
+        "created_at": "2026-09-04T18:00:00Z",
+        "updated_at": "2026-09-04T18:00:00Z",
+        "ejercicioNombre": "Press de Banca Plano"
+      }
+    ],
+    "plan": {
+      "id": "p101-lucas-activo",
+      "nombre": "Hipertrofia & Fuerza Torso-Pierna v2"
+    }
+  }
+];
+
+MOCK_HISTORIAL_CARGAS["demo-alumno-01-lucas"] = LUCAS_2_MONTHS_HISTORIAL;
