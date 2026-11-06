@@ -2,9 +2,11 @@ import * as React from "react";
 import type { MetricasRetencion } from "@/store/use-coach-studio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { KpisNegocio, KpisNegocioDatos } from "@/lib/kpis-negocio";
 
 export interface RetentionKpiCardsProps {
   metricas: MetricasRetencion;
+  kpis?: KpisNegocio | KpisNegocioDatos;
   onAssignPlanClick: () => void;
   className?: string;
 }
@@ -16,9 +18,14 @@ export interface RetentionKpiCardsProps {
  */
 export function RetentionKpiCards({
   metricas,
+  kpis,
   onAssignPlanClick,
   className,
 }: RetentionKpiCardsProps) {
+  const cantActivasValor =
+    kpis !== undefined
+      ? (kpis.cantActivas ?? kpis.alumnos_activos ?? metricas.cantActivas)
+      : metricas.cantActivas;
   return (
     <div
       data-testid="retention-executive-banner"
@@ -58,7 +65,7 @@ export function RetentionKpiCards({
               data-testid="kpi-cant-activas"
               className="text-3xl sm:text-4xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 font-mono tabular-nums"
             >
-              {metricas.cantActivas}
+              {cantActivasValor}
             </span>
             <span className="text-xs text-muted-foreground">
               atletas con membresía vigente
@@ -72,7 +79,7 @@ export function RetentionKpiCards({
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-            <span className="font-semibold text-amber-500 dark:text-amber-400">
+            <span className="font-semibold text-amber-700 dark:text-amber-400">
               {metricas.cantSinPlanEntrenamiento} sin rutina
             </span>
           </div>

@@ -3,6 +3,7 @@ import type { AlertaSobrecargaProgresiva } from "@/store/use-coach-studio";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface ProgressiveOverloadFeedProps {
   alertas: AlertaSobrecargaProgresiva[];
@@ -89,7 +90,7 @@ export function ProgressiveOverloadFeed({
             onClick={() => setFilter("RECORD_1RM")}
             className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${
               filter === "RECORD_1RM"
-                ? "bg-amber-500/20 text-amber-400"
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 dark:bg-amber-500/20"
                 : "text-muted-foreground hover:bg-secondary/50"
             }`}
           >
@@ -100,7 +101,7 @@ export function ProgressiveOverloadFeed({
             onClick={() => setFilter("CARGA")}
             className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${
               filter === "CARGA"
-                ? "bg-emerald-500/20 text-emerald-400"
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 dark:bg-emerald-500/20"
                 : "text-muted-foreground hover:bg-secondary/50"
             }`}
           >
@@ -111,7 +112,7 @@ export function ProgressiveOverloadFeed({
             onClick={() => setFilter("VOLUMEN")}
             className={`min-h-9 rounded-md px-3 text-xs font-semibold transition-colors ${
               filter === "VOLUMEN"
-                ? "bg-sky-500/20 text-sky-400"
+                ? "bg-sky-500/15 text-sky-700 dark:text-sky-300 dark:bg-sky-500/20"
                 : "text-muted-foreground hover:bg-secondary/50"
             }`}
           >
@@ -122,22 +123,32 @@ export function ProgressiveOverloadFeed({
 
       {/* Feed List */}
       {filteredAlertas.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No se registraron sobrecargas progresivas con el filtro seleccionado.
-          </p>
-          <div className="mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setFilter("ALL")}
-              className="min-h-11 text-xs"
-            >
-              Restablecer filtros
-            </Button>
-          </div>
-        </div>
+        <EmptyState
+          data-testid="overload-empty-state"
+          title={
+            alertas.length === 0
+              ? "Sin alertas de sobrecarga progresiva"
+              : "Sin sobrecargas con el filtro actual"
+          }
+          description={
+            alertas.length === 0
+              ? "Ningún alumno ha registrado incrementos en las cargas, volumen ni marcas de 1RM en el período seleccionado."
+              : "No se registraron sobrecargas progresivas para la categoría seleccionada."
+          }
+          action={
+            filter !== "ALL" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFilter("ALL")}
+                className="min-h-11 text-xs"
+              >
+                Restablecer filtros
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filteredAlertas.map((alerta) => {
@@ -236,7 +247,7 @@ export function ProgressiveOverloadFeed({
                         1RM Estimado (Epley / Brzycki)
                       </span>
                       <div className="flex items-baseline gap-1.5 mt-1 font-mono tabular-nums">
-                        <span className="text-base font-black text-amber-400">
+                        <span className="text-base font-black text-amber-600 dark:text-amber-400">
                           {alerta.mejor1rmEpley} kg
                         </span>
                         <span className="text-[11px] text-muted-foreground">

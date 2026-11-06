@@ -19,25 +19,37 @@ import {
 } from "@/lib/alumno-actividades";
 
 import type { AlumnoEstancado, LiveSupabaseDataset } from "@/services/alumnos-service";
+import { DEMO_GIMNASIO, DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
+import type { KpisNegocio } from "@/lib/kpis-negocio";
+
+export interface CoachDashboardViewProps {
+  initialDataset?: LiveSupabaseDataset | null;
+  estancados?: AlumnoEstancado[];
+  kpis?: KpisNegocio;
+}
 
 export function CoachDashboardView({
   initialDataset,
   estancados = [],
-}: {
-  initialDataset?: LiveSupabaseDataset | null;
-  estancados?: AlumnoEstancado[];
-} = {}) {
+  kpis: propKpis,
+}: CoachDashboardViewProps = {}) {
   const router = useRouter();
   const store = useCoachStudioStore();
+  const kpis: KpisNegocio = propKpis ?? DEMO_KPIS_NEGOCIO;
 
-  const alumnos =
-    initialDataset && initialDataset.alumnos.length > 0
-      ? initialDataset.alumnos
-      : store.alumnos;
-  const planes =
-    initialDataset && initialDataset.planes.length > 0
-      ? initialDataset.planes
-      : store.planes;
+  const hasInitialData = Boolean(
+    initialDataset &&
+      ((initialDataset.alumnos && initialDataset.alumnos.length > 0) ||
+        (initialDataset.planes && initialDataset.planes.length > 0)),
+  );
+
+  const alumnos = hasInitialData
+    ? (store.isLiveDatabase && store.alumnos.length > 0 ? store.alumnos : initialDataset!.alumnos)
+    : DEMO_GIMNASIO.alumnos;
+
+  const planes = hasInitialData
+    ? (store.isLiveDatabase && store.planes.length > 0 ? store.planes : initialDataset!.planes)
+    : DEMO_GIMNASIO.planes;
 
   const {
     toast,
@@ -81,8 +93,16 @@ export function CoachDashboardView({
   const [isAssignModalOpen, setIsAssignModalOpen] = React.useState(false);
   const [assignRoutineTarget, setAssignRoutineTarget] = React.useState<Perfil | null>(null);
 
-  // Retention metrics from RPC
-  const metricas = obtenerMetricasRetencion(null, filtroActividad);
+  // Retention metrics from RPC sincronizadas con KpisNegocio (GOZS-401)
+  const baseMetricas = obtenerMetricasRetencion(null, filtroActividad);
+  const valorKpisActivas = kpis.cantActivas ?? kpis.alumnos_activos;
+  const metricas = {
+    ...baseMetricas,
+    cantActivas:
+      filtroActividad === "TODAS" && typeof valorKpisActivas === "number"
+        ? valorKpisActivas
+        : baseMetricas.cantActivas,
+  };
 
   // Progressive overload alerts from RPC
   const alertas = getAlertasSobrecargaProgresiva();
@@ -152,7 +172,7 @@ export function CoachDashboardView({
       {!isOnline && (
         <div
           role="alert"
-          className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300"
+          className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300"
         >
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-amber-400" />
@@ -224,9 +244,10 @@ export function CoachDashboardView({
         })}
       </div>
 
-      {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion) */}
+      {/* Tarjetas KPI de Retención (RPC: obtener_metricas_retencion sincronizadas con KpisNegocio) */}
       <RetentionKpiCards
         metricas={metricas}
+        kpis={kpis}
         onAssignPlanClick={() => setIsAssignModalOpen(true)}
       />
 
@@ -236,7 +257,7 @@ export function CoachDashboardView({
           className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4"
           data-testid="alerta-estancamiento"
         >
-          <h2 className="text-sm font-bold text-amber-300">Alumnos estancados (30+ días sin PR)</h2>
+          <h2 className="text-sm font-bold text-amber-800 dark:text-amber-300">Alumnos estancados (30+ días sin PR)</h2>
           <ul className="mt-2 space-y-1 text-sm">
             {estancados.map((e) => (
               <li key={e.alumnoId}>
