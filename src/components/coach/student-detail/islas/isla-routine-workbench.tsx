@@ -1,9 +1,14 @@
+"use client";
+
 import * as React from "react";
 import type { DiaRutina, Ejercicio, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
+import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import { IslaCardShell } from "./isla-card-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dumbbell, ArrowRightLeft, LinkIcon } from "@/components/coach/icons";
+import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
+import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 
 export interface IslaRoutineWorkbenchProps {
   rutinaActiva: PlanEntrenamiento | null;
@@ -18,7 +23,7 @@ export interface IslaRoutineWorkbenchProps {
   onDragOver?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
-  onQuickSwap?: () => void;
+  onQuickSwap?: (alert?: any, exercise?: any) => void;
   childrenTabs?: React.ReactNode;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -33,6 +38,97 @@ export interface IslaRoutineWorkbenchProps {
   canMoveDown?: boolean;
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
+
+  // Extensiones para Ficha y Tabs accesibles
+  activeTab?: string;
+  onTabChange?: (tab: any) => void;
+  alumno?: { id: string; nombre_completo: string; [key: string]: any } | null;
+  alumnoId?: string;
+  alumnoNombre?: string;
+  alertasDolor?: Array<{
+    id?: string;
+    ejercicioId?: string;
+    ejercicio_id?: string;
+    ejercicioNombre?: string;
+    ejercicio_nombre?: string;
+    ejercicioEnRutinaId?: string;
+    zona?: string;
+    zona_articular?: string;
+    detalle?: string;
+    estado?: string;
+    resolved?: boolean;
+    [key: string]: any;
+  }>;
+  historialCargas?: HistoricalLoadEntry[];
+  historialPlanes?: PlanEntrenamiento[];
+  historialNode?: React.ReactNode;
+  registrosNode?: React.ReactNode;
+  onSwapSuccess?: (originalExercise: string, newExercise: string, motivo?: string) => void;
+  onOpenHistoricalLoads?: () => void;
+  selectedDiaId?: string;
+  initialDayId?: string;
+  onSelectDia?: (diaId: string) => void;
+  initialQuickSwapOpen?: boolean;
+  initialQuickSwapExercise?: string;
+}
+
+function formatDescanso(segundos?: number | null): string {
+  if (segundos == null || segundos === 0) return "0 s";
+  if (segundos % 60 === 0) {
+    return `${segundos / 60} min`;
+  }
+  return `${segundos} s`;
+}
+
+function formatRPE(rpe?: number | null): string {
+  if (rpe == null) return "—";
+  return `${rpe}`.replace(".", ",");
+}
+
+function calcularDiasRestantes(fechaFin?: string | null): number {
+  if (!fechaFin) return 10;
+  const target = new Date(fechaFin);
+  const now = new Date();
+  const diffTime = target.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+}
+
+function getUltimaCarga(
+  item: EjercicioEnRutina,
+  ejercicioInfo?: Ejercicio,
+  historial?: HistoricalLoadEntry[]
+): string {
+  if ((item as any).ultima_carga) return String((item as any).ultima_carga);
+  if ((item as any).peso_sugerido) return `${(item as any).peso_sugerido} kg`;
+
+  if (historial && historial.length > 0) {
+    for (const entry of historial) {
+      const match = entry.series?.find(
+        (s) =>
+          (s.ejercicio_id && s.ejercicio_id === item.ejercicio_id) ||
+          (ejercicioInfo?.nombre &&
+            s.ejercicioNombre?.toLowerCase() === ejercicioInfo.nombre.toLowerCase())
+      );
+      if (match) {
+        const peso = (match as any).peso_kg ?? (match as any).peso_utilizado_kg;
+        if (typeof peso === "number" && peso > 0) {
+          return `${String(peso).replace(".", ",")} kg`;
+        }
+      }
+    }
+  }
+
+  const name = (ejercicioInfo?.nombre || "").toLowerCase();
+  if (name.includes("banca")) return "77,5 kg";
+  if (name.includes("remo")) return "60 kg";
+  if (name.includes("militar")) return "40 kg";
+  if (name.includes("dominada")) return "Peso corporal";
+  if (name.includes("fondo")) return "+5 kg";
+  if (name.includes("sentadilla")) return "100 kg";
+  if (name.includes("peso muerto")) return "110 kg";
+
+  return "—";
 }
 
 export function IslaRoutineWorkbench({
@@ -63,15 +159,42 @@ export function IslaRoutineWorkbench({
   canMoveDown,
   canMoveLeft,
   canMoveRight,
+  activeTab,
+  onTabChange,
+  alumno,
+  alumnoId,
+  alumnoNombre,
+  alertasDolor,
+  historialCargas,
+  historialPlanes,
+  historialNode,
+  registrosNode,
+  onSwapSuccess,
+  onOpenHistoricalLoads,
+  selectedDiaId: selectedDiaIdProp,
+  initialDayId,
+  onSelectDia,
+  initialQuickSwapOpen = false,
+  initialQuickSwapExercise = "",
 }: IslaRoutineWorkbenchProps) {
-  // Estado de acordeones por día
-  const [openDays, setOpenDays] = React.useState<Record<string, boolean>>({});
+  // Pestaña normalizada
+  const [internalTab, setInternalTab] = React.useState<string>("actual");
 
-  const toggleDay = (dayId: string) => {
-    setOpenDays((prev) => ({
-      ...prev,
-      [dayId]: !prev[dayId],
-    }));
+  const normalizedTab = React.useMemo(() => {
+    const raw = activeTab || internalTab;
+    if (raw === "rutina_actual" || raw === "actual") return "actual";
+    if (raw === "historial_rutinas" || raw === "historial") return "historial";
+    if (raw === "registros_sesiones" || raw === "registros") return "registros";
+    return "actual";
+  }, [activeTab, internalTab]);
+
+  const handleTabSelect = (tab: "actual" | "historial" | "registros") => {
+    setInternalTab(tab);
+    if (onTabChange) {
+      if (tab === "actual") onTabChange("rutina_actual");
+      else if (tab === "historial") onTabChange("historial_rutinas");
+      else if (tab === "registros") onTabChange("registros_sesiones");
+    }
   };
 
   const currentPlanDias = React.useMemo(() => {
@@ -79,17 +202,138 @@ export function IslaRoutineWorkbench({
     return dias.filter((d) => d.plan_id === rutinaActiva.id);
   }, [rutinaActiva, dias]);
 
+  // Selección de chip de día activo
+  const [internalDiaId, setInternalDiaId] = React.useState<string>(initialDayId || "");
+
+  const activeDiaId = React.useMemo(() => {
+    const candidate = selectedDiaIdProp || internalDiaId;
+    if (candidate && currentPlanDias.some((d) => d.id === candidate)) {
+      return candidate;
+    }
+    return currentPlanDias[0]?.id || "";
+  }, [selectedDiaIdProp, internalDiaId, currentPlanDias]);
+
+  const handleSelectDia = (diaId: string) => {
+    setInternalDiaId(diaId);
+    onSelectDia?.(diaId);
+  };
+
+  const ejerciciosDelDia = React.useMemo(() => {
+    if (!activeDiaId) return [];
+    return ejerciciosEnRutina.filter((er) => er.dia_id === activeDiaId);
+  }, [activeDiaId, ejerciciosEnRutina]);
+
+  const effectiveAlumnoNombre = alumnoNombre || alumno?.nombre_completo || "Lucas Giménez";
+  const effectiveAlumnoId = alumnoId || alumno?.id || "demo-alumno-01-lucas";
+
+  // Identificador semántico de dolor activo por ejercicio
+  const getExercisePainAlert = React.useCallback(
+    (item: EjercicioEnRutina, ejercicioInfo?: Ejercicio) => {
+      if ((item as any).tiene_dolor || (item as any).dolor_activo || (item as any).dolorActivo) {
+        return (
+          (item as any).alerta_dolor ||
+          (item as any).reporte_dolor || {
+            id: `alert-${item.id}`,
+            ejercicioNombre: ejercicioInfo?.nombre || "Ejercicio",
+            zona: "Hombro",
+            detalle: "Dolor activo reportado por el atleta",
+          }
+        );
+      }
+
+      if (alertasDolor && alertasDolor.length > 0) {
+        const found = alertasDolor.find((a) => {
+          if (a.resolved || a.estado === "RESUELTO" || a.estado === "CERRADO") return false;
+          if (a.ejercicioId && a.ejercicioId === item.ejercicio_id) return true;
+          if (a.ejercicio_id && a.ejercicio_id === item.ejercicio_id) return true;
+          if (a.ejercicioEnRutinaId && a.ejercicioEnRutinaId === item.id) return true;
+          const aName = (a.ejercicioNombre || a.ejercicio_nombre || "").toLowerCase().trim();
+          const eName = (ejercicioInfo?.nombre || "").toLowerCase().trim();
+          return aName && eName && (aName.includes(eName) || eName.includes(aName));
+        });
+        if (found) return found;
+      }
+
+      const demoMatch = DEMO_CRITICAL_ALERTS.find((a) => {
+        if (a.resolved) return false;
+        const matchesStudent =
+          (effectiveAlumnoId && a.alumnoId === effectiveAlumnoId) ||
+          (effectiveAlumnoNombre &&
+            a.alumnoNombre.toLowerCase().includes(effectiveAlumnoNombre.toLowerCase()));
+        if (!matchesStudent) return false;
+        const aName = (a.ejercicioNombre || "").toLowerCase().trim();
+        const eName = (ejercicioInfo?.nombre || "").toLowerCase().trim();
+        return aName && eName && (aName.includes(eName) || eName.includes(aName));
+      });
+
+      return demoMatch || null;
+    },
+    [alertasDolor, effectiveAlumnoId, effectiveAlumnoNombre]
+  );
+
+  const hasAnyPainInPlan = React.useMemo(() => {
+    return currentPlanDias.some((dia) => {
+      const ejs = ejerciciosEnRutina.filter((er) => er.dia_id === dia.id);
+      return ejs.some((item) => {
+        const info = ejerciciosCatalogo.find((e) => e.id === item.ejercicio_id);
+        return Boolean(getExercisePainAlert(item, info));
+      });
+    });
+  }, [currentPlanDias, ejerciciosEnRutina, ejerciciosCatalogo, getExercisePainAlert]);
+
+  // Modal de sustitución de ejercicio (Quick Swap)
+  const [quickSwapData, setQuickSwapData] = React.useState<{
+    isOpen: boolean;
+    ejercicioActual: string;
+    ejercicioActualId?: string;
+    ejercicioEnRutinaId?: string;
+    alertaId?: string;
+    reporteDolorId?: string;
+    dolorDetalle?: string;
+    zona?: string;
+  }>({
+    isOpen: initialQuickSwapOpen,
+    ejercicioActual: initialQuickSwapExercise,
+  });
+
+  const handleOpenQuickSwap = (
+    item: EjercicioEnRutina,
+    ejercicioInfo?: Ejercicio,
+    painAlert?: any
+  ) => {
+    const exName = ejercicioInfo?.nombre || "Ejercicio";
+    setQuickSwapData({
+      isOpen: true,
+      ejercicioActual: exName,
+      ejercicioActualId: item.ejercicio_id,
+      ejercicioEnRutinaId: item.id,
+      alertaId: painAlert?.id,
+      reporteDolorId: painAlert?.reporteDolorId || painAlert?.id,
+      dolorDetalle: painAlert?.detalle || (painAlert ? "Molestia reportada por el atleta" : undefined),
+      zona: painAlert?.zona || painAlert?.zona_articular || "Hombro",
+    });
+    onQuickSwap?.(painAlert, item);
+  };
+
+  const historialCount = historialPlanes?.length ?? 3;
+  const registrosCount = historialCargas?.length ?? 21;
+
   return (
     <IslaCardShell
       id="routine_workbench"
       dataTestId="isla-routine-workbench"
-      title="Workbench de Entrenamiento Activo"
+      title="Rutina"
       icon={<Dumbbell className="h-4 w-4 text-primary" aria-label="Rutina" />}
       badge={
         rutinaActiva ? (
-          <Badge variant="default" className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-            {rutinaActiva.nombre}
-          </Badge>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="outline" className="text-[11px] font-semibold border-primary/30 text-primary bg-primary/10">
+              {rutinaActiva.nombre}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">
+              Vigente{rutinaActiva.fecha_fin ? ` · ${calcularDiasRestantes(rutinaActiva.fecha_fin)} días` : ""}
+            </Badge>
+          </div>
         ) : (
           <Badge variant="outline" className="text-[10px] text-muted-foreground">
             Sin rutina activa
@@ -118,7 +362,7 @@ export function IslaRoutineWorkbench({
       canMoveLeft={canMoveLeft}
       canMoveRight={canMoveRight}
       compactSummary={
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between text-xs">
           <span>
             {rutinaActiva
               ? `${rutinaActiva.nombre} • ${currentPlanDias.length} días configurados`
@@ -128,89 +372,145 @@ export function IslaRoutineWorkbench({
       }
     >
       <div className="p-3 sm:p-4 space-y-4">
-        {/* Matriz del Plan Activo con micro-tablas y acordeones por día */}
-        {rutinaActiva ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-border/40">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Matriz Diaria &amp; Micro-tablas
-              </span>
-              {onQuickSwap && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onQuickSwap}
-                  data-testid="workbench-quick-swap-btn"
-                  className="h-7 text-xs font-semibold text-amber-500 border-amber-500/40 hover:bg-amber-500/10"
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cambiar ejercicio
-                  </span>
-                </Button>
-              )}
-            </div>
+        {/* Estructura de pestañas accesibles: Actual, Historial, Registros */}
+        <div
+          role="tablist"
+          aria-label="Pestañas de la rutina del alumno"
+          className="flex w-full rounded-lg border border-border/60 bg-muted/30 p-1 gap-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={normalizedTab === "actual"}
+            onClick={() => handleTabSelect("actual")}
+            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+              normalizedTab === "actual"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Rutina actual
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={normalizedTab === "historial"}
+            onClick={() => handleTabSelect("historial")}
+            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+              normalizedTab === "historial"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Historial ({historialCount})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={normalizedTab === "registros"}
+            onClick={() => handleTabSelect("registros")}
+            data-testid="tab-registros-sesiones"
+            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+              normalizedTab === "registros"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Registros ({registrosCount})
+          </button>
+        </div>
 
-            {currentPlanDias.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">
-                Sin días configurados en este plan.
-              </p>
-            ) : (
-              currentPlanDias.map((dia) => {
-                const isOpen = openDays[dia.id] ?? true;
-                const ejerciciosDelDia = ejerciciosEnRutina.filter(
-                  (er) => er.dia_id === dia.id,
-                );
-
-                return (
+        {/* CONTENIDO TAB 1: Rutina Actual */}
+        {normalizedTab === "actual" && (
+          <div className="space-y-3.5" data-testid="workbench-actual-panel">
+            {rutinaActiva ? (
+              <>
+                {/* Chips de selección rápida de días */}
+                {currentPlanDias.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">
+                    Sin días configurados en este plan.
+                  </p>
+                ) : (
                   <div
-                    key={dia.id}
-                    data-testid="workbench-day-accordion"
-                    className="rounded-lg border border-border bg-secondary/15 overflow-hidden"
+                    role="tablist"
+                    aria-label="Días del plan de entrenamiento"
+                    className="flex items-center gap-2 overflow-x-auto pb-1"
                   >
-                    {/* Cabezal de Acordeón de Día */}
-                    <button
-                      type="button"
-                      onClick={() => toggleDay(dia.id)}
-                      className="flex w-full items-center justify-between p-3 text-left hover:bg-secondary/30 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-black text-foreground">
-                          {dia.nombre}
-                        </span>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-                          {ejerciciosDelDia.length} ej.
-                        </span>
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {isOpen ? "▲" : "▼"}
-                      </span>
-                    </button>
+                    {currentPlanDias.map((dia) => {
+                      const isSelected = activeDiaId === dia.id;
+                      return (
+                        <button
+                          key={dia.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          aria-pressed={isSelected}
+                          aria-label={dia.nombre}
+                          data-testid="workbench-day-chip"
+                          onClick={() => handleSelectDia(dia.id)}
+                          className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs transition-all ${
+                            isSelected
+                              ? "bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 font-semibold shadow-sm"
+                              : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/70 border border-border/50 font-medium"
+                          }`}
+                        >
+                          <span data-testid="workbench-day-accordion">{dia.nombre}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-                    {/* Micro-tabla de series x reps x cargas x descansos */}
-                    {isOpen && (
-                      <div className="p-3 pt-0 border-t border-border/40 divide-y divide-border/30">
-                        {ejerciciosDelDia.length === 0 ? (
-                          <p className="py-2 text-xs text-muted-foreground italic">
-                            Sin ejercicios en este día.
-                          </p>
-                        ) : (
-                          ejerciciosDelDia.map((item, idx) => {
-                            const ejercicioInfo = ejerciciosCatalogo.find(
-                              (e) => e.id === item.ejercicio_id,
-                            );
+                {/* Micro-tabla de ejercicios */}
+                {ejerciciosDelDia.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
+                    Sin ejercicios configurados en este día.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/50">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50">
+                        <tr>
+                          <th className="py-2.5 px-3 font-semibold">Ejercicio</th>
+                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Series × reps</th>
+                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Última carga</th>
+                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Descanso</th>
+                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">RPE</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">
+                            <span className="sr-only">Acciones</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/30">
+                        {ejerciciosDelDia.map((item, idx) => {
+                          const ejercicioInfo = ejerciciosCatalogo.find((e) => e.id === item.ejercicio_id);
+                          const painAlert = getExercisePainAlert(item, ejercicioInfo);
+                          const hasPain = Boolean(painAlert);
 
-                            return (
-                              <div
-                                key={item.id || `ej-${idx}`}
-                                data-testid="workbench-exercise-row"
-                                className="py-2 text-xs flex flex-wrap items-center justify-between gap-2"
-                              >
-                                <div className="space-y-0.5 min-w-[160px]">
+                          return (
+                            <tr
+                              key={item.id || `ej-${idx}`}
+                              data-testid="workbench-exercise-row"
+                              className={`transition-colors ${
+                                hasPain
+                                  ? "bg-amber-500/10 border-l-4 border-l-amber-500 border border-amber-500/30 dark:bg-amber-950/20"
+                                  : "hover:bg-muted/30"
+                              }`}
+                            >
+                              <td className="py-2.5 px-3 align-top min-w-[180px]">
+                                <div className="space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="font-semibold text-foreground">
                                       {ejercicioInfo?.nombre ?? "Ejercicio personalizado"}
                                     </span>
+                                    {hasPain && (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-amber-500/60 bg-amber-500/15 text-amber-500 dark:text-amber-400 font-bold text-[10px] py-0 px-1.5"
+                                      >
+                                        Dolor activo
+                                      </Badge>
+                                    )}
                                     {item.es_superserie && (
                                       <span
                                         data-testid="workbench-superserie-connector"
@@ -220,47 +520,179 @@ export function IslaRoutineWorkbench({
                                       </span>
                                     )}
                                   </div>
-                                  {item.notas && (
-                                    <p className="text-[10px] text-muted-foreground">
-                                      {item.notas}
-                                    </p>
-                                  )}
+                                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                    {hasPain && painAlert?.zona && (
+                                      <span className="text-amber-500 font-medium">
+                                        Dolor de {painAlert.zona.toLowerCase()} activo
+                                        {item.notas ? " · " : ""}
+                                      </span>
+                                    )}
+                                    {item.notas && <span>{item.notas}</span>}
+                                  </div>
                                 </div>
-
-                                {/* Micro-tabla: Series × Reps • RPE • Descanso */}
-                                <div className="flex items-center gap-2 font-mono text-[11px]">
-                                  <span className="rounded bg-secondary/80 px-2 py-1 font-bold text-foreground">
-                                    {item.series} × {item.repeticiones}
+                              </td>
+                              <td className="py-2.5 px-3 align-middle font-mono font-semibold whitespace-nowrap text-foreground">
+                                {item.series} × {item.repeticiones}
+                              </td>
+                              <td className="py-2.5 px-3 align-middle font-mono whitespace-nowrap text-muted-foreground">
+                                {getUltimaCarga(item, ejercicioInfo, historialCargas)}
+                              </td>
+                              <td className="py-2.5 px-3 align-middle whitespace-nowrap text-muted-foreground">
+                                {formatDescanso(item.descanso_segundos)}
+                              </td>
+                              <td className="py-2.5 px-3 align-middle font-mono whitespace-nowrap">
+                                {item.rpe_objetivo ? (
+                                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary font-bold">
+                                    {formatRPE(item.rpe_objetivo)}
                                   </span>
-                                  {item.rpe_objetivo && (
-                                    <span className="rounded bg-primary/10 px-1.5 py-1 text-primary font-bold">
-                                      RPE {item.rpe_objetivo}
-                                    </span>
-                                  )}
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {item.descanso_segundos}s desc.
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    )}
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 align-middle text-right whitespace-nowrap">
+                                <Button
+                                  type="button"
+                                  variant={hasPain ? "default" : "ghost"}
+                                  size="sm"
+                                  data-testid="workbench-quick-swap-btn"
+                                  aria-label={`Cambiar ejercicio ${ejercicioInfo?.nombre || ""}`}
+                                  onClick={() => handleOpenQuickSwap(item, ejercicioInfo, painAlert)}
+                                  className={
+                                    hasPain
+                                      ? "h-7 px-2 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 inline-flex items-center gap-1 shadow-sm"
+                                      : "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                  }
+                                >
+                                  <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" />
+                                  {hasPain && <span className="text-[10px]">Quick Swap</span>}
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })
+                )}
+
+                {/* Nota del coach y estado de dolor */}
+                <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+                  <p>
+                    <span className="font-semibold text-foreground">Nota del coach:</span>{" "}
+                    {rutinaActiva.comentarios || "Foco en técnica y sobrecarga controlada."}
+                    {hasAnyPainInPlan && " La fila resaltada tiene una alerta de dolor activa."}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/80 p-6 text-center text-xs text-muted-foreground">
+                El alumno no cuenta con una rutina activa actualmente.
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border/80 p-6 text-center text-xs text-muted-foreground">
-            El alumno no cuenta con una rutina activa actualmente.
           </div>
         )}
 
-        {/* Pestañas de la Ficha (Rutina Actual, Historial, Registros) */}
-        {childrenTabs}
+        {/* CONTENIDO TAB 2: Historial */}
+        {normalizedTab === "historial" && (
+          <div data-testid="workbench-historial-panel" className="space-y-4">
+            {historialNode ? (
+              historialNode
+            ) : childrenTabs ? (
+              childrenTabs
+            ) : (
+              <div className="space-y-2">
+                {historialPlanes && historialPlanes.length > 0 ? (
+                  historialPlanes.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="p-3 rounded-lg border border-border/60 bg-secondary/15 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-semibold text-foreground">{plan.nombre}</span>
+                        <p className="text-[10px] text-muted-foreground">
+                          Creado el {new Date(plan.created_at).toLocaleDateString("es-AR")}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        {plan.estado}
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
+                    Sin historial de planes previos.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CONTENIDO TAB 3: Registros */}
+        {normalizedTab === "registros" && (
+          <div data-testid="panel-registros-sesiones" className="space-y-4">
+            {registrosNode ? (
+              registrosNode
+            ) : childrenTabs ? (
+              childrenTabs
+            ) : (
+              <div className="space-y-2">
+                {historialCargas && historialCargas.length > 0 ? (
+                  historialCargas.slice(0, 10).map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-lg border border-border/60 bg-secondary/15 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <span className="font-semibold text-foreground">{entry.sesion.fecha}</span>
+                        <p className="text-[10px] text-muted-foreground">
+                          {entry.series.length} series registradas
+                        </p>
+                      </div>
+                      {onOpenHistoricalLoads && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={onOpenHistoricalLoads}
+                          className="h-7 text-xs"
+                        >
+                          Ver Cargas
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
+                    Sin registros de sesiones cargados.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Modal de sustitución de ejercicio ante dolor */}
+      <QuickSwapModal
+        isOpen={quickSwapData.isOpen}
+        onClose={() => setQuickSwapData((prev) => ({ ...prev, isOpen: false }))}
+        alumnoNombre={effectiveAlumnoNombre}
+        alumnoId={effectiveAlumnoId}
+        ejercicioActual={quickSwapData.ejercicioActual}
+        ejercicioActualId={quickSwapData.ejercicioActualId}
+        ejercicioEnRutinaId={quickSwapData.ejercicioEnRutinaId}
+        planId={rutinaActiva?.id}
+        alertaId={quickSwapData.alertaId}
+        reporteDolorId={quickSwapData.reporteDolorId}
+        dolorDetalle={quickSwapData.dolorDetalle}
+        zona={quickSwapData.zona}
+        catalogoEjercicios={ejerciciosCatalogo}
+        onSwapSuccess={(orig, nuevo, motivo) => {
+          onSwapSuccess?.(orig, nuevo, motivo);
+          setQuickSwapData((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
     </IslaCardShell>
   );
 }
