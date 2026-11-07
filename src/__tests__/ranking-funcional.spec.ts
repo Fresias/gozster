@@ -414,17 +414,17 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
         }),
       );
 
-      // Título y badges
-      expect(html).toContain("Ranking Funcional");
-      expect(html).toContain("PR / Peso Corporal");
+      // Título en sentence case, sin badge ni emoji (objetivo Ranking.html)
+      expect(html).toContain("Ranking funcional");
+      expect(html).not.toContain("PR / Peso Corporal");
 
       // Selectores de clase y ejercicio
       expect(html).toContain("data-testid=\"clase-select\"");
       expect(html).toContain("data-testid=\"ejercicio-select\"");
 
       // Tablas separadas por sexo
-      expect(html).toContain("Ranking Masculino (Hombres)");
-      expect(html).toContain("Ranking Femenino (Mujeres)");
+      expect(html).toContain(">Masculino<");
+      expect(html).toContain(">Femenino<");
       expect(html).toContain("data-testid=\"ranking-hombres-card\"");
       expect(html).toContain("data-testid=\"ranking-mujeres-card\"");
     });
@@ -555,7 +555,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
 
       // Ratio relativo y formato visual accesible
       expect(html).toContain("Ratio Relativo");
-      expect(html).toContain("0.26×");
+      expect(html).toContain("0,26×");
     });
 
     it("GIVEN los chips de categoría Masculino y Femenino, THEN presentan contraste de color ≥ 4.5:1 en temas claro y oscuro sin recurrir a tonalidades pastel inaccesibles", () => {
