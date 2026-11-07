@@ -984,7 +984,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/studio/rutinas"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <Dumbbell className="h-4 w-4 text-muted-foreground" />
                 <span>Rutinas</span>
@@ -992,7 +992,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/studio/ranking-funcional"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <Trophy className="h-4 w-4 text-muted-foreground" />
                 <span>Ranking</span>
@@ -1007,7 +1007,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/studio/cobros"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span>Cobros</span>
@@ -1015,7 +1015,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/studio/dashboard"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <span>Métricas</span>
@@ -1023,7 +1023,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/studio/documentacion"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span>Documentación</span>

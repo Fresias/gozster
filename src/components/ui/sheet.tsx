@@ -209,11 +209,11 @@ export const SheetContent = React.forwardRef<
       onCancel={handleCancel}
       onKeyDown={handleKeyDown}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 bg-black/60 p-0 backdrop-blur-sm"
+      className="fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none border-0 bg-black/60 p-0 backdrop-blur-sm text-foreground"
     >
       <div
         className={cn(
-          "fixed z-50 bg-background p-6 transition ease-in-out border-border overflow-y-auto flex flex-col justify-between",
+          "fixed z-50 bg-background text-foreground p-6 transition ease-in-out border-border overflow-y-auto flex flex-col justify-between",
           sideClasses[side],
           className,
         )}
