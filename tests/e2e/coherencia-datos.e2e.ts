@@ -305,8 +305,8 @@ async function expandirDirectorioSiCerrado(page: Page) {
 async function irACobrosEsperandoHidratacion(page: Page) {
   await page.goto("/studio/cobros");
   await expect(page.getByTestId("cobros-kpis")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId("filtro-pendientes-btn")).toContainText("(3)");
-  await expect(page.getByTestId("filtro-vencidos-btn")).toContainText("(6)");
+  await expect(page.getByTestId("filtro-pendientes-btn")).toHaveText(/Por vencer\s*3$/);
+  await expect(page.getByTestId("filtro-vencidos-btn")).toHaveText(/Vencidos\s*6$/);
 }
 
 test.describe("GOZS-377: Coherencia Cruzada de KPIs y Estados de Dolor (C1 a C9)", () => {
@@ -365,7 +365,7 @@ test.describe("GOZS-377: Coherencia Cruzada de KPIs y Estados de Dolor (C1 a C9)
       .getByRole("button", { name: /Al día \(\d+\)/i });
     await expect(btnAlDiaDirectorio).toBeVisible();
     const textoDirectorio = await btnAlDiaDirectorio.innerText();
-    const alDiaDirectorio = Number(textoDirectorio.match(/\((\d+)\)/)?.[1] ?? "NaN");
+    const alDiaDirectorio = Number(textoDirectorio.match(/(\d+)\s*$/)?.[1] ?? "NaN");
 
     // 3. Cobros (/studio/cobros): texto "<N> alumnos al día" en cobros-kpis
     await irACobrosEsperandoHidratacion(page);
@@ -439,9 +439,9 @@ test.describe("GOZS-377: Coherencia Cruzada de KPIs y Estados de Dolor (C1 a C9)
     await irACobrosEsperandoHidratacion(page);
 
     const leerPagados = async () =>
-      Number((await page.getByTestId("filtro-pagados-btn").innerText()).match(/\((\d+)\)/)?.[1]);
+      Number((await page.getByTestId("filtro-pagados-btn").innerText()).match(/(\d+)\s*$/)?.[1]);
     const leerPendientes = async () =>
-      Number((await page.getByTestId("filtro-pendientes-btn").innerText()).match(/\((\d+)\)/)?.[1]);
+      Number((await page.getByTestId("filtro-pendientes-btn").innerText()).match(/(\d+)\s*$/)?.[1]);
 
     const cobradoAntes = parsearMontoArs(await page.getByTestId("kpi-ingresos-mes").innerText());
     const porCobrarAntes = parsearMontoArs(

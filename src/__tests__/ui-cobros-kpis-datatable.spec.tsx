@@ -73,7 +73,7 @@ describe("GOZS-384: Coach Studio - Vista de Cobros (KPIs Superiores y DataTable 
 
       // 3. Vencido
       expect(html).toContain('data-testid="kpi-alumnos-morosos"');
-      expect(html).toContain(`($${metricas.cobranzaVencida.toLocaleString("es-AR")})`);
+      expect(html).toContain(`$${metricas.cobranzaVencida.toLocaleString("es-AR")}`);
 
       // 4. Tasa de cobro
       expect(html).toContain('data-testid="kpi-tasa-cobranza"');
@@ -115,7 +115,7 @@ describe("GOZS-384: Coach Studio - Vista de Cobros (KPIs Superiores y DataTable 
       expect(html).toContain('data-testid="cobros-kpis"');
       expect(html).toContain("$800.000");
       expect(html).toContain("$75.000");
-      expect(html).toContain("($120.000)");
+      expect(html).toContain("$120.000");
       expect(html).toContain("80%");
       expect(html).toContain("32 alumnos al día");
     });

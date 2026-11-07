@@ -130,7 +130,7 @@ describe("GOZS-398: Coach Studio - Sheet Lateral de Registro de Pago y Actualiza
       // 4. Renderizado reactivo en CobrosPanel
       const html = renderToStaticMarkup(<CobrosPanel />);
       expect(html).toContain(`$${metricasDespues.ingresosMes.toLocaleString("es-AR")}`);
-      expect(html).toContain(`($${metricasDespues.cobranzaVencida.toLocaleString("es-AR")})`);
+      expect(html).toContain(`$${metricasDespues.cobranzaVencida.toLocaleString("es-AR")}`);
       expect(html).toContain(`${metricasDespues.alumnosAlDia} alumnos al día`);
     });
   });
