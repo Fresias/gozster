@@ -261,6 +261,26 @@ export function CoachStudioView({
       }
     }
   }, []);
+
+  React.useEffect(() => {
+    const handleExpandAndScroll = () => {
+      setIsAlumnosExpanded(true);
+      setTimeout(() => {
+        const el = document.getElementById("alumnos-directory");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 50);
+    };
+
+    if (typeof window !== "undefined") {
+      if (window.location.hash === "#alumnos-directory") {
+        handleExpandAndScroll();
+      }
+      window.addEventListener("gozster:expand-alumnos-directory", handleExpandAndScroll);
+      return () => window.removeEventListener("gozster:expand-alumnos-directory", handleExpandAndScroll);
+    }
+  }, []);
   const [filterQuery, setFilterQuery] = React.useState("");
 
   // Sincronización bidireccional del filtro activo con la URL mediante querystring ?estado=... (GOZS-394)
@@ -1122,7 +1142,10 @@ export function CoachStudioView({
           openMenuAlumnoIdProp === alumno.id || openMenuAlumnoIdProp === "all";
 
         return (
-          <div className="flex items-center justify-center gap-2">
+          <div
+            className="flex items-center justify-center gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <DropdownMenu
               open={isMenuControlledOpen ? true : undefined}
             >
@@ -1389,6 +1412,7 @@ export function CoachStudioView({
           {/* Directorio de Atletas */}
           <div className="w-full">
           <section
+            id="alumnos-directory"
             aria-labelledby="dir-t"
             className="rounded-xl border border-border bg-card overflow-hidden"
             data-testid="alumnos-directory"
@@ -1638,10 +1662,11 @@ export function CoachStudioView({
                   data={filteredAlumnos}
                   pageSize={15}
                   showPagination={true}
+                  onRowClick={(alumno) => selectAlumno(alumno.id)}
                   containerClassName="border-0 shadow-none rounded-none"
                   tableClassName="min-w-[700px] border-collapse"
                   headerRowClassName="border-b border-border text-[13px] font-medium text-muted-foreground"
-                  rowClassName="hover:bg-muted/40 transition-colors group"
+                  rowClassName="hover:bg-muted/40 transition-colors group cursor-pointer"
                   emptyTitle="Sin alumnos encontrados"
                   emptyDescription="No hay alumnos con los filtros seleccionados."
                 />
