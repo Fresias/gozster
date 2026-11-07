@@ -488,34 +488,43 @@ export function RutinasLibrary({
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 {/* Selectores de pestañas */}
-                <TabsList className="w-full sm:w-auto self-start" data-testid="rutinas-sub-tabs">
-                  <TabsTrigger
-                    value="alumnos"
-                    data-testid="tab-de-alumnos"
-                    aria-label="De alumnos"
+                <div className="w-full sm:w-auto overflow-x-auto touch-pan-x overscroll-x-contain py-0.5">
+                  <TabsList
+                    className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-auto items-center justify-start p-1 rounded-lg bg-secondary/60 text-muted-foreground"
+                    data-testid="rutinas-sub-tabs"
                   >
-                    De alumnos <span className="text-subtle-foreground tabular-nums">{vigentesFiltradas.length}</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="plantillas"
-                    data-testid="tab-plantillas-maestras"
-                    aria-label="Plantillas maestras"
-                  >
-                    Plantillas <span className="text-subtle-foreground tabular-nums">{plantillasFiltradas.length}</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="borradores"
-                    data-testid="tab-borradores"
-                  >
-                    Borradores <span className="text-subtle-foreground tabular-nums">{borradoresFiltrados.length}</span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="archivadas"
-                    data-testid="tab-archivadas"
-                  >
-                    Archivadas <span className="text-subtle-foreground tabular-nums">{archivadasFiltradas.length}</span>
-                  </TabsTrigger>
-                </TabsList>
+                    <TabsTrigger
+                      value="alumnos"
+                      data-testid="tab-de-alumnos"
+                      aria-label="De alumnos"
+                      className="h-7 px-3 text-[13px] font-medium shrink-0"
+                    >
+                      De alumnos <span className="text-subtle-foreground tabular-nums">{vigentesFiltradas.length}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="plantillas"
+                      data-testid="tab-plantillas-maestras"
+                      aria-label="Plantillas maestras"
+                      className="h-7 px-3 text-[13px] font-medium shrink-0"
+                    >
+                      Plantillas <span className="text-subtle-foreground tabular-nums">{plantillasFiltradas.length}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="borradores"
+                      data-testid="tab-borradores"
+                      className="h-7 px-3 text-[13px] font-medium shrink-0"
+                    >
+                      Borradores <span className="text-subtle-foreground tabular-nums">{borradoresFiltrados.length}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="archivadas"
+                      data-testid="tab-archivadas"
+                      className="h-7 px-3 text-[13px] font-medium shrink-0"
+                    >
+                      Archivadas <span className="text-subtle-foreground tabular-nums">{archivadasFiltradas.length}</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
                 {/* Filtros: Búsqueda y Chips de Objetivos */}
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
