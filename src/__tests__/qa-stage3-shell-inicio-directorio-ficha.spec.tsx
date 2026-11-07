@@ -265,7 +265,12 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
     });
 
     it("GIVEN el bloque 'Clases de hoy' THEN visualiza cupos de clases y atajos de contacto para atletas en riesgo", () => {
-      const html = renderToStaticMarkup(<ClasesHoyAtajosChat onOpenChat={vi.fn()} />);
+      const html = renderToStaticMarkup(
+        <ClasesHoyAtajosChat
+          fechaReferencia="2026-11-02T12:00:00-03:00"
+          onOpenChat={vi.fn()}
+        />
+      );
 
       expect(html).toContain('data-testid="clases-hoy-container"');
       expect(html).toContain('data-testid="clase-hoy-card"');

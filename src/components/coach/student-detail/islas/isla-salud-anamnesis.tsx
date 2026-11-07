@@ -274,7 +274,7 @@ export function IslaSaludAnamnesis({
         const cbRes = await onEstadoChange(nextVal);
         if (cbRes === false) {
           success = false;
-          errMessage = "No se pudo guardar. Reintentá.";
+          errMessage = "Error de red al actualizar estado";
         }
       }
 
