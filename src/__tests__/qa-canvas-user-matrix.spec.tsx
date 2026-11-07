@@ -352,8 +352,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
       expect(html).toContain("Personalizar");
     });
 
-    it("4.2 El botón 'Configurar Islas' exhibe el contador de visibilidad 6/6 por defecto", () => {
-      const html = renderDefaultStudentDetail();
+    it("4.2 La opción 'Configurar islas' del menú ⋯ exhibe el contador de visibilidad 6/6 por defecto", () => {
+      const html = renderDefaultStudentDetail({ headerMenuOpen: true });
 
       expect(html).toContain('data-testid="btn-configurar-islas"');
       expect(html).toContain("6/6");
@@ -452,7 +452,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
 
       expect(html).toContain("Pendiente");
       expect(html).toContain("Atendido");
-      expect(html).toContain("Reporte de Molestia en Ejercicio");
+      // P07: título del Alert "Dolor {nivel} · {zona} · EVA {n}"
+      expect(html).toMatch(/Dolor leve · hombro derecho · EVA (<!-- -->)?3/);
     });
 
     it("6.2 La bitácora del entrenador expone auto-guardado en la ficha y botón de confirmación", () => {
@@ -465,12 +466,12 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         />
       );
 
-      expect(html).toContain("Bitácora de Intervención del Entrenador");
+      expect(html).toContain("bitácora de intervención del entrenador");
       expect(html).toContain("Nota de intervención");
       expect(html).toContain("Se guarda al salir del campo.");
     });
 
-    it("6.3 La anamnesis inicial expone acceso a los 4 datos clínicos clave de Lucas", () => {
+    it("6.3 La anamnesis inicial expone los 4 datos clínicos clave sin inventarlos cuando faltan", () => {
       const html = renderToStaticMarkup(
         <IslaSaludAnamnesis
           isCollapsed={false}
@@ -478,10 +479,12 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         />
       );
 
-      expect(html).toContain("Hipertrofia &amp; Fuerza");
-      expect(html).toContain("4 días / semana");
-      expect(html).toContain("Hombro anterior");
-      expect(html).toContain("Ninguna");
+      expect(html).toContain("Objetivo");
+      expect(html).toContain("Frecuencia");
+      expect(html).toContain("Molestia previa");
+      expect(html).toContain("Cirugías");
+      expect(html).not.toContain("Hipertrofia &amp; Fuerza");
+      expect(html).not.toContain("4 días / semana");
     });
   });
 
@@ -514,17 +517,19 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
   // 8. CABECERA ZEN Y GRUPOS COMPACTOS
   // =========================================================================
   describe("8. Cabecera Zen y Clústeres de Acción Sintéticos", () => {
-    it("8.1 Expone el Grupo de Comunicación compacto con Enviar Mensaje y WhatsApp directo", () => {
-      const html = renderDefaultStudentDetail();
+    it("8.1 Expone 'Enviar mensaje' como acción primaria y WhatsApp dentro del menú ⋯", () => {
+      const html = renderDefaultStudentDetail({ headerMenuOpen: true });
 
       expect(html).toContain('data-testid="enviar-mensaje-btn"');
       expect(html).toContain('data-testid="whatsapp-direct-btn"');
-      expect(html).toContain("💬 Enviar mensaje");
-      expect(html).toContain("📱 WhatsApp");
+      expect(html).toContain("Enviar mensaje");
+      expect(html).toContain("Escribir por WhatsApp");
+      expect(html).not.toContain("💬");
+      expect(html).not.toContain("📱");
     });
 
-    it("8.2 Expone el Grupo de Personalización Zen con Modo Canvas y Configurar Islas", () => {
-      const html = renderDefaultStudentDetail();
+    it("8.2 Expone Personalizar como botón de ícono y Configurar islas en el menú ⋯", () => {
+      const html = renderDefaultStudentDetail({ headerMenuOpen: true });
 
       expect(html).toContain('data-testid="btn-modo-canvas"');
       expect(html).toContain('data-testid="btn-configurar-islas"');
@@ -534,7 +539,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
       const html = renderDefaultStudentDetail();
 
       expect(html).toContain("Lucas Giménez");
-      expect(html).toContain("Salud:");
+      // Objetivo Ficha.html: estado en badges con texto, sin puntaje de salud en la cabecera
+      expect(html).not.toContain("Salud:");
       expect(html).toContain("Al día");
     });
   });

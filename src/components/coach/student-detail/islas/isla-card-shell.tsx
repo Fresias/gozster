@@ -142,7 +142,7 @@ export function IslaCardShell({
           )}
 
           {/* Título en sentence case + meta 13 px (sin ícono delante del título) */}
-          <div className="flex items-baseline gap-2 min-w-0 truncate">
+          <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
             <h3 className="text-[15px] leading-[20px] font-semibold text-foreground truncate">
               {title}
             </h3>
@@ -151,12 +151,12 @@ export function IslaCardShell({
                 {meta}
               </span>
             )}
+            {badge && <div className="shrink-0 self-center">{badge}</div>}
           </div>
         </div>
 
         {/* Acciones del Cabezal: Badge + Resize en Personalizar + Chevron a la derecha */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {badge && <div className="shrink-0">{badge}</div>}
 
           {isCanvasMode && isSharedRow && onResizeWidth && (
             <div className="flex items-center gap-0.5 rounded-md border border-border bg-background px-1 py-0.5">

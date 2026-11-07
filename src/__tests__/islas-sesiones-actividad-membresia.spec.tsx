@@ -77,7 +77,7 @@ describe("[GOZS-397]: Coach Studio: Ficha de Alumno - Islas de Sesiones, Activid
       // Verificación de accesibilidad del badge y ejercicio correspondiente
       expect(html).toContain('aria-label="Nuevo PR: Sentadilla Trasera"');
       expect(html).toContain("Sentadilla");
-      expect(html).toContain("105kg");
+      expect(html).toContain("105 kg");
     });
 
     it("exhibe tira horizontal compacta con fecha, duración y volumen relativo en toneladas", () => {
@@ -89,10 +89,9 @@ describe("[GOZS-397]: Coach Studio: Ficha de Alumno - Islas de Sesiones, Activid
         />
       );
 
-      // Duración y volumen relativo (4.1t)
-      expect(html).toContain("50m");
-      expect(html).toContain("4.1t");
-      expect(html).toContain("2 sesiones");
+      // Objetivo Ficha.html: "{n} en total · {x} por semana"; la duración queda en el title de la tarjeta
+      expect(html).toContain("50 min");
+      expect(html).toContain("2 en total");
     });
   });
 
@@ -107,6 +106,10 @@ describe("[GOZS-397]: Coach Studio: Ficha de Alumno - Islas de Sesiones, Activid
           onToggleCollapse={vi.fn()}
           isRailCollapsed={false}
           onToggleRail={vi.fn()}
+          items={[
+            { id: "e1", tipo: "sesion", titulo: "Sesión registrada", detalle: "Sentadilla 120 kg × 3", fechaGrupo: "HOY", horaOFecha: "Hoy 10:30" },
+            { id: "e2", tipo: "molestia", titulo: "Reportó dolor", detalle: "Hombro · EVA 5", fechaGrupo: "ESTA SEMANA", horaOFecha: "Dom" },
+          ]}
         />
       );
 
@@ -114,13 +117,11 @@ describe("[GOZS-397]: Coach Studio: Ficha de Alumno - Islas de Sesiones, Activid
       expect(html).toContain('data-testid="activity-feed-date-group"');
       expect(html).toContain('data-testid="activity-feed-event-item"');
 
-      // Verificación de iconos semánticos con roles y etiquetas accesibles
-      expect(html).toContain('role="img"');
-      expect(html).toContain('aria-label="Sesión completada"');
-      expect(html).toContain('aria-label="Mensaje enviado"');
-      expect(html).toContain('aria-label="Pago confirmado"');
-      expect(html).toContain('aria-label="Cambio de rutina"');
-      expect(html).toContain('aria-label="Alerta de dolor"');
+      // Objetivo Ficha.html: el tipo se lee en el título (texto), el punto de color es decorativo
+      expect(html).toContain("Sesión registrada");
+      expect(html).toContain("Reportó dolor");
+      expect(html).toContain("Hoy 10:30");
+      expect(html).toContain('aria-hidden="true"');
 
       // Título limpio shadcn sin jerga
       expect(html).toContain("Actividad");
@@ -208,7 +209,7 @@ describe("[GOZS-397]: Coach Studio: Ficha de Alumno - Islas de Sesiones, Activid
       expect(html).toContain('data-testid="btn-registrar-pago"');
       expect(html).toContain("Registrar pago");
       expect(html).toContain('data-testid="btn-historial-pagos"');
-      expect(html).toContain("Historial de pagos");
+      expect(html).toContain(">Historial<");
     });
 
     it("refleja estado 'Vencido' coherentemente cuando la cuota está en mora", () => {

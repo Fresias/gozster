@@ -180,8 +180,8 @@ describe("GOZS-373: Coach Studio — Sincronización de Planes y Días en Ficha 
       expect(html).toContain("Día 4: Pierna Volumen &amp; Isquios");
 
       // 3. Los ejercicios configurados deben aparecer
+      // (solo se renderizan los ejercicios del día seleccionado; sin series no se inventan cargas)
       expect(html).toContain("Press de Banca Plano");
-      expect(html).toContain("Sentadilla Trasera");
 
       // 4. Prohibido mostrar 'Sin días configurados en este plan' o 'Sin días cargados'
       expect(html).not.toContain("Sin días configurados en este plan");

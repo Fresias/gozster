@@ -47,7 +47,7 @@ describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y d
 
       const alertSalud = getByTestId("alert-salud");
       expect(alertSalud.textContent).toContain("Moderado");
-      expect(alertSalud.textContent).toContain("Cadera izquierda");
+      expect(alertSalud.textContent?.toLowerCase()).toContain("cadera izquierda");
       expect(alertSalud.textContent).toContain("EVA 5");
       expect(alertSalud.textContent).toContain("Pendiente");
       expect(alertSalud.textContent).toContain("Zancadas caminando con mancuernas, serie 3");
@@ -82,9 +82,9 @@ describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y d
 
       const alertSalud = getByTestId("alert-salud");
       expect(alertSalud.textContent).toContain("Agudo");
-      expect(alertSalud.textContent).toContain("Rodilla derecha");
+      expect(alertSalud.textContent?.toLowerCase()).toContain("rodilla derecha");
       expect(alertSalud.textContent).toContain("EVA 8");
-      expect(alertSalud.innerHTML).toContain("border-destructive");
+      expect(alertSalud.className).toContain("border-rose-500/35");
     });
 
     it("GIVEN EVA = 2 (Dolor Leve), THEN el Alert exhibe badge 'Leve' sin clase destructiva", () => {
@@ -108,7 +108,7 @@ describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y d
 
       const alertSalud = getByTestId("alert-salud");
       expect(alertSalud.textContent).toContain("Leve");
-      expect(alertSalud.textContent).toContain("Muñeca izquierda");
+      expect(alertSalud.textContent?.toLowerCase()).toContain("muñeca izquierda");
       expect(alertSalud.textContent).toContain("EVA 2");
       expect(alertSalud.className).not.toContain("border-destructive");
     });

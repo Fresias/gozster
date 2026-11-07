@@ -63,8 +63,8 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
       expect(html).toContain('data-testid="student-detail-grid-columns"');
       expect(html).toContain("min-[960px]:grid-cols-12");
 
-      // Contención de altura y eliminación de scroll horizontal
-      expect(html).toContain("max-height:2300px");
+      // Sin scroll horizontal; ya no hay max-height fijo (recortaba islas y forzaba columnas implícitas)
+      expect(html).not.toContain("max-height:2300px");
       expect(html).toContain("overflow-x-hidden");
 
       // Columna izquierda (8 cols): Rutina y Fuerza
@@ -176,7 +176,8 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
 
       expect(html).toContain("Personalizar");
       expect(html).toContain('data-testid="btn-modo-canvas"');
-      expect(html).toContain('title="Personalizar layout (Modo Canvas)"');
+      expect(html).toContain('title="Personalizar"');
+      expect(html).toContain('aria-label="Personalizar el orden de las islas"');
     });
 
     it("GIVEN el modo 'Personalizar' desactivado THEN fuera de Personalizar no se renderiza asa ⠿, flechas visibles ni ícono delante del título", () => {

@@ -102,12 +102,12 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       // Canvas contenedor presente
       expect(html).toContain('data-testid="student-detail-modular-canvas"');
       expect(html).toContain('data-testid="btn-modo-canvas"');
-      expect(html).toContain("Modo Canvas");
+      expect(html).toContain('aria-label="Personalizar el orden de las islas"');
 
       // Upper Timeline Ribbon presente con sus nodos cronológicos
       expect(html).toContain('data-testid="isla-timeline-ribbon"');
       expect(html).toContain('data-testid="ribbon-node"');
-      expect(html).toContain("Sesiones");
+      expect(html).toContain("Últimas sesiones");
     });
 
     it("la arquitectura desacoplada exporta las islas autónomas desde src/components/coach/student-detail/islas", () => {
@@ -171,6 +171,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           onToggleCollapse={vi.fn()}
           isRailCollapsed={false}
           onToggleRail={vi.fn()}
+          items={[{ id: "e1", tipo: "sesion", titulo: "Sesión registrada", detalle: "Sentadilla 120 kg × 3", fechaGrupo: "HOY", horaOFecha: "Hoy 10:30" }]}
         />
       );
       expect(htmlExpanded).toContain('data-testid="isla-activity-feed"');
@@ -258,9 +259,9 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="isla-metricas-1rm"');
       expect(html).toContain('data-testid="metricas-1rm-epley"');
       expect(html).toContain('data-testid="metricas-1rm-brzycki"');
-      expect(html).toContain('data-testid="sparkline-tonelaje"');
+      expect(html).not.toContain('data-testid="sparkline-tonelaje"');
       expect(html).toContain('data-testid="evolucion-peso-corporal"');
-      expect(html).toContain("79.5 kg");
+      expect(html).toContain("79,5 kg");
     });
   });
 
@@ -337,11 +338,10 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
         />
       );
 
-      // data-testid conservado para compatibilidad
-      expect(html).toContain('data-testid="sparkline-tonelaje"');
-      // Progresión por ejercicio presente
-      expect(html).toContain("Progresión Real de Cargas");
-      expect(html).toContain("Sobrecarga");
+      // Sin sparkline de tonelaje; la progresión por ejercicio vive en "Fuerza y progreso"
+      expect(html).not.toContain('data-testid="sparkline-tonelaje"');
+      expect(html).toContain("Fuerza y progreso");
+      expect(html).toContain("en progresión");
       expect(html).not.toContain("Sparkline de Tonelaje Mensual");
     });
 
@@ -356,7 +356,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
 
       expect(html).toContain('data-testid="ribbon-node"');
       expect(html).toContain("Sentadilla");
-      expect(html).toContain("110kg");
+      expect(html).toContain("110 kg");
     });
   });
 
@@ -371,9 +371,9 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
         />
       );
 
-      expect(html).toContain("Ficha de Anamnesis &amp; Cuestionario Inicial");
-      expect(html).toContain("Reporte de Molestia en Ejercicio");
-      expect(html).toContain("Bitácora de Intervención del Entrenador");
+      expect(html).toContain('data-testid="anamnesis-summary-collapsible"');
+      expect(html).toMatch(/Dolor leve · hombro derecho · EVA (<!-- -->)?3/);
+      expect(html).toContain("bitácora de intervención del entrenador");
       expect(html).toContain("Se guarda al salir del campo.");
     });
   });
@@ -396,13 +396,14 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
           onExtenderVigencia={vi.fn().mockResolvedValue(null)}
           isOffline={false}
+          headerMenuOpen
         />
       );
 
       expect(html).toContain('data-testid="btn-configurar-islas"');
-      expect(html).toContain("Configurar Islas");
+      expect(html).toContain("Configurar islas");
       expect(html).toContain('data-testid="collapse-btn-timeline"');
-      expect(html).toContain('aria-label="Colapsar isla Sesiones"');
+      expect(html).toContain('aria-label="Colapsar isla Últimas sesiones"');
     });
   });
 
@@ -442,9 +443,9 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(source).toContain("moveIslandLeft");
       expect(source).toContain("moveIslandRight");
 
-      // Verificación del CSS Grid con fractional units para resize adaptable
-      expect(source).toContain("minmax(0,");
-      expect(source).toContain("gridTemplateColumns");
+      // Grilla de 12 columnas: izquierda 8 / derecha 4 (sin plantilla inline que forzara columnas implícitas)
+      expect(source).toContain("min-[960px]:grid-cols-12");
+      expect(source).not.toContain('gridTemplateColumns: isLgScreen');
     });
 
     it("IslaCardShell en modo Personalizar incluye controles de resize horizontal (-, +, ⤢) y asa grip-vertical sin flechas visibles", async () => {

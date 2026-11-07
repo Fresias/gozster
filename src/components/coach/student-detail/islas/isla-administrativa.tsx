@@ -140,7 +140,7 @@ export function IslaAdministrativa({
         <Badge
           variant="outline"
           data-testid="badge-estado-cobro"
-          className={`text-[10px] font-bold ${estadoBadge.className}`}
+          className={estadoBadge.className}
         >
           {estadoBadge.texto}
         </Badge>
@@ -173,22 +173,19 @@ export function IslaAdministrativa({
         </div>
       }
     >
-      <div className="p-4 sm:p-5 space-y-4">
-        {/* Bloque principal de Membresía según PDF Página 5 */}
-        <div
-          data-testid="isla-membresia-resumen"
-          className="rounded-xl border border-border/70 bg-secondary/15 p-3.5 sm:p-4 space-y-3"
-        >
+      <div className="p-4 space-y-4">
+        {/* Resumen de membresía (objetivo Ficha.html): plan y monto, detalle del último pago, acciones */}
+        <div data-testid="isla-membresia-resumen" className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
               <p
-                className="text-xs font-bold text-foreground"
+                className="m-0 text-sm font-medium text-foreground"
                 data-testid="membresia-plan-activo"
               >
                 {displayPlanActivo}
               </p>
               <p
-                className="text-[11px] text-muted-foreground"
+                className="m-0 text-[13px] text-neutral-soft-foreground"
                 data-testid="membresia-vencimiento-estado"
               >
                 {displayDetalleCobro}
@@ -196,7 +193,7 @@ export function IslaAdministrativa({
             </div>
             {displayMonto && (
               <span
-                className="text-sm font-black text-foreground tabular-nums shrink-0"
+                className="font-mono text-sm text-foreground tabular-nums shrink-0"
                 data-testid="membresia-monto"
               >
                 {displayMonto}
@@ -204,16 +201,16 @@ export function IslaAdministrativa({
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 pt-1">
+          <div className="grid grid-cols-2 items-center gap-2.5">
             <Button
               type="button"
+              variant="outline"
               size="sm"
               onClick={onRegistrarPago}
               data-testid="btn-registrar-pago"
-              className="h-8 text-xs font-semibold px-3 gap-1.5 shadow-xs"
+              className="h-9 text-sm font-medium"
             >
-              <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Registrar pago</span>
+              Registrar pago
             </Button>
             <button
               type="button"
@@ -222,15 +219,19 @@ export function IslaAdministrativa({
                 setActiveTab("pagos");
               }}
               data-testid="btn-historial-pagos"
-              className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-2 py-1 rounded hover:bg-secondary/40"
+              className="text-[13px] text-foreground underline underline-offset-2 hover:text-muted-foreground cursor-pointer"
             >
-              Historial de pagos
+              Historial
             </button>
           </div>
         </div>
 
-        {/* Navegación interna por tabs estilo Zen (sobria, sin saturación) */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 pb-2.5">
+        {/* Gestión ampliada (contratación, staff y nivel de vista) fuera de la vista principal */}
+        <details className="group border-t border-border pt-3">
+          <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer text-[13px] text-neutral-soft-foreground hover:text-foreground">
+            Más gestión de la membresía
+          </summary>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-b border-border pb-2.5">
           <button
             type="button"
             onClick={() => setActiveTab("pagos")}
@@ -306,6 +307,7 @@ export function IslaAdministrativa({
           {nivelVistaNode}
           {cuestionarioNode}
         </div>
+        </details>
       </div>
     </IslaCardShell>
   );

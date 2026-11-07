@@ -124,7 +124,7 @@ test.describe("GOZS-390: Auditoría E2E Desktop (1440px) - Shell, Inicio, Direct
     await expect(studentHeader).toContainText("Lucas Giménez");
 
     // Volver a inicio
-    await page.getByRole("button", { name: /← Volver/i }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Alumnos" }).click();
     await expect(page.getByTestId("alumnos-directory")).toBeVisible({ timeout: 15_000 });
 
     // D. Ausencia de scroll horizontal y ruido técnico
@@ -276,7 +276,7 @@ test.describe("GOZS-390: Auditoría E2E Desktop (1440px) - Shell, Inicio, Direct
     expect(className).toContain("bg-primary");
 
     // C. Acciones secundarias en outline
-    await expect(page.getByRole("button", { name: /← Volver/i })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Alumnos" })).toBeVisible();
     await expect(page.getByTestId("btn-asignar-rutina")).toBeVisible();
 
     // D. Menú ⋯ desplegable con acciones accesibles
@@ -293,7 +293,7 @@ test.describe("GOZS-390: Auditoría E2E Desktop (1440px) - Shell, Inicio, Direct
     await expect(canvas).toBeVisible();
 
     // F. Botón '← Volver' regresa limpiamente al directorio
-    await page.getByRole("button", { name: /← Volver/i }).click();
+    await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("button", { name: "Alumnos" }).click();
     await expect(directorio).toBeVisible({ timeout: 15_000 });
 
     // G. Ausencia de scroll horizontal y ruido técnico

@@ -215,8 +215,6 @@ export function IslaMetricas1RM({
       }
     }
 
-    if (bestEpley === 0) bestEpley = 142.5;
-    if (bestBrzycki === 0) bestBrzycki = 138.8;
 
     return {
       maxEpley: Math.round(bestEpley * 10) / 10,
@@ -254,7 +252,7 @@ export function IslaMetricas1RM({
         )
       : [];
 
-    const list: ProgresionEjercicio[] = targetNames.map((target) => {
+    const list: Array<ProgresionEjercicio | null> = targetNames.map((target) => {
       const seriesList: { fecha: string; peso_kg: number; reps_hechas: number }[] = [];
       ascEntries.forEach((entry) => {
         if (Array.isArray(entry.series)) {
@@ -274,31 +272,7 @@ export function IslaMetricas1RM({
         }
       });
 
-      if (seriesList.length === 0) {
-        const defaults: Record<string, any> = {
-          "Press de Banca Plano": { inicio: 80, actual: 95, repsI: 8, repsA: 4 },
-          "Sentadilla Trasera": { inicio: 100, actual: 120, repsI: 8, repsA: 3 },
-          "Peso Muerto Convencional": { inicio: 90, actual: 115, repsI: 8, repsA: 3 },
-          "Press Militar de Pie": { inicio: 50, actual: 60, repsI: 8, repsA: 5 },
-        };
-        const def = defaults[target] || { inicio: 60, actual: 75, repsI: 8, repsA: 5 };
-        const ganancia = def.actual - def.inicio;
-        const progreso = Math.round((ganancia / def.inicio) * 100);
-        return {
-          nombre: target.replace(" Convencional", "").replace(" de Pie", ""),
-          ejercicioNombre: target,
-          inicioKg: def.inicio,
-          inicioReps: def.repsI,
-          inicio1RM: estimar1RM(def.inicio, def.repsI, "epley"),
-          actualKg: def.actual,
-          actualReps: def.repsA,
-          actual1RM: estimar1RM(def.actual, def.repsA, "epley"),
-          gananciaKg: ganancia,
-          cambioPct: progreso,
-          tendencia: ganancia > 0 ? "sube" : ganancia < 0 ? "baja" : "mantiene",
-          enProgresion: ganancia > 0,
-        };
-      }
+      if (seriesList.length === 0) return null;
 
       const primera = seriesList[0]!;
       const ultima = seriesList[seriesList.length - 1]!;
@@ -324,88 +298,62 @@ export function IslaMetricas1RM({
       };
     });
 
-    const enProg = list.filter((e) => e.enProgresion).length;
+    const conDatos = list.filter((e): e is ProgresionEjercicio => e !== null);
+    const enProg = conDatos.filter((e) => e.enProgresion).length;
     return {
-      ejerciciosClave: list,
+      ejerciciosClave: conDatos,
       enProgresion: enProg,
-      total: list.length,
+      total: conDatos.length,
     };
   }, [historialCargas]);
 
-  // 3. Historial de peso corporal y cargas recientes para sparklines
-  const pesos = React.useMemo(() => {
-    if (pesoHistorial && pesoHistorial.length > 0) return pesoHistorial;
-    return [
-      { fecha: "Jul 26", peso: 82.0 },
-      { fecha: "Ago 26", peso: 80.5 },
-      { fecha: "Sep 26", peso: 79.2 },
-      { fecha: "Oct 26", peso: pesoCorporalActual || 78.5 },
-    ];
-  }, [pesoHistorial, pesoCorporalActual]);
+  const esAdvertenciaProgresion = total > 0 && enProgresion < total;
+  const hay1RM = maxEpley > 0;
+  const fmtKg = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",")} kg`;
 
-  const cargasRecientesFinal = React.useMemo(() => {
-    if (cargasRecientes && cargasRecientes.length > 0) return cargasRecientes;
-
-    const list: Array<{ fecha: string; carga: number }> = [];
-    if (Array.isArray(historialCargas) && historialCargas.length > 0) {
-      const sorted = [...historialCargas].sort((a, b) => {
-        const tA = new Date(a.sesion?.fecha || (a as any).fecha || 0).getTime();
-        const tB = new Date(b.sesion?.fecha || (b as any).fecha || 0).getTime();
-        return tA - tB;
-      });
-
-      for (const item of sorted) {
-        const fechaRaw = item.sesion?.fecha || (item as any).fecha;
-        const fechaLabel = fechaRaw
-          ? new Date(fechaRaw).toLocaleDateString("es-AR", {
-              day: "2-digit",
-              month: "short",
-            })
-          : "Sesión";
-        let maxKg = 0;
-        if (Array.isArray(item.series)) {
-          for (const s of item.series) {
-            const peso = s.peso_kg ?? (s as any).peso ?? 0;
-            if (peso > maxKg) maxKg = peso;
-          }
-        } else if ((item as any).peso_kg) {
-          maxKg = (item as any).peso_kg;
-        }
-        if (maxKg > 0) {
-          list.push({ fecha: fechaLabel, carga: maxKg });
+  // 1RM Epley por sesión del ejercicio mostrado (últimas 8 sesiones, P04)
+  const serie1RM = React.useMemo(() => {
+    if (!Array.isArray(historialCargas) || !hay1RM) return [] as number[];
+    const asc = [...historialCargas].sort(
+      (a, b) =>
+        new Date(a.sesion?.fecha || (a as any).fecha || 0).getTime() -
+        new Date(b.sesion?.fecha || (b as any).fecha || 0).getTime()
+    );
+    const out: number[] = [];
+    for (const entry of asc) {
+      if (!Array.isArray(entry.series)) continue;
+      let best = 0;
+      for (const s of entry.series) {
+        const nombre = s.ejercicioNombre || (s as any).ejercicio_nombre || "";
+        const reps = s.reps_hechas ?? 0;
+        if (nombre === ejercicioLider && s.peso_kg > 0 && reps >= 1 && reps <= 12) {
+          best = Math.max(best, estimar1RM(s.peso_kg, reps, "epley"));
         }
       }
+      if (best > 0) out.push(Math.round(best * 10) / 10);
     }
-
-    if (list.length >= 2) {
-      return list.slice(-4);
-    }
-
-    return [
-      { fecha: "Micro 1", carga: 95 },
-      { fecha: "Micro 2", carga: 100 },
-      { fecha: "Micro 3", carga: 107.5 },
-      { fecha: "Micro 4", carga: 115 },
-    ];
-  }, [cargasRecientes, historialCargas]);
-
-  const esAdvertenciaProgresion = total > 0 && enProgresion < total;
+    return out.slice(-8);
+  }, [historialCargas, ejercicioLider, hay1RM]);
 
   return (
     <TooltipProvider>
       <IslaCardShell
         id="metricas_1rm"
         dataTestId="isla-metricas-1rm"
-        title="Telemetría de Fuerza & Sobrecarga"
+        title="Fuerza y progreso"
         icon={<TrendingUp className="h-4 w-4 text-primary" aria-label="Métricas" />}
         badge={
-          <Badge
-            variant="outline"
-            className="text-[10px] font-mono border-primary/40 text-primary"
-          >
-            Epley / Brzycki
-          </Badge>
+          total > 0 ? (
+            <Badge
+              variant={esAdvertenciaProgresion ? "warning" : "success"}
+              data-testid="badge-progresion"
+              data-variant={esAdvertenciaProgresion ? "warning" : "success"}
+            >
+              {enProgresion} de {total} en progresión
+            </Badge>
+          ) : null
         }
+        meta="últimos 2 meses"
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
         isCanvasMode={isCanvasMode}
@@ -430,286 +378,126 @@ export function IslaMetricas1RM({
         compactSummary={
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              1RM Máximo: {maxEpley} kg ({ejercicioLider}) • {enProgresion} de {total} en
-              progresión • Peso: {pesoCorporalActual || 78.5} kg
+              {hay1RM ? `1RM estimado: ${fmtKg(maxEpley)} (${ejercicioLider})` : "Sin series registradas"} ·{" "}
+              {enProgresion} de {total} en progresión
             </span>
           </div>
         }
       >
-        <div className="p-3 sm:p-4 space-y-4">
-          {/* Tarjetas de 1RM Estimado con Tooltips Informativos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* 1RM Epley */}
+        <div className="grid gap-6 p-4 sm:grid-cols-2">
+          {/* Columna izquierda: 1RM estimado del ejercicio líder (Epley) + sparkline por sesión */}
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <p className="m-0 text-[13px] text-neutral-soft-foreground">
+              1RM estimado{hay1RM ? ` · ${ejercicioLider}` : ""}
+            </p>
             <div
               data-testid="metricas-1rm-epley"
-              className="rounded-lg border border-border bg-secondary/20 p-3 space-y-1 relative"
+              className="text-[32px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-foreground"
             >
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  1RM Estimado (Fórmula Epley)
-                </p>
-                <Tooltip open={tooltipOpen}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Ayuda fórmula Epley"
-                      data-testid="help-icon-epley"
-                      className="text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded p-0.5 transition-colors"
-                    >
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs space-y-1 max-w-xs">
-                    <p className="font-semibold text-foreground">Fórmula de Epley</p>
-                    <p className="font-mono text-[11px] text-primary">
-                      1RM = Peso × (1 + Reps / 30)
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Variables aplicadas: Peso levantado (kg) y repeticiones realizadas
-                      (Reps).
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-black text-foreground tabular-nums">
-                  {maxEpley} kg
-                </span>
-                <span className="text-[11px] text-primary font-semibold truncate">
-                  {ejercicioLider}
-                </span>
-              </div>
-              <p className="text-[10px] text-muted-foreground font-mono">
-                1RM = Peso × (1 + Reps / 30)
-              </p>
+              {hay1RM ? fmtKg(maxEpley) : "—"}
             </div>
 
-            {/* 1RM Brzycki */}
-            <div
-              data-testid="metricas-1rm-brzycki"
-              className="rounded-lg border border-border bg-secondary/20 p-3 space-y-1 relative"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  1RM Estimado (Fórmula Brzycki)
-                </p>
-                <Tooltip open={tooltipOpen}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Ayuda fórmula Brzycki"
-                      data-testid="help-icon-brzycki"
-                      className="text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded p-0.5 transition-colors"
-                    >
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs space-y-1 max-w-xs">
-                    <p className="font-semibold text-foreground">Fórmula de Brzycki</p>
-                    <p className="font-mono text-[11px] text-primary">
-                      1RM = Peso × (36 / (37 - Reps))
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Variables aplicadas: Peso levantado (kg) y repeticiones realizadas
-                      (Reps &lt; 37).
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-xl font-black text-foreground tabular-nums">
-                  {maxBrzycki} kg
-                </span>
-                <span className="text-[11px] text-muted-foreground">Submáximo</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground font-mono">
-                1RM = Peso × (36 / (37 - Reps))
-              </p>
-            </div>
-          </div>
-
-          {/* Progresión Real de Cargas por Ejercicio (Sin Tonelaje Mensual ni Sumatorias de Volumen) */}
-          <div
-            data-testid="sparkline-tonelaje"
-            className="rounded-lg border border-border bg-secondary/15 p-3 space-y-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Progresión Real de Cargas (Sobrecarga de 2 Meses)
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  Qué ejercicio, cuánto peso y cuántas reps se hicieron por serie
-                </span>
-              </div>
-              <Badge
-                variant={esAdvertenciaProgresion ? "warning" : "success"}
-                data-testid="badge-progresion"
-                data-variant={esAdvertenciaProgresion ? "warning" : "success"}
-                role="status"
-                className="text-xs font-mono font-bold"
-              >
-                {enProgresion} de {total} en progresión
-                {!esAdvertenciaProgresion && total > 0 && " • Sobrecarga Verificada"}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-              {ejerciciosClave.map((ej, idx) => {
-                const isPos = ej.cambioPct > 0;
-                const isNeg = ej.cambioPct < 0;
-                const pctFormatted = isPos ? `+${ej.cambioPct}%` : `${ej.cambioPct}%`;
-                const gananciaFormatted =
-                  ej.gananciaKg > 0 ? `+${ej.gananciaKg}` : `${ej.gananciaKg}`;
-
-                return (
-                  <div
-                    key={idx}
-                    data-testid={`ejercicio-prog-${idx}`}
-                    className="rounded-lg border border-border/80 bg-card p-2.5 space-y-1.5 shadow-xs"
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span
-                        className="font-bold text-xs text-foreground truncate"
-                        title={ej.nombre}
-                      >
-                        {ej.nombre}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-[10px] font-mono font-bold shrink-0",
-                          isPos && "text-emerald-500 dark:text-emerald-400",
-                          isNeg && "text-rose-500 dark:text-rose-400",
-                          !isPos && !isNeg && "text-muted-foreground"
-                        )}
-                      >
-                        {gananciaFormatted} kg
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-between text-xs font-mono">
-                      <span className="text-muted-foreground text-[10px]">
-                        Inicio: {ej.inicioKg}kg × {ej.inicioReps}
-                      </span>
-                      <span className="font-black text-foreground text-sm">
-                        {ej.actualKg} kg
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] text-muted-foreground font-mono flex items-center justify-between border-t border-border/40 pt-1">
-                      <span>
-                        Top: {ej.actualReps} reps
-                        {ej.tendencia === "sube" && " ↑"}
-                        {ej.tendencia === "baja" && " ↓"}
-                        {ej.tendencia === "mantiene" && " →"}
-                      </span>
-                      <span
-                        className={cn(
-                          "font-bold font-mono",
-                          isPos && "text-emerald-500 dark:text-emerald-400",
-                          isNeg && "text-rose-500 dark:text-rose-400",
-                          !isPos && !isNeg && "text-muted-foreground"
-                        )}
-                      >
-                        {pctFormatted}
-                      </span>
-                    </div>
+            {/* "Fórmula Epley · ver detalle": detalle de ambas fórmulas (P06) */}
+            <details className="group text-xs text-neutral-soft-foreground">
+              <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer w-fit hover:text-foreground">
+                Fórmula Epley · <span className="underline underline-offset-2">ver detalle</span>
+              </summary>
+              <div className="mt-2 w-full max-w-[280px] space-y-2 rounded-lg border border-border bg-popover p-3 text-foreground">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-xs font-medium">Fórmula de Epley · {hay1RM ? fmtKg(maxEpley) : "—"}</p>
+                    <p className="m-0 font-mono text-xs text-neutral-soft-foreground">1RM = Peso × (1 + Reps / 30)</p>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Sparklines SVG Accesibles de Evolución de Peso Corporal y Cargas Recientes */}
-          <div
-            data-testid="evolucion-peso-corporal"
-            className="rounded-lg border border-border bg-secondary/15 p-3 space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Evolución de Peso Corporal &amp; Cargas Recientes
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  Telemetría biométrica y evolución de cargas en microciclos
-                </span>
-              </div>
-              <span className="text-xs font-bold text-foreground">
-                Actual: {pesoCorporalActual || 78.5} kg
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-              {/* Sparkline SVG 1: Peso Corporal */}
-              <div className="rounded-lg border border-border/70 bg-card/60 p-2.5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-foreground text-[11px]">
-                    Peso Corporal
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground">
-                    Últimos 4 meses
-                  </span>
+                  <Tooltip open={tooltipOpen}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Ayuda fórmula Epley"
+                        data-testid="help-icon-epley"
+                        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps).
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
+                <div data-testid="metricas-1rm-brzycki" className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="m-0 text-xs font-medium">Fórmula de Brzycki · {maxBrzycki > 0 ? fmtKg(maxBrzycki) : "—"}</p>
+                    <p className="m-0 font-mono text-xs text-neutral-soft-foreground">1RM = Peso × (36 / (37 - Reps))</p>
+                  </div>
+                  <Tooltip open={tooltipOpen}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="Ayuda fórmula Brzycki"
+                        data-testid="help-icon-brzycki"
+                        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps &lt; 37).
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <p className="m-0 text-[11px] text-muted-foreground">Se muestra Epley.</p>
+              </div>
+            </details>
+
+            {serie1RM.length >= 2 && (
+              <div className="mt-2 max-w-[240px] text-foreground">
                 <SparklineSvg
-                  data={pesos.map((p) => p.peso)}
-                  label="Evolución de peso corporal"
+                  data={serie1RM}
+                  label={`1RM Epley por sesión · ${ejercicioLider}`}
+                  testId="sparkline-1rm-sesiones"
                   variant="primary"
-                  testId="sparkline-peso-corporal"
                 />
-                <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-border/40">
-                  {pesos.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded bg-background/60 p-1 text-center"
-                    >
-                      <span className="block text-[9px] text-muted-foreground font-mono truncate">
-                        {p.fecha}
-                      </span>
-                      <span className="text-[11px] font-black text-foreground tabular-nums">
-                        {p.peso} kg
-                      </span>
-                    </div>
-                  ))}
-                </div>
               </div>
+            )}
 
-              {/* Sparkline SVG 2: Cargas Recientes */}
-              <div className="rounded-lg border border-border/70 bg-card/60 p-2.5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-foreground text-[11px]">
-                    Cargas Recientes (Top Sets)
-                  </span>
-                  <span className="font-mono text-[10px] text-emerald-500 font-bold">
-                    Máx: {Math.max(...cargasRecientesFinal.map((c) => c.carga))} kg
-                  </span>
-                </div>
-                <SparklineSvg
-                  data={cargasRecientesFinal.map((c) => c.carga)}
-                  label="Evolución de cargas recientes"
-                  variant="emerald"
-                  testId="sparkline-cargas-recientes"
-                />
-                <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-border/40">
-                  {cargasRecientesFinal.map((c, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded bg-background/60 p-1 text-center"
-                    >
-                      <span className="block text-[9px] text-muted-foreground font-mono truncate">
-                        {c.fecha}
-                      </span>
-                      <span className="text-[11px] font-black text-foreground tabular-nums">
-                        {c.carga} kg
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {pesoCorporalActual ? (
+              <p data-testid="evolucion-peso-corporal" className="m-0 mt-1 text-[13px] text-muted-foreground">
+                Peso corporal · {fmtKg(pesoCorporalActual)}
+              </p>
+            ) : null}
           </div>
 
-          {/* Adherencia Card (compatibilidad) */}
-          {adherenciaNode}
+          {/* Columna derecha: progresión por ejercicio clave (inicio → actual y % de cambio) */}
+          <ul className="m-0 flex list-none flex-col divide-y divide-border p-0" aria-label="Progresión de cargas por ejercicio">
+            {ejerciciosClave.length === 0 ? (
+              <li className="py-3 text-sm text-muted-foreground">Sin cargas registradas en los últimos 2 meses.</li>
+            ) : (
+              ejerciciosClave.map((ej, idx) => {
+                const sube = ej.cambioPct > 0;
+                const baja = ej.cambioPct < 0;
+                return (
+                  <li
+                    key={ej.ejercicioNombre || idx}
+                    data-testid={`ejercicio-prog-${idx}`}
+                    className="flex items-center gap-3 py-2.5"
+                    title={`${ej.gananciaKg > 0 ? "+" : ""}${ej.gananciaKg} kg en 2 meses`}
+                  >
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{ej.nombre}</span>
+                    <span className="font-mono text-[13px] text-neutral-soft-foreground tabular-nums whitespace-nowrap">
+                      {String(ej.inicioKg).replace(".", ",")} → {String(ej.actualKg).replace(".", ",")} kg
+                    </span>
+                    <Badge
+                      variant={sube ? "success" : baja ? "destructive" : "secondary"}
+                      className="min-w-[60px] justify-center tabular-nums"
+                    >
+                      {sube ? "↑ " : baja ? "↓ " : ""}
+                      {Math.abs(Math.round(ej.cambioPct))}%
+                    </Badge>
+                  </li>
+                );
+              })
+            )}
+          </ul>
         </div>
       </IslaCardShell>
     </TooltipProvider>

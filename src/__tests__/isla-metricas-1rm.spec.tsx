@@ -62,15 +62,16 @@ describe("GOZS-396: IslaMetricas1RM - Telemetría de Cargas y 1RM Epley/Brzycki"
       expect(badge.getAttribute("data-variant")).toBe("warning");
 
       // Variaciones porcentuales de rendimiento (+/- %)
-      expect(container.textContent).toContain("+11.11%");
-      expect(container.textContent).toContain("+10%");
-      expect(container.textContent).toContain("-6.67%");
+      // Objetivo Ficha.html: badge "↑ n%" / "↓ n%" (redondeado) y la ganancia en kg en el title de la fila
+      expect(container.textContent).toContain("↑ 11%");
+      expect(container.textContent).toContain("↑ 10%");
+      expect(container.textContent).toContain("↓ 7%");
 
       // Ganancia en kg (+/-)
-      expect(container.textContent).toContain("+10 kg");
-      expect(container.textContent).toContain("+12 kg");
-      expect(container.textContent).toContain("-10 kg");
-      expect(container.textContent).toContain("-4 kg");
+      expect(container.innerHTML).toContain('title="+10 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="+12 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="-10 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="-4 kg en 2 meses"');
     });
   });
 
@@ -130,8 +131,8 @@ describe("GOZS-396: IslaMetricas1RM - Telemetría de Cargas y 1RM Epley/Brzycki"
       expect(textLower).not.toContain("volumen mensual");
       expect(textLower).not.toContain("tonelaje acumulado");
 
-      expect(container.textContent).toContain("Progresión Real de Cargas");
-      expect(container.textContent).toContain("Sobrecarga");
+      expect(container.textContent).toContain("Fuerza y progreso");
+      expect(container.textContent).toContain("últimos 2 meses");
     });
   });
 
@@ -155,18 +156,11 @@ describe("GOZS-396: IslaMetricas1RM - Telemetría de Cargas y 1RM Epley/Brzycki"
 
       assertNoDemoLiteralsInLiveMode(container);
 
+      // P04: "Peso corporal · {kg}" como dato simple; sin sparklines de peso ni de cargas recientes
       const evolucion = getByTestId("evolucion-peso-corporal");
-      expect(evolucion.textContent).toContain("80.2 kg");
-
-      const sparkPeso = getByTestId("sparkline-peso-corporal");
-      expect(sparkPeso.getAttribute("aria-label")).toContain(
-        "Evolución de peso corporal: de 84 kg a 80.2 kg"
-      );
-
-      const sparkCargas = getByTestId("sparkline-cargas-recientes");
-      expect(sparkCargas.getAttribute("aria-label")).toContain(
-        "Evolución de cargas recientes: de 118 kg a 132 kg"
-      );
+      expect(evolucion.textContent).toContain("80,2 kg");
+      expect(container.querySelector('[data-testid="sparkline-peso-corporal"]')).toBeNull();
+      expect(container.querySelector('[data-testid="sparkline-cargas-recientes"]')).toBeNull();
     });
   });
 });

@@ -74,6 +74,7 @@ import {
   IslaMetricas1RM,
   IslaSaludAnamnesis,
   IslaAdministrativa,
+  type ActivityFeedItem,
 } from "@/components/coach/student-detail/islas";
 import {
   derivarActividadFrecuencia,
@@ -280,6 +281,56 @@ export function StudentDetail({
     }
     return MOCK_HISTORIAL_CARGAS[alumno.id] ?? [];
   }, [historialCargas, isLucasStudent, alumno.id]);
+
+  // Feed de actividad con datos del alumno (sin eventos de ejemplo): sesiones registradas + dolor reportado
+  const activityFeedItems = React.useMemo<ActivityFeedItem[]>(() => {
+    const ahora = new Date();
+    const inicioDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const etiqueta = (d: Date): Pick<ActivityFeedItem, "fechaGrupo" | "horaOFecha"> => {
+      const dias = Math.round((inicioDia(ahora) - inicioDia(d)) / 86_400_000);
+      const hora = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
+      if (dias <= 0) return { fechaGrupo: "HOY", horaOFecha: `Hoy ${hora}` };
+      if (dias === 1) return { fechaGrupo: "AYER", horaOFecha: "Ayer" };
+      const dia = d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "");
+      if (dias < 7) return { fechaGrupo: "ESTA SEMANA", horaOFecha: dia.charAt(0).toUpperCase() + dia.slice(1) };
+      return {
+        fechaGrupo: "ANTERIORES",
+        horaOFecha: `${String(d.getDate()).padStart(2, "0")} ${d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "")}`,
+      };
+    };
+    const eventos: Array<ActivityFeedItem & { ts: number }> = [];
+    (effectiveHistorialCargas ?? []).forEach((entry, idx) => {
+      const f = entry?.sesion?.fecha ? new Date(entry.sesion.fecha) : null;
+      if (!f || Number.isNaN(f.getTime())) return;
+      const top = entry.series?.length ? [...entry.series].sort((a, b) => b.peso_kg - a.peso_kg)[0] : null;
+      eventos.push({
+        id: `ses-${entry.sesion.id || idx}`,
+        tipo: "sesion",
+        titulo: "Sesión registrada",
+        detalle: top
+          ? `${top.ejercicioNombre} ${String(top.peso_kg).replace(".", ",")} kg × ${top.reps_hechas}`
+          : `${entry.series?.length ?? 0} series`,
+        ...etiqueta(f),
+        ts: f.getTime(),
+      });
+    });
+    if (chatActivePainAlert) {
+      const f = new Date(chatActivePainAlert.fecha);
+      const valida = !Number.isNaN(f.getTime());
+      eventos.push({
+        id: `dolor-${chatActivePainAlert.id}`,
+        tipo: "molestia",
+        titulo: "Reportó dolor",
+        detalle: [chatActivePainAlert.zona, chatActivePainAlert.ejercicioNombre].filter(Boolean).join(" · "),
+        ...(valida ? etiqueta(f) : { fechaGrupo: "HOY" as const, horaOFecha: chatActivePainAlert.fecha }),
+        ts: valida ? f.getTime() : ahora.getTime(),
+      });
+    }
+    return eventos
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, 6)
+      .map(({ ts: _ts, ...e }) => e);
+  }, [effectiveHistorialCargas, chatActivePainAlert]);
 
   const [cuestionario, setCuestionario] = React.useState<AlumnoCuestionarioInicial | null>(
     cuestionarioProp ?? (isLucasStudent ? demoCuestionarioLucas : null),
@@ -810,15 +861,6 @@ export function StudentDetail({
     [layoutColumns]
   );
 
-  const [isLgScreen, setIsLgScreen] = React.useState(true);
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 960px)");
-    setIsLgScreen(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsLgScreen(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   const [collapsedIslands, setCollapsedIslands] = React.useState<Record<string, boolean>>({
     timeline: false,
@@ -2581,6 +2623,7 @@ export function StudentDetail({
             onToggleCollapse={() => toggleCollapseIsland("activity_feed")}
             isRailCollapsed={isFeedRailCollapsed}
             onToggleRail={toggleFeedRail}
+            items={activityFeedItems}
             isCanvasMode={isCanvasMode}
             isDragTarget={isTarget}
             onDragStart={handleDragStart("activity_feed")}
@@ -2634,6 +2677,13 @@ export function StudentDetail({
             historialPlanes={historialPlanes}
             onOpenHistoricalLoads={onOpenHistoricalLoads}
             childrenTabs={routineTabsNode}
+            registrosNode={
+              <div className="space-y-4">
+                {/* P06: el heatmap de adherencia vive arriba de la pestaña Registros */}
+                {adherenciaNode}
+                {routineTabsNode}
+              </div>
+            }
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onMoveLeft={onMoveLeft}
@@ -2655,7 +2705,7 @@ export function StudentDetail({
           <IslaMetricas1RM
             key="metricas_1rm"
             historialCargas={effectiveHistorialCargas}
-            pesoCorporalActual={(alumno as any).peso_corporal_kg || 78.5}
+            pesoCorporalActual={(alumno as any).peso_corporal_kg ?? null}
             isCollapsed={isCollapsed}
             onToggleCollapse={() => toggleCollapseIsland("metricas_1rm")}
             isCanvasMode={isCanvasMode}
@@ -2664,7 +2714,7 @@ export function StudentDetail({
             onDragOver={handleDragOver("metricas_1rm")}
             onDragLeave={handleDragLeave("metricas_1rm")}
             onDrop={handleDrop("metricas_1rm")}
-            adherenciaNode={adherenciaNode}
+
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onMoveLeft={onMoveLeft}
@@ -2779,24 +2829,26 @@ export function StudentDetail({
 
   return (
     <div className="space-y-4">
-      {/* 1. Header Bar Unificado y Compacto (h-16) */}
+      {/* 1. Cabecera de la ficha (objetivo Ficha.html): avatar 48 px, nombre, estado en badges con texto
+             y tres acciones (Personalizar · Asignar rutina · Enviar mensaje) + menú ⋯ con lo secundario */}
       <div
         data-testid="student-detail-header"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-xs"
+        className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-4">
+          {/* En móvil no hay breadcrumb en la topbar: el regreso vive acá */}
           <Button
             variant="outline"
             size="sm"
             onClick={onBack}
-            className="h-9 gap-1.5 text-xs font-semibold"
+            className="h-9 gap-1.5 text-xs font-medium md:hidden"
           >
             <span>← Volver</span>
           </Button>
 
-          <Avatar className="h-10 w-10 shrink-0" data-testid="student-avatar">
+          <Avatar className="h-12 w-12 shrink-0" data-testid="student-avatar">
             <AvatarFallback
-              className="bg-primary/10 text-primary font-bold text-sm"
+              className="bg-muted text-foreground font-semibold text-sm"
               aria-label={alumno.nombre_completo}
             >
               {alumno.nombre_completo
@@ -2807,144 +2859,61 @@ export function StudentDetail({
             </AvatarFallback>
           </Avatar>
 
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-bold tracking-tight text-foreground">
-                {alumno.nombre_completo}
-              </h2>
+          <div className="min-w-0">
+            <h2 className="m-0 text-[22px] font-semibold tracking-[-0.02em] text-foreground">
+              {alumno.nombre_completo}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-neutral-soft-foreground">
               {getPaymentBadge(alumno.estado_membresia)}
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold border ${healthScore.colorClass}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                Salud: {healthScore.score}/100
+              {chatActivePainAlert && (
+                <Badge variant="warning">Dolor en {(chatActivePainAlert.zona || "articulación").toLowerCase()}</Badge>
+              )}
+              {isOffline && <Badge variant="warning">Offline</Badge>}
+              <span className="truncate">
+                {alumno.email ?? "Sin email"} · alumno desde{" "}
+                {new Date(alumno.created_at).toLocaleDateString("es-AR", {
+                  month: "short",
+                  year: "numeric",
+                })}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              {alumno.email ?? "Sin email"} • Cliente desde{" "}
-              {new Date(alumno.created_at).toLocaleDateString("es-AR", {
-                month: "short",
-                year: "numeric",
-              })}
-            </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isOffline && (
-            <Badge variant="warning" className="text-[10px]">
-              Offline
-            </Badge>
-          )}
-
+          {/* Personalizar layout (Modo Canvas) como botón de ícono (D3) */}
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpenHistoricalLoads}
-            className="h-8 gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-            aria-label="Revisar cargas y RPE históricos"
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              const next = !isPersonalizing;
+              setIsPersonalizing(next);
+              announce(next ? "Modo Personalizar activado" : "Modo Personalizar desactivado");
+            }}
+            className={`h-9 w-9 ${isPersonalizing ? "bg-muted" : ""}`}
+            data-testid="btn-modo-canvas"
+            data-personalizar="true"
+            aria-pressed={isPersonalizing}
+            aria-label="Personalizar el orden de las islas"
+            title="Personalizar"
           >
-            <svg
-              className="h-3.5 w-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <path d="M3 3v18h18" />
-              <path d="m19 9-5 5-4-4-3 3" />
-            </svg>
-            <span className="hidden sm:inline">Cargas Históricas</span>
+            <LayoutGrid className="h-4 w-4" aria-hidden="true" />
           </Button>
 
-          {onPreviewAthlete && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onPreviewAthlete(alumno)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-              data-testid="detail-preview-athlete-btn"
-            >
-              <span>👁️ Ver como Alumno</span>
-            </Button>
-          )}
-
-          {/* Grupo de Personalización Zen (Discreto - GOZS-395) */}
-          <div className="inline-flex items-center rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-2xs">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const next = !isPersonalizing;
-                setIsPersonalizing(next);
-                announce(next ? "Modo Personalizar activado" : "Modo Personalizar desactivado");
-              }}
-              className={`h-8 px-2.5 text-xs font-semibold transition-colors ${
-                isPersonalizing
-                  ? "bg-secondary text-secondary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-              data-testid="btn-modo-canvas"
-              data-personalizar="true"
-              aria-label="Alternar modo Personalizar layout (Modo Canvas)"
-              title="Personalizar layout (Modo Canvas)"
-            >
-              <Settings className="h-3.5 w-3.5 mr-1 text-muted-foreground" aria-hidden="true" />
-              <span>Personalizar</span>
-              {isPersonalizing && (
-                <span className="ml-1 rounded bg-muted-foreground/20 px-1 py-0.2 text-[9px] uppercase font-mono">
-                  ON
-                </span>
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsConfigModalOpen(true)}
-              className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
-              data-testid="btn-configurar-islas"
-              title="Configurar qué islas ver u ocultar"
-              aria-label="Configurar islas visibles"
-            >
-              <Settings className="h-3.5 w-3.5 mr-1 inline text-muted-foreground" aria-hidden="true" />
-              <span>Configurar Islas</span>
-              <span className="ml-1 rounded bg-muted px-1 py-0.2 text-[9px] font-mono text-muted-foreground">
-                {Object.values(visibleIslands).filter(Boolean).length}/6
-              </span>
-            </Button>
-          </div>
-
-          {/* WhatsApp directo */}
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`WhatsApp con ${alumno.nombre_completo}`}
-            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-border/70 px-2.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-            data-testid="whatsapp-direct-btn"
-          >
-            <span>📱 WhatsApp</span>
-          </a>
-
-          {/* Acción Secundaria: Asignar rutina (outline/ghost) */}
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleAsignarRutina}
-            className="h-8 px-3 text-xs font-semibold"
+            className="h-9 px-3.5 text-sm font-medium"
             data-testid="btn-asignar-rutina"
             aria-label={`Asignar rutina a ${alumno.nombre_completo}`}
           >
-            <span>Asignar rutina</span>
+            Asignar rutina
           </Button>
 
-          {/* Acción Primaria Destacada: Enviar mensaje (Única variante primaria) */}
+          {/* Acción primaria única de la vista */}
           <Button
             type="button"
             variant="default"
@@ -2953,26 +2922,27 @@ export function StudentDetail({
               onOpenChat?.();
               openChatForAlumno(alumno.id);
             }}
-            className="h-8 px-3 text-xs font-semibold shadow-xs"
+            className="h-9 gap-2 px-3.5 text-sm font-medium"
             data-testid="enviar-mensaje-btn"
             aria-label={`Enviar mensaje a ${alumno.nombre_completo}`}
           >
-            <span>💬 Enviar mensaje</span>
+            <MessageSquare className="h-4 w-4" aria-hidden="true" />
+            Enviar mensaje
           </Button>
 
-          {/* Menú de Acciones Complementarias ⋯ (DropdownMenu accesible) */}
+          {/* Acciones complementarias ⋯ */}
           <DropdownMenu
             open={headerMenuOpen}
             onOpenChange={onHeaderMenuOpenChange}
           >
             <DropdownMenuTrigger
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-transparent text-foreground hover:bg-secondary/60 hover:border-border active:scale-[0.98] text-sm font-semibold transition-all select-none touch-manipulation cursor-pointer"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-transparent text-foreground hover:bg-muted cursor-pointer"
               aria-label={`Más acciones para ${alumno.nombre_completo}`}
               data-testid="student-header-menu-trigger"
             >
               <span aria-hidden="true" className="leading-none text-base">⋯</span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem
                 onClick={handleEditarPerfil}
                 data-testid="student-menu-editar-perfil"
@@ -2986,6 +2956,40 @@ export function StudentDetail({
                 className="cursor-pointer"
               >
                 <span>Registrar pago</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onOpenHistoricalLoads?.()}
+                data-testid="student-menu-cargas-historicas"
+                className="cursor-pointer"
+              >
+                <span>Cargas históricas</span>
+              </DropdownMenuItem>
+              {onPreviewAthlete && (
+                <DropdownMenuItem
+                  onClick={() => onPreviewAthlete(alumno)}
+                  data-testid="detail-preview-athlete-btn"
+                  className="cursor-pointer"
+                >
+                  <span>Ver como alumno</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => setIsConfigModalOpen(true)}
+                data-testid="btn-configurar-islas"
+                className="cursor-pointer"
+              >
+                <span>
+                  Configurar islas ({Object.values(visibleIslands).filter(Boolean).length}/6)
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (typeof window !== "undefined") window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+                }}
+                data-testid="whatsapp-direct-btn"
+                className="cursor-pointer"
+              >
+                <span>Escribir por WhatsApp</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleExportarFicha}
@@ -3063,10 +3067,6 @@ export function StudentDetail({
         <div
           data-testid="student-detail-grid-columns"
           className="grid grid-cols-1 min-[960px]:grid-cols-12 gap-4 items-start w-full max-w-full overflow-x-hidden"
-          style={{
-            gridTemplateColumns: isLgScreen ? "minmax(0, 8fr) minmax(0, 4fr)" : undefined,
-            maxHeight: "2300px",
-          }}
         >
           {/* Columna Izquierda (≥ 960px: 8 cols): Rutina y Fuerza */}
           <div

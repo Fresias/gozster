@@ -85,7 +85,7 @@ describe("FIX-08: Helper y Guard contra literales de demo en modo en vivo (no-de
       assertNoDemoLiteralsInLiveMode(container);
 
       const alertSalud = getByTestId("alert-salud");
-      expect(alertSalud.textContent).toContain("Columna lumbar baja");
+      expect(alertSalud.textContent?.toLowerCase()).toContain("columna lumbar baja");
       expect(alertSalud.textContent).toContain("EVA 6");
       expect(alertSalud.textContent).toContain("Moderado");
       expect(alertSalud.textContent).toContain("Peso muerto rumano con barra");
