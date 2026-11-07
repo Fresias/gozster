@@ -1,218 +1,232 @@
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import * as React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   IslaSaludAnamnesis,
-  type IslaSaludAnamnesisProps,
 } from "@/components/coach/student-detail/islas/isla-salud-anamnesis";
 import * as dolorModule from "@/lib/dolor";
+import {
+  assertNoDemoLiteralsInLiveMode,
+  fireEvent,
+  render,
+} from "@/test-utils/no-demo-literals";
 
-function findElement(node: any, predicate: (el: any) => boolean): any {
-  if (!node || typeof node !== "object") return null;
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findElement(child, predicate);
-      if (found) return found;
-    }
-    return null;
-  }
-  if (predicate(node)) return node;
-  if (node.props?.children) {
-    return findElement(node.props.children, predicate);
-  }
-  return null;
-}
-
-function renderAndCaptureIsla(props: IslaSaludAnamnesisProps) {
-  let capturedTree: React.ReactElement | null = null;
-  function Wrapper() {
-    const tree = IslaSaludAnamnesis(props);
-    capturedTree = tree;
-    return tree;
-  }
-  const html = renderToStaticMarkup(<Wrapper />);
-  const segmented = findElement(
-    capturedTree,
-    (el) => el?.props?.["aria-label"] === "Estado de intervención"
-  );
-  const textarea = findElement(
-    capturedTree,
-    (el) => el?.type === "textarea" && el?.props?.["aria-label"] === "Nota de intervención"
-  );
-  return { html, tree: capturedTree, segmented, textarea };
-}
-
-describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segmented Control y Rollback Optimista)", () => {
+describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y datos en vivo", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe("Criterio 1 (Gherkin): Visualización de molestia con EVA = 5 en Alert Semántico", () => {
-    it("GIVEN EVA = 5, THEN el Alert exhibe badge 'Moderado', zona articular, EVA 5 y estado 'Pendiente'", () => {
-      const html = renderToStaticMarkup(
+  describe("Criterio 1 (Gherkin): Visualización de molestia con EVA en Alert Semántico sobre datos vivos", () => {
+    it("GIVEN un caso en vivo con EVA = 5 distinto del fallback, WHEN se monta IslaSaludAnamnesis con render(...), THEN el Alert exhibe badge 'Moderado', zona articular, EVA 5, estado 'Pendiente' y cero literales demo", () => {
+      const { container, getByTestId, getByRole } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          evaDolorActual={5}
-          zonaDolorActual="Hombro anterior"
-          ejercicioNombre="Press de banca plano, serie 2"
-          fechaReporte="ayer 18:30"
-          alumnoId="alumno-test-01"
+          alumnoId="alumno-vivo-01"
+          dolorActivo={{
+            id: "dolor-vivo-01",
+            alumno_id: "alumno-vivo-01",
+            zona_articular: "Cadera izquierda",
+            ejercicio_nombre: "Zancadas caminando con mancuernas, serie 3",
+            eva: 5,
+            severidad: "MODERADO",
+            nivel: "medio",
+            estado: "PENDIENTE",
+            fecha_reporte: "06 nov 14:20",
+            notas_profesor: "Acortar zancada y evitar retroversión pélvica.",
+          }}
+          anamnesisData={{
+            objetivo: "Fuerza Funcional",
+            frecuencia: "3 días / semana",
+            molestiaPrevia: "Cadera izquierda",
+            cirugias: "Meniscectomía parcial 2021",
+          }}
         />
       );
 
-      // Alert semántico presente
-      expect(html).toContain('data-testid="alert-salud"');
-      // Badge semántico derivado de EVA = 5 (Moderado)
-      expect(html).toContain("Moderado");
-      // Zona articular reportada
-      expect(html).toContain("Hombro anterior");
-      // Valor EVA 5 explícito
-      expect(html).toContain("EVA 5");
-      // Estado inicial Pendiente
-      expect(html).toContain("Pendiente");
-      // Detalle de ejercicio y fecha
-      expect(html).toContain("Press de banca plano, serie 2");
-      expect(html).toContain("ayer 18:30");
-      // Control Segmented presente
-      expect(html).toContain('role="tablist"');
-      expect(html).toContain("Resuelta");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const alertSalud = getByTestId("alert-salud");
+      expect(alertSalud.textContent).toContain("Moderado");
+      expect(alertSalud.textContent).toContain("Cadera izquierda");
+      expect(alertSalud.textContent).toContain("EVA 5");
+      expect(alertSalud.textContent).toContain("Pendiente");
+      expect(alertSalud.textContent).toContain("Zancadas caminando con mancuernas, serie 3");
+      expect(alertSalud.textContent).toContain("06 nov 14:20");
+
+      // Verifica que los valores vivos reemplazaron a los fallbacks ("Hombro anterior", "Press de banca plano, serie 2", "ayer 18:30")
+      expect(container.textContent).not.toContain("Press de banca plano, serie 2");
+      expect(container.textContent).not.toContain("ayer 18:30");
+
+      const tablist = getByRole("tablist");
+      expect(tablist.textContent).toContain("Resuelta");
     });
 
     it("GIVEN EVA = 8 (Dolor Agudo), THEN el Alert aplica variante destructiva y badge 'Agudo'", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          evaDolorActual={8}
-          zonaDolorActual="Rodilla derecha"
-          ejercicioNombre="Sentadilla trasera, serie 3"
+          alumnoId="alumno-vivo-02"
+          dolorActivo={{
+            id: "dolor-vivo-02",
+            eva: 8,
+            zona_articular: "Rodilla derecha",
+            ejercicio_nombre: "Sentadilla frontal, serie 3",
+            fecha_reporte: "06 nov 16:00",
+            estado: "PENDIENTE",
+          }}
         />
       );
 
-      expect(html).toContain("Agudo");
-      expect(html).toContain("Rodilla derecha");
-      expect(html).toContain("EVA 8");
-      // Variante destructiva / aviso crítico
-      expect(html).toContain("border-destructive");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const alertSalud = getByTestId("alert-salud");
+      expect(alertSalud.textContent).toContain("Agudo");
+      expect(alertSalud.textContent).toContain("Rodilla derecha");
+      expect(alertSalud.textContent).toContain("EVA 8");
+      expect(alertSalud.innerHTML).toContain("border-destructive");
     });
 
     it("GIVEN EVA = 2 (Dolor Leve), THEN el Alert exhibe badge 'Leve' sin clase destructiva", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          evaDolorActual={2}
-          zonaDolorActual="Muñeca izquierda"
+          alumnoId="alumno-vivo-03"
+          dolorActivo={{
+            id: "dolor-vivo-03",
+            eva: 2,
+            zona_articular: "Muñeca izquierda",
+            ejercicio_nombre: "Curl con barra recta",
+            fecha_reporte: "05 nov 19:00",
+            estado: "PENDIENTE",
+          }}
         />
       );
 
-      expect(html).toContain("Leve");
-      expect(html).toContain("Muñeca izquierda");
-      expect(html).toContain("EVA 2");
-      expect(html).not.toContain("border-destructive");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const alertSalud = getByTestId("alert-salud");
+      expect(alertSalud.textContent).toContain("Leve");
+      expect(alertSalud.textContent).toContain("Muñeca izquierda");
+      expect(alertSalud.textContent).toContain("EVA 2");
+      expect(alertSalud.className).not.toContain("border-destructive");
     });
   });
 
-  describe("Criterio 2 (Gherkin): Control Segmented de estado, actualización RPC y Rollback Optimista", () => {
-    it("permite invocar actualizarEstadoDolor al seleccionar 'Atendida'", async () => {
+  describe("Criterio 2 (Gherkin): Control Segmented interactivo, actualización RPC y Rollback Optimista en el DOM", () => {
+    it("GIVEN el componente montado con render(...) WHEN el coach hace clic en 'Atendida' THEN invoca actualizarEstadoDolor y actualiza el DOM a 'Atendida'", async () => {
       const spyActualizar = vi.spyOn(dolorModule, "actualizarEstadoDolor").mockResolvedValue({
         ok: true,
-        data: { id: "reporte-123", estado: "ATENDIDO" },
+        data: { id: "reporte-vivo-123", estado: "ATENDIDO" },
       });
 
-      let estadoActual = "PENDIENTE";
-      const onEstadoChange = vi.fn().mockImplementation(async (nuevoEstado) => {
-        estadoActual = nuevoEstado;
-        const res = await dolorModule.actualizarEstadoDolor({
-          reporteId: "reporte-123",
-          nuevoEstado,
-          nota: "Ajuste de carga",
-        });
-        return res.ok;
-      });
-
-      const element = (
+      const { container, getByRole, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          evaDolorActual={5}
-          zonaDolorActual="Hombro anterior"
-          reporteId="reporte-123"
-          onEstadoChange={onEstadoChange}
+          alumnoId="alumno-vivo-123"
+          dolorActivo={{
+            id: "reporte-vivo-123",
+            eva: 5,
+            zona_articular: "Tobillo derecho",
+            ejercicio_nombre: "Saltos al cajón",
+            fecha_reporte: "06 nov 10:00",
+            estado: "PENDIENTE",
+            notas_profesor: null,
+          }}
         />
       );
 
-      const html = renderToStaticMarkup(element);
-      expect(html).toContain("Pendiente");
-      expect(html).toContain("Atendida");
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Simulamos la selección de 'Atendida'
-      const success = await onEstadoChange("ATENDIDO");
-      expect(success).toBe(true);
+      const tabAtendida = getByRole("tab", { name: "Atendida" });
+      await fireEvent.click(tabAtendida);
+
+      expect(spyActualizar).toHaveBeenCalledTimes(1);
       expect(spyActualizar).toHaveBeenCalledWith({
-        reporteId: "reporte-123",
+        reporteId: "reporte-vivo-123",
         nuevoEstado: "ATENDIDO",
-        nota: "Ajuste de carga",
+        nota: null,
       });
-      expect(estadoActual).toBe("ATENDIDO");
+
+      // El DOM refleja el nuevo estado 'Atendida'
+      expect(getByTestId("red-flags-alert").textContent).toContain("Atendida");
     });
 
-    it("ante fallo de red, se revierte el estado y se notifica el error (Rollback Optimista)", async () => {
+    it("GIVEN un fallo de red en actualizarEstadoDolor WHEN se selecciona 'Atendida' THEN revierte el estado a 'Pendiente' (Rollback Optimista) y renderiza salud-error-alert en el DOM", async () => {
       const spyActualizar = vi.spyOn(dolorModule, "actualizarEstadoDolor").mockResolvedValue({
         ok: false,
         error: "Fallo de conexión con la base de datos Supabase",
       });
 
-      let estadoUI = "PENDIENTE";
-      let errorNotificado: string | null = null;
-
-      // Simulador del flujo optimista con rollback
-      const simularCambioSegmented = async (nuevoEstado: string) => {
-        const prevEstado = estadoUI;
-        estadoUI = nuevoEstado; // Optimistic update
-        errorNotificado = null;
-
-        const res = await dolorModule.actualizarEstadoDolor({
-          reporteId: "reporte-fail",
-          nuevoEstado: nuevoEstado as any,
-        });
-
-        if (!res.ok) {
-          // Rollback
-          estadoUI = prevEstado;
-          errorNotificado = res.error || "Error de red";
-        }
-      };
-
-      await simularCambioSegmented("ATENDIDO");
-
-      expect(spyActualizar).toHaveBeenCalled();
-      // Verificamos que el estado fue revertido a PENDIENTE
-      expect(estadoUI).toBe("PENDIENTE");
-      // Verificamos que el error fue capturado y notificado
-      expect(errorNotificado).toContain("Fallo de conexión con la base de datos");
-    });
-
-    it("renderiza mensaje de error accesible cuando errorMsg está presente", () => {
-      // Verificamos la presencia estructural de la notificación de error
-      const htmlConError = renderToStaticMarkup(
+      const { container, getByRole, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
-          evaDolorActual={5}
-          zonaDolorActual="Hombro anterior"
-          onEstadoChange={vi.fn().mockResolvedValue(false)}
+          alumnoId="alumno-vivo-fail"
+          dolorActivo={{
+            id: "reporte-fail-01",
+            eva: 6,
+            zona_articular: "Isquiotibial izquierdo",
+            ejercicio_nombre: "Peso muerto rumano",
+            fecha_reporte: "06 nov 11:30",
+            estado: "PENDIENTE",
+          }}
         />
       );
 
-      expect(htmlConError).toContain('data-testid="alert-salud"');
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const tabAtendida = getByRole("tab", { name: "Atendida" });
+      await fireEvent.click(tabAtendida);
+
+      expect(spyActualizar).toHaveBeenCalledTimes(1);
+
+      // Estado revertido a Pendiente en el DOM
+      const tabPendiente = getByRole("tab", { name: "Pendiente" });
+      expect(tabPendiente.getAttribute("aria-selected")).toBe("true");
+
+      // Alerta de error visible en el DOM
+      const errorAlert = getByTestId("salud-error-alert");
+      expect(errorAlert.textContent).toContain("Fallo de conexión con la base de datos Supabase");
+    });
+
+    it("GIVEN onEstadoChange retorna false WHEN el usuario cambia de estado THEN revierte el estado y muestra mensaje de error accesible", async () => {
+      const onEstadoChange = vi.fn().mockResolvedValue(false);
+
+      const { container, getByRole, getByTestId } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          alumnoId="alumno-vivo-err"
+          dolorActivo={{
+            id: "reporte-err-02",
+            eva: 5,
+            zona_articular: "Cuello cervical",
+            ejercicio_nombre: "Encogimientos con barra",
+            fecha_reporte: "06 nov 12:00",
+            estado: "PENDIENTE",
+          }}
+          onEstadoChange={onEstadoChange}
+        />
+      );
+
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const tabResuelta = getByRole("tab", { name: "Resuelta" });
+      await fireEvent.click(tabResuelta);
+
+      expect(onEstadoChange).toHaveBeenCalledWith("RESUELTO");
+      expect(getByTestId("salud-error-alert").textContent).toContain(
+        "Error de red al actualizar estado"
+      );
     });
   });
 
   describe("Criterio 3 (Gherkin): Atleta sin dolores activos", () => {
     it("GIVEN un atleta con eva = 0, THEN exhibe 'Sin dolores activos.' y ningún badge destructivo", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
@@ -221,19 +235,17 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
         />
       );
 
-      // Mensaje de estado libre de dolor
-      expect(html).toContain("Sin dolores activos.");
-      // Badge neutral en la cabecera
-      expect(html).toContain("Sin dolores activos");
-      // Cero badges destructivos
-      expect(html).not.toContain("border-destructive");
-      expect(html).not.toContain("bg-rose-500");
-      expect(html).not.toContain("bg-destructive");
-      expect(html).not.toContain("Molestia:");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const emptyAlert = getByTestId("alert-salud-empty");
+      expect(emptyAlert.textContent).toContain("Sin dolores activos.");
+      expect(container.innerHTML).not.toContain("border-destructive");
+      expect(container.innerHTML).not.toContain("bg-rose-500");
+      expect(container.textContent).not.toContain("Molestia:");
     });
 
     it("GIVEN dolorActivo = null, THEN exhibe 'Sin dolores activos.'", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
@@ -241,44 +253,61 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
         />
       );
 
-      expect(html).toContain("Sin dolores activos.");
-      expect(html).toContain("Sin dolores activos");
-      expect(html).not.toContain("border-destructive");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      expect(getByTestId("alert-salud-empty").textContent).toContain("Sin dolores activos.");
+      expect(container.innerHTML).not.toContain("border-destructive");
     });
   });
 
-  describe("Criterio 4: Nota de intervención sin texto de ejemplo, sin duplicación y con único mecanismo de guardado (GOZS-402)", () => {
-    it("GIVEN la ficha recién abierta WHEN se renderiza la isla Salud THEN la nota muestra notas_profesor real del caso o está vacía (''), nunca el texto de ejemplo de Landmine Press", () => {
+  describe("Criterio 4: Nota de intervención sin texto de ejemplo, sin duplicación y con único mecanismo de guardado (GOZS-402 / FIX-08)", () => {
+    it("GIVEN la ficha recién abierta WHEN se monta la isla Salud con render(...) THEN la nota muestra notas_profesor real del caso o está vacía (''), nunca el texto de ejemplo de Landmine Press", () => {
       // Caso 1: sin notas_profesor -> vacía ("")
-      const { html: htmlVacia, textarea: textareaVacia } = renderAndCaptureIsla({
-        isCollapsed: false,
-        onToggleCollapse: vi.fn(),
-        evaDolorActual: 5,
-        zonaDolorActual: "Hombro anterior",
-      });
+      const { container: containerVacia, getByTestId: getByTestIdVacia } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-vacio-01",
+            eva: 5,
+            zona_articular: "Codo derecho",
+            ejercicio_nombre: "Press francés",
+            fecha_reporte: "06 nov 08:30",
+            estado: "PENDIENTE",
+            notas_profesor: null,
+          }}
+        />
+      );
 
-      expect(textareaVacia).toBeTruthy();
-      expect(textareaVacia.props.value).toBe("");
-      expect(htmlVacia).not.toContain("Landmine Press");
-      expect(htmlVacia).not.toContain("28 oct");
+      assertNoDemoLiteralsInLiveMode(containerVacia);
+      const textareaVacia = getByTestIdVacia("nota-intervencion-textarea") as HTMLTextAreaElement;
+      expect(textareaVacia.value).toBe("");
+      expect(containerVacia.textContent).not.toContain("Landmine Press");
+      expect(containerVacia.textContent).not.toContain("28 oct");
 
       // Caso 2: con notas_profesor real en dolorActivo
       const notaReal = "Controlar escapular y usar mancuernas de 20 kg con pausa isométrica.";
-      const { html: htmlConNota, textarea: textareaConNota } = renderAndCaptureIsla({
-        isCollapsed: false,
-        onToggleCollapse: vi.fn(),
-        dolorActivo: {
-          id: "caso-real-01",
-          eva: 5,
-          zona_articular: "Hombro anterior",
-          estado: "PENDIENTE",
-          notas_profesor: notaReal,
-        },
-      });
+      const { container: containerConNota, getByTestId: getByTestIdConNota } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-real-01",
+            eva: 5,
+            zona_articular: "Codo derecho",
+            ejercicio_nombre: "Press francés",
+            fecha_reporte: "06 nov 08:30",
+            estado: "PENDIENTE",
+            notas_profesor: notaReal,
+          }}
+        />
+      );
 
-      expect(textareaConNota.props.value).toBe(notaReal);
-      expect(htmlConNota).toContain(notaReal);
-      expect(htmlConNota).not.toContain("Landmine Press");
+      assertNoDemoLiteralsInLiveMode(containerConNota);
+      const textareaConNota = getByTestIdConNota("nota-intervencion-textarea") as HTMLTextAreaElement;
+      expect(textareaConNota.value).toBe(notaReal);
+      expect(containerConNota.textContent).toContain(notaReal);
+      expect(containerConNota.textContent).not.toContain("Landmine Press");
     });
 
     it("GIVEN un cambio de estado en el Segmented sin nota nueva escrita por el coach WHEN se invoca actualizarEstadoDolor THEN recibe p_nota = null", async () => {
@@ -289,21 +318,26 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
         .spyOn(dolorModule, "actualizarEstadoDolor")
         .mockImplementation((params) => origActualizar(params, clientMock));
 
-      // Con nota previa ya existente en el caso, pero sin nota nueva escrita por el coach
-      const { segmented } = renderAndCaptureIsla({
-        isCollapsed: false,
-        onToggleCollapse: vi.fn(),
-        dolorActivo: {
-          id: "caso-01",
-          eva: 5,
-          zona_articular: "Hombro anterior",
-          estado: "PENDIENTE",
-          notas_profesor: "Nota previa existente del caso",
-        },
-      });
+      const { container, getByRole } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-01",
+            eva: 5,
+            zona_articular: "Tobillo izquierdo",
+            ejercicio_nombre: "Sentadilla búlgara",
+            fecha_reporte: "06 nov 10:00",
+            estado: "PENDIENTE",
+            notas_profesor: "Nota previa existente del caso",
+          }}
+        />
+      );
 
-      expect(segmented).toBeTruthy();
-      await segmented.props.onChange("ATENDIDO");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const tabAtendida = getByRole("tab", { name: "Atendida" });
+      await fireEvent.click(tabAtendida);
 
       expect(spyActualizar).toHaveBeenCalledTimes(1);
       expect(spyActualizar).toHaveBeenCalledWith({
@@ -340,25 +374,32 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
           };
         });
 
-      const { segmented, textarea } = renderAndCaptureIsla({
-        isCollapsed: false,
-        onToggleCollapse: vi.fn(),
-        dolorActivo: {
-          id: "caso-02",
-          eva: 6,
-          zona_articular: "Rodilla derecha",
-          estado: "PENDIENTE",
-          notas_profesor: null,
-        },
-      });
+      const { container, getByTestId, getByRole } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-02",
+            eva: 6,
+            zona_articular: "Rodilla derecha",
+            ejercicio_nombre: "Prensa 45°",
+            fecha_reporte: "06 nov 11:00",
+            estado: "PENDIENTE",
+            notas_profesor: null,
+          }}
+        />
+      );
+
+      assertNoDemoLiteralsInLiveMode(container);
 
       const nuevaNota = "Se redujo peso un 20% y se aplicó tempo 3-1-1";
-      textarea.props.onChange({ target: { value: nuevaNota } });
+      const textarea = getByTestId("nota-intervencion-textarea");
+      fireEvent.change(textarea, { target: { value: nuevaNota } });
 
       // Primer cambio de estado (PENDIENTE -> ATENDIDO)
-      await segmented.props.onChange("ATENDIDO");
+      await fireEvent.click(getByRole("tab", { name: "Atendida" }));
       // Segundo cambio de estado seguido (ATENDIDO -> RESUELTO) con la misma nota
-      await segmented.props.onChange("RESUELTO");
+      await fireEvent.click(getByRole("tab", { name: "Resuelta" }));
 
       expect(spyActualizar).toHaveBeenCalledTimes(2);
       expect(spyActualizar).toHaveBeenNthCalledWith(1, {
@@ -372,39 +413,43 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
         nota: null,
       });
 
-      // En notas_profesor la nota aparece exactamente una sola vez (sin concatenación duplicada)
       expect(notasProfesorEnDb).toBe(nuevaNota);
     });
 
-    it("GIVEN la isla Salud WHEN se inspecciona el bloque de Nota de intervención THEN existe un único mecanismo de guardado (onBlur) y un único texto de ayuda ('Se guarda al salir del campo.')", async () => {
+    it("GIVEN la isla Salud montada WHEN se escribe en el textarea y se dispara onBlur THEN persiste la nota una sola vez y exhibe confirmación 'Guardado'", async () => {
       const spyActualizar = vi.spyOn(dolorModule, "actualizarEstadoDolor").mockResolvedValue({
         ok: true,
         data: { id: "caso-03", estado: "PENDIENTE" },
       });
 
-      const { html, textarea } = renderAndCaptureIsla({
-        isCollapsed: false,
-        onToggleCollapse: vi.fn(),
-        dolorActivo: {
-          id: "caso-03",
-          eva: 5,
-          zona_articular: "Hombro anterior",
-          estado: "PENDIENTE",
-        },
-      });
+      const { container, getByTestId } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-03",
+            eva: 5,
+            zona_articular: "Zona dorsal media",
+            ejercicio_nombre: "Remo con barra Pendlay",
+            fecha_reporte: "06 nov 12:15",
+            estado: "PENDIENTE",
+          }}
+        />
+      );
 
-      expect(html).toContain("Nota de intervención");
-      expect(html).toContain("Se guarda al salir del campo.");
-      expect(html).toContain("<textarea");
-      // No existen mecanismos ni textos de ayuda duplicados
-      expect(html).not.toContain("Se guarda automáticamente al escribir o salir.");
-      expect(html).not.toContain("Guardar Registro en la Ficha");
-      expect(html).not.toContain("Guardar registro en la ficha");
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Al escribir y desenfocar (onBlur), persiste en notas_profesor del caso una sola vez
+      const block = getByTestId("nota-intervencion-block");
+      expect(block.textContent).toContain("Nota de intervención");
+      expect(block.textContent).toContain("Se guarda al salir del campo.");
+      expect(container.textContent).not.toContain("Se guarda automáticamente al escribir o salir.");
+      expect(container.textContent).not.toContain("Guardar Registro en la Ficha");
+      expect(container.textContent).not.toContain("Guardar registro en la ficha");
+
       const testNota = "Ajuste de ROM y control excéntrico";
-      textarea.props.onChange({ target: { value: testNota } });
-      await textarea.props.onBlur();
+      const textarea = getByTestId("nota-intervencion-textarea");
+      fireEvent.change(textarea, { target: { value: testNota } });
+      await fireEvent.blur(textarea);
 
       expect(spyActualizar).toHaveBeenCalledTimes(1);
       expect(spyActualizar).toHaveBeenCalledWith({
@@ -412,52 +457,76 @@ describe("GOZS-382: Isla de Salud Unificada (EVA 0-10, Alert Semántico, Segment
         nuevoEstado: "PENDIENTE",
         nota: testNota,
       });
+      expect(getByTestId("nota-intervencion-guardado").textContent).toContain("Guardado");
 
       // Un segundo onBlur sin cambios no vuelve a enviar ni concatenar la nota
-      await textarea.props.onBlur();
+      await fireEvent.blur(textarea);
       expect(spyActualizar).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("Criterio 5: Bloque de Anamnesis accesible y colapsable", () => {
-    it("renderiza los 4 bloques clínicos clave (Objetivo, Frecuencia, Molestia previa, Cirugías)", () => {
-      const html = renderToStaticMarkup(
+  describe("Criterio 5: Bloque de Anamnesis accesible, colapsable y con datos distintos del fallback", () => {
+    it("renderiza los 4 bloques clínicos provistos por props y despliega cuestionarioNode al hacer clic en 'Ver cuestionario inicial completo'", () => {
+      const { container, getByTestId, getByRole } = render(
         <IslaSaludAnamnesis
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
           anamnesisData={{
-            objetivo: "Hipertrofia & Fuerza",
-            frecuencia: "4 días / semana",
-            molestiaPrevia: "Hombro anterior",
-            cirugias: "Ninguna",
+            objetivo: "Readaptación Deportiva",
+            frecuencia: "5 días / semana",
+            molestiaPrevia: "Rodilla izquierda",
+            cirugias: "LCA reconstruido 2022",
+          }}
+          cuestionarioNode={
+            <div data-testid="cuestionario-completo-real">
+              Detalle de respuestas clínicas del atleta en vivo
+            </div>
+          }
+        />
+      );
+
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const anamnesisBox = getByTestId("anamnesis-summary-collapsible");
+      expect(anamnesisBox.textContent).toContain("Objetivo");
+      expect(anamnesisBox.textContent).toContain("Readaptación Deportiva");
+      expect(anamnesisBox.textContent).toContain("Frecuencia");
+      expect(anamnesisBox.textContent).toContain("5 días / semana");
+      expect(anamnesisBox.textContent).toContain("Molestia previa");
+      expect(anamnesisBox.textContent).toContain("Rodilla izquierda");
+      expect(anamnesisBox.textContent).toContain("Cirugías");
+      expect(anamnesisBox.textContent).toContain("LCA reconstruido 2022");
+
+      // Expandir el cuestionario haciendo clic en el botón
+      const btnToggleCuestionario = getByRole("button", {
+        name: "Ver cuestionario inicial completo",
+      });
+      expect(btnToggleCuestionario.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(btnToggleCuestionario);
+
+      expect(getByTestId("cuestionario-completo-real").textContent).toContain(
+        "Detalle de respuestas clínicas del atleta en vivo"
+      );
+    });
+
+    it("no contiene bloques duplicados de notificación de molestia", () => {
+      const { container, getAllByTestId } = render(
+        <IslaSaludAnamnesis
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          dolorActivo={{
+            id: "caso-unico-01",
+            eva: 5,
+            zona_articular: "Cadera derecha",
+            ejercicio_nombre: "Hip Thrust",
+            fecha_reporte: "06 nov 15:00",
+            estado: "PENDIENTE",
           }}
         />
       );
 
-      expect(html).toContain("Objetivo");
-      expect(html).toContain("Hipertrofia &amp; Fuerza");
-      expect(html).toContain("Frecuencia");
-      expect(html).toContain("4 días / semana");
-      expect(html).toContain("Molestia previa");
-      expect(html).toContain("Hombro anterior");
-      expect(html).toContain("Cirugías");
-      expect(html).toContain("Ninguna");
-      expect(html).toContain("Ver cuestionario inicial completo");
-    });
-
-    it("no contiene bloques duplicados de notificación de molestia", () => {
-      const html = renderToStaticMarkup(
-        <IslaSaludAnamnesis
-          isCollapsed={false}
-          onToggleCollapse={vi.fn()}
-          evaDolorActual={5}
-          zonaDolorActual="Hombro anterior"
-        />
-      );
-
-      // Solo hay 1 Alert semántico de molestia
-      const alertMatches = html.match(/data-testid="alert-salud"/g);
-      expect(alertMatches).toHaveLength(1);
+      assertNoDemoLiteralsInLiveMode(container);
+      expect(getAllByTestId("alert-salud")).toHaveLength(1);
     });
   });
 });

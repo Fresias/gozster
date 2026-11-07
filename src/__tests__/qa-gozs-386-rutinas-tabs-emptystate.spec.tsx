@@ -1,5 +1,4 @@
-import React, { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import * as React from "react";
 import { describe, expect, it } from "vitest";
 import { RutinasLibrary } from "@/components/coach/rutinas-library";
 import {
@@ -10,6 +9,11 @@ import {
 } from "@/lib/rutinas-biblioteca";
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
+import {
+  assertNoDemoLiteralsInLiveMode,
+  fireEvent,
+  render,
+} from "@/test-utils/no-demo-literals";
 
 const mock14Alumnos: Perfil[] = Array.from({ length: 14 }, (_, i) => ({
   id: `alumno-${i + 1}`,
@@ -67,96 +71,108 @@ describe("GOZS-386: Coach Studio - Biblioteca de Rutinas (/studio/rutinas) Tabs 
     });
 
     it("GIVEN una base con 14 rutinas de alumnos y 0 plantillas maestras, WHEN el entrenador ingresa a /studio/rutinas, THEN la vista abre inmediatamente en la pestaña 'De alumnos'", () => {
-      const html = renderToStaticMarkup(
-        createElement(RutinasLibrary, { initialDataset: datasetCon14AlumnosY0Plantillas }),
+      const { container, getByTestId, queryByTestId } = render(
+        <RutinasLibrary initialDataset={datasetCon14AlumnosY0Plantillas} />
       );
 
-      // Tab 'De alumnos' está seleccionado
-      expect(html).toContain('data-testid="tab-de-alumnos"');
-      expect(html).toContain('aria-selected="true"');
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Las rutinas de alumnos se renderizan en pantalla
-      expect(html).toContain("Alumno Prueba 1");
-      expect(html).toContain("Rutina Alumno 1 (Fuerza)");
-      expect(html).toContain("De alumnos (14)");
+      const tabAlumnos = getByTestId("tab-de-alumnos");
+      expect(tabAlumnos.getAttribute("aria-selected")).toBe("true");
 
-      // No se muestra la pantalla vacía de plantillas
-      expect(html).not.toContain('data-testid="empty-state-plantillas"');
+      expect(container.textContent).toContain("Alumno Prueba 1");
+      expect(container.textContent).toContain("Rutina Alumno 1 (Fuerza)");
+      expect(container.textContent).toContain("De alumnos (14)");
+
+      expect(queryByTestId("empty-state-plantillas")).toBeNull();
     });
   });
 
   describe("Criterio 2: EmptyState accesible en pestaña 'Plantillas maestras' sin plantillas", () => {
     it("GIVEN la pestaña 'Plantillas maestras' sin plantillas, WHEN se visualiza, THEN renderiza el EmptyState accesible con botón para 'Crear plantilla'", () => {
-      // Forzamos visualización de la pestaña 'plantillas'
-      const html = renderToStaticMarkup(
-        createElement(RutinasLibrary, {
-          initialDataset: datasetCon14AlumnosY0Plantillas,
-          defaultSubTab: "plantillas",
-        }),
+      const { container, getByTestId } = render(
+        <RutinasLibrary
+          initialDataset={datasetCon14AlumnosY0Plantillas}
+          defaultSubTab="plantillas"
+        />
       );
 
-      // Renderiza el EmptyState con testid y textos accesibles
-      expect(html).toContain('data-testid="empty-state-plantillas"');
-      expect(html).toContain("Todavía no hay plantillas.");
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Botón accesible de llamado a la acción 'Crear plantilla'
-      expect(html).toContain('data-testid="btn-crear-plantilla"');
-      expect(html).toContain("Crear plantilla");
-
-      // Botón secundario para ver rutinas de alumnos
-      expect(html).toContain('data-testid="btn-ver-rutinas-alumnos"');
-      expect(html).toContain("Ver rutinas de alumnos");
+      expect(getByTestId("empty-state-plantillas").textContent).toContain(
+        "Todavía no hay plantillas."
+      );
+      expect(getByTestId("btn-crear-plantilla").textContent).toContain("Crear plantilla");
+      expect(getByTestId("btn-ver-rutinas-alumnos").textContent).toContain(
+        "Ver rutinas de alumnos"
+      );
     });
 
     it("GIVEN una base completamente vacía, WHEN se visualiza 'plantillas', THEN el EmptyState ofrece crear plantilla", () => {
-      const html = renderToStaticMarkup(
-        createElement(RutinasLibrary, { initialDataset: datasetVacio }),
+      const { container, getByTestId } = render(
+        <RutinasLibrary initialDataset={datasetVacio} />
       );
 
-      expect(html).toContain('data-testid="empty-state-plantillas"');
-      expect(html).toContain('data-testid="btn-crear-plantilla"');
-      expect(html).toContain("Crear plantilla");
+      assertNoDemoLiteralsInLiveMode(container);
+
+      expect(getByTestId("empty-state-plantillas")).toBeTruthy();
+      expect(getByTestId("btn-crear-plantilla").textContent).toContain("Crear plantilla");
     });
   });
 
   describe("Criterio 3: Barra de filtros por objetivos (Fuerza, Hipertrofia, etc.)", () => {
-    it("GIVEN los chips de filtro por objetivo, WHEN se activa 'Fuerza', THEN la lista filtra instantáneamente las rutinas etiquetadas con dicha categoría", () => {
+    it("GIVEN los chips de filtro por objetivo en el DOM montado, WHEN se activa 'Fuerza', THEN la lista filtra instantáneamente las rutinas etiquetadas con dicha categoría", () => {
       const soloFuerza = filtrarRutinasPorTag(datasetCon14AlumnosY0Plantillas.planes, "Fuerza");
       expect(soloFuerza.length).toBeGreaterThan(0);
       expect(soloFuerza.every((p) => p.tags?.includes("Fuerza"))).toBe(true);
 
-      const soloHipertrofia = filtrarRutinasPorTag(datasetCon14AlumnosY0Plantillas.planes, "Hipertrofia");
+      const soloHipertrofia = filtrarRutinasPorTag(
+        datasetCon14AlumnosY0Plantillas.planes,
+        "Hipertrofia"
+      );
       expect(soloHipertrofia.length).toBeGreaterThan(0);
       expect(soloHipertrofia.every((p) => p.tags?.includes("Hipertrofia"))).toBe(true);
 
-      const combinada = filtrarRutinas(datasetCon14AlumnosY0Plantillas.planes, "Fuerza", "Rutina Alumno 1 (");
+      const combinada = filtrarRutinas(
+        datasetCon14AlumnosY0Plantillas.planes,
+        "Fuerza",
+        "Rutina Alumno 1 ("
+      );
       expect(combinada.length).toBe(1);
       expect(combinada[0]!.id).toBe("plan-alumno-1");
+
+      // Verificación sobre el DOM montado con render(...) y fireEvent
+      const { container, getByTestId, getAllByTestId } = render(
+        <RutinasLibrary initialDataset={datasetCon14AlumnosY0Plantillas} />
+      );
+      assertNoDemoLiteralsInLiveMode(container);
+
+      fireEvent.click(getByTestId("tag-filter-fuerza"));
+      const itemsDom = getAllByTestId("rutina-item");
+      expect(itemsDom).toHaveLength(soloFuerza.length);
+      expect(itemsDom.every((el) => el.textContent?.includes("(Fuerza)"))).toBe(true);
     });
   });
 
   describe("Criterio 4: Header unificado (Tabs + Barra de filtros en un único header limpio)", () => {
     it("unifica los selectores de pestañas y la barra de filtros en un único contenedor", () => {
-      const html = renderToStaticMarkup(
-        createElement(RutinasLibrary, { initialDataset: datasetCon14AlumnosY0Plantillas }),
+      const { container, getByTestId } = render(
+        <RutinasLibrary initialDataset={datasetCon14AlumnosY0Plantillas} />
       );
 
-      // Contenedor unificado
-      expect(html).toContain('data-testid="rutinas-filters-container"');
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Sub-tabs dentro del header unificado
-      expect(html).toContain('data-testid="rutinas-sub-tabs"');
-      expect(html).toContain('data-testid="tab-de-alumnos"');
-      expect(html).toContain('data-testid="tab-plantillas-maestras"');
-      expect(html).toContain('data-testid="tab-borradores"');
-      expect(html).toContain('data-testid="tab-archivadas"');
-
-      // Buscador reactivo y chips de tags dentro del header unificado
-      expect(html).toContain('data-testid="search-rutinas-input"');
-      expect(html).toContain('data-testid="rutinas-tags-filter"');
-      expect(html).toContain('data-testid="tag-filter-fuerza"');
-      expect(html).toContain('data-testid="tag-filter-hipertrofia"');
-      expect(html).toContain('data-testid="tag-filter-rehabilitacion"');
+      expect(getByTestId("rutinas-filters-container")).toBeTruthy();
+      expect(getByTestId("rutinas-sub-tabs")).toBeTruthy();
+      expect(getByTestId("tab-de-alumnos")).toBeTruthy();
+      expect(getByTestId("tab-plantillas-maestras")).toBeTruthy();
+      expect(getByTestId("tab-borradores")).toBeTruthy();
+      expect(getByTestId("tab-archivadas")).toBeTruthy();
+      expect(getByTestId("search-rutinas-input")).toBeTruthy();
+      expect(getByTestId("rutinas-tags-filter")).toBeTruthy();
+      expect(getByTestId("tag-filter-fuerza")).toBeTruthy();
+      expect(getByTestId("tag-filter-hipertrofia")).toBeTruthy();
+      expect(getByTestId("tag-filter-rehabilitacion")).toBeTruthy();
     });
   });
 });

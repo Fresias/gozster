@@ -1,8 +1,10 @@
 import * as React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
 import { IslaMetricas1RM } from "@/components/coach/student-detail/islas/isla-metricas-1rm";
-import { LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
+import {
+  assertNoDemoLiteralsInLiveMode,
+  render,
+} from "@/test-utils/no-demo-literals";
 
 describe("GOZS-396: IslaMetricas1RM - Telemetría de Cargas y 1RM Epley/Brzycki", () => {
   // Mock dataset con 4 ejercicios: 2 en subida y 2 en descenso (> 2.5% umbral)
@@ -34,113 +36,137 @@ describe("GOZS-396: IslaMetricas1RM - Telemetría de Cargas y 1RM Epley/Brzycki"
     },
   ];
 
+  const pesoHistorialVivo = [
+    { fecha: "Ago 26", peso: 84.0 },
+    { fecha: "Sep 26", peso: 82.8 },
+    { fecha: "Oct 26", peso: 81.5 },
+    { fecha: "Nov 26", peso: 80.2 },
+  ];
+
   describe("Criterio Gherkin 1: Badge de advertencia cuando hay ejercicios en descenso", () => {
     it("GIVEN un alumno con 2 de 4 ejercicios con cargas en descenso en los últimos microciclos THEN la isla de Fuerza exhibe badge de advertencia '2 de 4 en progresión'", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId } = render(
         <IslaMetricas1RM
           historialCargas={historialConDescenso as any}
-          pesoCorporalActual={80}
+          pesoCorporalActual={80.2}
+          pesoHistorial={pesoHistorialVivo}
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
         />
       );
 
-      // Badge semántico de consistencia con '2 de 4 en progresión'
-      expect(html).toContain("2 de 4 en progresión");
-      expect(html).toContain('data-variant="warning"');
+      assertNoDemoLiteralsInLiveMode(container);
+
+      const badge = getByTestId("badge-progresion");
+      expect(badge.textContent).toContain("2 de 4 en progresión");
+      expect(badge.getAttribute("data-variant")).toBe("warning");
 
       // Variaciones porcentuales de rendimiento (+/- %)
-      expect(html).toContain("+11.11%");
-      expect(html).toContain("+10%");
-      expect(html).toContain("-6.67%");
+      expect(container.textContent).toContain("+11.11%");
+      expect(container.textContent).toContain("+10%");
+      expect(container.textContent).toContain("-6.67%");
 
       // Ganancia en kg (+/-)
-      expect(html).toContain("+10 kg");
-      expect(html).toContain("+12 kg");
-      expect(html).toContain("-10 kg");
-      expect(html).toContain("-4 kg");
+      expect(container.textContent).toContain("+10 kg");
+      expect(container.textContent).toContain("+12 kg");
+      expect(container.textContent).toContain("-10 kg");
+      expect(container.textContent).toContain("-4 kg");
     });
   });
 
   describe("Criterio Gherkin 2: Tooltips informativos de fórmulas 1RM Epley y Brzycki con variables aplicadas", () => {
     it("GIVEN el indicador de 1RM estimado WHEN el tooltip está abierto THEN despliega la fórmula y variables aplicadas (Epley / Brzycki)", () => {
-      const html = renderToStaticMarkup(
+      const { container, getByTestId, getByLabelText } = render(
         <IslaMetricas1RM
           historialCargas={historialConDescenso as any}
-          pesoCorporalActual={80}
+          pesoCorporalActual={80.2}
+          pesoHistorial={pesoHistorialVivo}
           isCollapsed={false}
           tooltipOpen={true}
           onToggleCollapse={vi.fn()}
         />
       );
 
-      // Indicadores 1RM
-      expect(html).toContain('data-testid="metricas-1rm-epley"');
-      expect(html).toContain('data-testid="metricas-1rm-brzycki"');
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Botones de ayuda accesibles con aria-label
-      expect(html).toContain('aria-label="Ayuda fórmula Epley"');
-      expect(html).toContain('aria-label="Ayuda fórmula Brzycki"');
-      expect(html).toContain('data-testid="help-icon-epley"');
-      expect(html).toContain('data-testid="help-icon-brzycki"');
+      expect(getByTestId("metricas-1rm-epley")).toBeTruthy();
+      expect(getByTestId("metricas-1rm-brzycki")).toBeTruthy();
+      expect(getByLabelText("Ayuda fórmula Epley")).toBeTruthy();
+      expect(getByLabelText("Ayuda fórmula Brzycki")).toBeTruthy();
+      expect(getByTestId("help-icon-epley")).toBeTruthy();
+      expect(getByTestId("help-icon-brzycki")).toBeTruthy();
 
-      // Tooltip Epley con fórmula y variables aplicadas
-      expect(html).toContain("Fórmula de Epley");
-      expect(html).toContain("1RM = Peso × (1 + Reps / 30)");
-      expect(html).toContain("Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps).");
+      expect(container.textContent).toContain("Fórmula de Epley");
+      expect(container.textContent).toContain("1RM = Peso × (1 + Reps / 30)");
+      expect(container.textContent).toContain(
+        "Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps)."
+      );
 
-      // Tooltip Brzycki con fórmula y variables aplicadas
-      expect(html).toContain("Fórmula de Brzycki");
-      expect(html).toContain("1RM = Peso × (36 / (37 - Reps))");
-      expect(html).toContain("Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps &lt; 37).");
+      expect(container.textContent).toContain("Fórmula de Brzycki");
+      expect(container.textContent).toContain("1RM = Peso × (36 / (37 - Reps))");
+      expect(container.textContent).toContain(
+        "Variables aplicadas: Peso levantado (kg) y repeticiones realizadas (Reps < 37)."
+      );
     });
   });
 
   describe("Criterio Gherkin 3: Erradicación total de referencias a Tonelaje Mensual o sumatorias de volumen", () => {
     it("GIVEN la visualización general de la isla THEN no se encuentra ninguna referencia a 'Tonelaje Mensual' ni sumatorias de volumen en kg", () => {
-      const html = renderToStaticMarkup(
+      const { container } = render(
         <IslaMetricas1RM
           historialCargas={historialConDescenso as any}
-          pesoCorporalActual={80}
+          pesoCorporalActual={80.2}
+          pesoHistorial={pesoHistorialVivo}
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
         />
       );
 
-      // No debe existir 'Tonelaje Mensual' (case-insensitive)
-      expect(html.toLowerCase()).not.toContain("tonelaje mensual");
-      expect(html.toLowerCase()).not.toContain("volumen total");
-      expect(html.toLowerCase()).not.toContain("volumen mensual");
-      expect(html.toLowerCase()).not.toContain("tonelaje acumulado");
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Debe exhibir la progresión real por ejercicio básico
-      expect(html).toContain("Progresión Real de Cargas");
-      expect(html).toContain("Sobrecarga");
+      const textLower = (container.textContent ?? "").toLowerCase();
+      expect(textLower).not.toContain("tonelaje mensual");
+      expect(textLower).not.toContain("volumen total");
+      expect(textLower).not.toContain("volumen mensual");
+      expect(textLower).not.toContain("tonelaje acumulado");
+
+      expect(container.textContent).toContain("Progresión Real de Cargas");
+      expect(container.textContent).toContain("Sobrecarga");
     });
   });
 
   describe("Criterio Sparklines: SVGs accesibles de evolución de peso y cargas recientes", () => {
-    it("renderiza SVGs accesibles con role='img' para evolución de peso corporal y cargas recientes", () => {
-      const html = renderToStaticMarkup(
+    it("renderiza SVGs accesibles con role='img' para evolución de peso corporal y cargas recientes con datos distintos del fallback", () => {
+      const { container, getByTestId } = render(
         <IslaMetricas1RM
-          historialCargas={LUCAS_2_MONTHS_HISTORIAL as any}
-          pesoCorporalActual={78.5}
+          historialCargas={historialConDescenso as any}
+          pesoCorporalActual={80.2}
+          pesoHistorial={pesoHistorialVivo}
+          cargasRecientes={[
+            { fecha: "Sem 1", carga: 118 },
+            { fecha: "Sem 3", carga: 124 },
+            { fecha: "Sem 6", carga: 129 },
+            { fecha: "Sem 8", carga: 132 },
+          ]}
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
         />
       );
 
-      // Contenedor de evolución de peso corporal
-      expect(html).toContain('data-testid="evolucion-peso-corporal"');
-      expect(html).toContain("78.5 kg");
+      assertNoDemoLiteralsInLiveMode(container);
 
-      // Sparkline SVG de peso corporal
-      expect(html).toContain('data-testid="sparkline-peso-corporal"');
-      expect(html).toContain('aria-label="Evolución de peso corporal:');
+      const evolucion = getByTestId("evolucion-peso-corporal");
+      expect(evolucion.textContent).toContain("80.2 kg");
 
-      // Sparkline SVG de cargas recientes
-      expect(html).toContain('data-testid="sparkline-cargas-recientes"');
-      expect(html).toContain('aria-label="Evolución de cargas recientes:');
+      const sparkPeso = getByTestId("sparkline-peso-corporal");
+      expect(sparkPeso.getAttribute("aria-label")).toContain(
+        "Evolución de peso corporal: de 84 kg a 80.2 kg"
+      );
+
+      const sparkCargas = getByTestId("sparkline-cargas-recientes");
+      expect(sparkCargas.getAttribute("aria-label")).toContain(
+        "Evolución de cargas recientes: de 118 kg a 132 kg"
+      );
     });
   });
 });
