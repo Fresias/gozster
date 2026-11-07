@@ -1,10 +1,13 @@
 import * as React from "react";
 import { describe, expect, it, beforeEach } from "vitest";
-import { renderToString } from "react-dom/server";
 import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import type { CobroItem } from "@/store/use-cobros-store";
 import type { DolorActivo } from "@/lib/dolor";
+import {
+  assertNoDemoLiteralsInLiveMode,
+  render,
+} from "@/test-utils/no-demo-literals";
 
 describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA y Cuotas)", () => {
   beforeEach(() => {
@@ -48,27 +51,29 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
       },
     };
 
-    const html = renderToString(
+    const { container, getByTestId } = render(
       <ParaRevisarHoy
         molestias={[molestiaEva7 as DolorActivo]}
         cuotasVencidas={[cuotaVencida]}
       />
     );
 
-    // Contenedor y título
-    expect(html).toContain('data-testid="para-revisar-hoy-container"');
-    expect(html).toContain("Para revisar hoy");
+    assertNoDemoLiteralsInLiveMode(container);
+
+    expect(getByTestId("para-revisar-hoy-container")).toBeTruthy();
+    expect(container.textContent).toContain("Para revisar hoy");
 
     // La alerta encabeza la lista
-    expect(html).toContain("Sofía Martínez");
-    expect(html).toContain("Rodilla");
-    expect(html).toContain("Sentadilla Búlgara");
-    expect(html).toContain("EVA 7/10");
-    expect(html).toContain("Alto");
+    expect(container.textContent).toContain("Sofía Martínez");
+    expect(container.textContent).toContain("Rodilla");
+    expect(container.textContent).toContain("Sentadilla Búlgara");
+    expect(container.textContent).toContain("EVA 7/10");
+    expect(container.textContent).toContain("Alto");
 
     // Posicionamiento relativo: la molestia aparece ANTES de la cuota vencida
-    const posMolestia = html.indexOf("Sofía Martínez");
-    const posCuota = html.indexOf("Lucas Gómez");
+    const text = container.textContent ?? "";
+    const posMolestia = text.indexOf("Sofía Martínez");
+    const posCuota = text.indexOf("Lucas Gómez");
     expect(posMolestia).toBeGreaterThan(-1);
     expect(posCuota).toBeGreaterThan(-1);
     expect(posMolestia).toBeLessThan(posCuota);
@@ -98,31 +103,35 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
       },
     };
 
-    const html = renderToString(
+    const { container } = render(
       <ParaRevisarHoy
         molestias={[]}
         cuotasVencidas={[cuotaVencida]}
       />
     );
 
-    expect(html).toContain("Martín Benítez");
-    expect(html).toContain("Vencido");
-    expect(html).toContain("$28.000");
-    expect(html).toContain("Funcional 3x Semana");
-    expect(html).toContain("2026-11-03");
+    assertNoDemoLiteralsInLiveMode(container);
+
+    expect(container.textContent).toContain("Martín Benítez");
+    expect(container.textContent).toContain("Vencido");
+    expect(container.textContent).toContain("$28.000");
+    expect(container.textContent).toContain("Funcional 3x Semana");
+    expect(container.textContent).toContain("2026-11-03");
   });
 
   it("GIVEN 0 alertas o cuotas vencidas pendientes THEN se renderiza el EmptyState con el texto exacto 'Nada urgente por hoy.'", () => {
-    const html = renderToString(
+    const { container, getByTestId } = render(
       <ParaRevisarHoy
         molestias={[]}
         cuotasVencidas={[]}
       />
     );
 
-    expect(html).toContain('data-testid="para-revisar-hoy-empty"');
-    expect(html).toContain("Nada urgente por hoy.");
-    expect(html).toContain("0 pendientes");
+    assertNoDemoLiteralsInLiveMode(container);
+
+    expect(getByTestId("para-revisar-hoy-empty")).toBeTruthy();
+    expect(container.textContent).toContain("Nada urgente por hoy.");
+    expect(container.textContent).toContain("0 pendientes");
   });
 
   it("GIVEN múltiples reportes de molestia THEN los ordena por severidad clínica (EVA 8-10 primero, luego EVA 4-7)", () => {
@@ -143,17 +152,20 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
       },
     ];
 
-    const html = renderToString(
+    const { container } = render(
       <ParaRevisarHoy molestias={molestias as DolorActivo[]} cuotasVencidas={[]} />
     );
 
-    const posCritico = html.indexOf("Alumno Crítico");
-    const posModerado = html.indexOf("Alumno Moderado");
+    assertNoDemoLiteralsInLiveMode(container);
+
+    const text = container.textContent ?? "";
+    const posCritico = text.indexOf("Alumno Crítico");
+    const posModerado = text.indexOf("Alumno Moderado");
     expect(posCritico).toBeGreaterThan(-1);
     expect(posModerado).toBeGreaterThan(-1);
     expect(posCritico).toBeLessThan(posModerado);
 
-    expect(html).toContain("Alto");
-    expect(html).toContain("Moderado");
+    expect(text).toContain("Alto");
+    expect(text).toContain("Moderado");
   });
 });
