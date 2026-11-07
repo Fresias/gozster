@@ -11,7 +11,6 @@ import {
   ClipboardList,
   ArrowRightLeft,
   FileText,
-  Save,
   ChevronDown,
   ChevronUp,
 } from "@/components/coach/icons";
@@ -49,7 +48,8 @@ export interface IslaSaludAnamnesisProps {
   ejercicioNombre?: string;
   fechaReporte?: string;
   reporteId?: string;
-  dolorActivo?: Partial<DolorActivo> | null;
+  dolorActivo?: (Partial<DolorActivo> & { notaCoach?: string | null }) | null;
+  notaCoach?: string | null;
   estadoInicial?: EstadoDolor;
   onQuickSwap?: () => void;
   alumnoId?: string;
@@ -94,6 +94,7 @@ export function IslaSaludAnamnesis({
   fechaReporte,
   reporteId,
   dolorActivo,
+  notaCoach,
   estadoInicial,
   onQuickSwap,
   alumnoId = "demo-alumno-lucas",
@@ -115,23 +116,46 @@ export function IslaSaludAnamnesis({
   canMoveRight,
 }: IslaSaludAnamnesisProps) {
   const [anamnesisCollapsed, setAnamnesisCollapsed] = React.useState(true);
-  const [coachLog, setCoachLog] = React.useState(
-    "28 oct: agarre neutro y Landmine Press 3x10 25 kg en lugar de banca. Sin dolor el último microciclo."
-  );
+
+  const initialNota = React.useMemo(() => {
+    const raw =
+      dolorActivo?.notas_profesor ??
+      dolorActivo?.notaCoach ??
+      notaCoach ??
+      "";
+    return typeof raw === "string" ? raw : "";
+  }, [dolorActivo?.notas_profesor, dolorActivo?.notaCoach, notaCoach]);
+
+  const [coachLog, setCoachLog] = React.useState<string>(() => initialNota);
+  const coachLogRef = React.useRef<string>(initialNota);
+  const lastSavedNotaRef = React.useRef<string>(initialNota.trim());
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [isUpdating, setIsUpdating] = React.useState(false);
 
-  const [estado, setEstado] = React.useState<EstadoDolor>(() => {
+  const initialEstado: EstadoDolor = React.useMemo(() => {
     if (dolorActivo?.estado) return dolorActivo.estado;
     if (estadoInicial) return estadoInicial;
     return "PENDIENTE";
-  });
+  }, [dolorActivo?.estado, estadoInicial]);
+
+  const [estado, setEstado] = React.useState<EstadoDolor>(() => initialEstado);
+  const estadoRef = React.useRef<EstadoDolor>(initialEstado);
+
+  React.useEffect(() => {
+    coachLogRef.current = initialNota;
+    lastSavedNotaRef.current = initialNota.trim();
+    setCoachLog(initialNota);
+  }, [dolorActivo?.id, initialNota]);
 
   React.useEffect(() => {
     if (dolorActivo?.estado) {
+      estadoRef.current = dolorActivo.estado;
       setEstado(dolorActivo.estado);
     } else if (estadoInicial) {
+      estadoRef.current = estadoInicial;
       setEstado(estadoInicial);
     }
   }, [dolorActivo?.estado, estadoInicial]);
@@ -141,20 +165,26 @@ export function IslaSaludAnamnesis({
       try {
         const savedEstado = localStorage.getItem(`gozster_coach_pain_estado_${alumnoId}`);
         if (savedEstado && ["PENDIENTE", "ATENDIDO", "RESUELTO"].includes(savedEstado)) {
+          estadoRef.current = savedEstado as EstadoDolor;
           setEstado(savedEstado as EstadoDolor);
         } else {
           const savedStatus = localStorage.getItem(`gozster_coach_pain_status_${alumnoId}`);
           if (savedStatus === "true") {
+            estadoRef.current = "ATENDIDO";
             setEstado("ATENDIDO");
           }
-        }
-        const savedLog = localStorage.getItem(`gozster_coach_clinica_log_${alumnoId}`);
-        if (savedLog !== null) {
-          setCoachLog(savedLog);
         }
       } catch {}
     }
   }, [alumnoId]);
+
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const hasActiveDolor = React.useMemo(() => {
     if (dolorActivo === null) return false;
@@ -210,12 +240,23 @@ export function IslaSaludAnamnesis({
   }, [hasActiveDolor, effectiveEva]);
 
   const handleEstadoChange = async (nextVal: EstadoDolor) => {
-    if (nextVal === estado) return;
+    if (nextVal === estadoRef.current) return;
 
-    const prevEstado = estado;
+    const prevEstado = estadoRef.current;
+    estadoRef.current = nextVal;
     setEstado(nextVal);
     setErrorMsg(null);
     setIsUpdating(true);
+
+    const trimmedNota = coachLogRef.current.trim();
+    const hasNewUnsavedNota =
+      trimmedNota !== "" && trimmedNota !== lastSavedNotaRef.current;
+    const notaToSend: string | null = hasNewUnsavedNota ? trimmedNota : null;
+    const prevSavedNota = lastSavedNotaRef.current;
+
+    if (hasNewUnsavedNota) {
+      lastSavedNotaRef.current = trimmedNota;
+    }
 
     try {
       let success = true;
@@ -231,7 +272,7 @@ export function IslaSaludAnamnesis({
         const res = await actualizarEstadoDolor({
           reporteId: activeReporteId,
           nuevoEstado: nextVal,
-          nota: coachLog,
+          nota: notaToSend,
         });
         if (!res.ok) {
           success = false;
@@ -240,7 +281,11 @@ export function IslaSaludAnamnesis({
       }
 
       if (!success) {
+        estadoRef.current = prevEstado;
         setEstado(prevEstado);
+        if (hasNewUnsavedNota) {
+          lastSavedNotaRef.current = prevSavedNota;
+        }
         setErrorMsg(errMessage || "Error de red al actualizar el estado de molestia.");
       } else {
         if (typeof window !== "undefined" && window.localStorage) {
@@ -254,25 +299,59 @@ export function IslaSaludAnamnesis({
         }
       }
     } catch (err: any) {
+      estadoRef.current = prevEstado;
       setEstado(prevEstado);
+      if (hasNewUnsavedNota) {
+        lastSavedNotaRef.current = prevSavedNota;
+      }
       setErrorMsg(err?.message || "Error inesperado de red al conectar con el servidor.");
     } finally {
       setIsUpdating(false);
     }
   };
 
+  const handleCoachLogChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    coachLogRef.current = val;
+    setCoachLog(val);
+  };
+
   const handleSaveCoachLog = async () => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      try {
-        localStorage.setItem(`gozster_coach_clinica_log_${alumnoId}`, coachLog);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 2500);
-      } catch {}
+    const trimmedNota = coachLogRef.current.trim();
+    if (!trimmedNota || trimmedNota === lastSavedNotaRef.current) {
+      return;
     }
-    if (onSaveNota) {
-      try {
-        await onSaveNota(coachLog);
-      } catch {}
+
+    const prevSavedNota = lastSavedNotaRef.current;
+    lastSavedNotaRef.current = trimmedNota;
+    setErrorMsg(null);
+
+    try {
+      if (onSaveNota) {
+        await onSaveNota(trimmedNota);
+      } else {
+        const res = await actualizarEstadoDolor({
+          reporteId: activeReporteId,
+          nuevoEstado: estadoRef.current,
+          nota: trimmedNota,
+        });
+        if (!res.ok) {
+          lastSavedNotaRef.current = prevSavedNota;
+          setErrorMsg(res.error || "No se pudo guardar. Reintentá.");
+          return;
+        }
+      }
+
+      setSaveSuccess(true);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        setSaveSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      lastSavedNotaRef.current = prevSavedNota;
+      setErrorMsg(err?.message || "No se pudo guardar. Reintentá.");
     }
   };
 
@@ -479,52 +558,41 @@ export function IslaSaludAnamnesis({
           </Alert>
         )}
 
-        {/* Bitácora / Nota de Intervención con Auto-guardado al salir del foco (onBlur) */}
-        <div className="rounded-lg border border-border/80 bg-secondary/15 p-3 space-y-2">
+        {/* Bitácora / Nota de Intervención con único mecanismo de guardado al salir del foco (onBlur) */}
+        <div
+          data-testid="nota-intervencion-block"
+          className="rounded-lg border border-border/80 bg-secondary/15 p-3 space-y-2"
+        >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+            <label
+              htmlFor={`nota-intervencion-${alumnoId}`}
+              className="flex items-center gap-1.5 text-xs font-bold text-foreground cursor-pointer"
+            >
               <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="text-xs font-bold text-foreground">Nota de intervención</span>
+              <span>Nota de intervención</span>
               <span className="sr-only">Bitácora de Intervención del Entrenador</span>
-            </div>
+            </label>
             {saveSuccess && (
-              <span className="text-[11px] font-bold text-emerald-500 animate-in fade-in inline-flex items-center gap-1">
-                <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado automático en la ficha
+              <span
+                data-testid="nota-intervencion-guardado"
+                className="text-xs font-semibold text-emerald-500 animate-in fade-in inline-flex items-center gap-1"
+              >
+                <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado
               </span>
             )}
           </div>
-          <p className="text-[10px] text-muted-foreground">Se guarda al salir del campo.</p>
           <textarea
+            id={`nota-intervencion-${alumnoId}`}
+            data-testid="nota-intervencion-textarea"
             value={coachLog}
-            onChange={(e) => setCoachLog(e.target.value)}
+            onChange={handleCoachLogChange}
             onBlur={handleSaveCoachLog}
             rows={3}
-            placeholder="Ej.: 28 oct: agarre neutro y Landmine Press 3x10 25 kg en lugar de banca. Sin dolor el último microciclo."
+            placeholder="Registrá la pauta o ajuste de ejercicio indicado para este caso..."
             aria-label="Nota de intervención"
             className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-[10px] text-muted-foreground">
-              {saveSuccess ? (
-                <span className="text-emerald-500 font-medium inline-flex items-center gap-1">
-                  <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado al desenfocar
-                </span>
-              ) : (
-                "Se guarda automáticamente al escribir o salir."
-              )}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveCoachLog}
-              className="h-6 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-            >
-              <span className="inline-flex items-center gap-1">
-                <Save className="h-3.5 w-3.5 inline" aria-hidden="true" /> Guardar Registro en la Ficha
-              </span>
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground">Se guarda al salir del campo.</p>
         </div>
 
         {/* Bloque de Anamnesis accesible y colapsable */}

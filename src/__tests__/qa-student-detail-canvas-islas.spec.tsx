@@ -378,7 +378,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain("Ficha de Anamnesis &amp; Cuestionario Inicial");
       expect(html).toContain("Reporte de Molestia en Ejercicio");
       expect(html).toContain("Bitácora de Intervención del Entrenador");
-      expect(html).toContain("Guardar Registro en la Ficha");
+      expect(html).toContain("Se guarda al salir del campo.");
     });
   });
 

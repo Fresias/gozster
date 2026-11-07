@@ -430,8 +430,8 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
       );
 
       expect(html).toContain("Bitácora de Intervención del Entrenador");
-      expect(html).toContain("Guardar Registro en la Ficha");
-      expect(html).toContain("Se guarda automáticamente al escribir o salir.");
+      expect(html).toContain("Nota de intervención");
+      expect(html).toContain("Se guarda al salir del campo.");
     });
 
     it("6.3 La anamnesis inicial expone acceso a los 4 datos clínicos clave de Lucas", () => {
