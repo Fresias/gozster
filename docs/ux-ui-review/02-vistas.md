@@ -1,5 +1,7 @@
 # 02 · Especificación de vistas
 
+> **Actualización 6 nov:** `09-respuesta-pm.md` cambia varios puntos de este documento: la topbar no lleva acción primaria (va en la fila del H1, P02); los filtros del directorio y de Cobros son chips, no Segmented (P08); el descuento va junto al nombre del plan (P08); el peso corporal es un dato simple (P04); y se agregan Agenda Día y Mes (P11) y la vista previa del alumno (P11). Ante cualquier diferencia, manda `09-respuesta-pm.md`.
+>
 > **Para:** `@frontend-eng` (construye), `@qa-eng` (verifica), `@backend-eng` (secciones "Datos").
 > Cada vista lista: ruta, layout, regiones, datos, estados, interacciones, copy, responsive, accesibilidad y criterios de aceptación. Componentes y tokens: `01-sistema-visual.md`.
 > Los números de ejemplo son los del dataset demo, ya conciliados entre vistas; en producción salen de las fuentes de `03-backend.md`.

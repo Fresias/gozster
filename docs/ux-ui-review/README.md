@@ -29,7 +29,8 @@
 | `04-frontend.md` | Plan de implementación archivo por archivo, inventario actual → nuevo, orden, tests a actualizar |
 | `05-qa.md` | Plan de pruebas: coherencia cruzada, e2e por vista, accesibilidad, regresión visual por viewport |
 | `06-issues.md` | Issues listos para pegar en Multica |
-| `09-pm-preguntas.md` | **Siguiente paso.** Tarea para el PM: consultar a los agentes y devolver las preguntas abiertas en `09-respuesta-pm.md` antes de implementar FIX-V* |
+| `09-respuesta-pm.md` | **Vigente.** Las 16 preguntas del PM respondidas por el diseñador, más respuestas a los relevamientos de frontend y QA. Manda sobre `02` y `08` donde difieran. Define las 4 olas de trabajo. |
+| `09-pm-preguntas.md` | Tarea original del PM (ya cumplida). Tarea para el PM: consultar a los agentes y devolver las preguntas abiertas en `09-respuesta-pm.md` antes de implementar FIX-V* |
 | `08-fidelidad-visual.md` | **Prioridad actual.** Por qué no se parece al canvas, tokens zinc (D1 = B), reglas visuales globales, checklist por vista, diagnóstico de "vista del alumno" y 10 issues (FIX-V1 a FIX-V10) |
 | `objetivo/html/`, `objetivo/png/` | Cada pantalla del canvas como HTML estático inspeccionable y PNG 2x: es la referencia visual que los agentes sí pueden abrir |
 | `comparar/` | Objetivo vs. implementado, lado a lado, por vista |

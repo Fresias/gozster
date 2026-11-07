@@ -2,6 +2,8 @@
 
 > **Para:** `@PM-GOZster` → `@frontend-eng` (implementa) y `@qa-eng` (verifica).
 > **Decisión del dueño del producto (6 nov):** la interfaz tiene que verse como el canvas "GOZSter — Review UX/UI". Este documento **reemplaza la decisión D1** de `00-PM.md`: se adopta la opción **B** (neutros zinc + primario negro) en lugar de la A (slate + azul de marca).
+> **Actualización 6 nov (respuestas del PM):** este documento ya incorpora las decisiones de `09-respuesta-pm.md` (topbar sin acción primaria, ancho 1280 px, tokens dark de actividades, peso corporal como dato simple, búsqueda en el directorio, KPI estándar en Cobros). Ante cualquier diferencia, manda `09-respuesta-pm.md`.
+>
 > **Referencias en este paquete:**
 > - `objetivo/html/*.html` — cada pantalla del canvas como HTML estático con estilos inline. Se abre en el navegador y se inspecciona con DevTools para leer cualquier medida, color o tamaño exacto.
 > - `objetivo/png/*.png` — las mismas pantallas a 2x.
@@ -74,6 +76,7 @@ Paleta zinc de shadcn/ui. Los nombres de los tokens no cambian; cambian los valo
   --act-funcional-border: 240 5.9% 90%;
   --act-boxeo-bg: 33 100% 96%;        /* #FFF7ED */
   --act-boxeo-border: 32 98% 83%;     /* #FED7AA */
+  --warning-soft-strong: 48 96% 89%;  /* #FEF3C7  ítem activo de un Segmented dentro de un Alert */
 }
 
 .dark {
@@ -97,8 +100,17 @@ Paleta zinc de shadcn/ui. Los nombres de los tokens no cambian; cambian los valo
   --input: 240 3.7% 15.9%;
   --ring: 240 4.9% 83.9%;
   --sidebar: 240 5.9% 7%;
+  --act-funcional-bg: 240 3.7% 15.9%;
+  --act-funcional-border: 240 5.3% 26%;
+  --act-boxeo-bg: 21 75% 12%;
+  --act-boxeo-border: 26 80% 30%;
+  --warning-soft-strong: 26 85% 22%;
   /* *-soft: conservar los valores dark actuales de main (ya pasan contraste) */
 }
+
+/* Athlete App y landing: envolver su raíz en .theme-athlete (P01) */
+.theme-athlete { --primary: 221 83% 53%; --primary-foreground: 210 40% 98%; --ring: 221 83% 53%; }
+.dark .theme-athlete { --primary: 199 89% 48%; --ring: 199 89% 48%; }
 ```
 
 Consecuencias que el PR tiene que resolver:
@@ -145,7 +157,9 @@ Cada fila: valor objetivo → lo que hay hoy en `main`. Valores medidos sobre `o
 - Pie: separador `border-t pt-3`; "Vista del alumno"; botón de cuenta (avatar 28 + nombre 500 + "Sincronizado" 12). **Se quita la tarjeta "Sincronización / Cloud".**
 
 ### Topbar
-- `h-14 border-b px-6`, nombre de página 14/500 a la izquierda; búsqueda 280 px `h-9 rounded-lg border` con `⌘K` en `kbd` 11 px; botón de tema `size-9 border`; acción primaria contextual (negra).
+- `h-14 border-b px-6`, nombre de página 14/500 (breadcrumb en la ficha) a la izquierda; búsqueda 280 px `h-9 rounded-lg border` con `⌘K` en `kbd` 11 px; botón **Mensajes** `size-9 border` con punto de no leídos (P09); botón de tema `size-9 border`. **Sin acción primaria**: va en la fila del H1 de cada vista (P02).
+- Contenedor de contenido: `w-full max-w-[1280px] px-6` en todas las vistas (P02).
+- Regla de primarios: máximo un botón negro entre la topbar y la fila del H1; se permiten primarios contextuales dentro de un `Alert` y uno por fila de tabla (P02).
 
 ---
 
@@ -154,13 +168,13 @@ Cada fila: valor objetivo → lo que hay hoy en `main`. Valores medidos sobre `o
 Cada ítem es binario: QA lo marca mirando `comparar/<vista>.jpg` y el HTML objetivo.
 
 ### 4.1 Inicio (`objetivo/html/Inicio.html`, `comparar/inicio.jpg`)
-- [ ] Encabezado "Hola, {nombre}" + "{fecha} · {n} clases hoy, {m} alertas para revisar." y el Segmented de período a la derecha, en la misma fila.
+- [ ] Encabezado "Hola, {nombre}" + "{fecha} · {n} clases hoy, {m} alertas para revisar."; a la derecha, en la misma fila, el Segmented de período y después "Alta de alumno" (primario). La topbar no tiene botón primario (P02).
 - [ ] **4 KPIs en una fila** (`grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3`), card `p-4`, sin ícono, sin barra de progreso: etiqueta 13 + período 12 arriba a la derecha, cifra 28/600, subtítulo 13.
 - [ ] Debajo, en una fila: "Para revisar hoy" (`flex-[2_1_460px]`) y "Clases de hoy" (`flex-[1_1_280px]`).
 - [ ] "Para revisar hoy": header 15/600 + "Ordenado por prioridad" 12; filas `min-h-14 px-4 py-3` sin card propia, separadas por `border-b border-border-subtle`; badge + nombre 500 + detalle 13 + tiempo 12 + chevron. **Sin "Ver ficha →" en azul, sin EVA en mono suelto.** Máximo 5.
 - [ ] No se renderiza la "Bandeja de alertas críticas" roja.
 - [ ] "Clases de hoy": filas de 40 px con hora en mono 13, clase en curso con `bg-muted` + badge "Ahora", pie con avatares apilados + "7 sin entrenar hace +7 días" + "Escribirles".
-- [ ] Directorio: card con toolbar de una línea (h2 + chips de filtro + "+ Actividad" punteado) y tabla con las columnas del objetivo. Sin el acordeón "Alumnos 15 ▲".
+- [ ] Directorio: card con toolbar de una línea (h2 + chips de filtro `h-8` + "+ Actividad" punteado + búsqueda de 220 px al final) y tabla con las columnas del objetivo; `pageSize = 15`. Columna Rutina: nombre en texto + "Vence en n d" en 12 px ámbar si faltan 5 días o menos; "Sin rutina" en gris sin badge (P08). Sin el acordeón "Alumnos 15 ▲".
 - [ ] Sin el botón flotante de chat.
 
 ### 4.2 Ficha del alumno (`objetivo/html/Ficha.html`, `comparar/ficha.jpg`)
@@ -170,19 +184,21 @@ Cada ítem es binario: QA lo marca mirando `comparar/<vista>.jpg` y el HTML obje
 - [ ] **Dos columnas** debajo: izquierda (`flex-[2_1_560px]`) Rutina + Fuerza; derecha (`flex-[1_1_320px]`) Salud + Actividad + Membresía. Gap 16.
 - [ ] Header de isla: título 15/600 en oración + meta 13 + badge + chevron a la derecha. **Sin ⠿ ni flechas** fuera de Personalizar; sin íconos delante del título.
 - [ ] Rutina: Segmented "Rutina actual / Historial / Registros"; pills de día; tabla con encabezados en oración; botón ⇄ por fila; fila con dolor en `bg-warning-soft`.
-- [ ] Fuerza: un solo 1RM (32/600) + "Fórmula Epley · ver detalle" + sparkline de peso; a la derecha lista con badges "↑ 41%" / "↓ 14%". **Sin la tarjeta Brzycki ni el heatmap de 52 semanas en esta vista.**
+- [ ] Fuerza: un solo 1RM (32/600) + "Fórmula Epley · ver detalle" (Popover con Epley y Brzycki, P06) + **sparkline del 1RM por sesión** de ese ejercicio (8 sesiones; no se dibuja con menos de 2) + "Peso corporal · {n} kg" como dato simple, oculto si no hay dato (P04); a la derecha lista con badges "↑ 41%" / "↓ 14%". **Sin la tarjeta Brzycki ni el heatmap en esta vista** (el heatmap va en la pestaña Registros).
 - [ ] Salud: Alert ámbar con título, detalle, Segmented Pendiente/Atendida/Resuelta y botón negro "Cambiar ejercicio"; nota con label y una sola ayuda; anamnesis en grilla 2 × 2 sin mayúsculas.
 - [ ] Altura total a 1440 × 900 ≤ 2.300 px.
 
 ### 4.3 Cobros (`objetivo/html/Cobros.html`, `comparar/cobros.jpg`)
 - [ ] H1 "Cobros" + "Noviembre 2026 · recibos internos, no fiscales."; a la derecha "Planes y precios" (outline) y "Registrar pago" (primario). Se quitan "Panel de Cobros & Pagos", el chip "Coach Lucía Ferraro" y "Nuevo Plan" azul.
-- [ ] KPIs: cifra en `text-foreground` (no verde/naranja/rojo, salvo "Vencido" en `text-danger-soft-foreground`), sin íconos de color.
+- [ ] KPIs: el mismo `KpiCard` que Inicio (cifra 28/600, período "nov" arriba a la derecha) en `text-foreground` (no verde/naranja/rojo, salvo "Vencido" en `text-danger-soft-foreground`), sin íconos de color (P08).
+- [ ] Descuento: "Pase libre −20%" en la columna Plan y el monto final en una línea (P08).
 - [ ] Toolbar de una línea: búsqueda 260 px + chips "Todos 36 / Vencidos 7 / Por vencer 4 / Pagados 25" + "Columnas". El chip "Descuentos" pasa a filtro dentro de "Columnas" o se quita.
 - [ ] Filas: una acción por estado ("Registrar pago" negro o "Ver recibo" outline) + `⋯`. Se quitan "Historial" y "Plan" sueltos (van al menú).
 - [ ] Vencimiento: fecha + relativo ("hace 9 días") en lugar de "Día 11 anclado".
 - [ ] Paginación "Vencidos primero · 15 de 36" + Anterior / Siguiente.
 
 ### 4.4 Agenda (`objetivo/html/Agenda.html`, `comparar/agenda.jpg`)
+- [ ] Vistas Día y Mes según `09-respuesta-pm.md` P11.
 - [ ] Una sola fila de controles: título + "Semana 45…" a la izquierda; select "Todos los coaches", grupo ‹ Hoy ›, Segmented Día/Semana/Mes y "Nueva clase" (negro) a la derecha. Se quita el chip "Coach Lucía Ferraro".
 - [ ] Grilla (`flex-[999_1_560px]`) y **panel de detalle a la derecha** (`flex-[1_1_320px]`), no debajo.
 - [ ] Día de hoy: número en círculo negro, no columna azul.
