@@ -4,7 +4,8 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Dumbbell, FileText, Plus, Search, X } from "@/components/ui/icons";
+import { Dumbbell, FileText, MoreHorizontal, Plus, Search, X } from "@/components/ui/icons";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 import {
@@ -135,82 +136,109 @@ export function RutinasLibrary({
 
   const fila = (plan: PlanEntrenamiento, opciones: { alumno?: boolean; archivada?: boolean }) => {
     const origen = plan.plan_origen_id ? dataset.planes.find((p) => p.id === plan.plan_origen_id) : undefined;
+    const diasPlan = dataset.dias.filter((d) => d.plan_id === plan.id);
+    const idsDias = new Set(diasPlan.map((d) => d.id));
+    const cantEjercicios = dataset.ejerciciosEnRutina.filter((e) => idsDias.has(e.dia_id)).length;
+    const msDia = 86_400_000;
+    const diasDesdeInicio = plan.fecha_inicio
+      ? Math.max(0, Math.floor((Date.now() - new Date(plan.fecha_inicio).getTime()) / msDia))
+      : null;
+    const diasParaVencer = plan.fecha_fin
+      ? Math.ceil((new Date(plan.fecha_fin).getTime() - Date.now()) / msDia)
+      : null;
+    const estadoBadge =
+      plan.estado === "ACTIVO"
+        ? diasParaVencer !== null && diasParaVencer >= 0 && diasParaVencer <= 5
+          ? { variant: "warning" as const, texto: `Vence en ${diasParaVencer} d` }
+          : { variant: "success" as const, texto: "Vigente" }
+        : plan.estado === "BORRADOR"
+        ? { variant: "warning" as const, texto: "Borrador" }
+        : { variant: "secondary" as const, texto: "Archivada" };
+    const abrir = () => {
+      setBuilder({ plan, alumnoId: plan.alumno_id ?? undefined });
+      setActiveMainTab("constructor");
+    };
+
     return (
-    <li
-      key={plan.id}
-      data-testid="rutina-item"
-      className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-bold">{plan.nombre}</p>
+      <li
+        key={plan.id}
+        data-testid="rutina-item"
+        className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="m-0 truncate text-[15px] font-semibold text-foreground">{plan.nombre}</p>
+            {plan.alumno_id && (
+              <p className="m-0 truncate text-[13px] text-neutral-soft-foreground">{nombreAlumno(plan.alumno_id)}</p>
+            )}
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-soft-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              aria-label={`Acciones de ${plan.nombre}`}
+              data-testid="rutina-acciones-btn"
+            >
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {!opciones.archivada && <DropdownMenuItem onClick={abrir}>Abrir</DropdownMenuItem>}
+              {opciones.alumno && plan.estado !== "ACTIVO" && (
+                <DropdownMenuItem onClick={() => void cambiarEstado(() => activarRutina(plan))}>Activar</DropdownMenuItem>
+              )}
+              {opciones.alumno && plan.estado === "ACTIVO" && (
+                <DropdownMenuItem onClick={() => void cambiarEstado(() => archivarRutina(plan.id))}>Archivar</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
           {plan.etiqueta === "STANDARD" && <Badge variant="info">STANDARD</Badge>}
-          {opciones.alumno && (
-            <Badge variant={plan.estado === "ACTIVO" ? "success" : plan.estado === "BORRADOR" ? "warning" : "secondary"}>
-              {plan.estado}
-            </Badge>
-          )}
           {plan.tags && plan.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5" data-testid="rutina-tags-badges">
-              {plan.tags.map((tag) => {
-                const styles = getTagBadgeStyles(tag);
-                const slug = tagToSlug(tag);
-                return (
-                  <span
-                    key={tag}
-                    data-testid={`badge-tag-${slug}`}
-                    data-tag={tag}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold select-none transition-colors ${styles.className}`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${styles.dotColor}`} />
-                    {tag}
-                  </span>
-                );
-              })}
+            <div className="contents" data-testid="rutina-tags-badges">
+              {plan.tags.map((tag) => (
+                <Badge key={tag} variant="secondary" data-testid={`badge-tag-${tagToSlug(tag)}`} data-tag={tag}>
+                  {tag}
+                </Badge>
+              ))}
             </div>
           )}
+          {opciones.alumno && <Badge variant={estadoBadge.variant}>{estadoBadge.texto}</Badge>}
         </div>
-        {plan.alumno_id && <p className="text-sm text-muted-foreground">{nombreAlumno(plan.alumno_id)}</p>}
+
         {opciones.archivada && (
-          <p className="text-sm text-muted-foreground">
+          <p className="m-0 text-[13px] text-neutral-soft-foreground">
             Creada {formatFecha(plan.fecha_inicio)} · archivada {formatFecha(plan.fecha_fin)}
             {origen && ` · desde “${origen.nombre}” (${formatFecha(origen.fecha_inicio)})`}
           </p>
         )}
-      </div>
-      <div className="flex gap-2">
-        {!opciones.archivada && (
-          <Button
-            size="touch"
-            variant="outline"
-            onClick={() => {
-              setBuilder({ plan, alumnoId: plan.alumno_id ?? undefined });
-              setActiveMainTab("constructor");
-            }}
-          >
-            Abrir
-          </Button>
-        )}
-        {opciones.alumno && plan.estado !== "ACTIVO" && (
-          <Button size="touch" onClick={() => void cambiarEstado(() => activarRutina(plan))}>
-            Activar
-          </Button>
-        )}
-        {opciones.alumno && plan.estado === "ACTIVO" && (
-          <Button size="touch" variant="outline" onClick={() => void cambiarEstado(() => archivarRutina(plan.id))}>
-            Archivar
-          </Button>
-        )}
+
+        <div className="mt-auto flex items-center gap-4 border-t border-border pt-3 text-[13px] text-neutral-soft-foreground">
+          <span>
+            {diasPlan.length} {diasPlan.length === 1 ? "día" : "días"}
+          </span>
+          <span>
+            {cantEjercicios} {cantEjercicios === 1 ? "ejercicio" : "ejercicios"}
+          </span>
+          {diasDesdeInicio !== null && (
+            <span className="ml-auto">{diasDesdeInicio === 0 ? "hoy" : `hace ${diasDesdeInicio} días`}</span>
+          )}
+        </div>
+
         {!opciones.alumno && !opciones.archivada && (
-          <Button size="touch" onClick={() => {
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 text-sm font-medium"
+            onClick={() => {
               setError(null);
               setAsignando(plan);
-            }}>
+            }}
+          >
             Asignar a alumno
           </Button>
         )}
-      </div>
-    </li>
+      </li>
     );
   };
 
@@ -398,21 +426,21 @@ export function RutinasLibrary({
     planes.length === 0 ? (
       renderEmptyState(tipo)
     ) : (
-      <ul className="flex flex-col gap-3">{planes.map((p) => fila(p, opciones))}</ul>
+      <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">{planes.map((p) => fila(p, opciones))}</ul>
     );
 
   return (
-    <section className="flex flex-col gap-4 p-4 sm:p-6" data-testid="rutinas-library">
+    <section className="flex flex-col gap-5" data-testid="rutinas-library">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black">Rutinas</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">Rutinas</h1>
+          <p className="m-0 mt-1 text-sm text-neutral-soft-foreground">
             Plantillas reutilizables y rutinas asignadas a cada alumno.
           </p>
         </div>
         {activeMainTab === "biblioteca" && (
           <Button
-            size="touch"
+            className="h-9 px-3.5 text-sm font-medium"
             onClick={() => {
               setBuilder({ plan: null });
               setActiveMainTab("constructor");
@@ -436,7 +464,7 @@ export function RutinasLibrary({
         }}
         className="w-full"
       >
-        <TabsList className="w-full sm:w-auto" data-testid="rutinas-main-nav-tabs">
+        <TabsList className={activeMainTab === "constructor" ? "w-full sm:w-auto" : "sr-only"} data-testid="rutinas-main-nav-tabs">
           <TabsTrigger value="biblioteca" data-testid="tab-biblioteca-plantillas">
             Biblioteca &amp; Plantillas
           </TabsTrigger>
@@ -455,7 +483,7 @@ export function RutinasLibrary({
           <Tabs value={subTab} onValueChange={setSubTab} className="w-full space-y-4">
             {/* Header Unificado: Selectores de Pestañas ('De alumnos', 'Plantillas', ...) + Barra de Filtros (Búsqueda y Objetivos) */}
             <div
-              className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/60 p-3 sm:p-4"
+              className="flex flex-col gap-3 border-b border-border pb-4"
               data-testid="rutinas-filters-container"
             >
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -466,26 +494,26 @@ export function RutinasLibrary({
                     data-testid="tab-de-alumnos"
                     aria-label="De alumnos"
                   >
-                    De alumnos ({vigentesFiltradas.length})
+                    De alumnos <span className="text-subtle-foreground tabular-nums">{vigentesFiltradas.length}</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="plantillas"
                     data-testid="tab-plantillas-maestras"
                     aria-label="Plantillas maestras"
                   >
-                    Plantillas ({plantillasFiltradas.length})
+                    Plantillas <span className="text-subtle-foreground tabular-nums">{plantillasFiltradas.length}</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="borradores"
                     data-testid="tab-borradores"
                   >
-                    Borradores ({borradoresFiltrados.length})
+                    Borradores <span className="text-subtle-foreground tabular-nums">{borradoresFiltrados.length}</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="archivadas"
                     data-testid="tab-archivadas"
                   >
-                    Archivadas ({archivadasFiltradas.length})
+                    Archivadas <span className="text-subtle-foreground tabular-nums">{archivadasFiltradas.length}</span>
                   </TabsTrigger>
                 </TabsList>
 
@@ -498,10 +526,10 @@ export function RutinasLibrary({
                       type="search"
                       value={busqueda}
                       onChange={(e) => setBusqueda(e.target.value)}
-                      placeholder="Buscar por nombre o alumno..."
+                      placeholder="Buscar por nombre o alumno"
                       aria-label="Buscar rutinas"
                       data-testid="search-rutinas-input"
-                      className="w-full rounded-xl border border-border bg-background pl-9 pr-8 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     {busqueda && (
                       <button
@@ -515,33 +543,21 @@ export function RutinasLibrary({
                     )}
                   </div>
 
-                  {/* Chips horizontales de Tags por Objetivo */}
-                  <div
-                    className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none"
-                    role="toolbar"
-                    aria-label="Filtro por tags de rutina"
-                    data-testid="rutinas-tags-filter"
-                  >
-                    {TAGS_FILTRO_BIBLIOTECA.map((tag) => {
-                      const isSelected = selectedTag === tag || (tag === "Todos" && (!selectedTag || selectedTag === "Todos"));
-                      const slug = tagToSlug(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => setSelectedTag(isSelected && tag !== "Todos" ? "Todos" : tag)}
-                          aria-pressed={isSelected}
-                          data-testid={`tag-filter-${slug}`}
-                          data-filter-tag={tag}
-                          className={`px-3 py-1.5 text-xs rounded-lg border transition-all cursor-pointer font-bold select-none whitespace-nowrap ${getTagChipFilterStyles(
-                            tag,
-                            isSelected,
-                          )}`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
+                  {/* Filtro por objetivo (objetivo Rutinas.html: selector "Todos los objetivos") */}
+                  <div data-testid="rutinas-tags-filter">
+                    <select
+                      value={selectedTag || "Todos"}
+                      onChange={(e) => setSelectedTag(e.target.value)}
+                      aria-label="Filtrar por objetivo"
+                      data-testid="rutinas-objetivo-select"
+                      className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground cursor-pointer"
+                    >
+                      {TAGS_FILTRO_BIBLIOTECA.map((tag) => (
+                        <option key={tag} value={tag} data-testid={`tag-filter-${tagToSlug(tag)}`}>
+                          {tag === "Todos" ? "Todos los objetivos" : tag}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

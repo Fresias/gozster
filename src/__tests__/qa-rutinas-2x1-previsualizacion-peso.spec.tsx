@@ -64,7 +64,7 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
       expect(html).toContain("Constructor Visual");
       expect(html).toContain('data-testid="tab-biblioteca-plantillas"');
       expect(html).toContain('data-testid="tab-constructor-visual"');
-      expect(html).toContain("Plantillas (");
+      expect(html).toMatch(/Plantillas <span[^>]*>\d+<\/span>/);
     });
   });
 
