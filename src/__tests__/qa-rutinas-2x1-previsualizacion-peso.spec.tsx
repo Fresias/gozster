@@ -47,9 +47,9 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
       // No debe existir el botón aislado con setRoutineBuilderOpen(true)
       expect(shellSource).not.toContain("setRoutineBuilderOpen(true)");
 
-      // Debe existir el enlace unificado a /studio/rutinas con Rutinas & Constructor
+      // Debe existir el enlace unificado a /studio/rutinas con Rutinas
       expect(shellSource).toContain('href="/studio/rutinas"');
-      expect(shellSource).toContain("Rutinas &amp; Constructor");
+      expect(shellSource).toContain('aria-label="Rutinas"');
       expect(shellSource).toContain('data-testid="sidebar-routine-builder-btn"');
     });
 

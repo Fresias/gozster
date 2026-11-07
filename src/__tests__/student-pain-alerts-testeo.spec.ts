@@ -2,13 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
+import { etiquetaNivelDolor, tonoNivelDolor } from "@/lib/dolor";
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
-describe("GOZS-126: ficha del alumno con Alertas de dolor", () => {
+describe("GOZS-126 & GOZS-407 (FIX-04 / P07): Alertas de dolor, vocabulario EVA y único camino RPC", () => {
   const section = read("../components/coach/student-pain-alerts.tsx");
   const detail = read("../components/coach/student-detail.tsx");
   const view = read("../components/coach/coach-studio-view.tsx");
+  const alertsData = read("../components/coach/critical-alerts-data.ts");
+  const islaSalud = read("../components/coach/student-detail/islas/isla-salud-anamnesis.tsx");
 
   it("hay al menos un alumno demo con alertas, con detalle completo", () => {
     const alerts = getDemoCriticalAlerts();
@@ -38,5 +41,26 @@ describe("GOZS-126: ficha del alumno con Alertas de dolor", () => {
   it("student-detail monta la sección y coach-studio-view pasa el mismo Quick Swap", () => {
     expect(detail).toContain("<StudentPainAlerts alumnoId={alumno.id} onQuickSwap={onQuickSwap} />");
     expect(view).toMatch(/onQuickSwap=\{handleOpenQuickSwapFromAlert\}\s*\/>/);
+  });
+
+  it("FIX-04: persistAlertEstado e IslaSaludAnamnesis escriben exclusivamente por actualizarEstadoDolor con rollback y mensaje de error", () => {
+    expect(alertsData).toContain("actualizarEstadoDolor");
+    expect(alertsData).not.toMatch(/\.from\(["']alertas_entrenador["']\)\s*\.update/);
+    expect(alertsData).not.toMatch(/\.from\(["']alumno_historial_dolor["']\)\s*\.update/);
+
+    expect(section).toContain("No se pudo guardar. Reintentá.");
+    expect(islaSalud).toContain("actualizarEstadoDolor");
+    expect(islaSalud).toContain("No se pudo guardar. Reintentá.");
+  });
+
+  it("P07: etiquetaNivelDolor y tonoNivelDolor mapean vocabulario visible de dolor ('bajo' -> 'leve', 'medio' -> 'moderado', 'alto' -> 'alto')", () => {
+    expect(etiquetaNivelDolor("bajo")).toBe("leve");
+    expect(tonoNivelDolor("bajo")).toBe("neutral");
+
+    expect(etiquetaNivelDolor("medio")).toBe("moderado");
+    expect(tonoNivelDolor("medio")).toBe("warning");
+
+    expect(etiquetaNivelDolor("alto")).toBe("alto");
+    expect(tonoNivelDolor("alto")).toBe("danger");
   });
 });

@@ -175,7 +175,7 @@ export function DataTable<TData>({
         </div>
       )}
 
-      <div className={cn("rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden", containerClassName)}>
+      <div className={cn("rounded-xl border border-border bg-card shadow-none overflow-hidden", containerClassName)}>
         <Table className={tableClassName} data-testid={tableTestId}>
           <TableHeader>
             <TableRow className={headerRowClassName}>

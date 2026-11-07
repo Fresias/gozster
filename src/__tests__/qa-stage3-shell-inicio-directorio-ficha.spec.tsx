@@ -199,10 +199,11 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
       expect(html).toContain('aria-label="Mensajes"');
       expect(html).toContain('aria-label="Más"');
 
-      // FAB oculto en móvil con hidden lg:block
-      expect(chatFabSource).toContain("hidden lg:block fixed bottom-6 right-6 z-40");
-      // Sidebar desktop oculto en móvil
-      expect(shellSource).toContain("hidden lg:flex flex-col");
+      // FAB flotante eliminado y convertido en Sheet derecho de 400px
+      expect(chatFabSource).toContain("max-w-[400px]");
+      expect(chatFabSource).not.toContain("Acceso flotante a mensajería");
+      // Sidebar oculto en móvil (<768px)
+      expect(shellSource).toContain("hidden md:flex flex-col");
     });
   });
 

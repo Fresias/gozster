@@ -93,49 +93,67 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
   // =========================================================================
   // 1. FLUJO DE MOVER ELEMENTOS (POSICIONAMIENTO RELATIVO Y MATRIZ DE FILAS)
   // =========================================================================
-  describe("1. Mover Elementos (Flechas Relativas y Matriz de Filas)", () => {
-    it("1.1 El cabezal de cada isla expone controles para mover arriba (⬆️) y abajo (⬇️)", () => {
+  describe("1. Mover Elementos (Reordenamiento por Asa y Matriz de Filas)", () => {
+    it("1.1 Fuera de Personalizar no se renderizan asas ni flechas visibles en las 6 islas", () => {
       const html = renderDefaultStudentDetail();
 
-      expect(html).toContain('data-testid="move-up-timeline"');
-      expect(html).toContain('data-testid="move-down-timeline"');
-      expect(html).toContain('data-testid="move-up-activity_feed"');
-      expect(html).toContain('data-testid="move-down-activity_feed"');
-      expect(html).toContain('data-testid="move-up-routine_workbench"');
-      expect(html).toContain('data-testid="move-down-routine_workbench"');
-      expect(html).toContain('data-testid="move-up-metricas_1rm"');
-      expect(html).toContain('data-testid="move-down-metricas_1rm"');
-      expect(html).toContain('data-testid="move-up-salud_anamnesis"');
-      expect(html).toContain('data-testid="move-down-salud_anamnesis"');
-      expect(html).toContain('data-testid="move-up-administracion"');
-      expect(html).toContain('data-testid="move-down-administracion"');
+      expect(html).toContain('data-testid="isla-timeline-ribbon"');
+      expect(html).toContain('data-testid="isla-activity-feed"');
+      expect(html).toContain('data-testid="isla-routine-workbench"');
+      expect(html).toContain('data-testid="isla-metricas-1rm"');
+      expect(html).toContain('data-testid="isla-salud-anamnesis"');
+      expect(html).toContain('data-testid="isla-administrativa"');
+      expect(html).not.toContain('data-testid="move-up-timeline"');
+      expect(html).not.toContain("⠿");
     });
 
-    it("1.2 La primera isla de la grilla tiene 'move-up' deshabilitado por estar en el tope", () => {
-      const html = renderDefaultStudentDetail();
+    it("1.2 En modo Personalizar (isCanvasMode=true), cada isla expone el botón size-8 con grip-vertical", () => {
+      const html = renderToStaticMarkup(
+        <IslaCardShell
+          id="timeline"
+          title="Últimas sesiones"
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
+          canMoveUp={false}
+          onMoveUp={vi.fn()}
+        >
+          <div>Contenido</div>
+        </IslaCardShell>
+      );
 
-      // Timeline es la fila superior por defecto -> canMoveUp=false -> disabled
-      const match = html.match(/<button[^>]*data-testid="move-up-timeline"[^>]*>/);
-      expect(match).not.toBeNull();
-      expect(match![0]).toContain("disabled");
+      expect(html).toContain('data-testid="drag-handle-timeline"');
+      expect(html).toContain("size-8");
+      expect(html).toContain("border-dashed border-subtle-foreground/60");
     });
 
-    it("1.3 La última isla de la grilla tiene 'move-down' deshabilitado por estar al pie", () => {
-      const html = renderDefaultStudentDetail();
+    it("1.3 La última isla en modo Personalizar expone su drag-handle sin flechas visibles", () => {
+      const html = renderToStaticMarkup(
+        <IslaCardShell
+          id="administracion"
+          title="Membresía"
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
+          canMoveDown={false}
+          onMoveDown={vi.fn()}
+        >
+          <div>Contenido</div>
+        </IslaCardShell>
+      );
 
-      // Administracion es la fila inferior por defecto -> canMoveDown=false -> disabled
-      const match = html.match(/<button[^>]*data-testid="move-down-administracion"[^>]*>/);
-      expect(match).not.toBeNull();
-      expect(match![0]).toContain("disabled");
+      expect(html).toContain('data-testid="drag-handle-administracion"');
+      expect(html).not.toContain("⬇️");
     });
 
-    it("1.4 Una isla compartida exhibe botones para mover a la izquierda (⬅️) y a la derecha (➡️)", () => {
+    it("1.4 Una isla compartida en modo Personalizar exhibe asa grip-vertical sin flechas visibles (⬅️/➡️)", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="shared-left"
           title="Isla Izquierda"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={50}
           onResizeWidth={vi.fn()}
@@ -149,19 +167,19 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         </IslaCardShell>
       );
 
-      expect(html).toContain('data-testid="move-left-shared-left"');
-      expect(html).toContain('data-testid="move-right-shared-left"');
-      expect(html).toContain("⬅️");
-      expect(html).toContain("➡️");
+      expect(html).toContain('data-testid="drag-handle-shared-left"');
+      expect(html).not.toContain("⬅️");
+      expect(html).not.toContain("➡️");
     });
 
-    it("1.5 Una isla en fila compartida exhibe botón '⤢' para separarse a su propia fila completa (100%)", () => {
+    it("1.5 Una isla en fila compartida en Personalizar exhibe botón '⤢' para separarse a su propia fila completa (100%)", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="shared-elem"
           title="Isla Compartida"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={50}
           onResizeWidth={vi.fn()}
@@ -180,15 +198,29 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
   // 2. FLUJO DE DRAG & DROP ENTRE ISLAS
   // =========================================================================
   describe("2. Drag & Drop de Islas Autónomas", () => {
-    it("2.1 Cada isla cuenta con un drag handle estandarizado (⠿) con su testid correspondiente", () => {
-      const html = renderDefaultStudentDetail();
-
-      expect(html).toContain('data-testid="drag-handle-timeline"');
-      expect(html).toContain('data-testid="drag-handle-activity_feed"');
-      expect(html).toContain('data-testid="drag-handle-routine_workbench"');
-      expect(html).toContain('data-testid="drag-handle-metricas_1rm"');
-      expect(html).toContain('data-testid="drag-handle-salud_anamnesis"');
-      expect(html).toContain('data-testid="drag-handle-administracion"');
+    it("2.1 En modo Personalizar (isCanvasMode=true), cada isla cuenta con su drag handle grip-vertical con testid", () => {
+      const ids = [
+        "timeline",
+        "activity_feed",
+        "routine_workbench",
+        "metricas_1rm",
+        "salud_anamnesis",
+        "administracion",
+      ];
+      for (const id of ids) {
+        const html = renderToStaticMarkup(
+          <IslaCardShell
+            id={id}
+            title={id}
+            isCollapsed={false}
+            onToggleCollapse={vi.fn()}
+            isCanvasMode={true}
+          >
+            <div>Contenido</div>
+          </IslaCardShell>
+        );
+        expect(html).toContain(`data-testid="drag-handle-${id}"`);
+      }
     });
 
     it("2.2 Cuando una isla es destino de arrastre (isDragTarget=true), renderiza la zona visual de drop", () => {
@@ -232,13 +264,14 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
   // 3. FLUJO DE MODIFICAR ELEMENTOS (RESIZE HORIZONTAL -/+ Y ANCHOS RELATIVOS)
   // =========================================================================
   describe("3. Modificar Elementos (Resize Horizontal y Límites Rígidos)", () => {
-    it("3.1 En fila compartida, expone botones de decremento (-), incremento (+) y porcentaje actual", () => {
+    it("3.1 En fila compartida (Personalizar activo), expone botones de decremento (-), incremento (+) y porcentaje actual", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="resize-sample"
           title="Resize Sample"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={50}
           onResizeWidth={vi.fn()}
@@ -260,6 +293,7 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
           title="Resize Min"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={25}
           onResizeWidth={vi.fn()}
@@ -286,6 +320,7 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
           title="Resize Max"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={75}
           onResizeWidth={vi.fn()}
@@ -310,11 +345,11 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
   // 4. FLUJO DE ACTIVAR / DESACTIVAR (MODO CANVAS, VISIBILIDAD Y RESET)
   // =========================================================================
   describe("4. Activar / Desactivar (Modo Canvas, Visibilidad y Reset de Layout)", () => {
-    it("4.1 El botón 'Modo Canvas' permite alternar entre vista Zen y modo de reorganización", () => {
+    it("4.1 El botón 'Personalizar' permite alternar entre vista Zen y modo de reorganización", () => {
       const html = renderDefaultStudentDetail();
 
       expect(html).toContain('data-testid="btn-modo-canvas"');
-      expect(html).toContain("Modo Canvas");
+      expect(html).toContain("Personalizar");
     });
 
     it("4.2 El botón 'Configurar Islas' exhibe el contador de visibilidad 6/6 por defecto", () => {
@@ -324,7 +359,7 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
       expect(html).toContain("6/6");
     });
 
-    it("4.3 En modo Zen normal, las herramientas de layout están ocultas en reposo y se revelan en hover", () => {
+    it("4.3 En modo Zen normal (!isCanvasMode), no se renderiza asa ni flechas visibles", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="zen-check"
@@ -338,11 +373,11 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         </IslaCardShell>
       );
 
-      // En modo Zen (!isCanvasMode), los controles tienen clases de opacidad condicional para hover
-      expect(html).toContain("opacity-0 group-hover:opacity-100");
+      expect(html).not.toContain('data-testid="drag-handle-zen-check"');
+      expect(html).not.toContain("⠿");
     });
 
-    it("4.4 En Modo Canvas activo (isCanvasMode=true), los controles son inmediatamente visibles y exhiben bordes punteados", () => {
+    it("4.4 En Modo Canvas activo (isCanvasMode=true), el asa grip-vertical es visible y exhibe bordes punteados", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="canvas-active-check"
@@ -356,8 +391,9 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         </IslaCardShell>
       );
 
-      expect(html).toContain("border-dashed border-primary/50");
+      expect(html).toContain("border-dashed border-subtle-foreground/60");
       expect(html).toContain("cursor-grab");
+      expect(html).toContain('data-testid="drag-handle-canvas-active-check"');
     });
   });
 

@@ -45,8 +45,8 @@ describe("GOZS-342: Instant Loading Studio, Remoción de Botón Analítica y Ren
   });
 
   describe("3. Renombrado de Métricas & Retención", () => {
-    it("studio-shell.tsx nombra la sección como 'Métricas & Retención' en la barra lateral", () => {
-      expect(studioShell).toContain("Métricas &amp; Retención");
+    it("studio-shell.tsx nombra la sección como 'Métricas' en la barra lateral", () => {
+      expect(studioShell).toContain('aria-label="Métricas"');
       expect(studioShell).toContain("sidebar-metricas-link");
       expect(studioShell).not.toContain("Dashboard &amp; Analíticas");
       expect(studioShell).not.toContain("Dashboard & Analíticas");

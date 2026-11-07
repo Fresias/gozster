@@ -14,7 +14,7 @@ describe("GOZS-134: layout KPIs + bandeja arriba, Alumnos a todo el ancho", () =
   beforeEach(() => useDemoAlertEstados.setState({ estados: {} }));
 
   it("main ancho, grilla de dos columnas y tabla a todo el ancho", () => {
-    expect(shell).toContain("max-w-[1920px]");
+    expect(shell).toContain("max-w-[1280px]");
     expect(shell).not.toContain("max-w-7xl");
     expect(view).toContain("grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]");
     expect(view).toContain('className="xl:col-span-2"');

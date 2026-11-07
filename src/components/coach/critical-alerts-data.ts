@@ -1,9 +1,10 @@
 import { supabase } from "@/lib/supabase/client";
+import { actualizarEstadoDolor, type EstadoDolor } from "@/lib/dolor";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useAthleteStore } from "@/store/use-athlete-store";
 
-export type AlertaEstado = "PENDIENTE" | "ATENDIDO" | "CERRADO" | "RESUELTO";
+export type AlertaEstado = "PENDIENTE" | "ATENDIDO" | "RESUELTO" | "CERRADO";
 export type AlertaSeveridad = "BAJA" | "MEDIA" | "ALTA" | "CRITICA";
 
 export interface CriticalAlert {
@@ -499,34 +500,40 @@ export function getDemoCriticalAlerts(): CriticalAlert[] {
   return mappedDemo;
 }
 
-/** Persiste el estado del reporte (PENDIENTE, ATENDIDO, CERRADO) en ambas tablas. */
-export async function persistAlertEstado(alertId: string, nuevoEstado: AlertaEstado) {
-  // Actualizar cache en memoria
+/** Persiste el estado del reporte únicamente a través de actualizarEstadoDolor (RPC actualizar_estado_dolor). */
+export async function persistAlertEstado(
+  alertId: string,
+  nuevoEstado: AlertaEstado
+): Promise<{ ok: boolean; data?: any; error?: string }> {
+  const prevCache = _cachedDbAlerts;
+  const target = _cachedDbAlerts.find(
+    (a) => a.id === alertId || a.reporteDolorId === alertId
+  );
+  const reporteId = target?.reporteDolorId || alertId;
+  const estadoCanonico: EstadoDolor =
+    nuevoEstado === "CERRADO" ? "RESUELTO" : nuevoEstado;
+
+  // Actualizar cache en memoria de forma optimista
   _cachedDbAlerts = _cachedDbAlerts.map((a) =>
-    a.id === alertId || a.reporteDolorId === alertId ? withAlertEstado(a, nuevoEstado) : a
+    a.id === alertId || a.reporteDolorId === alertId
+      ? withAlertEstado(a, estadoCanonico)
+      : a
   );
 
-  try {
-    await Promise.allSettled([
-      supabase
-        .from("alertas_entrenador")
-        .update({
-          estado: nuevoEstado,
-          resuelto_at: nuevoEstado === "CERRADO" || nuevoEstado === "RESUELTO" ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .or(`id.eq.${alertId},reporte_dolor_id.eq.${alertId}`),
-      supabase
-        .from("alumno_historial_dolor")
-        .update({
-          estado: nuevoEstado === "RESUELTO" ? "CERRADO" : nuevoEstado,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", alertId),
-    ]);
-  } catch {
-    // Silencioso en modo local o mock
+  const res = await actualizarEstadoDolor({
+    reporteId,
+    nuevoEstado: estadoCanonico,
+  });
+
+  if (!res.ok) {
+    _cachedDbAlerts = prevCache;
+    return {
+      ok: false,
+      error: res.error || "No se pudo guardar. Reintentá.",
+    };
   }
+
+  return res;
 }
 
 /** Aplica el nuevo estado a una alerta en memoria. */

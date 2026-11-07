@@ -34,11 +34,11 @@ describe("GOZS-136: franja de 4 KPIs de negocio", () => {
     for (const id of DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids) expect(ids.has(id)).toBe(true);
   });
 
-  it("grilla, formato es-AR y sin verde/rojo (ámbar solo en Sin entrenar)", () => {
-    expect(strip).toContain("grid grid-cols-2 min-[1700px]:grid-cols-4 gap-4");
+  it("grilla 08 §3, formato es-AR, card plana sin sombra ni íconos ni colores semánticos duros", () => {
+    expect(strip).toContain("grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3");
+    expect(strip).toContain("p-4 rounded-xl border bg-card text-card-foreground shadow-none");
+    expect(strip).toContain("text-[28px] leading-[32px] font-semibold tracking-[-0.02em] tabular-nums");
     expect(strip).toContain('Intl.NumberFormat("es-AR"');
-    expect(strip).not.toMatch(/(emerald|green|lime|teal|red|rose)-\d/);
-    expect(strip.match(/amber-/g)?.length).toBe(2);
-    expect(strip).toContain("bg-amber-400/10 text-amber-300");
+    expect(strip).not.toMatch(/(emerald|green|lime|teal|red|rose|amber)-\d/);
   });
 });

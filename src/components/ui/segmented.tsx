@@ -24,15 +24,15 @@ export interface SegmentedProps<T extends string = string> {
 }
 
 const sizeContainerClasses: Record<SegmentedSize, string> = {
-  sm: "p-0.5 rounded-lg text-xs gap-0.5",
-  md: "p-1 rounded-xl text-sm gap-1",
-  lg: "p-1.5 rounded-xl text-base gap-1.5",
+  sm: "p-[3px] rounded-lg text-[13px] gap-0.5",
+  md: "p-[3px] rounded-lg text-[13px] gap-0.5",
+  lg: "p-1 rounded-lg text-sm gap-1",
 };
 
 const sizeItemClasses: Record<SegmentedSize, string> = {
-  sm: "px-2.5 py-1 text-xs rounded-md min-h-7",
-  md: "px-3.5 py-1.5 text-sm rounded-lg min-h-9",
-  lg: "px-4 py-2 text-base rounded-lg min-h-11",
+  sm: "h-[30px] px-3 rounded-md text-[13px]",
+  md: "h-[30px] px-3 rounded-md text-[13px]",
+  lg: "h-9 px-3.5 rounded-md text-sm",
 };
 
 export function Segmented<T extends string = string>({
@@ -102,7 +102,7 @@ export function Segmented<T extends string = string>({
       aria-label={ariaLabel || name}
       data-testid={dataTestId}
       className={cn(
-        "inline-flex items-center bg-muted/60 border border-border/50 text-muted-foreground select-none",
+        "inline-flex items-center bg-muted p-[3px] rounded-lg text-muted-foreground select-none",
         sizeContainerClasses[size],
         disabled && "opacity-50 pointer-events-none",
         className,
@@ -133,7 +133,7 @@ export function Segmented<T extends string = string>({
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               sizeItemClasses[size],
               isSelected
-                ? "bg-background text-foreground font-semibold shadow-sm border border-border/40"
+                ? "bg-background text-foreground font-medium shadow-sm shadow-[0_1px_2px_rgb(0_0_0/.08)]"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/40",
               isOptionDisabled && "opacity-40 cursor-not-allowed pointer-events-none",
             )}

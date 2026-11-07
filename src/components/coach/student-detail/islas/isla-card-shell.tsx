@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "@/components/coach/icons";
 export interface IslaCardShellProps {
   id: string;
   title: string;
+  meta?: React.ReactNode;
   icon?: React.ReactNode;
   badge?: React.ReactNode;
   isCollapsed: boolean;
@@ -38,7 +39,8 @@ export interface IslaCardShellProps {
 export function IslaCardShell({
   id,
   title,
-  icon,
+  meta,
+  icon: _icon,
   badge,
   isCollapsed,
   onToggleCollapse,
@@ -60,12 +62,27 @@ export function IslaCardShell({
   onResizeWidth,
   currentWidth,
   isSharedRow = false,
-  onHide,
+  onHide: _onHide,
   canMoveUp = true,
   canMoveDown = true,
   canMoveLeft = false,
   canMoveRight = false,
 }: IslaCardShellProps) {
+  const handleHandleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowUp" && canMoveUp && onMoveUp) {
+      e.preventDefault();
+      onMoveUp();
+    } else if (e.key === "ArrowDown" && canMoveDown && onMoveDown) {
+      e.preventDefault();
+      onMoveDown();
+    } else if (e.key === "ArrowLeft" && canMoveLeft && onMoveLeft) {
+      e.preventDefault();
+      onMoveLeft();
+    } else if (e.key === "ArrowRight" && canMoveRight && onMoveRight) {
+      e.preventDefault();
+      onMoveRight();
+    }
+  };
 
   return (
     <div
@@ -76,11 +93,13 @@ export function IslaCardShell({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`group relative rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-200 ${
+      className={`group relative rounded-xl border bg-card text-card-foreground shadow-none transition-colors ${
         isDragTarget
-          ? "border-primary ring-2 ring-primary/40 bg-primary/5 scale-[1.01]"
-          : "border-border/80 hover:border-border"
-      } ${isCanvasMode ? "cursor-grab active:cursor-grabbing border-dashed border-primary/50" : ""} ${className}`}
+          ? "border-primary ring-2 ring-primary/40 bg-primary/5"
+          : isCanvasMode
+          ? "border-dashed border-subtle-foreground/60 cursor-grab active:cursor-grabbing"
+          : "border-border"
+      } ${className}`}
     >
       {/* Drop Zone Visual Indicator */}
       {isDragTarget && (
@@ -91,166 +110,102 @@ export function IslaCardShell({
       )}
 
       {/* Cabezal de la Isla */}
-      <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-3 py-2.5 sm:px-4">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          {/* Drag Handle ⠿ */}
-          <button
-            type="button"
-            aria-label={`Arrastrar isla ${title}`}
-            data-testid={`drag-handle-${id}`}
-            title="Arrastrar isla para reordenar en la grilla"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-all ${
-              isCanvasMode
-                ? "bg-primary/20 text-primary font-black hover:bg-primary/30"
-                : "opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <span className="text-base leading-none select-none">⠿</span>
-          </button>
+          {isCanvasMode && (
+            <button
+              type="button"
+              aria-label={`Arrastrar isla ${title}`}
+              data-testid={`drag-handle-${id}`}
+              title="Arrastrar isla o usar flechas del teclado para reordenar"
+              onKeyDown={handleHandleKeyDown}
+              className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors shrink-0"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="9" cy="12" r="1" />
+                <circle cx="9" cy="5" r="1" />
+                <circle cx="9" cy="19" r="1" />
+                <circle cx="15" cy="12" r="1" />
+                <circle cx="15" cy="5" r="1" />
+                <circle cx="15" cy="19" r="1" />
+              </svg>
+            </button>
+          )}
 
-          {/* Icono + Título */}
-          <div className="flex items-center gap-2 truncate">
-            {icon && <span className="text-sm shrink-0">{icon}</span>}
-            <h3 className="text-xs font-bold uppercase tracking-wider text-foreground truncate">
+          {/* Título en sentence case + meta 13 px (sin ícono delante del título) */}
+          <div className="flex items-baseline gap-2 min-w-0 truncate">
+            <h3 className="text-[15px] leading-[20px] font-semibold text-foreground truncate">
               {title}
             </h3>
+            {meta && (
+              <span className="text-[13px] text-muted-foreground shrink-0">
+                {meta}
+              </span>
+            )}
           </div>
-
-          {/* Badge opcional */}
-          {badge && <div className="shrink-0">{badge}</div>}
         </div>
 
-        {/* Acciones del Cabezal: Controles de Posición, Resize y Colapso (Sin '...') */}
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Controles de Layout contextuales (Canvas Mode o Hover) */}
-          <div
-            className={`items-center gap-1 ${
-              isCanvasMode
-                ? "flex"
-                : "hidden sm:inline-flex opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-            }`}
-          >
-            {/* Controles de Posicionamiento Relativo */}
-            {onMoveLeft && canMoveLeft && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onMoveLeft}
-                aria-label={`Mover a la izquierda ${title}`}
-                data-testid={`move-left-${id}`}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                title="Mover a la izquierda / compartir fila"
-              >
-                <span className="text-xs select-none">⬅️</span>
-              </Button>
-            )}
+        {/* Acciones del Cabezal: Badge + Resize en Personalizar + Chevron a la derecha */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {badge && <div className="shrink-0">{badge}</div>}
 
-            {onMoveRight && canMoveRight && (
-              <Button
+          {isCanvasMode && isSharedRow && onResizeWidth && (
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-background px-1 py-0.5">
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onMoveRight}
-                aria-label={`Mover a la derecha ${title}`}
-                data-testid={`move-right-${id}`}
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                title="Mover a la derecha / compartir fila"
+                onClick={() => onResizeWidth(-5)}
+                disabled={(currentWidth ?? 50) <= 25}
+                data-testid={`resize-dec-${id}`}
+                className="h-5 w-4 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                title="Reducir ancho en la fila (-5%)"
               >
-                <span className="text-xs select-none">➡️</span>
-              </Button>
-            )}
-
-            {onMoveUp && (
-              <Button
+                -
+              </button>
+              <span className="font-mono text-[11px] font-medium text-foreground tabular-nums px-0.5 select-none">
+                {currentWidth ?? 50}%
+              </span>
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!canMoveUp}
-                onClick={onMoveUp}
-                aria-label={`Mover arriba ${title}`}
-                data-testid={`move-up-${id}`}
-                className={`h-7 w-7 p-0 ${
-                  canMoveUp
-                    ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                    : "text-muted-foreground/30 cursor-not-allowed"
-                }`}
-                title="Mover arriba"
+                onClick={() => onResizeWidth(+5)}
+                disabled={(currentWidth ?? 50) >= 75}
+                data-testid={`resize-inc-${id}`}
+                className="h-5 w-4 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                title="Aumentar ancho en la fila (+5%)"
               >
-                <span className="text-xs select-none">⬆️</span>
-              </Button>
-            )}
-
-            {onMoveDown && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!canMoveDown}
-                onClick={onMoveDown}
-                aria-label={`Mover abajo ${title}`}
-                data-testid={`move-down-${id}`}
-                className={`h-7 w-7 p-0 ${
-                  canMoveDown
-                    ? "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                    : "text-muted-foreground/30 cursor-not-allowed"
-                }`}
-                title="Mover abajo"
-              >
-                <span className="text-xs select-none">⬇️</span>
-              </Button>
-            )}
-
-            {/* Controles de Resize Horizontal cuando comparte fila */}
-            {isSharedRow && onResizeWidth && (
-              <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/80 px-1 py-0.5">
+                +
+              </button>
+              {onSeparateRow && (
                 <button
                   type="button"
-                  onClick={() => onResizeWidth(-5)}
-                  disabled={(currentWidth ?? 50) <= 25}
-                  data-testid={`resize-dec-${id}`}
-                  className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                  title="Reducir ancho en la fila (-5%)"
+                  onClick={onSeparateRow}
+                  data-testid={`separate-row-${id}`}
+                  className="ml-1 text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                  title="Expandir a fila propia completa (100%)"
                 >
-                  -
+                  ⤢
                 </button>
-                <span className="font-mono text-[9px] font-bold text-foreground tabular-nums px-0.5 select-none">
-                  {currentWidth ?? 50}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onResizeWidth(+5)}
-                  disabled={(currentWidth ?? 50) >= 75}
-                  data-testid={`resize-inc-${id}`}
-                  className="h-5 w-4 text-[11px] font-bold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                  title="Aumentar ancho en la fila (+5%)"
-                >
-                  +
-                </button>
-                {onSeparateRow && (
-                  <button
-                    type="button"
-                    onClick={onSeparateRow}
-                    data-testid={`separate-row-${id}`}
-                    className="ml-1 text-[10px] text-muted-foreground hover:text-primary font-bold cursor-pointer"
-                    title="Expandir a fila propia completa (100%)"
-                  >
-                    ⤢
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Botón de Colapso Explícito */}
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? `Expandir isla ${title}` : `Colapsar isla ${title}`}
             data-testid={`collapse-btn-${id}`}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted font-mono"
+            className="size-8 rounded-lg p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
             title={isCollapsed ? "Expandir isla" : "Colapsar isla"}
           >
             {isCollapsed ? (

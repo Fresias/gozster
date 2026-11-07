@@ -27,6 +27,7 @@ export interface StudentPainAlertsProps {
 /** Sección "Alertas de dolor" de la ficha del alumno (dataset demo). */
 export function StudentPainAlerts({ alumnoId, onQuickSwap }: StudentPainAlertsProps) {
   const [baseAlerts, setBaseAlerts] = React.useState<CriticalAlert[]>([]);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const { estados, setEstado } = useDemoAlertEstados();
   const alerts = applyDemoEstados(baseAlerts, estados);
 
@@ -35,8 +36,17 @@ export function StudentPainAlerts({ alumnoId, onQuickSwap }: StudentPainAlertsPr
   }, [alumnoId]);
 
   const handleUpdateStatus = async (alertId: string, nuevoEstado: AlertaEstado) => {
+    const prevEstado =
+      estados[alertId] ||
+      baseAlerts.find((a) => a.id === alertId)?.estado ||
+      "PENDIENTE";
+    setErrorMsg(null);
     setEstado(alertId, nuevoEstado);
-    await persistAlertEstado(alertId, nuevoEstado);
+    const res = await persistAlertEstado(alertId, nuevoEstado);
+    if (res && !res.ok) {
+      setEstado(alertId, prevEstado);
+      setErrorMsg("No se pudo guardar. Reintentá.");
+    }
   };
 
   if (alerts.length === 0) return null;
@@ -50,6 +60,11 @@ export function StudentPainAlerts({ alumnoId, onQuickSwap }: StudentPainAlertsPr
       data-testid="student-pain-alerts"
     >
       <h3 className="text-sm font-bold text-foreground">Alertas de dolor</h3>
+      {errorMsg && (
+        <p role="alert" className="text-xs text-danger-soft-foreground font-medium">
+          {errorMsg}
+        </p>
+      )}
       <div className="space-y-2">
         {sorted.map((alert) => {
           const isCritical = alert.severidad === "CRITICA" || alert.esSintomaAlarma;

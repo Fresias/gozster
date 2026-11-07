@@ -179,7 +179,7 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
       expect(html).toContain('title="Personalizar layout (Modo Canvas)"');
     });
 
-    it("GIVEN el modo 'Personalizar' desactivado THEN los drag handles y flechas de reordenamiento permanecen ocultos en estado de reposo", () => {
+    it("GIVEN el modo 'Personalizar' desactivado THEN fuera de Personalizar no se renderiza asa ⠿, flechas visibles ni ícono delante del título", () => {
       const html = renderToStaticMarkup(
         <IslaCardShell
           id="test-reposo"
@@ -194,14 +194,27 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
         </IslaCardShell>
       );
 
-      // Drag handle oculto en estado de reposo (opacity-0)
-      expect(html).toContain('data-testid="drag-handle-test-reposo"');
-      expect(html).toContain("opacity-0 group-hover:opacity-100");
+      expect(html).not.toContain('data-testid="drag-handle-test-reposo"');
+      expect(html).not.toContain("⠿");
+      expect(html).not.toContain('data-testid="move-up-test-reposo"');
+      expect(html).not.toContain('data-testid="move-down-test-reposo"');
 
-      // Flechas de reordenamiento ocultas en estado de reposo (opacity-0)
-      expect(html).toContain('data-testid="move-up-test-reposo"');
-      expect(html).toContain('data-testid="move-down-test-reposo"');
-      expect(html).toContain("hidden sm:inline-flex opacity-0 group-hover:opacity-100");
+      const htmlCanvas = renderToStaticMarkup(
+        <IslaCardShell
+          id="test-reposo"
+          title="Isla Reposo"
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
+          onMoveUp={vi.fn()}
+          onMoveDown={vi.fn()}
+        >
+          <div>Contenido</div>
+        </IslaCardShell>
+      );
+
+      expect(htmlCanvas).toContain('data-testid="drag-handle-test-reposo"');
+      expect(htmlCanvas).toContain("border-dashed border-subtle-foreground/60");
     });
   });
 

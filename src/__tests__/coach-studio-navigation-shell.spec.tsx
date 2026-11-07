@@ -112,19 +112,19 @@ describe("GOZS-378: Coach Studio - Shell de Navegación, Sidebar Agrupado, Topba
       // Cada ítem tiene aria-label y TooltipContent asociado
       expect(shellSource).toContain('aria-label="Inicio"');
       expect(shellSource).toContain('aria-label="Alumnos"');
-      expect(shellSource).toContain('aria-label="Rutinas & Constructor"');
-      expect(shellSource).toContain('aria-label="Agenda de Clases"');
-      expect(shellSource).toContain('aria-label="Ranking Funcional"');
-      expect(shellSource).toContain('aria-label="Cobros & Pagos"');
-      expect(shellSource).toContain('aria-label="Métricas & Retención"');
+      expect(shellSource).toContain('aria-label="Rutinas"');
+      expect(shellSource).toContain('aria-label="Agenda"');
+      expect(shellSource).toContain('aria-label="Ranking"');
+      expect(shellSource).toContain('aria-label="Cobros"');
+      expect(shellSource).toContain('aria-label="Métricas"');
     });
   });
 
   describe("Criterio 3: Buscador rápido ⌘K / Ctrl+K y apertura de ficha de alumno al presionar Enter", () => {
-    it("el topbar renderiza el buscador rápido con ⌘K y botón primario 'Alta de alumno'", () => {
+    it("el topbar renderiza el buscador rápido con ⌘K e ícono de Mensajes sin botón de alta duplicado", () => {
       expect(shellSource).toContain('data-testid="studio-quick-search-input"');
-      expect(shellSource).toContain('data-testid="topbar-alta-alumno-btn"');
-      expect(shellSource).toContain("Alta de alumno");
+      expect(shellSource).toContain('data-testid="topbar-mensajes-btn"');
+      expect(shellSource).not.toContain('data-testid="topbar-alta-alumno-btn"');
       expect(shellSource).toContain("⌘K");
 
       const html = renderToStaticMarkup(
@@ -133,8 +133,7 @@ describe("GOZS-378: Coach Studio - Shell de Navegación, Sidebar Agrupado, Topba
         </StudioShell>
       );
       expect(html).toContain('data-testid="studio-quick-search-input"');
-      expect(html).toContain('data-testid="topbar-alta-alumno-btn"');
-      expect(html).toContain("Alta de alumno");
+      expect(html).toContain('data-testid="topbar-mensajes-btn"');
     });
 
     it("GIVEN la tecla ⌘K o Ctrl+K THEN el foco se traslada al buscador; al buscar un alumno y presionar Enter, se abre su ficha", () => {
@@ -168,15 +167,15 @@ describe("GOZS-378: Coach Studio - Shell de Navegación, Sidebar Agrupado, Topba
     });
 
     it("desaparece la grilla de navegación pesada que ocupaba 290px en la cabecera móvil", () => {
-      // El aside completo está oculto en móvil con hidden lg:flex
-      expect(shellSource).toContain("hidden lg:flex flex-col");
+      // El aside está oculto en móvil (<768px) con hidden md:flex flex-col
+      expect(shellSource).toContain("hidden md:flex flex-col");
       // Ya no existe flex-wrap gap-2 lg:flex-col desbordando la vista
       expect(shellSource).not.toContain("flex flex-wrap gap-2 lg:w-full lg:flex-col");
     });
 
-    it("elimina el botón flotante FAB superpuesto en viewports móviles dejándolo disponible en desktop", () => {
-      // ChatFab usa hidden lg:block para no tapar la navegación inferior ni el contenido en móvil
-      expect(chatFabSource).toContain("hidden lg:block fixed bottom-6 right-6 z-40");
+    it("elimina el botón flotante FAB superpuesto y convierte el chat en Sheet derecho de 400px", () => {
+      expect(chatFabSource).toContain("max-w-[400px]");
+      expect(chatFabSource).not.toContain("Acceso flotante a mensajería");
       expect(chatFabSource).not.toContain("fixed bottom-5 right-5 sm:bottom-6 sm:right-6");
     });
   });

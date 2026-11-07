@@ -90,7 +90,7 @@ export function PopoverContent({
     <div
       ref={popoverRef}
       className={cn(
-        "absolute z-50 rounded-2xl bg-slate-900 text-slate-50 p-4 shadow-xl border border-slate-800 text-sm animate-in fade-in zoom-in-95 duration-100",
+        "absolute z-50 rounded-xl bg-popover text-popover-foreground p-4 shadow-[0_8px_24px_rgb(0_0_0/.08)] border border-border text-sm animate-in fade-in zoom-in-95 duration-100",
         align === "start" ? "left-0" : align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
         "bottom-full mb-2 w-72 sm:w-80",
         className

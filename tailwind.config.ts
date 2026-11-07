@@ -10,10 +10,17 @@ const config: Config = {
     extend: {
       colors: {
         border: "hsl(var(--border))",
+        "border-subtle": "hsl(var(--border-subtle))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        "subtle-foreground": "hsl(var(--subtle-foreground))",
+        sidebar: "hsl(var(--sidebar))",
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -62,7 +69,9 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning-soft))",
           foreground: "hsl(var(--warning-soft-foreground))",
           border: "hsl(var(--warning-soft-border))",
+          strong: "hsl(var(--warning-soft-strong))",
         },
+        "warning-soft-strong": "hsl(var(--warning-soft-strong))",
         "danger-soft": {
           DEFAULT: "hsl(var(--danger-soft))",
           foreground: "hsl(var(--danger-soft-foreground))",
@@ -80,14 +89,20 @@ const config: Config = {
         },
         "act-funcional": {
           bg: "hsl(var(--act-funcional-bg) / <alpha-value>)",
+          border: "hsl(var(--act-funcional-border) / <alpha-value>)",
           fg: "hsl(var(--act-funcional-fg) / <alpha-value>)",
           bar: "hsl(var(--act-funcional-bar) / <alpha-value>)",
         },
+        "act-funcional-bg": "hsl(var(--act-funcional-bg))",
+        "act-funcional-border": "hsl(var(--act-funcional-border))",
         "act-boxeo": {
           bg: "hsl(var(--act-boxeo-bg) / <alpha-value>)",
+          border: "hsl(var(--act-boxeo-border) / <alpha-value>)",
           fg: "hsl(var(--act-boxeo-fg) / <alpha-value>)",
           bar: "hsl(var(--act-boxeo-bar) / <alpha-value>)",
         },
+        "act-boxeo-bg": "hsl(var(--act-boxeo-bg))",
+        "act-boxeo-border": "hsl(var(--act-boxeo-border))",
       },
       fontFamily: {
         sans: ["Geist", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
