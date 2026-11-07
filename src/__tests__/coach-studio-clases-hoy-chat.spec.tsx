@@ -69,20 +69,20 @@ describe("GOZS-393: Coach Studio: Vista Inicio - Bloque 'Clases de hoy' y Atajos
     // Contenedor principal y título
     expect(html).toContain('data-testid="clases-hoy-container"');
     expect(html).toContain("Clases de hoy");
-    expect(html).toContain('data-testid="clases-hoy-badge-count"');
-    expect(html).toContain(">2<");
+    // Objetivo Inicio.html: sin contador junto al título
+    expect(html).not.toContain('data-testid="clases-hoy-badge-count"');
 
     // Tarjetas y detalles
     expect(html).toContain('data-testid="clases-hoy-list"');
     expect(html).toContain("Funcional");
-    expect(html).toContain("(0/15)");
+    expect(html).toContain("0 / 15");
 
     expect(html).toContain("Boxeo");
-    expect(html).toContain("(3/12)");
+    expect(html).toContain("3 / 12");
 
     // Link hacia agenda completa
     expect(html).toContain("/studio/agenda");
-    expect(html).toContain("Ver agenda completa →");
+    expect(html).toContain(">Ver agenda<");
   });
 
   it("GIVEN 0 clases programadas para la jornada THEN muestra EmptyState específico 'Sin clases programadas para hoy.'", () => {
@@ -96,7 +96,8 @@ describe("GOZS-393: Coach Studio: Vista Inicio - Bloque 'Clases de hoy' y Atajos
     expect(html).toContain('data-testid="clases-hoy-empty"');
     expect(html).toContain("Sin clases programadas para hoy.");
     expect(html).toContain("No hay actividades pautadas en la agenda de la jornada.");
-    expect(html).toContain(">0<");
+    // Sin alumnos sin entrenar no se muestra el pie (no se inventan nombres de demo)
+    expect(html).not.toContain('data-testid="seccion-sin-entrenar"');
   });
 
   it("GIVEN alumnos identificados como 'Sin entrenar +7 días' WHEN se renderiza la sección THEN lista atletas en riesgo con días y botón de contacto rápido", () => {
@@ -113,19 +114,17 @@ describe("GOZS-393: Coach Studio: Vista Inicio - Bloque 'Clases de hoy' y Atajos
       />
     );
 
+    // Objetivo Inicio.html: avatares apilados + "{n} sin entrenar hace +7 días" + "Escribirles"
     expect(html).toContain('data-testid="seccion-sin-entrenar"');
-    expect(html).toContain("Sin entrenar (+7 días)");
-    expect(html).toContain("2 en riesgo");
-
-    expect(html).toContain("Martín Fierro");
-    expect(html).toContain("+10d");
-    expect(html).toContain("Lucía Méndez");
-    expect(html).toContain("+8d");
+    expect(html).toContain("2<!-- --> sin entrenar hace +7 días");
+    expect(html).toContain('title="Martín Fierro"');
+    expect(html).toContain(">MF<");
+    expect(html).toContain('title="Lucía Méndez"');
+    expect(html).toContain(">LM<");
 
     expect(html).toContain('data-testid="quick-contact-btn"');
-    expect(html).toContain("Contactar rápido →");
-    expect(html).toContain('aria-label="Contactar a Martín Fierro"');
-    expect(html).toContain('aria-label="Contactar a Lucía Méndez"');
+    expect(html).toContain(">Escribirles<");
+    expect(html).toContain('aria-label="Escribirles a los 2 alumnos sin entrenar"');
   });
 
   it("GIVEN la acción de contacto rápido en openChatForAlumno WHEN se dispara THEN actualiza los stores de chat y studio sin alterar la vista principal", () => {

@@ -13,7 +13,7 @@ describe("GOZS-129: densidad fija en 48 px", () => {
     expect(view).not.toContain("tableDensity");
   });
 
-  it("la fila usa siempre la altura táctil de 48 px", () => {
-    expect(view).toContain('const rowPaddingClass = "min-h-[48px] py-2.5";');
+  it("la fila usa siempre la altura fija del diseño (56 px, ≥ 48 px táctiles)", () => {
+    expect(view).toContain('const rowPaddingClass = "h-14 py-2";');
   });
 });

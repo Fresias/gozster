@@ -65,23 +65,23 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
 
     const root = getByTestId("para-revisar-hoy-container");
     expect(root.textContent).toContain("Para revisar hoy");
-    expect(getByTestId("para-revisar-hoy-badge-count").textContent).toBe("2");
+    // Sin contador junto al título (objetivo Inicio.html): 2 filas accionables
+    expect(root.querySelectorAll("button").length).toBe(2);
 
     // Verifica que la molestia viva encabeza la lista
     const itemsMolestia = getAllByTestId("revisar-item-molestia");
     expect(itemsMolestia).toHaveLength(1);
     expect(itemsMolestia[0]!.textContent).toContain("Fernando Rosales");
     expect(itemsMolestia[0]!.textContent).toContain("Rodilla izquierda");
-    expect(itemsMolestia[0]!.textContent).toContain("Sentadilla Búlgara con Mancuernas");
-    expect(itemsMolestia[0]!.textContent).toContain("EVA 7/10");
+    expect(itemsMolestia[0]!.textContent).toContain("Dolor alto");
+    expect(itemsMolestia[0]!.textContent).toContain("EVA 7");
     expect(itemsMolestia[0]!.textContent).toContain("Alto");
 
     // Verifica que la cuota vencida viva se renderiza debajo
     const itemsCuota = getAllByTestId("revisar-item-cuota");
     expect(itemsCuota).toHaveLength(1);
     expect(itemsCuota[0]!.textContent).toContain("Julieta Pereyra");
-    expect(itemsCuota[0]!.textContent).toContain("$42.000");
-    expect(itemsCuota[0]!.textContent).toContain("Musculación Personalizada");
+    expect(itemsCuota[0]!.textContent).toContain("Cuota vencida");
 
     const fullText = container.textContent ?? "";
     expect(fullText.indexOf("Fernando Rosales")).toBeLessThan(
@@ -131,11 +131,11 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
     expect(filas).toHaveLength(2);
     expect(filas[0]!.textContent).toContain("Carolina Méndez");
     expect(filas[0]!.textContent).toContain("Alto");
-    expect(filas[0]!.textContent).toContain("EVA 9/10");
+    expect(filas[0]!.textContent).toContain("EVA 9");
 
     expect(filas[1]!.textContent).toContain("Esteban Quiroga");
     expect(filas[1]!.textContent).toContain("Moderado");
-    expect(filas[1]!.textContent).toContain("EVA 5/10");
+    expect(filas[1]!.textContent).toContain("EVA 5");
   });
 
   it("GIVEN 0 alertas o cuotas vencidas pendientes en vivo THEN monta el EmptyState con 'Nada urgente por hoy.' y no filtra alertas de DEMO_CRITICAL_ALERTS", () => {
@@ -147,6 +147,6 @@ describe("FIX-08 / GOZS-392: Bloque 'Para revisar hoy' montado con render(...) y
 
     const empty = getByTestId("para-revisar-hoy-empty");
     expect(empty.textContent).toContain("Nada urgente por hoy.");
-    expect(container.textContent).toContain("0 pendientes");
+    expect(container.textContent).toContain("Ordenado por prioridad");
   });
 });

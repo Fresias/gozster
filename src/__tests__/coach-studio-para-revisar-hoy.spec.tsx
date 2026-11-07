@@ -66,8 +66,8 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
     // La alerta encabeza la lista
     expect(container.textContent).toContain("Sofía Martínez");
     expect(container.textContent).toContain("Rodilla");
-    expect(container.textContent).toContain("Sentadilla Búlgara");
-    expect(container.textContent).toContain("EVA 7/10");
+    expect(container.textContent).toContain("Dolor alto");
+    expect(container.textContent).toContain("EVA 7");
     expect(container.textContent).toContain("Alto");
 
     // Posicionamiento relativo: la molestia aparece ANTES de la cuota vencida
@@ -113,10 +113,9 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
     assertNoDemoLiteralsInLiveMode(container);
 
     expect(container.textContent).toContain("Martín Benítez");
-    expect(container.textContent).toContain("Vencido");
-    expect(container.textContent).toContain("$28.000");
-    expect(container.textContent).toContain("Funcional 3x Semana");
-    expect(container.textContent).toContain("2026-11-03");
+    // Objetivo Inicio.html: "Cuota vencida hace {n} días" con badge neutro "Cuota"
+    expect(container.textContent).toContain("Cuota vencida");
+    expect(container.textContent).toContain("Cuota");
   });
 
   it("GIVEN 0 alertas o cuotas vencidas pendientes THEN se renderiza el EmptyState con el texto exacto 'Nada urgente por hoy.'", () => {
@@ -131,7 +130,7 @@ describe("GOZS-392: Coach Studio: Vista Inicio - Bloque 'Para revisar hoy' (EVA 
 
     expect(getByTestId("para-revisar-hoy-empty")).toBeTruthy();
     expect(container.textContent).toContain("Nada urgente por hoy.");
-    expect(container.textContent).toContain("0 pendientes");
+    expect(container.textContent).toContain("Ordenado por prioridad");
   });
 
   it("GIVEN múltiples reportes de molestia THEN los ordena por severidad clínica (EVA 8-10 primero, luego EVA 4-7)", () => {

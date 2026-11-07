@@ -148,7 +148,7 @@ test.describe("GOZS-390: Auditoría E2E Desktop (1440px) - Shell, Inicio, Direct
     await expect(kpiCobrado).toContainText("$800.000");
     await expect(kpiActivos).toContainText("32 de 40");
     await expect(kpiSinRutina).toContainText("4");
-    await expect(kpiSinEntrenar).toContainText("Sin entrenar +7 días");
+    await expect(kpiSinEntrenar).toContainText("Sin entrenar");
 
     // B. Selector de período reactivo (Semana / Mes / Trimestre)
     const periodoSelector = page.getByTestId("selector-periodo");

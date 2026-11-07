@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -28,6 +29,7 @@ import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawe
 import { ChatFab } from "@/components/coach/chat-fab";
 import { ClasesHoyAtajosChat } from "@/components/coach/clases-hoy-atajos-chat";
 import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
+import { useClasesDeHoy } from "@/components/coach/clases-hoy-atajos-chat";
 import {
   type DolorActivo,
   etiquetaNivelDolor,
@@ -62,7 +64,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
-import { User, MessageSquare, Plus } from "@/components/ui/icons";
+import { User, MessageSquare, Plus, ChevronDown, MoreHorizontal, Search } from "@/components/ui/icons";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { derivarBadgePlan } from "@/lib/planes";
 
@@ -404,6 +406,7 @@ export function CoachStudioView({
     };
   }, [userRole]);
 
+  const isLiveInicioKpis = store.isLiveDatabase || hasInitialData;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
     const rango = rangoPeriodo("mes");
     const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
@@ -412,9 +415,32 @@ export function CoachStudioView({
     }
     return base;
   });
+  const alumnosSinEntrenarInicio = React.useMemo(() => {
+    const ids = kpis.sin_entrenar_7d_ids?.length
+      ? kpis.sin_entrenar_7d_ids
+      : isLiveInicioKpis
+        ? []
+        : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids;
+    return alumnos
+      .filter((a) => ids.includes(a.id))
+      .map((a) => ({ id: a.id, nombreCompleto: a.nombre_completo || "Alumno" }));
+  }, [kpis.sin_entrenar_7d_ids, alumnos, isLiveInicioKpis]);
   const [kpisError, setKpisError] = React.useState(false);
   const [isKpisLoading, setIsKpisLoading] = React.useState(false);
   const [molestiasActivas, setMolestiasActivas] = React.useState<DolorActivo[]>([]);
+  const isLiveInicio = store.isLiveDatabase || hasInitialData;
+  // Fuente única de "Para revisar hoy": molestias activas + cuotas vencidas del mismo store que Cobros.
+  const cobrosInicio = useCobrosStore((s) => s.cobros);
+  const cargarCobrosInicio = useCobrosStore((s) => s.cargarCobros);
+  React.useEffect(() => {
+    void cargarCobrosInicio();
+  }, [cargarCobrosInicio]);
+  const cuotasVencidasInicio = React.useMemo(
+    () => cobrosInicio.filter((c) => c.estado === "VENCIDO"),
+    [cobrosInicio]
+  );
+  const { clasesHoy: clasesHoyInicio } = useClasesDeHoy({ isLiveMode: isLiveInicio });
+  const [totalParaRevisar, setTotalParaRevisar] = React.useState(0);
 
   // Consulta en vivo de dolores activos desde v_dolor_activo (GOZS-409, FIX-08)
   React.useEffect(() => {
@@ -734,63 +760,39 @@ export function CoachStudioView({
   };
 
   // GOZS-240: 6 columnas en el directorio de atletas (colSpan={6})
-  const rowPaddingClass = "min-h-[48px] py-2.5";
+  const rowPaddingClass = "h-14 py-2";
 
   const columnsAlumnos = React.useMemo<ColumnDef<Perfil>[]>(() => [
     {
       id: "atleta",
       accessorKey: "nombre_completo",
-      header: "Atleta",
-      headerClassName: "py-2.5 px-3 text-left w-60 sticky left-0 bg-card z-10 border-r border-border/40",
-      className: `${rowPaddingClass} px-3 sticky left-0 bg-card z-10 border-r border-border/40 group-hover:bg-card`,
+      header: "Alumno",
+      headerClassName: "h-10 px-4 text-left font-medium w-64",
+      className: `${rowPaddingClass} px-4`,
       sortable: true,
       cell: ({ row: alumno }) => {
-        const estancadoInfo = estancadosMap.get(alumno.id);
+        const actividades = obtenerActividadesAlumno({
+          alumnoId: alumno.id,
+          alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
+          contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+          planes,
+          alumno,
+        }).map((act) => ETIQUETAS_ACTIVIDAD[act]);
+        const subtitulo = [...actividades, ...(esAlumnoNuevo(alumno.created_at) ? ["Nuevo"] : [])].join(" · ");
         return (
           <button
             type="button"
             onClick={() => selectAlumno(alumno.id)}
-            className="flex items-center gap-2.5 text-left w-full hover:text-primary transition-colors"
+            aria-label={`Ver ficha de ${alumno.nombre_completo}`}
+            className="flex items-center gap-3 text-left w-full rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
               {getInitials(alumno.nombre_completo)}
-            </div>
-            <div className="min-w-0">
-              <span className="font-bold text-foreground block truncate leading-tight text-xs">
-                {alumno.nombre_completo}
-                {esAlumnoNuevo(alumno.created_at) && (
-                  <span className="ml-1.5 align-middle text-[10px] rounded bg-secondary px-1.5 font-normal text-muted-foreground">
-                    Nuevo
-                  </span>
-                )}
-                {estancadoInfo && (
-                  <span
-                    data-testid={`badge-estancado-nombre-${alumno.id}`}
-                    className="ml-1.5 align-middle text-[10px] rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 font-bold text-amber-600 dark:text-amber-400"
-                    title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
-                  >
-                    +30d sin PR
-                  </span>
-                )}
-              </span>
-              <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                {obtenerActividadesAlumno({
-                  alumnoId: alumno.id,
-                  alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
-                  contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
-                  planes,
-                  alumno,
-                }).map((act) => (
-                  <span
-                    key={act}
-                    data-testid={`badge-actividad-${act.toLowerCase()}`}
-                    className="inline-block text-[9px] font-semibold px-1 rounded bg-secondary/80 text-muted-foreground"
-                  >
-                    {ETIQUETAS_ACTIVIDAD[act]}
-                  </span>
-                ))}
-              </div>
-            </div>
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-medium text-foreground">{alumno.nombre_completo}</span>
+              {subtitulo && <span className="truncate text-xs text-neutral-soft-foreground">{subtitulo}</span>}
+            </span>
           </button>
         );
       },
@@ -798,8 +800,8 @@ export function CoachStudioView({
     {
       id: "cuota",
       header: "Cuota",
-      headerClassName: "py-2.5 px-3 text-center w-28",
-      className: `${rowPaddingClass} px-3 text-center`,
+      headerClassName: "h-10 px-4 text-left font-medium w-36",
+      className: `${rowPaddingClass} px-4 text-left`,
       cellProps: { "data-testid": "columna-cuota-actividad" },
       cell: ({ row: alumno }) => {
         const isAlDia = esCuotaAlDia(alumno);
@@ -861,31 +863,32 @@ export function CoachStudioView({
           });
         });
 
+        const diasParaVencer = alumno.fecha_vencimiento_cuota
+          ? Math.ceil((new Date(alumno.fecha_vencimiento_cuota).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          : null;
+        const venceProntoTexto =
+          isPendiente && diasParaVencer !== null && diasParaVencer >= 0 ? `Vence en ${diasParaVencer} d` : null;
+
         return (
-          <div className="flex flex-col items-center justify-center gap-1" data-testid="columna-cuota-actividad">
-            {/* Dot semáforo de cuota para compatibilidad con suite coach-studio-v2-ui */}
-            <span
-              className={`hidden h-3 w-3 rounded-full ${cuotaDotColor}`}
-              aria-hidden="true"
-            />
-            <div className="flex items-center justify-center">
-              <StatusBadge
-                variant={isAlDia ? "success" : "destructive"}
-                size="sm"
-                title={cuotaTooltip}
-                aria-label={cuotaTooltip}
-                role="status"
-              >
-                {isAlDia ? "Al día" : "Vencida"}
-              </StatusBadge>
-            </div>
-            {badgesPlanes.length > 0 && (
-              <div className="flex flex-col gap-0.5 items-center mt-0.5" data-testid="badges-planes-apilados">
+          <div className="flex flex-col items-start gap-1" data-testid="columna-cuota-actividad">
+            <span className={`hidden ${cuotaDotColor}`} aria-hidden="true" />
+            <StatusBadge
+              variant={isAlDia ? "success" : venceProntoTexto ? "warning" : "destructive"}
+              size="sm"
+              title={cuotaTooltip}
+              aria-label={cuotaTooltip}
+              role="status"
+            >
+              {isAlDia ? "Al día" : venceProntoTexto ?? "Vencida"}
+            </StatusBadge>
+            {/* Con más de un plan (multiactividad) se detalla el estado de cada uno */}
+            {badgesPlanes.length > 1 && (
+              <div className="flex flex-col gap-0.5 items-start" data-testid="badges-planes-apilados">
                 {badgesPlanes.map((b, idx) => (
                   <span
                     key={idx}
                     data-testid="badge-plan-apilado"
-                    className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold tracking-tight border leading-tight ${b.className}`}
+                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium border leading-tight ${b.className}`}
                     title={b.tooltip}
                   >
                     {b.label}
@@ -900,8 +903,8 @@ export function CoachStudioView({
     {
       id: "vigencia_rutina",
       header: "Rutina",
-      headerClassName: "py-2.5 px-3 text-left w-48",
-      className: `${rowPaddingClass} px-3 text-left`,
+      headerClassName: "h-10 px-4 text-left font-medium",
+      className: `${rowPaddingClass} px-4 text-left`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
@@ -919,11 +922,11 @@ export function CoachStudioView({
               className={`hidden h-2.5 w-10 rounded-full ${rutinaPillColor}`}
               aria-hidden="true"
             />
-            <span className={planActivo ? "text-xs font-medium text-foreground block truncate" : "text-xs text-muted-foreground select-none"}>
+            <span className={planActivo ? "text-sm text-foreground block truncate" : "text-sm text-subtle-foreground select-none"}>
               {nombrePlan}
             </span>
             {isPorVencer && (
-              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              <span className="text-xs text-warning-soft-foreground">
                 Vence en {diasRestantes} d
               </span>
             )}
@@ -934,8 +937,8 @@ export function CoachStudioView({
     {
       id: "actividad",
       header: "Último entreno",
-      headerClassName: "py-2.5 px-3 text-left w-32",
-      className: `${rowPaddingClass} px-3 text-left`,
+      headerClassName: "h-10 px-4 text-left font-medium w-36",
+      className: `${rowPaddingClass} px-4 text-left`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
@@ -966,67 +969,60 @@ export function CoachStudioView({
             textoRecencia = `Hace ${diffDays} días`;
             recenciaTooltip = `Inactivo (> 14 días, ${diffDays}d)`;
           }
-        } else if (planActivo) {
-          if (historial.length > 0) {
-            recenciaDotColor = "bg-emerald-500";
-            textoRecencia = "Hoy";
-            recenciaTooltip = "Último entreno: < 7 días";
-          } else if (alumno.nombre_completo.toLowerCase().includes("sofia")) {
-            recenciaDotColor = "bg-amber-500";
-            textoRecencia = "Hace 8 días";
-            recenciaTooltip = "Último entreno: 7-14 días";
-          } else {
-            recenciaDotColor = "bg-emerald-500";
-            textoRecencia = "Ayer";
-            recenciaTooltip = "Último entreno: < 7 días";
+        } else if (planActivo && historial.length > 0) {
+          const ultimaFecha = historial
+            .map((h: any) => h.fecha || h.fecha_sesion || h.created_at)
+            .filter(Boolean)
+            .sort()
+            .pop();
+          if (ultimaFecha) {
+            const diffDays = Math.max(0, Math.floor((Date.now() - new Date(ultimaFecha).getTime()) / (1000 * 60 * 60 * 24)));
+            textoRecencia = diffDays === 0 ? "Hoy" : diffDays === 1 ? "Ayer" : `Hace ${diffDays} días`;
+            recenciaTooltip = `Último entreno: ${textoRecencia.toLowerCase()}`;
+            recenciaDotColor = diffDays < 7 ? "bg-emerald-500" : diffDays <= 14 ? "bg-amber-500" : "bg-rose-500";
           }
         }
 
+        // El estado se comunica con texto (sin semáforo de color): "Hoy", "Ayer", "Hace n días".
         return (
-          <div className="flex items-center gap-1.5" title={recenciaTooltip}>
-            <span
-              className={`inline-block h-3 w-3 rounded-full shrink-0 ${recenciaDotColor}`}
-              title={recenciaTooltip}
-              aria-label={recenciaTooltip}
-              role="status"
-            />
-            <span className="text-xs text-muted-foreground">{textoRecencia}</span>
-          </div>
+          <span className="text-sm text-foreground" title={recenciaTooltip} data-recencia={recenciaDotColor}>
+            {textoRecencia}
+          </span>
         );
       },
     },
     {
       id: "alertas",
       header: "Alertas",
-      headerClassName: "py-2.5 px-3 text-left min-w-[130px] max-w-[190px]",
-      className: `${rowPaddingClass} px-3 text-left`,
+      headerClassName: "h-10 px-4 text-left font-medium min-w-[150px]",
+      className: `${rowPaddingClass} px-4 text-left`,
       cell: ({ row: alumno }) => {
         const estancadoInfo = estancadosMap.get(alumno.id);
         const molestiasAlumno = molestiasActivas.filter((m: any) => (m.alumno_id === alumno.id || m.alumnoId === alumno.id));
-        const demoBadges = molestiasAlumno.length > 0 ? [] : getDemoAlumnoAlerts(alumno.nombre_completo);
+        const demoBadges = molestiasAlumno.length > 0 || isLiveInicio ? [] : getDemoAlumnoAlerts(alumno.nombre_completo);
 
         const hasAnyAlerts = Boolean(estancadoInfo || molestiasAlumno.length > 0 || demoBadges.length > 0);
 
         return (
           <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
             {estancadoInfo && (
-              <span
+              <StatusBadge
+                variant="neutral"
+                size="sm"
                 data-testid={`badge-estancado-${alumno.id}`}
-                className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border border-amber-500/40 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-xs"
                 title={`Alumno estancado (+30 días sin PR: ${estancadoInfo.diasSinPR} días)`}
-                aria-label="Alumno estancado (+30 días sin PR)"
               >
-                <TriangleAlert className="h-3 w-3 inline text-amber-500" aria-hidden="true" /> +30d sin PR
-              </span>
+                30 d sin récord
+              </StatusBadge>
             )}
             {!hasAnyAlerts ? (
-              <span className="text-muted-foreground/40 text-[11px] select-none">
+              <span className="text-subtle-foreground text-sm select-none" aria-label="Sin alertas">
                 —
               </span>
             ) : (
               <>
                 {molestiasAlumno.map((m: any, idx: number) => {
-                  const nivel = (m.nivel ? m.nivel.toLowerCase() : nivelDesdeEva(m.eva || 5, Boolean(m.es_sintoma_alarma || m.severidad === "CRITICA"))) as any;
+                  const nivel = nivelDesdeEva(typeof m.eva === "number" ? m.eva : 5, Boolean(m.es_sintoma_alarma || m.severidad === "CRITICA"));
                   const badgeTono = tonoNivelDolor(nivel);
                   const label = `${m.zona_articular || "Articular"} · ${etiquetaNivelDolor(nivel).toLowerCase()}`;
                   const badgeVariant: StatusBadgeVariant = badgeTono === "danger" ? "destructive" : badgeTono === "warning" ? "warning" : "neutral";
@@ -1116,9 +1112,9 @@ export function CoachStudioView({
     },
     {
       id: "acciones",
-      header: "Acciones",
-      headerClassName: "py-2.5 px-3 text-center w-24",
-      className: `${rowPaddingClass} px-3 text-center`,
+      header: <span className="sr-only">Acciones</span>,
+      headerClassName: "h-10 px-4 w-14",
+      className: `${rowPaddingClass} px-4 text-right`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
@@ -1131,11 +1127,11 @@ export function CoachStudioView({
               open={isMenuControlledOpen ? true : undefined}
             >
               <DropdownMenuTrigger
-                className="flex h-12 w-12 min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border border-border/80 bg-secondary/60 hover:bg-secondary text-foreground active:scale-95 transition-all shadow-xs cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`Acciones para ${alumno.nombre_completo}`}
                 data-testid={`btn-acciones-alumno-${alumno.id}`}
               >
-                <span aria-hidden="true" className="leading-none text-base font-bold select-none">⋯</span>
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                 <span className="sr-only">Acciones</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 z-50">
@@ -1294,12 +1290,12 @@ export function CoachStudioView({
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground m-0">
-                {fechaSaludo} · 3 clases hoy, {((store.isLiveDatabase || hasInitialData) ? molestiasActivas.length : 5)} alertas para revisar.
+                {fechaSaludo} · {clasesHoyInicio.length} {clasesHoyInicio.length === 1 ? "clase" : "clases"} hoy, {totalParaRevisar} alertas para revisar.
               </p>
             </div>
 
             {/* Acciones de Cabecera: Segmented Periodo + Alta de Alumno (P02) */}
-            <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
               <div className="flex items-center" data-testid="periodo-selector-container">
                 <Segmented<TipoRangoPeriodo>
                   data-testid="selector-periodo"
@@ -1343,6 +1339,9 @@ export function CoachStudioView({
               sinEntrenarNombres={alumnos
                 .filter((a) => (kpis.sin_entrenar_7d_ids?.length ? kpis.sin_entrenar_7d_ids : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids).includes(a.id))
                 .map((a) => a.nombre_completo)}
+              sinEntrenarAlDia={
+                alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && esCuotaAlDia(a)).length
+              }
               sinRutina={metricas.cantSinPlanEntrenamiento}
               onAsignarClick={() => setIsAssignModalOpen(true)}
               onIngresosClick={() => {
@@ -1365,13 +1364,18 @@ export function CoachStudioView({
           <div className="flex flex-wrap gap-3">
             <div className="flex-[2_1_460px] min-w-0">
               <ParaRevisarHoy
-                molestias={molestiasActivas.length > 0 ? molestiasActivas : undefined}
-                isLiveMode={store.isLiveDatabase || hasInitialData}
+                molestias={isLiveInicio ? molestiasActivas : undefined}
+                cuotasVencidas={cuotasVencidasInicio}
+                isLiveMode={isLiveInicio}
                 onSelectAlumno={(id) => selectAlumno(id)}
+                onGestionarCobro={() => router.push("/studio/cobros")}
+                onTotalChange={setTotalParaRevisar}
               />
             </div>
             <div className="flex-[1_1_280px] min-w-0">
               <ClasesHoyAtajosChat
+                isLiveMode={isLiveInicio}
+                alumnosSinEntrenar={alumnosSinEntrenarInicio}
                 onOpenChat={(alumnoId) => openChatForAlumno(alumnoId)}
               />
             </div>
@@ -1379,308 +1383,266 @@ export function CoachStudioView({
 
           {/* Directorio de Atletas */}
           <div className="w-full">
-          <div
-            className="rounded-2xl border border-border bg-card space-y-4 pb-4 [&>:not(button)]:mx-5"
+          <section
+            aria-labelledby="dir-t"
+            className="rounded-xl border border-border bg-card overflow-hidden"
             data-testid="alumnos-directory"
           >
-            <button
-              type="button"
-              onClick={() => setIsAlumnosExpanded((prev) => {
-                const next = !prev;
-                if (typeof window !== "undefined" && window.localStorage) {
-                  try {
-                    localStorage.setItem("gozster_directorio_alumnos_expanded", String(next));
-                  } catch {}
-                }
-                return next;
-              })}
-              aria-expanded={isAlumnosExpanded}
-              className="w-full min-h-14 px-5 flex items-center justify-between"
-            >
-              <span className="flex items-center gap-2.5">
-                <span className="text-sm font-bold text-foreground">Alumnos</span>
-                <span className="rounded-full bg-secondary px-2 text-xs tabular-nums">
-                  {alumnos.length}
-                </span>
-              </span>
-              <span aria-hidden="true" className="text-xs text-muted-foreground">
-                {isAlumnosExpanded ? "▲" : "▼"}
-              </span>
-            </button>
-            {showAlumnosBody && (<>
-            {/* Toolbar del Directorio: Chips h-8 + + Actividad + Constructor + Simulador + Buscador 220px (08 §4.1, 09 P08) */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">Filtro:</span>
-                <button
-                  type="button"
-                  onClick={() => handlePaymentFilterChange("ALL")}
-                  data-testid="chip-filtro-todos"
-                  aria-pressed={paymentFilter === "ALL"}
-                  data-selected={paymentFilter === "ALL"}
-                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                    paymentFilter === "ALL"
-                      ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
-                      : "text-muted-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  Todos ({alumnos.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePaymentFilterChange("ACTIVA")}
-                  data-testid="chip-filtro-al-dia"
-                  aria-pressed={paymentFilter === "ACTIVA"}
-                  data-selected={paymentFilter === "ACTIVA"}
-                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                    paymentFilter === "ACTIVA"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs ring-1 ring-emerald-500/30"
-                      : "text-muted-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  Al día ({alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePaymentFilterChange("PENDIENTE")}
-                  data-testid="chip-filtro-pago-pendiente"
-                  aria-pressed={paymentFilter === "PENDIENTE"}
-                  data-selected={paymentFilter === "PENDIENTE"}
-                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                    paymentFilter === "PENDIENTE"
-                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs ring-1 ring-amber-500/30"
-                      : "text-muted-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  Pago pendiente ({alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePaymentFilterChange("NUEVOS")}
-                  data-testid="chip-filtro-nuevos"
-                  aria-pressed={paymentFilter === "NUEVOS"}
-                  data-selected={paymentFilter === "NUEVOS"}
-                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                    paymentFilter === "NUEVOS"
-                      ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
-                      : "text-muted-foreground hover:bg-secondary/50"
-                  }`}
-                >
-                  Nuevos ({alumnos.filter((a) => esAlumnoNuevo(a.created_at)).length})
-                </button>
+            {/* Toolbar del Directorio en una línea (objetivo Inicio.html, 09 P08):
+                título · chips h-8 · + Actividad · buscador 220 px · herramientas */}
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border">
+              <button
+                type="button"
+                onClick={() => setIsAlumnosExpanded((prev) => {
+                  const next = !prev;
+                  if (typeof window !== "undefined" && window.localStorage) {
+                    try {
+                      localStorage.setItem("gozster_directorio_alumnos_expanded", String(next));
+                    } catch {}
+                  }
+                  return next;
+                })}
+                aria-expanded={isAlumnosExpanded}
+                aria-controls="directorio-alumnos-body"
+                aria-label={`${isAlumnosExpanded ? "Contraer" : "Expandir"} directorio de ${alumnos.length} alumnos`}
+                className="inline-flex items-center gap-1.5 rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <h2 id="dir-t" className="m-0 text-[15px] font-semibold text-foreground">
+                  Alumnos
+                </h2>
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", !isAlumnosExpanded && "-rotate-90")}
+                  aria-hidden="true"
+                />
+              </button>
 
-                {sinEntrenarFilter && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSinEntrenarFilter(false);
-                      setCurrentPage(1);
-                    }}
-                    data-testid="chip-sin-entrenar"
-                    className="h-8 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary"
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Sin entrenar +7 días
-                      <X className="h-3 w-3 inline" aria-hidden="true" />
-                    </span>
-                  </button>
-                )}
+              {showAlumnosBody && (
+                <>
+                  <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap gap-1">
+                    {(
+                      [
+                        { id: "ALL", testId: "chip-filtro-todos", label: "Todos", count: alumnos.length },
+                        {
+                          id: "ACTIVA",
+                          testId: "chip-filtro-al-dia",
+                          label: "Al día",
+                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length,
+                        },
+                        {
+                          id: "PENDIENTE",
+                          testId: "chip-filtro-pago-pendiente",
+                          label: "Pago pendiente",
+                          count: alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
+                        },
+                        {
+                          id: "NUEVOS",
+                          testId: "chip-filtro-nuevos",
+                          label: "Nuevos",
+                          count: alumnos.filter((a) => esAlumnoNuevo(a.created_at)).length,
+                        },
+                      ] as const
+                    ).map((chip) => {
+                      const activo = paymentFilter === chip.id;
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => handlePaymentFilterChange(chip.id)}
+                          data-testid={chip.testId}
+                          aria-pressed={activo}
+                          data-selected={activo}
+                          className={cn(
+                            "h-8 rounded-lg px-2.5 text-[13px] border transition-colors cursor-pointer",
+                            activo
+                              ? "bg-muted border-border text-foreground font-medium"
+                              : "border-transparent text-neutral-soft-foreground hover:bg-muted/60"
+                          )}
+                        >
+                          {chip.label}{" "}
+                          <span className="text-subtle-foreground tabular-nums">{chip.count}</span>
+                        </button>
+                      );
+                    })}
 
-                {/* Filtros rápidos por Actividad (GOZS-349, P08) */}
-                <div
-                  className="flex flex-wrap items-center gap-1.5"
-                  data-testid="filtro-actividad-chips"
-                >
-                  <button
-                    type="button"
-                    className="h-8 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground border border-dashed border-border/80 hover:bg-secondary/50 cursor-default"
-                  >
-                    + Actividad
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFiltroActividad("TODAS");
-                      setCurrentPage(1);
-                    }}
-                    data-testid="filtro-actividad-todas"
-                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      filtroActividad === "TODAS"
-                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Todas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFiltroActividad(filtroActividad === "FUNCIONAL" ? "TODAS" : "FUNCIONAL");
-                      setCurrentPage(1);
-                    }}
-                    data-testid="filtro-actividad-funcional"
-                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      filtroActividad === "FUNCIONAL"
-                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Funcional
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFiltroActividad(filtroActividad === "BOXEO" ? "TODAS" : "BOXEO");
-                      setCurrentPage(1);
-                    }}
-                    data-testid="filtro-actividad-boxeo"
-                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      filtroActividad === "BOXEO"
-                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Boxeo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFiltroActividad(filtroActividad === "RUTINAS" ? "TODAS" : "RUTINAS");
-                      setCurrentPage(1);
-                    }}
-                    data-testid="filtro-actividad-rutinas"
-                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
-                      filtroActividad === "RUTINAS"
-                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                        : "text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    Rutina online
-                  </button>
-                </div>
+                    {sinEntrenarFilter && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSinEntrenarFilter(false);
+                          setCurrentPage(1);
+                        }}
+                        data-testid="chip-sin-entrenar"
+                        className="h-8 rounded-lg px-2.5 text-[13px] border border-border bg-muted text-foreground font-medium inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        Sin entrenar +7 días
+                        <X className="h-3 w-3" aria-hidden="true" />
+                        <span className="sr-only">Quitar filtro</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    {/* Filtro por actividad (GOZS-349, P08): chip "+ Actividad" que despliega las opciones */}
+                    <details className="relative" data-testid="filtro-actividad-container">
+                      <summary
+                        className={cn(
+                          "list-none [&::-webkit-details-marker]:hidden h-8 inline-flex items-center gap-1 rounded-lg px-2.5 text-[13px] border border-dashed cursor-pointer",
+                          filtroActividad === "TODAS"
+                            ? "border-border text-neutral-soft-foreground hover:bg-muted/60"
+                            : "border-border bg-muted text-foreground font-medium"
+                        )}
+                      >
+                        {filtroActividad === "TODAS"
+                          ? "+ Actividad"
+                          : ({ FUNCIONAL: "Funcional", BOXEO: "Boxeo", RUTINAS: "Rutina online" } as Record<string, string>)[filtroActividad] ?? "+ Actividad"}
+                      </summary>
+                      <div
+                        data-testid="filtro-actividad-chips"
+                        className="absolute right-0 z-20 mt-1 flex min-w-[168px] flex-col gap-0.5 rounded-lg border border-border bg-popover p-1 shadow-md"
+                      >
+                        {(
+                          [
+                            { id: "TODAS", testId: "filtro-actividad-todas", label: "Todas" },
+                            { id: "FUNCIONAL", testId: "filtro-actividad-funcional", label: "Funcional" },
+                            { id: "BOXEO", testId: "filtro-actividad-boxeo", label: "Boxeo" },
+                            { id: "RUTINAS", testId: "filtro-actividad-rutinas", label: "Rutina online" },
+                          ] as const
+                        ).map((op) => (
+                          <button
+                            key={op.id}
+                            type="button"
+                            onClick={(e) => {
+                              setFiltroActividad(op.id);
+                              setCurrentPage(1);
+                              (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open");
+                            }}
+                            data-testid={op.testId}
+                            aria-pressed={filtroActividad === op.id}
+                            className={cn(
+                              "h-8 rounded-md px-2 text-left text-[13px] cursor-pointer",
+                              filtroActividad === op.id ? "bg-muted font-medium text-foreground" : "text-neutral-soft-foreground hover:bg-muted/60"
+                            )}
+                          >
+                            {op.label}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
+
+                    {/* Buscador local compacto de 220 px con debounce de 150 ms (09 P08) */}
+                    <label className="flex h-8 w-[220px] max-w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 text-muted-foreground">
+                      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <input
+                        type="search"
+                        value={filterQuery}
+                        onChange={(e) => {
+                          setFilterQuery(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        placeholder="Buscar alumno"
+                        aria-label="Buscar alumno"
+                        className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground outline-none"
+                      />
+                    </label>
+
+                    {/* Herramientas secundarias del directorio, fuera de la vista principal */}
+                    <details className="relative" data-testid="directorio-herramientas">
+                      <summary
+                        aria-label="Más herramientas del directorio"
+                        className="list-none [&::-webkit-details-marker]:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted/60 cursor-pointer"
+                      >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                      </summary>
+                      <div className="absolute right-0 z-20 mt-1 flex w-64 flex-col gap-2 rounded-lg border border-border bg-popover p-2 shadow-md">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setLocalIsBuilderOpen(true)}
+                          className="h-8 justify-start gap-2 text-[13px] font-normal"
+                          data-testid="open-routine-builder-btn"
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                          Nueva rutina en el constructor
+                        </Button>
+                        <div className="flex items-center gap-1.5" data-testid="preview-athlete-control">
+                          <select
+                            value={previewAlumno?.id || ""}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              if (!id) {
+                                setPreviewAlumno(null);
+                                return;
+                              }
+                              const found = alumnos.find((a) => a.id === id);
+                              if (found) setPreviewAlumno(found);
+                            }}
+                            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-[13px] text-foreground"
+                            data-testid="preview-athlete-select"
+                            aria-label="Previsualizar experiencia de alumno"
+                          >
+                            <option value="">Vista previa de…</option>
+                            {alumnos.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.nombre_completo}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const target = previewAlumno || selectedAlumno || alumnos[0] || null;
+                              setPreviewAlumno(target);
+                            }}
+                            className="h-8 gap-1 text-[13px]"
+                            data-testid="preview-athlete-btn"
+                          >
+                            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                            Ver
+                          </Button>
+                        </div>
+                        <label
+                          htmlFor="toggle-whatsapp-config"
+                          className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px] text-neutral-soft-foreground cursor-pointer"
+                        >
+                          <input
+                            id="toggle-whatsapp-config"
+                            type="checkbox"
+                            checked={isWhatsAppEnabled}
+                            onChange={(e) => setWhatsAppEnabled(e.target.checked)}
+                            className="h-3.5 w-3.5 rounded border-border cursor-pointer"
+                            data-testid="toggle-whatsapp-config"
+                          />
+                          WhatsApp en acciones
+                        </label>
+                      </div>
+                    </details>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {showAlumnosBody && (
+              <div
+                id="directorio-alumnos-body"
+                className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <DataTable
+                  columns={columnsAlumnos}
+                  data={filteredAlumnos}
+                  pageSize={15}
+                  showPagination={true}
+                  containerClassName="border-0 shadow-none rounded-none"
+                  tableClassName="min-w-[700px] border-collapse"
+                  headerRowClassName="border-b border-border text-[13px] font-medium text-muted-foreground"
+                  rowClassName="hover:bg-muted/40 transition-colors group"
+                  emptyTitle="Sin alumnos encontrados"
+                  emptyDescription="No hay alumnos con los filtros seleccionados."
+                />
               </div>
-
-              {/* Herramientas del Directorio y Buscador 220px (09 P08) */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Botón de Herramientas: Constructor de Rutinas */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLocalIsBuilderOpen(true)}
-                  className="h-8 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5 rounded-lg"
-                  data-testid="open-routine-builder-btn"
-                  title="Abrir Constructor Visual de Rutinas"
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Constructor</span>
-                </Button>
-
-                {/* Control rápido de Previsualización / Simulador de Atleta (GOZS-345) */}
-                <div className="flex items-center gap-1.5" data-testid="preview-athlete-control">
-                  <select
-                    value={previewAlumno?.id || ""}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (!id) {
-                        setPreviewAlumno(null);
-                        return;
-                      }
-                      const found = alumnos.find((a) => a.id === id);
-                      if (found) setPreviewAlumno(found);
-                    }}
-                    className="h-8 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold text-foreground max-w-[140px] truncate"
-                    data-testid="preview-athlete-select"
-                    aria-label="Previsualizar experiencia de alumno"
-                  >
-                    <option value="">Vista previa alumno...</option>
-                    {alumnos.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre_completo}
-                      </option>
-                    ))}
-                  </select>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const target =
-                        previewAlumno ||
-                        selectedAlumno ||
-                        alumnos.find((a) => a.nombre_completo.toLowerCase().includes("miguel")) ||
-                        alumnos[0] ||
-                        null;
-                      setPreviewAlumno(target);
-                    }}
-                    className="h-8 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1 rounded-lg"
-                    data-testid="preview-athlete-btn"
-                    title="Previsualizar experiencia de alumno en dispositivo móvil"
-                  >
-                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Ver como Alumno</span>
-                  </Button>
-                </div>
-
-                {/* Toggle WhatsApp */}
-                <div className="hidden sm:flex items-center gap-1.5 rounded-lg bg-secondary/60 border border-border/60 px-2 h-8 text-xs">
-                  <label
-                    htmlFor="toggle-whatsapp-config"
-                    className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer flex items-center gap-1.5"
-                  >
-                    <input
-                      id="toggle-whatsapp-config"
-                      type="checkbox"
-                      checked={isWhatsAppEnabled}
-                      onChange={(e) => setWhatsAppEnabled(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-border accent-emerald-500 cursor-pointer"
-                      data-testid="toggle-whatsapp-config"
-                    />
-                    <span>WhatsApp en acciones</span>
-                  </label>
-                </div>
-
-                {/* Buscador local compacto de 220px con debounce de 150ms (08 §4.1, 09 P08) */}
-                <div className="w-[220px]">
-                  <input
-                    type="search"
-                    value={filterQuery}
-                    onChange={(e) => {
-                      setFilterQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="Buscar atleta…"
-                    aria-label="Buscar alumno"
-                    className="h-8 w-full rounded-lg border border-input bg-card px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Tabla Matriz con Semáforos (Contención estricta overflow-x-auto táctil) */}
-            <div
-              className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain rounded-xl border border-border/80"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              <DataTable
-                columns={columnsAlumnos}
-                data={filteredAlumnos}
-                pageSize={15}
-                showPagination={true}
-                containerClassName="border-0 shadow-none rounded-none"
-                tableClassName="min-w-[700px] border-collapse"
-                headerRowClassName="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider"
-                rowClassName="hover:bg-muted/40 transition-colors group"
-                emptyTitle="Sin atletas encontrados"
-                emptyDescription="No se encontraron atletas con los criterios seleccionados."
-              />
-            </div>
-
-            {/* Footer de Fuente y Referencia */}
-            <div className="text-[11px] text-muted-foreground px-1 flex items-center justify-between">
-              <span>Fuente: GOZSter Studio / Dataset demo</span>
-            </div>
-            </>)}
-          </div>
+            )}
+          </section>
           </div>
         </div>
       ) : (

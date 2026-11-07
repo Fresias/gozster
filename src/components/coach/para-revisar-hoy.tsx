@@ -36,7 +36,33 @@ export interface ParaRevisarHoyProps {
   onGestionarCobro?: (alumnoId: string) => void;
   onVerTodasPendientes?: () => void;
   isLiveMode?: boolean;
+  /** Informa el total de pendientes (para el subtítulo del saludo). */
+  onTotalChange?: (total: number) => void;
   className?: string;
+}
+
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+/** "Hoy, 10:45" · "Ayer, 18:30" · "Hace 5 días"; si la fecha no es ISO se devuelve tal cual. */
+export function tiempoRelativo(fecha: string | undefined, ahora: Date = new Date()): string {
+  if (!fecha) return "Hoy";
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime()) || !/\d{4}-\d{2}-\d{2}/.test(fecha)) return fecha;
+  const inicioDia = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((inicioDia(ahora) - inicioDia(d)) / MS_DIA);
+  const hora = fecha.includes("T")
+    ? d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false })
+    : null;
+  if (dias <= 0) return hora ? `Hoy, ${hora}` : "Hoy";
+  if (dias === 1) return hora ? `Ayer, ${hora}` : "Ayer";
+  return `Hace ${dias} días`;
+}
+
+function diasDesde(fecha: string | undefined, ahora: Date = new Date()): number | null {
+  if (!fecha) return null;
+  const d = new Date(fecha.includes("T") ? fecha : `${fecha}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((ahora.getTime() - d.getTime()) / MS_DIA));
 }
 
 interface ItemFilaRevisar {
@@ -68,6 +94,7 @@ export function ParaRevisarHoy({
   onGestionarCobro,
   onVerTodasPendientes,
   isLiveMode = false,
+  onTotalChange,
   className,
 }: ParaRevisarHoyProps) {
   const cobrosStore = useCobrosStore((s) => s.cobros);
@@ -150,24 +177,25 @@ export function ParaRevisarHoy({
         alumnoNombre: m.alumnoNombre,
         badgeTexto,
         badgeTono: tono,
-        detalle: `${m.ejercicioNombre} · ${zonaCap} · EVA ${m.eva}/10`,
-        tiempo: m.fecha ?? "Hoy",
+        detalle: `Dolor ${etiqueta} · ${zonaCap} · EVA ${m.eva}`,
+        tiempo: tiempoRelativo(m.fecha),
         prioridad: 100 + m.eva,
       });
     }
 
     // Cuotas después
     for (const c of listaCuotasVencidas) {
-      const montoFormateado = `$${Number(c.monto).toLocaleString("es-AR")}`;
+      const dias = diasDesde(c.fechaVencimiento);
       filasCuotas.push({
         id: `c-${c.contratacionId || c.id}`,
         tipo: "cuota",
         alumnoId: c.alumnoId,
         alumnoNombre: c.alumnoNombre,
         badgeTexto: "Cuota",
-        badgeTono: "danger",
-        detalle: `${c.servicioNombre || "Cuota"} · ${montoFormateado} · Vencido ${c.fechaVencimiento || ""}`.trim(),
-        tiempo: c.fechaVencimiento ? `Vencido` : "Vencido",
+        badgeTono: "neutral",
+        detalle:
+          dias === null ? "Cuota vencida" : dias === 0 ? "Cuota vencida hoy" : `Cuota vencida hace ${dias} ${dias === 1 ? "día" : "días"}`,
+        tiempo: dias === null ? "Vencida" : dias === 0 ? "Hoy" : dias === 1 ? "Ayer" : `Hace ${dias} días`,
         prioridad: 50,
       });
     }
@@ -188,29 +216,25 @@ export function ParaRevisarHoy({
 
   const tieneMasDeCinco = totalPendientes > 5;
 
+  React.useEffect(() => {
+    onTotalChange?.(totalPendientes);
+  }, [onTotalChange, totalPendientes]);
+
   if (totalPendientes === 0) {
     return (
       <section
         aria-labelledby="hoy-t"
         data-testid="para-revisar-hoy-container"
         className={cn(
-          "rounded-xl border border-border bg-card flex flex-col overflow-hidden",
+          "rounded-xl border border-border bg-card flex flex-col overflow-hidden h-full",
           className
         )}
       >
-        <div className="flex items-center justify-between p-3.5 px-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
-              Para revisar hoy
-            </h2>
-            <span
-              data-testid="para-revisar-hoy-badge-count"
-              className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground"
-            >
-              0
-            </span>
-          </div>
-          <span className="text-xs text-muted-foreground">0 pendientes · Ordenado por prioridad</span>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+          <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
+            Para revisar hoy
+          </h2>
+          <span className="text-xs text-muted-foreground">Ordenado por prioridad</span>
         </div>
         <EmptyState
           data-testid="para-revisar-hoy-empty"
@@ -227,22 +251,14 @@ export function ParaRevisarHoy({
       aria-labelledby="hoy-t"
       data-testid="para-revisar-hoy-container"
       className={cn(
-        "rounded-xl border border-border bg-card flex flex-col overflow-hidden",
+        "rounded-xl border border-border bg-card flex flex-col overflow-hidden h-full",
         className
       )}
     >
-      <div className="flex items-center justify-between p-3.5 px-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
-            Para revisar hoy
-          </h2>
-          <span
-            data-testid="para-revisar-hoy-badge-count"
-            className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground"
-          >
-            {totalPendientes}
-          </span>
-        </div>
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-border">
+        <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
+          Para revisar hoy
+        </h2>
         <span className="text-xs text-muted-foreground">Ordenado por prioridad</span>
       </div>
 

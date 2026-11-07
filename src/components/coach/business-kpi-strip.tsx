@@ -8,6 +8,8 @@ export interface BusinessKpiStripProps {
   kpis?: KpisNegocio | KpisNegocioDatos;
   /** Nombres de los alumnos sin entrenar +7 días (para la pila de avatares). */
   sinEntrenarNombres?: string[];
+  /** Cuántos de los alumnos sin entrenar tienen la cuota al día (subtítulo "{n} con cuota al día"). */
+  sinEntrenarAlDia?: number;
   /** Alumnos activos sin rutina (línea de apoyo o tarjeta Sin rutina). */
   sinRutina?: number;
   onSinEntrenarClick?: () => void;
@@ -32,7 +34,7 @@ export interface BusinessKpiStripProps {
 const pesos = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 const money = (n: number) => `$${pesos.format(n)}`;
 
-const CARD = "p-4 rounded-xl border bg-card text-card-foreground shadow-none";
+const CARD = "p-3 sm:p-4 rounded-xl border bg-card text-card-foreground shadow-none min-w-0";
 
 function Header({
   label,
@@ -63,6 +65,7 @@ const iniciales = (n: string) =>
 export function BusinessKpiStrip({
   kpis: propKpis,
   sinEntrenarNombres: propSinEntrenarNombres = [],
+  sinEntrenarAlDia,
   sinRutina = 0,
   onSinEntrenarClick,
   onAsignarClick,
@@ -180,12 +183,19 @@ export function BusinessKpiStrip({
   return (
     <div
       data-testid="business-kpi-strip"
-      className={`grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 ${className ?? ""}`}
+      className={`grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))] sm:gap-3 ${className ?? ""}`}
     >
       {/* 1. Tarjeta 'Cobrado' (con por cobrar y cuotas) */}
-      <button
-        type="button"
+      <div
+        role={error ? undefined : "button"}
+        tabIndex={error ? undefined : 0}
         onClick={error ? undefined : onIngresosClick}
+        onKeyDown={(e) => {
+          if (!error && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onIngresosClick?.();
+          }
+        }}
         data-testid="kpi-ingresos"
         className={`${CARD} text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group cursor-pointer`}
       >
@@ -194,7 +204,7 @@ export function BusinessKpiStrip({
           badge={periodo === "semana" ? "semana" : periodo === "trimestre" ? "trimestre" : "nov"}
         />
         <div
-          className="mt-1.5 text-[28px] leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground"
+          className="mt-1.5 text-xl leading-7 sm:text-[28px] sm:leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground"
           data-testid="kpi-cobrado"
         >
           <span data-testid="kpi-ingresos-total">
@@ -202,7 +212,7 @@ export function BusinessKpiStrip({
           </span>
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground flex items-center justify-between gap-1">
             <span>No se pudieron cargar los datos</span>
             {onRetry ? (
               <button
@@ -242,17 +252,12 @@ export function BusinessKpiStrip({
                 className="inline-flex items-center gap-1 text-[13px] text-muted-foreground"
               >
                 {puedeVer ? (
-                  <>
-                    <span>A cobrar:</span>
-                    <span className="font-medium text-foreground tabular-nums">
-                      {money(totalACobrar)}
-                    </span>
+                  <span>
+                    <span className="tabular-nums">{money(totalACobrar)}</span> por cobrar
                     {cuotasRojasCant > 0 && (
-                      <span>
-                        ({cuotasRojasCant} {cuotasRojasCant === 1 ? "cuota en rojo" : "cuotas en rojo"})
-                      </span>
+                      <> · {cuotasRojasCant} {cuotasRojasCant === 1 ? "cuota" : "cuotas"}</>
                     )}
-                  </>
+                  </span>
                 ) : (
                   <span>
                     {cuotasRojasCant > 0
@@ -280,7 +285,7 @@ export function BusinessKpiStrip({
             )}
           </>
         )}
-      </button>
+      </div>
 
       {/* 2. Tarjeta 'Alumnos al día' (con altas/bajas del período) */}
       <div className={CARD} data-testid="kpi-activos">
@@ -289,13 +294,13 @@ export function BusinessKpiStrip({
           badge="hoy"
         />
         <div
-          className="mt-1.5 text-[28px] leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground"
+          className="mt-1.5 text-xl leading-7 sm:text-[28px] sm:leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground"
           data-testid="kpi-alumnos-al-dia"
         >
           {error ? "—" : displayActivos}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground flex items-center justify-between gap-1">
             <span>No se pudieron cargar los datos</span>
             {onRetry ? (
               <button
@@ -314,8 +319,8 @@ export function BusinessKpiStrip({
             )}
           </p>
         ) : (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">
-            +{altas} altas · −{bajas} {bajas === 1 ? "baja" : "bajas"} este mes
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground">
+            +{altas} altas, −{bajas} {bajas === 1 ? "baja" : "bajas"} este mes
           </p>
         )}
       </div>
@@ -326,11 +331,11 @@ export function BusinessKpiStrip({
           label="Sin rutina"
           badge="hoy"
         />
-        <div className="mt-1.5 text-[28px] leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground">
+        <div className="mt-1.5 text-xl leading-7 sm:text-[28px] sm:leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground">
           {error ? "—" : sinRutina}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground flex items-center justify-between gap-1">
             <span>No se pudieron cargar los datos</span>
             {onRetry ? (
               <button
@@ -349,14 +354,14 @@ export function BusinessKpiStrip({
             )}
           </p>
         ) : (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground">
             {sinRutina > 0 ? (
               <>
                 <span className="sr-only">{sinRutina} sin rutina · </span>
                 <button
                   type="button"
                   onClick={onAsignarClick}
-                  className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                  className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
                   aria-label="Asignar rutina a alumnos sin plan"
                 >
                   Asignales una desde Rutinas
@@ -377,14 +382,14 @@ export function BusinessKpiStrip({
         className={`${CARD} text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
       >
         <Header
-          label="Sin entrenar +7 días"
+          label="Sin entrenar"
           badge="+7 días"
         />
-        <div className="mt-1.5 text-[28px] leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground">
+        <div className="mt-1.5 text-xl leading-7 sm:text-[28px] sm:leading-[32px] font-semibold tracking-[-0.02em] tabular-nums text-foreground">
           {error ? "—" : sinEntrenarTotal}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground flex items-center justify-between gap-1">
             <span>No se pudieron cargar los datos</span>
             {onRetry ? (
               <button
@@ -403,7 +408,11 @@ export function BusinessKpiStrip({
             )}
           </p>
         ) : (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">Ver quiénes →</p>
+          <p className="mt-1 text-xs sm:mt-1.5 sm:text-[13px] text-muted-foreground">
+            {sinEntrenarAlDia !== undefined
+              ? `${sinEntrenarAlDia} con cuota al día`
+              : "Ver quiénes →"}
+          </p>
         )}
       </button>
     </div>

@@ -49,7 +49,7 @@ export function Tooltip({
 
   return (
     <TooltipContext.Provider value={{ open, setOpen, tooltipId, delayDuration }}>
-      <div className="relative inline-block">{children}</div>
+      <div className="relative block w-full">{children}</div>
     </TooltipContext.Provider>
   );
 }

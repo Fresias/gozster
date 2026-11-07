@@ -272,10 +272,12 @@ test.describe("@multi-viewport Regresión Visual y E2E Multi-Viewport (UX-S a UX
         await page.goto("/studio");
         await page.waitForLoadState("domcontentloaded");
 
-        // Fila superior con selector de período
-        await expect(
-          page.getByTestId("periodo-selector-container").or(page.getByTestId("selector-periodo")).first()
-        ).toBeVisible({ timeout: 15_000 });
+        // Fila superior con selector de período (en 390 px se oculta, como Movil.html)
+        if ((page.viewportSize()?.width ?? 1440) >= 640) {
+          await expect(
+            page.getByTestId("periodo-selector-container").or(page.getByTestId("selector-periodo")).first()
+          ).toBeVisible({ timeout: 15_000 });
+        }
 
         // Bloques de trabajo diario
         await expect(

@@ -155,7 +155,7 @@ describe("GOZS-409: [OLA-2][INICIO] 100% Fidelidad Visual, Datos en Vivo y KPIs 
 
       // Búsqueda compacta con aria-label
       expect(html).toContain('aria-label="Buscar alumno"');
-      expect(html).toContain('placeholder="Buscar atleta…"');
+      expect(html).toContain('placeholder="Buscar alumno"');
 
       // Columna Cuota
       expect(html).toContain('data-testid="columna-cuota-actividad"');

@@ -12,8 +12,8 @@ describe("GOZS-130: email fuera de las filas", () => {
     expect(view).not.toMatch(/\{alumno\.email \?\? "—"\}/);
   });
 
-  it("el placeholder es 'Buscar atleta…' y el buscador sigue filtrando por email", () => {
-    expect(view).toContain('placeholder="Buscar atleta…"');
+  it("el placeholder es 'Buscar alumno' (09 P08) y el buscador sigue filtrando por email", () => {
+    expect(view).toContain('placeholder="Buscar alumno"');
     expect(view).toContain("a.email?.toLowerCase().includes(filterQuery.toLowerCase())");
   });
 });

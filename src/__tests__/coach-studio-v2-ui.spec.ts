@@ -82,16 +82,14 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   // ==========================================================================
   describe("2. Matriz Operativa con Semáforos M3 (Cero Texto Redundante)", () => {
     it("preserva los requerimientos de estructura del cuadro y columna matriz", () => {
-      expect(viewContent).toContain("min-h-[48px]");
-      expect(viewContent).toContain("Atleta");
-      expect(viewContent).toContain("sticky left-0");
+      expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
+      expect(viewContent).toContain('header: "Alumno"');
       expect(viewContent).toContain("tabular-nums");
     });
 
-    it("implementa el semáforo de Cuota como círculo/dot de 10-12px sin texto redundante visible", () => {
-      // Debe usar círculos puros h-3 w-3 rounded-full con tooltips y cero texto 'Al Día' dentro de la celda
+    it("comunica el estado de Cuota con palabra + color (StatusBadge), no con un punto aislado (00-PM §6)", () => {
       expect(viewContent).toContain("cuotaDotColor");
-      expect(viewContent).toContain("h-3 w-3 rounded-full");
+      expect(viewContent).toContain('{isAlDia ? "Al día" : venceProntoTexto ?? "Vencida"}');
       expect(viewContent).toContain("role=\"status\"");
       // No debe contener badges textuales en la columna Cuota
       expect(viewContent).not.toMatch(/<td[^>]*>\s*<span[^>]*>Al Día<\/span>\s*<\/td>/);
@@ -112,9 +110,9 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(viewContent).not.toContain("SIN PLAN ASIGNADO");
     });
 
-    it("implementa Actividad / Recencia como dot de último entreno/login sin texto redundante", () => {
+    it("muestra Último entreno como texto plano (Hoy / Ayer / Hace n días), sin semáforo de color", () => {
       expect(viewContent).toContain("recenciaDotColor");
-      expect(viewContent).toContain("h-3 w-3 rounded-full");
+      expect(viewContent).not.toContain("inline-block h-3 w-3 rounded-full shrink-0 ${recenciaDotColor}");
       // No debe renderizar los números crudos de días en la tabla
       expect(viewContent).not.toMatch(/\{planActivo \? \(historial\.length > 0 \? "1" : "3"\) : "8"\}/);
     });
@@ -160,9 +158,9 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   // 4. ACCIONES TÁCTILES FAT-FINGER FRIENDLY Y TEMPLATES ARGENTINOS
   // ==========================================================================
   describe("4. Acciones Táctiles 'Fat-Finger Friendly' y Templates Argentinos", () => {
-    it("garantiza botones de acción con touch target de al menos 48 × 48 px y separación mínima de 8 px", () => {
-      expect(viewContent).toContain("min-h-[48px] min-w-[48px]");
-      expect(viewContent).toContain("h-12 w-12");
+    it("usa el botón de ícono ⋯ del diseño (32 px) dentro de filas de 56 px y separación de 8 px", () => {
+      expect(viewContent).toContain("inline-flex h-8 w-8 items-center justify-center rounded-md");
+      expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
       expect(viewContent).toContain("gap-2"); // 8px de separación
     });
 

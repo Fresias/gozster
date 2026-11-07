@@ -9,7 +9,8 @@ describe("GOZS-128: sin la palabra INDEC en el copy del Coach Studio", () => {
 
   it("título del cuadro y footer no dicen INDEC ni nombran un modo", () => {
     expect(view).not.toContain("Cuadro 1.1</span>");
-    expect(view).toContain("Fuente: GOZSter Studio / Dataset demo");
+    // El pie "Fuente: … Dataset demo" se quitó: es ruido de proceso (00-PM §6)
+    expect(view).not.toContain("Dataset demo");
     expect(view).not.toContain("MODO TESTEO");
     expect(view).not.toContain("Demostración Conceptual INDEC");
     expect(view).not.toContain("Dataset Demo INDEC");
