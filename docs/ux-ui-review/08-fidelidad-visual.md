@@ -168,14 +168,14 @@ Cada fila: valor objetivo → lo que hay hoy en `main`. Valores medidos sobre `o
 Cada ítem es binario: QA lo marca mirando `comparar/<vista>.jpg` y el HTML objetivo.
 
 ### 4.1 Inicio (`objetivo/html/Inicio.html`, `comparar/inicio.jpg`)
-- [ ] Encabezado "Hola, {nombre}" + "{fecha} · {n} clases hoy, {m} alertas para revisar."; a la derecha, en la misma fila, el Segmented de período y después "Alta de alumno" (primario). La topbar no tiene botón primario (P02).
-- [ ] **4 KPIs en una fila** (`grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3`), card `p-4`, sin ícono, sin barra de progreso: etiqueta 13 + período 12 arriba a la derecha, cifra 28/600, subtítulo 13.
-- [ ] Debajo, en una fila: "Para revisar hoy" (`flex-[2_1_460px]`) y "Clases de hoy" (`flex-[1_1_280px]`).
-- [ ] "Para revisar hoy": header 15/600 + "Ordenado por prioridad" 12; filas `min-h-14 px-4 py-3` sin card propia, separadas por `border-b border-border-subtle`; badge + nombre 500 + detalle 13 + tiempo 12 + chevron. **Sin "Ver ficha →" en azul, sin EVA en mono suelto.** Máximo 5.
-- [ ] No se renderiza la "Bandeja de alertas críticas" roja.
-- [ ] "Clases de hoy": filas de 40 px con hora en mono 13, clase en curso con `bg-muted` + badge "Ahora", pie con avatares apilados + "7 sin entrenar hace +7 días" + "Escribirles".
-- [ ] Directorio: card con toolbar de una línea (h2 + chips de filtro `h-8` + "+ Actividad" punteado + búsqueda de 220 px al final) y tabla con las columnas del objetivo; `pageSize = 15`. Columna Rutina: nombre en texto + "Vence en n d" en 12 px ámbar si faltan 5 días o menos; "Sin rutina" en gris sin badge (P08). Sin el acordeón "Alumnos 15 ▲".
-- [ ] Sin el botón flotante de chat.
+- [x] Encabezado "Hola, {nombre}" + "{fecha} · {n} clases hoy, {m} alertas para revisar."; a la derecha, en la misma fila, el Segmented de período y después "Alta de alumno" (primario). La topbar no tiene botón primario (P02).
+- [x] **4 KPIs en una fila** (`grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3`), card `p-4`, sin ícono, sin barra de progreso: etiqueta 13 + período 12 arriba a la derecha, cifra 28/600, subtítulo 13.
+- [x] Debajo, en una fila: "Para revisar hoy" (`flex-[2_1_460px]`) y "Clases de hoy" (`flex-[1_1_280px]`).
+- [x] "Para revisar hoy": header 15/600 + "Ordenado por prioridad" 12; filas `min-h-14 px-4 py-3` sin card propia, separadas por `border-b border-border-subtle`; badge + nombre 500 + detalle 13 + tiempo 12 + chevron. **Sin "Ver ficha →" en azul, sin EVA en mono suelto.** Máximo 5.
+- [x] No se renderiza la "Bandeja de alertas críticas" roja.
+- [x] "Clases de hoy": filas de 40 px con hora en mono 13, clase en curso con `bg-muted` + badge "Ahora", pie con avatares apilados + "7 sin entrenar hace +7 días" + "Escribirles".
+- [x] Directorio: card con toolbar de una línea (h2 + chips de filtro `h-8` + "+ Actividad" punteado + búsqueda de 220 px al final) y tabla con las columnas del objetivo; `pageSize = 15`. Columna Rutina: nombre en texto + "Vence en n d" en 12 px ámbar si faltan 5 días o menos; "Sin rutina" en gris sin badge (P08). Sin el acordeón "Alumnos 15 ▲".
+- [x] Sin el botón flotante de chat.
 
 ### 4.2 Ficha del alumno (`objetivo/html/Ficha.html`, `comparar/ficha.jpg`)
 - [ ] Breadcrumb "Alumnos / {nombre}" (13 px) en lugar de "← Volver".
