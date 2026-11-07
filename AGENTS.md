@@ -1,24 +1,19 @@
-# GOZSter — System Prompt & Guidelines
+# GOZSter � Guidelines
 
 ## Product Vision & Architecture
-GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **Athlete App** (Mobile-First/PWA) for live, offline-first training (timers, 1RM, RPE).
+GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) con Supabase, Zustand y Next.js 15.
 
-## Technology Stack
-- Next.js 15, React 19, TypeScript strict; Tailwind, Shadcn; Zustand (offline-first, delta sync via `updated_at`); Supabase PostgreSQL with strict RLS.
-
-## Verified Commands
-- `npm ci`, `npm run dev`, `npm run build`, `npm start`.
-- `npm run typecheck`, `npm run lint`, `npm test` (`npm run test:watch`).
-- Single: `npx vitest run <path/to/file.test.ts>`; seed: `npm run seed:mynter`.
-- **Gate:** `npm test && npm run typecheck && npm run lint && npm run build`.
-
-## Repository Layout
-- `src/` (app routes, components, lib, services, store, `__tests__`), `supabase/migrations/`, `types/database.types.ts`.
+## Verified Commands & Gate
+- 
+pm run dev, 
+pm run build, 
+px vitest run <spec>.
+- Gate: 
+pm test && npm run typecheck && npm run lint && npm run build.
 
 ## Governance & Roles
-- Roles `@backend-eng`, `@frontend-eng`, `@qa-eng`, `@UI/UX & Art Director`; branches `feature/<issue-#>-slug` or `fix/<issue-#>-slug`; conventional commits (`feat:`, `fix:`, `refactor:`, `test:`).
-- Merge: `@PM-GOZster` merges to `main` on green CI + QA `APPROVED`.
-- Review: `@qa-eng` runs the 6-level Selection protocol (`review-selection.md`) per PR.
+- Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas eature/<issue-#>-slug o ix/<issue-#>-slug. Commits convencionales.
+- Merge a main: solo @PM-GOZster tras CI en verde y APPROVED de @qa-eng.
 
 # Core Guardrails (Invariants)
 
@@ -48,15 +43,14 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 
 # GOZSter Local Guardrails
 
-## Database & Migrations
-- `supabase/migrations/`: strictly append-only, never edit/delete migrations (`db.append-only`). Explicit RLS required on new tables.
-
-## Brand & Product Integrity
-- Zero references to "Mynter" in production UI (ADR-005). Dual view states `SIMPLE` vs `TECNICA` per ADR-004.
+## Database & UI Contracts
+- supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS.
+- Zero references to "Mynter" (ADR-005).
+- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (ssertNoDemoLiteralsInLiveMode).
 
 ## QA & Review Rounds
-- **QA `CHANGES_REQUESTED` r1/2:** set stage `in_progress`, comment blocker + round `N/2` @mentioning assignee; QA issue `todo` until `in_review`.
-- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections.
+- **QA CHANGES_REQUESTED r1/2:** set stage in_progress, comment blocker + round N/2 @mentioning assignee; QA issue 	odo until in_review.
+- **Round 2/2:** set locked and @mention Gabriel with summary of rejections.
 
 ## Skills
 
@@ -66,12 +60,13 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 # LongTermMEMORY
 
 - [verified 2026-10-19 | src: harness] Hechos historicos consolidados en experience_library.jsonl con tags semanticos.
+- [verified 2026-11-07 | src: PR#396] Estandar visual canonico en docs/ux-ui-review/objetivo/html/*.html con zero demo data en vivo.
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-06 | task: GOZS-388] Stage 5 (#384): Regresion E2E multi-viewport (1440, 1366, 768, 390px) con cero scroll horizontal en Coach Studio.
 - [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
 - [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
+- [lesson 2026-11-07 | task: GOZS-409] PR #396 (GOZS-409): Estandar visual canonico fijado en docs/ux-ui-review/objetivo/html/*.html. Cero datos demo en vivo (no-demo-literals). Actualizar specs obsoletos cuando el diseno canonico cambie.
 
 # Tool Guidance & Execution Rules
 
@@ -103,9 +98,9 @@ GOZSter: **Coach Studio** (Desktop/Web) for plans, students, overload alerts; **
 - **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep/poll.
 
-- **RPCs en Supabase (GOZS-331):** Parámetros opcionales llevan default explícito ('DEFAULT NULL') en SQL y opcionales en cliente TypeScript.
-- **Modales con Guardado (GOZS-321):** Candado isSaving atómico y desactivar botón submit para prevenir carreras de datos o peticiones duplicadas.
-- **Cálculos de Fechas (GOZS-327):** Fijar 'vi.setSystemTime()' en lunes 09:00 ART en pruebas con tope semanal para evitar desfasajes con UTC.
+- **RPCs Supabase (GOZS-331):** Defaults expl�citos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
+- **Modales (GOZS-321):** isSaving at�mico y bot�n submit deshabilitado para evitar carreras.
+- **Fechas (GOZS-327):** vi.setSystemTime() lunes 09:00 ART en tests para evitar desfases UTC.
 
 # Helper scripts (run via bash)
 

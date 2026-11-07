@@ -345,8 +345,20 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href="/studio"
-                  onClick={() => selectAlumno(null)}
+                  href="/studio#alumnos-directory"
+                  onClick={(e) => {
+                    selectAlumno(null);
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("gozster:expand-alumnos-directory"));
+                      if (window.location.pathname === "/studio" || window.location.pathname === "/studio/") {
+                        const el = document.getElementById("alumnos-directory");
+                        if (el) {
+                          e.preventDefault();
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }
+                      }
+                    }
+                  }}
                   aria-label="Alumnos"
                   className={cn(
                     "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
@@ -886,8 +898,20 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
           {/* 2. Alumnos */}
           <Link
-            href="/studio"
-            onClick={() => selectAlumno(null)}
+            href="/studio#alumnos-directory"
+            onClick={(e) => {
+              selectAlumno(null);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("gozster:expand-alumnos-directory"));
+                if (window.location.pathname === "/studio" || window.location.pathname === "/studio/") {
+                  const el = document.getElementById("alumnos-directory");
+                  if (el) {
+                    e.preventDefault();
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }
+              }
+            }}
             className={cn(
               "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
               isStudioActive && selectedAlumnoId
