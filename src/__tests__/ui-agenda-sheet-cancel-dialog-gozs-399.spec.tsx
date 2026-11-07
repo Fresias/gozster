@@ -63,7 +63,7 @@ describe("GOZS-399: Coach Studio - Vista de Agenda: Sheet Lateral de Clase y DiÃ
       expect(html).toContain("Entrenador a cargo: LucÃ­a Ferraro");
       expect(html).toContain('data-testid="class-capacity-bar"');
       expect(html).toContain('data-testid="enroll-student-dialog-btn"');
-      expect(html).toContain("+ Anotar alumno");
+      expect(html).toContain(">Anotar alumno<");
       expect(html).toContain('data-testid="student-row"');
     });
   });
