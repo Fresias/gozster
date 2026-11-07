@@ -155,7 +155,7 @@ describe("GOZS-391: Auditoría QA Stage 4 - Ficha de Alumno, Cobros y Agenda", (
 
       expect(html).toContain('aria-label="Nota de intervención"');
       expect(html).toContain("Se guarda al salir del campo.");
-      expect(html).toContain("Guardar Registro en la Ficha");
+      expect(html).not.toContain("Guardar Registro en la Ficha");
       expect(html).toContain('data-testid="anamnesis-summary-collapsible"');
     });
 

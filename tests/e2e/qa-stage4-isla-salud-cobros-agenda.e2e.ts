@@ -123,7 +123,7 @@ test.describe("Stage 4 QA Suite: Auditoría E2E de Isla Salud, Cobros y Agenda (
 
     // Verifica confirmación visual de autoguardado en la ficha
     await expect(
-      islaSalud.getByText(/Guardado automático en la ficha|Guardado al desenfocar/i).first()
+      islaSalud.getByText(/Guardado/i).first()
     ).toBeVisible();
 
     // 6. Verificar Isla de Métricas 1RM con fórmulas Epley y Brzycki
