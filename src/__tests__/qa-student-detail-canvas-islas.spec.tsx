@@ -142,13 +142,9 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
         />
       );
 
-      // Drag handles para cada una de las islas
-      expect(html).toContain('data-testid="drag-handle-timeline"');
-      expect(html).toContain('data-testid="drag-handle-activity_feed"');
-      expect(html).toContain('data-testid="drag-handle-routine_workbench"');
-      expect(html).toContain('data-testid="drag-handle-metricas_1rm"');
-      expect(html).toContain('data-testid="drag-handle-salud_anamnesis"');
-      expect(html).toContain('data-testid="drag-handle-administracion"');
+      // Fuera de Personalizar no se renderizan drag-handles ni flechas visibles
+      expect(html).not.toContain('data-testid="drag-handle-timeline"');
+      expect(html).not.toContain("⠿");
 
       // Botones de colapso para cada isla
       expect(html).toContain('data-testid="collapse-btn-timeline"');
@@ -158,11 +154,11 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="collapse-btn-salud_anamnesis"');
       expect(html).toContain('data-testid="collapse-btn-administracion"');
 
-      // Los botones "..." están eliminados a favor de controles directos y colapso explícito [-] / [+]
+      // Los botones "..." están eliminados a favor de controles directos y colapso explícito
       expect(html).not.toContain('data-testid="menu-btn-timeline"');
       expect(html).not.toContain('data-testid="menu-btn-activity_feed"');
-      expect(html).toContain('data-testid="move-up-timeline"');
-      expect(html).toContain('data-testid="move-down-timeline"');
+      expect(html).not.toContain('data-testid="move-up-timeline"');
+      expect(html).not.toContain('data-testid="move-down-timeline"');
     });
   });
 
@@ -419,15 +415,15 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
 
       // Verificación de overflow-x-hidden en el aside
       expect(source).toContain("overflow-x-hidden");
-      expect(source).toContain("lg:grid-cols-[76px_1fr]");
+      expect(source).toContain("lg:grid-cols-[56px_1fr]");
       expect(source).toContain("data-testid=\"sidebar-toggle-btn\"");
 
       // Verificación de que los textos están condicionados a !isSidebarCollapsed
-      expect(source).toContain("{!isSidebarCollapsed && <span>Métricas &amp; Retención</span>}");
-      expect(source).toContain("{!isSidebarCollapsed && <span>Atletas &amp; Rutinas</span>}");
-      expect(source).toContain("{!isSidebarCollapsed && <span>Rutinas &amp; Constructor</span>}");
-      expect(source).toContain("{!isSidebarCollapsed && <span>Agenda de Clases</span>}");
-      expect(source).toContain("isSidebarCollapsed ? \"justify-center px-0 w-full\"");
+      expect(source).toContain('{!isSidebarCollapsed && <span className="hidden lg:inline">Métricas</span>}');
+      expect(source).toContain('{!isSidebarCollapsed && <span className="hidden lg:inline">Alumnos</span>}');
+      expect(source).toContain('{!isSidebarCollapsed && <span className="hidden lg:inline">Rutinas</span>}');
+      expect(source).toContain('{!isSidebarCollapsed && <span className="hidden lg:inline">Agenda</span>}');
+      expect(source).toContain('isSidebarCollapsed ? "justify-center px-0"');
     });
   });
 
@@ -451,7 +447,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(source).toContain("gridTemplateColumns");
     });
 
-    it("IslaCardShell incluye controles de resize horizontal (-, +, ⤢) y navegación relativa (⬅️, ➡️)", async () => {
+    it("IslaCardShell en modo Personalizar incluye controles de resize horizontal (-, +, ⤢) y asa grip-vertical sin flechas visibles", async () => {
       const { IslaCardShell } = await import(
         "@/components/coach/student-detail/islas/isla-card-shell"
       );
@@ -462,6 +458,7 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           title="Isla Compartida"
           isCollapsed={false}
           onToggleCollapse={vi.fn()}
+          isCanvasMode={true}
           isSharedRow={true}
           currentWidth={60}
           onResizeWidth={vi.fn()}
@@ -481,9 +478,10 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
       expect(html).toContain('data-testid="separate-row-test-shared"');
       expect(html).toContain("60%");
 
-      // Controles de movimiento relativo
-      expect(html).toContain('data-testid="move-left-test-shared"');
-      expect(html).toContain('data-testid="move-right-test-shared"');
+      // Asa grip-vertical en Personalizar sin flechas visibles
+      expect(html).toContain('data-testid="drag-handle-test-shared"');
+      expect(html).not.toContain("⬅️");
+      expect(html).not.toContain("➡️");
     });
   });
 });

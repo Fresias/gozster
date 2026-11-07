@@ -8,11 +8,11 @@ export default function AthleteAppLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    <div className="theme-athlete">
       {/* Onboarding de primera vez (GOZS-145): se monta en el layout, no en page.tsx,
           para no chocar con el sub-issue del Inicio. Se auto-oculta si ya se completó. */}
       <OnboardingAlumno />
       <AthleteShell>{children}</AthleteShell>
-    </>
+    </div>
   );
 }

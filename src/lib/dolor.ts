@@ -7,9 +7,44 @@ import { supabase } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type NivelDolor = 'bajo' | 'medio' | 'alto';
+export type EtiquetaNivelDolor = 'leve' | 'moderado' | 'alto';
+export type TonoNivelDolor = 'neutral' | 'warning' | 'danger';
 export type SeveridadDolor = 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
 export type EstadoDolor = 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO';
 export type SeveridadAlerta = 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+
+/**
+ * Mapeo único de vocabulario visible de dolor (P07):
+ * El término "Medio" no se muestra en ninguna superficie de UI.
+ * 'bajo' -> 'leve', 'medio' -> 'moderado', 'alto' -> 'alto'.
+ */
+export function etiquetaNivelDolor(nivel: 'bajo' | 'medio' | 'alto'): 'leve' | 'moderado' | 'alto' {
+  switch (nivel) {
+    case 'alto':
+      return 'alto';
+    case 'medio':
+      return 'moderado';
+    case 'bajo':
+    default:
+      return 'leve';
+  }
+}
+
+/**
+ * Mapeo único de tono semántico de dolor (P07):
+ * 'bajo' ('leve') -> 'neutral', 'medio' ('moderado') -> 'warning', 'alto' -> 'danger'.
+ */
+export function tonoNivelDolor(nivel: 'bajo' | 'medio' | 'alto'): 'neutral' | 'warning' | 'danger' {
+  switch (nivel) {
+    case 'alto':
+      return 'danger';
+    case 'medio':
+      return 'warning';
+    case 'bajo':
+    default:
+      return 'neutral';
+  }
+}
 
 export interface DolorActivo {
   id: string;

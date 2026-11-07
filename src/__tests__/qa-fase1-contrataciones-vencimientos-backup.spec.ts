@@ -128,12 +128,13 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
       expect(violations).toEqual([]);
     });
 
-    it("el footer del Coach Studio Shell muestra sincronización GOZS y no referencias externas", () => {
+    it("el footer del Coach Studio Shell muestra estado de sincronización en el menú de cuenta y no referencias externas", () => {
       const shellPath = path.resolve(rootDir, "src/components/coach/studio-shell.tsx");
       const content = fs.readFileSync(shellPath, "utf-8");
 
-      expect(content).toContain("Sincronización GOZS");
-      expect(content).toContain("data-testid=\"studio-sync-status\"");
+      expect(content).toContain("Sincronizado");
+      expect(content).toContain("Sin conexión · reintentando");
+      expect(content).toContain('data-testid="studio-account-menu"');
       expect(content).not.toMatch(/Mynter/i);
     });
 

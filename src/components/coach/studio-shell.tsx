@@ -7,7 +7,9 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/browser";
 import { cerrarSesion } from "@/lib/session-scope";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
+import { ChatFab } from "@/components/coach/chat-fab";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
+import { useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { DEMO_GIMNASIO } from "@/services/coach-demo-dataset";
 import {
@@ -58,10 +60,20 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const isAthleteActive = pathname?.startsWith("/athlete");
 
   const store = useCoachStudioStore();
-  const { isOnline, pendingEvents, setOnlineStatus } = useOfflineQueueStore();
+  const conversations = useChatStore((s) => s.conversations);
+  const { isOnline, setOnlineStatus } = useOfflineQueueStore();
   const selectedAlumnoId = store.selectedAlumnoId;
   const selectAlumno = store.selectAlumno;
   const setChatOpen = store.setChatOpen;
+  const isChatOpen = store.isChatOpen;
+  const chatAlumnoId = store.chatAlumnoId;
+
+  const unreadMessagesCount = React.useMemo(() => {
+    return Object.values(conversations || {}).reduce(
+      (sum, c) => sum + (c.unreadCount || 0),
+      0
+    );
+  }, [conversations]);
 
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
@@ -217,35 +229,45 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   const userName = userEmail ? userEmail.split("@")[0] : "Lucía Ferraro";
   const userInitials = (userName || "LF").slice(0, 2).toUpperCase();
+  const selectedAlumno = React.useMemo(
+    () => alumnosList.find((a) => a.id === selectedAlumnoId) || null,
+    [alumnosList, selectedAlumnoId]
+  );
+  const activeChatAlumno = React.useMemo(
+    () => alumnosList.find((a) => a.id === chatAlumnoId) || null,
+    [alumnosList, chatAlumnoId]
+  );
 
   return (
     <div
-      className={`grid min-h-dvh grid-cols-1 ${
-        isSidebarCollapsed ? "lg:grid-cols-[76px_1fr]" : "lg:grid-cols-[280px_1fr]"
-      } bg-background text-foreground transition-all duration-200`}
+      className={cn(
+        "grid min-h-dvh grid-cols-1 md:grid-cols-[56px_1fr] bg-background text-foreground transition-colors",
+        isSidebarCollapsed ? "lg:grid-cols-[56px_1fr]" : "lg:grid-cols-[240px_1fr]"
+      )}
     >
-      {/* Sidebar Desktop Agrupado */}
+      {/* Sidebar Desktop (240px) y Tablet (56px colapsado con Tooltips) */}
       <aside
-        className={`hidden lg:flex flex-col border-r border-border/80 bg-card/95 ${
-          isSidebarCollapsed ? "p-3 lg:p-2" : "p-4 sm:p-5"
-        } backdrop-blur-md transition-all duration-200 overflow-x-hidden w-full max-w-full h-screen sticky top-0`}
+        className={cn(
+          "hidden md:flex flex-col border-r border-border bg-sidebar py-4 transition-all duration-150 overflow-x-hidden h-screen sticky top-0",
+          isSidebarCollapsed ? "w-14 px-2" : "w-14 lg:w-60 px-2 lg:px-3"
+        )}
       >
-        {/* Cabecera del Sidebar */}
-        <div className="flex items-center justify-between pb-4 border-b border-border/60">
+        {/* Cabecera del Sidebar: cuadrado 32px con G 14/700 + GOZSter 14/600 + Coach Studio 12 */}
+        <div className="flex items-center justify-between px-2 pb-4">
           <Link
             href="/"
-            className="flex min-h-[44px] min-w-[44px] items-center gap-2.5"
-            title="GOZSter Studio"
+            className="flex items-center gap-2.5 min-w-0"
+            title="GOZSter Coach Studio"
           >
-            <span className="flex h-10 w-10 min-h-[40px] min-w-[40px] shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-sm">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-[14px]">
               G
             </span>
             {!isSidebarCollapsed && (
-              <div>
-                <span className="text-base font-black tracking-tight text-foreground block">
-                  GOZSter <span className="text-primary font-bold">Studio</span>
+              <div className="hidden lg:flex flex-col min-w-0">
+                <span className="text-[14px] leading-tight font-semibold text-foreground truncate">
+                  GOZSter
                 </span>
-                <span className="text-[10px] text-muted-foreground block -mt-0.5 font-medium">
+                <span className="text-xs leading-tight text-muted-foreground truncate">
                   Coach Studio
                 </span>
               </div>
@@ -258,8 +280,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             onClick={toggleSidebar}
             data-testid="sidebar-toggle-btn"
             className={cn(
-              "hidden lg:inline-flex min-h-9 min-w-9 items-center rounded-lg text-xs font-semibold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all cursor-pointer",
-              isSidebarCollapsed ? "justify-center px-0 w-full" : "justify-center p-2",
+              "hidden lg:inline-flex size-8 items-center justify-center rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer shrink-0",
+              isSidebarCollapsed && "mx-auto"
             )}
             title={
               isSidebarCollapsed
@@ -275,447 +297,270 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             <span className="font-mono text-xs">
               {isSidebarCollapsed ? "▶" : "◀"}
             </span>
-            {!isSidebarCollapsed && (
-              <span className="sr-only">Colapsar Menú</span>
-            )}
           </button>
         </div>
 
-        {/* Navegación agrupada por secciones */}
+        {/* Navegación agrupada por secciones (16px entre grupos, sentence case) */}
         <nav
           aria-label="Navegación Coach Studio"
-          className="flex-1 overflow-y-auto py-4 space-y-5 lg:w-full"
+          className="flex-1 overflow-y-auto py-2 space-y-4 w-full"
         >
           {/* SECCIÓN 1: Alumnos */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {!isSidebarCollapsed && (
-              <p className="px-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <p className="hidden lg:block px-2 pb-1 text-xs font-normal text-subtle-foreground">
                 Alumnos
               </p>
             )}
 
             {/* 1.1 Inicio */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio"
-                    onClick={() => selectAlumno(null)}
-                    aria-label="Inicio"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isStudioActive && !selectedAlumnoId
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <Home className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Inicio</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Inicio
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio"
-                onClick={() => selectAlumno(null)}
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isStudioActive && !selectedAlumnoId
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <Home className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Inicio</span>
-              </Link>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio"
+                  onClick={() => selectAlumno(null)}
+                  aria-label="Inicio"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isStudioActive && !selectedAlumnoId
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <Home className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Inicio</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Inicio
+              </TooltipContent>
+            </Tooltip>
 
-            {/* 1.2 Alumnos (Directorio con conteo) */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio"
-                    onClick={() => selectAlumno(null)}
-                    title="Atletas & Rutinas"
-                    aria-label="Alumnos"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isStudioActive && selectedAlumnoId
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <Users className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Alumnos</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Alumnos
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio"
-                onClick={() => selectAlumno(null)}
-                title="Atletas & Rutinas"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full justify-between",
-                  isStudioActive && selectedAlumnoId
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <div className="flex items-center">
-                  <Users className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>Alumnos</span>
-                  <span className="hidden">
-                    {!isSidebarCollapsed && <span>Atletas &amp; Rutinas</span>}
+            {/* 1.2 Alumnos */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio"
+                  onClick={() => selectAlumno(null)}
+                  aria-label="Alumnos"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-between",
+                    isStudioActive && selectedAlumnoId
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {!isSidebarCollapsed && <span className="hidden lg:inline">Alumnos</span>}
                   </span>
-                </div>
-                <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-secondary font-bold text-muted-foreground">
-                  {alumnosList.length || 40}
-                </span>
-              </Link>
-            )}
+                  {!isSidebarCollapsed && (
+                    <span className="hidden lg:inline ml-auto text-xs text-subtle-foreground tabular-nums">
+                      {alumnosList.length || 40}
+                    </span>
+                  )}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Alumnos
+              </TooltipContent>
+            </Tooltip>
 
-            {/* 1.3 Rutinas & Constructor */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/rutinas"
-                    data-testid="sidebar-routine-builder-btn"
-                    title="Rutinas & Constructor de Rutinas"
-                    aria-label="Rutinas & Constructor"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isRutinasActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <Dumbbell className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Rutinas &amp; Constructor</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Rutinas &amp; Constructor
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/rutinas"
-                data-testid="sidebar-routine-builder-btn"
-                title="Rutinas & Constructor de Rutinas"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isRutinasActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <Dumbbell className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {!isSidebarCollapsed && <span>Rutinas &amp; Constructor</span>}
-              </Link>
-            )}
+            {/* 1.3 Rutinas */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/rutinas"
+                  data-testid="sidebar-routine-builder-btn"
+                  aria-label="Rutinas"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isRutinasActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <Dumbbell className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Rutinas</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Rutinas
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* SECCIÓN 2: Operación */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {!isSidebarCollapsed && (
-              <p className="px-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <p className="hidden lg:block px-2 pb-1 text-xs font-normal text-subtle-foreground">
                 Operación
               </p>
             )}
 
             {/* 2.1 Agenda */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/agenda"
-                    aria-label="Agenda de Clases"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isAgendaActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <Calendar className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Agenda de Clases</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Agenda de Clases
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/agenda"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isAgendaActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <Calendar className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {!isSidebarCollapsed && <span>Agenda de Clases</span>}
-              </Link>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/agenda"
+                  aria-label="Agenda"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isAgendaActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Agenda</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Agenda
+              </TooltipContent>
+            </Tooltip>
 
             {/* 2.2 Ranking */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/ranking-funcional"
-                    data-testid="sidebar-ranking-link"
-                    aria-label="Ranking Funcional"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isRankingActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <Trophy className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Ranking Funcional</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Ranking Funcional
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/ranking-funcional"
-                data-testid="sidebar-ranking-link"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isRankingActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <Trophy className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Ranking Funcional</span>
-              </Link>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/ranking-funcional"
+                  data-testid="sidebar-ranking-link"
+                  aria-label="Ranking"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isRankingActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <Trophy className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Ranking</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Ranking
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* SECCIÓN 3: Negocio */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {!isSidebarCollapsed && (
-              <p className="px-3 text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <p className="hidden lg:block px-2 pb-1 text-xs font-normal text-subtle-foreground">
                 Negocio
               </p>
             )}
 
             {/* 3.1 Cobros */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/cobros"
-                    data-testid="sidebar-cobros-link"
-                    aria-label="Cobros & Pagos"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isCobrosActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <CreditCard className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Cobros &amp; Pagos</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Cobros &amp; Pagos
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/cobros"
-                data-testid="sidebar-cobros-link"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full justify-between",
-                  isCobrosActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <div className="flex items-center">
-                  <CreditCard className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>Cobros &amp; Pagos</span>
-                </div>
-                <span className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-secondary font-bold text-muted-foreground">
-                  7
-                </span>
-              </Link>
-            )}
-
-            {/* 3.2 Métricas */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/dashboard"
-                    data-testid="sidebar-metricas-link"
-                    aria-label="Métricas & Retención"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isDashboardActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <BarChart3 className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Métricas &amp; Retención</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Métricas &amp; Retención
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/dashboard"
-                data-testid="sidebar-metricas-link"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isDashboardActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <BarChart3 className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {!isSidebarCollapsed && <span>Métricas &amp; Retención</span>}
-              </Link>
-            )}
-
-            {/* 3.3 Documentación */}
-            {isSidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    href="/studio/documentacion"
-                    data-testid="sidebar-documentacion-link"
-                    aria-label="Documentación"
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all justify-center px-0 w-full",
-                      isDocumentacionActive
-                        ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                    )}
-                  >
-                    <FileText className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">Documentación</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Documentación
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/studio/documentacion"
-                data-testid="sidebar-documentacion-link"
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-xl text-xs sm:text-sm font-semibold transition-all px-3 py-2 w-full",
-                  isDocumentacionActive
-                    ? "bg-primary/10 text-primary border border-primary/30 shadow-xs"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-                )}
-              >
-                <FileText className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Documentación</span>
-              </Link>
-            )}
-          </div>
-        </nav>
-
-        {/* Pie del Sidebar: Vista Atleta + Sincronización + Menú de Cuenta */}
-        <div className="mt-auto pt-3 border-t border-border/60 flex flex-col gap-2">
-          {/* Enlace Vista Atleta (PWA) */}
-          {isSidebarCollapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href="/athlete"
-                  aria-label="Vista Atleta (PWA)"
+                  href="/studio/cobros"
+                  data-testid="sidebar-cobros-link"
+                  aria-label="Cobros"
                   className={cn(
-                    "inline-flex min-h-10 items-center rounded-xl text-xs font-semibold transition-all justify-center px-0 w-full",
-                    isAthleteActive
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-between",
+                    isCobrosActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <Smartphone className="h-5 w-5 shrink-0" aria-hidden="true" />
-                  <span className="sr-only">Vista Atleta (PWA)</span>
+                  <span className="inline-flex items-center gap-2.5">
+                    <CreditCard className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {!isSidebarCollapsed && <span className="hidden lg:inline">Cobros</span>}
+                  </span>
+                  {!isSidebarCollapsed && (
+                    <span className="hidden lg:inline ml-auto text-xs font-medium text-danger-soft-foreground tabular-nums">
+                      7
+                    </span>
+                  )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right" align="center">
-                Vista Atleta (PWA)
+                Cobros
               </TooltipContent>
             </Tooltip>
-          ) : (
-            <Link
-              href="/athlete"
-              className={cn(
-                "inline-flex min-h-10 items-center rounded-xl text-xs font-semibold transition-all px-3 py-2 w-full",
-                isAthleteActive
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs"
-                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent",
-              )}
-            >
-              <Smartphone className="mr-2.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>Vista Atleta (PWA)</span>
-            </Link>
-          )}
 
-          {/* Sincronización GOZS */}
-          {!isSidebarCollapsed && (
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid="studio-sync-status"
-              className="rounded-xl bg-secondary/30 border border-border/40 p-2.5 text-[10px]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-foreground">Sincronización</span>
-                <span
+            {/* 3.2 Métricas */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/dashboard"
+                  data-testid="sidebar-metricas-link"
+                  aria-label="Métricas"
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-                    isOnline
-                      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-                      : "text-amber-600 dark:text-amber-300 bg-amber-500/15 animate-pulse",
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isDashboardActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      isOnline ? "bg-emerald-500" : "bg-amber-500",
-                    )}
-                  />
-                  {isOnline ? "Cloud" : "Offline"}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-0.5 truncate">
-                {isOnline
-                  ? pendingEvents.length > 0
-                    ? `Sincronizando ${pendingEvents.length} eventos…`
-                    : "Datos al día con GOZS Cloud."
-                  : "Modo Avión: cambios en cola local."}
-              </p>
-            </div>
-          )}
+                  <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Métricas</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Métricas
+              </TooltipContent>
+            </Tooltip>
+
+            {/* 3.3 Documentación */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/documentacion"
+                  data-testid="sidebar-documentacion-link"
+                  aria-label="Documentación"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isDocumentacionActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Documentación</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Documentación
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </nav>
+
+        {/* Pie del Sidebar: Vista del alumno + Botón de cuenta (sin tarjeta Sincronización/Cloud) */}
+        <div className="mt-auto pt-3 border-t border-border flex flex-col gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/athlete"
+                aria-label="Vista del alumno"
+                className={cn(
+                  "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                  isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                  isAthleteActive
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                )}
+              >
+                <Smartphone className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {!isSidebarCollapsed && <span className="hidden lg:inline">Vista del alumno</span>}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center">
+              Vista del alumno
+            </TooltipContent>
+          </Tooltip>
 
           {/* MENÚ DE CUENTA CON UN ÚNICO CONTROL ACCESIBLE 'Cerrar sesión' */}
           <div
@@ -731,39 +576,33 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               aria-haspopup="true"
               aria-label="Menú de cuenta"
               className={cn(
-                "flex items-center gap-2.5 w-full rounded-xl p-2 hover:bg-secondary/60 transition-colors cursor-pointer text-left border border-border/50",
-                isSidebarCollapsed ? "justify-center px-0" : "px-2.5",
+                "flex items-center gap-2.5 w-full rounded-lg p-2 hover:bg-muted transition-colors cursor-pointer text-left",
+                isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start"
               )}
             >
-              <Avatar className="h-8 w-8 ring-1 ring-border/70 shrink-0">
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+              <Avatar className="size-7 shrink-0 bg-muted">
+                <AvatarFallback className="bg-muted text-foreground font-semibold text-xs">
                   {userInitials}
                 </AvatarFallback>
               </Avatar>
               {!isSidebarCollapsed && (
-                <div className="min-w-0 flex-1">
+                <div className="hidden lg:block min-w-0 flex-1">
                   <p
-                    className="text-xs font-semibold text-foreground truncate"
+                    className="text-sm font-medium text-foreground truncate leading-tight"
                     title={userName}
                   >
                     {userName}
                   </p>
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        isOnline ? "bg-emerald-500" : "bg-amber-500",
-                      )}
-                    />
-                    <span>{isOnline ? "Sincronizado" : "Modo Avión"}</span>
-                  </div>
+                  <p className="text-xs text-muted-foreground truncate leading-tight">
+                    {isOnline ? "Sincronizado" : "Sin conexión · reintentando"}
+                  </p>
                 </div>
               )}
               {!isSidebarCollapsed && (
                 <ChevronUp
                   className={cn(
-                    "h-4 w-4 text-muted-foreground shrink-0 ml-auto transition-transform",
-                    isAccountMenuOpen && "rotate-180",
+                    "hidden lg:block h-4 w-4 text-muted-foreground shrink-0 ml-auto transition-transform",
+                    isAccountMenuOpen && "rotate-180"
                   )}
                 />
               )}
@@ -774,28 +613,25 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               role="menu"
               aria-label="Opciones de cuenta"
               className={cn(
-                "absolute z-50 rounded-xl border border-border/80 bg-popover p-2 text-popover-foreground shadow-xl transition-all",
+                "absolute z-50 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-[0_8px_24px_rgb(0_0_0_/_0.08)] transition-all",
                 isSidebarCollapsed
                   ? "left-full bottom-0 ml-2 w-64"
                   : "left-0 right-0 bottom-full mb-2",
-                !isAccountMenuOpen && "hidden",
+                !isAccountMenuOpen && "hidden"
               )}
             >
               <div className="px-2 py-1.5 mb-1">
-                <p className="text-xs font-bold text-foreground truncate">
+                <p className="text-xs font-semibold text-foreground truncate">
                   {userName}
                 </p>
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground truncate">
                   {userEmail || "coach@gozster.ar"}
                 </p>
-                <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  {isOnline
-                    ? "GOZS Cloud · Sincronizado"
-                    : "Modo Avión (offline)"}
+                <span className="inline-flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                  {isOnline ? "Sincronizado" : "Sin conexión · reintentando"}
                 </span>
               </div>
-              <div className="my-1.5 h-px bg-border/60" />
+              <div className="my-1.5 h-px bg-border" />
               <div className="px-2 py-1.5 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Modo</span>
                 <ModeSwitcher current="studio" />
@@ -804,12 +640,12 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 <span className="text-xs text-muted-foreground">Tema</span>
                 <ThemeToggle />
               </div>
-              <div className="my-1.5 h-px bg-border/60" />
+              <div className="my-1.5 h-px bg-border" />
               <button
                 type="button"
                 role="menuitem"
                 onClick={() => void cerrarSesion()}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-destructive hover:bg-danger-soft rounded-lg transition-colors cursor-pointer"
                 aria-label="Cerrar sesión"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -822,20 +658,36 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
       {/* Área Principal de Contenido + Topbar + Barra Inferior Móvil */}
       <div className="flex flex-col min-w-0">
-        {/* Topbar Desktop (lg+) con ⌘K y 'Alta de alumno' */}
-        <header className="sticky top-0 z-30 hidden lg:flex h-14 items-center justify-between border-b border-border/80 bg-card/85 px-6 backdrop-blur-md">
-          {/* Breadcrumb / Título de Sección */}
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-sm font-bold text-foreground tracking-tight">
-              {sectionTitle}
-            </h1>
+        {/* Topbar Desktop (md+) h-14 border-b px-6: Nombre de página / Breadcrumb · ⌘K (280px) · Mensajes (size-9 border) · Tema (size-9 border) — sin acción primaria (P02, P09) */}
+        <header className="sticky top-0 z-30 hidden md:flex h-14 items-center justify-between border-b border-border bg-background px-6">
+          {/* Nombre de página 14/500 o Breadcrumb en ficha */}
+          <div className="flex items-center gap-2 min-w-0">
+            {isStudioActive && selectedAlumno ? (
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={() => selectAlumno(null)}
+                  className="hover:text-foreground transition-colors"
+                >
+                  Alumnos
+                </button>
+                <span aria-hidden="true">/</span>
+                <span className="text-sm font-medium text-foreground truncate">
+                  {selectedAlumno.nombre_completo}
+                </span>
+              </nav>
+            ) : (
+              <h1 className="text-sm font-medium text-foreground">
+                {sectionTitle}
+              </h1>
+            )}
           </div>
 
-          {/* Centro / Derecha: Buscador rápido ⌘K + Acciones */}
-          <div className="flex items-center gap-3">
+          {/* Derecha: Búsqueda ⌘K (280px h-9 rounded-lg border) · Mensajes (size-9 rounded-lg border) · Tema (size-9 rounded-lg border) */}
+          <div className="flex items-center gap-2">
             {/* Buscador ⌘K */}
-            <div className="relative w-72 sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <div className="relative w-[280px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -856,14 +708,14 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                     searchInputRef.current?.blur();
                   }
                 }}
-                placeholder="Buscar alumno, rutina, clase... ⌘K"
+                placeholder="Buscar alumno o rutina…"
                 data-testid="studio-quick-search-input"
-                className="w-full h-9 pl-8 pr-12 rounded-lg border border-border/80 bg-background/80 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                className="w-[280px] h-9 pl-9 pr-12 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 aria-label="Buscar alumno"
                 role="combobox"
                 aria-expanded={isSearchOpen && searchResults.length > 0}
               />
-              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rounded border border-border/60 bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground shadow-2xs">
+              <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rounded border border-border bg-muted px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground">
                 ⌘K
               </kbd>
 
@@ -871,9 +723,9 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               {isSearchOpen && searchResults.length > 0 && (
                 <div
                   role="listbox"
-                  className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border/80 bg-popover shadow-xl overflow-hidden p-1 max-h-72 overflow-y-auto animate-in fade-in-80 zoom-in-95"
+                  className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl border border-border bg-popover shadow-[0_8px_24px_rgb(0_0_0_/_0.08)] overflow-hidden p-1 max-h-72 overflow-y-auto"
                 >
-                  <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
                     Alumnos encontrados
                   </div>
                   {searchResults.map((alumno) => (
@@ -884,20 +736,20 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                       aria-selected={false}
                       onClick={() => handleSelectAlumno(alumno)}
                       data-testid={`search-result-${alumno.id}`}
-                      className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-xs hover:bg-secondary/80 transition-colors cursor-pointer"
+                      className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left text-xs hover:bg-muted transition-colors cursor-pointer"
                     >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground text-xs font-semibold">
                         {alumno.nombre_completo.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground truncate">
+                        <p className="font-medium text-foreground truncate">
                           {alumno.nombre_completo}
                         </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {alumno.email || "Alumno"}
                         </p>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         Ficha ↵
                       </span>
                     </button>
@@ -906,36 +758,46 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            <ThemeToggle />
-
-            {/* Botón primario: Alta de alumno */}
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleOpenAltaAlumno}
-              data-testid="topbar-alta-alumno-btn"
-              className="min-h-9 gap-1.5 rounded-lg text-xs font-bold"
-              title="Dar de alta a un nuevo alumno"
+            {/* Botón de ícono Mensajes (P09) */}
+            <button
+              type="button"
+              onClick={() => setChatOpen(!isChatOpen)}
+              data-testid="topbar-mensajes-btn"
+              aria-label={
+                unreadMessagesCount > 0
+                  ? `Mensajes, ${unreadMessagesCount} sin leer`
+                  : "Mensajes"
+              }
+              title="Mensajes"
+              className="relative inline-flex size-9 items-center justify-center rounded-lg border border-border bg-background text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors cursor-pointer"
             >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              <span>Alta de alumno</span>
-            </Button>
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+              {unreadMessagesCount > 0 && (
+                <span
+                  data-testid="topbar-mensajes-unread-dot"
+                  className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+
+            <ThemeToggle />
           </div>
         </header>
 
-        {/* Cabecera Móvil (viewports < lg) */}
-        <header className="sticky top-0 z-30 lg:hidden flex h-14 items-center justify-between border-b border-border/80 bg-card/95 px-4 backdrop-blur-md">
+        {/* Cabecera Móvil (viewports < md) */}
+        <header className="sticky top-0 z-30 md:hidden flex h-14 items-center justify-between border-b border-border bg-background px-4">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-black text-xs">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-[14px]">
               G
             </span>
-            <span className="text-sm font-bold text-foreground">
+            <span className="text-sm font-medium text-foreground">
               {sectionTitle}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Buscador rápido móvil */}
+            {/* Buscador rápido móvil (≥ 44×44 px) */}
             <button
               type="button"
               onClick={() => {
@@ -959,17 +821,17 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 }
               }}
               data-testid="mobile-search-btn"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 text-muted-foreground hover:bg-secondary cursor-pointer"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted cursor-pointer"
               aria-label="Buscar alumno"
             >
               <Search className="h-4 w-4" />
             </button>
 
-            {/* Avatar móvil que abre el Sheet 'Más' */}
+            {/* Avatar móvil que abre el Sheet 'Más' (≥ 44×44 px) */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-full ring-1 ring-border text-xs font-bold bg-primary/10 text-primary cursor-pointer"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-xs font-semibold bg-muted text-foreground cursor-pointer"
               aria-label="Menú de navegación y cuenta"
             >
               {userInitials}
@@ -977,19 +839,26 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Contenido principal de la página */}
-        <main
-          className="flex-1 w-full min-w-0 max-w-full p-4 sm:p-6 lg:p-8 max-w-[1920px] pb-24 lg:pb-8 overflow-x-hidden"
-        >
+        {/* Contenido principal de la página: w-full max-w-[1280px] px-6 en todas las vistas, alineado a la izquierda (P02) */}
+        <main className="flex-1 w-full max-w-[1280px] px-6 py-6 pb-24 md:pb-8 overflow-x-hidden">
           {children}
         </main>
       </div>
 
-      {/* BARRA INFERIOR MÓVIL (viewports < lg) - 5 accesos ergonómicos táctiles */}
+      {/* Sheet de Mensajes en rutas secundarias donde CoachStudioView/CoachDashboardView no montan ChatFab */}
+      {!isStudioActive && !isDashboardActive && (
+        <ChatFab
+          alumno={activeChatAlumno}
+          isOpen={isChatOpen}
+          onToggle={() => setChatOpen(!isChatOpen)}
+        />
+      )}
+
+      {/* BARRA INFERIOR MÓVIL (< 768px) - 5 ítems con cajas táctiles ≥ 44×44 px (min-h-11) */}
       <nav
         aria-label="Navegación inferior móvil"
         data-testid="studio-mobile-bottom-nav"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 border-t border-border/80 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)]"
       >
         <div className="grid grid-cols-5 h-16 items-center px-1">
           {/* 1. Inicio */}
@@ -997,14 +866,14 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             href="/studio"
             onClick={() => selectAlumno(null)}
             className={cn(
-              "flex flex-col items-center justify-center min-h-[44px] gap-1 text-[11px] font-medium transition-colors touch-manipulation",
+              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
               isStudioActive && !selectedAlumnoId
-                ? "text-primary font-bold"
-                : "text-muted-foreground hover:text-foreground",
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-label="Inicio"
           >
-            <Home className="h-5 w-5" aria-hidden="true" />
+            <Home className="h-4 w-4" aria-hidden="true" />
             <span>Inicio</span>
           </Link>
 
@@ -1013,14 +882,14 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             href="/studio"
             onClick={() => selectAlumno(null)}
             className={cn(
-              "flex flex-col items-center justify-center min-h-[44px] gap-1 text-[11px] font-medium transition-colors touch-manipulation",
+              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
               isStudioActive && selectedAlumnoId
-                ? "text-primary font-bold"
-                : "text-muted-foreground hover:text-foreground",
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-label="Alumnos"
           >
-            <Users className="h-5 w-5" aria-hidden="true" />
+            <Users className="h-4 w-4" aria-hidden="true" />
             <span>Alumnos</span>
           </Link>
 
@@ -1028,14 +897,14 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           <Link
             href="/studio/agenda"
             className={cn(
-              "flex flex-col items-center justify-center min-h-[44px] gap-1 text-[11px] font-medium transition-colors touch-manipulation",
+              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
               isAgendaActive
-                ? "text-primary font-bold"
-                : "text-muted-foreground hover:text-foreground",
+                ? "text-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
             aria-label="Agenda"
           >
-            <Calendar className="h-5 w-5" aria-hidden="true" />
+            <Calendar className="h-4 w-4" aria-hidden="true" />
             <span>Agenda</span>
           </Link>
 
@@ -1043,10 +912,10 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setChatOpen(true)}
-            className="flex flex-col items-center justify-center min-h-[44px] gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer relative"
+            className="flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer relative"
             aria-label="Mensajes"
           >
-            <MessageSquare className="h-5 w-5" aria-hidden="true" />
+            <MessageSquare className="h-4 w-4" aria-hidden="true" />
             <span>Mensajes</span>
           </button>
 
@@ -1054,10 +923,10 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center min-h-[44px] gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer"
+            className="flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer"
             aria-label="Más"
           >
-            <Menu className="h-5 w-5" aria-hidden="true" />
+            <Menu className="h-4 w-4" aria-hidden="true" />
             <span>Más</span>
           </button>
         </div>
@@ -1067,63 +936,63 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
       <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 lg:hidden bg-card"
+          className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 md:hidden bg-card"
         >
-          <SheetHeader className="pb-3 border-b border-border/60">
-            <SheetTitle className="text-base font-bold text-foreground">
+          <SheetHeader className="pb-3 border-b border-border">
+            <SheetTitle className="text-base font-semibold text-foreground">
               Menú de Coach Studio
             </SheetTitle>
           </SheetHeader>
 
-          <div className="py-4 space-y-5">
+          <div className="py-4 space-y-4">
             {/* Sección Operación */}
             <div className="space-y-1">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                Operación &amp; Rutinas
+              <p className="text-xs font-normal text-subtle-foreground mb-1">
+                Operación
               </p>
               <Link
                 href="/studio/rutinas"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                <span>Rutinas &amp; Constructor</span>
+                <span>Rutinas</span>
               </Link>
               <Link
                 href="/studio/ranking-funcional"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <Trophy className="h-4 w-4 text-muted-foreground" />
-                <span>Ranking Funcional</span>
+                <span>Ranking</span>
               </Link>
             </div>
 
             {/* Sección Negocio */}
             <div className="space-y-1">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                Negocio &amp; Gestión
+              <p className="text-xs font-normal text-subtle-foreground mb-1">
+                Negocio
               </p>
               <Link
                 href="/studio/cobros"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span>Cobros &amp; Pagos</span>
+                <span>Cobros</span>
               </Link>
               <Link
                 href="/studio/dashboard"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span>Métricas &amp; Retención</span>
+                <span>Métricas</span>
               </Link>
               <Link
                 href="/studio/documentacion"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-3 p-2.5 rounded-lg text-sm font-semibold hover:bg-secondary/60 transition-colors"
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span>Documentación</span>
@@ -1131,7 +1000,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Accesos rápidos */}
-            <div className="space-y-2 pt-2 border-t border-border/60">
+            <div className="space-y-2 pt-2 border-t border-border">
               <Button
                 variant="default"
                 size="sm"
@@ -1139,7 +1008,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                   setIsMobileMenuOpen(false);
                   handleOpenAltaAlumno();
                 }}
-                className="w-full justify-center min-h-10 text-xs font-bold"
+                className="w-full justify-center min-h-11 text-sm font-medium"
               >
                 <Plus className="mr-1.5 h-4 w-4" />
                 <span>Alta de alumno</span>
@@ -1147,15 +1016,15 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/athlete"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg text-xs font-semibold border border-border/80 hover:bg-secondary/60 transition-colors text-muted-foreground"
+                className="flex items-center justify-center min-h-11 gap-2 p-2.5 rounded-lg text-sm font-medium border border-border hover:bg-muted transition-colors text-muted-foreground"
               >
                 <Smartphone className="h-4 w-4" />
-                <span>Ir a Vista Atleta (PWA)</span>
+                <span>Vista del alumno</span>
               </Link>
             </div>
 
-            {/* Configuración de cuenta y sincronización */}
-            <div className="pt-2 border-t border-border/60 space-y-3">
+            {/* Configuración de cuenta */}
+            <div className="pt-2 border-t border-border space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Tema visual</span>
                 <ThemeToggle />

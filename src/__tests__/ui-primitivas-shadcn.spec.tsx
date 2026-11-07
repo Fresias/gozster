@@ -90,8 +90,8 @@ describe("GOZS-376: Primitivas UI con API shadcn y Regla Ponytail", () => {
       );
 
       expect(html).toContain("Al día");
-      expect(html).toContain("bg-emerald-500"); // dot
-      expect(html).toContain("border-emerald-500/30");
+      expect(html).toContain("bg-success-soft");
+      expect(html).toContain("border-success-soft-border");
       expect(html).toContain("rounded-full");
     });
 

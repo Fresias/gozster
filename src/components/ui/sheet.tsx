@@ -90,10 +90,10 @@ SheetTrigger.displayName = "SheetTrigger";
 export type SheetSide = "top" | "bottom" | "left" | "right";
 
 const sideClasses: Record<SheetSide, string> = {
-  top: "inset-x-0 top-0 border-b animate-in slide-in-from-top duration-300",
-  bottom: "inset-x-0 bottom-0 border-t animate-in slide-in-from-bottom duration-300",
-  left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-md animate-in slide-in-from-left duration-300",
-  right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-md animate-in slide-in-from-right duration-300",
+  top: "inset-x-0 top-0 border-b shadow-[0_8px_24px_rgb(0_0_0/.08)] animate-in slide-in-from-top duration-300",
+  bottom: "inset-x-0 bottom-0 border-t shadow-[0_-8px_24px_rgb(0_0_0/.08)] animate-in slide-in-from-bottom duration-300",
+  left: "inset-y-0 left-0 h-full w-full max-w-[400px] sm:w-[400px] sm:max-w-[400px] border-r shadow-[8px_0_24px_rgb(0_0_0/.08)] animate-in slide-in-from-left duration-300",
+  right: "inset-y-0 right-0 h-full w-full max-w-[400px] sm:w-[400px] sm:max-w-[400px] border-l shadow-[-8px_0_24px_rgb(0_0_0/.08)] animate-in slide-in-from-right duration-300",
 };
 
 export const SheetContent = React.forwardRef<
@@ -213,7 +213,7 @@ export const SheetContent = React.forwardRef<
     >
       <div
         className={cn(
-          "fixed z-50 bg-background p-6 shadow-2xl transition ease-in-out border-border overflow-y-auto flex flex-col justify-between",
+          "fixed z-50 bg-background p-6 transition ease-in-out border-border overflow-y-auto flex flex-col justify-between",
           sideClasses[side],
           className,
         )}

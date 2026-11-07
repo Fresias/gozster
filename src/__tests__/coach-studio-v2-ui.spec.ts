@@ -57,7 +57,7 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(viewContent).toContain('data-testid="open-routine-builder-btn"');
       // Debe existir en la barra de herramientas y en el menú lateral
       expect(shellContent).toContain('data-testid="sidebar-routine-builder-btn"');
-      expect(shellContent).toContain("Constructor de Rutinas");
+      expect(shellContent).toContain('aria-label="Rutinas"');
     });
 
     it("elimina de la tabla matriz las columnas pesadas: Vol. Semanal, 1RM Banca y 1RM Sentadilla", () => {

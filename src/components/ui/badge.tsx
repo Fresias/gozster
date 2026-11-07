@@ -5,9 +5,11 @@ export type BadgeVariant =
   | "default"
   | "secondary"
   | "outline"
+  | "neutral"
   | "success"
   | "warning"
   | "destructive"
+  | "danger"
   | "info"
   | "purple";
 
@@ -16,14 +18,16 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "border-transparent bg-primary text-primary-foreground font-bold shadow-sm",
-  secondary: "border-border/60 bg-secondary/80 text-secondary-foreground font-semibold",
-  outline: "border-border/80 bg-transparent text-foreground font-semibold",
-  success: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 font-bold",
-  warning: "border-amber-500/40 bg-amber-500/15 text-amber-300 font-bold",
-  destructive: "border-rose-500/40 bg-rose-500/15 text-rose-300 font-bold",
-  info: "border-sky-500/40 bg-sky-500/15 text-sky-300 font-bold",
-  purple: "border-purple-500/40 bg-purple-500/15 text-purple-300 font-bold",
+  default: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-medium",
+  secondary: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-medium",
+  neutral: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-medium",
+  outline: "border-border bg-transparent text-foreground font-medium",
+  success: "border-success-soft-border bg-success-soft text-success-soft-foreground font-medium",
+  warning: "border-warning-soft-border bg-warning-soft text-warning-soft-foreground font-medium",
+  destructive: "border-danger-soft-border bg-danger-soft text-danger-soft-foreground font-medium",
+  danger: "border-danger-soft-border bg-danger-soft text-danger-soft-foreground font-medium",
+  info: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-medium",
+  purple: "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-medium",
 };
 
 export function Badge({
@@ -34,7 +38,7 @@ export function Badge({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold select-none transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium select-none transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
         variantClasses[variant],
         className,
       )}

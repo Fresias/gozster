@@ -262,21 +262,19 @@ export function IslaSaludAnamnesis({
       let success = true;
       let errMessage = "";
 
-      if (onEstadoChange) {
-        const res = await onEstadoChange(nextVal);
-        if (res === false) {
+      const res = await actualizarEstadoDolor({
+        reporteId: activeReporteId,
+        nuevoEstado: nextVal,
+        nota: notaToSend,
+      });
+      if (!res.ok) {
+        success = false;
+        errMessage = res.error || "No se pudo guardar. Reintentá.";
+      } else if (onEstadoChange) {
+        const cbRes = await onEstadoChange(nextVal);
+        if (cbRes === false) {
           success = false;
           errMessage = "Error de red al actualizar estado";
-        }
-      } else {
-        const res = await actualizarEstadoDolor({
-          reporteId: activeReporteId,
-          nuevoEstado: nextVal,
-          nota: notaToSend,
-        });
-        if (!res.ok) {
-          success = false;
-          errMessage = res.error || "Error al actualizar estado en el servidor";
         }
       }
 

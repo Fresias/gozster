@@ -122,28 +122,30 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       const globalsCssPath = path.resolve(__dirname, "../app/globals.css");
       const globalsContent = fs.readFileSync(globalsCssPath, "utf-8");
 
-      // Modo Día
-      expect(globalsContent).toContain("--background: 210 20% 98%"); // #F8FAFC
-      expect(globalsContent).toContain("--foreground: 222 47% 11%"); // #0F172A
+      // Modo Día (Paleta Zinc — 08 §2, P01, P13)
+      expect(globalsContent).toContain("--background: 0 0% 100%");   // #FFFFFF
+      expect(globalsContent).toContain("--foreground: 240 10% 3.9%");// #09090B
       expect(globalsContent).toContain("--card: 0 0% 100%");         // #FFFFFF
-      expect(globalsContent).toContain("--primary: 221 83% 53%");    // #2563EB Azul Atlántico
-      expect(globalsContent).toContain("--border: 214 32% 91%");     // #E2E8F0
-      expect(globalsContent).toContain("--success: 160 84% 39%");    // #10B981 Esmeralda
-      expect(globalsContent).toContain("--warning: 38 92% 50%");     // #F59E0B Ámbar
+      expect(globalsContent).toContain("--primary: 240 5.9% 10%");   // #18181B
+      expect(globalsContent).toContain("--border: 240 5.9% 90%");    // #E4E4E7
+      expect(globalsContent).toContain("--success: 142 76% 36%");    // #16A34A
+      expect(globalsContent).toContain("--warning: 32 95% 44%");     // #D97706
+      expect(globalsContent).toContain(".theme-athlete");
     });
 
     it("valida que globals.css contiene los valores exactos aprobados para MODO NOCHE (.dark)", () => {
       const globalsCssPath = path.resolve(__dirname, "../app/globals.css");
       const globalsContent = fs.readFileSync(globalsCssPath, "utf-8");
 
-      // Modo Noche
-      expect(globalsContent).toContain("--background: 222 47% 11%"); // #0F172A Charcoal
-      expect(globalsContent).toContain("--foreground: 210 40% 98%"); // #F8FAFC
-      expect(globalsContent).toContain("--card: 217 33% 17%");       // #1E293B
-      expect(globalsContent).toContain("--primary: 199 89% 48%");    // #38BDF8 Sky Atlántico
-      expect(globalsContent).toContain("--border: 217 33% 22%");
+      // Modo Noche (Paleta Zinc — 08 §2, P13)
+      expect(globalsContent).toContain("--background: 240 10% 3.9%");// #09090B
+      expect(globalsContent).toContain("--foreground: 0 0% 98%");    // #FAFAFA
+      expect(globalsContent).toContain("--card: 240 10% 3.9%");      // #09090B
+      expect(globalsContent).toContain("--primary: 0 0% 98%");       // #FAFAFA
+      expect(globalsContent).toContain("--border: 240 3.7% 15.9%");
       expect(globalsContent).toContain("--success: 158 64% 52%");    // #34D399 Menta
       expect(globalsContent).toContain("--warning: 45 93% 47%");     // #FBBF24 Dorado
+      expect(globalsContent).toContain(".dark .theme-athlete");
     });
   });
 

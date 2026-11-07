@@ -193,6 +193,10 @@ describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y d
     });
 
     it("GIVEN onEstadoChange retorna false WHEN el usuario cambia de estado THEN revierte el estado y muestra mensaje de error accesible", async () => {
+      vi.spyOn(dolorModule, "actualizarEstadoDolor").mockResolvedValue({
+        ok: true,
+        data: null,
+      });
       const onEstadoChange = vi.fn().mockResolvedValue(false);
 
       const { container, getByRole, getByTestId } = render(
@@ -216,6 +220,7 @@ describe("GOZS-382 / FIX-08: Isla de Salud Unificada montada con render(...) y d
 
       const tabResuelta = getByRole("tab", { name: "Resuelta" });
       await fireEvent.click(tabResuelta);
+      await new Promise((r) => setTimeout(r, 10));
 
       expect(onEstadoChange).toHaveBeenCalledWith("RESUELTO");
       expect(getByTestId("salud-error-alert").textContent).toContain(

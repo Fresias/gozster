@@ -3,93 +3,106 @@
 @tailwind utilities;
 
 @layer base {
-/* MODO DÍA (Light Mode / Fondo Blanco Cálido) */
+/* MODO DÍA (Light Mode · Paleta Zinc de shadcn/ui — 08 §2, P01, P13) */
 :root {
-  --background: 210 20% 98%;          /* #F8FAFC Warm Canvas */
-  --foreground: 222 47% 11%;          /* #0F172A Deep Slate Grafito */
-  --card: 0 0% 100%;                  /* #FFFFFF Pure White */
-  --card-foreground: 222 47% 11%;
+  --background: 0 0% 100%;            /* #FFFFFF  página y cards: mismo blanco */
+  --foreground: 240 10% 3.9%;         /* #09090B */
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
   --surface: 0 0% 100%;
-  --surface-container-low: 210 20% 96%;/* #F1F5F9 */
-  --surface-container: 214 32% 91%;   /* #E2E8F0 */
-  --surface-container-high: 215 25% 82%;
-  --surface-container-highest: 215 20% 75%;
-  --primary: 221 83% 53%;             /* #2563EB Azul Atlántico */
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 20% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 210 20% 96%;
-  --muted-foreground: 215 16% 47%;    /* #64748B */
-  --accent: 210 20% 96%;
-  --accent-foreground: 222 47% 11%;
-  --border: 214 32% 91%;              /* #E2E8F0 */
-  --input: 214 32% 91%;
-  --ring: 221 83% 53%;
+  --surface-container-low: 240 4.8% 95.9%;
+  --surface-container: 240 5.9% 90%;
+  --surface-container-high: 240 5% 84%;
+  --surface-container-highest: 240 4.9% 78%;
+  --primary: 240 5.9% 10%;            /* #18181B  botón primario, chip activo, día de hoy */
+  --primary-foreground: 0 0% 98%;     /* #FAFAFA */
+  --secondary: 240 4.8% 95.9%;        /* #F4F4F5 */
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;            /* #F4F4F5  fondo de Segmented, ítem activo del menú, avatar */
+  --muted-foreground: 240 5.2% 33.9%; /* #52525B  texto secundario (pasa AA sobre #F4F4F5) */
+  --subtle-foreground: 240 3.8% 46.1%;/* #71717A  NUEVO: metadatos 12 px, solo sobre blanco */
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --border: 240 5.9% 90%;             /* #E4E4E7 */
+  --border-subtle: 240 4.8% 95.9%;    /* #F4F4F5  NUEVO: separadores entre filas */
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
   --radius: 0.5rem;
+  --sidebar: 0 0% 98%;                /* #FAFAFA */
 
-  /* Semántica deportiva suave */
-  --success: 160 84% 39%;             /* #10B981 Esmeralda */
+  /* Semántica deportiva */
+  --success: 142 76% 36%;             /* #16A34A  puntos y barras */
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;              /* #F59E0B Ámbar */
+  --warning: 32 95% 44%;              /* #D97706 */
   --warning-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%;           /* #EF4444 Rosa Coral */
+  --destructive: 0 72% 51%;           /* #DC2626 */
   --destructive-foreground: 0 0% 100%;
 
   /* Tokens de estado suave para badges y alertas (contraste texto ≥ 4.5:1) */
-  --success-soft: 152 81% 96%;
-  --success-soft-foreground: 164 86% 16%;
-  --success-soft-border: 152 76% 80%;
+  --success-soft: 138 76% 97%;        /* #F0FDF4 */
+  --success-soft-foreground: 143 64% 24%; /* #166534 */
+  --success-soft-border: 141 79% 85%; /* #BBF7D0 */
 
-  --warning-soft: 48 100% 96%;
-  --warning-soft-foreground: 22 78% 26%;
-  --warning-soft-border: 48 95% 76%;
+  --warning-soft: 48 100% 96%;        /* #FFFBEB */
+  --warning-soft-foreground: 26 90% 37%;  /* #92400E */
+  --warning-soft-border: 48 97% 77%;  /* #FDE68A */
+  --warning-soft-strong: 48 96% 89%;  /* #FEF3C7  ítem activo de un Segmented dentro de un Alert (P13) */
 
-  --danger-soft: 0 86% 97%;
-  --danger-soft-foreground: 0 72% 32%;
-  --danger-soft-border: 0 96% 89%;
+  --danger-soft: 0 86% 97%;           /* #FEF2F2 */
+  --danger-soft-foreground: 0 74% 42%;/* #B91C1C */
+  --danger-soft-border: 0 93% 89%;    /* #FECACA (--danger-soft-border: 0 96% 89%;) */
 
-  --neutral-soft: 210 40% 96%;
-  --neutral-soft-foreground: 217 33% 17%;
-  --neutral-soft-border: 214 32% 91%;
+  --neutral-soft: 240 4.8% 95.9%;     /* #F4F4F5 */
+  --neutral-soft-foreground: 240 5.3% 26.1%; /* #3F3F46 */
+  --neutral-soft-border: 240 5.9% 90%;/* #E4E4E7 */
 
-  /* Tokens de actividad deportiva (Agenda de Clases, GOZS-190 / GOZS-191) */
-  --act-funcional-bg: 204 94% 94%;    /* sky-100 */
-  --act-funcional-fg: 204 80% 16%;    /* sky-950 */
-  --act-funcional-bar: 199 89% 48%;   /* sky-500 */
-  --act-boxeo-bg: 34 100% 92%;        /* orange-100 */
-  --act-boxeo-fg: 15 75% 15%;         /* orange-950 */
-  --act-boxeo-bar: 25 95% 53%;        /* orange-500 */
+  /* Tokens de actividad deportiva (Agenda de Clases, P13) */
+  --act-funcional-bg: 240 4.8% 95.9%; /* #F4F4F5 */
+  --act-funcional-border: 240 5.9% 90%; /* #E4E4E7 */
+  --act-funcional-fg: 204 80% 16%;
+  --act-funcional-bar: 199 89% 48%;
+  --act-boxeo-bg: 33 100% 96%;        /* #FFF7ED */
+  --act-boxeo-border: 32 98% 83%;     /* #FED7AA */
+  --act-boxeo-fg: 15 75% 15%;
+  --act-boxeo-bar: 25 95% 53%;
 }
 
-/* MODO NOCHE REFINADO (Dark Mode Pulido y Suave) */
+/* MODO NOCHE (Dark Mode Zinc — 08 §2, P13) */
 .dark {
-  --background: 222 47% 11%;          /* #0F172A Deep Charcoal */
-  --foreground: 210 40% 98%;          /* #F8FAFC Tiza Suave */
-  --card: 217 33% 17%;                /* #1E293B */
-  --card-foreground: 210 40% 98%;
-  --surface: 217 33% 17%;
-  --surface-container-low: 222 47% 14%;
-  --surface-container: 217 33% 20%;
-  --surface-container-high: 217 33% 24%;
-  --surface-container-highest: 217 33% 28%;
-  --primary: 199 89% 48%;             /* #38BDF8 Sky Atlántico Suave */
-  --primary-foreground: 222 47% 11%;
-  --secondary: 217 33% 20%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 20%;
-  --muted-foreground: 215 20% 65%;    /* #94A3B8 */
-  --accent: 217 33% 20%;
-  --accent-foreground: 210 40% 98%;
-  --border: 217 33% 22%;
-  --input: 217 33% 22%;
-  --ring: 199 89% 48%;
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --surface: 240 10% 3.9%;
+  --surface-container-low: 240 5.9% 7%;
+  --surface-container: 240 3.7% 15.9%;
+  --surface-container-high: 240 4% 20%;
+  --surface-container-highest: 240 5% 26%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --subtle-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --border-subtle: 240 3.7% 12%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
   --radius: 0.5rem;
+  --sidebar: 240 5.9% 7%;
 
   /* Semántica deportiva noche */
   --success: 158 64% 52%;             /* #34D399 Menta */
-  --success-foreground: 222 47% 11%;
+  --success-foreground: 240 10% 3.9%;
   --warning: 45 93% 47%;              /* #FBBF24 Dorado */
-  --warning-foreground: 222 47% 11%;
+  --warning-foreground: 240 10% 3.9%;
   --destructive: 0 72% 51%;           /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
 
@@ -101,6 +114,7 @@
   --warning-soft: 38 60% 11%;
   --warning-soft-foreground: 45 93% 75%;
   --warning-soft-border: 38 60% 25%;
+  --warning-soft-strong: 26 85% 22%;
 
   --danger-soft: 0 55% 12%;
   --danger-soft-foreground: 0 85% 80%;
@@ -110,14 +124,20 @@
   --neutral-soft-foreground: 210 40% 96%;
   --neutral-soft-border: 217 33% 25%;
 
-  /* Tokens de actividad deportiva noche */
-  --act-funcional-bg: 204 80% 16%;
+  /* Tokens de actividad deportiva noche (P13) */
+  --act-funcional-bg: 240 3.7% 15.9%;
+  --act-funcional-border: 240 5.3% 26%;
   --act-funcional-fg: 204 94% 94%;
   --act-funcional-bar: 199 89% 48%;
-  --act-boxeo-bg: 15 75% 15%;
+  --act-boxeo-bg: 21 75% 12%;
+  --act-boxeo-border: 26 80% 30%;
   --act-boxeo-fg: 34 100% 92%;
   --act-boxeo-bar: 25 95% 53%;
 }
+
+/* Athlete App y landing: envolver su raíz en .theme-athlete (P01) */
+.theme-athlete { --primary: 221 83% 53%; --primary-foreground: 210 40% 98%; --ring: 221 83% 53%; }
+.dark .theme-athlete { --primary: 199 89% 48%; --ring: 199 89% 48%; }
 
   * {
     @apply border-border;

@@ -40,7 +40,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   }, [setOnlineStatus, flushQueue]);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-md flex-col border-x border-border/80 bg-background text-foreground shadow-2xl transition-colors duration-150">
+    <div className="theme-athlete mx-auto flex min-h-dvh max-w-md flex-col border-x border-border/80 bg-background text-foreground shadow-2xl transition-colors duration-150">
       <header className="sticky top-0 z-20 flex flex-col border-b border-border/80 bg-card/95 backdrop-blur-md transition-colors">
         <div className="flex items-center justify-between px-4 py-3">
           <Link

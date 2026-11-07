@@ -16,7 +16,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = React.useState<PreviewTab>("coach");
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-200 flex flex-col antialiased">
+    <div className="theme-athlete min-h-screen bg-background text-foreground transition-colors duration-200 flex flex-col antialiased">
       {/* 1. Barra de navegación corporativa fija */}
       <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-card/90 backdrop-blur-md transition-colors duration-150">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">

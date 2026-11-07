@@ -193,7 +193,7 @@ export const DropdownMenuContent = React.forwardRef<
       onKeyDown={handleKeyDown}
       style={{ marginTop: sideOffset }}
       className={cn(
-        "absolute z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-lg animate-in fade-in-80 zoom-in-95 duration-100",
+        "absolute z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[0_8px_24px_rgb(0_0_0/.08)] animate-in fade-in-80 zoom-in-95 duration-100",
         align === "start" ? "left-0" : align === "center" ? "left-1/2 -translate-x-1/2" : "right-0",
         className,
       )}

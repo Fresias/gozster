@@ -15,17 +15,21 @@ describe("GOZS-190 / GOZS-191 · Agenda de clases: tokens, cabecera y grilla hor
   describe("Sección 2: Tokens de actividad deportiva y Tailwind", () => {
     it("globals.css define tokens día y noche para Funcional y Boxeo con contraste AA/AAA", () => {
       // Modo Día (:root)
-      expect(globalsCss).toContain("--act-funcional-bg: 204 94% 94%;");
+      expect(globalsCss).toContain("--act-funcional-bg: 240 4.8% 95.9%;");
+      expect(globalsCss).toContain("--act-funcional-border: 240 5.9% 90%;");
       expect(globalsCss).toContain("--act-funcional-fg: 204 80% 16%;");
       expect(globalsCss).toContain("--act-funcional-bar: 199 89% 48%;");
-      expect(globalsCss).toContain("--act-boxeo-bg: 34 100% 92%;");
+      expect(globalsCss).toContain("--act-boxeo-bg: 33 100% 96%;");
+      expect(globalsCss).toContain("--act-boxeo-border: 32 98% 83%;");
       expect(globalsCss).toContain("--act-boxeo-fg: 15 75% 15%;");
       expect(globalsCss).toContain("--act-boxeo-bar: 25 95% 53%;");
 
       // Modo Noche (.dark)
-      expect(globalsCss).toContain("--act-funcional-bg: 204 80% 16%;");
+      expect(globalsCss).toContain("--act-funcional-bg: 240 3.7% 15.9%;");
+      expect(globalsCss).toContain("--act-funcional-border: 240 5.3% 26%;");
       expect(globalsCss).toContain("--act-funcional-fg: 204 94% 94%;");
-      expect(globalsCss).toContain("--act-boxeo-bg: 15 75% 15%;");
+      expect(globalsCss).toContain("--act-boxeo-bg: 21 75% 12%;");
+      expect(globalsCss).toContain("--act-boxeo-border: 26 80% 30%;");
       expect(globalsCss).toContain("--act-boxeo-fg: 34 100% 92%;");
     });
 

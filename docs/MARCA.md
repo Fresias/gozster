@@ -57,9 +57,17 @@ La auditoría del frontend previo (`src/app/page.tsx`, `src/app/globals.css`, `s
 
 ---
 
-## 4. Nueva Dirección de Arte: Arquitectura Cromática Bimodal
+## 4. Nueva Dirección de Arte: Arquitectura Cromática Bimodal (Coach Studio Zinc + `.theme-athlete`)
 
-Tras el feedback de usuario de la Épica GOZS-18, la dirección de arte evoluciona de un esquema monomodal rígido a una **arquitectura cromática bimodal armónica**. Se corrige el diagnóstico de "tosquedad" del modo oscuro previo (que resultaba excesivamente duro y fatigante por el contraste abrupto de `#080A0D` con amarillos saturados) y se introduce un **Modo Día** sofisticado y de descanso visual para entrenadores.
+Tras el review UX/UI (GOZS-368, `08-fidelidad-visual.md §2` y `09-respuesta-pm.md P01`), la dirección de arte adopta como base global la **paleta de neutros zinc de shadcn/ui** para **Coach Studio**, mientras que el **Azul Atlántico (`#2563EB`)** queda reservado para la **Athlete App** (`/athlete`) y la **landing pública** mediante el scope `.theme-athlete`.
+
+### 4.0 Identidad de Coach Studio vs. Athlete App / Landing (`P01`)
+
+- **Coach Studio (Base Global `:root` / `.dark`):**
+  - **Paleta:** Neutros zinc con fondo y tarjetas en el mismo blanco (`#FFFFFF` / `--background: 0 0% 100%`), bordes `#E4E4E7` (`--border: 240 5.9% 90%`), sidebar `#FAFAFA` (`--sidebar: 0 0% 98%`) y **primario negro zinc `#18181B`** (`--primary: 240 5.9% 10%`, texto `#FAFAFA`). En `.dark`, fondo `#09090B` (`240 10% 3.9%`) y primario `#FAFAFA` (`0 0% 98%`).
+  - **Isotipo / Logo de Coach Studio:** Cuadrado negro `"G"` de `32×32 px` (`size-8 rounded-lg bg-primary text-primary-foreground`, `"G"` en `14/700`) acompañado de `"GOZSter"` (`14/600`) y `"Coach Studio"` (`12 px text-muted-foreground`), sin `"Studio"` en azul.
+- **Athlete App y Landing Pública (`.theme-athlete`):**
+  - Envuelven su contenedor raíz en `.theme-athlete`, que redefine `--primary: 221 83% 53%` (Azul Atlántico `#2563EB`), `--primary-foreground: 210 40% 98%` y `--ring: 221 83% 53%` en modo claro, y `--primary: 199 89% 48%` (Cian `#38BDF8`) en `.dark .theme-athlete`.
 
 ### 4.1 Principios del Sistema Bimodal
 

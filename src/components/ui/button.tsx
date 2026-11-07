@@ -19,25 +19,25 @@ export interface ButtonProps
 
 const variantClasses: Record<ButtonVariant, string> = {
   default:
-    "bg-primary text-primary-foreground shadow-sm hover:brightness-105 active:scale-[0.98] font-semibold",
+    "bg-primary text-primary-foreground font-medium hover:brightness-105 active:scale-[0.98]",
   secondary:
-    "bg-secondary text-secondary-foreground border border-border/50 hover:bg-secondary/80 active:scale-[0.98] font-semibold",
+    "h-9 px-3 rounded-lg border bg-background text-secondary-foreground hover:bg-secondary/80 active:scale-[0.98] font-medium",
   outline:
-    "border border-border/80 bg-transparent text-foreground hover:bg-secondary/60 hover:border-border active:scale-[0.98] font-medium",
+    "h-9 px-3 rounded-lg border bg-background text-foreground hover:bg-muted/60 hover:border-border active:scale-[0.98] font-medium",
   ghost:
-    "bg-transparent text-foreground hover:bg-secondary/60 hover:text-foreground active:scale-[0.98] font-medium",
+    "bg-transparent text-foreground hover:bg-muted/60 hover:text-foreground active:scale-[0.98] font-medium",
   destructive:
-    "bg-destructive text-destructive-foreground shadow-sm hover:brightness-110 active:scale-[0.98] font-semibold",
+    "bg-destructive text-destructive-foreground font-medium hover:brightness-110 active:scale-[0.98]",
   elevated:
-    "bg-card text-foreground border border-border/70 shadow-m3-1 hover:shadow-m3-2 hover:border-primary/40 active:scale-[0.98] font-semibold",
+    "bg-card text-foreground border border-border shadow-none hover:bg-muted/60 active:scale-[0.98] font-medium",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  default: "min-h-12 px-4 py-2.5 text-sm",
-  sm: "min-h-9 px-3 py-1.5 text-xs",
-  lg: "min-h-12 px-6 py-3 text-base",
-  touch: "min-h-14 px-6 py-3.5 text-base font-bold tracking-wide",
-  icon: "min-h-12 min-w-12 p-2.5",
+  default: "h-9 px-3.5 rounded-lg text-sm",
+  sm: "h-8 px-3 rounded-lg text-xs",
+  lg: "h-10 px-5 rounded-lg text-sm",
+  touch: "min-h-14 px-6 py-3.5 rounded-xl text-base font-bold tracking-wide",
+  icon: "size-9 h-9 w-9 rounded-lg p-0",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -47,7 +47,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         className={cn(
-          "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-150 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+          "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
           variantClasses[variant],
           sizeClasses[size],
           className,
