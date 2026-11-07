@@ -234,7 +234,7 @@ export function ParaRevisarHoy({
           <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
             Para revisar hoy
           </h2>
-          <span className="text-xs text-muted-foreground">Ordenado por prioridad</span>
+          <span className="hidden sm:inline text-xs text-muted-foreground">Ordenado por prioridad</span>
         </div>
         <EmptyState
           data-testid="para-revisar-hoy-empty"
@@ -259,11 +259,11 @@ export function ParaRevisarHoy({
         <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
           Para revisar hoy
         </h2>
-        <span className="text-xs text-muted-foreground">Ordenado por prioridad</span>
+        <span className="hidden sm:inline text-xs text-muted-foreground">Ordenado por prioridad</span>
       </div>
 
       <div data-testid="para-revisar-hoy-list" className="flex flex-col divide-y divide-border/60">
-        {filasVisibles.map((item) => {
+        {filasVisibles.map((item, idxFila) => {
           const badgeClass =
             item.badgeTono === "danger"
               ? "bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
@@ -290,7 +290,11 @@ export function ParaRevisarHoy({
               type="button"
               data-testid={testId}
               onClick={handleClick}
-              className="flex items-center gap-3 w-full px-4 py-3 text-left cursor-pointer min-h-14 bg-card hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className={cn(
+                "items-center gap-3 w-full px-4 py-3 text-left cursor-pointer min-h-14 bg-card hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                // En 390 px se muestran las 3 más prioritarias (objetivo Movil.html)
+                idxFila >= 3 ? "hidden sm:flex" : "flex"
+              )}
             >
               {/* Badge semántico suave con vocabulario exacto P07 */}
               <span
@@ -319,7 +323,7 @@ export function ParaRevisarHoy({
 
               {/* Chevron minimalista (sin links azules ni EVA en mono suelto) */}
               <ChevronRight
-                className="h-4 w-4 text-muted-foreground shrink-0"
+                className="hidden sm:block h-4 w-4 text-muted-foreground shrink-0"
                 aria-hidden="true"
               />
             </button>

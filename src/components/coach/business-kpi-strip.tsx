@@ -361,7 +361,7 @@ export function BusinessKpiStrip({
                 <button
                   type="button"
                   onClick={onAsignarClick}
-                  className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+                  className="text-left text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
                   aria-label="Asignar rutina a alumnos sin plan"
                 >
                   Asignales una desde Rutinas

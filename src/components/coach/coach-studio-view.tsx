@@ -1290,7 +1290,12 @@ export function CoachStudioView({
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground m-0">
-                {fechaSaludo} · {clasesHoyInicio.length} {clasesHoyInicio.length === 1 ? "clase" : "clases"} hoy, {totalParaRevisar} alertas para revisar.
+                <span className="sm:hidden">
+                  {fechaSaludo.replace(/ de (\p{L}{3})\p{L}*$/u, " $1")} · {clasesHoyInicio.length} {clasesHoyInicio.length === 1 ? "clase" : "clases"} hoy
+                </span>
+                <span className="hidden sm:inline">
+                  {fechaSaludo} · {clasesHoyInicio.length} {clasesHoyInicio.length === 1 ? "clase" : "clases"} hoy, {totalParaRevisar} alertas para revisar.
+                </span>
               </p>
             </div>
 
