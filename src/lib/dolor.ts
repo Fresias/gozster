@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type NivelDolor = 'bajo' | 'medio' | 'alto';
-export type SeveridadDolor = 'LEVE' | 'MODERADO' | 'AGUDO';
+export type SeveridadDolor = 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
 export type EstadoDolor = 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO';
 export type SeveridadAlerta = 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
 
@@ -41,12 +41,17 @@ export interface ActualizarEstadoDolorParams {
 }
 
 /**
- * Deriva el nivel semántico ('bajo' | 'medio' | 'alto') a partir del valor EVA (0-10).
- * - EVA 0 a 3: 'bajo'
+ * Deriva el nivel semántico ('bajo' | 'medio' | 'alto') a partir del valor EVA (0-10)
+ * y flag de síntoma de alarma (o severidad 'CRITICA').
+ * - Síntoma de alarma o EVA 7 a 10: 'alto'
  * - EVA 4 a 6: 'medio'
- * - EVA 7 a 10: 'alto'
+ * - EVA 0 a 3: 'bajo'
  */
-export function nivelDesdeEva(eva: number): NivelDolor {
+export function nivelDesdeEva(
+  eva: number,
+  esSintomaAlarma: boolean = false
+): NivelDolor {
+  if (esSintomaAlarma) return 'alto';
   const num = Math.max(0, Math.min(10, Math.round(Number(eva) || 0)));
   if (num >= 7) return 'alto';
   if (num >= 4) return 'medio';
@@ -54,9 +59,13 @@ export function nivelDesdeEva(eva: number): NivelDolor {
 }
 
 /**
- * Deriva la severidad de base de datos ('LEVE' | 'MODERADO' | 'AGUDO') a partir de EVA (0-10).
+ * Deriva la severidad de base de datos ('LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA') a partir de EVA (0-10) y síntoma de alarma.
  */
-export function derivarSeveridadDesdeEva(eva: number): SeveridadDolor {
+export function derivarSeveridadDesdeEva(
+  eva: number,
+  esSintomaAlarma: boolean = false
+): SeveridadDolor {
+  if (esSintomaAlarma) return 'CRITICA';
   const num = Math.max(0, Math.min(10, Math.round(Number(eva) || 0)));
   if (num >= 7) return 'AGUDO';
   if (num >= 4) return 'MODERADO';
@@ -68,6 +77,7 @@ export function derivarSeveridadDesdeEva(eva: number): SeveridadDolor {
  */
 export function derivarEvaDesdeSeveridad(severidad: string): number {
   switch (String(severidad).toUpperCase()) {
+    case 'CRITICA':
     case 'AGUDO':
       return 8;
     case 'MODERADO':

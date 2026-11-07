@@ -866,7 +866,7 @@ export interface Database {
           ejercicio_id: string;
           zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
           eva?: number | null;
-          severidad: 'LEVE' | 'MODERADO' | 'AGUDO';
+          severidad: 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
           notas_alumno: string | null;
           notas_profesor: string | null;
           estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
@@ -884,7 +884,7 @@ export interface Database {
           ejercicio_id: string;
           zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
           eva?: number | null;
-          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
+          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
           notas_alumno?: string | null;
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
@@ -902,7 +902,7 @@ export interface Database {
           ejercicio_id?: string;
           zona_articular?: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
           eva?: number | null;
-          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO';
+          severidad?: 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
           notas_alumno?: string | null;
           notas_profesor?: string | null;
           estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
@@ -1810,7 +1810,7 @@ export interface Database {
           ejercicio_nombre: string | null;
           zona_articular: 'HOMBRO' | 'RODILLA' | 'LUMBAR' | 'CODO' | 'CUELLO' | 'CADERA' | 'TOBILLO' | 'OTRO';
           eva?: number | null;
-          severidad: 'LEVE' | 'MODERADO' | 'AGUDO';
+          severidad: 'LEVE' | 'MODERADO' | 'AGUDO' | 'CRITICA';
           nivel: 'bajo' | 'medio' | 'alto';
           estado: 'PENDIENTE' | 'ATENDIDO' | 'RESUELTO' | 'CERRADO';
           estado_recuperacion: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
@@ -2131,7 +2131,7 @@ export interface Database {
         Args: {
           p_cobro_id: string;
           p_monto_cobrado: number;
-          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_metodo: MedioPago | 'MERCADO_PAGO';
           p_nota: string;
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
@@ -2140,7 +2140,7 @@ export interface Database {
         Args: {
           p_cobro_id: string;
           p_monto: number;
-          p_metodo: 'TRANSFERENCIA' | 'EFECTIVO';
+          p_metodo: MedioPago | 'MERCADO_PAGO';
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
       };

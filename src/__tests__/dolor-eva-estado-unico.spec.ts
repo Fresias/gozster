@@ -133,7 +133,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
   });
 
   describe('2. Pruebas Unitarias en TypeScript (src/lib/dolor.ts)', () => {
-    it('nivelDesdeEva categoriza adecuadamente 0-3 (bajo), 4-6 (medio) y 7-10 (alto)', () => {
+    it('nivelDesdeEva categoriza adecuadamente 0-3 (bajo), 4-6 (medio), 7-10 (alto) y síntoma de alarma (alto)', () => {
       expect(nivelDesdeEva(0)).toBe('bajo');
       expect(nivelDesdeEva(2)).toBe('bajo');
       expect(nivelDesdeEva(3)).toBe('bajo');
@@ -143,15 +143,17 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       expect(nivelDesdeEva(7)).toBe('alto');
       expect(nivelDesdeEva(8)).toBe('alto');
       expect(nivelDesdeEva(10)).toBe('alto');
+      expect(nivelDesdeEva(2, true)).toBe('alto');
     });
 
-    it('derivarSeveridadDesdeEva mapea adecuadamente a LEVE, MODERADO y AGUDO', () => {
+    it('derivarSeveridadDesdeEva mapea adecuadamente a LEVE, MODERADO, AGUDO y CRITICA', () => {
       expect(derivarSeveridadDesdeEva(1)).toBe('LEVE');
       expect(derivarSeveridadDesdeEva(3)).toBe('LEVE');
       expect(derivarSeveridadDesdeEva(4)).toBe('MODERADO');
       expect(derivarSeveridadDesdeEva(6)).toBe('MODERADO');
       expect(derivarSeveridadDesdeEva(7)).toBe('AGUDO');
       expect(derivarSeveridadDesdeEva(10)).toBe('AGUDO');
+      expect(derivarSeveridadDesdeEva(2, true)).toBe('CRITICA');
     });
 
     it('derivarEvaDesdeSeveridad mapea valores históricos a 3, 5 y 8', () => {
@@ -224,7 +226,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
       // Aplicar todas las migraciones previas a la nueva
       const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
       for (const archivo of archivos) {
-        if (archivo === NUEVA_MIGRACION) continue;
+        if (archivo >= NUEVA_MIGRACION) continue;
         await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8'));
       }
 
@@ -239,8 +241,11 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
           ('${idAgudo}', '${ALUMNO}', '${EJERCICIO_1}', 'LUMBAR', 'AGUDO', 'CERRADO');
       `);
 
-      // Ahora aplicar la nueva migración
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NUEVA_MIGRACION), 'utf-8'));
+      // Ahora aplicar la nueva migración y cualquier migración posterior en orden cronológico
+      for (const archivo of archivos) {
+        if (archivo < NUEVA_MIGRACION) continue;
+        await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8'));
+      }
     });
 
     it('GIVEN filas existentes de dolor con LEVE, MODERADO y AGUDO WHEN corre la migración THEN eva queda 3, 5 y 8 respectivamente', async () => {
@@ -261,9 +266,13 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
     });
 
     it('correr la migración una segunda vez es 100% idempotente y no produce cambios ni errores', async () => {
-      await expect(
-        aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NUEVA_MIGRACION), 'utf-8'))
-      ).resolves.not.toThrow();
+      const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+      for (const archivo of archivos) {
+        if (archivo < NUEVA_MIGRACION) continue;
+        await expect(
+          aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8'))
+        ).resolves.not.toThrow();
+      }
 
       const res = await db.query<{ id: string; eva: number }>(
         `SELECT id, eva FROM public.alumno_historial_dolor WHERE id = '${idAgudo}'`

@@ -130,3 +130,9 @@ export const ESTADO_CONTRATACION_LABEL: Record<EstadoContratacion, string> = {
   EN_PAUSA: "En pausa",
   PENDIENTE_RENOVACION: "Pendiente de renovación",
 };
+
+export {
+  MEDIO_PAGO_LABEL,
+  formatearMedioPago,
+  normalizarMedioPago,
+} from "@/lib/format-medio-pago";
