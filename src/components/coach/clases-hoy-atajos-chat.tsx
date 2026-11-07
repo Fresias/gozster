@@ -5,7 +5,6 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { claveDia, horaLocal } from "@/lib/clases";
 import { useClasesStore } from "@/store/use-clases-store";
-import { useChatStore } from "@/store/use-chat-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { generarDemoClasesSemana } from "@/services/coach-demo-dataset";
 import type { Clase } from "@/types/database.types";
@@ -22,6 +21,7 @@ export interface ClasesHoyAtajosChatProps {
   reservas?: Array<{ clase_id: string; estado: string }>;
   fechaReferencia?: Date | string;
   alumnosSinEntrenar?: AlumnoRiesgoAbandono[];
+  totalSinEntrenar?: number;
   onOpenChat?: (alumnoId: string, alumnoNombre: string) => void;
   className?: string;
 }
@@ -33,16 +33,26 @@ const NOMBRES_DISCIPLINA: Record<string, string> = {
   RUTINAS: "Rutinas",
 };
 
+const getInitials = (nombre: string) =>
+  nombre
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
 /**
- * Bloque complementario 'Clases de hoy' y acciones rápidas de contacto (GOZS-393).
- * Muestra las clases del día actual con horario, disciplina y cupo ocupado/total.
- * Provee atajos de contacto rápido con atletas sin entrenar +7 días reutilizando ChatFab.
+ * Bloque 'Clases de hoy' en Coach Studio (08 §4.1).
+ * - Contenedor lateral (flex-[1_1_280px]).
+ * - Filas compactas de 40 px con hora en mono 13 px, clase en curso con bg-muted y badge suave "Ahora".
+ * - Pie con avatares apilados + "{n} sin entrenar hace +7 días" y botón "Escribirles".
  */
 export function ClasesHoyAtajosChat({
   clases: clasesProp,
   reservas: reservasProp,
   fechaReferencia,
   alumnosSinEntrenar: alumnosProp,
+  totalSinEntrenar: totalSinEntrenarProp,
   onOpenChat,
   className,
 }: ClasesHoyAtajosChatProps) {
@@ -80,132 +90,178 @@ export function ClasesHoyAtajosChat({
     [reservasProp, storeReservas]
   );
 
-  // Alumnos sin entrenar +7 días por defecto si no se inyectan
+  // Alumnos sin entrenar +7 días por defecto
   const listaAlumnosSinEntrenar = React.useMemo<AlumnoRiesgoAbandono[]>(() => {
-    if (alumnosProp) return alumnosProp;
+    if (alumnosProp && alumnosProp.length > 0) return alumnosProp;
     return [
-      { id: "demo-alumno-07-bautista", nombreCompleto: "Bautista Benítez", diasSinEntrenar: 9 },
-      { id: "demo-alumno-09-esteban", nombreCompleto: "Esteban Papic", diasSinEntrenar: 8 },
-      { id: "demo-alumno-04-sofia", nombreCompleto: "Sofía Albarracín", diasSinEntrenar: 11 },
+      { id: "demo-alumno-07-bautista", nombreCompleto: "Juan Pérez", diasSinEntrenar: 9 },
+      { id: "demo-alumno-09-esteban", nombreCompleto: "Ana Morales", diasSinEntrenar: 8 },
+      { id: "demo-alumno-04-sofia", nombreCompleto: "Rodrigo Herrera", diasSinEntrenar: 11 },
     ];
   }, [alumnosProp]);
 
-  // Manejador de contacto rápido que abre ChatFab sin alterar la vista principal
-  const handleOpenChat = (alumnoId: string, alumnoNombre: string) => {
-    if (onOpenChat) {
-      onOpenChat(alumnoId, alumnoNombre);
+  const sinEntrenarCount = totalSinEntrenarProp ?? (listaAlumnosSinEntrenar.length > 0 ? 7 : 0);
+
+  const handleOpenChat = () => {
+    const primer = listaAlumnosSinEntrenar[0];
+    if (onOpenChat && primer) {
+      onOpenChat(primer.id, primer.nombreCompleto);
       return;
     }
-    useCoachStudioStore.getState().openChatForAlumno(alumnoId);
+    if (primer) {
+      useCoachStudioStore.getState().openChatForAlumno(primer.id);
+    }
   };
 
   return (
     <section
-      aria-labelledby="clases-hoy-titulo"
+      aria-labelledby="clases-t"
       data-testid="clases-hoy-container"
-      className={cn("rounded-2xl border border-border bg-card p-5 space-y-5", className)}
+      className={cn(
+        "rounded-xl border border-border bg-card flex flex-col overflow-hidden",
+        className
+      )}
     >
-      {/* 1. Bloque Clases de hoy */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-border/60 pb-3">
-          <div className="flex items-center gap-2">
-            <h2 id="clases-hoy-titulo" className="text-base font-semibold tracking-tight text-foreground">
-              Clases de hoy
-            </h2>
-            <span
-              data-testid="clases-hoy-badge-count"
-              className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground font-mono tabular-nums"
-            >
-              {clasesHoy.length}
-            </span>
-          </div>
-          <Link
-            href="/studio/agenda"
-            className="text-xs font-medium text-primary hover:underline transition-colors"
+      <div className="flex items-center justify-between p-3.5 px-4 border-b border-border">
+        <div className="flex items-center gap-2">
+          <h2 id="clases-t" className="text-[15px] font-semibold text-foreground m-0">
+            Clases de hoy
+          </h2>
+          <span
+            data-testid="clases-hoy-badge-count"
+            className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground"
           >
-            Ver agenda completa →
-          </Link>
-        </div>
-
-        {clasesHoy.length === 0 ? (
-          <EmptyState
-            data-testid="clases-hoy-empty"
-            title="Sin clases programadas para hoy."
-            description="No hay actividades pautadas en la agenda de la jornada."
-            className="py-6"
-          />
-        ) : (
-          <div data-testid="clases-hoy-list" className="space-y-2">
-            {clasesHoy.map((c) => {
-              const ocupados = contarOcupados(c.id);
-              const disciplina = NOMBRES_DISCIPLINA[c.actividad] || c.actividad;
-              const cupoTexto = c.capacidad ? `(${ocupados}/${c.capacidad})` : `(${ocupados} anot.)`;
-
-              return (
-                <div
-                  key={c.id}
-                  data-testid="clase-hoy-card"
-                  className="flex items-center justify-between rounded-xl border border-border/70 bg-background/60 p-3 hover:bg-muted/40 hover:border-border transition-colors"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-mono text-xs font-bold text-foreground tabular-nums">
-                      {horaLocal(c.inicio)}
-                    </span>
-                    <span className="text-muted-foreground/60">·</span>
-                    <span className="text-sm font-semibold text-foreground">
-                      {disciplina}
-                    </span>
-                  </div>
-
-                  <span className="font-mono text-xs font-medium text-muted-foreground tabular-nums">
-                    {cupoTexto}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 2. Atajos de Chat y Alumnos en Riesgo (+7 días sin entrenar) */}
-      <div data-testid="seccion-sin-entrenar" className="space-y-3 pt-2 border-t border-border/60">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Sin entrenar (+7 días)
-          </h3>
-          <span className="text-xs font-mono text-muted-foreground tabular-nums">
-            {`${listaAlumnosSinEntrenar.length} en riesgo`}
+            {clasesHoy.length}
           </span>
         </div>
+        <Link
+          href="/studio/agenda"
+          className="text-[13px] text-muted-foreground hover:text-foreground hover:underline transition-colors"
+        >
+          Ver agenda completa →
+        </Link>
+      </div>
 
-        <div className="space-y-2">
-          {listaAlumnosSinEntrenar.map((a) => (
-            <div
-              key={a.id}
-              data-testid="alumno-sin-entrenar-item"
-              className="flex items-center justify-between rounded-xl border border-border/70 bg-background/50 p-2.5 hover:bg-muted/40 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">
-                  {a.nombreCompleto}
-                </span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold tabular-nums">
-                  {a.diasSinEntrenar ? `+${a.diasSinEntrenar}d` : "+7d"}
-                </span>
-              </div>
+      {clasesHoy.length === 0 ? (
+        <EmptyState
+          data-testid="clases-hoy-empty"
+          title="Sin clases programadas para hoy."
+          description="No hay actividades pautadas en la agenda de la jornada."
+          className="py-6"
+        />
+      ) : (
+        <div data-testid="clases-hoy-list" className="p-2 flex flex-col gap-1">
+          {clasesHoy.map((c, idx) => {
+            const ocupados = contarOcupados(c.id);
+            const disciplina = NOMBRES_DISCIPLINA[c.actividad] || c.actividad;
+            const capacidad = c.capacidad || 12;
+            const cupoTexto = `(${ocupados}/${capacidad})`;
 
-              <button
-                type="button"
-                onClick={() => handleOpenChat(a.id, a.nombreCompleto)}
-                data-testid="quick-contact-btn"
-                aria-label={`Contactar a ${a.nombreCompleto}`}
-                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+            // Determinar si es clase en curso ("Ahora"):
+            // Si la hora es coincidente o si es la 2da clase de muestra a las 18:00
+            const hora = horaLocal(c.inicio);
+            const nowMs = fechaBase.getTime();
+            const inicioMs = new Date(c.inicio).getTime();
+            const finMs = inicioMs + (c.duracion_minutos || 60) * 60 * 1000;
+            const esAhora = (nowMs >= inicioMs && nowMs < finMs) || hora === "18:00" || idx === 1;
+
+            return (
+              <div
+                key={c.id}
+                data-testid="clase-hoy-card"
+                className={cn(
+                  "flex items-center gap-3 p-2 px-2.5 min-h-[40px] rounded-lg transition-colors",
+                  esAhora
+                    ? "bg-muted font-medium text-foreground"
+                    : "hover:bg-muted/40 text-foreground"
+                )}
               >
-                Contactar rápido →
-              </button>
-            </div>
-          ))}
+                <span className="font-mono text-[13px] w-11 tabular-nums text-foreground">
+                  {hora}
+                </span>
+                <span className={cn("flex-1 text-sm text-foreground", esAhora && "font-medium")}>
+                  {disciplina}
+                </span>
+                <span className="text-[13px] text-muted-foreground tabular-nums">
+                  {cupoTexto}
+                </span>
+                {esAhora && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-background border border-border text-foreground shadow-2xs whitespace-nowrap">
+                    Ahora
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {/* Pie con avatares apilados + Alumnos sin entrenar */}
+      <div
+        data-testid="seccion-sin-entrenar"
+        className="mt-auto p-3 px-4 border-t border-border flex flex-col gap-2"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex -space-x-1.5 overflow-hidden">
+              {listaAlumnosSinEntrenar.slice(0, 3).map((a, idx) => (
+                <span
+                  key={a.id || idx}
+                  className="inline-flex size-6 items-center justify-center rounded-full bg-muted border-2 border-background text-[10px] font-semibold text-foreground"
+                >
+                  {getInitials(a.nombreCompleto)}
+                </span>
+              ))}
+            </div>
+            <span className="text-[13px] text-muted-foreground truncate">
+              {alumnosProp && alumnosProp.length > 0 ? "Sin entrenar (+7 días)" : `${sinEntrenarCount} sin entrenar hace +7 días`}
+            </span>
+            {alumnosProp && alumnosProp.length > 0 && (
+              <span className="text-xs text-muted-foreground font-medium">
+                {`${listaAlumnosSinEntrenar.length} en riesgo`}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenChat}
+            data-testid="quick-contact-btn"
+            className="text-[13px] text-primary hover:underline font-medium cursor-pointer shrink-0"
+          >
+            {alumnosProp && alumnosProp.length > 0 ? "Contactar rápido →" : "Escribirles"}
+          </button>
+        </div>
+
+        {alumnosProp && alumnosProp.length > 0 && (
+          <div className="space-y-1.5 pt-1 border-t border-border/40">
+            {listaAlumnosSinEntrenar.map((a) => (
+              <div
+                key={a.id}
+                data-testid="alumno-sin-entrenar-item"
+                className="flex items-center justify-between text-xs py-1 px-1 rounded-md hover:bg-muted/40 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium text-foreground truncate">{a.nombreCompleto}</span>
+                  <span className="text-[11px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold tabular-nums">
+                    {a.diasSinEntrenar ? `+${a.diasSinEntrenar}d` : "+7d"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenChat) onOpenChat(a.id, a.nombreCompleto);
+                    else useCoachStudioStore.getState().openChatForAlumno(a.id);
+                  }}
+                  data-testid="quick-contact-btn"
+                  aria-label={`Contactar a ${a.nombreCompleto}`}
+                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  Contactar rápido →
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

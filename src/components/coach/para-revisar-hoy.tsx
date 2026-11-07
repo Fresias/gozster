@@ -3,14 +3,19 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { nivelDesdeEva, type DolorActivo } from "@/lib/dolor";
+import {
+  etiquetaNivelDolor,
+  tonoNivelDolor,
+  nivelDesdeEva,
+  type DolorActivo,
+} from "@/lib/dolor";
 import { useCobrosStore, type CobroItem } from "@/store/use-cobros-store";
 import {
   getDemoCriticalAlerts,
   type CriticalAlert,
 } from "@/components/coach/critical-alerts-data";
 import { useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
+import { ChevronRight } from "@/components/ui/icons";
 
 export interface ItemRevisarMolestia {
   id: string;
@@ -19,6 +24,7 @@ export interface ItemRevisarMolestia {
   zonaArticular: string;
   ejercicioNombre: string;
   eva: number;
+  severidad?: string;
   esSintomaAlarma?: boolean;
   fecha?: string;
 }
@@ -27,32 +33,52 @@ export interface ParaRevisarHoyProps {
   molestias?: DolorActivo[] | ItemRevisarMolestia[];
   cuotasVencidas?: CobroItem[];
   onSelectAlumno?: (alumnoId: string) => void;
+  onGestionarCobro?: (alumnoId: string) => void;
+  onVerTodasPendientes?: () => void;
+  isLiveMode?: boolean;
   className?: string;
 }
 
+interface ItemFilaRevisar {
+  id: string;
+  tipo: "molestia" | "cuota" | "progreso";
+  alumnoId: string;
+  alumnoNombre: string;
+  badgeTexto: string;
+  badgeTono: "danger" | "warning" | "neutral";
+  detalle: string;
+  tiempo: string;
+  prioridad: number;
+}
+
 /**
- * Bloque central 'Para revisar hoy' en Coach Studio (GOZS-392).
- * Consolida y prioriza los elementos que requieren atención inmediata del entrenador:
- * 1. Alertas de molestia activas ordenadas por severidad clínica (EVA 8-10 primero con badge 'Alto' y zona articular, luego EVA 4-7 con 'Moderado'/'Alto').
- * 2. Cuotas vencidas prioritarias que superen el umbral de cobranza.
- * 3. Si no hay elementos pendientes, renderiza el EmptyState con "Nada urgente por hoy.".
+ * Bandeja única 'Para revisar hoy' en Coach Studio (08 §4.1, 07 §8 FIX-05, 09 P07).
+ * Reemplaza definitivamente la bandeja roja de alertas críticas.
+ * - Header 15 px font-semibold + "Ordenado por prioridad" en 12 px text-muted-foreground.
+ * - Filas min-h-14 px-4 py-3 sin card propia, separadas por border-b border-border-subtle.
+ * - Estructura: badge semántico suave + nombre 500 + detalle 13 px + tiempo relativo 12 px + chevron.
+ * - Sin "Ver ficha →" en azul, sin EVA en mono suelto.
+ * - Límite de 5 filas visibles; si hay más de 5, incluir link "Ver las {n} pendientes".
+ * - Datos en vivo: consume molestias reales (v_dolor_activo / DolorActivo[]) y cuotas vencidas reales.
  */
 export function ParaRevisarHoy({
   molestias: molestiasProp,
   cuotasVencidas: cuotasProp,
   onSelectAlumno,
+  onGestionarCobro,
+  onVerTodasPendientes,
+  isLiveMode = false,
   className,
 }: ParaRevisarHoyProps) {
-  // Store de cobros reactivo (o prop provista)
   const cobrosStore = useCobrosStore((s) => s.cobros);
   const demoEstados = useDemoAlertEstados((s) => s.estados);
 
-  // Molestias activas: normalización desde props o demo crítico
+  // 1. Molestias activas: normalización desde props reales o fallback demo solo en modo no-live
   const listaMolestias = React.useMemo<ItemRevisarMolestia[]>(() => {
-    if (molestiasProp) {
+    if (molestiasProp !== undefined) {
       return (molestiasProp as any[]).map((m) => {
-        // Soporta contrato DolorActivo o ItemRevisarMolestia
         const eva = typeof m.eva === "number" ? m.eva : m.setNumber || 5;
+        const esAlarma = Boolean(m.esSintomaAlarma || m.es_sintoma_alarma || m.severidad === "CRITICA");
         return {
           id: m.id || `molestia-${m.alumnoId || m.alumno_id}`,
           alumnoId: m.alumnoId || m.alumno_id || "demo-alumno",
@@ -60,13 +86,18 @@ export function ParaRevisarHoy({
           zonaArticular: m.zonaArticular || m.zona_articular || m.zona || "Articular",
           ejercicioNombre: m.ejercicioNombre || m.ejercicio_nombre || "Ejercicio general",
           eva,
-          esSintomaAlarma: Boolean(m.esSintomaAlarma || m.es_sintoma_alarma),
+          severidad: m.severidad,
+          esSintomaAlarma: esAlarma,
           fecha: m.fecha || m.fecha_reporte || "Hoy",
         };
       }).sort((a, b) => b.eva - a.eva);
     }
 
-    // Datos por defecto derivados del modelo de alertas críticas
+    if (isLiveMode) {
+      return [];
+    }
+
+    // Datos por defecto derivados del modelo demo para tests unitarios / offline
     const alerts = getDemoCriticalAlerts();
     return alerts
       .filter((a) => {
@@ -74,7 +105,6 @@ export function ParaRevisarHoy({
         return estado === "PENDIENTE" && a.type === "DOLOR";
       })
       .map((a, idx) => {
-        // Si el mock trae severidad crítica asignamos EVA 8, moderado 6, etc.
         const evaCalculado = a.severidad === "CRITICA" || a.esSintomaAlarma ? 8 : (idx === 1 ? 7 : 5);
         return {
           id: a.id,
@@ -83,39 +113,110 @@ export function ParaRevisarHoy({
           zonaArticular: a.zona || "Articular",
           ejercicioNombre: a.ejercicioNombre,
           eva: evaCalculado,
+          severidad: a.severidad,
           esSintomaAlarma: Boolean(a.esSintomaAlarma),
           fecha: a.fecha,
         };
       })
       .sort((a, b) => b.eva - a.eva);
-  }, [molestiasProp, demoEstados]);
+  }, [molestiasProp, demoEstados, isLiveMode]);
 
-  // Cuotas vencidas: desde props o cobrosStore
+  // 2. Cuotas vencidas: desde props o cobrosStore
   const listaCuotasVencidas = React.useMemo<CobroItem[]>(() => {
-    if (cuotasProp) return cuotasProp;
+    if (cuotasProp !== undefined) return cuotasProp;
+    if (isLiveMode) return [];
     return cobrosStore.filter((c) => c.estado === "VENCIDO");
-  }, [cuotasProp, cobrosStore]);
+  }, [cuotasProp, cobrosStore, isLiveMode]);
 
-  const totalPendientes = listaMolestias.length + listaCuotasVencidas.length;
+  // 3. Fusión unificada y priorización estricta (Molestias primero por EVA, luego Cuotas por vencimiento)
+  const { totalPendientes, filasVisibles } = React.useMemo(() => {
+    const filasMolestias: ItemFilaRevisar[] = [];
+    const filasCuotas: ItemFilaRevisar[] = [];
+
+    // Molestias primero (prioridad 100 + eva)
+    for (const m of listaMolestias) {
+      const nivel = nivelDesdeEva(m.eva, m.esSintomaAlarma || m.severidad === "CRITICA");
+      const etiqueta = etiquetaNivelDolor(nivel);
+      const tono = tonoNivelDolor(nivel);
+      const badgeTexto = etiqueta === "alto" ? "Alto" : etiqueta === "moderado" ? "Moderado" : "Leve";
+      const zonaCap = m.zonaArticular
+        ? m.zonaArticular.charAt(0).toUpperCase() + m.zonaArticular.slice(1).toLowerCase()
+        : "Articular";
+
+      filasMolestias.push({
+        id: `m-${m.id}`,
+        tipo: "molestia",
+        alumnoId: m.alumnoId,
+        alumnoNombre: m.alumnoNombre,
+        badgeTexto,
+        badgeTono: tono,
+        detalle: `${m.ejercicioNombre} · ${zonaCap} · EVA ${m.eva}/10`,
+        tiempo: m.fecha ?? "Hoy",
+        prioridad: 100 + m.eva,
+      });
+    }
+
+    // Cuotas después
+    for (const c of listaCuotasVencidas) {
+      const montoFormateado = `$${Number(c.monto).toLocaleString("es-AR")}`;
+      filasCuotas.push({
+        id: `c-${c.contratacionId || c.id}`,
+        tipo: "cuota",
+        alumnoId: c.alumnoId,
+        alumnoNombre: c.alumnoNombre,
+        badgeTexto: "Cuota",
+        badgeTono: "danger",
+        detalle: `${c.servicioNombre || "Cuota"} · ${montoFormateado} · Vencido ${c.fechaVencimiento || ""}`.trim(),
+        tiempo: c.fechaVencimiento ? `Vencido` : "Vencido",
+        prioridad: 50,
+      });
+    }
+
+    const total = filasMolestias.length + filasCuotas.length;
+
+    // En las 5 filas visibles: prioriza molestias primero, y si hay cuotas vencidas
+    // asegura que las cuotas tengan visibilidad inmediata (ej. hasta 3-4 molestias + cuotas)
+    let visibles: ItemFilaRevisar[] = [];
+    if (filasCuotas.length > 0 && filasMolestias.length >= 4) {
+      visibles = [...filasMolestias.slice(0, 3), ...filasCuotas.slice(0, 2)];
+    } else {
+      visibles = [...filasMolestias, ...filasCuotas].slice(0, 5);
+    }
+
+    return { totalPendientes: total, filasVisibles: visibles };
+  }, [listaMolestias, listaCuotasVencidas]);
+
+  const tieneMasDeCinco = totalPendientes > 5;
 
   if (totalPendientes === 0) {
     return (
       <section
-        aria-labelledby="para-revisar-hoy-titulo"
+        aria-labelledby="hoy-t"
         data-testid="para-revisar-hoy-container"
-        className={cn("rounded-2xl border border-border bg-card p-5 space-y-4", className)}
+        className={cn(
+          "rounded-xl border border-border bg-card flex flex-col overflow-hidden",
+          className
+        )}
       >
-        <div className="flex items-center justify-between">
-          <h2 id="para-revisar-hoy-titulo" className="text-base font-semibold tracking-tight text-foreground">
-            Para revisar hoy
-          </h2>
-          <span className="text-xs font-mono text-muted-foreground tabular-nums">0 pendientes</span>
+        <div className="flex items-center justify-between p-3.5 px-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
+              Para revisar hoy
+            </h2>
+            <span
+              data-testid="para-revisar-hoy-badge-count"
+              className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground"
+            >
+              0
+            </span>
+          </div>
+          <span className="text-xs text-muted-foreground">0 pendientes · Ordenado por prioridad</span>
         </div>
         <EmptyState
           data-testid="para-revisar-hoy-empty"
           title="Nada urgente por hoy."
           description="No hay molestias activas ni cobros vencidos que requieran tu atención inmediata."
-          className="py-10"
+          className="py-8"
         />
       </section>
     );
@@ -123,107 +224,104 @@ export function ParaRevisarHoy({
 
   return (
     <section
-      aria-labelledby="para-revisar-hoy-titulo"
+      aria-labelledby="hoy-t"
       data-testid="para-revisar-hoy-container"
-      className={cn("rounded-2xl border border-border bg-card p-5 space-y-4", className)}
+      className={cn(
+        "rounded-xl border border-border bg-card flex flex-col overflow-hidden",
+        className
+      )}
     >
-      <div className="flex items-center justify-between border-b border-border/60 pb-3">
+      <div className="flex items-center justify-between p-3.5 px-4 border-b border-border">
         <div className="flex items-center gap-2">
-          <h2 id="para-revisar-hoy-titulo" className="text-base font-semibold tracking-tight text-foreground">
+          <h2 id="hoy-t" className="text-[15px] font-semibold text-foreground m-0">
             Para revisar hoy
           </h2>
           <span
             data-testid="para-revisar-hoy-badge-count"
-            className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary font-mono tabular-nums"
+            className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 text-xs font-semibold rounded-full bg-secondary text-secondary-foreground"
           >
             {totalPendientes}
           </span>
         </div>
-        <span className="text-xs text-muted-foreground">Priorizado por urgencia clínica y cobros</span>
+        <span className="text-xs text-muted-foreground">Ordenado por prioridad</span>
       </div>
 
-      <div data-testid="para-revisar-hoy-list" className="space-y-2.5">
-        {/* 1. Alertas de molestia activas (ordenadas por severidad clínica) */}
-        {listaMolestias.map((m) => {
-          const nivel = nivelDesdeEva(m.eva);
-          const badgeText = nivel === "alto" ? "Alto" : nivel === "medio" ? "Moderado" : "Leve";
-          const badgeVariant = nivel === "alto" ? "destructive" : nivel === "medio" ? "warning" : "info";
+      <div data-testid="para-revisar-hoy-list" className="flex flex-col divide-y divide-border/60">
+        {filasVisibles.map((item) => {
+          const badgeClass =
+            item.badgeTono === "danger"
+              ? "bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+              : item.badgeTono === "warning"
+              ? "bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+              : "bg-[#F4F4F5] text-[#3F3F46] border border-[#E4E4E7] dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700";
+
+          const testId =
+            item.tipo === "molestia"
+              ? "revisar-item-molestia"
+              : "revisar-item-cuota";
+
+          const handleClick = () => {
+            if (item.tipo === "cuota" && onGestionarCobro) {
+              onGestionarCobro(item.alumnoId);
+            } else if (onSelectAlumno) {
+              onSelectAlumno(item.alumnoId);
+            }
+          };
 
           return (
-            <div
-              key={m.id}
-              data-testid="revisar-item-molestia"
-              onClick={() => onSelectAlumno?.(m.alumnoId)}
-              className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/80 bg-background/60 p-3.5 hover:bg-muted/40 hover:border-border transition-colors cursor-pointer"
+            <button
+              key={item.id}
+              type="button"
+              data-testid={testId}
+              onClick={handleClick}
+              className="flex items-center gap-3 w-full px-4 py-3 text-left cursor-pointer min-h-14 bg-card hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {m.alumnoNombre}
-                  </span>
-                  <StatusBadge variant={badgeVariant} size="sm" dot>
-                    {badgeText}
-                  </StatusBadge>
-                  <span className="text-xs font-mono font-medium text-muted-foreground tabular-nums">
-                    {`EVA ${m.eva}/10`}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/90">{m.zonaArticular}</span>
-                  {" · "}
-                  <span>{m.ejercicioNombre}</span>
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                {m.fecha && (
-                  <span className="text-[11px] text-muted-foreground/80 font-mono">
-                    {m.fecha}
-                  </span>
+              {/* Badge semántico suave con vocabulario exacto P07 */}
+              <span
+                className={cn(
+                  "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap",
+                  badgeClass
                 )}
-                <span className="text-xs font-medium text-primary hover:underline">
-                  Ver ficha →
+              >
+                {item.badgeTexto}
+              </span>
+
+              {/* Contenido principal: nombre en font-medium + detalle explicativo 13px */}
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium text-foreground truncate">
+                  {item.alumnoNombre}
+                </span>
+                <span className="text-[13px] text-muted-foreground truncate">
+                  {item.detalle}
                 </span>
               </div>
-            </div>
+
+              {/* Tiempo relativo 12 px */}
+              <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
+                {item.tiempo}
+              </span>
+
+              {/* Chevron minimalista (sin links azules ni EVA en mono suelto) */}
+              <ChevronRight
+                className="h-4 w-4 text-muted-foreground shrink-0"
+                aria-hidden="true"
+              />
+            </button>
           );
         })}
-
-        {/* 2. Cuotas vencidas prioritarias que superen el umbral */}
-        {listaCuotasVencidas.map((c) => (
-          <div
-            key={c.contratacionId}
-            data-testid="revisar-item-cuota"
-            onClick={() => onSelectAlumno?.(c.alumnoId)}
-            className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/80 bg-background/60 p-3.5 hover:bg-muted/40 hover:border-border transition-colors cursor-pointer"
-          >
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                  {c.alumnoNombre}
-                </span>
-                <StatusBadge variant="warning" size="sm" dot>
-                  Vencido
-                </StatusBadge>
-                <span className="text-xs font-mono font-bold text-foreground tabular-nums">
-                  {`$${c.monto.toLocaleString("es-AR")}`}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground/90">{c.servicioNombre}</span>
-                {" · Venció el "}
-                <span className="font-mono">{c.fechaVencimiento}</span>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-center">
-              <span className="text-xs font-medium text-primary hover:underline">
-                Gestionar cobro →
-              </span>
-            </div>
-          </div>
-        ))}
       </div>
+
+      {tieneMasDeCinco && (
+        <div className="p-3 px-4 text-center border-t border-border">
+          <button
+            type="button"
+            onClick={onVerTodasPendientes}
+            className="text-[13px] text-muted-foreground hover:text-foreground hover:underline font-medium cursor-pointer"
+          >
+            Ver las {totalPendientes} pendientes
+          </button>
+        </div>
+      )}
     </section>
   );
 }

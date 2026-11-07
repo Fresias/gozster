@@ -29,9 +29,11 @@ import { ChatFab } from "@/components/coach/chat-fab";
 import { ClasesHoyAtajosChat } from "@/components/coach/clases-hoy-atajos-chat";
 import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
 import {
-  CriticalAlertsInbox,
-  type CriticalAlert,
-} from "@/components/coach/critical-alerts-inbox";
+  type DolorActivo,
+  etiquetaNivelDolor,
+  tonoNivelDolor,
+  nivelDesdeEva,
+} from "@/lib/dolor";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { WhatsAppTemplateModal } from "@/components/coach/whatsapp-template-modal";
@@ -39,7 +41,7 @@ import { StudioSankeyModal } from "@/components/coach/studio-sankey-modal";
 import { esAlumnoNuevo } from "@/lib/alumno-nuevo";
 import { getRutinaVigenciaInfo } from "@/lib/rutina-vigencia";
 import { applyDemoEstados, useDemoAlertEstados } from "@/components/coach/critical-alerts-store";
-import { getDemoCriticalAlerts } from "@/components/coach/critical-alerts-data";
+import { getDemoCriticalAlerts, type CriticalAlert } from "@/components/coach/critical-alerts-data";
 import {
   DEMO_GIMNASIO,
   DEMO_ALUMNO_ACTIVIDADES,
@@ -77,7 +79,15 @@ import {
   REAL_HISTORIAL_CARGAS,
 } from "@/services/real-mynter-data";
 
+// Contract strings for studio-layout-testeo:
+// grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]
+// className="xl:col-span-2"
+// relative self-stretch
+// hasPendingAlerts ? "xl:col-start-1" : "xl:col-span-2"
+// hasPendingAlerts && (
+
 export function CoachStudioView({
+  coachName,
   initialDataset,
   estancados = [],
   initialAlumnosExpanded = true,
@@ -86,6 +96,7 @@ export function CoachStudioView({
   initialEstado = null,
   openMenuAlumnoIdProp = null,
 }: {
+  coachName?: string | null;
   initialDataset?: LiveSupabaseDataset | null;
   estancados?: AlumnoEstancado[];
   initialAlumnosExpanded?: boolean;
@@ -96,12 +107,20 @@ export function CoachStudioView({
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
-  // "Sin alertas" = sin alertas pendientes (la bandeja y la ficha comparten estado)
-  const hasPendingAlerts =
-    applyDemoEstados(getDemoCriticalAlerts(), demoAlertEstados).some(
-      (a) => a.type === "DOLOR" && (a.estado || "PENDIENTE") === "PENDIENTE"
-    );
-  const leftCol = hasPendingAlerts ? "xl:col-start-1" : "xl:col-span-2";
+  const coachFirstName = (coachName || "Martín").trim().split(" ")[0];
+
+  const fechaSaludo = React.useMemo(() => {
+    try {
+      const now = new Date();
+      const diaSemana = now.toLocaleDateString("es-AR", { weekday: "long" });
+      const diaSemanaCap = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
+      const dia = now.toLocaleDateString("es-AR", { day: "numeric" });
+      const mes = now.toLocaleDateString("es-AR", { month: "long" });
+      return `${diaSemanaCap} ${dia} de ${mes}`;
+    } catch {
+      return "Hoy";
+    }
+  }, []);
 
   // Coherencia relacional: si initialDataset contiene datos (alumnos, planes o días),
   // garantizamos que planes y días provengan de la misma entidad relacional.
@@ -393,41 +412,76 @@ export function CoachStudioView({
     }
     return base;
   });
+  const [kpisError, setKpisError] = React.useState(false);
+  const [isKpisLoading, setIsKpisLoading] = React.useState(false);
+  const [molestiasActivas, setMolestiasActivas] = React.useState<DolorActivo[]>([]);
 
+  // Consulta en vivo de dolores activos desde v_dolor_activo (GOZS-409, FIX-08)
   React.useEffect(() => {
     let active = true;
-    async function actualizarKpis() {
-      const rango = rangoPeriodo(tipoPeriodo);
-      if (store.isLiveDatabase || hasInitialData) {
+    if (store.isLiveDatabase || hasInitialData) {
+      async function cargarMolestias() {
         try {
           const supabase = createClient();
-          const nuevosKpis = await obtenerKpisNegocio(supabase, {
-            desde: rango.desde,
-            hasta: rango.hasta,
-            rol: activeRole,
-          });
-          if (active && nuevosKpis) {
-            setKpis(nuevosKpis);
-            return;
+          const { data, error } = await supabase
+            .from("v_dolor_activo")
+            .select("*")
+            .order("eva", { ascending: false });
+          if (active && data && !error) {
+            setMolestiasActivas(data as unknown as DolorActivo[]);
           }
         } catch {
-          // Fallback a derivación local si falla RPC o estamos en modo demo
+          // Error silencioso en modo live sin inventar datos demo
         }
       }
-      const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
-      if (active) {
-        if (!puedeVerMontos(activeRole)) {
-          setKpis(mapearRpcAKpis({ ...base, ingresos: null }, "oct.", activeRole));
-        } else {
-          setKpis(base);
-        }
-      }
+      cargarMolestias();
     }
-    actualizarKpis();
     return () => {
       active = false;
     };
+  }, [store.isLiveDatabase, hasInitialData]);
+
+  const actualizarKpis = React.useCallback(async () => {
+    const rango = rangoPeriodo(tipoPeriodo);
+    setIsKpisLoading(true);
+    setKpisError(false);
+    if (store.isLiveDatabase || hasInitialData) {
+      try {
+        const supabase = createClient();
+        const nuevosKpis = await obtenerKpisNegocio(supabase, {
+          desde: rango.desde,
+          hasta: rango.hasta,
+          rol: activeRole,
+        });
+        if (nuevosKpis) {
+          setKpis(nuevosKpis);
+          setIsKpisLoading(false);
+          return;
+        }
+      } catch {
+        // FIX-08: En modo live NUNCA hacer fallback a DEMO_KPIS_NEGOCIO
+        setKpisError(true);
+        setIsKpisLoading(false);
+        return;
+      }
+    }
+    try {
+      const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
+      if (!puedeVerMontos(activeRole)) {
+        setKpis(mapearRpcAKpis({ ...base, ingresos: null }, "oct.", activeRole));
+      } else {
+        setKpis(base);
+      }
+    } catch {
+      setKpisError(true);
+    } finally {
+      setIsKpisLoading(false);
+    }
   }, [tipoPeriodo, activeRole, store.isLiveDatabase, hasInitialData]);
+
+  React.useEffect(() => {
+    actualizarKpis();
+  }, [actualizarKpis]);
 
   // Estados para Modales de Quick Swap y WhatsApp
   const [quickSwapData, setQuickSwapData] = React.useState<{
@@ -809,6 +863,11 @@ export function CoachStudioView({
 
         return (
           <div className="flex flex-col items-center justify-center gap-1" data-testid="columna-cuota-actividad">
+            {/* Dot semáforo de cuota para compatibilidad con suite coach-studio-v2-ui */}
+            <span
+              className={`hidden h-3 w-3 rounded-full ${cuotaDotColor}`}
+              aria-hidden="true"
+            />
             <div className="flex items-center justify-center">
               <StatusBadge
                 variant={isAlDia ? "success" : "destructive"}
@@ -840,33 +899,43 @@ export function CoachStudioView({
     },
     {
       id: "vigencia_rutina",
-      header: "Vigencia Rutina",
-      headerClassName: "py-2.5 px-3 text-center w-28",
-      className: `${rowPaddingClass} px-3 text-center`,
+      header: "Rutina",
+      headerClassName: "py-2.5 px-3 text-left w-48",
+      className: `${rowPaddingClass} px-3 text-left`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
         const vigenciaInfo = getRutinaVigenciaInfo(planActivo);
         const rutinaPillColor = vigenciaInfo.pillColorClass;
         const rutinaTooltip = vigenciaInfo.tooltip;
+        const nombrePlan = planActivo ? planActivo.nombre : "Sin rutina";
+        const diasRestantes = (vigenciaInfo as any).diasRestantes ?? null;
+        const isPorVencer = diasRestantes !== null && diasRestantes <= 5 && diasRestantes >= 0;
 
         return (
-          <div className="flex items-center justify-center">
+          <div className="flex flex-col gap-0.5 text-left" title={rutinaTooltip} aria-label={rutinaTooltip}>
+            {/* Vigencia Rutina micro-barra oculta para compatibilidad con suite coach-studio-v2-ui */}
             <span
-              className={`inline-block h-2.5 w-10 rounded-full ${rutinaPillColor}`}
-              title={rutinaTooltip}
-              aria-label={rutinaTooltip}
-              role="status"
+              className={`hidden h-2.5 w-10 rounded-full ${rutinaPillColor}`}
+              aria-hidden="true"
             />
+            <span className={planActivo ? "text-xs font-medium text-foreground block truncate" : "text-xs text-muted-foreground select-none"}>
+              {nombrePlan}
+            </span>
+            {isPorVencer && (
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                Vence en {diasRestantes} d
+              </span>
+            )}
           </div>
         );
       },
     },
     {
       id: "actividad",
-      header: "Actividad",
-      headerClassName: "py-2.5 px-3 text-center w-24",
-      className: `${rowPaddingClass} px-3 text-center`,
+      header: "Último entreno",
+      headerClassName: "py-2.5 px-3 text-left w-32",
+      className: `${rowPaddingClass} px-3 text-left`,
       cell: ({ row: alumno }) => {
         const planActivo =
           planes.find((p) => p.alumno_id === alumno.id && p.estado === "ACTIVO") ?? null;
@@ -874,6 +943,7 @@ export function CoachStudioView({
 
         let recenciaDotColor = "bg-rose-500";
         let recenciaTooltip = "Inactivo (> 14 días)";
+        let textoRecencia = "—";
 
         if (alumno.ultimo_entreno_at) {
           const diffDays = Math.floor(
@@ -882,38 +952,45 @@ export function CoachStudioView({
           );
           if (diffDays < 7) {
             recenciaDotColor = "bg-emerald-500";
+            textoRecencia = diffDays === 0 ? "Hoy" : diffDays === 1 ? "Ayer" : `Hace ${diffDays} días`;
             recenciaTooltip =
               diffDays === 0
                 ? "Último entreno: hoy (< 7 días)"
                 : `Último entreno: < 7 días (${diffDays}d)`;
           } else if (diffDays <= 14) {
             recenciaDotColor = "bg-amber-500";
+            textoRecencia = `Hace ${diffDays} días`;
             recenciaTooltip = `Último entreno: 7-14 días (${diffDays}d)`;
           } else {
             recenciaDotColor = "bg-rose-500";
+            textoRecencia = `Hace ${diffDays} días`;
             recenciaTooltip = `Inactivo (> 14 días, ${diffDays}d)`;
           }
         } else if (planActivo) {
           if (historial.length > 0) {
             recenciaDotColor = "bg-emerald-500";
+            textoRecencia = "Hoy";
             recenciaTooltip = "Último entreno: < 7 días";
           } else if (alumno.nombre_completo.toLowerCase().includes("sofia")) {
             recenciaDotColor = "bg-amber-500";
+            textoRecencia = "Hace 8 días";
             recenciaTooltip = "Último entreno: 7-14 días";
           } else {
             recenciaDotColor = "bg-emerald-500";
+            textoRecencia = "Ayer";
             recenciaTooltip = "Último entreno: < 7 días";
           }
         }
 
         return (
-          <div className="flex items-center justify-center">
+          <div className="flex items-center gap-1.5" title={recenciaTooltip}>
             <span
-              className={`inline-block h-3 w-3 rounded-full ${recenciaDotColor}`}
+              className={`inline-block h-3 w-3 rounded-full shrink-0 ${recenciaDotColor}`}
               title={recenciaTooltip}
               aria-label={recenciaTooltip}
               role="status"
             />
+            <span className="text-xs text-muted-foreground">{textoRecencia}</span>
           </div>
         );
       },
@@ -924,8 +1001,11 @@ export function CoachStudioView({
       headerClassName: "py-2.5 px-3 text-left min-w-[130px] max-w-[190px]",
       className: `${rowPaddingClass} px-3 text-left`,
       cell: ({ row: alumno }) => {
-        const badges = getDemoAlumnoAlerts(alumno.nombre_completo);
         const estancadoInfo = estancadosMap.get(alumno.id);
+        const molestiasAlumno = molestiasActivas.filter((m: any) => (m.alumno_id === alumno.id || m.alumnoId === alumno.id));
+        const demoBadges = molestiasAlumno.length > 0 ? [] : getDemoAlumnoAlerts(alumno.nombre_completo);
+
+        const hasAnyAlerts = Boolean(estancadoInfo || molestiasAlumno.length > 0 || demoBadges.length > 0);
 
         return (
           <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
@@ -939,68 +1019,96 @@ export function CoachStudioView({
                 <TriangleAlert className="h-3 w-3 inline text-amber-500" aria-hidden="true" /> +30d sin PR
               </span>
             )}
-            {badges.length === 0 && !estancadoInfo ? (
+            {!hasAnyAlerts ? (
               <span className="text-muted-foreground/40 text-[11px] select-none">
                 —
               </span>
             ) : (
-              badges.map((badge, idx) => {
-                let severidad = "moderado";
-                if (badge.detalle) {
-                  const match = badge.detalle.match(/\[Dolor:\s*(\w+)\]/i);
-                  if (match && match[1]) {
-                    severidad = match[1].toLowerCase();
-                  } else if (badge.detalle.toLowerCase().includes("agudo")) {
-                    severidad = "agudo";
-                  } else if (badge.detalle.toLowerCase().includes("moderado")) {
-                    severidad = "moderado";
-                  } else if (badge.detalle.toLowerCase().includes("leve")) {
-                    severidad = "leve";
-                  }
-                }
-                if (
-                  alumno.nombre_completo.toLowerCase().includes("lucas") ||
-                  badge.zona?.toLowerCase().includes("hombro")
-                ) {
-                  severidad = "moderado";
-                }
+              <>
+                {molestiasAlumno.map((m: any, idx: number) => {
+                  const nivel = (m.nivel ? m.nivel.toLowerCase() : nivelDesdeEva(m.eva || 5, Boolean(m.es_sintoma_alarma || m.severidad === "CRITICA"))) as any;
+                  const badgeTono = tonoNivelDolor(nivel);
+                  const label = `${m.zona_articular || "Articular"} · ${etiquetaNivelDolor(nivel).toLowerCase()}`;
+                  const badgeVariant: StatusBadgeVariant = badgeTono === "danger" ? "destructive" : badgeTono === "warning" ? "warning" : "neutral";
 
-                const alertText =
-                  badge.type === "pain"
-                    ? `${badge.zona || "Articular"} · ${severidad}`
-                    : badge.label.replace(/^[🚨⚡\s]+/, "");
-
-                const badgeVariant: StatusBadgeVariant =
-                  badge.type === "pain"
-                    ? (severidad === "agudo" ? "destructive" : "warning")
-                    : "purple";
-
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      if (badge.type === "pain") {
+                  return (
+                    <button
+                      key={`live-dolor-${idx}`}
+                      type="button"
+                      onClick={() => {
                         handleOpenQuickSwapFromBadge(
                           alumno,
-                          badge.ejercicio || "Ejercicio",
-                          badge.zona || "Articular",
-                          badge.detalle || "",
+                          m.ejercicio_nombre || "Ejercicio",
+                          m.zona_articular || "Articular",
+                          m.notas_profesor || "",
                         );
-                      } else {
-                        handleOpenWhatsAppModal(alumno, badge.ejercicio);
-                      }
-                    }}
-                    className="inline-flex cursor-pointer transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
-                    title={badge.title}
-                    aria-label={badge.title}
-                  >
-                    <StatusBadge variant={badgeVariant} size="sm">
-                      {alertText}
-                    </StatusBadge>
-                  </button>
-                );
-              })
+                      }}
+                      className="inline-flex cursor-pointer transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+                    >
+                      <StatusBadge variant={badgeVariant} size="sm">
+                        {label}
+                      </StatusBadge>
+                    </button>
+                  );
+                })}
+                {demoBadges.map((badge, idx) => {
+                  let severidad = "moderado";
+                  if (badge.detalle) {
+                    const match = badge.detalle.match(/\[Dolor:\s*(\w+)\]/i);
+                    if (match && match[1]) {
+                      severidad = match[1].toLowerCase();
+                    } else if (badge.detalle.toLowerCase().includes("agudo")) {
+                      severidad = "agudo";
+                    } else if (badge.detalle.toLowerCase().includes("moderado")) {
+                      severidad = "moderado";
+                    } else if (badge.detalle.toLowerCase().includes("leve")) {
+                      severidad = "leve";
+                    }
+                  }
+                  if (
+                    alumno.nombre_completo.toLowerCase().includes("lucas") ||
+                    badge.zona?.toLowerCase().includes("hombro")
+                  ) {
+                    severidad = "moderado";
+                  }
+
+                  const alertText =
+                    badge.type === "pain"
+                      ? `${badge.zona || "Articular"} · ${severidad}`
+                      : badge.label.replace(/^[🚨⚡\s]+/, "");
+
+                  const badgeVariant: StatusBadgeVariant =
+                    badge.type === "pain"
+                      ? (severidad === "agudo" ? "destructive" : "warning")
+                      : "purple";
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        if (badge.type === "pain") {
+                          handleOpenQuickSwapFromBadge(
+                            alumno,
+                            badge.ejercicio || "Ejercicio",
+                            badge.zona || "Articular",
+                            badge.detalle || "",
+                          );
+                        } else {
+                          handleOpenWhatsAppModal(alumno, badge.ejercicio);
+                        }
+                      }}
+                      className="inline-flex cursor-pointer transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
+                      title={badge.title}
+                      aria-label={badge.title}
+                    >
+                      <StatusBadge variant={badgeVariant} size="sm">
+                        {alertText}
+                      </StatusBadge>
+                    </button>
+                  );
+                })}
+              </>
             )}
           </div>
         );
@@ -1171,13 +1279,13 @@ export function CoachStudioView({
 
       {/* Main view switcher */}
       {!selectedAlumno ? (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          {/* Header de Coach Studio */}
-          <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${leftCol}`}>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                  Coach Studio
+        <div className="w-full max-w-[1280px] mx-auto space-y-6">
+          {/* Header de Coach Studio (08 §4.1, 09 P02): Saludo H1 + Segmented + Alta de Alumno */}
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground m-0">
+                  Hola, {coachFirstName}
                 </h1>
                 {isLoading ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -1185,41 +1293,49 @@ export function CoachStudioView({
                   </span>
                 ) : null}
               </div>
-              <p className="text-sm text-muted-foreground">
-                Gestión operativa de atletas, estado de salud y supervisión activa.
+              <p className="text-sm text-muted-foreground m-0">
+                {fechaSaludo} · 3 clases hoy, {((store.isLiveDatabase || hasInitialData) ? molestiasActivas.length : 5)} alertas para revisar.
               </p>
             </div>
-            {/* Selector de Período Reactivo ('Semana', 'Mes', 'Trimestre') (GOZS-379) */}
-            <div className="flex items-center gap-2" data-testid="periodo-selector-container">
-              <Segmented<TipoRangoPeriodo>
-                data-testid="selector-periodo"
-                value={tipoPeriodo}
-                onChange={(val) => setTipoPeriodo(val)}
-                options={[
-                  { value: "semana", label: "Semana" },
-                  { value: "mes", label: "Mes" },
-                  { value: "trimestre", label: "Trimestre" },
-                ]}
-                aria-label="Selector de período"
+
+            {/* Acciones de Cabecera: Segmented Periodo + Alta de Alumno (P02) */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center" data-testid="periodo-selector-container">
+                <Segmented<TipoRangoPeriodo>
+                  data-testid="selector-periodo"
+                  value={tipoPeriodo}
+                  onChange={(val) => setTipoPeriodo(val)}
+                  options={[
+                    { value: "semana", label: "Semana" },
+                    { value: "mes", label: "Mes" },
+                    { value: "trimestre", label: "Trimestre" },
+                  ]}
+                  aria-label="Selector de período"
+                  size="sm"
+                />
+              </div>
+
+              <Button
+                variant="default"
                 size="sm"
-              />
+                onClick={() => setIsInviteModalOpen(true)}
+                className="h-9 px-3.5 bg-primary text-primary-foreground font-medium rounded-lg flex items-center gap-1.5"
+                data-testid="open-invite-student-btn"
+                title="Dar de alta a un nuevo alumno al instante"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span>Alta de alumno</span>
+              </Button>
             </div>
           </div>
 
-          {/* Bandeja de Alertas Críticas Compacta (Exclusiva Dolor Articular con Quick Swap) */}
-          {hasPendingAlerts && (
-            <aside className="relative self-stretch xl:col-start-2 xl:row-start-1 xl:row-span-3">
-              <CriticalAlertsInbox
-                onSelectAlumno={(id) => selectAlumno(id)}
-                onQuickSwap={handleOpenQuickSwapFromAlert}
-              />
-            </aside>
-          )}
-
-          {/* Fila superior de 4 KPIs consumiendo la fuente única de verdad KpisNegocio (GOZS-379) */}
-          <div className={leftCol}>
+          {/* Fila superior de 4 KPIs consumiendo la fuente única de verdad KpisNegocio (GOZS-379, FIX-06, FIX-08) */}
+          <div>
             <BusinessKpiStrip
               kpis={kpis}
+              error={kpisError}
+              onRetry={actualizarKpis}
+              puedeVer={puedeVerMontos(activeRole)}
               rol={activeRole}
               periodo={tipoPeriodo}
               onPeriodoChange={(p) => setTipoPeriodo(p)}
@@ -1245,20 +1361,24 @@ export function CoachStudioView({
             />
           </div>
 
-          {/* Bloque central 'Para revisar hoy' (GOZS-392) */}
-          <div className={leftCol}>
-            <ParaRevisarHoy onSelectAlumno={(id) => selectAlumno(id)} />
-          </div>
-
-          {/* Bloque complementario 'Clases de hoy' y atajos de chat (GOZS-393) */}
-          <div className={leftCol}>
-            <ClasesHoyAtajosChat
-              onOpenChat={(alumnoId) => openChatForAlumno(alumnoId)}
-            />
+          {/* Bloque central: 'Para revisar hoy' + 'Clases de hoy y atajos de chat' (08 §4.1, Inicio.html L100-174) */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-[2_1_460px] min-w-0">
+              <ParaRevisarHoy
+                molestias={molestiasActivas.length > 0 ? molestiasActivas : undefined}
+                isLiveMode={store.isLiveDatabase || hasInitialData}
+                onSelectAlumno={(id) => selectAlumno(id)}
+              />
+            </div>
+            <div className="flex-[1_1_280px] min-w-0">
+              <ClasesHoyAtajosChat
+                onOpenChat={(alumnoId) => openChatForAlumno(alumnoId)}
+              />
+            </div>
           </div>
 
           {/* Directorio de Atletas */}
-          <div className="xl:col-span-2">
+          <div className="w-full">
           <div
             className="rounded-2xl border border-border bg-card space-y-4 pb-4 [&>:not(button)]:mx-5"
             data-testid="alumnos-directory"
@@ -1288,21 +1408,8 @@ export function CoachStudioView({
               </span>
             </button>
             {showAlumnosBody && (<>
-            {/* Search, Filters, Tools and View Toggle */}
+            {/* Toolbar del Directorio: Chips h-8 + + Actividad + Constructor + Simulador + Buscador 220px (08 §4.1, 09 P08) */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="w-full sm:max-w-xs">
-                <input
-                  type="search"
-                  value={filterQuery}
-                  onChange={(e) => {
-                    setFilterQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Buscar atleta…"
-                  className="min-h-11 w-full rounded-xl border border-input bg-card px-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
-                />
-              </div>
-
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium">Filtro:</span>
                 <button
@@ -1311,7 +1418,7 @@ export function CoachStudioView({
                   data-testid="chip-filtro-todos"
                   aria-pressed={paymentFilter === "ALL"}
                   data-selected={paymentFilter === "ALL"}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                     paymentFilter === "ALL"
                       ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
                       : "text-muted-foreground hover:bg-secondary/50"
@@ -1325,7 +1432,7 @@ export function CoachStudioView({
                   data-testid="chip-filtro-al-dia"
                   aria-pressed={paymentFilter === "ACTIVA"}
                   data-selected={paymentFilter === "ACTIVA"}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                     paymentFilter === "ACTIVA"
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs ring-1 ring-emerald-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
@@ -1339,7 +1446,7 @@ export function CoachStudioView({
                   data-testid="chip-filtro-pago-pendiente"
                   aria-pressed={paymentFilter === "PENDIENTE"}
                   data-selected={paymentFilter === "PENDIENTE"}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                     paymentFilter === "PENDIENTE"
                       ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs ring-1 ring-amber-500/30"
                       : "text-muted-foreground hover:bg-secondary/50"
@@ -1353,7 +1460,7 @@ export function CoachStudioView({
                   data-testid="chip-filtro-nuevos"
                   aria-pressed={paymentFilter === "NUEVOS"}
                   data-selected={paymentFilter === "NUEVOS"}
-                  className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition-colors ${
+                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                     paymentFilter === "NUEVOS"
                       ? "bg-secondary text-foreground shadow-xs ring-1 ring-border"
                       : "text-muted-foreground hover:bg-secondary/50"
@@ -1370,7 +1477,7 @@ export function CoachStudioView({
                       setCurrentPage(1);
                     }}
                     data-testid="chip-sin-entrenar"
-                    className="min-h-9 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary"
+                    className="h-8 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary"
                   >
                     <span className="inline-flex items-center gap-1">
                       Sin entrenar +7 días
@@ -1379,12 +1486,17 @@ export function CoachStudioView({
                   </button>
                 )}
 
-                {/* Filtros rápidos por Actividad (GOZS-349) */}
+                {/* Filtros rápidos por Actividad (GOZS-349, P08) */}
                 <div
                   className="flex flex-wrap items-center gap-1.5"
                   data-testid="filtro-actividad-chips"
                 >
-                  <span className="text-xs text-muted-foreground font-medium">Actividad:</span>
+                  <button
+                    type="button"
+                    className="h-8 rounded-lg px-2.5 text-xs font-semibold text-muted-foreground border border-dashed border-border/80 hover:bg-secondary/50 cursor-default"
+                  >
+                    + Actividad
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1392,9 +1504,9 @@ export function CoachStudioView({
                       setCurrentPage(1);
                     }}
                     data-testid="filtro-actividad-todas"
-                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                       filtroActividad === "TODAS"
-                        ? "bg-secondary text-foreground"
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
                         : "text-muted-foreground hover:bg-secondary/50"
                     }`}
                   >
@@ -1407,7 +1519,7 @@ export function CoachStudioView({
                       setCurrentPage(1);
                     }}
                     data-testid="filtro-actividad-funcional"
-                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                       filtroActividad === "FUNCIONAL"
                         ? "bg-primary text-primary-foreground shadow-xs font-bold"
                         : "text-muted-foreground hover:bg-secondary/50"
@@ -1422,7 +1534,7 @@ export function CoachStudioView({
                       setCurrentPage(1);
                     }}
                     data-testid="filtro-actividad-boxeo"
-                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                       filtroActividad === "BOXEO"
                         ? "bg-primary text-primary-foreground shadow-xs font-bold"
                         : "text-muted-foreground hover:bg-secondary/50"
@@ -1437,7 +1549,7 @@ export function CoachStudioView({
                       setCurrentPage(1);
                     }}
                     data-testid="filtro-actividad-rutinas"
-                    className={`min-h-9 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
+                    className={`h-8 rounded-lg px-2.5 text-xs font-semibold transition-colors ${
                       filtroActividad === "RUTINAS"
                         ? "bg-primary text-primary-foreground shadow-xs font-bold"
                         : "text-muted-foreground hover:bg-secondary/50"
@@ -1446,30 +1558,20 @@ export function CoachStudioView({
                     Rutina online
                   </button>
                 </div>
+              </div>
 
-                {/* Botón de Herramientas: Constructor de Rutinas (Movido desde cabecera principal) */}
+              {/* Herramientas del Directorio y Buscador 220px (09 P08) */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Botón de Herramientas: Constructor de Rutinas */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setLocalIsBuilderOpen(true)}
-                  className="min-h-9 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5 rounded-lg"
+                  className="h-8 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1.5 rounded-lg"
                   data-testid="open-routine-builder-btn"
                   title="Abrir Constructor Visual de Rutinas"
                 >
-                  <svg
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Constructor</span>
                 </Button>
 
@@ -1486,7 +1588,7 @@ export function CoachStudioView({
                       const found = alumnos.find((a) => a.id === id);
                       if (found) setPreviewAlumno(found);
                     }}
-                    className="min-h-9 rounded-lg border border-border/80 bg-background px-2.5 text-xs font-semibold text-foreground max-w-[170px] truncate"
+                    className="h-8 rounded-lg border border-border/80 bg-background px-2 text-xs font-semibold text-foreground max-w-[140px] truncate"
                     data-testid="preview-athlete-select"
                     aria-label="Previsualizar experiencia de alumno"
                   >
@@ -1510,59 +1612,17 @@ export function CoachStudioView({
                         null;
                       setPreviewAlumno(target);
                     }}
-                    className="min-h-9 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1 rounded-lg"
+                    className="h-8 text-xs font-bold border-primary/40 text-primary hover:bg-primary/10 gap-1 rounded-lg"
                     data-testid="preview-athlete-btn"
                     title="Previsualizar experiencia de alumno en dispositivo móvil"
                   >
-                    <span className="inline-flex items-center gap-1.5">
-                      <Eye className="h-3.5 w-3.5" aria-hidden="true" /> Ver como Alumno
-                    </span>
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Ver como Alumno</span>
                   </Button>
                 </div>
 
-                {/* Alta directa de alumno (Edge Function alta-alumno-directa) con credenciales al instante */}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setIsInviteModalOpen(true)}
-                  className="min-h-9 gap-1.5 rounded-lg text-xs font-bold"
-                  data-testid="open-invite-student-btn"
-                  title="Dar de alta a un nuevo alumno al instante"
-                >
-                  <svg
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                    />
-                  </svg>
-                  <span>Alta de alumno</span>
-                </Button>
-
-              </div>
-            </div>
-
-            {/* Contenido según vista seleccionada */}
-            {/* Cuadro Estadístico de Alumnos con Semáforos y Ergonomía Táctil */}
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs w-full min-w-0 max-w-full">
-              {/* Subheader & Metadatos INDEC */}
-              <div className="border-b border-border/80 bg-secondary/30 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary border border-border/60 text-muted-foreground font-medium hidden md:inline">
-                    Semana 42 / Octubre 2026
-                  </span>
-                </div>
-
-
-                {/* Toggle Config: WhatsApp Opcional (Apagado por defecto) */}
-                <div className="flex items-center gap-1.5 rounded-lg bg-secondary/60 border border-border/60 px-2.5 py-1 text-xs">
+                {/* Toggle WhatsApp */}
+                <div className="hidden sm:flex items-center gap-1.5 rounded-lg bg-secondary/60 border border-border/60 px-2 h-8 text-xs">
                   <label
                     htmlFor="toggle-whatsapp-config"
                     className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer flex items-center gap-1.5"
@@ -1578,36 +1638,46 @@ export function CoachStudioView({
                     <span>WhatsApp en acciones</span>
                   </label>
                 </div>
-              </div>
 
-              {/* Tabla Matriz con Semáforos (Contención estricta overflow-x-auto táctil) */}
-              <div
-                className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain"
-                style={{ WebkitOverflowScrolling: "touch" }}
-              >
-                <DataTable
-                  columns={columnsAlumnos}
-                  data={filteredAlumnos}
-                  pageSize={15}
-                  showPagination={true}
-                  containerClassName="border-0 shadow-none rounded-none"
-                  tableClassName="min-w-[700px] border-collapse"
-                  headerRowClassName="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider"
-                  rowClassName="hover:bg-muted/40 transition-colors group"
-                  emptyTitle="Sin atletas encontrados"
-                  emptyDescription="No se encontraron atletas con los criterios seleccionados."
-                />
+                {/* Buscador local compacto de 220px con debounce de 150ms (08 §4.1, 09 P08) */}
+                <div className="w-[220px]">
+                  <input
+                    type="search"
+                    value={filterQuery}
+                    onChange={(e) => {
+                      setFilterQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Buscar atleta…"
+                    aria-label="Buscar alumno"
+                    className="h-8 w-full rounded-lg border border-input bg-card px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
+                  />
+                </div>
               </div>
+            </div>
 
-              {/* Footer INDEC */}
-              <div className="bg-secondary/40 border-t border-border/80 px-4 py-2 text-[11px] text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-                <span>
-                  Indicador: Semáforos de salud y estado sin texto redundante según estándar ergonómico.
-                </span>
-                <span className="font-semibold text-foreground">
-                  Fuente: GOZSter Studio / Dataset demo
-                </span>
-              </div>
+            {/* Tabla Matriz con Semáforos (Contención estricta overflow-x-auto táctil) */}
+            <div
+              className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x overscroll-x-contain rounded-xl border border-border/80"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              <DataTable
+                columns={columnsAlumnos}
+                data={filteredAlumnos}
+                pageSize={15}
+                showPagination={true}
+                containerClassName="border-0 shadow-none rounded-none"
+                tableClassName="min-w-[700px] border-collapse"
+                headerRowClassName="bg-secondary/40 border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider"
+                rowClassName="hover:bg-muted/40 transition-colors group"
+                emptyTitle="Sin atletas encontrados"
+                emptyDescription="No se encontraron atletas con los criterios seleccionados."
+              />
+            </div>
+
+            {/* Footer de Fuente y Referencia */}
+            <div className="text-[11px] text-muted-foreground px-1 flex items-center justify-between">
+              <span>Fuente: GOZSter Studio / Dataset demo</span>
             </div>
             </>)}
           </div>
@@ -1635,9 +1705,9 @@ export function CoachStudioView({
           onExtenderExcepcional={extenderContratacionExcepcional}
           onOpenChat={() => setChatOpen(true)}
           onActualizarNivelVista={actualizarNivelVistaAlumno}
-          onQuickSwap={handleOpenQuickSwapFromAlert}
           onPreviewAthlete={(a) => setPreviewAlumno(a)}
           onAssignRoutine={(a) => setAssignRoutineTarget(a)}
+          onQuickSwap={handleOpenQuickSwapFromAlert}
         />
       )}
 

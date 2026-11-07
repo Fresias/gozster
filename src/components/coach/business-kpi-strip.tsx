@@ -21,8 +21,12 @@ export interface BusinessKpiStripProps {
   /** Selector de período activo ('semana' | 'mes' | 'trimestre') */
   periodo?: TipoRangoPeriodo;
   onPeriodoChange?: (periodo: TipoRangoPeriodo) => void;
+  /** Callback para reintentar la carga en caso de error (FIX-06) */
+  onRetry?: () => void;
   /** Total de alumnos para el indicador "X de Y" */
   totalAlumnos?: number;
+  /** Control explícito de visibilidad de montos */
+  puedeVer?: boolean;
 }
 
 const pesos = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
@@ -67,14 +71,18 @@ export function BusinessKpiStrip({
   error: propError,
   rol,
   periodo = "mes",
+  onRetry,
   totalAlumnos,
+  puedeVer: propPuedeVer,
 }: BusinessKpiStripProps) {
   const error = propError;
   const kpis: KpisNegocio | KpisNegocioDatos = propKpis ?? DEMO_KPIS_NEGOCIO;
 
   const puedeVer =
-    puedeVerMontos(rol ?? (kpis.cobrado === null ? "ENTRENADOR" : "ADMIN")) &&
-    kpis.cobrado !== null;
+    propPuedeVer !== undefined
+      ? propPuedeVer
+      : puedeVerMontos(rol ?? (kpis.cobrado === null ? "ENTRENADOR" : "ADMIN")) &&
+        kpis.cobrado !== null;
 
   const sinEntrenarNombres = propSinEntrenarNombres;
   const sinEntrenarTotal =
@@ -194,7 +202,24 @@ export function BusinessKpiStrip({
           </span>
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">No se pudieron cargar los datos</p>
+          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+            <span>No se pudieron cargar los datos</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+                data-testid="kpi-retry-btn"
+                className="font-medium text-foreground underline cursor-pointer"
+              >
+                Reintentar
+              </button>
+            ) : (
+              <span>Reintentar</span>
+            )}
+          </p>
         ) : (
           <>
             {puedeVer && (
@@ -270,7 +295,24 @@ export function BusinessKpiStrip({
           {error ? "—" : displayActivos}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">No se pudieron cargar los datos</p>
+          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+            <span>No se pudieron cargar los datos</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+                data-testid="kpi-retry-btn"
+                className="font-medium text-foreground underline cursor-pointer"
+              >
+                Reintentar
+              </button>
+            ) : (
+              <span>Reintentar</span>
+            )}
+          </p>
         ) : (
           <p className="mt-1.5 text-[13px] text-muted-foreground">
             +{altas} altas · −{bajas} {bajas === 1 ? "baja" : "bajas"} este mes
@@ -288,7 +330,24 @@ export function BusinessKpiStrip({
           {error ? "—" : sinRutina}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">No se pudieron cargar los datos</p>
+          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+            <span>No se pudieron cargar los datos</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+                data-testid="kpi-retry-btn"
+                className="font-medium text-foreground underline cursor-pointer"
+              >
+                Reintentar
+              </button>
+            ) : (
+              <span>Reintentar</span>
+            )}
+          </p>
         ) : (
           <p className="mt-1.5 text-[13px] text-muted-foreground">
             {sinRutina > 0 ? (
@@ -325,7 +384,24 @@ export function BusinessKpiStrip({
           {error ? "—" : sinEntrenarTotal}
         </div>
         {error ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground">No se pudieron cargar los datos</p>
+          <p className="mt-1.5 text-[13px] text-muted-foreground flex items-center justify-between gap-1">
+            <span>No se pudieron cargar los datos</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetry();
+                }}
+                data-testid="kpi-retry-btn"
+                className="font-medium text-foreground underline cursor-pointer"
+              >
+                Reintentar
+              </button>
+            ) : (
+              <span>Reintentar</span>
+            )}
+          </p>
         ) : (
           <p className="mt-1.5 text-[13px] text-muted-foreground">Ver quiénes →</p>
         )}
