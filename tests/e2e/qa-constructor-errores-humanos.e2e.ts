@@ -218,7 +218,8 @@ async function abrirPlantilla(page: Page, nombre: string) {
   await page.getByRole("tab", { name: /Plantillas/ }).click();
   const item = items(page).filter({ hasText: nombre });
   await expect(item).toHaveCount(1);
-  await item.getByRole("button", { name: "Abrir" }).click();
+  await item.getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
   await expect(builder(page)).toBeVisible();
   await expect(nombrePlan(page)).toHaveValue(nombre);
 }
@@ -488,7 +489,8 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
     await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("tab", { name: /Plantillas/ }).click();
     await expect(items(page).first().locator("p.font-bold")).toHaveText(PELIGROSO);
-    await items(page).first().getByRole("button", { name: "Abrir" }).click();
+    await items(page).first().getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
     await expect(nombrePlan(page)).toHaveValue(PELIGROSO);
     await expect(builder(page).getByTestId("day-name-input")).toHaveValue(PELIGROSO);
     await expect(campoNotas(page).nth(0)).toHaveValue(PELIGROSO);
@@ -565,7 +567,8 @@ test.describe("GOZS-307: QA humano — errores humanos, inputs absurdos, red y m
       ctx.conSesiones.add(deAna.id);
       await arrancar(page, ctx);
       await page.getByRole("tab", { name: /De alumnos/ }).click();
-      await items(page).filter({ hasText: "Ana Pérez" }).getByRole("button", { name: "Abrir" }).click();
+      await items(page).filter({ hasText: "Ana Pérez" }).getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
       await cargar(page, 0, { series: "5" });
       const r = await guardar(page);
       expect(r.mensaje, "con sesiones, guardar en el lugar se rechaza con mensaje humano").toMatch(/sesiones registradas/);

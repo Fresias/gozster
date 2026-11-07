@@ -56,7 +56,8 @@ async function recorrido(page: Page, info: TestInfo) {
   await chequeoBug(page, info, "bug-cancelar-descarta-sin-avisar", pregunto,
     "cerrar el constructor con cambios sin guardar debería pedir confirmación; hoy los descarta en silencio");
   await expect(m).toBeHidden();
-  await page.getByTestId("rutina-item").filter({ hasText: "Ana Pérez" }).getByRole("button", { name: "Abrir" }).click();
+  await page.getByTestId("rutina-item").filter({ hasText: "Ana Pérez" }).getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
   await verificarDia(page, info, d1, "rondaB-cancelar");
 
   // Editar campos: reps 10 → 8-12 → 4x10, RPE 7.5/8.5 por teclado.

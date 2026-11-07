@@ -224,9 +224,9 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       const viewPath = path.resolve(__dirname, "../components/coach/coach-studio-view.tsx");
       const viewContent = fs.readFileSync(viewPath, "utf-8");
 
-      expect(viewContent).toContain("min-h-[48px]");
-      expect(viewContent).toContain("Atleta");
-      expect(viewContent).toContain("sticky left-0");
+      // Filas de 56 px (h-14, objetivo Inicio.html) ≥ 48 px táctiles
+      expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
+      expect(viewContent).toContain('header: "Alumno"');
       expect(viewContent).toContain("tabular-nums");
     });
   });

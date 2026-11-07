@@ -34,8 +34,10 @@ describe("GOZS-394: Coach Studio - Directorio de Alumnos: Toolbar, Filtros en UR
       expect(html).toContain("Al día");
       expect(html).toContain("Vencida");
 
-      // 2. Columna Alertas con texto semántico claro ('Hombro · moderado' para Lucas Giménez)
-      expect(html).toContain("Hombro · moderado");
+      // 2. Columna Alertas: con datos en vivo y sin molestias activas no se inventan alertas de demo;
+      //    la ausencia se comunica con texto accesible ("Sin alertas"), no con un punto de color.
+      expect(html).not.toContain("Hombro · moderado");
+      expect(html).toContain('aria-label="Sin alertas"');
 
       // 3. No existen puntos de color aislados ni dots huérfanos en la columna de Cuota
       // (la celda contiene StatusBadge semántico con borde y texto, erradicando dots aislados)
@@ -128,7 +130,7 @@ describe("GOZS-394: Coach Studio - Directorio de Alumnos: Toolbar, Filtros en UR
       const lucasId = dataset.alumnos[0]!.id;
       expect(html).toContain(`data-testid="btn-acciones-alumno-${lucasId}"`);
       expect(html).toContain('aria-haspopup="menu"');
-      expect(html).toContain("⋯");
+      expect(html).toContain('<span class="sr-only">Acciones</span>');
       expect(html).toContain(`Acciones para ${dataset.alumnos[0]!.nombre_completo}`);
 
       // Erradica botones de fila con ⚡ u horizontal overflow de 5 botones

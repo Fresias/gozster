@@ -266,7 +266,7 @@ test.describe("Stage 4 QA Suite: Auditoría E2E de Isla Salud, Cobros y Agenda (
 
     // 3. Apertura del panel / Sheet de Detalle de Clase al hacer clic
     // Seleccionar una clase programada que tiene alumnos inscriptos (ej. Funcional 18:00 del miércoles o clase con inscriptos)
-    const claseSeleccionada = bloquesClases.filter({ hasNotText: "0 anot." }).filter({ hasNotText: "Cancelada" }).first();
+    const claseSeleccionada = bloquesClases.filter({ hasNotText: "0 anotados" }).filter({ hasNotText: "Cancelada" }).first();
     await expect(claseSeleccionada).toBeVisible();
     await claseSeleccionada.click();
 

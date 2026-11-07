@@ -56,10 +56,10 @@ describe("GOZS-190 / GOZS-191 · Agenda de clases: tokens, cabecera y grilla hor
   });
 
   describe("Sección 4: Cabecera del calendario y navegación", () => {
-    it("contiene título de mes, semana con rango en fuente mono y atajos de teclado", () => {
+    it("contiene título de mes, 'Semana n · d al d de mes' y atajos de teclado", () => {
       expect(classAgendaSource).toContain("headerTitulo");
       expect(classAgendaSource).toContain("headerSubtitulo");
-      expect(classAgendaSource).toContain("font-mono tabular-nums");
+      expect(classAgendaSource).toContain("al ${diasSemana[6]?.numero} de ${mesLargo(mesL)}");
       expect(classAgendaSource).toContain("numeroSemanaIso");
 
       // Atajos de teclado T, D, S, M y flechas
@@ -76,19 +76,19 @@ describe("GOZS-190 / GOZS-191 · Agenda de clases: tokens, cabecera y grilla hor
       expect(classAgendaSource).toContain('data-testid="view-week-btn"');
       expect(classAgendaSource).toContain('data-testid="view-month-btn"');
       expect(classAgendaSource).toContain('data-testid="create-class-btn"');
-      expect(classAgendaSource).toContain('data-testid="demo-coach-badge"');
+      // Sin badge de coach demo en la cabecera (objetivo Agenda.html)
+      expect(classAgendaSource).not.toContain('data-testid="demo-coach-badge"');
     });
   });
 
   describe("Sección 5: Grilla horaria semanal y banda colapsada", () => {
     it("renderiza columnas grid-cols-[56px_repeat(7,1fr)] y altura de 56px por hora", () => {
       expect(classAgendaSource).toContain("grid-cols-[56px_repeat(7,1fr)]");
-      expect(classAgendaSource).toContain("h-[56px]");
+      expect(classAgendaSource).toContain("h-[72px]");
     });
 
-    it("resalta el día actual con pill azul bg-primary y fondo de columna bg-primary/5", () => {
-      expect(classAgendaSource).toContain("bg-primary text-primary-foreground");
-      expect(classAgendaSource).toContain("bg-primary/5");
+    it("resalta el día actual con el número en un círculo de color foreground (objetivo Agenda.html)", () => {
+      expect(classAgendaSource).toContain("rounded-full bg-foreground px-1 text-sm font-semibold text-background");
     });
 
     it("implementa banda colapsada de 36px para tramos de >= 3h sin clases", () => {
@@ -115,7 +115,8 @@ describe("GOZS-190 / GOZS-191 · Agenda de clases: tokens, cabecera y grilla hor
       expect(classAgendaSource).toContain("ocupados > capacidad");
       expect(classAgendaSource).toContain("finClaseMs < ahoraMs");
       expect(classAgendaSource).toContain('clase.estado === "CANCELADA"');
-      expect(classAgendaSource).toContain("ring-2 ring-primary ring-offset-1");
+      // Clase seleccionada en negro (objetivo Agenda.html)
+      expect(classAgendaSource).toContain('colorClasses = "bg-foreground text-background border-foreground"');
     });
 
     it("calcula solapes dividiendo columnas con detectarSolapes y elimina el emoji prohibido ⚡", () => {

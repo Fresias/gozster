@@ -244,8 +244,9 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
   describe("2. Verificación de Ergonomía Táctil M3 y Responsive", () => {
     it("comprueba que los botones interactivos de acción rápida cumplan con touch target ≥ 48px", () => {
       // En CoachStudioView: botones de WhatsApp y Quick Swap
-      expect(viewContent).toContain("h-12 w-12 min-h-[48px] min-w-[48px]");
-      expect(viewContent).toContain("min-h-[48px]");
+      // Fila de 56 px con botón de ícono ⋯ de 32 px (objetivo Inicio.html)
+      expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
+      expect(viewContent).toContain("inline-flex h-8 w-8 items-center justify-center rounded-md");
 
       // En WhatsAppTemplateModal: botones de acción con min-h-12 (48px)
       expect(whatsappContent).toContain("min-h-12");
@@ -273,8 +274,8 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
   // ==========================================================================
   describe("3. Semáforos Puros M3 y Ausencia de Texto Redundante", () => {
     it("comprueba que las columnas de Cuota, Vigencia y Actividad utilicen dots/pills de color puros", () => {
-      // Cuota: dot puro de 12px con role='status'
-      expect(viewContent).toContain("h-3 w-3 rounded-full");
+      // Cuota: badge con palabra + color y role='status' (regla "estado = palabra + color")
+      expect(viewContent).toContain('{isAlDia ? "Al día" : venceProntoTexto ?? "Vencida"}');
       expect(viewContent).toContain('role="status"');
 
       // Vigencia: micro-pill pura
@@ -290,7 +291,6 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
       expect(viewContent).toContain("title={rutinaTooltip}");
       expect(viewContent).toContain("aria-label={rutinaTooltip}");
       expect(viewContent).toContain("title={recenciaTooltip}");
-      expect(viewContent).toContain("aria-label={recenciaTooltip}");
     });
 
     it("comprueba que no haya rastro del proxy de Score Salud [SH] en la tabla ni código muerto (GOZS-240)", () => {

@@ -60,7 +60,9 @@ describe("GOZS-362: Coach Studio: Alta de Planes $0 con Notas, Asignación Multi
       expect(html).toContain('data-testid="input-plan-notas"');
       expect(html).toContain('data-testid="select-plan-actividad"');
       expect(html).toContain('value="RUTINAS"');
-      expect(html).toContain('data-testid="btn-cambiar-plan-cobros"');
+      // "Cambiar o asignar plan" vive en el menú ⋯ de la fila (objetivo Cobros.html)
+      const htmlMenu = renderToStaticMarkup(<CobrosPanel initialRowMenuOpen />);
+      expect(htmlMenu).toContain('data-testid="btn-cambiar-plan-cobros"');
     });
   });
 

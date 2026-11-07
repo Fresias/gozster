@@ -364,12 +364,12 @@ describe("GOZS-383: Coach Studio - Ficha de Alumno: Isla de Rutina Actual (Tabs,
         />
       );
 
-      // Verificación de badge 'Dolor activo'
-      expect(html).toContain("Dolor activo");
+      // Objetivo Ficha.html: la fila con dolor dice "Dolor de {zona} activo" debajo del ejercicio
+      expect(html).toMatch(/Dolor de [a-záéíóúñ ]+ activo/);
 
-      // Verificación de estilo de advertencia suave (amber)
-      expect(html).toContain("bg-amber-500/10");
-      expect(html).toContain("border-l-4 border-l-amber-500");
+      // Fila resaltada con el fondo de advertencia suave del sistema (objetivo Ficha.html, sin borde izquierdo)
+      expect(html).toContain("bg-warning-soft");
+      expect(html).not.toContain("border-l-4 border-l-amber-500");
 
       // Detalle de la molestia reportada
       expect(html).toContain("Dolor de hombro activo");
@@ -395,7 +395,7 @@ describe("GOZS-383: Coach Studio - Ficha de Alumno: Isla de Rutina Actual (Tabs,
       );
 
       expect(html).toContain('data-testid="workbench-quick-swap-btn"');
-      expect(html).toContain("Quick Swap");
+      expect(html).toContain('aria-label="Cambiar ejercicio');
     });
 
     it("GIVEN el modal Quick Swap abierto para el ejercicio afectado, THEN exhibe el diálogo preseleccionando el ejercicio con reporte de dolor", () => {

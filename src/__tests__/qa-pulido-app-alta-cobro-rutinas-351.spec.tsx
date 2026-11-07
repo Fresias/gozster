@@ -216,7 +216,7 @@ describe("GOZS-351: Pulido App, Limpieza Taxonomía W/N/F/D, Toggle Cascada, Alt
     it("GIVEN CoachStudioView WHEN se renderiza la tabla de alumnos THEN expone el badge de alumno estancado (+30 días sin PR)", () => {
       const studioCode = read("../components/coach/coach-studio-view.tsx");
       // Badge de alumno estancado en la tabla y en la ficha
-      expect(studioCode).toContain("+30d sin PR");
+      expect(studioCode).toContain("30 d sin récord");
       expect(studioCode).toContain("Alumno estancado (+30 días sin PR");
       expect(studioCode).toContain("badge-estancado");
     });

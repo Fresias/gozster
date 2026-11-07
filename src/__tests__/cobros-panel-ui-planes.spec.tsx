@@ -17,9 +17,10 @@ describe("UI Coach Studio / Cobros: Botones y diálogos para crear/modificar pla
 
     // Botones en la cabecera
     expect(html).toContain('data-testid="btn-gestionar-planes"');
-    expect(html).toContain("Planes &amp; Precios");
-    expect(html).toContain('data-testid="btn-nuevo-plan"');
-    expect(html).toContain("Nuevo Plan");
+    expect(html).toContain("Planes y precios");
+    // Objetivo Cobros.html: dos acciones en la cabecera; crear plan vive en "Planes y precios"
+    expect(html).toContain('data-testid="btn-registrar-pago-cabecera"');
+    expect(html).toContain("Crear Nuevo Plan");
   });
 
   it("GIVEN el diálogo de gestión de planes THEN incluye aviso de vigencia futura y tabla de planes", () => {

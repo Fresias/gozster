@@ -149,8 +149,8 @@ describe("GOZS-350: In-App Chat en Fila de Alumno, Notificación al Loguear en A
   });
 
   describe("3. En /studio/cobros, el botón 'Historial' abre Drawer lateral en la misma página (Criterio Gherkin 3)", () => {
-    it("GIVEN la tabla de Cobros & Pagos en /studio/cobros THEN cada fila expone el botón 'Historial'", () => {
-      const html = renderToStaticMarkup(<CobrosPanel />);
+    it("GIVEN la tabla de Cobros & Pagos en /studio/cobros THEN el menú ⋯ de cada fila expone 'Historial de cobros'", () => {
+      const html = renderToStaticMarkup(<CobrosPanel initialRowMenuOpen />);
       expect(html).toContain('data-testid="ver-historial-btn"');
       expect(html).toContain("Historial");
     });

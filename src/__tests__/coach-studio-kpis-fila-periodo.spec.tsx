@@ -107,7 +107,8 @@ describe("GOZS-379: Coach Studio: Vista Inicio - Fila de 4 KPIs y Selector de Pe
       expect(html).toContain("Cobrado");
       expect(html).toContain("Alumnos al día");
       expect(html).toContain("Sin rutina");
-      expect(html).toContain("Sin entrenar +7 días");
+      expect(html).toContain("Sin entrenar");
+      expect(html).toContain("+7 días");
 
       // Valores numéricos exactos
       expect(html).toContain("$800.000"); // Cobrado
@@ -178,7 +179,7 @@ describe("GOZS-379: Coach Studio: Vista Inicio - Fila de 4 KPIs y Selector de Pe
       expect(html).toContain("32 de 40"); // Alumnos activos / al día
       expect(html).toContain("4"); // Sin rutina
       expect(html).toContain("2"); // Sin entrenar
-      expect(html).toContain("+5 altas · −2 bajas este mes");
+      expect(html).toContain("+5 altas, −2 bajas este mes");
       expect(html).toContain("cuotas en mora");
     });
 
@@ -193,7 +194,7 @@ describe("GOZS-379: Coach Studio: Vista Inicio - Fila de 4 KPIs y Selector de Pe
       );
 
       expect(html).toContain("$800.000");
-      expect(html).toContain("A cobrar:");
+      expect(html).toContain("por cobrar");
     });
   });
 

@@ -51,7 +51,7 @@ describe("GOZS-349: Rediseño KPI Ingresos Studio con Diagrama Sankey y Filtros 
 
       // Píldora sutil de "A cobrar"
       expect(html).toContain('data-testid="kpi-ingresos-a-cobrar"');
-      expect(html).toContain("A cobrar:");
+      expect(html).toContain("por cobrar");
       expect(html).toContain("$195.000");
 
       // Llamada interactiva al flujo Sankey
@@ -169,16 +169,12 @@ describe("GOZS-349: Rediseño KPI Ingresos Studio con Diagrama Sankey y Filtros 
   describe("Criterio 3: Filtros rápidos por actividad en la tabla inferior de alumnos", () => {
     it("GIVEN la tabla inferior de atletas en /studio WHEN el entrenador visualiza los controles THEN existen los chips para Funcional, Boxeo y Rutina online", () => {
       expect(viewSource).toContain('data-testid="filtro-actividad-chips"');
-      expect(viewSource).toContain('data-testid="filtro-actividad-todas"');
-      expect(viewSource).toContain('data-testid="filtro-actividad-funcional"');
-      expect(viewSource).toContain('data-testid="filtro-actividad-boxeo"');
-      expect(viewSource).toContain('data-testid="filtro-actividad-rutinas"');
-
-      // Botones con sus etiquetas
-      expect(viewSource).toMatch(/data-testid="filtro-actividad-todas"[\s\S]*?>\s*Todas\s*<\/button>/);
-      expect(viewSource).toMatch(/data-testid="filtro-actividad-funcional"[\s\S]*?>\s*Funcional\s*<\/button>/);
-      expect(viewSource).toMatch(/data-testid="filtro-actividad-boxeo"[\s\S]*?>\s*Boxeo\s*<\/button>/);
-      expect(viewSource).toMatch(/data-testid="filtro-actividad-rutinas"[\s\S]*?>\s*Rutina online\s*<\/button>/);
+      // Opciones del chip "+ Actividad" (objetivo Inicio.html): id, testid y etiqueta
+      expect(viewSource).toContain('{ id: "TODAS", testId: "filtro-actividad-todas", label: "Todas" }');
+      expect(viewSource).toContain('{ id: "FUNCIONAL", testId: "filtro-actividad-funcional", label: "Funcional" }');
+      expect(viewSource).toContain('{ id: "BOXEO", testId: "filtro-actividad-boxeo", label: "Boxeo" }');
+      expect(viewSource).toContain('{ id: "RUTINAS", testId: "filtro-actividad-rutinas", label: "Rutina online" }');
+      expect(viewSource).toContain("data-testid={op.testId}");
     });
 
     it("WHEN el entrenador pulsa el chip Funcional THEN se filtran los alumnos mostrando aquellos con Funcional (incluyendo Sofía Benítez)", () => {

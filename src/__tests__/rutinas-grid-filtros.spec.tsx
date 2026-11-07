@@ -65,7 +65,7 @@ describe("FIX-08 / GOZS-386: RutinasLibrary (Grilla, Pestañas y Filtros) montad
 
     const tabAlumnos = getByTestId("tab-de-alumnos");
     expect(tabAlumnos.getAttribute("aria-selected")).toBe("true");
-    expect(tabAlumnos.textContent).toContain("De alumnos (14)");
+    expect(tabAlumnos.textContent).toMatch(/De alumnos\s*14/);
 
     const items = getAllByTestId("rutina-item");
     expect(items).toHaveLength(14);
@@ -86,10 +86,10 @@ describe("FIX-08 / GOZS-386: RutinasLibrary (Grilla, Pestañas y Filtros) montad
     expect(getAllByTestId("rutina-item")).toHaveLength(14);
 
     // 1. Clic en chip 'Fuerza' (índices 0, 3, 6, 9, 12 -> 5 rutinas)
-    const chipFuerza = getByTestId("tag-filter-fuerza");
-    fireEvent.click(chipFuerza);
+    // Objetivo Rutinas.html: selector "Todos los objetivos"
+    fireEvent.change(getByTestId("rutinas-objetivo-select"), { target: { value: "Fuerza" } });
 
-    expect(getByTestId("tag-filter-fuerza").getAttribute("aria-pressed")).toBe("true");
+    expect((getByTestId("rutinas-objetivo-select") as HTMLSelectElement).value).toBe("Fuerza");
     const itemsFuerza = getAllByTestId("rutina-item");
     expect(itemsFuerza).toHaveLength(5);
     for (const item of itemsFuerza) {
@@ -98,10 +98,9 @@ describe("FIX-08 / GOZS-386: RutinasLibrary (Grilla, Pestañas y Filtros) montad
     }
 
     // 2. Clic en chip 'Hipertrofia' (índices 1, 4, 7, 10, 13 -> 5 rutinas)
-    const chipHipertrofia = getByTestId("tag-filter-hipertrofia");
-    fireEvent.click(chipHipertrofia);
+    fireEvent.change(getByTestId("rutinas-objetivo-select"), { target: { value: "Hipertrofia" } });
 
-    expect(getByTestId("tag-filter-hipertrofia").getAttribute("aria-pressed")).toBe("true");
+    expect((getByTestId("rutinas-objetivo-select") as HTMLSelectElement).value).toBe("Hipertrofia");
     const itemsHipertrofia = getAllByTestId("rutina-item");
     expect(itemsHipertrofia).toHaveLength(5);
     for (const item of itemsHipertrofia) {
@@ -110,7 +109,7 @@ describe("FIX-08 / GOZS-386: RutinasLibrary (Grilla, Pestañas y Filtros) montad
     }
 
     // 3. Clic nuevamente en 'Hipertrofia' desactiva el filtro y vuelve a 'Todos' (14 rutinas)
-    fireEvent.click(getByTestId("tag-filter-hipertrofia"));
+    fireEvent.change(getByTestId("rutinas-objetivo-select"), { target: { value: "Todos" } });
     expect(getAllByTestId("rutina-item")).toHaveLength(14);
   });
 

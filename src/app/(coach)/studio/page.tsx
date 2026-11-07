@@ -22,24 +22,32 @@ export default async function CoachStudioPage({
   ]);
 
   let userRole: string = "ADMIN";
+  let coachName = "Martín";
   if (authUser?.data?.user) {
     const metaRol = (authUser.data.user.user_metadata as Record<string, unknown> | undefined)?.rol;
+    const metaNombre = (authUser.data.user.user_metadata as Record<string, unknown> | undefined)?.nombre_completo;
     if (typeof metaRol === "string" && metaRol) {
       userRole = metaRol;
-    } else {
-      const { data: perfil } = await supabase
-        .from("perfiles")
-        .select("rol")
-        .eq("id", authUser.data.user.id)
-        .maybeSingle();
-      if (perfil?.rol) {
-        userRole = perfil.rol;
-      }
+    }
+    if (typeof metaNombre === "string" && metaNombre) {
+      coachName = metaNombre;
+    }
+    const { data: perfil } = await supabase
+      .from("perfiles")
+      .select("rol, nombre_completo")
+      .eq("id", authUser.data.user.id)
+      .maybeSingle();
+    if (perfil?.rol) {
+      userRole = perfil.rol;
+    }
+    if (perfil?.nombre_completo) {
+      coachName = perfil.nombre_completo;
     }
   }
 
   return (
     <CoachStudioView
+      coachName={coachName}
       initialDataset={initialDataset}
       estancados={estancados}
       userRole={userRole}

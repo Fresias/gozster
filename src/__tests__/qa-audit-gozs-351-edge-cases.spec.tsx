@@ -188,9 +188,9 @@ describe("QA Edge Cases & Mathematical Robustness Audit (GOZS-351)", () => {
       const studioCode = read("../components/coach/coach-studio-view.tsx");
 
       expect(studioCode).toContain("estancadosMap");
-      expect(studioCode).toContain("badge-estancado-nombre-");
+      // El estancamiento se muestra una sola vez, en la columna Alertas ("30 d sin récord", objetivo Inicio.html)
       expect(studioCode).toContain("badge-estancado-");
-      expect(studioCode).toContain("+30d sin PR");
+      expect(studioCode).toContain("30 d sin récord");
       expect(studioCode).toContain("Alumno estancado (+30 días sin PR");
     });
 

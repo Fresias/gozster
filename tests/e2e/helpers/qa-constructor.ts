@@ -335,11 +335,12 @@ export async function mover(page: Page, dia: Dia, nombre: string, sentido: "Subi
 
 export async function abrirRutinaDeAna(page: Page) {
   await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("tab", { name: /De alumnos \(1\)/ }).click();
+  await page.getByTestId("tab-de-alumnos").click();
   const item = page.getByTestId("rutina-item").filter({ hasText: "Ana Pérez" });
   await expect(item).toHaveCount(1);
-  await expect(item).toContainText("ACTIVO");
-  await item.getByRole("button", { name: "Abrir" }).click();
+  await expect(item).toContainText("Vigente");
+  await item.getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
   await expect(builder(page)).toBeVisible();
   await expect(builder(page).locator("label:has-text('Nombre de la Rutina') + input")).toHaveValue("Hipertrofia 4 días");
 }

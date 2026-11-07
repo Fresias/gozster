@@ -126,13 +126,13 @@ describe("GOZS-137: Conectar la franja de KPIs a datos reales (promoción)", () 
       expect(clean).not.toContain("Cobranza del mes");
       expect(clean).toContain("presencial");
       expect(clean).toContain("online");
-      expect(clean).toContain("A cobrar:");
+      expect(clean).toContain("por cobrar");
       expect(clean).toContain("$20.000");
       // Sin entrenar: 1 y avatar con iniciales AU
       expect(clean).toContain("AU");
       // Activos: 3, +1 altas · −1 baja este mes, 2 sin rutina
       expect(clean).toContain("3");
-      expect(clean).toContain("+1 altas · −1 baja este mes");
+      expect(clean).toContain("+1 altas, −1 baja este mes");
       expect(clean).toContain("2 sin rutina");
     });
 

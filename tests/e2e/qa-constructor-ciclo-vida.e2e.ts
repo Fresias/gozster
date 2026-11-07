@@ -234,7 +234,8 @@ test.describe("GOZS-306: QA humano — guardar, versionar, plantillas, clonar y 
 
     // Clonar = abrir la plantilla y "Guardar como rutina nueva" (no hay botón "Clonar" dedicado).
     const clonar = async () => {
-      await items(page).last().getByRole("button", { name: "Abrir" }).click();
+      await items(page).last().getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
       const m = builder(page);
       await expect(m).toBeVisible();
       await m.getByTestId("save-routine-as-new-btn").click();
@@ -258,7 +259,8 @@ test.describe("GOZS-306: QA humano — guardar, versionar, plantillas, clonar y 
       `clonar deja plantillas con nombre idéntico (${nombres.join(" / ")}): en la biblioteca no se distinguen cuál es cuál`);
 
     // Editar el clon más nuevo (primero de la lista) y comprobar que ni la original ni el otro clon cambian.
-    await items(page).first().getByRole("button", { name: "Abrir" }).click();
+    await items(page).first().getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
     const m = builder(page);
     const clonEditado: Dia[] = structuredClone(BASE);
     await editar(page, clonEditado[0]!, "Press de Banca Plano", { series: "8", notas: "Solo en este clon" });
@@ -401,9 +403,9 @@ test.describe("GOZS-306: QA humano — guardar, versionar, plantillas, clonar y 
 
     await irABiblioteca(page);
     await tab(page, /De alumnos/).click();
-    const activa = items(page).filter({ has: page.getByText("ACTIVO", { exact: true }) });
+    const activa = items(page).filter({ has: page.getByText(/^(Vigente|Vence en \d+ d)$/) });
     await expect(activa, "la rutina ACTIVO de Ana se muestra con su badge").toHaveCount(1);
-    const borradorVisible = await items(page).filter({ has: page.getByText("BORRADOR", { exact: true }) }).count();
+    const borradorVisible = await items(page).filter({ has: page.getByText("Borrador", { exact: true }) }).count();
     await chequeoBug(page, info, "bug-borrador-mezclado-en-de-alumnos", borradorVisible === 0,
       `una rutina en BORRADOR aparece en "De alumnos" junto a la ACTIVA, sin filtro propio que las separe (cf. GOZS-308)`);
 

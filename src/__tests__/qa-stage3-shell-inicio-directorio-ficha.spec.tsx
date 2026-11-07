@@ -231,7 +231,8 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
       expect(html).toContain("$800.000");
       expect(html).toContain("32 de 40");
       expect(html).toContain("4");
-      expect(html).toContain("Sin entrenar +7 días");
+      expect(html).toContain("Sin entrenar");
+      expect(html).toContain("+7 días");
     });
 
     it("GIVEN el selector de período THEN rangoPeriodo calcula semana, mes y trimestre exactos en hora AR", () => {
@@ -268,6 +269,7 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
       const html = renderToStaticMarkup(
         <ClasesHoyAtajosChat
           fechaReferencia="2026-11-02T12:00:00-03:00"
+          alumnosSinEntrenar={[{ id: "a-1", nombreCompleto: "Juan Pérez" }]}
           onOpenChat={vi.fn()}
         />
       );
@@ -312,11 +314,12 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
       const html = renderToStaticMarkup(<CoachStudioView initialDataset={dataset} />);
 
       // Búsqueda por texto
-      expect(html).toContain('placeholder="Buscar atleta…"');
+      expect(html).toContain('placeholder="Buscar alumno"');
       // Filtros de estado de cuota
-      expect(html).toContain("Al día (32)");
-      expect(html).toContain("Pago pendiente (3)");
-      expect(html).toContain("Nuevos (");
+      // Chips "Etiqueta {n}" con el número en gris (objetivo Inicio.html)
+      expect(html).toMatch(/Al día <span[^>]*>32<\/span>/);
+      expect(html).toMatch(/Pago pendiente <span[^>]*>3<\/span>/);
+      expect(html).toContain("Nuevos");
       // Chips de actividad
       expect(html).toContain('data-testid="filtro-actividad-chips"');
       expect(html).toContain('data-testid="filtro-actividad-funcional"');
@@ -331,7 +334,7 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
 
       // Badges semánticos con texto
       expect(html).toContain("Funcional");
-      expect(html).toContain("Pase Libre");
+      expect(html).toContain("Al día");
       expect(html).toContain("Nuevo");
       // Columna cuota tiene atributos de estado accesibles
       expect(html).toContain('data-testid="columna-cuota-actividad"');

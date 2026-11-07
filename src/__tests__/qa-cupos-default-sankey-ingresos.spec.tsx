@@ -55,7 +55,7 @@ describe("GOZS-356: Auditoría Integral QA - Clases sin Cupo por Defecto y Vista
     it("GIVEN el componente ClassAgenda WHEN una clase no tiene cupo definido (capacidad = null) THEN renderiza '${ocupados} anot.' sin franja de límite ni barra de saturación", () => {
       // Verificación en el código de ClassAgenda del renderizado condicional correcto
       expect(classAgendaCode).toContain(
-        'capacidad !== null ? `${ocupados}/${capacidad}` : `${ocupados} anot.`'
+        'capacidad !== null ? `${ocupados}/${capacidad}` : `${ocupados} anotados`'
       );
       // La barra de saturación solo se dibuja cuando la capacidad NO es nula
       expect(classAgendaCode).toContain("vista === \"dia\" && capacidad !== null && !cancelada");

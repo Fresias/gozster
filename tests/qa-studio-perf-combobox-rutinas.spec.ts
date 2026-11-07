@@ -335,7 +335,7 @@ describe("QA Suite: GOZS-346 - Auditoría E2E de Skeletons Studio, Combobox de E
       const content = fs.readFileSync(rankingPath, "utf-8");
 
       // Debe incluir referencias al buscador de ejercicio y filtrado dinámico
-      expect(content).toMatch(/Ejercicio de Prueba/);
+      expect(content).toMatch(/htmlFor="select-ejercicio"/);
       expect(content).toMatch(/filtroEjercicio|searchEjercicio|busca|Buscar ejercicio/i);
     });
   });

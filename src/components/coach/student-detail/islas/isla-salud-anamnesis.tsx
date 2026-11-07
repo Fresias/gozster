@@ -18,6 +18,7 @@ import {
   actualizarEstadoDolor,
   derivarSeveridadDesdeEva,
   nivelDesdeEva,
+  etiquetaNivelDolor,
   type DolorActivo,
   type EstadoDolor,
   type NivelDolor,
@@ -231,6 +232,8 @@ export function IslaSaludAnamnesis({
   const severidad: SeveridadDolor = derivarSeveridadDesdeEva(effectiveEva);
   const severidadLabel =
     severidad === "AGUDO" ? "Agudo" : severidad === "MODERADO" ? "Moderado" : "Leve";
+  // Vocabulario único P07 (leve / moderado / alto) derivado de la EVA
+  const nivelTexto = etiquetaNivelDolor(nivelDesdeEva(effectiveEva, severidad === "AGUDO" && effectiveEva >= 7));
 
   const alertVariant: "destructive" | "warning" | "default" | "info" = React.useMemo(() => {
     if (!hasActiveDolor) return "default";
@@ -359,44 +362,17 @@ export function IslaSaludAnamnesis({
     <IslaCardShell
       id="salud_anamnesis"
       dataTestId="isla-salud-anamnesis"
-      title="Clínica, Anamnesis &amp; Red Flags"
+      title="Salud"
       icon={<Activity className="h-4 w-4 text-primary" aria-label="Salud" />}
       badge={
         hasActiveDolor ? (
           <Badge
-            variant="outline"
+            variant={estado === "RESUELTO" ? "success" : estado === "ATENDIDO" ? "secondary" : "warning"}
             data-testid="red-flags-alert"
-            className={cn(
-              "text-[10px] font-bold border",
-              estado === "RESUELTO"
-                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                : estado === "ATENDIDO"
-                ? "bg-sky-500/20 text-sky-400 border-sky-500/40"
-                : severidad === "AGUDO"
-                ? "bg-rose-500/20 text-rose-400 border-rose-500/40"
-                : "bg-amber-500/20 text-amber-400 border-amber-500/40"
-            )}
           >
-            {estado === "RESUELTO" ? (
-              <span className="inline-flex items-center gap-1">
-                <Check className="h-3 w-3 inline" aria-hidden="true" /> Resuelta
-              </span>
-            ) : estado === "ATENDIDO" ? (
-              <span className="inline-flex items-center gap-1">
-                <Check className="h-3 w-3 inline" aria-hidden="true" /> Atendida
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1">
-                <TriangleAlert className="h-3 w-3 inline" aria-hidden="true" /> Molestia:{" "}
-                {effectiveZona}
-              </span>
-            )}
+            {estado === "RESUELTO" ? "Resuelta" : estado === "ATENDIDO" ? "Atendida" : `Dolor en ${effectiveZona.toLowerCase()}`}
           </Badge>
-        ) : (
-          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-            Sin dolores activos
-          </Badge>
-        )
+        ) : null
       }
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
@@ -433,110 +409,67 @@ export function IslaSaludAnamnesis({
         </div>
       }
     >
-      <div className="p-3 sm:p-4 space-y-4">
-        {/* Alert Semántico Unificado según EVA 0-10 */}
+      <div className="p-4 space-y-4">
+        {/* Alert de Salud (P07): "Dolor {nivel} · {zona} · EVA {n}" + estado + Cambiar ejercicio */}
         {hasActiveDolor ? (
           <Alert
             variant={alertVariant}
             data-testid="alert-salud"
-            className="p-3.5 space-y-2.5 rounded-xl border"
+            className="p-3.5 space-y-3 rounded-lg border"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                {effectiveEva >= 7 ? (
-                  <TriangleAlert
-                    className="h-4 w-4 text-destructive shrink-0"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <TriangleAlert
-                    className="h-4 w-4 text-amber-500 shrink-0"
-                    aria-hidden="true"
-                  />
-                )}
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] font-bold px-2 py-0.5",
-                    effectiveEva >= 7
-                      ? "border-destructive/40 bg-destructive/15 text-destructive"
-                      : effectiveEva >= 4
-                      ? "border-amber-500/40 bg-amber-500/15 text-amber-500"
-                      : "border-sky-500/40 bg-sky-500/15 text-sky-500"
-                  )}
-                >
-                  {severidadLabel}
-                </Badge>
-                <span className="font-semibold text-foreground text-xs">
-                  {effectiveZona}
-                </span>
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  EVA {effectiveEva}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] font-semibold px-1.5 py-0.5",
-                    estado === "RESUELTO"
-                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
-                      : estado === "ATENDIDO"
-                      ? "border-sky-500/40 bg-sky-500/10 text-sky-500"
-                      : "border-amber-500/40 bg-amber-500/10 text-amber-500"
-                  )}
-                >
-                  {estado === "RESUELTO"
-                    ? "Resuelta"
-                    : estado === "ATENDIDO"
-                    ? "Atendida"
-                    : "Pendiente"}
-                </Badge>
-              </div>
-            </div>
-
-            <AlertTitle className="sr-only">Reporte de Molestia en Ejercicio</AlertTitle>
-
-            <AlertDescription className="text-xs text-muted-foreground">
-              <div className="text-[11px] text-muted-foreground">
-                {effectiveEjercicio} · {effectiveFecha}
-              </div>
-            </AlertDescription>
-
-            {/* Segmented Control de Intervención & Acción Cambiar Ejercicio */}
-            <div className="pt-1 flex flex-wrap items-center justify-between gap-2.5">
-              <Segmented<EstadoDolor>
-                value={estado}
-                onChange={handleEstadoChange}
-                options={SEGMENTED_OPTIONS}
-                size="sm"
-                aria-label="Estado de intervención"
-                disabled={isUpdating}
+            <div className="flex items-start gap-2.5">
+              <TriangleAlert
+                className={cn("mt-0.5 h-4 w-4 shrink-0", effectiveEva >= 7 ? "text-destructive" : "text-warning-soft-foreground")}
+                aria-hidden="true"
               />
-
-              {onQuickSwap && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onQuickSwap}
-                  className="h-7 text-xs font-semibold text-rose-500 border-rose-500/40 hover:bg-rose-500/10 cursor-pointer"
-                >
-                  <ArrowRightLeft className="h-3 w-3 mr-1 inline" aria-hidden="true" />
-                  Cambiar ejercicio
-                </Button>
-              )}
+              <div className="min-w-0">
+                <AlertTitle className="m-0 text-sm font-medium text-foreground">
+                  Dolor {nivelTexto} · {effectiveZona.toLowerCase()} · EVA {effectiveEva}
+                </AlertTitle>
+                <AlertDescription className="text-[13px] text-neutral-soft-foreground">
+                  {effectiveEjercicio} · {effectiveFecha}
+                  <span className="sr-only">
+                    {" "}
+                    · Severidad {severidadLabel} · Estado{" "}
+                    {estado === "RESUELTO" ? "Resuelta" : estado === "ATENDIDO" ? "Atendida" : "Pendiente"}
+                  </span>
+                </AlertDescription>
+              </div>
             </div>
+
+            <Segmented<EstadoDolor>
+              value={estado}
+              onChange={handleEstadoChange}
+              options={SEGMENTED_OPTIONS}
+              size="sm"
+              aria-label="Estado de intervención"
+              disabled={isUpdating}
+              className="w-full [&>button]:flex-1"
+            />
+
+            {onQuickSwap && !isPainResolved && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={onQuickSwap}
+                className="h-9 w-full text-sm font-medium cursor-pointer"
+              >
+                Cambiar ejercicio
+              </Button>
+            )}
 
             {errorMsg && (
               <div
                 role="alert"
                 data-testid="salud-error-alert"
-                className="mt-2 text-xs text-destructive font-medium bg-destructive/10 border border-destructive/25 p-2 rounded-lg flex items-center justify-between gap-2"
+                className="text-xs text-destructive font-medium bg-destructive/10 border border-destructive/25 p-2 rounded-lg flex items-center justify-between gap-2"
               >
                 <span>{errorMsg}</span>
                 <button
                   type="button"
                   onClick={() => setErrorMsg(null)}
-                  className="text-[10px] underline hover:text-foreground cursor-pointer"
+                  className="text-[11px] underline hover:text-foreground cursor-pointer"
                 >
                   Descartar
                 </button>
@@ -547,33 +480,29 @@ export function IslaSaludAnamnesis({
           <Alert
             variant="default"
             data-testid="alert-salud-empty"
-            className="border-border/70 bg-card text-muted-foreground p-3.5 rounded-xl"
+            className="border-border bg-card text-muted-foreground p-3.5 rounded-lg"
           >
-            <AlertDescription className="text-xs text-muted-foreground flex items-center gap-2">
-              <Check className="h-4 w-4 text-emerald-500 shrink-0" aria-hidden="true" />
+            <AlertDescription className="text-sm text-muted-foreground flex items-center gap-2">
+              <Check className="h-4 w-4 text-success-soft-foreground shrink-0" aria-hidden="true" />
               <span>Sin dolores activos.</span>
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Bitácora / Nota de Intervención con único mecanismo de guardado al salir del foco (onBlur) */}
-        <div
-          data-testid="nota-intervencion-block"
-          className="rounded-lg border border-border/80 bg-secondary/15 p-3 space-y-2"
-        >
+        {/* Nota de intervención: un único guardado al salir del campo (onBlur) */}
+        <div data-testid="nota-intervencion-block" className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label
               htmlFor={`nota-intervencion-${alumnoId}`}
-              className="flex items-center gap-1.5 text-xs font-bold text-foreground cursor-pointer"
+              className="text-[13px] font-medium text-foreground cursor-pointer"
             >
-              <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span>Nota de intervención</span>
-              <span className="sr-only">Bitácora de Intervención del Entrenador</span>
+              Nota de intervención
+              <span className="sr-only"> (bitácora de intervención del entrenador)</span>
             </label>
             {saveSuccess && (
               <span
                 data-testid="nota-intervencion-guardado"
-                className="text-xs font-semibold text-emerald-500 animate-in fade-in inline-flex items-center gap-1"
+                className="text-xs font-medium text-success-soft-foreground inline-flex items-center gap-1"
               >
                 <Check className="h-3 w-3 inline" aria-hidden="true" /> Guardado
               </span>
@@ -586,86 +515,42 @@ export function IslaSaludAnamnesis({
             onChange={handleCoachLogChange}
             onBlur={handleSaveCoachLog}
             rows={3}
-            placeholder="Registrá la pauta o ajuste de ejercicio indicado para este caso..."
+            placeholder="Pauta o ajuste indicado para este caso"
             aria-label="Nota de intervención"
-            className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <p className="text-xs text-muted-foreground">Se guarda al salir del campo.</p>
+          <p className="m-0 text-xs text-muted-foreground">Se guarda al salir del campo.</p>
         </div>
 
-        {/* Bloque de Anamnesis accesible y colapsable */}
-        <div
-          data-testid="anamnesis-summary-collapsible"
-          className="rounded-lg border border-border/80 bg-secondary/20 p-3 space-y-2.5"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
-              <div>
-                <h4 className="text-xs font-bold text-foreground">
-                  Ficha de Anamnesis &amp; Cuestionario Inicial
-                </h4>
-                <p className="text-[10px] text-muted-foreground">
-                  Respuestas de ingreso y condiciones de salud reportadas
-                </p>
+        {/* Resumen de anamnesis (cuestionario inicial) */}
+        <div data-testid="anamnesis-summary-collapsible" className="space-y-3 border-t border-border pt-4">
+          <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
+            {[
+              { k: "Objetivo", v: anamnesisData?.objetivo },
+              { k: "Frecuencia", v: anamnesisData?.frecuencia },
+              { k: "Molestia previa", v: anamnesisData?.molestiaPrevia },
+              { k: "Cirugías", v: anamnesisData?.cirugias },
+            ].map((item) => (
+              <div key={item.k} className="min-w-0">
+                <dt className="text-[13px] text-neutral-soft-foreground">{item.k}</dt>
+                <dd className="m-0 truncate text-sm font-medium text-foreground">{item.v || "—"}</dd>
               </div>
-            </div>
-            <Button
+            ))}
+          </dl>
+
+          {cuestionarioNode && (
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => setAnamnesisCollapsed((prev) => !prev)}
-              className="h-7 text-xs font-semibold gap-1 cursor-pointer"
+              className="text-[13px] text-foreground underline underline-offset-2 hover:text-muted-foreground cursor-pointer"
               aria-expanded={!anamnesisCollapsed}
             >
-              <span>{anamnesisCollapsed ? "Ver cuestionario inicial completo" : "Ocultar cuestionario"}</span>
-              {anamnesisCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-            <div className="rounded bg-card/80 p-1.5 border border-border/60">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold">
-                Objetivo
-              </span>
-              <span className="font-semibold text-foreground truncate block">
-                {anamnesisData?.objetivo || "Hipertrofia & Fuerza"}
-              </span>
-            </div>
-            <div className="rounded bg-card/80 p-1.5 border border-border/60">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold">
-                Frecuencia
-              </span>
-              <span className="font-semibold text-foreground truncate block">
-                {anamnesisData?.frecuencia || "4 días / semana"}
-              </span>
-            </div>
-            <div className="rounded bg-card/80 p-1.5 border border-border/60">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold">
-                Molestia previa
-              </span>
-              <span className="font-semibold text-amber-500 truncate block">
-                {anamnesisData?.molestiaPrevia || "Hombro anterior"}
-              </span>
-            </div>
-            <div className="rounded bg-card/80 p-1.5 border border-border/60">
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold">
-                Cirugías
-              </span>
-              <span className="font-semibold text-emerald-500 truncate block">
-                {anamnesisData?.cirugias || "Ninguna"}
-              </span>
-            </div>
-          </div>
+              {anamnesisCollapsed ? "Ver cuestionario inicial completo" : "Ocultar cuestionario"}
+            </button>
+          )}
 
           {!anamnesisCollapsed && cuestionarioNode && (
-            <div className="p-3 pt-2 border-t border-border/40 animate-in fade-in duration-200">
-              {cuestionarioNode}
-            </div>
+            <div className="pt-2 border-t border-border">{cuestionarioNode}</div>
           )}
         </div>
       </div>

@@ -139,9 +139,9 @@ describe("GOZS-238: FE Studio - KPI ingresos del mes desagregado y subtítulo 'a
 
       // 3. Subtítulo suma las cuotas en rojo
       expect(clean).toContain("data-testid=\"kpi-ingresos-a-cobrar\"");
-      expect(clean).toContain("A cobrar:");
+      expect(clean).toContain("por cobrar");
       expect(clean).toContain("$48.000");
-      expect(clean).toContain("cuotas en rojo");
+      expect(clean).toContain("cuotas");
 
       // 4. El KPI de cobranza no existe
       expect(clean).not.toContain("data-testid=\"kpi-cobranza\"");
@@ -167,7 +167,7 @@ describe("GOZS-238: FE Studio - KPI ingresos del mes desagregado y subtítulo 'a
       expect(clean).toContain("data-testid=\"kpi-ingresos-a-cobrar\"");
       expect(clean).toContain("presencial");
       expect(clean).toContain("online");
-      expect(clean).toContain("A cobrar:");
+      expect(clean).toContain("por cobrar");
 
       // KPI cobranza no existe
       expect(clean).not.toContain("data-testid=\"kpi-cobranza\"");

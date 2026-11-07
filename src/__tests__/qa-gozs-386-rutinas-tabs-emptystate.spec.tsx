@@ -82,7 +82,7 @@ describe("GOZS-386: Coach Studio - Biblioteca de Rutinas (/studio/rutinas) Tabs 
 
       expect(container.textContent).toContain("Alumno Prueba 1");
       expect(container.textContent).toContain("Rutina Alumno 1 (Fuerza)");
-      expect(container.textContent).toContain("De alumnos (14)");
+      expect(container.textContent).toMatch(/De alumnos\s*14/);
 
       expect(queryByTestId("empty-state-plantillas")).toBeNull();
     });
@@ -147,7 +147,7 @@ describe("GOZS-386: Coach Studio - Biblioteca de Rutinas (/studio/rutinas) Tabs 
       );
       assertNoDemoLiteralsInLiveMode(container);
 
-      fireEvent.click(getByTestId("tag-filter-fuerza"));
+      fireEvent.change(getByTestId("rutinas-objetivo-select"), { target: { value: "Fuerza" } });
       const itemsDom = getAllByTestId("rutina-item");
       expect(itemsDom).toHaveLength(soloFuerza.length);
       expect(itemsDom.every((el) => el.textContent?.includes("(Fuerza)"))).toBe(true);

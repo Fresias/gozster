@@ -27,7 +27,7 @@ test.describe("Agenda", () => {
   test("vista Semana muestra el horario del seed", async ({ page }) => {
     await abrirStudio(page);
     await page.getByTestId("view-week-btn").click();
-    await expect(page.getByTestId("demo-coach-badge")).toBeVisible();
+    await expect(page.getByTestId("create-class-btn")).toBeVisible();
 
     await expect(bloques(page, "Funcional", "18:00")).toHaveCount(5);
     await expect(bloques(page, "Funcional", "17:00")).toHaveCount(2);

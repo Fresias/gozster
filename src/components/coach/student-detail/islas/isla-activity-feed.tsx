@@ -104,7 +104,7 @@ export function IslaActivityFeed({
   onDragOver,
   onDragLeave,
   onDrop,
-  items = DEFAULT_FEED_ITEMS,
+  items = [],
   chatPanelNode,
   historialPagosNode,
   onMoveUp,
@@ -270,79 +270,50 @@ export function IslaActivityFeed({
         </div>
       }
     >
-      <div className="p-3 sm:p-4 space-y-4">
-        {/* Botón de repliegue a riel de 56px */}
-        <div className="flex items-center justify-between pb-1 border-b border-border/40">
-          <span className="text-[11px] font-semibold text-muted-foreground">
-            Actividad en tiempo real
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onToggleRail}
-            data-testid="toggle-collapse-feed"
-            className="h-7 text-[11px] px-2 font-medium"
-          >
-            ◀ Colapsar Feed
-          </Button>
-        </div>
+      <div className="p-4 space-y-4">
+        {items.length === 0 ? (
+          <p className="m-0 text-sm text-muted-foreground">Todavía no hay actividad registrada.</p>
+        ) : (
+          /* Lista cronológica (objetivo Ficha.html): punto de color por tipo, título, detalle y hora */
+          <div className="flex flex-col gap-3.5">
+            {groups.map((group) => (
+              <ul key={group.nombre} data-testid="activity-feed-date-group" className="m-0 flex list-none flex-col gap-3.5 p-0">
+                {group.items.map((item) => (
+                  <li key={item.id} data-testid="activity-feed-event-item" className="flex items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                        item.tipo === "molestia"
+                          ? "bg-warning-soft-foreground"
+                          : item.tipo === "pago"
+                          ? "bg-success-soft-foreground"
+                          : item.tipo === "sesion"
+                          ? "bg-foreground"
+                          : "bg-subtle-foreground"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 text-sm font-medium text-foreground">{item.titulo}</p>
+                      <p className="m-0 text-[13px] text-neutral-soft-foreground">{item.detalle}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">{item.horaOFecha}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        )}
 
-        {/* Feed vertical clasificado por fecha */}
-        <div className="space-y-3">
-          {groups.map((group) => {
-            const isGroupCollapsed = !!collapsedGroups[group.nombre];
-            return (
-              <div
-                key={group.nombre}
-                data-testid="activity-feed-date-group"
-                className="space-y-1.5"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.nombre)}
-                  className="flex w-full items-center justify-between text-[11px] font-bold text-muted-foreground hover:text-foreground"
-                >
-                  <span className="tracking-wider">{group.nombre}</span>
-                  <span className="text-[10px] font-mono">
-                    {isGroupCollapsed ? (
-                      <ChevronDown className="h-3 w-3 inline text-muted-foreground" aria-hidden="true" />
-                    ) : (
-                      <ChevronUp className="h-3 w-3 inline text-muted-foreground" aria-hidden="true" />
-                    )}
-                  </span>
-                </button>
-
-                {!isGroupCollapsed && (
-                  <div className="space-y-1.5 border-l-2 border-border/60 pl-2.5 ml-1">
-                    {group.items.map((item) => (
-                      <div
-                        key={item.id}
-                        data-testid="activity-feed-event-item"
-                        className="flex items-start gap-2.5 rounded-lg bg-secondary/20 p-2 text-xs hover:bg-secondary/40 transition-colors"
-                      >
-                        <div className="shrink-0 pt-0.5">{getTipoIcon(item.tipo)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <p className="font-semibold text-foreground text-[11px] truncate">
-                              {item.titulo}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                              {item.horaOFecha}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                            {item.detalle}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {/* Repliegue a riel de 56 px */}
+        <button
+          type="button"
+          onClick={onToggleRail}
+          data-testid="toggle-collapse-feed"
+          aria-label="Colapsar Feed"
+          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground cursor-pointer"
+        >
+          Plegar al costado
+        </button>
 
         {/* Historial de pagos embebido para preservar compatibilidad */}
         {historialPagosNode}

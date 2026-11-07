@@ -315,8 +315,8 @@ export function IslaRoutineWorkbench({
     onQuickSwap?.(painAlert, item);
   };
 
-  const historialCount = historialPlanes?.length ?? 3;
-  const registrosCount = historialCargas?.length ?? 21;
+  const historialCount = historialPlanes?.length ?? 0;
+  const registrosCount = historialCargas?.length ?? 0;
 
   return (
     <IslaCardShell
@@ -324,21 +324,13 @@ export function IslaRoutineWorkbench({
       dataTestId="isla-routine-workbench"
       title="Rutina"
       icon={<Dumbbell className="h-4 w-4 text-primary" aria-label="Rutina" />}
+      meta={rutinaActiva ? rutinaActiva.nombre : "Sin rutina activa"}
       badge={
         rutinaActiva ? (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className="text-[11px] font-semibold border-primary/30 text-primary bg-primary/10">
-              {rutinaActiva.nombre}
-            </Badge>
-            <Badge variant="outline" className="text-[10px] text-muted-foreground border-border">
-              Vigente{rutinaActiva.fecha_fin ? ` · ${calcularDiasRestantes(rutinaActiva.fecha_fin)} días` : ""}
-            </Badge>
-          </div>
-        ) : (
-          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-            Sin rutina activa
+          <Badge variant="success">
+            Vigente{rutinaActiva.fecha_fin ? ` · ${calcularDiasRestantes(rutinaActiva.fecha_fin)} días` : ""}
           </Badge>
-        )
+        ) : null
       }
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
@@ -371,22 +363,22 @@ export function IslaRoutineWorkbench({
         </div>
       }
     >
-      <div className="p-3 sm:p-4 space-y-4">
+      <div className="p-4 space-y-4">
         {/* Estructura de pestañas accesibles: Actual, Historial, Registros */}
         <div
           role="tablist"
           aria-label="Pestañas de la rutina del alumno"
-          className="flex w-full rounded-lg border border-border/60 bg-muted/30 p-1 gap-1"
+          className="inline-flex max-w-full rounded-lg bg-muted p-[3px] gap-0.5 overflow-x-auto"
         >
           <button
             type="button"
             role="tab"
             aria-selected={normalizedTab === "actual"}
             onClick={() => handleTabSelect("actual")}
-            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+            className={`rounded-md h-[30px] px-3 text-center text-[13px] whitespace-nowrap transition-all cursor-pointer ${
               normalizedTab === "actual"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-foreground font-medium shadow-xs"
+                : "text-neutral-soft-foreground hover:text-foreground"
             }`}
           >
             Rutina actual
@@ -396,10 +388,10 @@ export function IslaRoutineWorkbench({
             role="tab"
             aria-selected={normalizedTab === "historial"}
             onClick={() => handleTabSelect("historial")}
-            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+            className={`rounded-md h-[30px] px-3 text-center text-[13px] whitespace-nowrap transition-all cursor-pointer ${
               normalizedTab === "historial"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-foreground font-medium shadow-xs"
+                : "text-neutral-soft-foreground hover:text-foreground"
             }`}
           >
             Historial ({historialCount})
@@ -410,10 +402,10 @@ export function IslaRoutineWorkbench({
             aria-selected={normalizedTab === "registros"}
             onClick={() => handleTabSelect("registros")}
             data-testid="tab-registros-sesiones"
-            className={`flex-1 rounded-md py-1.5 px-3 text-center text-xs font-semibold transition-all min-h-9 ${
+            className={`rounded-md h-[30px] px-3 text-center text-[13px] whitespace-nowrap transition-all cursor-pointer ${
               normalizedTab === "registros"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-background text-foreground font-medium shadow-xs"
+                : "text-neutral-soft-foreground hover:text-foreground"
             }`}
           >
             Registros ({registrosCount})
@@ -448,10 +440,10 @@ export function IslaRoutineWorkbench({
                           aria-label={dia.nombre}
                           data-testid="workbench-day-chip"
                           onClick={() => handleSelectDia(dia.id)}
-                          className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs transition-all ${
+                          className={`whitespace-nowrap h-8 px-3 rounded-full border text-[13px] transition-colors cursor-pointer ${
                             isSelected
-                              ? "bg-zinc-900 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-900 font-semibold shadow-sm"
-                              : "bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary/70 border border-border/50 font-medium"
+                              ? "bg-foreground text-background border-foreground"
+                              : "bg-background text-neutral-soft-foreground border-border hover:bg-muted"
                           }`}
                         >
                           <span data-testid="workbench-day-accordion">{dia.nombre}</span>
@@ -467,21 +459,21 @@ export function IslaRoutineWorkbench({
                     Sin ejercicios configurados en este día.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/50">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50">
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead className="text-xs font-normal text-neutral-soft-foreground border-b border-border">
                         <tr>
-                          <th className="py-2.5 px-3 font-semibold">Ejercicio</th>
-                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Series × reps</th>
-                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Última carga</th>
-                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">Descanso</th>
-                          <th className="py-2.5 px-3 font-semibold whitespace-nowrap">RPE</th>
-                          <th className="py-2.5 px-3 font-semibold text-right">
+                          <th className="h-10 px-3 font-normal">Ejercicio</th>
+                          <th className="h-10 px-3 font-normal whitespace-nowrap">Series × reps</th>
+                          <th className="h-10 px-3 font-normal whitespace-nowrap">Última carga</th>
+                          <th className="h-10 px-3 font-normal whitespace-nowrap">Descanso</th>
+                          <th className="h-10 px-3 font-normal whitespace-nowrap">RPE</th>
+                          <th className="h-10 px-3 font-normal text-right">
                             <span className="sr-only">Acciones</span>
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border/30">
+                      <tbody className="divide-y divide-border">
                         {ejerciciosDelDia.map((item, idx) => {
                           const ejercicioInfo = ejerciciosCatalogo.find((e) => e.id === item.ejercicio_id);
                           const painAlert = getExercisePainAlert(item, ejercicioInfo);
@@ -493,56 +485,46 @@ export function IslaRoutineWorkbench({
                               data-testid="workbench-exercise-row"
                               className={`transition-colors ${
                                 hasPain
-                                  ? "bg-amber-500/10 border-l-4 border-l-amber-500 border border-amber-500/30 dark:bg-amber-950/20"
-                                  : "hover:bg-muted/30"
+                                  ? "bg-warning-soft"
+                                  : "hover:bg-muted/40"
                               }`}
                             >
-                              <td className="py-2.5 px-3 align-top min-w-[180px]">
-                                <div className="space-y-1">
+                              <td className="py-2.5 px-3 align-middle min-w-[200px]">
+                                <div className="space-y-0.5">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-foreground">
+                                    <span className="text-foreground">
                                       {ejercicioInfo?.nombre ?? "Ejercicio personalizado"}
                                     </span>
-                                    {hasPain && (
-                                      <Badge
-                                        variant="outline"
-                                        className="border-amber-500/60 bg-amber-500/15 text-amber-500 dark:text-amber-400 font-bold text-[10px] py-0 px-1.5"
-                                      >
-                                        Dolor activo
-                                      </Badge>
-                                    )}
                                     {item.es_superserie && (
                                       <span
                                         data-testid="workbench-superserie-connector"
-                                        className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black text-amber-500 border border-amber-500/30"
+                                        className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[11px] text-neutral-soft-foreground"
                                       >
                                         <LinkIcon className="h-3 w-3 inline" aria-hidden="true" /> Superserie G{item.grupo_superserie}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                                    {hasPain && painAlert?.zona && (
-                                      <span className="text-amber-500 font-medium">
-                                        Dolor de {painAlert.zona.toLowerCase()} activo
-                                        {item.notas ? " · " : ""}
-                                      </span>
-                                    )}
-                                    {item.notas && <span>{item.notas}</span>}
-                                  </div>
+                                  {(hasPain || item.notas) && (
+                                    <p className="m-0 text-xs text-neutral-soft-foreground">
+                                      {[hasPain && painAlert?.zona ? `Dolor de ${painAlert.zona.toLowerCase()} activo` : null, item.notas]
+                                        .filter(Boolean)
+                                        .join(" · ")}
+                                    </p>
+                                  )}
                                 </div>
                               </td>
-                              <td className="py-2.5 px-3 align-middle font-mono font-semibold whitespace-nowrap text-foreground">
+                              <td className="py-2.5 px-3 align-middle font-mono text-[13px] whitespace-nowrap text-foreground">
                                 {item.series} × {item.repeticiones}
                               </td>
-                              <td className="py-2.5 px-3 align-middle font-mono whitespace-nowrap text-muted-foreground">
+                              <td className="py-2.5 px-3 align-middle font-mono text-[13px] whitespace-nowrap text-foreground">
                                 {getUltimaCarga(item, ejercicioInfo, historialCargas)}
                               </td>
-                              <td className="py-2.5 px-3 align-middle whitespace-nowrap text-muted-foreground">
+                              <td className="py-2.5 px-3 align-middle font-mono text-[13px] whitespace-nowrap text-foreground">
                                 {formatDescanso(item.descanso_segundos)}
                               </td>
                               <td className="py-2.5 px-3 align-middle font-mono whitespace-nowrap">
                                 {item.rpe_objetivo ? (
-                                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary font-bold">
+                                  <span className="font-mono text-[13px] text-foreground">
                                     {formatRPE(item.rpe_objetivo)}
                                   </span>
                                 ) : (
@@ -552,19 +534,14 @@ export function IslaRoutineWorkbench({
                               <td className="py-2.5 px-3 align-middle text-right whitespace-nowrap">
                                 <Button
                                   type="button"
-                                  variant={hasPain ? "default" : "ghost"}
+                                  variant="ghost"
                                   size="sm"
                                   data-testid="workbench-quick-swap-btn"
                                   aria-label={`Cambiar ejercicio ${ejercicioInfo?.nombre || ""}`}
                                   onClick={() => handleOpenQuickSwap(item, ejercicioInfo, painAlert)}
-                                  className={
-                                    hasPain
-                                      ? "h-7 px-2 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-slate-950 inline-flex items-center gap-1 shadow-sm"
-                                      : "h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-                                  }
+                                  className="h-8 w-8 p-0 text-neutral-soft-foreground hover:text-foreground hover:bg-muted"
                                 >
-                                  <ArrowRightLeft className="h-3.5 w-3.5 inline" aria-hidden="true" />
-                                  {hasPain && <span className="text-[10px]">Quick Swap</span>}
+                                  <ArrowRightLeft className="h-4 w-4 inline" aria-hidden="true" />
                                 </Button>
                               </td>
                             </tr>
@@ -576,13 +553,16 @@ export function IslaRoutineWorkbench({
                 )}
 
                 {/* Nota del coach y estado de dolor */}
-                <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
-                  <p>
-                    <span className="font-semibold text-foreground">Nota del coach:</span>{" "}
-                    {rutinaActiva.comentarios || "Foco en técnica y sobrecarga controlada."}
+                {(rutinaActiva.comentarios || hasAnyPainInPlan) && (
+                  <p className="m-0 text-[13px] text-neutral-soft-foreground">
+                    {rutinaActiva.comentarios && (
+                      <>
+                        <span className="font-medium text-foreground">Nota del coach:</span> {rutinaActiva.comentarios}
+                      </>
+                    )}
                     {hasAnyPainInPlan && " La fila resaltada tiene una alerta de dolor activa."}
                   </p>
-                </div>
+                )}
               </>
             ) : (
               <div className="rounded-lg border border-dashed border-border/80 p-6 text-center text-xs text-muted-foreground">

@@ -72,16 +72,17 @@ describe("FIX-08 / GOZS-396: IslaMetricas1RM (IslaFuerza1RM) montada con datos e
       expect(badgeProgresion.getAttribute("data-variant")).toBe("warning");
 
       // Verifica variaciones porcentuales y ganancias reales en el DOM montado
-      expect(container.textContent).toContain("+11.11%");
-      expect(container.textContent).toContain("+10%");
-      expect(container.textContent).toContain("-6.67%");
-      expect(container.textContent).toContain("+10 kg");
-      expect(container.textContent).toContain("+12 kg");
-      expect(container.textContent).toContain("-10 kg");
-      expect(container.textContent).toContain("-4 kg");
+      // Objetivo Ficha.html: badge "↑ n%" / "↓ n%" (redondeado) y la ganancia en kg en el title de la fila
+      expect(container.textContent).toContain("↑ 11%");
+      expect(container.textContent).toContain("↑ 10%");
+      expect(container.textContent).toContain("↓ 7%");
+      expect(container.innerHTML).toContain('title="+10 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="+12 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="-10 kg en 2 meses"');
+      expect(container.innerHTML).toContain('title="-4 kg en 2 meses"');
 
       // Verifica que los valores recibidos por props desplazaron a los fallbacks estáticos (78.5, 142.5, Micro 1)
-      expect(container.textContent).toContain("83.9 kg");
+      expect(container.textContent).toContain("Peso corporal · 83,9 kg");
       expect(container.textContent).not.toContain("78.5 kg");
       expect(container.textContent).not.toContain("142.5 kg");
       expect(container.textContent).not.toContain("Micro 1");
@@ -108,8 +109,8 @@ describe("FIX-08 / GOZS-396: IslaMetricas1RM (IslaFuerza1RM) montada con datos e
       const cardEpley = getByTestId("metricas-1rm-epley");
       const cardBrzycki = getByTestId("metricas-1rm-brzycki");
       expect(cardEpley.textContent).toContain("175 kg");
-      expect(cardEpley.textContent).toContain("Peso Muerto");
-      expect(cardBrzycki.textContent).toContain("168.8 kg");
+      expect(container.textContent).toContain("1RM estimado · Peso Muerto");
+      expect(cardBrzycki.textContent).toContain("168,8 kg");
 
       expect(getByLabelText("Ayuda fórmula Epley")).toBeTruthy();
       expect(getByLabelText("Ayuda fórmula Brzycki")).toBeTruthy();
@@ -142,15 +143,10 @@ describe("FIX-08 / GOZS-396: IslaMetricas1RM (IslaFuerza1RM) montada con datos e
       expect(lowerText).not.toContain("volumen total");
       expect(lowerText).not.toContain("tonelaje acumulado");
 
-      const sparkPeso = getByTestId("sparkline-peso-corporal");
-      expect(sparkPeso.getAttribute("aria-label")).toBe(
-        "Evolución de peso corporal: de 86.4 kg a 83.9 kg"
-      );
-
-      const sparkCargas = getByTestId("sparkline-cargas-recientes");
-      expect(sparkCargas.getAttribute("aria-label")).toBe(
-        "Evolución de cargas recientes: de 120 kg a 132 kg"
-      );
+      // P04: el peso corporal es un dato simple y el sparkline pasa al 1RM por sesión
+      expect(container.querySelector('[data-testid="sparkline-peso-corporal"]')).toBeNull();
+      expect(container.querySelector('[data-testid="sparkline-cargas-recientes"]')).toBeNull();
+      expect(getByTestId("evolucion-peso-corporal").textContent).toBe("Peso corporal · 83,9 kg");
 
       // Interacción sobre el botón de colapsar de la cabecera de la isla
       const toggleBtn = getByTestId("collapse-btn-metricas_1rm");

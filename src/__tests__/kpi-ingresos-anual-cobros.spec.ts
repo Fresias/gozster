@@ -159,7 +159,7 @@ describe("FE Studio/cobros: KPI ingresos de enero a diciembre y desagregado por 
       const html = renderToString(React.createElement(CobrosPanel));
       expect(html).toContain("data-testid=\"btn-abrir-kpi-anual\"");
       expect(html).toContain("data-testid=\"abrir-kpi-anual\"");
-      expect(html).toContain("Ver año");
+      expect(html).toContain("ver año");
     });
   });
 

@@ -11,6 +11,7 @@ import { ChatFab } from "@/components/coach/chat-fab";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { useCobrosStore } from "@/store/use-cobros-store";
 import { DEMO_GIMNASIO } from "@/services/coach-demo-dataset";
 import {
   Tooltip,
@@ -139,6 +140,9 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Alumnos para buscador rápido
+  // Badge de Cobros: cuotas vencidas del mismo store que usa la vista Cobros (sin números fijos).
+  const cuotasVencidasCount = useCobrosStore((s) => s.cobros.filter((c) => c.estado === "VENCIDO").length);
+
   const alumnosList = React.useMemo(() => {
     return store.alumnos && store.alumnos.length > 0
       ? store.alumnos
@@ -356,9 +360,9 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                     <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
                     {!isSidebarCollapsed && <span className="hidden lg:inline">Alumnos</span>}
                   </span>
-                  {!isSidebarCollapsed && (
+                  {!isSidebarCollapsed && alumnosList.length > 0 && (
                     <span className="hidden lg:inline ml-auto text-xs text-subtle-foreground tabular-nums">
-                      {alumnosList.length || 40}
+                      {alumnosList.length}
                     </span>
                   )}
                 </Link>
@@ -476,9 +480,12 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                     <CreditCard className="h-4 w-4 shrink-0" aria-hidden="true" />
                     {!isSidebarCollapsed && <span className="hidden lg:inline">Cobros</span>}
                   </span>
-                  {!isSidebarCollapsed && (
-                    <span className="hidden lg:inline ml-auto text-xs font-medium text-danger-soft-foreground tabular-nums">
-                      7
+                  {!isSidebarCollapsed && cuotasVencidasCount > 0 && (
+                    <span
+                      className="hidden lg:inline ml-auto text-xs font-medium text-danger-soft-foreground tabular-nums"
+                      aria-label={`${cuotasVencidasCount} cuotas vencidas`}
+                    >
+                      {cuotasVencidasCount}
                     </span>
                   )}
                 </Link>

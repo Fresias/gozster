@@ -43,7 +43,7 @@ import {
   SheetFooter,
   SheetClose,
 } from "@/components/ui/sheet";
-import { MoreHorizontal } from "@/components/ui/icons";
+import { MoreHorizontal, Search } from "@/components/ui/icons";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
@@ -93,6 +93,7 @@ export function CobrosPanel({
     crearPlan,
     modificarPlan,
   } = useCobrosStore();
+  const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
 
   const [localFiltroEstado, setLocalFiltroEstado] = React.useState<FiltroCobros | undefined>(
     initialFiltroEstado
@@ -531,6 +532,23 @@ export function CobrosPanel({
     return `${dia}/${mes}/${anio}`;
   };
 
+  const diasRelativos = (fechaStr: string) => {
+    if (!fechaStr) return "";
+    const f = new Date(`${fechaStr.slice(0, 10)}T12:00:00`);
+    const hoy = new Date(`${hoyIso}T12:00:00`);
+    const dias = Math.round((f.getTime() - hoy.getTime()) / 86_400_000);
+    if (dias === 0) return "hoy";
+    if (dias > 0) return dias === 1 ? "mañana" : `en ${dias} días`;
+    return dias === -1 ? "ayer" : `hace ${Math.abs(dias)} días`;
+  };
+
+  const fechaCortaPago = (iso: string) => {
+    const f = new Date(iso);
+    if (Number.isNaN(f.getTime())) return iso;
+    return `${f.getDate()} ${f.toLocaleDateString("es-AR", { month: "short" }).replace(".", "")}`;
+  };
+
+  // Columnas del objetivo Cobros.html: Alumno · Plan · Vence · Monto · Estado · Último pago · acciones
   const columns: ColumnDef<CobroItem>[] = React.useMemo(
     () => [
       {
@@ -539,45 +557,46 @@ export function CobrosPanel({
         header: "Alumno",
         sortable: true,
         cell: ({ row }) => (
-          <div>
-            <span className="font-bold text-foreground block text-sm">
-              {row.alumnoNombre}
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              {row.alumnoEmail}
-            </span>
+          <div className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">{row.alumnoNombre}</span>
+            <span className="block truncate text-xs text-neutral-soft-foreground">{row.alumnoEmail}</span>
           </div>
         ),
       },
       {
         id: "servicio",
         accessorKey: "servicioNombre",
-        header: "Servicio",
+        header: "Plan",
         sortable: true,
-        cell: ({ row }) => (
-          <div>
-            <span className="font-semibold text-foreground block">
+        cell: ({ row }) => {
+          // P08: el descuento va junto al plan ("Pase libre −20%") y el monto final en una línea
+          const pctDescuento =
+            row.montoLista && row.montoLista > row.monto
+              ? Math.round(((row.montoLista - row.monto) / row.montoLista) * 100)
+              : 0;
+          const nota = row.ultimoPago?.notas || row.notaDescuento;
+          return (
+            <span className="text-sm text-foreground" title={nota ? `Nota: ${nota}` : undefined}>
               {row.servicioNombre}
+              {pctDescuento > 0 && <span className="text-neutral-soft-foreground"> −{pctDescuento}%</span>}
+              {nota && (
+                <span className="sr-only" data-testid="cobro-nota-texto">
+                  Nota: {nota}
+                </span>
+              )}
             </span>
-            <span className="text-[10px] text-muted-foreground">
-              {row.actividad ? `Actividad: ${row.actividad}` : "Combinado"}
-            </span>
-          </div>
-        ),
+          );
+        },
       },
       {
         id: "vencimiento",
         accessorKey: "fechaVencimiento",
-        header: "Vencimiento",
+        header: "Vence",
         sortable: true,
         cell: ({ row }) => (
-          <div>
-            <span className="tabular-nums font-semibold block">
-              {formatearFecha(row.fechaVencimiento)}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              Día {row.diaVencimiento} anclado
-            </span>
+          <div title={`Día ${row.diaVencimiento} anclado`}>
+            <span className="block text-sm tabular-nums text-foreground">{formatearFecha(row.fechaVencimiento)}</span>
+            <span className="block text-xs text-neutral-soft-foreground">{diasRelativos(row.fechaVencimiento)}</span>
           </div>
         ),
       },
@@ -586,43 +605,12 @@ export function CobrosPanel({
         accessorKey: "monto",
         header: "Monto",
         sortable: true,
+        className: "text-right",
+        headerClassName: "text-right",
         cell: ({ row }) => (
-          <div className="tabular-nums text-sm text-foreground">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-black text-foreground" data-testid="cobro-monto">
-                {formatearDinero(row.monto)}
-              </span>
-              {(row.ultimoPago?.notas || row.notaDescuento) && (
-                <span
-                  className="inline-flex items-center justify-center rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 font-black px-1.5 py-0.5 text-[11px] border border-amber-500/40 cursor-help"
-                  title={`Nota: ${row.ultimoPago?.notas || row.notaDescuento}`}
-                  data-testid="cobro-nota-n"
-                  aria-label={`Nota: ${row.ultimoPago?.notas || row.notaDescuento}`}
-                >
-                  N
-                </span>
-              )}
-            </div>
-
-            {row.montoLista && row.montoLista > row.monto && (
-              <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                <span className="line-through">{formatearDinero(row.montoLista)}</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
-                  (-{formatearDinero(row.montoLista - row.monto)})
-                </span>
-              </div>
-            )}
-
-            {(row.ultimoPago?.notas || row.notaDescuento) && (
-              <p
-                className="text-[11px] text-muted-foreground font-medium italic mt-0.5 max-w-[200px] truncate"
-                title={row.ultimoPago?.notas || row.notaDescuento}
-                data-testid="cobro-nota-texto"
-              >
-                Nota: {row.ultimoPago?.notas || row.notaDescuento}
-              </p>
-            )}
-          </div>
+          <span className="font-mono text-sm tabular-nums text-foreground" data-testid="cobro-monto">
+            {formatearDinero(row.monto)}
+          </span>
         ),
       },
       {
@@ -636,72 +624,41 @@ export function CobrosPanel({
           return (
             <StatusBadge
               variant={esPagado ? "success" : esVencido ? "destructive" : "warning"}
-              dot
               size="sm"
               data-testid="estado-cobro-badge"
             >
-              {esPagado ? "Pagado" : esVencido ? "Vencido" : "Por vencer"}
+              {esPagado ? "Pagado" : esVencido ? "Vencido" : "Pendiente"}
             </StatusBadge>
           );
         },
       },
       {
         id: "ultimoPago",
-        header: "Último Pago",
-        cell: ({ row }) => (
-          <div>
-            {row.ultimoPago ? (
-              <div>
-                <span className="font-bold text-foreground">
-                  {row.ultimoPago.medioPago === "TRANSFERENCIA"
-                    ? "Transferencia"
-                    : "Efectivo"}
-                </span>
-                <span className="text-[10px] text-muted-foreground block tabular-nums">
-                  {formatearFecha(row.ultimoPago.fechaPago.slice(0, 10))}
-                </span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground italic text-[11px]">
-                Sin pago registrado
-              </span>
-            )}
-          </div>
-        ),
+        header: "Último pago",
+        cell: ({ row }) =>
+          row.ultimoPago ? (
+            <span className="text-sm text-foreground">
+              {row.ultimoPago.medioPago === "TRANSFERENCIA" ? "Transferencia" : "Efectivo"} ·{" "}
+              {fechaCortaPago(row.ultimoPago.fechaPago)}
+            </span>
+          ) : (
+            <span className="text-sm text-neutral-soft-foreground">Sin pagos</span>
+          ),
       },
       {
         id: "acciones",
-        header: "Acción",
+        header: <span className="sr-only">Acciones</span>,
         className: "text-right",
         headerClassName: "text-right",
         cell: ({ row }) => {
           const esPagado = row.estado === "PAGADO";
           return (
             <div
-              className="flex items-center justify-end gap-1.5 flex-wrap"
+              className="flex items-center justify-end gap-1.5"
               data-contratacion-id={row.contratacionId}
               id={`cobro-row-${row.contratacionId}`}
               tabIndex={-1}
             >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => verHistorial(row.alumnoId)}
-                data-testid="ver-historial-btn"
-                className="h-8 px-2 text-xs font-medium"
-              >
-                Historial
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAlumnoParaAsignar(row)}
-                data-testid="btn-cambiar-plan-cobros"
-                className="h-8 px-2 text-xs font-medium"
-                title="Asignar o cambiar plan de membresía"
-              >
-                Plan
-              </Button>
               {esPagado ? (
                 <Button
                   variant="outline"
@@ -709,7 +666,7 @@ export function CobrosPanel({
                   onClick={() => abrirComprobante(row.contratacionId)}
                   data-testid="ver-recibo-btn"
                   aria-label="Ver comprobante"
-                  className="h-8 px-2.5 text-xs font-semibold"
+                  className="h-8 px-3 text-sm font-medium"
                 >
                   Ver recibo
                 </Button>
@@ -720,7 +677,7 @@ export function CobrosPanel({
                   disabled={accionEnCurso === row.contratacionId}
                   onClick={(e) => abrirModalPago(row, e.currentTarget)}
                   data-testid="registrar-pago-btn"
-                  className="h-8 px-2.5 text-xs font-semibold"
+                  className="h-8 px-3 text-sm font-medium"
                 >
                   Registrar pago
                 </Button>
@@ -728,22 +685,20 @@ export function CobrosPanel({
 
               <DropdownMenu open={initialRowMenuOpen}>
                 <DropdownMenuTrigger
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                   aria-label={`Más acciones para ${row.alumnoNombre}`}
                   data-testid="cobro-acciones-menu-btn"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="text-xs">Acciones de contrato</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                <DropdownMenuContent align="end" className="w-52">
                   {esPagado ? (
                     <DropdownMenuItem
                       onClick={() => abrirComprobante(row.contratacionId)}
                       data-testid="menu-item-ver-comprobante"
                       aria-label="Ver comprobante"
                     >
-                      📄 Ver comprobante
+                      Ver comprobante
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem
@@ -751,20 +706,20 @@ export function CobrosPanel({
                       disabled={accionEnCurso === row.contratacionId}
                       data-testid="menu-item-registrar-pago"
                     >
-                      💳 Registrar pago
+                      Registrar pago
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
                     onClick={() => verHistorial(row.alumnoId)}
-                    data-testid="menu-item-historial"
+                    data-testid="ver-historial-btn"
                   >
-                    📋 Historial de cobros
+                    Historial de cobros
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setAlumnoParaAsignar(row)}
-                    data-testid="menu-item-plan"
+                    data-testid="btn-cambiar-plan-cobros"
                   >
-                    🏷️ Cambiar / Asignar plan
+                    Cambiar o asignar plan
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -778,26 +733,24 @@ export function CobrosPanel({
 
   return (
     <section className="space-y-6" aria-labelledby="cobros-titulo" data-testid="cobros-panel" suppressHydrationWarning>
-      {/* Cabecera */}
+      {/* Cabecera (objetivo Cobros.html): título, período y dos acciones */}
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 id="cobros-titulo" className="text-2xl font-black tracking-tight">
-            Panel de Cobros &amp; Pagos
+        <div className="flex flex-col gap-1">
+          <h1 id="cobros-titulo" className="m-0 text-2xl font-semibold tracking-[-0.02em]">
+            Cobros
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Coach Studio · Control de cuotas, cobranza mensual y recibos internos (no fiscales).
+          <p className="m-0 text-sm text-neutral-soft-foreground" suppressHydrationWarning>
+            {(() => {
+              const t = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+              return t.charAt(0).toUpperCase() + t.slice(1);
+            })()}{" "}
+            · recibos internos, no fiscales.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
-            data-testid="demo-coach-badge"
-          >
-            Coach Lucía Ferraro
-          </span>
           {!isOnline && (
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+            <span className="rounded-full border border-warning-soft-border bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning-soft-foreground">
               Sin conexión · cobros guardados
             </span>
           )}
@@ -806,17 +759,21 @@ export function CobrosPanel({
             variant="outline"
             onClick={abrirModalGestionPlanes}
             data-testid="btn-gestionar-planes"
-            className="min-h-[44px] gap-2 font-bold shadow-xs border-primary/30 hover:border-primary text-foreground"
+            className="h-9 px-3.5 text-sm font-medium"
           >
-            <span>🏷️</span> Planes &amp; Precios
+            Planes y precios
           </Button>
           <Button
             type="button"
-            onClick={abrirModalCrearPlan}
-            data-testid="btn-nuevo-plan"
-            className="min-h-[44px] gap-2 font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90"
+            onClick={() => {
+              // Registrar pago: se elige el alumno desde la tabla (vencidos primero)
+              setFiltroEstado("VENCIDOS");
+              cobrosSearchRef.current?.focus();
+            }}
+            data-testid="btn-registrar-pago-cabecera"
+            className="h-9 px-3.5 text-sm font-medium"
           >
-            <span>➕</span> Nuevo Plan
+            Registrar pago
           </Button>
         </div>
       </header>
@@ -848,188 +805,73 @@ export function CobrosPanel({
         </div>
       )}
 
-      {/* Franja de 4 KPIs superiores derivados de KpisNegocio */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" data-testid="cobros-kpis" suppressHydrationWarning>
-        {/* Cobrado */}
-        <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Cobrado</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-black">
-              $
-            </span>
-          </div>
+      {/* KPIs con la misma tarjeta que Inicio (P08): etiqueta, cifra 28/600 y detalle */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="cobros-kpis" suppressHydrationWarning>
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
+          <span className="text-[13px] text-neutral-soft-foreground">Cobrado</span>
           <p
-            className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums"
+            className="m-0 text-[28px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-foreground"
             data-testid="kpi-ingresos-mes"
             suppressHydrationWarning
           >
             {formatearDinero(cobradoValor)}
           </p>
-          <div className="flex items-center justify-between gap-1 mt-1">
-            <p className="text-[11px] text-muted-foreground">
-              Recaudado en el ciclo actual
-            </p>
+          <p className="m-0 flex flex-wrap items-center gap-x-1 text-[13px] text-neutral-soft-foreground">
+            <span>{cobros.filter((c) => c.estado === "PAGADO").length} pagos este mes ·</span>
             <button
               type="button"
               onClick={() => setKpiAnualAbierto(true)}
-              className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+              className="underline underline-offset-2 hover:text-foreground cursor-pointer"
               data-testid="btn-abrir-kpi-anual"
               aria-label="Ver KPI anual"
             >
-              <span data-testid="abrir-kpi-anual">Ver año</span>
-              <span data-testid="kpi-anual-trigger" aria-hidden="true">→</span>
+              <span data-testid="abrir-kpi-anual">ver año</span>
+              <span data-testid="kpi-anual-trigger" className="sr-only"> anual</span>
             </button>
-          </div>
+          </p>
         </div>
 
-        {/* Por cobrar */}
-        <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Por cobrar</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold">
-              ⏳
-            </span>
-          </div>
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
+          <span className="text-[13px] text-neutral-soft-foreground">Por cobrar</span>
           <p
-            className="mt-2 text-2xl font-black tracking-tight text-amber-600 dark:text-amber-400 tabular-nums"
+            className="m-0 text-[28px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-foreground"
             data-testid="kpi-cobranza-pendiente"
             suppressHydrationWarning
           >
             {formatearDinero(porCobrarValor)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Cuotas próximas a vencer
+          <p className="m-0 text-[13px] text-neutral-soft-foreground">
+            {cobros.filter((c) => c.estado === "PENDIENTE").length} cuotas próximas a vencer
           </p>
         </div>
 
-        {/* Vencido */}
-        <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Vencido</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold">
-              !
-            </span>
-          </div>
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
+          <span className="text-[13px] text-neutral-soft-foreground">Vencido</span>
           <p
-            className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums"
-            data-testid="kpi-alumnos-morosos"
+            className="m-0 text-[28px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-danger-soft-foreground"
+            data-testid="kpi-vencido"
             suppressHydrationWarning
           >
-            {alumnosMorososValor}{" "}
-            <span className="text-xs font-semibold text-muted-foreground" data-testid="kpi-vencido">
-              ({formatearDinero(vencidoValor)})
-            </span>
+            {formatearDinero(vencidoValor)}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Cuotas vencidas sin abonar
+          <p className="m-0 text-[13px] text-neutral-soft-foreground" data-testid="kpi-alumnos-morosos" suppressHydrationWarning>
+            {alumnosMorososValor} {alumnosMorososValor === 1 ? "alumno" : "alumnos"} con cuota vencida
           </p>
         </div>
 
-        {/* Tasa de cobro */}
-        <div className="rounded-2xl border border-border/80 bg-card p-4 transition-all hover:border-primary/40 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-            <span>Tasa de cobro</span>
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold">
-              %
-            </span>
-          </div>
+        <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
+          <span className="text-[13px] text-neutral-soft-foreground">Tasa de cobro</span>
           <p
-            className="mt-2 text-2xl font-black tracking-tight text-sky-600 dark:text-sky-400 tabular-nums"
+            className="m-0 text-[28px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-foreground"
             data-testid="kpi-tasa-cobranza"
             suppressHydrationWarning
           >
             {tasaCobroPctValor}%
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
+          <p className="m-0 text-[13px] text-neutral-soft-foreground" suppressHydrationWarning>
+            {cobros.filter((c) => c.estado === "PAGADO").length} de {cobros.length} contratos pagos ·{" "}
             {alumnosAlDiaValor} alumnos al día
           </p>
-        </div>
-      </div>
-
-      {/* Controles de Filtros Rápidos y Buscador de Contratos */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Pestañas de estado: Todos, Vencidos, Por vencer, Pagados */}
-          <div
-            className="flex items-center rounded-xl border border-border/80 bg-secondary/40 p-1"
-            role="group"
-            aria-label="Filtro de estados"
-          >
-            {(
-              [
-                { key: "TODOS", label: `Todos (${cobros.length})`, testId: "filtro-todos-btn" },
-                {
-                  key: "VENCIDOS",
-                  label: `Vencidos (${cobros.filter((c) => c.estado === "VENCIDO" || (Boolean(c.fechaVencimiento) && c.fechaVencimiento < hoyIso && c.estado !== "PAGADO")).length})`,
-                  testId: "filtro-vencidos-btn",
-                },
-                {
-                  key: "PENDIENTES",
-                  label: `Por vencer (${cobros.filter((c) => c.estado === "PENDIENTE").length})`,
-                  testId: "filtro-pendientes-btn",
-                },
-                {
-                  key: "PAGADOS",
-                  label: `Pagados (${cobros.filter((c) => c.estado === "PAGADO").length})`,
-                  testId: "filtro-pagados-btn",
-                },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFiltroEstado(tab.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  filtroEstado === tab.key
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={tab.testId}
-                suppressHydrationWarning
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Botón de Filtro / Vista de Descuentos */}
-          <button
-            type="button"
-            onClick={() => setFiltroEstado(filtroEstado === "DESCUENTOS" ? "TODOS" : "DESCUENTOS")}
-            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1.5 ${
-              filtroEstado === "DESCUENTOS"
-                ? "border-amber-500/80 bg-amber-500/20 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/40"
-                : "border-border/80 bg-secondary/40 text-muted-foreground hover:text-foreground"
-            }`}
-            data-testid="filtro-descuentos-btn"
-            title="Consultar y recuperar montos menores a la suscripción"
-          >
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-500 text-black font-black text-[10px]">
-              N
-            </span>
-            <span>Descuentos ({cobrosConDescuento.length})</span>
-          </button>
-        </div>
-
-        {/* Buscador de contratos */}
-        <div className="relative min-w-64 max-w-sm flex-1">
-          <input
-            type="search"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por alumno o servicio…"
-            className="w-full rounded-xl border border-border/80 bg-background px-3.5 py-2 text-xs font-normal text-foreground placeholder:text-muted-foreground/70"
-            data-testid="cobros-search-input"
-          />
-          {busqueda && (
-            <button
-              type="button"
-              onClick={() => setBusqueda("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground hover:text-foreground"
-            >
-              ✕
-            </button>
-          )}
         </div>
       </div>
 
@@ -1147,11 +989,83 @@ export function CobrosPanel({
           Cargando cobros…
         </div>
       ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {/* Toolbar dentro de la tabla (objetivo Cobros.html): búsqueda + chips de estado */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+            <label className="flex h-9 w-[260px] max-w-full items-center gap-2 rounded-lg border border-border bg-card px-3 text-muted-foreground">
+              <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <input
+                ref={cobrosSearchRef}
+                type="search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar alumno o servicio"
+                aria-label="Buscar alumno o servicio"
+                className="min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                data-testid="cobros-search-input"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filtro de estados">
+              {(
+                [
+                  { key: "TODOS", label: "Todos", count: cobros.length, testId: "filtro-todos-btn" },
+                  {
+                    key: "VENCIDOS",
+                    label: "Vencidos",
+                    count: cobros.filter((c) => c.estado === "VENCIDO" || (Boolean(c.fechaVencimiento) && c.fechaVencimiento < hoyIso && c.estado !== "PAGADO")).length,
+                    testId: "filtro-vencidos-btn",
+                  },
+                  {
+                    key: "PENDIENTES",
+                    label: "Por vencer",
+                    count: cobros.filter((c) => c.estado === "PENDIENTE").length,
+                    testId: "filtro-pendientes-btn",
+                  },
+                  {
+                    key: "PAGADOS",
+                    label: "Pagados",
+                    count: cobros.filter((c) => c.estado === "PAGADO").length,
+                    testId: "filtro-pagados-btn",
+                  },
+                  {
+                    key: "DESCUENTOS",
+                    label: "Con descuento",
+                    count: cobrosConDescuento.length,
+                    testId: "filtro-descuentos-btn",
+                  },
+                ] as const
+              ).map((tab) => {
+                const activo = filtroEstado === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() =>
+                      setFiltroEstado(tab.key === "DESCUENTOS" && activo ? "TODOS" : tab.key)
+                    }
+                    aria-pressed={activo}
+                    className={`h-8 rounded-lg border px-2.5 text-[13px] transition-colors cursor-pointer ${
+                      activo
+                        ? "border-border bg-muted text-foreground font-medium"
+                        : "border-transparent text-neutral-soft-foreground hover:bg-muted/60"
+                    }`}
+                    data-testid={tab.testId}
+                    suppressHydrationWarning
+                  >
+                    {tab.label} <span className="text-subtle-foreground tabular-nums">{tab.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         <DataTable
           columns={columns}
           data={cobrosOrdenados}
           pageSize={15}
           showPagination={true}
+          containerClassName="border-0 shadow-none rounded-none"
+          headerRowClassName="border-b border-border text-[13px] font-medium text-muted-foreground"
           tableTestId="cobros-table"
           rowTestId="cobro-row"
           emptyTitle="No se encontraron cobros"
@@ -1161,6 +1075,7 @@ export function CobrosPanel({
               : "No hay cuotas registradas bajo este filtro."
           }
         />
+        </div>
       )}
 
       {/* SHEET LATERAL: REGISTRAR PAGO (GOZS-398) */}

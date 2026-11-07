@@ -456,16 +456,10 @@ export function RankingFuncional({
   return (
     <div className="space-y-6 pb-12" data-testid="ranking-funcional-view">
       {/* Cabecera y Selector */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl" aria-hidden="true">🏆</span>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Ranking Funcional</h1>
-            <Badge variant="secondary" className="ml-2 font-semibold uppercase tracking-wider border border-border/80 text-foreground">
-              PR / Peso Corporal
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">Ranking funcional</h1>
+          <p className="m-0 mt-1 text-sm text-neutral-soft-foreground">
             Cargá el récord de cada alumno; el ranking compara kg levantados por kg de peso corporal.
           </p>
         </div>
@@ -473,7 +467,7 @@ export function RankingFuncional({
         <div className="flex items-center gap-2">
           {!isOnline && (
             <Badge variant="warning">
-              ⚡ Modo Offline
+              Sin conexión
             </Badge>
           )}
         </div>
@@ -515,7 +509,7 @@ export function RankingFuncional({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12 items-end">
         {/* Selector de Clase */}
         <div className="lg:col-span-5 space-y-1.5">
-          <label htmlFor="select-clase" className="text-xs font-bold text-foreground">
+          <label htmlFor="select-clase" className="text-[13px] font-medium text-foreground">
             Clase
           </label>
           <select
@@ -523,7 +517,7 @@ export function RankingFuncional({
             data-testid="clase-select"
             value={activeClaseId ?? ""}
             onChange={(e) => setClaseId(e.target.value || null)}
-            className="w-full min-h-[42px] rounded-xl border border-border/80 bg-background px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary focus:outline-none transition-colors"
+            className="w-full h-10 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">-- Seleccionar una clase --</option>
             {listaClases.map((c) => {
@@ -532,7 +526,13 @@ export function RankingFuncional({
               const insc = agendaReservas.filter((r) => r.clase_id === c.id && r.estado === "ANOTADO").length;
               return (
                 <option key={c.id} value={c.id}>
-                  {fecha} · {hora} · {c.actividad} ({insc})
+                  {(() => {
+                    const d = new Date(`${fecha}T12:00:00`);
+                    const dia = d.toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "");
+                    const mes = d.toLocaleDateString("es-AR", { month: "short" }).replace(".", "");
+                    const act = c.actividad.charAt(0) + c.actividad.slice(1).toLowerCase();
+                    return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${d.getDate()} ${mes} · ${hora} · ${act} (${insc})`;
+                  })()}
                 </option>
               );
             })}
@@ -541,8 +541,8 @@ export function RankingFuncional({
 
         {/* Selector de Ejercicio */}
         <div className="lg:col-span-5 space-y-1.5">
-          <label htmlFor="select-ejercicio" className="text-xs font-bold text-foreground">
-            Ejercicio de Prueba
+          <label htmlFor="select-ejercicio" className="text-[13px] font-medium text-foreground">
+            Ejercicio
           </label>
           <div className="relative" ref={comboboxRef} data-testid="ejercicio-combobox">
             <button
@@ -632,9 +632,9 @@ export function RankingFuncional({
                 aria-label="Sumar alumno"
                 value={alumnoAnotarId}
                 onChange={(e) => setAlumnoAnotarId(e.target.value)}
-                className="w-full min-h-[42px] rounded-xl border border-border/80 bg-background px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none"
+                className="w-full h-10 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="">+ Sumar alumno...</option>
+                <option value="">Sumar alumno</option>
                 {alumnosNoParticipantes.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.nombre_completo}
@@ -647,9 +647,9 @@ export function RankingFuncional({
                 disabled={!alumnoAnotarId || agregandoAlumno}
                 onClick={handleAgregarParticipante}
                 data-testid="add-student-btn"
-                className="min-h-[42px] text-xs px-3 shrink-0"
+                className="h-10 text-sm font-medium px-3.5 shrink-0"
               >
-                {agregandoAlumno ? "..." : "Sumar"}
+                {agregandoAlumno ? "Sumando…" : "Sumar"}
               </Button>
             </div>
           ) : (
@@ -658,7 +658,7 @@ export function RankingFuncional({
               variant="outline"
               disabled
               data-testid="add-student-btn"
-              className="w-full min-h-[42px] text-xs"
+              className="h-10 w-full text-sm font-medium"
             >
               Sumar alumno
             </Button>
@@ -668,17 +668,13 @@ export function RankingFuncional({
 
       {/* SECCIÓN PARTICIPANTES: Fila Unificada de Guardado Rápido */}
       {claseActiva && ejercicioActivo && (
-        <Card className="border-border/80 bg-card overflow-hidden shadow-xs">
-          <CardHeader className="border-b border-border/60 py-4 px-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-foreground">
-                  Participantes
-                </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {participantesConRecord} de {participantes.length} con récord cargado
-                </p>
-              </div>
+        <Card className="border-border bg-card overflow-hidden shadow-none">
+          <CardHeader className="border-b border-border py-3.5 px-4">
+            <div className="flex items-baseline gap-2">
+              <CardTitle className="text-[15px] font-semibold text-foreground">Participantes</CardTitle>
+              <p className="m-0 text-[13px] text-neutral-soft-foreground">
+                {participantesConRecord} de {participantes.length} con récord cargado
+              </p>
             </div>
           </CardHeader>
 
@@ -692,7 +688,7 @@ export function RankingFuncional({
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-sm" data-testid="participants-table">
                   <thead>
-                    <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border text-xs font-normal text-neutral-soft-foreground">
                       <th className="py-2.5 px-4">Alumno</th>
                       <th className="py-2.5 px-3">Categoría</th>
                       <th className="py-2.5 px-3">Peso corporal</th>
@@ -740,12 +736,12 @@ export function RankingFuncional({
                         >
                           {/* Alumno */}
                           <td className="py-3 px-4">
-                            <span className="font-semibold block text-foreground">
+                            <span className="block text-sm font-medium text-foreground">
                               {part.alumno_nombre}
                             </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {part.estado}
-                            </span>
+                            {part.estado !== "ANOTADO" && (
+                              <span className="text-xs text-neutral-soft-foreground">{part.estado === "AUSENTE" ? "Ausente" : part.estado}</span>
+                            )}
                           </td>
 
                           {/* Categoría (Select neutro de Masculino / Femenino) */}
@@ -909,15 +905,14 @@ export function RankingFuncional({
       {/* Tablas de Ranking Relativo por Sexo (Página 9) */}
       {claseActiva && ejercicioActivo && (
         <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2">
             {/* TABLA RANKING MASCULINO */}
-            <Card className="border-border/80 bg-card overflow-hidden shadow-xs" data-testid="ranking-hombres-card">
-              <CardHeader className="border-b border-border/60 py-3.5 px-5 bg-card">
+            <Card className="border-border bg-card overflow-hidden shadow-none" data-testid="ranking-hombres-card">
+              <CardHeader className="border-b border-border py-3.5 px-4 bg-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CategoryChip categoria="Masculino" />
-                    <CardTitle className="text-base font-bold text-foreground">
-                      Ranking Masculino (Hombres)
+                    <CardTitle className="text-[15px] font-semibold text-foreground">
+                      Masculino
                     </CardTitle>
                   </div>
                   <span className="text-xs text-muted-foreground font-medium">
@@ -935,7 +930,7 @@ export function RankingFuncional({
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-sm" data-testid="ranking-hombres-table">
                       <thead>
-                        <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <tr className="border-b border-border text-xs font-normal text-neutral-soft-foreground">
                           <th
                             scope="col"
                             role="columnheader"
@@ -1088,7 +1083,7 @@ export function RankingFuncional({
                               </td>
                               <td className="py-3 px-3.5 text-right">
                                 <Badge variant="secondary" className="font-mono font-bold text-sm px-2.5 py-0.5 border border-border/80 text-foreground bg-muted/60">
-                                  {`${item.ratio?.toFixed(2)}×`}
+                                  {`${item.ratio?.toFixed(2).replace(".", ",")}×`}
                                 </Badge>
                               </td>
                             </tr>
@@ -1102,13 +1097,12 @@ export function RankingFuncional({
             </Card>
 
             {/* TABLA RANKING FEMENINO */}
-            <Card className="border-border/80 bg-card overflow-hidden shadow-xs" data-testid="ranking-mujeres-card">
-              <CardHeader className="border-b border-border/60 py-3.5 px-5 bg-card">
+            <Card className="border-border bg-card overflow-hidden shadow-none" data-testid="ranking-mujeres-card">
+              <CardHeader className="border-b border-border py-3.5 px-4 bg-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CategoryChip categoria="Femenino" />
-                    <CardTitle className="text-base font-bold text-foreground">
-                      Ranking Femenino (Mujeres)
+                    <CardTitle className="text-[15px] font-semibold text-foreground">
+                      Femenino
                     </CardTitle>
                   </div>
                   <span className="text-xs text-muted-foreground font-medium">
@@ -1126,7 +1120,7 @@ export function RankingFuncional({
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-sm" data-testid="ranking-mujeres-table">
                       <thead>
-                        <tr className="border-b border-border/60 bg-muted/20 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <tr className="border-b border-border text-xs font-normal text-neutral-soft-foreground">
                           <th
                             scope="col"
                             role="columnheader"
@@ -1279,7 +1273,7 @@ export function RankingFuncional({
                               </td>
                               <td className="py-3 px-3.5 text-right">
                                 <Badge variant="secondary" className="font-mono font-bold text-sm px-2.5 py-0.5 border border-border/80 text-foreground bg-muted/60">
-                                  {`${item.ratio?.toFixed(2)}×`}
+                                  {`${item.ratio?.toFixed(2).replace(".", ",")}×`}
                                 </Badge>
                               </td>
                             </tr>

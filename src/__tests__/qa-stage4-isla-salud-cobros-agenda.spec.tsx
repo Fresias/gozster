@@ -113,10 +113,11 @@ describe("GOZS-391: Auditoría QA Stage 4 - Ficha de Alumno, Cobros y Agenda", (
       // Alert semántico de dolor activo
       expect(html).toContain('data-testid="alert-salud"');
       expect(html).toContain("Agudo");
-      expect(html).toContain("Rodilla derecha");
+      expect(html).toContain("rodilla derecha");
       expect(html).toContain("EVA 8");
       expect(html).toContain("Pendiente");
-      expect(html).toContain("border-destructive");
+      // Variante destructiva del Alert (EVA ≥ 7)
+      expect(html).toContain("border-rose-500/35");
 
       // Control Segmented con las 3 opciones de intervención
       expect(html).toContain('role="tablist"');

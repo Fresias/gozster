@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronLeft, ChevronRight } from "@/components/ui/icons";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,21 +123,18 @@ export function ClaseBlock({
   const sobrecupo = !cancelada && !finalizada && capacidad !== null && ocupados > capacidad;
 
   let colorClasses = "";
-  let barClasses = "";
 
-  if (cancelada) {
-    colorClasses = "bg-card border-dashed border-slate-400 text-muted-foreground";
-    barClasses = "";
-  } else if (finalizada) {
-    colorClasses = "bg-muted text-slate-600 border-border dark:text-slate-400 dark:border-border";
-    barClasses = "bg-slate-300 dark:bg-slate-600";
+  // Objetivo Agenda.html: Funcional gris, Boxeo naranja suave, seleccionada en negro, cancelada punteada
+  if (activa && !cancelada) {
+    colorClasses = "bg-foreground text-background border-foreground";
+  } else if (cancelada) {
+    colorClasses = "bg-card border-dashed border-subtle-foreground/60 text-muted-foreground";
   } else if (clase.actividad === "FUNCIONAL") {
-    colorClasses = "bg-act-funcional-bg text-act-funcional-fg border-act-funcional-bar/30";
-    barClasses = "bg-act-funcional-bar";
+    colorClasses = "bg-act-funcional-bg text-foreground border-act-funcional-border";
   } else {
-    colorClasses = "bg-act-boxeo-bg text-act-boxeo-fg border-act-boxeo-bar/30";
-    barClasses = "bg-act-boxeo-bar";
+    colorClasses = "bg-act-boxeo-bg text-foreground border-act-boxeo-border";
   }
+  if (finalizada && !activa) colorClasses += " opacity-70";
 
   let leftStyle = "4px";
   let widthStyle = "calc(100% - 8px)";
@@ -158,8 +156,8 @@ export function ClaseBlock({
       }}
       aria-haspopup="dialog"
       aria-label={`${NOMBRE_ACTIVIDAD[clase.actividad]}, ${horaLocal(clase.inicio)}, ${ocupados} de ${capacidad ?? "sin límite"} cupos${cancelada ? ", Cancelada" : ""}`}
-      className={`absolute rounded-md border overflow-hidden pl-2.5 pr-1.5 py-1.5 text-left transition-all z-10 hover:brightness-[0.98] focus-visible:ring-2 focus-visible:ring-ring ${
-        activa ? "ring-2 ring-primary ring-offset-1 z-20" : ""
+      className={`absolute rounded-lg border overflow-hidden px-2 py-1.5 text-left transition-colors z-10 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        activa ? "z-20" : ""
       } ${colorClasses}`}
       style={{
         top: `${top}px`,
@@ -169,14 +167,11 @@ export function ClaseBlock({
       }}
       data-testid="class-block-card"
     >
-      {!cancelada && barClasses && (
-        <span className={`absolute inset-y-0 left-0 w-[3px] ${barClasses}`} aria-hidden="true" />
-      )}
 
       {/* Línea 1 */}
       <div className="flex items-center justify-between gap-1">
         <span
-          className={`text-[13px] font-semibold truncate ${
+          className={`text-[13px] font-medium truncate ${
             cancelada ? "line-through text-muted-foreground" : ""
           }`}
         >
@@ -195,13 +190,13 @@ export function ClaseBlock({
       </div>
 
       {/* Línea 2 */}
-      <div className="font-mono text-[11px] font-medium leading-tight">
+      <div className="text-xs leading-tight truncate">
         {cancelada ? (
           <span className="text-muted-foreground">Cancelada</span>
         ) : (
-          <span className="opacity-90">
+          <span className={activa ? "opacity-70" : "text-neutral-soft-foreground"}>
             {horaLocal(clase.inicio)} ·{" "}
-            {capacidad !== null ? `${ocupados}/${capacidad}` : `${ocupados} anot.`}
+            {capacidad !== null ? `${ocupados}/${capacidad}` : `${ocupados} anotados`}
           </span>
         )}
       </div>
@@ -609,7 +604,7 @@ export function ClassAgenda({
   }, [horaMin, horaMax, gaps, expandedGaps]);
 
   const totalAlturaGrid = React.useMemo(() => {
-    return slots.reduce((acc, slot) => acc + (slot.tipo === "gap" ? 36 : 56), 0);
+    return slots.reduce((acc, slot) => acc + (slot.tipo === "gap" ? 36 : 72), 0);
   }, [slots]);
 
   const calcularTop = React.useCallback(
@@ -622,10 +617,10 @@ export function ClassAgenda({
             top += 36;
           }
         } else {
-          top += 56;
+          top += 72;
         }
       }
-      top += (minuto / 60) * 56;
+      top += (minuto / 60) * 72;
       return top;
     },
     [horaMin, gaps, expandedGaps]
@@ -647,14 +642,15 @@ export function ClassAgenda({
     }
     const mesL = lunesDate.getMonth();
     const mesD = domingoDate.getMonth();
+    const mesLargo = (m: number) => (MESES[m] ?? "").toLowerCase();
     const rango =
       mesL === mesD
-        ? `${diasSemana[0]?.numero} – ${diasSemana[6]?.numero} ${MESES_CORTOS[mesL]}`
-        : `${diasSemana[0]?.numero} ${MESES_CORTOS[mesL]} – ${diasSemana[6]?.numero} ${MESES_CORTOS[mesD]}`;
+        ? `${diasSemana[0]?.numero} al ${diasSemana[6]?.numero} de ${mesLargo(mesL)}`
+        : `${diasSemana[0]?.numero} de ${mesLargo(mesL)} al ${diasSemana[6]?.numero} de ${mesLargo(mesD)}`;
 
     return (
       <>
-        Semana {numSemana} · <span className="font-mono tabular-nums">{rango}</span>
+        Semana {numSemana} · <span className="tabular-nums">{rango}</span>
       </>
     );
   }, [vista, diasSemana, lunesDate, domingoDate, numSemana]);
@@ -670,12 +666,12 @@ export function ClassAgenda({
   return (
     <section className="space-y-6" aria-labelledby="agenda-titulo" data-testid="class-agenda" suppressHydrationWarning>
       {/* Cabecera del calendario (Sección 4) */}
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-4" suppressHydrationWarning>
-        <div className="space-y-0.5">
-          <h1 id="agenda-titulo" className="text-lg font-semibold tracking-tight text-foreground capitalize">
+      <header className="flex flex-wrap items-end justify-between gap-4" suppressHydrationWarning>
+        <div className="flex flex-col gap-1">
+          <h1 id="agenda-titulo" className="m-0 text-2xl font-semibold tracking-[-0.02em] text-foreground capitalize">
             {headerTitulo}
           </h1>
-          <p className="text-sm text-muted-foreground">{headerSubtitulo}</p>
+          <p className="m-0 text-sm text-neutral-soft-foreground">{headerSubtitulo}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -686,55 +682,52 @@ export function ClassAgenda({
             data-testid="week-selector"
             className="flex items-center gap-1.5"
           >
-            {/* Botón Hoy */}
-            <button
-              type="button"
-              onClick={irAHoy}
-              data-testid="today-btn"
-              aria-label="Ir a la fecha de hoy"
-              className="h-9 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-            >
-              Hoy
-            </button>
-
-            {/* Flechas de navegación semanal / periódica */}
-            <div className="inline-flex rounded-lg border border-border bg-card overflow-hidden">
+            <div className="inline-flex h-9 overflow-hidden rounded-lg border border-border bg-card">
               <button
                 type="button"
                 onClick={() => navegarFecha(-1)}
-                className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="flex w-9 items-center justify-center text-neutral-soft-foreground hover:bg-muted hover:text-foreground cursor-pointer"
                 aria-label={vista === "semana" ? "Semana anterior" : vista === "dia" ? "Día anterior" : "Mes anterior"}
                 title="Anterior (←)"
                 data-testid="prev-week-btn"
               >
-                <span className="text-sm font-bold" aria-hidden="true">‹</span>
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={irAHoy}
+                data-testid="today-btn"
+                aria-label="Ir a la fecha de hoy"
+                className="border-x border-border px-3.5 text-sm font-medium text-foreground hover:bg-muted cursor-pointer"
+              >
+                Hoy
               </button>
               <button
                 type="button"
                 onClick={() => navegarFecha(1)}
-                className="-ml-px flex h-9 w-9 items-center justify-center border-l border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="flex w-9 items-center justify-center text-neutral-soft-foreground hover:bg-muted hover:text-foreground cursor-pointer"
                 aria-label={vista === "semana" ? "Semana siguiente" : vista === "dia" ? "Día siguiente" : "Mes siguiente"}
                 title="Siguiente (→)"
                 data-testid="next-week-btn"
               >
-                <span className="text-sm font-bold" aria-hidden="true">›</span>
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           </div>
 
           {/* Segmented Día/Semana/Mes */}
           <div
-            className="inline-flex h-9 items-center rounded-lg bg-muted p-1 gap-1"
+            className="inline-flex h-9 items-center rounded-lg bg-muted p-[3px] gap-0.5"
             role="group"
             aria-label="Vistas de agenda"
           >
             <button
               type="button"
               onClick={() => setVista("dia")}
-              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
+              className={`h-[30px] rounded-md px-3 text-[13px] transition-all cursor-pointer ${
                 vista === "dia"
-                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground font-medium shadow-xs"
+                  : "text-neutral-soft-foreground hover:text-foreground"
               }`}
               data-testid="view-day-btn"
             >
@@ -743,10 +736,10 @@ export function ClassAgenda({
             <button
               type="button"
               onClick={() => setVista("semana")}
-              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
+              className={`h-[30px] rounded-md px-3 text-[13px] transition-all cursor-pointer ${
                 vista === "semana"
-                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground font-medium shadow-xs"
+                  : "text-neutral-soft-foreground hover:text-foreground"
               }`}
               data-testid="view-week-btn"
             >
@@ -755,10 +748,10 @@ export function ClassAgenda({
             <button
               type="button"
               onClick={() => setVista("mes")}
-              className={`h-7 rounded-md px-3 text-xs font-semibold transition-all ${
+              className={`h-[30px] rounded-md px-3 text-[13px] transition-all cursor-pointer ${
                 vista === "mes"
-                  ? "bg-card text-foreground ring-1 ring-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-card text-foreground font-medium shadow-xs"
+                  : "text-neutral-soft-foreground hover:text-foreground"
               }`}
               data-testid="view-month-btn"
             >
@@ -776,19 +769,12 @@ export function ClassAgenda({
               setCrearCapacidad(null);
               createDialogRef.current?.showModal();
             }}
-            className="h-9 gap-1.5 font-bold"
+            className="h-9 px-3.5 text-sm font-medium"
             size="sm"
             data-testid="create-class-btn"
           >
-            <span>+</span> Nueva clase
+            Nueva clase
           </Button>
-
-          <span
-            className="rounded-full border border-sky-500/40 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300"
-            data-testid="demo-coach-badge"
-          >
-            Coach Lucía Ferraro
-          </span>
           {!isOnline && (
             <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
               Sin conexión · agenda guardada
@@ -912,10 +898,10 @@ export function ClassAgenda({
 
       {/* VISTA SEMANA (Sección 5: Grilla Horaria) */}
       {vista === "semana" && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_356px]">
+          <div className="rounded-xl border border-border bg-card overflow-hidden min-w-0">
             {/* Header de días: LUN 26 (hoy con pill bg-primary) */}
-            <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border/80 bg-muted/20">
+            <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-border">
               <div className="h-14 border-r border-border/40" aria-hidden="true" />
               {diasSemana.map((d) => {
                 const esHoy = d.clave === hoy;
@@ -928,25 +914,17 @@ export function ClassAgenda({
                     title={feriado?.nombre}
                     data-feriado={feriado ? "true" : undefined}
                     onClick={() => setDia(d.clave)}
-                    className={`h-14 border-r last:border-r-0 border-border/40 p-2 text-center flex flex-col items-center justify-center gap-0.5 transition-colors hover:bg-muted/40 ${
-                      feriado ? "bg-red-500/10 text-red-600 dark:text-red-400" : esHoy ? "bg-primary/5" : esSeleccionado ? "bg-secondary/40" : ""
+                    className={`h-14 border-r last:border-r-0 border-border p-2 text-center flex flex-col items-center justify-center gap-0.5 transition-colors hover:bg-muted/40 cursor-pointer ${
+                      feriado ? "bg-red-500/10 text-red-600 dark:text-red-400" : esSeleccionado && !esHoy ? "bg-muted/40" : ""
                     }`}
                   >
-                    <span
-                      className={`text-xs uppercase tracking-wider ${
-                        esHoy ? "text-primary font-bold" : "text-muted-foreground font-semibold"
-                      }`}
-                    >
-                      {d.etiqueta}
-                    </span>
+                    <span className="text-xs uppercase text-neutral-soft-foreground">{d.etiqueta}</span>
                     {esHoy ? (
-                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-primary px-1 font-mono text-xs font-bold text-primary-foreground shadow-xs">
+                      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-foreground px-1 text-sm font-semibold text-background">
                         {d.numero}
                       </span>
                     ) : (
-                      <span className="font-mono text-sm font-semibold text-foreground">
-                        {d.numero}
-                      </span>
+                      <span className="text-sm font-semibold text-foreground">{d.numero}</span>
                     )}
                   </button>
                 );
@@ -989,7 +967,7 @@ export function ClassAgenda({
 
                   return (
                     <React.Fragment key={`hora-${slot.hora}`}>
-                      <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                      <div className="h-[72px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
                         {`${String(slot.hora).padStart(2, "0")}:00`}
                       </div>
                       {diasSemana.map((d) => {
@@ -1001,7 +979,7 @@ export function ClassAgenda({
                         return (
                           <div
                             key={`${d.clave}-${slot.hora}`}
-                            className={`h-[56px] border-t border-r last:border-r-0 border-border/40 ${
+                            className={`h-[72px] border-t border-r last:border-r-0 border-border/40 ${
                               esHoy
                                 ? "bg-primary/5"
                                 : esDomingo || sinClases
@@ -1043,7 +1021,7 @@ export function ClassAgenda({
                         {clasesDia.map((c) => {
                           const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
                           const topPx = calcularTop(hora, minuto);
-                          const heightPx = ((c.duracion_minutos || 60) / 60) * 56;
+                          const heightPx = ((c.duracion_minutos || 60) / 60) * 72;
                           const solape = solapesMap?.get(c.id);
 
                           return (
@@ -1073,7 +1051,7 @@ export function ClassAgenda({
             </div>
 
             {/* Leyenda informativa de acotamiento dinámico (GOZS-385) */}
-            <div className="border-t border-border/60 px-4 py-2.5 bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+            <div className="border-t border-border px-4 py-2.5 flex items-center justify-between text-xs text-neutral-soft-foreground">
               <span data-testid="agenda-rango-dinamico-leyenda">
                 {textoLeyenda}
               </span>
@@ -1082,7 +1060,7 @@ export function ClassAgenda({
 
           {/* Panel de detalle de la clase seleccionada en vista semanal (cuando el Sheet no está desplegado) */}
           {!sheetDetalleAbierto && seleccionada && (
-            <div className="max-w-2xl">
+            <div className="min-w-0 xl:sticky xl:top-20">
               {renderDetalleClase(
                 seleccionada,
                 anotados,
@@ -1184,11 +1162,11 @@ export function ClassAgenda({
 
                     return (
                       <React.Fragment key={`dia-hora-${slot.hora}`}>
-                        <div className="h-[56px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
+                        <div className="h-[72px] border-t border-border/40 pr-2 pt-0.5 text-right font-mono text-[11px] text-muted-foreground tabular-nums">
                           {`${String(slot.hora).padStart(2, "0")}:00`}
                         </div>
                         <div
-                          className={`h-[56px] border-t border-l border-border/40 ${
+                          className={`h-[72px] border-t border-l border-border/40 ${
                             dia === hoy ? "bg-primary/5" : "bg-card"
                           }`}
                         />
@@ -1216,7 +1194,7 @@ export function ClassAgenda({
                       {delDia.map((c) => {
                         const { hora, minuto } = parseHoraMinutoLocal(c.inicio);
                         const topPx = calcularTop(hora, minuto);
-                        const heightPx = ((c.duracion_minutos || 60) / 60) * 56;
+                        const heightPx = ((c.duracion_minutos || 60) / 60) * 72;
                         const solape = solapesDia.get(c.id);
 
                         return (
@@ -1243,7 +1221,7 @@ export function ClassAgenda({
               </div>
 
               {/* Leyenda informativa de acotamiento dinámico (GOZS-385) */}
-              <div className="border-t border-border/60 px-4 py-2.5 bg-muted/10 flex items-center justify-between text-xs text-muted-foreground">
+              <div className="border-t border-border px-4 py-2.5 flex items-center justify-between text-xs text-neutral-soft-foreground">
                 <span data-testid="agenda-dia-rango-dinamico-leyenda">
                   {textoLeyenda}
                 </span>
@@ -1668,78 +1646,66 @@ function renderDetalleClase(
       ? Math.min(100, Math.round((ocupadosCount / capacidad) * 100))
       : 0;
 
+  const finMs = new Date(seleccionada.inicio).getTime() + (seleccionada.duracion_minutos || 60) * 60_000;
+  const enCurso = claseIniciada && Date.now() < finMs && seleccionada.estado === "PROGRAMADA";
+
   return (
     <div
-      className="rounded-2xl border border-border/80 bg-card p-5 space-y-5"
+      className="rounded-xl border border-border bg-card p-4 space-y-4"
       data-testid="class-detail"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[seleccionada.actividad]}`}
-            >
-              {NOMBRE_ACTIVIDAD[seleccionada.actividad]}
-            </span>
-            <h2 className="text-xl font-black">{horaLocal(seleccionada.inicio)}</h2>
-            {cupoLleno && (
-              <Badge variant="warning" data-testid="class-full-badge">
-                Cupo lleno
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Duración: {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
-          </p>
-          <p className="text-xs font-semibold text-foreground/90 mt-1" data-testid="class-detail-coach">
-            Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {seleccionada.estado === "PROGRAMADA" && (
-            <>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={abrirAnotarAlumno}
-                disabled={cupoLleno}
-                title={cupoLleno ? "Cupo lleno: no se admiten nuevas inscripciones" : undefined}
-                data-testid="enroll-student-dialog-btn"
-              >
-                + Anotar alumno
-              </Button>
-              <Link href={`/studio/ranking-funcional?claseId=${seleccionada.id}`}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="class-ranking-btn"
-                  className="font-bold flex items-center gap-1.5"
-                >
-                  <span aria-hidden="true">🏆</span>
-                  <span>Ranking PRs</span>
-                </Button>
-              </Link>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={abrirDialogoCancelar}
-                data-testid="cancel-class-dialog-btn"
-              >
-                Cancelar clase
-              </Button>
-            </>
+      {/* Encabezado (objetivo Agenda.html): "Funcional · 18:00", fecha, duración y cupo */}
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="m-0 text-lg font-semibold text-foreground">
+            {NOMBRE_ACTIVIDAD[seleccionada.actividad]} · {horaLocal(seleccionada.inicio)}
+          </h2>
+          {enCurso && (
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-foreground">Ahora</span>
+          )}
+          {cupoLleno && (
+            <Badge variant="warning" data-testid="class-full-badge">
+              Cupo lleno
+            </Badge>
           )}
         </div>
+        <p className="m-0 text-[13px] text-neutral-soft-foreground">
+          {new Date(seleccionada.inicio).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })} · {seleccionada.duracion_minutos} min ·{" "}
+          {capacidad !== null ? `${ocupadosCount} de ${capacidad} cupos` : "cupo libre"}
+        </p>
+        <p className="m-0 text-[13px] text-neutral-soft-foreground" data-testid="class-detail-coach">
+          Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo}
+        </p>
       </div>
+
+      {seleccionada.estado === "PROGRAMADA" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={abrirAnotarAlumno}
+            disabled={cupoLleno}
+            title={cupoLleno ? "Cupo lleno: no se admiten nuevas inscripciones" : undefined}
+            data-testid="enroll-student-dialog-btn"
+            className="h-9 px-3.5 text-sm font-medium"
+          >
+            Anotar alumno
+          </Button>
+          <Link href={`/studio/ranking-funcional?claseId=${seleccionada.id}`}>
+            <Button variant="outline" size="sm" data-testid="class-ranking-btn" className="h-9 px-3.5 text-sm font-medium">
+              Cargar récords
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Barra de cupos ocupados vs disponibles (GOZS-399) */}
       <div
-        className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2"
+        className={capacidad !== null ? "space-y-2" : "sr-only"}
         data-testid="class-capacity-bar"
       >
         <div className="flex items-center justify-between text-xs">
-          <span className="font-bold text-foreground">
+          <span className="font-medium text-foreground">
             Ocupación:{" "}
             {capacidad !== null
               ? `${ocupadosCount} / ${capacidad} cupos ocupados`
@@ -1784,23 +1750,19 @@ function renderDetalleClase(
 
       {/* Controles de Clase (Cupo flexible & Horario) */}
       {seleccionada.estado === "PROGRAMADA" && (
-        <div className="rounded-xl bg-secondary/30 border border-border/60 p-3 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-foreground">
-              Controles de Clase (Cupo flexible &amp; Horario)
-            </span>
-          </div>
+        <div className="space-y-2.5 border-t border-border pt-4">
+          <h3 className="m-0 text-[13px] font-semibold text-foreground">Ajustes de la clase</h3>
 
           {/* Redimensión rápida de duración */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground font-semibold">Duración:</span>
+            <span className="text-neutral-soft-foreground">Duración</span>
             <button
               type="button"
               onClick={() => void redimensionarClase(seleccionada.id, 45)}
-              className={`px-2.5 py-1 rounded-lg border font-bold ${
+              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 45
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary/60"
+                  ? "bg-muted border-border text-foreground font-medium"
+                  : "border-border text-neutral-soft-foreground hover:bg-muted"
               }`}
               data-testid="resize-class-45-btn"
             >
@@ -1809,10 +1771,10 @@ function renderDetalleClase(
             <button
               type="button"
               onClick={() => void redimensionarClase(seleccionada.id, 60)}
-              className={`px-2.5 py-1 rounded-lg border font-bold ${
+              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 60
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary/60"
+                  ? "bg-muted border-border text-foreground font-medium"
+                  : "border-border text-neutral-soft-foreground hover:bg-muted"
               }`}
               data-testid="resize-class-60-btn"
             >
@@ -1821,10 +1783,10 @@ function renderDetalleClase(
             <button
               type="button"
               onClick={() => void redimensionarClase(seleccionada.id, 90)}
-              className={`px-2.5 py-1 rounded-lg border font-bold ${
+              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 90
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary/60"
+                  ? "bg-muted border-border text-foreground font-medium"
+                  : "border-border text-neutral-soft-foreground hover:bg-muted"
               }`}
               data-testid="resize-class-90-btn"
             >
@@ -1907,7 +1869,7 @@ function renderDetalleClase(
       {/* Listado de Anotados */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold">
+          <h3 className="m-0 text-[13px] font-semibold">
             Anotados ({anotados.length}
             {seleccionada.capacidad ? ` / ${seleccionada.capacidad}` : ""})
           </h3>
@@ -1919,8 +1881,8 @@ function renderDetalleClase(
         </div>
 
         {anotados.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border/80 p-6 text-center text-sm text-muted-foreground">
-            Todavía no hay alumnos anotados en esta clase.
+          <p className="m-0 rounded-lg border border-dashed border-border p-4 text-center text-[13px] text-neutral-soft-foreground">
+            Nadie anotado todavía. Compartí el link de reserva o anotá a alguien.
           </p>
         ) : (
           <ul className="divide-y divide-border/60" aria-label="Anotados">
@@ -1991,6 +1953,17 @@ function renderDetalleClase(
           </ul>
         )}
       </div>
+
+      {seleccionada.estado === "PROGRAMADA" && (
+        <button
+          type="button"
+          onClick={abrirDialogoCancelar}
+          data-testid="cancel-class-dialog-btn"
+          className="text-[13px] text-danger-soft-foreground hover:underline cursor-pointer"
+        >
+          Cancelar clase
+        </button>
+      )}
     </div>
   );
 }

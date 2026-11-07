@@ -370,7 +370,8 @@ async function recorrido(page: Page, info: TestInfo) {
   await expect(page.getByTestId("rutinas-library")).toBeVisible({ timeout: 60_000 });
   const item = page.getByTestId("rutina-item").filter({ hasText: RUTINA.nombre });
   await expect(item).toHaveCount(1);
-  await item.getByRole("button", { name: "Abrir" }).click();
+  await item.getByTestId("rutina-acciones-btn").click();
+  await page.getByRole("menuitem", { name: "Abrir" }).click();
   await expect(m.locator("label:has-text('Nombre de la Rutina') + input")).toHaveValue(RUTINA.nombre);
   await expect(m.locator("label:has-text('Comentarios Globales') + input")).toHaveValue(RUTINA.comentarios);
   for (const dia of RUTINA.dias) await verificarDiaEnBuilder(page, dia);
@@ -387,8 +388,8 @@ async function recorrido(page: Page, info: TestInfo) {
   await m.getByRole("button", { name: "Cancelar" }).click();
   const clon = db.planes_entrenamiento.find((p) => p.alumno_id === ANA)!;
   expect(clon).toMatchObject({ estado: "ACTIVO", tipo: "DE_ALUMNO", plan_origen_id: plan.id });
-  await page.getByRole("tab", { name: /De alumnos \(1\)/ }).click();
-  await expect(page.getByTestId("rutina-item").filter({ hasText: RUTINA.nombre })).toContainText("ACTIVO");
+  await page.getByTestId("tab-de-alumnos").click();
+  await expect(page.getByTestId("rutina-item").filter({ hasText: RUTINA.nombre })).toContainText("Vigente");
   expect(db.errores_app, "no debe haber filas nuevas en errores_app").toEqual([]);
 
   // Athlete App: el stub ignora filtros, así que se publica solo lo que RLS le dejaría ver a Ana.
