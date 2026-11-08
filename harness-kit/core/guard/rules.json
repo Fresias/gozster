@@ -113,6 +113,18 @@
     "message": "No valid gate seal. Run harness-kit/core/scripts/harness-gate.sh before gh pr create."
   },
   {
+    "id": "pr.merge-check",
+    "target": "shell",
+    "description": "gh pr merge requires harness-merge-check.mjs: seal block == PR head, issue lesson in the PR, PPC + label for harness changes",
+    "message": "Merge blocked: run node harness-kit/core/scripts/harness-merge-check.mjs <pr> and fix every reported item."
+  },
+  {
+    "id": "harness.authorized-only",
+    "target": "all",
+    "description": "harness/, harness-kit/, .github/ and render/compose change only on an authorized <type>/<issue-#>-harness-<slug> branch",
+    "message": "Protected harness source. Changes need an authorized harness branch created by the PM; lessons go to harness/experience/."
+  },
+  {
     "id": "fs.protected",
     "target": "all",
     "description": "Writing to .git/hooks, .claude/, .agents/, .gemini/ or .opencode/ is forbidden",

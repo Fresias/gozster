@@ -233,9 +233,9 @@ describe("H-04: harness-gate.sh — Sello .harness/complete.json e invalidación
     expect(res.code).toBe(2);
   });
 
-  it("H-13: harness-learn.sh registra lecciones en experience_library.jsonl", () => {
+  it("H-13: harness-learn.sh registra lecciones en harness/experience/<ISSUE>.jsonl", () => {
     const { dir } = createTempGitRepo();
-    const expLib = path.join(dir, "harness", "experience_library.jsonl");
+    const expLib = path.join(dir, "harness", "experience", "GOZS-999.jsonl");
 
     const res = runBash(
       learnScript,

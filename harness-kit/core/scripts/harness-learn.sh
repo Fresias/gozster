@@ -1,171 +1,133 @@
 #!/usr/bin/env bash
-# Post-merge & issue-close autonomous learner: persists lessons to experience_library.jsonl.
+# Learner: persists the issue lesson to harness/experience/<ISSUE>.jsonl (runs on the PR branch; gate and merge require it).
 #
 # Usage:
-#   harness-kit/core/scripts/harness-learn.sh [--issue <id>] [--lesson "text"] [--tags "t1,t2"] [--overlay <path>] [--dry-run]
+#   harness-kit/core/scripts/harness-learn.sh --lesson "text" [--issue PROJ-123] [--tags "t1,t2"]
+#       [--commit <sha>] [--pr <n>] [--phase pre-merge|post-merge] [--overlay <path>] [--dry-run]
+#
+# - The issue comes from --issue, else from the branch <type>/<n>-slug + project.json issue_prefix.
+# - One file per issue: parallel PRs never conflict, AGENTS.md is not re-rendered.
+# - Idempotent: the same lesson text for the same issue is recorded only once.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RENDER_SCRIPT="$SCRIPT_DIR/harness-render.mjs"
 
 ISSUE=""
-TASK=""
 LESSON=""
 TAGS=""
 OVERLAY_DIR=""
 DRY_RUN=false
-COMMIT_REF="HEAD"
+COMMIT_REF=""
+PR=""
+PHASE="pre-merge"
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --issue)
-      ISSUE="${2:-}"
-      shift 2 || shift
-      ;;
-    --issue=*)
-      ISSUE="${1#--issue=}"
-      shift
-      ;;
-    --task)
-      TASK="${2:-}"
-      shift 2 || shift
-      ;;
-    --task=*)
-      TASK="${1#--task=}"
-      shift
-      ;;
-    --lesson)
-      LESSON="${2:-}"
-      shift 2 || shift
-      ;;
-    --lesson=*)
-      LESSON="${1#--lesson=}"
-      shift
-      ;;
-    --tags)
-      TAGS="${2:-}"
-      shift 2 || shift
-      ;;
-    --tags=*)
-      TAGS="${1#--tags=}"
-      shift
-      ;;
-    --commit)
-      COMMIT_REF="${2:-HEAD}"
-      shift 2 || shift
-      ;;
-    --commit=*)
-      COMMIT_REF="${1#--commit=}"
-      shift
-      ;;
-    --overlay)
-      OVERLAY_DIR="${2:-}"
-      shift 2 || shift
-      ;;
-    --overlay=*)
-      OVERLAY_DIR="${1#--overlay=}"
-      shift
-      ;;
-    --dry-run)
-      DRY_RUN=true
-      shift
-      ;;
-    *)
-      shift
-      ;;
+    --issue|--task) ISSUE="${2:-}"; shift 2 || shift ;;
+    --issue=*|--task=*) ISSUE="${1#*=}"; shift ;;
+    --lesson) LESSON="${2:-}"; shift 2 || shift ;;
+    --lesson=*) LESSON="${1#--lesson=}"; shift ;;
+    --tags) TAGS="${2:-}"; shift 2 || shift ;;
+    --tags=*) TAGS="${1#--tags=}"; shift ;;
+    --commit) COMMIT_REF="${2:-}"; shift 2 || shift ;;
+    --commit=*) COMMIT_REF="${1#--commit=}"; shift ;;
+    --pr) PR="${2:-}"; shift 2 || shift ;;
+    --pr=*) PR="${1#--pr=}"; shift ;;
+    --phase) PHASE="${2:-pre-merge}"; shift 2 || shift ;;
+    --phase=*) PHASE="${1#--phase=}"; shift ;;
+    --overlay) OVERLAY_DIR="${2:-}"; shift 2 || shift ;;
+    --overlay=*) OVERLAY_DIR="${1#--overlay=}"; shift ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    *) shift ;;
   esac
 done
 
 if [ -z "$OVERLAY_DIR" ]; then
   OVERLAY_DIR="$REPO_ROOT/harness"
 fi
+REF="${COMMIT_REF:-HEAD}"
 
-EXP_LIB="$OVERLAY_DIR/experience_library.jsonl"
-
-# 1. Resolve Task Identifier
-if [ -z "$TASK" ]; then
-  if [ -n "$ISSUE" ]; then
-    TASK="$ISSUE"
+# 1. Resolve the issue id
+if [ -z "$ISSUE" ]; then
+  PREFIX="$(node -e 'try{process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).issue_prefix||"")}catch{}' "$OVERLAY_DIR/project.json")"
+  BRANCH="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+  NUM="$(printf '%s' "$BRANCH" | sed -n -E 's#^[a-z]+/([0-9]+)-.*#\1#p')"
+  if [ -n "$PREFIX" ] && [ -n "$NUM" ]; then
+    ISSUE="$PREFIX-$NUM"
   else
-    # Try extracting issue from commit message (e.g. "feat(GOZS-123): ...")
-    COMMIT_MSG="$(git -C "$REPO_ROOT" log -1 --pretty=%B "$COMMIT_REF" 2>/dev/null || echo "")"
-    TASK="$(echo "$COMMIT_MSG" | grep -o -E '[A-Z]+-[0-9]+' | head -n 1 || echo "")"
-    if [ -z "$TASK" ]; then
-      TASK="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "task")"
-    fi
+    ISSUE="$(git -C "$REPO_ROOT" log -1 --pretty=%B "$REF" 2>/dev/null | grep -o -E '[A-Z]+-[0-9]+' | head -n 1 || true)"
   fi
 fi
+if ! printf '%s' "$ISSUE" | grep -qE '^[A-Z][A-Z0-9]*-[0-9]+$'; then
+  echo "ERROR: cannot resolve the issue id (got '$ISSUE'). Use --issue <PREFIX-N> or a <type>/<n>-slug branch." >&2
+  exit 1
+fi
 
-# 2. Resolve Lesson text
+# 2. Lesson text is mandatory: a lesson is what the next agent must know, not the commit subject.
 if [ -z "$LESSON" ]; then
-  COMMIT_SUBJECT="$(git -C "$REPO_ROOT" log -1 --pretty=%s "$COMMIT_REF" 2>/dev/null || echo "Solved task")"
-  LESSON="$COMMIT_SUBJECT"
+  echo "ERROR: --lesson \"...\" is required (what worked, what failed, what to repeat or avoid)." >&2
+  exit 1
 fi
 
-# 3. Derive tags if not provided
+# 3. Derive tags from touched files if not provided
 if [ -z "$TAGS" ]; then
-  TOUCHED="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r "$COMMIT_REF" 2>/dev/null || echo "")"
+  if [ -n "$COMMIT_REF" ]; then
+    TOUCHED="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r "$COMMIT_REF" 2>/dev/null || echo "")"
+  else
+    BASE="$(git -C "$REPO_ROOT" merge-base HEAD origin/main 2>/dev/null || echo "")"
+    TOUCHED="$( { [ -n "$BASE" ] && git -C "$REPO_ROOT" diff --name-only "$BASE" HEAD; git -C "$REPO_ROOT" diff --name-only HEAD; } 2>/dev/null || echo "")"
+  fi
   DERIVED_TAGS=()
-  if echo "$TOUCHED" | grep -q "supabase/migrations"; then
-    DERIVED_TAGS+=("db")
-  fi
-  if echo "$TOUCHED" | grep -qE "studio|dashboard"; then
-    DERIVED_TAGS+=("studio" "ui")
-  fi
-  if echo "$TOUCHED" | grep -qE "athlete|pwa"; then
-    DERIVED_TAGS+=("athlete")
-  fi
-  if echo "$TOUCHED" | grep -q "auth"; then
-    DERIVED_TAGS+=("auth")
-  fi
-  if echo "$TOUCHED" | grep -qE "tests|spec"; then
-    DERIVED_TAGS+=("qa")
-  fi
-  if [ ${#DERIVED_TAGS[@]} -eq 0 ]; then
-    DERIVED_TAGS+=("general")
-  fi
+  echo "$TOUCHED" | grep -q "supabase/migrations" && DERIVED_TAGS+=("db")
+  echo "$TOUCHED" | grep -qE "studio|coach|dashboard" && DERIVED_TAGS+=("studio" "ui")
+  echo "$TOUCHED" | grep -qE "athlete|pwa" && DERIVED_TAGS+=("athlete")
+  echo "$TOUCHED" | grep -q "auth" && DERIVED_TAGS+=("auth")
+  echo "$TOUCHED" | grep -qE "tests|spec" && DERIVED_TAGS+=("qa")
+  echo "$TOUCHED" | grep -qE "^harness|harness-kit" && DERIVED_TAGS+=("harness")
+  [ ${#DERIVED_TAGS[@]} -eq 0 ] && DERIVED_TAGS+=("general")
   TAGS="$(IFS=,; echo "${DERIVED_TAGS[*]}")"
 fi
 
-TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%S.000Z" 2>/dev/null || date +"%Y-%m-%dT%H:%M:%SZ")"
-EXP_ID="exp-learn-$(date +%s 2>/dev/null || echo "$RANDOM")"
+SHA=""
+if [ -n "$COMMIT_REF" ]; then
+  SHA="$(git -C "$REPO_ROOT" rev-parse "$COMMIT_REF" 2>/dev/null || echo "")"
+fi
+EXP_FILE="$OVERLAY_DIR/experience/$ISSUE.jsonl"
 
 if [ "$DRY_RUN" = true ]; then
   echo "[harness-learn DRY-RUN]"
-  echo "Task: $TASK"
+  echo "Issue: $ISSUE"
   echo "Lesson: $LESSON"
   echo "Tags: $TAGS"
-  echo "Target: $EXP_LIB"
+  echo "Target: $EXP_FILE"
   exit 0
 fi
 
-# 4. Append JSON line via node helper
+# 4. Append (idempotent) via node: UTF-8 without BOM, LF.
 node -e '
 const fs = require("node:fs");
 const path = require("node:path");
-
-const expLib = process.argv[1];
+const [file, issue, lesson, tags, phase, sha, pr] = process.argv.slice(1);
+const lines = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split("\n").filter((l) => l.trim()) : [];
+const entries = lines.map((l) => JSON.parse(l));
+if (entries.some((e) => e.task === issue && e.lesson === lesson)) {
+  console.log(`[harness-learn OK] Lesson already recorded for ${issue} (idempotent).`);
+  process.exit(0);
+}
 const entry = {
-  id: process.argv[2],
-  timestamp: process.argv[3],
-  task: process.argv[4],
-  proposal: "post-merge",
-  probe_result: "merged",
-  lesson: process.argv[5],
+  id: `exp-${issue.toLowerCase()}-${entries.length + 1}`,
+  timestamp: new Date().toISOString(),
+  task: issue,
+  proposal: phase === "post-merge" ? "post-merge" : "pre-merge",
+  probe_result: phase === "post-merge" ? "merged" : "gate-sealed-pr",
+  lesson,
   verified: true,
-  tags: process.argv[6].split(",").map(s => s.trim()).filter(Boolean),
+  tags: tags.split(",").map((s) => s.trim()).filter(Boolean),
 };
-
-fs.mkdirSync(path.dirname(expLib), { recursive: true });
-fs.appendFileSync(expLib, JSON.stringify(entry) + "\n", "utf8");
-' "$EXP_LIB" "$EXP_ID" "$TIMESTAMP" "$TASK" "$LESSON" "$TAGS"
-
-echo "[harness-learn OK] Recorded lesson for $TASK in $(basename "$EXP_LIB")"
-
-# 5. Re-render harness so experience library updates are compiled into AGENTS.md
-if [ -f "$RENDER_SCRIPT" ] && [ -d "$OVERLAY_DIR" ]; then
-  node "$RENDER_SCRIPT" "$OVERLAY_DIR" >/dev/null 2>&1 || true
-  echo "[harness-learn OK] Recompiled harness and runtime targets."
-fi
+if (sha) entry.commit = sha;
+if (pr) entry.pr = Number(pr);
+fs.mkdirSync(path.dirname(file), { recursive: true });
+fs.appendFileSync(file, JSON.stringify(entry) + "\n", "utf8");
+console.log(`[harness-learn OK] Recorded lesson for ${issue} in harness/experience/${issue}.jsonl`);
+' "$EXP_FILE" "$ISSUE" "$LESSON" "$TAGS" "$PHASE" "$SHA" "$PR"

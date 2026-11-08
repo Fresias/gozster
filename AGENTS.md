@@ -1,4 +1,4 @@
-﻿# GOZSter — System Prompt & Guidelines
+# GOZSter — System Prompt & Guidelines
 
 ## Product Vision & Architecture
 GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) con Supabase, Zustand y Next.js 15.
@@ -43,11 +43,16 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 ## Database & UI Contracts
 - supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS.
 - Zero references to "Mynter" (ADR-005).
-- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (ssertNoDemoLiteralsInLiveMode).
+- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (`assertNoDemoLiteralsInLiveMode`).
 
 ## QA & Review Rounds
-- **QA CHANGES_REQUESTED r1/2:** set stage in_progress, comment blocker + round N/2 @mentioning assignee; QA issue 	odo until in_review.
-- **Round 2/2:** set locked and @mention Gabriel with summary of rejections.
+- **QA CHANGES_REQUESTED r1/2:** set stage in_progress, comment blocker + round N/2 @mentioning assignee; QA issue `todo` until in_review.
+- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections.
+
+## Harness² Flow (guard + merge check)
+- PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
+- Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
+- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
 
 ## Skills
 
@@ -56,14 +61,12 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 # LongTermMEMORY
 
-- [verified 2026-10-19 | src: harness] Hechos historicos consolidados en experience_library.jsonl con tags semanticos.
-- [verified 2026-11-07 | src: PR#396] Estandar visual canonico en docs/ux-ui-review/objetivo/html/*.html con zero demo data en vivo.
+- [verified 2026-11-08 | src: GOZS-428] Lessons per issue live in `harness/experience/<ISSUE>.jsonl`; search them first: `rg -n <term> harness/experience`.
 
 ### Experience Library (Harness²)
 
 - [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
 - [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
-- [lesson 2026-11-07 | task: GOZS-409] PR #396 (GOZS-409): Estandar visual canonico fijado en docs/ux-ui-review/objetivo/html/*.html. Cero datos demo en vivo (no-demo-literals). Actualizar specs obsoletos cuando el diseno canonico cambie.
 
 # Tool Guidance & Execution Rules
 
@@ -95,17 +98,18 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep/poll.
 
-- **RPCs Supabase (GOZS-331):** Defaults expl�citos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
-- **Modales (GOZS-321):** isSaving at�mico y bot�n submit deshabilitado para evitar carreras.
+- **RPCs Supabase (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
+- **Modales (GOZS-321):** isSaving atómico y botón submit deshabilitado para evitar carreras.
 - **Fechas (GOZS-327):** vi.setSystemTime() lunes 09:00 ART en tests para evitar desfases UTC.
 
 # Helper scripts (run via bash)
 
 - `harness-kit/core/scripts/harness-compose.mjs`: Evaluates probe traces, selects the winning harness and updates experience library.
 - `harness-kit/core/scripts/harness-contrast.mjs`: Contrasts candidate harness probe reports and selects winning configuration (Harness²).
-- `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only check, project gate commands, writes .harness/complete.json.
+- `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only, drift + encoding, issue lesson, project gate commands, writes .harness/complete.json.
 - `harness-kit/core/scripts/harness-init.sh`: Setup in one call: git identity, deps, harness status, optional scope.
-- `harness-kit/core/scripts/harness-learn.sh`: Post-merge & issue-close autonomous learner: persists lessons to experience_library.jsonl.
+- `harness-kit/core/scripts/harness-learn.sh`: Learner: persists the issue lesson to harness/experience/<ISSUE>.jsonl (runs on the PR branch; gate and merge require it).
+- `harness-kit/core/scripts/harness-merge-check.mjs`: Merge gate: PR seal == PR head, issue lesson in the PR, PPC + label for harness changes.
 - `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
 - `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
 - `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:

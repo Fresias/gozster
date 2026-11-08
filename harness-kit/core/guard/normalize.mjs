@@ -116,7 +116,8 @@ export function normalize(payload, options = {}) {
     tool = String(payload?.tool_name || "");
     const args = payload?.tool_input || {};
 
-    if (tool === "Bash") {
+    // PowerShell es el shell nativo de Claude Code en Windows: mismo guard que Bash.
+    if (tool === "Bash" || tool === "PowerShell") {
       kind = "shell";
       command = String(args.command || "");
     } else if (tool === "Read") {

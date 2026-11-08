@@ -92,6 +92,8 @@ const coverage: Record<string, Record<string, unknown>> = {
   "shell.sudo": { kind: "shell", command: "sudo ls" },
   "shell.oversize-cat": { kind: "shell", command: "cat harness-kit/core/guard/guard-core.mjs" },
   "pr.requires-seal": { kind: "shell", command: "gh pr create --fill" },
+  "pr.merge-check": { kind: "shell", command: "gh pr merge 99999 --squash" },
+  "harness.authorized-only": { kind: "write", targetPath: "harness/guardrails.local.md" },
   // --- Pre (escritura) ---
   "fs.protected": { kind: "write", targetPath: ".claude/settings.json" },
   "harness.agents-render": { kind: "write", targetPath: "AGENTS.md" },
@@ -135,7 +137,13 @@ const noSealDir = tempDir("harness-no-seal-");
 const scopedDir = tempDir("harness-scope-");
 mkdirSync(path.join(scopedDir, ".harness"));
 writeFileSync(path.join(scopedDir, ".harness", "scope.json"), JSON.stringify({ scope: ["src/lib"] }));
-const repoRootFor: Record<string, string> = { "pr.requires-seal": noSealDir, "post.outside-scope": scopedDir };
+// `pr.merge-check` y `harness.authorized-only` en un directorio sin rama autorizada ni project.json (fail-closed).
+const repoRootFor: Record<string, string> = {
+  "pr.requires-seal": noSealDir,
+  "pr.merge-check": noSealDir,
+  "harness.authorized-only": noSealDir,
+  "post.outside-scope": scopedDir,
+};
 
 describe("H-11 Parte A: cobertura por `ruleId` del guard", () => {
   const canonical = collectCanonicalRuleIds();
@@ -181,7 +189,7 @@ describe("H-05 (GOZS-84): reglas `call` del catálogo 2.0 — casos allow", () =
     ],
     "shell.oversize-cat": [
       { kind: "shell", command: "head -n 50 harness-kit/core/guard/guard-core.mjs" },
-      { kind: "shell", command: "tail -n +400 harness-kit/core/guard/guard-core.mjs" },
+      { kind: "shell", command: "tail -n 200 harness-kit/core/guard/guard-core.mjs" },
       { kind: "shell", command: "cat harness-kit/core/guard/rules.json" },
       { kind: "shell", command: "git log | head -n 500" },
     ],
@@ -194,7 +202,11 @@ describe("H-05 (GOZS-84): reglas `call` del catálogo 2.0 — casos allow", () =
   for (const [id, calls] of Object.entries(allowCases)) {
     for (const call of calls) {
       it(`GIVEN ${JSON.stringify(call.command ?? call.filePath ?? call.targetPath)} THEN no dispara "${id}"`, () => {
-        expect(evaluateRules(call, { repoRoot }).allowed).toBe(true);
+        const res = evaluateRules(call, { repoRoot });
+        // Fuentes del harness pueden quedar bloqueadas por `harness.authorized-only` según la rama: aquí solo
+        // se afirma que NO son artefactos generados.
+        if (id === "write.generated") expect(res.ruleId).not.toBe(id);
+        else expect(res.allowed).toBe(true);
       });
     }
   }
@@ -262,8 +274,22 @@ describe("H-05 (GOZS-84): pr.requires-seal reutiliza harness-gate.sh --verify", 
 
   const prCreate = { kind: "shell", command: "gh pr create --fill" };
 
-  it("GIVEN un sello válido para HEAD + diff THEN gh pr create se permite", () => {
-    expect(evaluateRules(prCreate, { repoRoot: sealedRepo() }).allowed).toBe(true);
+  it("GIVEN un sello válido y el bloque --pr-block en --body-file THEN gh pr create se permite", () => {
+    const dir = sealedRepo();
+    const block = execFileSync(bashBin, [gateScript, "--pr-block"], { cwd: dir, encoding: "utf8" });
+    expect(block).toMatch(/<!-- harness-seal: {.*"fingerprint":"[a-f0-9]{16}".*} -->/);
+    const bodyFile = path.join(tempDir("harness-pr-body-"), "pr-body.md"); // fuera del repo: no ensucia el worktree
+    writeFileSync(bodyFile, `## Resumen
+
+${block}`);
+    const cmd = { kind: "shell", command: `gh pr create --title t --body-file "${bodyFile}"` };
+    expect(evaluateRules(cmd, { repoRoot: dir }).allowed).toBe(true);
+  });
+
+  it("GIVEN un sello válido pero el body sin bloque harness-seal THEN se bloquea pidiendo --pr-block", () => {
+    const res = evaluateRules(prCreate, { repoRoot: sealedRepo() });
+    expect(res.ruleId).toBe("pr.requires-seal");
+    expect(res.reason).toContain("--pr-block");
   });
 
   it("GIVEN un cambio posterior al sello (fingerprint no coincide) THEN se bloquea pidiendo harness-gate.sh", () => {
