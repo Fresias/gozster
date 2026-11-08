@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GOZSter · Preview Interactivo de Ejercicio (GOZS-415)</title>
+  <style>
+    /* --------------------------------------------------------------------------
+     * TOKENS OFICIALES GOZSter (docs/ux-ui-review/01-sistema-visual.md)
+     * -------------------------------------------------------------------------- */
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Geist", Helvetica, Arial, sans-serif;
+      --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+      /* MODO DÍA (Light) */
+      --background: 0 0% 100%;
+      --foreground: 222 47% 11%;
+      --card: 0 0% 100%;
+      --card-foreground: 222 47% 11%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 222 47% 11%;
+      --primary: 221 83% 53%;
+      --primary-foreground: 210 40% 98%;
+      --secondary: 210 20% 96%;
+      --secondary-foreground: 222 47% 11%;
+      --muted: 210 20% 96%;
+      --muted-foreground: 215 16% 47%;
+      --accent: 210 20% 96%;
+      --accent-foreground: 222 47% 11%;
+      --destructive: 0 84% 60%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 214 32% 91%;
+      --input: 214 32% 91%;
+      --ring: 221 83% 53%;
+      --radius: 0.5rem; /* 8px default, rounded-xl = 12px */
+
+      /* Estados suaves semánticos */
+      --neutral-soft: 210 20% 96%;
+      --neutral-soft-foreground: 215 25% 27%;
+      --neutral-soft-border: 214 32% 91%;
+      --success-soft: 138 76% 97%;
+      --success-soft-foreground: 143 64% 24%;
+      --success-soft-border: 141 79% 85%;
+      --warning-soft: 48 100% 96%;
+      --warning-soft-foreground: 26 90% 37%;
+      --warning-soft-border: 48 97% 77%;
+      --overlay: 222 47% 11% / 0.5;
+    }
+
+    .dark {
+      /* MODO NOCHE (Dark) */
+      --background: 222 47% 7%; /* #090e1a */
+      --foreground: 210 40% 98%;
+      --card: 222 47% 10%; /* #101726 */
+      --card-foreground: 210 40% 98%;
+      --popover: 222 47% 10%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 217 91% 60%; /* #3b82f6 */
+      --primary-foreground: 222 47% 11%;
+      --secondary: 217 33% 16%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 217 33% 16%;
+      --muted-foreground: 215 20% 65%;
+      --accent: 217 33% 18%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 63% 31%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 217 33% 20%;
+      --input: 217 33% 20%;
+      --ring: 217 91% 60%;
+
+      /* Estados suaves semánticos Dark */
+      --neutral-soft: 217 33% 18%;
+      --neutral-soft-foreground: 215 20% 82%;
+      --neutral-soft-border: 217 33% 28%;
+      --success-soft: 145 80% 10%;
+      --success-soft-foreground: 142 69% 58%;
+      --success-soft-border: 143 64% 24%;
+      --warning-soft: 21 92% 14%;
+      --warning-soft-foreground: 43 96% 56%;
+      --warning-soft-border: 26 90% 37%;
+      --overlay: 0 0% 0% / 0.75;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: hsl(var(--background));
+      color: hsl(var(--foreground));
+      line-height: 1.5;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    /* Utilitarios estilo Tailwind */
+    .border-b-subtle { border-bottom: 1px solid hsl(var(--border)); }
+    .border-subtle { border: 1px solid hsl(var(--border)); }
+    .bg-card { background-color: hsl(var(--card)); }
+    .bg-secondary { background-color: hsl(var(--secondary)); }
+    .text-foreground { color: hsl(var(--foreground)); }
+    .text-muted { color: hsl(var(--muted-foreground)); }
+    .text-primary { color: hsl(var(--primary)); }
+    .font-mono { font-family: var(--font-mono); }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .rounded-xl { border-radius: 12px; }
+    .rounded-lg { border-radius: 8px; }
+    .rounded-full { border-radius: 9999px; }
+
+    /* Contenedor Maestro */
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Barra Superior de Control de Prototipo */
+    .control-header {
+      background: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-primary-soft {
+      background-color: hsl(var(--primary) / 0.12);
+      color: hsl(var(--primary));
+      border: 1px solid hsl(var(--primary) / 0.25);
+    }
+
+    .badge-neutral-soft {
+      background-color: hsl(var(--neutral-soft));
+      color: hsl(var(--neutral-soft-foreground));
+      border: 1px solid hsl(var(--neutral-soft-border));
+    }
+
+    /* Botones Shadcn */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      height: 30px;
+    }
+    .btn-default {
+      background-color: hsl(var(--primary));
+      color: hsl(var(--primary-foreground));
+    }
+    .btn-default:hover {
+      filter: brightness(0.92);
+    }
+    .btn-outline {
+      background-color: transparent;
+      border-color: hsl(var(--border));
+      color: hsl(var(--foreground));
+    }
+    .btn-outline:hover {
+      background-color: hsl(var(--secondary));
+    }
+    .btn-ghost {
+      background-color: transparent;
+      color: hsl(var(--muted-foreground));
+    }
+    .btn-ghost:hover {
+      background-color: hsl(var(--secondary));
+      color: hsl(var(--foreground));
+    }
+
+    /* Grid de Presentación */
+    .split-view {
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .split-view {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panel Izquierdo: Constructor Contextual */
+    .workbench-context {
+      background: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .exercise-card {
+      background: hsl(var(--secondary) / 0.4);
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.15s ease;
+    }
+    .exercise-card:hover {
+      border-color: hsl(var(--primary) / 0.5);
+    }
+
+    .exercise-trigger-link {
+      font-size: 14px;
+      font-weight: 700;
+      color: hsl(var(--foreground));
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .exercise-trigger-link:hover {
+      color: hsl(var(--primary));
+      text-decoration: underline;
+    }
+
+    /* MODAL DE PREVIEW CANÓNICO */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background-color: hsl(var(--overlay));
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn 0.18s ease-out;
+    }
+
+    .modal-dialog {
+      background-color: hsl(var(--card));
+      border: 1px solid hsl(var(--border));
+      border-radius: 12px;
+      width: 100%;
+      max-width: 580px;
+      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+      overflow: hidden;
+      position: relative;
+      animation: modalSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes modalSlide {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid hsl(var(--border));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid hsl(var(--border));
+      background-color: hsl(var(--secondary) / 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Video Player Embebido */
+    .video-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid hsl(var(--border));
+    }
+    .video-container iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    /* Fallback sin video */
+    .video-fallback-box {
+      border: 1px dashed hsl(var(--border));
+      background-color: hsl(var(--secondary) / 0.3);
+      border-radius: 10px;
+      padding: 28px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Notas Pedagógicas */
+    .callout-box {
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .callout-biomechanic {
+      background-color: hsl(var(--secondary) / 0.4);
+      border: 1px solid hsl(var(--border));
+    }
+    .callout-coach {
+      background-color: hsl(var(--primary) / 0.08);
+      border: 1px solid hsl(var(--primary) / 0.25);
+    }
+
+    /* Toggle Switches */
+    .tab-switch {
+      display: inline-flex;
+      background: hsl(var(--secondary));
+      padding: 3px;
+      border-radius: 8px;
+      gap: 4px;
+    }
+    .tab-item {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: hsl(var(--muted-foreground));
+      transition: all 0.15s ease;
+    }
+    .tab-item.active {
+      background: hsl(var(--card));
+      color: hsl(var(--foreground));
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- =========================================================================
+       CABECERA DE CONTROL Y AUDITORÍA UI/UX
+       ========================================================================= -->
+  <header class="control-header">
+    <div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+        <span class="badge-pill badge-primary-soft">GOZS-415 · UI/UX LEAD & ART DIRECTOR</span>
+        <span class="badge-pill badge-neutral-soft">DISEÑO CANÓNICO APROBADO</span>
+      </div>
+      <h1 style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">
+        Constructor de Rutinas: Preview Interactivo de Ejercicios (YouTube + Biomecánica)
+      </h1>
+      <p style="font-size: 13px; color: hsl(var(--muted-foreground)); margin-top: 2px;">
+        Especificación canónica para <code>@frontend-eng</code>. Cumple tokens <code>--radius: 0.5rem</code>, Geist Sans/Mono, contraste WCAG AAA y cero librerías pesadas (Karpathy &amp; Ponytail).
+      </p>
+    </div>
+
+    <!-- Controles de Modo y Estado -->
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="tab-switch" id="stateSwitcher">
+        <button class="tab-item active" onclick="switchState('state-video')">1. Con Video</button>
+        <button class="tab-item" onclick="switchState('state-notes')">2. Con Notas Coach</button>
+        <button class="tab-item" onclick="switchState('state-novideo')">3. Sin Video (Fallback)</button>
+      </div>
+
+      <button class="btn btn-outline btn-sm" onclick="toggleTheme()" id="themeToggleBtn">
+        🌓 Tema Día / Noche
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VISTA SPLIT: WORKBENCH DEL COACH & DIALOG PREVIEW
+       ========================================================================= -->
+  <main class="split-view">
+
+    <!-- LADO IZQUIERDO: Contexto del Constructor de Rutinas -->
+    <section class="workbench-context">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid hsl(var(--border)); padding-bottom: 12px;">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: hsl(var(--muted-foreground));">
+            Día 1 · Torso Hipertrofia & Fuerza
+          </span>
+          <h2 style="font-size: 16px; font-weight: 700; margin-top: 2px;">
+            Rutina Semanal de Gonzalo Salas
+          </h2>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="openCatalogMock()">
+          + Añadir Ejercicio del Catálogo
+        </button>
+      </div>
+
+      <!-- Tarjeta 1 en Workbench: Sentadilla / Press Banca -->
+      <article class="exercise-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; width: 26px; height: 26px; border-radius: 8px; background: hsl(var(--secondary)); align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--font-mono); border: 1px solid hsl(var(--border));">
+              #1
+            </span>
+            <!-- Trigger Interactivo de Previsualización -->
+            <button class="exercise-trigger-link" onclick="openModalFor('squat')">
+              <span>Press de Banca Plano con Barra</span>
+              <span class="badge-pill badge-primary-soft" style="font-size: 10px; padding: 2px 6px;">
+                🎬 1:45
+              </span>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="openModalFor('bench')" title="Abrir ficha técnica y video">
+            🎬 Ver Técnica
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 12px; font-size: 12px; color: hsl(var(--muted-foreground)); font-family: var(--font-mono); padding-left: 34px;">
+          <span>Series: <strong style="color: hsl(var(--foreground));">4</strong></span>
+          <span>Reps: <strong style="color: hsl(var(--foreground));">8-10</strong></span>
+          <span>Descanso: <strong style="color: hsl(var(--foreground));">120s</strong></span>
+          <span>RPE: <strong style="color: hsl(var(--foreground));">8.5</strong></span>
+        </div>
+      </article>
+
+      <!-- Tarjeta 2 en Workbench: Press Militar con Notas del Coach -->
+      <article class="exercise-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; width: 26px; height: 26px; border-radius: 8px; background: hsl(var(--secondary)); align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--font-mono); border: 1px solid hsl(var(--border));">
+              #2
+            </span>
+            <button class="exercise-trigger-link" onclick="openModalFor('overhead')">
+              <span>Press Militar de Pie con Barra</span>
+              <span class="badge-pill badge-primary-soft" style="font-size: 10px; padding: 2px 6px;">
+                🎬 0:58
+              </span>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="openModalFor('overhead')">
+            🎬 Ver Técnica
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 12px; font-size: 12px; color: hsl(var(--muted-foreground)); font-family: var(--font-mono); padding-left: 34px;">
+          <span>Series: <strong style="color: hsl(var(--foreground));">3</strong></span>
+          <span>Reps: <strong style="color: hsl(var(--foreground));">10</strong></span>
+          <span>Descanso: <strong style="color: hsl(var(--foreground));">90s</strong></span>
+          <span>RPE: <strong style="color: hsl(var(--foreground));">8.0</strong></span>
+        </div>
+      </article>
+
+      <!-- Tarjeta 3 en Workbench: Ejercicio sin Video oficial (Fallback) -->
+      <article class="exercise-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; width: 26px; height: 26px; border-radius: 8px; background: hsl(var(--secondary)); align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--font-mono); border: 1px solid hsl(var(--border));">
+              #3
+            </span>
+            <button class="exercise-trigger-link" onclick="openModalFor('lateral_raises')">
+              <span>Elevaciones Laterales con Mancuernas</span>
+              <span style="font-size: 10px; color: hsl(var(--muted-foreground));">
+                (Sin video)
+              </span>
+            </button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="openModalFor('lateral_raises')">
+            📖 Ficha
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 12px; font-size: 12px; color: hsl(var(--muted-foreground)); font-family: var(--font-mono); padding-left: 34px;">
+          <span>Series: <strong style="color: hsl(var(--foreground));">4</strong></span>
+          <span>Reps: <strong style="color: hsl(var(--foreground));">12-15</strong></span>
+          <span>Descanso: <strong style="color: hsl(var(--foreground));">60s</strong></span>
+          <span>RPE: <strong style="color: hsl(var(--foreground));">9.0</strong></span>
+        </div>
+      </article>
+
+      <!-- Mock del Catálogo Maestro Emergente -->
+      <div style="margin-top: 10px; padding: 14px; border: 1px dashed hsl(var(--border)); border-radius: 12px; background: hsl(var(--card));">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <span style="font-size: 12px; font-weight: 700;">Catálogo Maestro (Preview en lista):</span>
+          <span style="font-size: 11px; color: hsl(var(--muted-foreground));">Tocar nombre o 🎬 abre preview antes de agregar</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: hsl(var(--secondary) / 0.5); border-radius: 8px; font-size: 12px;">
+          <div>
+            <strong style="cursor: pointer; text-decoration: underline;" onclick="openModalFor('squat')">
+              Sentadilla Trasera con Barra
+            </strong>
+            <span style="display: block; font-size: 10px; color: hsl(var(--muted-foreground));">Cuádriceps, Glúteos</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-ghost btn-sm" onclick="openModalFor('squat')">🎬 Preview</button>
+            <button class="btn btn-default btn-sm">+ Agregar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LADO DERECHO: Especificaciones Técnicas y Accesibilidad para @frontend-eng -->
+    <section class="workbench-context" style="gap: 14px;">
+      <h3 style="font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+        <span>📋</span> Contrato de Implementación (@frontend-eng)
+      </h3>
+      
+      <div style="font-size: 12px; line-height: 1.6; color: hsl(var(--muted-foreground));">
+        <p><strong>1. Ubicación canónica:</strong> <code>src/components/coach/routine-builder/exercise-preview-modal.tsx</code></p>
+        <p style="margin-top: 6px;"><strong>2. Props:</strong></p>
+        <pre style="background: hsl(var(--secondary)); padding: 8px; border-radius: 6px; font-family: var(--font-mono); font-size: 11px; margin-top: 4px; overflow-x: auto; color: hsl(var(--foreground));">
+interface ExercisePreviewModalProps {
+  exercise: ExerciseCatalogItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onAddExercise?: (e: ExerciseCatalogItem) => void;
+}</pre>
+        <p style="margin-top: 8px;"><strong>3. Cero Bloatware de Video:</strong> Se utiliza <code>getYouTubeEmbedUrl</code> (de <code>src/lib/youtube.ts</code>) que genera el enlace <code>youtube-nocookie.com</code> seguro, sin librerías pesadas.</p>
+        <p style="margin-top: 6px;"><strong>4. Accesibilidad Estricta (WCAG AA):</strong> <code>role="dialog"</code>, <code>aria-modal="true"</code>, listener de tecla <code>Escape</code>, backdrop clickeable y botón <code>X</code> con <code>aria-label="Cerrar vista previa"</code>.</p>
+      </div>
+
+      <div style="background: hsl(var(--primary) / 0.08); border: 1px solid hsl(var(--primary) / 0.2); border-radius: 8px; padding: 10px 12px; font-size: 11px; color: hsl(var(--foreground));">
+        <strong>Tip ergonómico de Gimnasio:</strong> En Coach Studio (desktop) el modal se presenta centrado y contenido (<code>max-w-lg</code> o <code>max-w-xl</code>), permitiendo al coach verificar la biomecánica en 2 segundos sin perder el hilo de planificación.
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================================
+       MODAL CANÓNICO INTERACTIVO (ExercisePreviewModal)
+       ========================================================================= -->
+  <div class="modal-overlay" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="modalExerciseTitle" style="display: flex;">
+    <div class="modal-dialog" id="modalDialog">
+      
+      <!-- Cabecera -->
+      <div class="modal-header">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge-pill badge-primary-soft">
+              🎬 Guía Técnica de Ejecución
+            </span>
+            <span id="modalVideoId" style="font-size: 10px; font-family: var(--font-mono); color: hsl(var(--muted-foreground));">
+              ID: dX_nRe7f43g
+            </span>
+          </div>
+          <h2 id="modalExerciseTitle" style="font-size: 18px; font-weight: 700; color: hsl(var(--foreground)); tracking-tight: -0.01em;">
+            Press de Banca Plano con Barra
+          </h2>
+        </div>
+
+        <button class="btn btn-ghost" style="width: 32px; height: 32px; padding: 0; border-radius: 9999px;" onclick="closeModal()" aria-label="Cerrar vista previa">
+          ✕
+        </button>
+      </div>
+
+      <!-- Cuerpo del Modal -->
+      <div class="modal-body">
+        
+        <!-- Contenedor del Reproductor YouTube -->
+        <div id="videoSection" class="video-container">
+          <iframe 
+            id="youtubeIframe"
+            src="https://www.youtube-nocookie.com/embed/dX_nRe7f43g?rel=0&modestbranding=1&enablejsapi=1" 
+            title="Técnica de Press de Banca Plano"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen>
+          </iframe>
+        </div>
+
+        <!-- Fallback si NO hay video cargado -->
+        <div id="noVideoSection" class="video-fallback-box" style="display: none;">
+          <div style="font-size: 28px;">🎥</div>
+          <h4 style="font-size: 14px; font-weight: 700; color: hsl(var(--foreground));">
+            Sin video oficial cargado en el catálogo
+          </h4>
+          <p style="font-size: 12px; color: hsl(var(--muted-foreground)); max-width: 380px;">
+            Este ejercicio aún no tiene enlace directo a video. Puedes abrir una búsqueda directa en YouTube para revisar la técnica:
+          </p>
+          <a id="searchYoutubeBtn" href="https://www.youtube.com/results?search_query=tecnica+ejercicio+elevaciones+laterales" target="_blank" rel="noopener noreferrer" class="btn btn-default btn-sm" style="margin-top: 4px;">
+            <span>🔍 Buscar técnica en YouTube</span>
+            <span>↗</span>
+          </a>
+        </div>
+
+        <!-- Músculos Involucrados (Chips semánticos neutral-soft) -->
+        <div>
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: hsl(var(--muted-foreground)); display: block; margin-bottom: 8px;">
+            Músculos Principales &amp; Secundarios
+          </span>
+          <div id="muscleChips" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span class="badge-pill badge-neutral-soft">Pectoral Mayor</span>
+            <span class="badge-pill badge-neutral-soft">Tríceps Braquial</span>
+            <span class="badge-pill badge-neutral-soft" style="opacity: 0.8;">Deltoides Anterior</span>
+          </div>
+        </div>
+
+        <!-- Bloque de Notas Biomecánicas del Catálogo -->
+        <div id="biomechanicSection" class="callout-box callout-biomechanic">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: hsl(var(--foreground)); margin-bottom: 6px;">
+            <span>📖</span>
+            <span>Guía Biomecánica y Consejos de Seguridad</span>
+          </div>
+          <p id="biomechanicText" style="color: hsl(var(--foreground) / 0.85); font-size: 12px; leading-relaxed: 1.6;">
+            Apoyar los 5 puntos de contacto (cabeza, torso, glúteos y ambos pies firmes contra el piso). Retraer escápulas antes de descolgar la barra. Trayectoria en ligero arco (hacia el esternón medio). Mantener muñecas neutras y codos a 45-60 grados del torso.
+          </p>
+        </div>
+
+        <!-- Bloque de Indicaciones del Coach (cuando aplica) -->
+        <div id="coachNotesSection" class="callout-box callout-coach" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: hsl(var(--primary)); margin-bottom: 6px;">
+            <span>💡</span>
+            <span>Indicaciones Específicas del Entrenador para la Rutina</span>
+          </div>
+          <p id="coachNotesText" style="color: hsl(var(--foreground) / 0.95); font-size: 12px;">
+            Mantener pausa de 1 segundo en el punto de contacto pectoral en las primeras dos series. Controlar fase excéntrica en 3 segundos (tempo 3-0-1-0).
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Pie del Modal -->
+      <div class="modal-footer">
+        <span style="font-size: 11px; color: hsl(var(--muted-foreground));">
+          Presiona <kbd style="background: hsl(var(--secondary)); border: 1px solid hsl(var(--border)); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">Esc</kbd> o clic fuera para cerrar
+        </span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline" onclick="closeModal()">
+            Cerrar
+          </button>
+          <button class="btn btn-default" id="addFromModalBtn" onclick="closeModal()">
+            Volver a la Rutina
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- =========================================================================
+     LÓGICA DEL PROTOTIPO
+     ========================================================================= -->
+<script>
+  const data = {
+    bench: {
+      nombre: "Press de Banca Plano con Barra",
+      videoId: "dX_nRe7f43g",
+      url_video: "https://www.youtube-nocookie.com/embed/dX_nRe7f43g",
+      musculos_principales: ["Pectoral Mayor", "Tríceps Braquial"],
+      musculos_secundarios: ["Deltoides Anterior"],
+      comentario: "Apoyar los 5 puntos de contacto (cabeza, torso, glúteos y ambos pies firmes contra el piso). Retraer escápulas antes de descolgar la barra. Trayectoria en ligero arco hacia el esternón medio. Mantener muñecas neutras.",
+      notas: null
+    },
+    overhead: {
+      nombre: "Press Militar de Pie con Barra",
+      videoId: "2yjwXTZQDDI",
+      url_video: "https://www.youtube-nocookie.com/embed/2yjwXTZQDDI",
+      musculos_principales: ["Deltoides Anterior", "Deltoides Medio"],
+      musculos_secundarios: ["Tríceps Braquial", "Core / Abdominales"],
+      comentario: "Pies a la anchura de hombros, glúteos y abdomen contraídos en todo el recorrido para proteger la columna lumbar. Empujar verticalmente esquivando la cabeza al subir.",
+      notas: "Mantener tempo 3-0-1-0. Pausa isométrica arriba bloqueando codos sin hiperextender espalda."
+    },
+    squat: {
+      nombre: "Sentadilla Trasera con Barra",
+      videoId: "bEv6CCg2BC8",
+      url_video: "https://www.youtube-nocookie.com/embed/bEv6CCg2BC8",
+      musculos_principales: ["Cuádriceps", "Glúteo Mayor"],
+      musculos_secundarios: ["Isquiosurales", "Erectores Espinales"],
+      comentario: "Barra sobre el trapecio superior. Pies ligeramente más anchos que la cadera con puntas a 25-30°. Romper el paralelo manteniendo pecho orgulloso y rodillas alineadas.",
+      notas: null
+    },
+    lateral_raises: {
+      nombre: "Elevaciones Laterales con Mancuernas",
+      videoId: null,
+      url_video: null,
+      musculos_principales: ["Deltoides Medio"],
+      musculos_secundarios: ["Trapecio Superior"],
+      comentario: "Ligera inclinación del torso hacia adelante (10-15°). Elevar en el plano escapular (30° respecto al cuerpo). Evitar encoger los hombros para no reclutar trapecio excesivo.",
+      notas: null
+    }
+  };
+
+  let currentKey = 'bench';
+
+  function renderExercise(key) {
+    currentKey = key;
+    const item = data[key];
+    document.getElementById('modalExerciseTitle').innerText = item.nombre;
+
+    // Video Section vs Fallback
+    const videoSection = document.getElementById('videoSection');
+    const noVideoSection = document.getElementById('noVideoSection');
+    const iframe = document.getElementById('youtubeIframe');
+    const videoIdLabel = document.getElementById('modalVideoId');
+
+    if (item.url_video) {
+      videoSection.style.display = 'block';
+      noVideoSection.style.display = 'none';
+      iframe.src = item.url_video;
+      videoIdLabel.innerText = "ID: " + item.videoId;
+      videoIdLabel.style.display = 'inline';
+    } else {
+      videoSection.style.display = 'none';
+      noVideoSection.style.display = 'flex';
+      iframe.src = "";
+      videoIdLabel.style.display = 'none';
+      const searchBtn = document.getElementById('searchYoutubeBtn');
+      searchBtn.href = "https://www.youtube.com/results?search_query=" + encodeURIComponent("tecnica ejercicio " + item.nombre);
+    }
+
+    // Chips de Músculos
+    const chipsContainer = document.getElementById('muscleChips');
+    let chipsHtml = '';
+    item.musculos_principales.forEach(m => {
+      chipsHtml += `<span class="badge-pill badge-neutral-soft">${m}</span>`;
+    });
+    if (item.musculos_secundarios) {
+      item.musculos_secundarios.forEach(m => {
+        chipsHtml += `<span class="badge-pill badge-neutral-soft" style="opacity: 0.75;">${m}</span>`;
+      });
+    }
+    chipsContainer.innerHTML = chipsHtml;
+
+    // Biomecánica
+    document.getElementById('biomechanicText').innerText = item.comentario || "Sin notas biomecánicas registradas en el catálogo.";
+
+    // Notas del Coach
+    const coachSection = document.getElementById('coachNotesSection');
+    if (item.notas) {
+      coachSection.style.display = 'block';
+      document.getElementById('coachNotesText').innerText = item.notas;
+    } else {
+      coachSection.style.display = 'none';
+    }
+  }
+
+  function switchState(state) {
+    const tabs = document.querySelectorAll('#stateSwitcher .tab-item');
+    tabs.forEach(t => t.classList.remove('active'));
+
+    if (state === 'state-video') {
+      tabs[0].classList.add('active');
+      renderExercise('bench');
+    } else if (state === 'state-notes') {
+      tabs[1].classList.add('active');
+      renderExercise('overhead');
+    } else if (state === 'state-novideo') {
+      tabs[2].classList.add('active');
+      renderExercise('lateral_raises');
+    }
+    openModal();
+  }
+
+  function openModalFor(key) {
+    renderExercise(key);
+    openModal();
+  }
+
+  function openCatalogMock() {
+    openModalFor('squat');
+  }
+
+  function openModal() {
+    const modal = document.getElementById('previewModal');
+    modal.style.display = 'flex';
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('previewModal');
+    modal.style.display = 'none';
+    const iframe = document.getElementById('youtubeIframe');
+    iframe.src = ""; // detener reproducción
+  }
+
+  // Cierre con Escape y Clic Fuera
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  document.getElementById('previewModal').addEventListener('click', (e) => {
+    if (e.target.id === 'previewModal') {
+      closeModal();
+    }
+  });
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    html.classList.toggle('dark');
+  }
+
+  // Inicializar en bench
+  renderExercise('bench');
+</script>
+
+</body>
+</html>
