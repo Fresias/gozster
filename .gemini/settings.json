@@ -15,7 +15,7 @@
             "name": "gozster-guard",
             "command": "bash .claude/hooks/guard.sh --runtime gemini-cli",
             "timeout": 10000,
-            "description": "# security and token anti-waste guard"
+            "description": "GOZSter security and token anti-waste guard"
           }
         ]
       }
@@ -29,7 +29,7 @@
             "name": "gozster-guard-post",
             "command": "bash .claude/hooks/guard.sh --runtime gemini-cli",
             "timeout": 10000,
-            "description": "# post-tool result guard"
+            "description": "GOZSter post-tool result guard"
           }
         ]
       }

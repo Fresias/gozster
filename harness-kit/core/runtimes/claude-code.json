@@ -18,7 +18,10 @@
     }
   },
   "tools": {
-    "shell": { "name": "Bash", "command": "command" },
+    "shell": [
+      { "name": "Bash", "command": "command" },
+      { "name": "PowerShell", "command": "command" }
+    ],
     "read": { "name": "Read", "path": "file_path", "bound": ["offset", "limit"] },
     "write": [
       { "name": "Write", "path": "file_path", "content": "content" },

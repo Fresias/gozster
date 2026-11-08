@@ -11,6 +11,10 @@ jobs:
     name: Typecheck, Lint & Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
 
     steps:
       - name: Checkout repository
@@ -24,6 +28,12 @@ jobs:
 
       - name: Clean install dependencies
         run: npm ci
+
+      - name: Harness² merge check (seal == PR head, lesson, PPC)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node harness-kit/core/scripts/harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status
 
       - name: Harness² audit & drift check
         run: node scripts/qa-harness-audit.mjs

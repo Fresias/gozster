@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Full gate: append-only check, project gate commands, writes .harness/complete.json.
+# Full gate: append-only, drift + encoding, issue lesson, project gate commands, writes .harness/complete.json.
+#
+# Usage:
+#   harness-gate.sh                 run the gate and write the seal
+#   harness-gate.sh --verify        exit 0 only if the seal matches HEAD + working tree
+#   harness-gate.sh --pr-block      print the seal block to paste in the PR body (required by gh pr create / merge)
 
 set -euo pipefail
 
@@ -11,11 +16,16 @@ RENDER_SCRIPT="$SCRIPT_DIR/harness-render.mjs"
 BASE_REF="${HARNESS_BASE_REF:-origin/main}"
 OVERLAY_DIR=""
 VERIFY_ONLY=false
+PR_BLOCK=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --verify|--verify-seal|--check-seal)
       VERIFY_ONLY=true
+      shift
+      ;;
+    --pr-block)
+      PR_BLOCK=true
       shift
       ;;
     --base)
@@ -45,6 +55,25 @@ if [ -z "$OVERLAY_DIR" ]; then
 fi
 PROJECT_JSON="$OVERLAY_DIR/project.json"
 COMPLETE_JSON="$REPO_ROOT/.harness/complete.json"
+
+# Mode: print the PR seal block (only for a valid seal on a clean, committed tree)
+if [ "$PR_BLOCK" = true ]; then
+  if ! bash "$0" --verify >/dev/null; then
+    echo "ERROR: no valid seal for HEAD. Run harness-gate.sh first." >&2
+    exit 1
+  fi
+  node -e '
+    const seal = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    if (seal.worktree_clean !== true) {
+      process.stderr.write("ERROR: seal was produced on a dirty worktree. Commit, then re-run harness-gate.sh.\n");
+      process.exit(1);
+    }
+    const block = { head: seal.head, fingerprint: seal.fingerprint, gate: seal.gate, worktree_clean: true, issue: seal.issue || "", passed_at: seal.passed_at };
+    process.stdout.write("<!-- harness-seal: " + JSON.stringify(block) + " -->\n");
+    process.stdout.write("Harness seal: `" + seal.fingerprint + "` on `" + seal.head.slice(0, 7) + "` (" + seal.gate + ")\n");
+  ' "$COMPLETE_JSON"
+  exit $?
+fi
 
 # Mode: Verify existing seal
 if [ "$VERIFY_ONLY" = true ]; then
@@ -143,6 +172,30 @@ if [ -f "$RENDER_SCRIPT" ] && [ -f "$OVERLAY_DIR/harness.json" ]; then
   fi
 fi
 
+# 2b. Learner: a branch <type>/<n>-slug must carry its lesson in harness/experience/<PREFIX>-<n>.jsonl
+ISSUE_ID="$(node -e '
+  const fs = require("fs");
+  let prefix = "";
+  try { prefix = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).issue_prefix || ""; } catch {}
+  const m = String(process.argv[2] || "").match(/^[a-z]+\/(\d+)-/);
+  process.stdout.write(prefix && m ? prefix + "-" + m[1] : "");
+' "$PROJECT_JSON" "$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")")"
+if [ -n "$ISSUE_ID" ]; then
+  LESSON_FILE="$OVERLAY_DIR/experience/$ISSUE_ID.jsonl"
+  if ! node -e '
+    const fs = require("fs");
+    const [file, issue] = process.argv.slice(1);
+    if (!fs.existsSync(file)) process.exit(1);
+    const ok = fs.readFileSync(file, "utf8").split("\n").filter((l) => l.trim()).some((l) => {
+      try { const e = JSON.parse(l); return e.task === issue && e.lesson; } catch { return false; }
+    });
+    process.exit(ok ? 0 : 1);
+  ' "$LESSON_FILE" "$ISSUE_ID"; then
+    echo "ERROR: missing lesson for $ISSUE_ID. Run: bash harness-kit/core/scripts/harness-learn.sh --lesson \"<what the next agent must know>\" and commit harness/experience/$ISSUE_ID.jsonl" >&2
+    exit 1
+  fi
+fi
+
 # 3. Read and execute gate commands configured in project.json
 if [ ! -f "$PROJECT_JSON" ]; then
   echo "ERROR: project.json not found at $PROJECT_JSON" >&2
@@ -186,6 +239,7 @@ node -e '
   const kitVersion = process.argv[2];
   const gateCmd = process.argv[3];
   const destFile = process.argv[4];
+  const issue = process.argv[5] || "";
 
   let head = "0000000000000000000000000000000000000000";
   try {
@@ -214,9 +268,10 @@ node -e '
     worktree_clean: isClean,
     fingerprint: fingerprint,
     gate: gateCmd,
+    issue: issue,
     passed_at: new Date().toISOString()
   };
 
   fs.writeFileSync(destFile, JSON.stringify(seal, null, 2) + "\n", "utf8");
   console.log(`[harness-gate] Sello generado exitosamente en .harness/complete.json (fingerprint: ${fingerprint})`);
-' "$REPO_ROOT" "$KIT_VERSION" "$GATE_CMD" "$COMPLETE_JSON"
+' "$REPO_ROOT" "$KIT_VERSION" "$GATE_CMD" "$COMPLETE_JSON" "$ISSUE_ID"

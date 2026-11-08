@@ -237,9 +237,13 @@ export function runCompose(opts) {
       }
     }
 
-    // Persist to experience_library.jsonl
-    const expLibFile = path.join(repoDir, "harness", "experience_library.jsonl");
+    // Persist: issue tasks go to harness/experience/<ISSUE>.jsonl (merge gate reads the PPC record there).
+    const issueTask = /^[A-Z][A-Z0-9]*-\d+$/.test(opts.task || "");
+    const expLibFile = issueTask
+      ? path.join(repoDir, "harness", "experience", `${opts.task}.jsonl`)
+      : path.join(repoDir, "harness", "experience_library.jsonl");
     mkdirSync(path.dirname(expLibFile), { recursive: true });
+    const winnerProbe = probeResults.find((p) => p.candidate_id === evaluation.winner_id && p.passed);
 
     experienceEntry = {
       id: `exp-${Date.now().toString(36)}`,
@@ -250,6 +254,14 @@ export function runCompose(opts) {
       lesson: evaluation.lesson,
       verified: true,
       tags: deriveTags(winningCandidate, opts.task),
+      // Evidence for harness-merge-check: only a real passing probe counts (an explicit decision alone does not).
+      ppc: {
+        winner_id: evaluation.winner_id,
+        probe_passed: Boolean(winnerProbe),
+        probe_branch: winnerProbe?.probe_branch || null,
+        candidates: probeResults.length,
+        duration_ms: winnerProbe?.duration_ms ?? null,
+      },
     };
 
     const expLine = JSON.stringify(experienceEntry) + "\n";

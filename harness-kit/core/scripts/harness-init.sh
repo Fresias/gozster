@@ -112,6 +112,18 @@ if [ -f "$RENDER_SCRIPT" ] && [ -f "${OVERLAY_DIR:-$REPO_ROOT/harness}/harness.j
   fi
 fi
 
+# Claude Code loads .claude/settings.json only when the session starts in the repo: the user-level
+# dispatcher keeps the guard active from any workdir (install once per machine).
+GUARD_STATUS="n/a"
+USER_HOOK="$(cd "$(dirname "$RENDER_SCRIPT")/../plugins/claude-code" 2>/dev/null && pwd)/install.mjs"
+if [ -f "$USER_HOOK" ]; then
+  if node "$USER_HOOK" --check >/dev/null 2>&1; then
+    GUARD_STATUS="installed"
+  else
+    GUARD_STATUS="MISSING - guard inactive outside the repo (run: node harness-kit/core/plugins/claude-code/install.mjs)"
+  fi
+fi
+
 # Handle optional scope
 SCOPE_STATUS=""
 if [ -n "$SCOPE" ]; then
@@ -130,6 +142,7 @@ echo "=== harness-init ==="
 echo "git identity: $FINAL_NAME <$FINAL_EMAIL>"
 echo "dependencies: $DEPS_STATUS"
 echo "harness drift: $DRIFT_STATUS"
+echo "claude user guard: $GUARD_STATUS"
 if [ -n "$SCOPE_STATUS" ]; then
   echo "scope: $SCOPE_STATUS (.harness/scope.json)"
 fi

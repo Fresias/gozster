@@ -94,10 +94,37 @@ for (const file of Object.keys(SCHEMA)) {
 const harnessConfig = load("harness.json");
 const projectConfig = load("project.json");
 
+/**
+ * Encoding gate: UTF-8 estricto, sin BOM, sin controles (salvo \n \r \t) ni U+FFFD.
+ * Detecta strings de PowerShell con backtick (`a = BEL, `b = BS) y archivos ANSI.
+ */
+function encodingDefect(buf) {
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return "invalid UTF-8 (save the file as UTF-8, not ANSI/ISO-8859)";
+  }
+  // TextDecoder drops a leading BOM silently: check the raw bytes.
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return "UTF-8 BOM at start of file";
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ufffd]/);
+    if (m) {
+      const code = m[0].charCodeAt(0).toString(16).padStart(4, "0");
+      return `line ${i + 1}: forbidden character U+${code} (PowerShell backtick escape or broken encoding)`;
+    }
+  }
+  return null;
+}
+
 /** Lee un archivo y normaliza saltos de línea a LF. Retorna null si no existe. */
 function readFileSafe(filePath) {
   if (!existsSync(filePath)) return null;
-  return readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+  const buf = readFileSync(filePath);
+  const defect = encodingDefect(buf);
+  if (defect) fail(`encoding: ${path.relative(repoRoot(), filePath).replace(/\\/g, "/")} — ${defect}`);
+  return buf.toString("utf8").replace(/\r\n/g, "\n");
 }
 
 /** Genera el hash sha256 canónico para el lockfile. */
@@ -233,11 +260,31 @@ if (existsSync(expLibPath)) {
     }
 
     if (selected.length === 0) {
-      selected = validLessons.slice(-3);
+      // Curated (pinned) lessons keep AGENTS.md stable while per-issue lessons accumulate in harness/experience/.
+      const pinned = validLessons.filter((l) => l.pinned === true);
+      selected = (pinned.length > 0 ? pinned : validLessons).slice(-3);
     }
 
     const lines = selected.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
     expLibSection = `### Experience Library (Harness²)\n\n${lines.join("\n")}`;
+  }
+}
+
+// C3c: lecciones por issue (harness/experience/<ISSUE>.jsonl): encoding + JSON + task == nombre de archivo.
+const expDir = path.join(overlayDir, "experience");
+if (existsSync(expDir)) {
+  for (const f of readdirSync(expDir).filter((n) => n.endsWith(".jsonl")).sort()) {
+    const issue = f.slice(0, -".jsonl".length);
+    const rows = readFileSafe(path.join(expDir, f)).split("\n").filter((l) => l.trim());
+    rows.forEach((l, i) => {
+      let e = null;
+      try {
+        e = JSON.parse(l);
+      } catch {
+        fail(`invalid json in harness/experience/${f} (line ${i + 1})`);
+      }
+      if (e.task !== issue || !e.lesson) fail(`invalid entry in harness/experience/${f} (line ${i + 1}): task must be ${issue} and lesson non-empty`);
+    });
   }
 }
 
@@ -292,7 +339,8 @@ const agentsMdContent = agentSections.join("\n\n") + "\n";
 // Extraer displayName para settings respetando casing de systemprompt
 let displayName = projectConfig.name;
 if (systemPrompt) {
-  const m = systemPrompt.match(/^#\s*([^\s—]+)/m);
+  // Solo el H1 de la primera línea (un BOM o un "## ..." no deben volverse el nombre).
+  const m = systemPrompt.replace(/^\uFEFF/, "").match(/^#\s+([^\s—#]+)/);
   if (m && m[1]) displayName = m[1];
 }
 

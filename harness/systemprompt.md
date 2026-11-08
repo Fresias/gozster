@@ -1,4 +1,4 @@
-﻿# GOZSter — System Prompt & Guidelines
+# GOZSter — System Prompt & Guidelines
 
 ## Product Vision & Architecture
 GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) con Supabase, Zustand y Next.js 15.

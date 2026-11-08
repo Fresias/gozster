@@ -1,0 +1,1 @@
+{"id":"exp-gozs-420-1","timestamp":"2026-11-08T18:44:31.189Z","task":"GOZS-420","proposal":"post-merge","probe_result":"merged","lesson":"Planes de membresía: soft-delete (activo=false) con confirmación modal; un plan con ventas asociadas no se borra físicamente.","verified":true,"tags":["ui","studio","cobros"],"commit":"1ad8c7fa272dc6f04fbc25c15926db8fbd26bb24","pr":408}

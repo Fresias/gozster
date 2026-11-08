@@ -242,6 +242,86 @@ function sealValid(repoRoot) {
   return res.status === 0;
 }
 
+/** Current git branch of the repo ("" if unknown). */
+function currentBranch(repoRoot) {
+  const res = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repoRoot, encoding: "utf8" });
+  return res.status === 0 ? res.stdout.trim() : "";
+}
+
+/** Harness mutations are allowed only on an authorized harness branch: <type>/<issue-#>-harness-<slug>. */
+export function harnessBranchAuthorized(branch) {
+  return /^(feature|fix|chore)\/\d+-harness-/.test(String(branch || ""));
+}
+
+/** Protected harness sources (lessons in harness/experience/ stay writable by every agent). */
+export function isProtectedHarnessPath(rel) {
+  const p = String(rel || "").replace(/\\/g, "/").replace(/^\.\//, "");
+  if (p.startsWith("harness/experience/")) return false;
+  return /^(harness|harness-kit|\.github)\//.test(p);
+}
+
+const SHELL_WRITE_VERB =
+  /((^|[\s;&|(])(cp|mv|install|dd|truncate|chmod|tee|rm|touch|ln|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
+// Same verbs minus copy-like ones (cp/install/ln/Copy-Item): those only write their LAST argument.
+const HARNESS_WRITE_VERB =
+  /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
+const HARNESS_GENERATORS = /(harness-render\.mjs(?![^;&|]*--check)|harness-compose\.mjs(?![^;&|]*--no-promote)|bootstrap\.mjs)/i;
+const HARNESS_DIRS = "(harness|harness-kit|\\.github)[/\\\\](?!experience[/\\\\])";
+
+/**
+ * Regex for a path INTO this repo's harness sources: repo-relative (`harness/x`, `./harness/x`) or absolute
+ * under repoRoot (Windows, forward-slash and Git Bash `/c/...` forms). Paths like /tmp/x/harness/ do not match.
+ */
+function harnessPathPattern(repoRoot) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fwd = path.resolve(repoRoot).replace(/\\/g, "/");
+  const roots = new Set([fwd, fwd.replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`)]);
+  const abs = [...roots].map((r) => esc(r).replace(/\//g, "[/\\\\]")).join("|");
+  return `(?:(?:^|[\\s"'=(])(?:\\.[/\\\\])?|(?:${abs})[/\\\\])${HARNESS_DIRS}`;
+}
+
+/** True if the shell command writes a protected harness source of repoRoot. */
+function shellWritesHarness(cmd, repoRoot) {
+  const target = harnessPathPattern(repoRoot);
+  const ref = new RegExp(target, "i");
+  if (!ref.test(cmd)) return false;
+  if (new RegExp(`>>?\\s*["']?${target.replace("(?:^|[\\s\"'=(])", "")}`, "i").test(cmd)) return true;
+  for (const seg of cmd.split(/[;&|]+/)) {
+    if (!ref.test(seg)) continue;
+    if (HARNESS_WRITE_VERB.test(seg)) return true;
+    // cp/install/ln/Copy-Item: only the destination (last argument) matters.
+    if (/(^|\s)(cp|install|ln|Copy-Item)\s/i.test(seg)) {
+      const last = seg.trim().split(/\s+/).filter((a) => !a.startsWith("-")).pop() || "";
+      if (ref.test(` ${last.replace(/^["']|["']$/g, "")}`)) return true;
+    }
+  }
+  return false;
+}
+
+/** Body text a gh pr create will publish (inline --body or --body-file). */
+function prBodyText(cmd, repoRoot) {
+  const m = cmd.match(/--body-file[\s=]+(?:"([^"]+)"|'([^']+)'|(\S+))/);
+  if (m) {
+    const file = m[1] || m[2] || m[3];
+    for (const f of [file, path.resolve(repoRoot, file)]) {
+      try {
+        return readFileSync(f, "utf8");
+      } catch {}
+    }
+    return "";
+  }
+  return cmd;
+}
+
+/** Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons. */
+function mergeCheck(selector, repoRoot) {
+  const script = path.join(here, "..", "scripts", "harness-merge-check.mjs");
+  const args = [script, "--post-status"];
+  if (selector) args.push(selector);
+  const res = spawnSync(process.execPath, args, { cwd: repoRoot, encoding: "utf8" });
+  return res.status === 0 ? "" : (res.stderr || res.stdout || "merge check failed").trim();
+}
+
 /** Evaluate shell commands. */
 function evaluateShell(call, repoRoot) {
   const cmd = call.command || "";
@@ -299,10 +379,14 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Access to .env in shell
-  const stripped = cmd.replace(/\.env\.(example|sample|template)/gi, "");
+  const stripped = cmd
+    .replace(/\.env\.(example|sample|template)/gi, "")
+    // Code references to environment variables are not .env files.
+    .replace(/(process|import\.meta)\.env\b/g, "")
+    .replace(/\$env:/gi, "");
   if (/\.env([^A-Za-z0-9]|$)/.test(stripped)) {
     if (
-      /(^|[^a-zA-Z0-9_])(cat|less|more|head|tail|bat|nl|tac|xxd|od|strings|source|cp|mv|scp|rsync|dd|ln|openssl)(\s|$)/i.test(
+      /(^|[^a-zA-Z0-9_-])(cat|less|more|head|tail|bat|nl|tac|xxd|od|strings|source|cp|mv|scp|rsync|dd|ln|openssl|type|gc|Get-Content|Copy-Item|Move-Item|Select-String)(\s|$)/i.test(
         cmd
       ) ||
       />\s*[^|&;]*\.env([^A-Za-z0-9]|$)/.test(stripped) ||
@@ -318,10 +402,16 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Git force push
-  if (/(^|[^a-zA-Z0-9_])git(\s+-C\s+[^\s]+)?\s+.*push/i.test(cmd)) {
+  // Evaluated per command segment: flags of other commands (e.g. `gh api -F`) are not push flags.
+  const pushSegments = cmd
+    .split(/;|&&|\|\||\|/)
+    .filter((seg) => /(^|[^a-zA-Z0-9_])git(\s+-C\s+[^\s]+)?\s+.*push/i.test(seg));
+  if (pushSegments.length > 0) {
     if (
-      /--force|--force-with-lease|--mirror|--delete|(^|\s)-f(\s|$)|push\s+.*\+[A-Za-z0-9_./-]/i.test(
-        cmd
+      pushSegments.some(
+        (seg) =>
+          /--force|--force-with-lease|--mirror|--delete|push\s+.*\s\+[A-Za-z0-9_./-]|push\s+\+[A-Za-z0-9_./-]/i.test(seg) ||
+          /(^|\s)-[a-zA-Z]*f[a-zA-Z]*(\s|$)/.test(seg.replace(/^.*?\bpush\b/, " "))
       )
     ) {
       return {
@@ -387,6 +477,19 @@ function evaluateShell(call, repoRoot) {
     }
   }
 
+  // PowerShell recursive force delete (Remove-Item/ri/rd/del -Recurse -Force)
+  if (
+    /(^|[\s;&|(])(Remove-Item|ri|rd|rmdir|del|erase)(\s|$)/i.test(cmd) &&
+    /\s-r(ecurse)?\b/i.test(cmd) &&
+    /\s-fo(rce)?\b/i.test(cmd)
+  ) {
+    return {
+      allowed: false,
+      ruleId: "shell.rm-rf",
+      reason: "Recursive force delete (Remove-Item -Recurse -Force) is forbidden.",
+    };
+  }
+
   // curl|wget pipe to shell
   if (/(curl|wget)[^|]*\|\s*(sudo\s+)?(sh|bash|zsh)/i.test(cmd)) {
     return {
@@ -416,12 +519,9 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Writing to harness hooks or runtime settings
-  if (/(\.git\/hooks|\.claude\/|\.agents\/|\.gemini\/|\.opencode\/)/i.test(cmd)) {
-    if (
-      /(>>?|\stee\s|(^|\s)(cp|mv|install|dd|truncate|chmod)\s|sed\s+-i|(^|\s)rm\s)/i.test(
-        cmd
-      )
-    ) {
+  if (/(\.git[/\\]hooks|\.claude[/\\]|\.agents[/\\]|\.gemini[/\\]|\.opencode[/\\])/i.test(cmd)) {
+    // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
+    if (/>>?\s*["']?[^\s|&;]*(\.git[/\\]hooks|\.(claude|agents|gemini|opencode)[/\\])/i.test(cmd) || SHELL_WRITE_VERB.test(cmd)) {
       return {
         allowed: false,
         ruleId: "fs.protected",
@@ -431,14 +531,65 @@ function evaluateShell(call, repoRoot) {
     }
   }
 
-  // gh pr create requires a valid gate seal
-  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd) && !sealValid(repoRoot)) {
+  // Harness sources (harness/, harness-kit/, .github/) and generators only on an authorized harness branch
+  const touchesHarness = HARNESS_GENERATORS.test(cmd) || shellWritesHarness(cmd, repoRoot);
+  if (touchesHarness && !harnessBranchAuthorized(currentBranch(repoRoot))) {
     return {
       allowed: false,
-      ruleId: "pr.requires-seal",
+      ruleId: "harness.authorized-only",
       reason:
-        "No valid gate seal (.harness/complete.json missing or stale for HEAD + diff). Run harness-kit/core/scripts/harness-gate.sh before gh pr create.",
+        "Harness sources (harness/, harness-kit/, .github/, render/compose) change only on an authorized branch <type>/<issue-#>-harness-<slug> created by the PM. Lessons go to harness/experience/ via harness-learn.sh.",
     };
+  }
+
+  // gh pr create requires a valid gate seal AND the seal block in the PR body
+  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd)) {
+    if (!sealValid(repoRoot)) {
+      return {
+        allowed: false,
+        ruleId: "pr.requires-seal",
+        reason:
+          "No valid gate seal (.harness/complete.json missing or stale for HEAD + diff). Run harness-kit/core/scripts/harness-gate.sh before gh pr create.",
+      };
+    }
+    let fingerprint = "";
+    try {
+      fingerprint = JSON.parse(readFileSync(path.join(repoRoot, ".harness", "complete.json"), "utf8")).fingerprint || "";
+    } catch {}
+    const body = prBodyText(cmd, repoRoot);
+    if (!fingerprint || !body.includes("harness-seal:") || !body.includes(fingerprint)) {
+      return {
+        allowed: false,
+        ruleId: "pr.requires-seal",
+        reason:
+          "PR body must contain the seal block: run `bash harness-kit/core/scripts/harness-gate.sh --pr-block` and paste its output into the --body-file.",
+      };
+    }
+  }
+
+  // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
+  const mergeCmd = cmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
+  const apiMerge = cmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
+  // The harness/merge-check status is posted only by harness-merge-check.mjs, never by hand.
+  if (/gh\s+api\s+[^;&|]*statuses\//i.test(cmd) && /harness\/merge-check/i.test(cmd)) {
+    return {
+      allowed: false,
+      ruleId: "pr.merge-check",
+      reason: "The harness/merge-check status is posted only by harness-merge-check.mjs --post-status.",
+    };
+  }
+  if (mergeCmd || apiMerge) {
+    const selector = apiMerge
+      ? apiMerge[1]
+      : (mergeCmd[2] || "").trim().split(/\s+/).find((a) => a && !a.startsWith("-")) || "";
+    const reasons = mergeCheck(selector, repoRoot);
+    if (reasons) {
+      return {
+        allowed: false,
+        ruleId: "pr.merge-check",
+        reason: `Merge blocked by harness-merge-check.mjs:\n${reasons}`,
+      };
+    }
   }
 
   return { allowed: true };
@@ -509,6 +660,15 @@ function evaluateWrite(call, repoRoot) {
 
   // Protect the remaining runtime harness directories
   if (/(^|\/)\.(agents|gemini|opencode)\//.test(norm)) return tamper;
+
+  // Harness sources: only on an authorized harness branch
+  if (isProtectedHarnessPath(rel) && !harnessBranchAuthorized(currentBranch(repoRoot))) {
+    return {
+      allowed: false,
+      ruleId: "harness.authorized-only",
+      reason: `${rel} is a protected harness source. It changes only on an authorized branch <type>/<issue-#>-harness-<slug> created by the PM (lessons go to harness/experience/).`,
+    };
+  }
 
   return { allowed: true };
 }

@@ -2,5 +2,6 @@
   "name": "gozster",
   "runtimes": ["antigravity", "claude-code", "gemini-cli", "opencode"],
   "adapters": ["multica", "supabase"],
+  "issue_prefix": "GOZS",
   "gate": "npm test && npm run typecheck && npm run lint && npm run build"
 }

@@ -13,20 +13,20 @@
     ".claude/agents/harness-proposer.md": "sha256:2fd8f3a8ccf1c380f53269b17fd3cc029b9e1944387ebb74d518dec196e2216b",
     ".claude/agents/schema-inspector.md": "sha256:c99aabfba58549a399782efe779f5c8014bd57ae29da065b26bdb172614c2765",
     ".claude/agents/trace-auditor.md": "sha256:39cdf676745fed4cef21f6bc489228d49518017c2aa9cad9b6c1313ddac4415d",
-    ".claude/settings.json": "sha256:87b9aedd0db3f09e569579f002f0a21c4de41cb31a47940ae31cbfff5c24d46f",
+    ".claude/settings.json": "sha256:01146b4f98fb828742211b48b7b46224b5d8c0dc675a352b4c1f7387c83a73dd",
     ".claude/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
     ".claude/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
     ".gemini/agents/harness-composer.md": "sha256:aa730f4e5a687b8a3af22961a99435e5e7ba31a39bc3c7651fa5f7f21b3cf03a",
     ".gemini/agents/harness-proposer.md": "sha256:2fd8f3a8ccf1c380f53269b17fd3cc029b9e1944387ebb74d518dec196e2216b",
     ".gemini/agents/schema-inspector.md": "sha256:c99aabfba58549a399782efe779f5c8014bd57ae29da065b26bdb172614c2765",
     ".gemini/agents/trace-auditor.md": "sha256:39cdf676745fed4cef21f6bc489228d49518017c2aa9cad9b6c1313ddac4415d",
-    ".gemini/settings.json": "sha256:bd829fb6340d8dafc59d57b23f044980a772e6e489d99fe55b07a127c0007cab",
+    ".gemini/settings.json": "sha256:a18fe6c2cffe2788b3285b79ee79e67baa3d7f72309f55a769bb31a9b3036917",
     ".opencode/agents/harness-composer.md": "sha256:4bfc0edcfd2fd3185059b780ed755e4124a03f14cc62693be07ea4a85e4066b8",
     ".opencode/agents/harness-proposer.md": "sha256:74a280157557645e0abbdb1854b5917d408d5b6ab11c8ab76503a60159c64a03",
     ".opencode/agents/schema-inspector.md": "sha256:e10eac7d8a59ad1221c4ba34d9dfa6b3a1254d7adf73b8f713ad614611414f3a",
     ".opencode/agents/trace-auditor.md": "sha256:43645e4579b0a24c8d2f33f0338a37f5425451158e5843b7f8ad17fcd64abe3f",
     ".opencode/plugins/harness-guard.ts": "sha256:67e51bc417743183b42513872eaa122094027d7d96e0fe256c1cdca5de8df182",
-    "AGENTS.md": "sha256:7754c106fa02485a8bb55ff3f40ec15c4cd785f5d6d8baa9c2005718e5b3fd66",
+    "AGENTS.md": "sha256:12c9bb7c64ffbf3804a203cf339b979398d230e74739ff57b7589338ecd7b760",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }
 }
