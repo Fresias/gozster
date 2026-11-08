@@ -90,7 +90,10 @@ export function evaluateMerge({ pr, project, lessonText }) {
 }
 
 function gh(args) {
-  return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+  // Windows: gh may be a .cmd/.bat shim that execFile cannot spawn without a shell.
+  if (process.platform === "win32") return execFileSync(`gh ${args.map((a) => `"${a}"`).join(" ")}`, { ...opts, shell: true });
+  return execFileSync("gh", args, opts);
 }
 
 function main(argv) {

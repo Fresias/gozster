@@ -206,6 +206,11 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     expect(evaluateRules({ kind: "shell", command: "Get-Content .env" }, { repoRoot: unauthorized }).ruleId).toBe("shell.env-leak");
   });
 
+  it("GIVEN código que lee process.env / $env: THEN no es acceso a un archivo .env", () => {
+    expect(evaluateRules({ kind: "shell", command: "type gh; node -e 'console.log(process.env.PATH)'" }, { repoRoot: unauthorized }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: "Get-ChildItem $env:TEMP" }, { repoRoot: unauthorized }).allowed).toBe(true);
+  });
+
   it("GIVEN Set-Content sobre .claude/ THEN fs.protected", () => {
     const r = evaluateRules({ kind: "shell", command: "Set-Content .claude/settings.json '{}'" }, { repoRoot: unauthorized });
     expect(r.ruleId).toBe("fs.protected");

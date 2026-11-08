@@ -347,7 +347,11 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Access to .env in shell
-  const stripped = cmd.replace(/\.env\.(example|sample|template)/gi, "");
+  const stripped = cmd
+    .replace(/\.env\.(example|sample|template)/gi, "")
+    // Code references to environment variables are not .env files.
+    .replace(/(process|import\.meta)\.env\b/g, "")
+    .replace(/\$env:/gi, "");
   if (/\.env([^A-Za-z0-9]|$)/.test(stripped)) {
     if (
       /(^|[^a-zA-Z0-9_-])(cat|less|more|head|tail|bat|nl|tac|xxd|od|strings|source|cp|mv|scp|rsync|dd|ln|openssl|type|gc|Get-Content|Copy-Item|Move-Item|Select-String)(\s|$)/i.test(
