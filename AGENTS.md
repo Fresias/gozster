@@ -61,9 +61,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
 - [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
 - [lesson 2026-11-07 | task: GOZS-409] PR #396 (GOZS-409): Estandar visual canonico fijado en docs/ux-ui-review/objetivo/html/*.html. Cero datos demo en vivo (no-demo-literals). Actualizar specs obsoletos cuando el diseno canonico cambie.
+- [lesson 2026-11-08 | task: feature/430-constructor-preview-ejercicio] GOZS-430: un spec/prototipo no cierra un criterio funcional; el modal ExercisePreviewModal se cableó en tarjetas del día y catálogo del constructor reutilizando getYouTubeEmbedUrl, con test montado que cubre cada criterio.
 
 # Tool Guidance & Execution Rules
 
