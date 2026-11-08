@@ -709,14 +709,24 @@ export function RoutineBuilderModal({
 
   const handleToggleTipoSerie = (exId: string, tipo: "WARMUP" | "DROPSET") => {
     const ex = currentDay?.ejercicios.find((e) => e.id === exId);
-    const nuevoTipo = ex?.tipo_serie === tipo ? "NORMAL" : tipo;
+    if (!ex) return;
+    const nuevoTipo = ex.tipo_serie === tipo ? "NORMAL" : tipo;
+    const esSuperserieWarmup =
+      tipo === "WARMUP" && Boolean(ex.es_superserie && ex.grupo_superserie !== null);
+
     setDays((prev) =>
       prev.map((d, idx) =>
         idx === selectedDayIdx
           ? {
               ...d,
               ejercicios: d.ejercicios.map((e) => {
-                if (e.id !== exId) return e;
+                const esAfectado =
+                  e.id === exId ||
+                  (esSuperserieWarmup &&
+                    Boolean(e.es_superserie && e.grupo_superserie === ex.grupo_superserie));
+
+                if (!esAfectado) return e;
+
                 if (nuevoTipo === "DROPSET") {
                   return {
                     ...e,
@@ -725,10 +735,10 @@ export function RoutineBuilderModal({
                     descanso_segundos: 0,
                   };
                 }
-                if (e.tipo_serie === "DROPSET" && nuevoTipo === "NORMAL") {
+                if (e.tipo_serie === "DROPSET") {
                   return {
                     ...e,
-                    tipo_serie: "NORMAL",
+                    tipo_serie: nuevoTipo,
                     repeticiones: e.repeticiones === "AL FALLO" ? "10" : e.repeticiones,
                     descanso_segundos: e.descanso_segundos === 0 ? 90 : e.descanso_segundos,
                   };
@@ -1095,9 +1105,14 @@ export function RoutineBuilderModal({
                         )}
                         {ej.tipo_serie !== "NORMAL" && (
                           <Badge
-                            className={`text-white text-[10px] font-bold ${
-                              ej.tipo_serie === "DROPSET" ? "bg-rose-600" : "bg-amber-600"
-                            }`}
+                            variant={ej.tipo_serie === "DROPSET" ? "danger" : "warning"}
+                            className="text-[10px] font-bold"
+                            title={
+                              ej.tipo_serie === "WARMUP"
+                                ? "Calentamiento / Aproximación: no computa para el tonelaje acumulado ni récords 1RM"
+                                : undefined
+                            }
+                            data-testid={`badge-tipo-serie-${ej.id}`}
                           >
                             {ej.tipo_serie === "DROPSET" ? "Dropset" : "Warmup"}
                           </Badge>
@@ -1406,23 +1421,32 @@ export function RoutineBuilderModal({
                           ) : null;
                         })()}
                         <div className="flex gap-1 mt-1">
-                          {(["WARMUP", "DROPSET"] as const).map((tipo) => (
-                            <button
-                              key={tipo}
-                              type="button"
-                              aria-pressed={ej.tipo_serie === tipo}
-                              onClick={() => handleToggleTipoSerie(ej.id, tipo)}
-                              className={`flex-1 min-h-[30px] text-[10px] font-bold rounded-lg border cursor-pointer ${
-                                ej.tipo_serie === tipo
-                                  ? tipo === "DROPSET"
-                                    ? "bg-rose-600 text-white border-rose-500"
-                                    : "bg-amber-600 text-white border-amber-500"
-                                  : "bg-secondary text-secondary-foreground border-border"
-                              }`}
-                            >
-                              {tipo === "DROPSET" ? "Dropset" : "Warmup"}
-                            </button>
-                          ))}
+                          {(["WARMUP", "DROPSET"] as const).map((tipo) => {
+                            const isWarmup = tipo === "WARMUP";
+                            const isSelected = ej.tipo_serie === tipo;
+                            const warmupHelp =
+                              "Calentamiento / Aproximación: no computa para el tonelaje acumulado ni récords 1RM";
+                            return (
+                              <button
+                                key={tipo}
+                                type="button"
+                                aria-pressed={isSelected}
+                                onClick={() => handleToggleTipoSerie(ej.id, tipo)}
+                                title={isWarmup ? warmupHelp : undefined}
+                                aria-label={isWarmup ? `Warmup: ${warmupHelp}` : tipo === "DROPSET" ? "Dropset" : undefined}
+                                data-testid={`btn-tipo-serie-${tipo.toLowerCase()}-${ej.id}`}
+                                className={`flex-1 min-h-[30px] text-[10px] font-bold rounded-lg border cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? tipo === "DROPSET"
+                                      ? "bg-danger-soft text-danger-soft-foreground border-danger-soft-border"
+                                      : "bg-warning-soft text-warning-soft-foreground border-warning-soft-border"
+                                    : "bg-secondary text-secondary-foreground border-border hover:bg-muted"
+                                }`}
+                              >
+                                {tipo === "DROPSET" ? "Dropset" : "Warmup"}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
