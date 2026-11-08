@@ -1,19 +1,16 @@
-# GOZSter � Guidelines
+# GOZSter — System Prompt & Guidelines
 
 ## Product Vision & Architecture
 GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) con Supabase, Zustand y Next.js 15.
 
 ## Verified Commands & Gate
-- 
-pm run dev, 
-pm run build, 
-px vitest run <spec>.
-- Gate: 
-pm test && npm run typecheck && npm run lint && npm run build.
+- `npm ci`, `npm run dev`, `npm run build`, `npm run typecheck`, `npm test`, `npx vitest run`, `npm run seed:mynter`.
+- Gate: `npm test && npm run typecheck && npm run lint && npm run build`.
 
 ## Governance & Roles
-- Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas eature/<issue-#>-slug o ix/<issue-#>-slug. Commits convencionales.
+- Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas `feature/<issue-#>-slug` o `fix/<issue-#>-slug`. Commits convencionales.
 - Merge a main: solo @PM-GOZster tras CI en verde y APPROVED de @qa-eng.
+- Review: @qa-eng ejecuta el protocolo Selection de 6 niveles (`review-selection.md`) por PR.
 
 # Core Guardrails (Invariants)
 
