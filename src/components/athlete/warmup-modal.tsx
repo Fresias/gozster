@@ -11,6 +11,7 @@ import {
   esEjercicioAislamiento,
   MENSAJE_SIN_DATOS,
 } from "@/lib/aproximacion-pr";
+import { parseTargetRpe } from "@/lib/routine-helpers";
 
 interface WarmupModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ interface WarmupModalProps {
   exerciseName: string;
   workingWeightKg?: number;
   marcas?: MarcasEjercicio | null;
-  rpeObjetivo?: number;
+  rpeObjetivo?: number | string;
   repsObjetivo?: string;
   esAislamiento?: boolean;
   onApplyWarmupSets: (warmupSets: WarmupSetProgression[]) => void;
@@ -68,7 +69,7 @@ export function WarmupModal({
 
   const progressions = targetWeight > 0
     ? calcularSeriesAproximacion(targetWeight, {
-        rpeObjetivo,
+        rpeObjetivo: typeof rpeObjetivo === "number" ? rpeObjetivo : parseTargetRpe(rpeObjetivo) ?? undefined,
         repeticionesObjetivo: repsObjetivo,
         esAislamiento: aislamientoCalculado,
         pesoBarraKg: 20,

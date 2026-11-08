@@ -80,8 +80,8 @@ function formatDescanso(segundos?: number | null): string {
   return `${segundos} s`;
 }
 
-function formatRPE(rpe?: number | null): string {
-  if (rpe == null) return "—";
+function formatRPE(rpe?: number | string | null): string {
+  if (rpe == null || rpe === "") return "—";
   return `${rpe}`.replace(".", ",");
 }
 

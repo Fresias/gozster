@@ -7,6 +7,9 @@ import {
   calculateEffectiveTotalWeight,
   calculateEpley1RM,
   calculateTotalTonnage,
+  parsePyramidRpeSteps,
+  parseTargetRpe,
+  validarRpeObjetivo,
   type VolumeBlock,
 } from '@/lib/strength-metrics';
 import { esNuevoRecord, type MarcasEjercicio, type SerieCandidata } from '@/lib/record-ejercicio';
@@ -207,6 +210,72 @@ describe('Métricas Matemáticas de Fuerza (GOZSter QA Suite - src/__tests__)', 
 
       expect(tonelajeReal).toBe(2100); // 3 * 10 * 70
       expect(tonelajeErroneo).toBe(2400); // 3 * 10 * 80 (distorsión de +300 kg evitada)
+    });
+  });
+
+  describe('Soporte de RPE piramidal escalonado con guiones sincronizado con repeticiones (GOZS-418)', () => {
+    it('parsePyramidRpeSteps parsea secuencias ascendentes 6-7-8-9', () => {
+      expect(parsePyramidRpeSteps('6-7-8-9')).toEqual([6, 7, 8, 9]);
+      expect(parsePyramidRpeSteps('7-7.5-8-8.5-9')).toEqual([7, 7.5, 8, 8.5, 9]);
+    });
+
+    it('parsePyramidRpeSteps rechaza cadenas con espacios o vacías', () => {
+      expect(parsePyramidRpeSteps('6 7 8 9')).toBeNull();
+      expect(parsePyramidRpeSteps('6 - 7 - 8')).toBeNull();
+      expect(parsePyramidRpeSteps('')).toBeNull();
+      expect(parsePyramidRpeSteps(null)).toBeNull();
+      expect(parsePyramidRpeSteps(undefined)).toBeNull();
+    });
+
+    it('parsePyramidRpeSteps rechaza valores fuera de la escala 1 a 10', () => {
+      expect(parsePyramidRpeSteps('0-7-8-9')).toBeNull();
+      expect(parsePyramidRpeSteps('6-7-8-11')).toBeNull();
+      expect(parsePyramidRpeSteps('6-15')).toBeNull();
+    });
+
+    it('parseTargetRpe devuelve el RPE correspondiente a cada serie en una pirámide 6-7-8-9', () => {
+      const rpePiramidal = '6-7-8-9';
+      // Serie 1 -> RPE Objetivo 6
+      expect(parseTargetRpe(rpePiramidal, 1)).toBe(6);
+      // Serie 2 -> RPE Objetivo 7
+      expect(parseTargetRpe(rpePiramidal, 2)).toBe(7);
+      // Serie 3 -> RPE Objetivo 8
+      expect(parseTargetRpe(rpePiramidal, 3)).toBe(8);
+      // Serie 4 -> RPE Objetivo 9
+      expect(parseTargetRpe(rpePiramidal, 4)).toBe(9);
+    });
+
+    it('parseTargetRpe limita al último escalón si la serie excede la longitud prescrita', () => {
+      expect(parseTargetRpe('6-7-8-9', 5)).toBe(9);
+      expect(parseTargetRpe('6-7-8-9', 10)).toBe(9);
+    });
+
+    it('parseTargetRpe soporta valores fijos tanto numéricos como strings para compatibilidad', () => {
+      expect(parseTargetRpe(8, 1)).toBe(8);
+      expect(parseTargetRpe(8.5, 3)).toBe(8.5);
+      expect(parseTargetRpe('8', 1)).toBe(8);
+      expect(parseTargetRpe('8.5', 2)).toBe(8.5);
+      expect(parseTargetRpe(null, 1)).toBeNull();
+      expect(parseTargetRpe(undefined, 1)).toBeNull();
+    });
+
+    it('validarRpeObjetivo valida sincronización exacta con cantidad de series', () => {
+      // 4 series con 4 escalones RPE -> Válido
+      expect(validarRpeObjetivo('6-7-8-9', 4)).toEqual({ valido: true });
+      // 4 series con 3 escalones RPE -> Inválido (discrepancia)
+      const res = validarRpeObjetivo('6-7-8', 4);
+      expect(res.valido).toBe(false);
+      expect(res.error).toContain('la cantidad de escalones (3) debe coincidir con las series (4)');
+    });
+
+    it('validarRpeObjetivo rechaza espacios y formato corrupto', () => {
+      const conEspacios = validarRpeObjetivo('6 7 8 9', 4);
+      expect(conEspacios.valido).toBe(false);
+      expect(conEspacios.error).toBe('RPE no debe contener espacios (ej. 6-7-8-9)');
+
+      const fueraDeRango = validarRpeObjetivo('6-7-8-12', 4);
+      expect(fueraDeRango.valido).toBe(false);
+      expect(fueraDeRango.error).toBe('RPE: cada valor debe estar entre 1 y 10');
     });
   });
 });

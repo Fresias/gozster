@@ -268,7 +268,7 @@ export interface Database {
           series: number;
           repeticiones: string;
           descanso_segundos: number;
-          rpe_objetivo: number | null;
+          rpe_objetivo: string | number | null;
           notas: string | null;
           es_superserie: boolean;
           grupo_superserie: number | null;
@@ -290,7 +290,7 @@ export interface Database {
           series: number;
           repeticiones: string;
           descanso_segundos?: number;
-          rpe_objetivo?: number | null;
+          rpe_objetivo?: string | number | null;
           notas?: string | null;
           es_superserie?: boolean;
           grupo_superserie?: number | null;
@@ -312,7 +312,7 @@ export interface Database {
           series?: number;
           repeticiones?: string;
           descanso_segundos?: number;
-          rpe_objetivo?: number | null;
+          rpe_objetivo?: string | number | null;
           notas?: string | null;
           es_superserie?: boolean;
           grupo_superserie?: number | null;

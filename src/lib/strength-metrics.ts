@@ -392,4 +392,13 @@ export {
   type OpcionesProgresion,
 } from './progresion';
 
+// Re-exportación de utilidades de RPE piramidal y series (GOZS-418)
+export {
+  parsePyramidRpeSteps,
+  parseTargetRpe,
+  validarRpeObjetivo,
+  parsePyramidSeriesCount,
+} from './routine-helpers';
+
+
 
