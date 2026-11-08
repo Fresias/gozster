@@ -275,6 +275,10 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     expect(evaluateRules({ kind: "shell", command: same }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
     const spoof = "gh pr merge 3 -R acme/kit --repo acme/app --squash";
     expect(evaluateRules({ kind: "shell", command: spoof }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    for (const tail of ["; echo --repo acme/kit", " && gh pr view 1 --repo acme/kit", "; echo -R acme/kit"]) {
+      expect(evaluateRules({ kind: "shell", command: `gh pr merge 3 --squash${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+      expect(evaluateRules({ kind: "shell", command: `gh pr create --title t --body x${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
+    }
   });
 
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {

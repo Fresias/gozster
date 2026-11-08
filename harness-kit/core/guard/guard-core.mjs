@@ -313,8 +313,9 @@ function prBodyText(cmd, repoRoot) {
   return cmd;
 }
 
-/** True when every `--repo/-R owner/name` of a gh command differs from the origin of repoRoot. */
+/** True when a gh pr/api segment has `--repo/-R owner/name` flags and all differ from the origin of repoRoot. */
 function targetsOtherRepo(cmd, repoRoot) {
+  if (!/(^|[(\s])gh\s+(pr|api)\s/.test(cmd)) return false;
   const repos = [...cmd.matchAll(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/g)].map((m) => m[1].toLowerCase());
   if (!repos.length) return false;
   const res = spawnSync("git", ["remote", "get-url", "origin"], { cwd: repoRoot, encoding: "utf8" });
@@ -557,9 +558,10 @@ function evaluateShell(call, repoRoot) {
   }
 
   // gh pr create requires a valid gate seal AND the seal block in the PR body
-  // PRs of another repository (--repo owner/name) are governed by that repository's own harness.
-  const otherRepo = /(^|[;&|(\s])gh\s+(pr|api)\s/.test(cmd) && targetsOtherRepo(cmd, repoRoot);
-  if (!otherRepo && /(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd)) {
+  // gh segments of another repository (--repo owner/name) are governed by that repository's own harness;
+  // the seal and merge rules apply to the remaining segments (a --repo elsewhere exempts nothing).
+  const ownCmd = cmd.split(/;|&&|\|\||\||\n/).filter((seg) => !targetsOtherRepo(seg, repoRoot)).join(" ; ");
+  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(ownCmd)) {
     if (!sealValid(repoRoot)) {
       return {
         allowed: false,
@@ -584,8 +586,8 @@ function evaluateShell(call, repoRoot) {
   }
 
   // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
-  const mergeCmd = cmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
-  const apiMerge = cmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
+  const mergeCmd = ownCmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
+  const apiMerge = ownCmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
   // The harness/merge-check status is posted only by harness-merge-check.mjs, never by hand.
   if (/gh\s+api\s+[^;&|]*statuses\//i.test(cmd) && /harness\/merge-check/i.test(cmd)) {
     return {
@@ -594,7 +596,7 @@ function evaluateShell(call, repoRoot) {
       reason: "The harness/merge-check status is posted only by harness-merge-check.mjs --post-status.",
     };
   }
-  if (!otherRepo && (mergeCmd || apiMerge)) {
+  if (mergeCmd || apiMerge) {
     const selector = apiMerge
       ? apiMerge[1]
       : (mergeCmd[2] || "").trim().split(/\s+/).find((a) => a && !a.startsWith("-")) || "";
