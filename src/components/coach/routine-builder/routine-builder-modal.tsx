@@ -20,7 +20,7 @@ export const TAGS_RUTINA_PREDEFINIDAS = [
 
 export type TagRutina = typeof TAGS_RUTINA_PREDEFINIDAS[number];
 
-interface BuilderExercise {
+export interface BuilderExercise {
   id: string;
   ejercicio_id: string;
   nombre: string;
@@ -41,7 +41,7 @@ interface BuilderExercise {
   es_unilateral?: boolean;
 }
 
-interface BuilderDay {
+export interface BuilderDay {
   id: string;
   nombre: string;
   orden: number;
@@ -101,24 +101,36 @@ export function buildGuardarRutinaPayload(input: {
     ...(input.estado ? { estado: input.estado } : {}),
     dias: input.days.map((d) => ({
       nombre: d.nombre,
-      ejercicios: d.ejercicios.map((e) => ({
-        ejercicio_id: e.ejercicio_id,
-        nombre: e.nombre,
-        series: e.series,
-        repeticiones: e.repeticiones,
-        descanso_segundos: e.descanso_segundos,
-        rpe_objetivo: e.rpe_objetivo,
-        notas: e.notas || null,
-        es_superserie: e.es_superserie,
-        grupo_superserie: e.grupo_superserie,
-        tempo: e.tempo,
-        tempo_activo: e.tempo_activo,
-        tipo_serie: e.tipo_serie,
-        force_rpe_required: e.force_rpe_required,
-        tipo_medicion: e.tipo_medicion ?? "REPS",
-        tiempo_objetivo_segundos: e.tiempo_objetivo_segundos ?? null,
-        es_unilateral: Boolean(e.es_unilateral),
-      })),
+      ejercicios: d.ejercicios.map((e, idx, arr) => {
+        const esSuperserie = e.grupo_superserie !== null;
+        const esUltimoDeSuperserie =
+          esSuperserie &&
+          !arr
+            .slice(idx + 1)
+            .some((other) => other.grupo_superserie !== null && other.grupo_superserie === e.grupo_superserie);
+        const esIntermedioSuperserie = esSuperserie && !esUltimoDeSuperserie;
+        const descanso_segundos =
+          esIntermedioSuperserie || e.tipo_serie === "DROPSET" ? 0 : e.descanso_segundos;
+
+        return {
+          ejercicio_id: e.ejercicio_id,
+          nombre: e.nombre,
+          series: e.series,
+          repeticiones: e.repeticiones,
+          descanso_segundos,
+          rpe_objetivo: e.rpe_objetivo,
+          notas: e.notas || null,
+          es_superserie: e.es_superserie,
+          grupo_superserie: e.grupo_superserie,
+          tempo: e.tempo,
+          tempo_activo: e.tempo_activo,
+          tipo_serie: e.tipo_serie,
+          force_rpe_required: e.force_rpe_required,
+          tipo_medicion: e.tipo_medicion ?? "REPS",
+          tiempo_objetivo_segundos: e.tiempo_objetivo_segundos ?? null,
+          es_unilateral: Boolean(e.es_unilateral),
+        };
+      }),
     })),
   };
 }
@@ -345,7 +357,24 @@ export function RoutineBuilderModal({
   // Errores visibles: por campo al salir de él (blur) y todos tras intentar guardar
   const [tocados, setTocados] = React.useState<Set<string>>(new Set());
   const [verErrores, setVerErrores] = React.useState(false);
-  const { errores, avisos } = validarRutina({ nombre: planName, days });
+  const daysParaValidar = React.useMemo(() => {
+    return days.map((d) => ({
+      ...d,
+      ejercicios: d.ejercicios.map((e, idx, arr) => {
+        const esSuperserie = e.grupo_superserie !== null;
+        const esUltimo =
+          esSuperserie &&
+          !arr
+            .slice(idx + 1)
+            .some((other) => other.grupo_superserie !== null && other.grupo_superserie === e.grupo_superserie);
+        const esIntermedio = esSuperserie && !esUltimo;
+        return esIntermedio || e.tipo_serie === "DROPSET"
+          ? { ...e, descanso_segundos: 0 }
+          : e;
+      }),
+    }));
+  }, [days]);
+  const { errores, avisos } = validarRutina({ nombre: planName, days: daysParaValidar });
   const errorDe = (clave: string) => (verErrores || tocados.has(clave) ? errores[clave] : undefined);
   const tocar = (clave: string) => setTocados((prev) => (prev.has(clave) ? prev : new Set(prev).add(clave)));
   const propsCampo = (clave: string) => ({
@@ -1070,6 +1099,14 @@ export function RoutineBuilderModal({
                 const groupLabel = isSuperset
                   ? `Superserie A${ej.grupo_superserie || 1}`
                   : null;
+                const esSuperserie = ej.grupo_superserie !== null;
+                const esUltimoDeSuperserie =
+                  esSuperserie &&
+                  !currentDay.ejercicios
+                    .slice(index + 1)
+                    .some((e) => e.grupo_superserie !== null && e.grupo_superserie === ej.grupo_superserie);
+                const esIntermedioSuperserie = esSuperserie && !esUltimoDeSuperserie;
+                const isRestDisabled = ej.tipo_serie === "DROPSET" || esIntermedioSuperserie;
 
                 return (
                   <div
@@ -1295,23 +1332,32 @@ export function RoutineBuilderModal({
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                            Descanso (s):
+                            {esSuperserie && esUltimoDeSuperserie
+                              ? "Descanso de ronda (s):"
+                              : "Descanso (s):"}
                           </label>
-                          {ej.tipo_serie === "DROPSET" && (
+                          {esIntermedioSuperserie ? (
+                            <span
+                              className="text-[9px] font-bold text-purple-600 dark:text-purple-400"
+                              data-testid="superserie-descanso-inmediato"
+                            >
+                              0s (inmediato: superserie)
+                            </span>
+                          ) : ej.tipo_serie === "DROPSET" ? (
                             <span className="text-[9px] font-bold text-rose-500">0s (bloqueado)</span>
-                          )}
+                          ) : null}
                         </div>
                         <DraftNumberInput
                           step="1"
                           min="0"
                           max="900"
-                          disabled={ej.tipo_serie === "DROPSET"}
-                          value={ej.tipo_serie === "DROPSET" ? 0 : ej.descanso_segundos}
+                          disabled={isRestDisabled}
+                          value={isRestDisabled ? 0 : ej.descanso_segundos}
                           onValue={(n) => handleUpdateExercise(ej.id, "descanso_segundos", n)}
                           data-testid="exercise-rest-input"
                           {...propsCampo(claveEjercicio(ej.id, "descanso"))}
                           className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "descanso"))} ${
-                            ej.tipo_serie === "DROPSET"
+                            isRestDisabled
                               ? "opacity-60 bg-muted cursor-not-allowed text-muted-foreground"
                               : "bg-background"
                           } px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
