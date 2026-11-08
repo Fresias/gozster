@@ -254,6 +254,17 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     });
   }
 
+  it("GIVEN rm de un archivo con guiones en el nombre THEN no es rm -rf", () => {
+    const cmd = "npx vitest run a/zz-upstream-check.spec.ts; rm a/harness-flow-enforcement.spec.ts";
+    expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).allowed).toBe(true);
+  });
+
+  for (const cmd of ["rm -rf dist", "rm -r -f dist", "rm -fr dist", "rm --recursive --force dist", "ls && rm -Rf dist"]) {
+    it(`GIVEN "${cmd}" THEN shell.rm-rf`, () => {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).ruleId).toBe("shell.rm-rf");
+    });
+  }
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
@@ -330,11 +341,16 @@ describe("Render: gate de encoding del overlay", () => {
 });
 
 describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranque fuera del repo (workdir Multica)", () => {
-  const kitRepo = path.resolve(here, "..", "..");
-  const dispatch = path.resolve(here, "..", "core", "plugins", "claude-code", "dispatch.mjs");
+  const kitDir = path.resolve(here, "..");
+  const dispatch = path.join(kitDir, "core", "plugins", "claude-code", "dispatch.mjs");
+  // Layout Multica: <workdir>/<repo>/ con el kit en <repo>/harness-kit (junction: sin privilegios en Windows).
+  // Independiente del layout: sirve igual en el repo del kit y en un consumidor.
   const workdir = temp("harness-workdir-");
-  // Layout Multica: <workdir>/<repo>/ (junction: sin privilegios en Windows).
-  execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitRepo)}, ${JSON.stringify(path.join(workdir, "repo"))}, "junction")`]);
+  const consumer = path.join(workdir, "repo");
+  mkdirSync(path.join(consumer, "harness"), { recursive: true });
+  writeFileSync(path.join(consumer, "harness", "project.json"), JSON.stringify({ name: "c", runtimes: [], gate: "npm test" }));
+  execFileSync("git", ["init", "-q"], { cwd: consumer });
+  execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitDir)}, ${JSON.stringify(path.join(consumer, "harness-kit"))}, "junction")`]);
 
   function hook(cwd: string, tool_name: string, tool_input: Record<string, unknown>): { code: number; out: string } {
     try {

@@ -464,11 +464,16 @@ function evaluateShell(call, repoRoot) {
   }
 
   // rm -rf
-  if (/(^|[^a-zA-Z0-9_])rm(\s|$)/i.test(cmd)) {
-    if (
-      /(-[a-zA-Z]*r|--recursive)/i.test(cmd) &&
-      /(-[a-zA-Z]*f|--force)/i.test(cmd)
-    ) {
+  // Flags are separate tokens of the rm segment (file names like harness-flow.md are not flags).
+  const rmSegments = cmd.split(/;|&&|\|\||\|/).filter((seg) => /(^|[^a-zA-Z0-9_-])rm(\s|$)/i.test(seg));
+  if (rmSegments.length > 0) {
+    const tokens = (seg) => seg.replace(/^.*?(^|[^a-zA-Z0-9_-])rm(\s|$)/i, " ").split(/\s+/);
+    const isRf = (seg) => {
+      const t = tokens(seg);
+      const short = t.filter((x) => /^-[a-zA-Z]+$/.test(x)).join("");
+      return (/[rR]/.test(short) || t.includes("--recursive")) && (/f/.test(short) || t.includes("--force"));
+    };
+    if (rmSegments.some(isRf)) {
       return {
         allowed: false,
         ruleId: "shell.rm-rf",
