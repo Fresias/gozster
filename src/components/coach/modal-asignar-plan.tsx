@@ -30,8 +30,13 @@ export function ModalAsignarPlan({
 }: ModalAsignarPlanProps) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
+  const planesActivos = React.useMemo(
+    () => planesDisponibles.filter((p) => p.activo !== false),
+    [planesDisponibles]
+  );
+
   const [planSeleccionadoId, setPlanSeleccionadoId] = React.useState<string>(
-    planesDisponibles[0]?.id ?? ""
+    planesActivos[0]?.id ?? ""
   );
   const [esAdicional, setEsAdicional] = React.useState<boolean>(true);
   const [notas, setNotas] = React.useState<string>("");
@@ -46,8 +51,8 @@ export function ModalAsignarPlan({
       if (!dialog.open) {
         dialog.showModal();
       }
-      if (planesDisponibles.length > 0 && !planSeleccionadoId && planesDisponibles[0]) {
-        setPlanSeleccionadoId(planesDisponibles[0].id);
+      if (planesActivos.length > 0 && (!planSeleccionadoId || !planesActivos.some((p) => p.id === planSeleccionadoId))) {
+        setPlanSeleccionadoId(planesActivos[0]!.id);
       }
       setError(null);
     } else {
@@ -55,11 +60,11 @@ export function ModalAsignarPlan({
         dialog.close();
       }
     }
-  }, [abierto, planesDisponibles, planSeleccionadoId]);
+  }, [abierto, planesActivos, planSeleccionadoId]);
 
   const planSeleccionado = React.useMemo(
-    () => planesDisponibles.find((p) => p.id === planSeleccionadoId) ?? planesDisponibles[0],
-    [planesDisponibles, planSeleccionadoId]
+    () => planesActivos.find((p) => p.id === planSeleccionadoId) ?? planesActivos[0],
+    [planesActivos, planSeleccionadoId]
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,7 +136,7 @@ export function ModalAsignarPlan({
             data-testid="select-plan-asignar"
             required
           >
-            {planesDisponibles.map((plan) => (
+            {planesActivos.map((plan) => (
               <option key={plan.id} value={plan.id}>
                 {plan.nombre} — {plan.precio === 0 ? "CORPO $0" : `$${plan.precio.toLocaleString("es-AR")}`} (
                 {plan.actividad_tipo ?? "General"})

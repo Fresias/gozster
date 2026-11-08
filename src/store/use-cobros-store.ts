@@ -15,6 +15,7 @@ import {
   type PlanMembresiaConVigencia,
   validarVigenciaFutura,
 } from "@/lib/planes";
+import { supabase } from "@/lib/supabase/client";
 import {
   type ActividadKpi,
   type PagoMensualInput,
@@ -36,6 +37,7 @@ export interface CobroItem {
   alumnoEmail: string;
   alumnoTelefono: string | null;
   contratacionId: string;
+  planId?: string;
   servicioNombre: string;
   actividad: string | null;
   monto: number;
@@ -170,6 +172,13 @@ interface CobrosState {
     notas?: string | null;
   }) => Promise<PlanMembresiaConVigencia>;
 
+  eliminarPlan: (planId: string) => Promise<void>;
+  tieneContratacionesActivas: (
+    planId: string,
+    contratacionesExternas?: Array<{ plan_membresia_id?: string | null; estado?: string }>
+  ) => boolean;
+  obtenerPlanesActivos: () => PlanMembresiaConVigencia[];
+
   vincularCobroPlan: (params: {
     contratacionId: string;
     alumnoId: string;
@@ -183,6 +192,7 @@ interface CobrosState {
     fechaVencimiento: string;
     esAdicional?: boolean;
     notas?: string | null;
+    planId?: string;
   }) => void;
 }
 
@@ -336,6 +346,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       alumnoEmail: alumno?.email ?? "alumno@gozster.test",
       alumnoTelefono: alumno?.telefono ?? null,
       contratacionId: c.id,
+      planId: c.plan_membresia_id ?? plan?.id,
       servicioNombre,
       actividad: c.actividad,
       monto: montoCobrado,
@@ -397,6 +408,7 @@ function generarDemoCobrosIniciales(): CobroItem[] {
       alumnoEmail: alumno.email ?? "",
       alumnoTelefono: alumno.telefono ?? null,
       contratacionId: c.id,
+      planId: c.plan_membresia_id ?? plan?.id,
       servicioNombre,
       actividad,
       monto,
@@ -947,6 +959,98 @@ export const useCobrosStore = create<CobrosState>()(
         return planActualizado;
       },
 
+      tieneContratacionesActivas: (planId, contratacionesExternas) => {
+        const plan = get().planes.find((p) => p.id === planId);
+        const nombrePlan = plan?.nombre.toLowerCase().trim();
+
+        // 1. Contrataciones provistas explícitamente (ej. desde useCoachStudioStore)
+        if (contratacionesExternas && Array.isArray(contratacionesExternas)) {
+          const enExternas = contratacionesExternas.some(
+            (c) =>
+              c.plan_membresia_id === planId &&
+              (c.estado === "VIGENTE" || c.estado === "POR_VENCER")
+          );
+          if (enExternas) return true;
+        }
+
+        // 2. Revisar useCoachStudioStore si está registrado globalmente
+        try {
+          const globalStudio = (globalThis as any).__coachStudioStore?.getState?.();
+          if (globalStudio && Array.isArray(globalStudio.contrataciones)) {
+            const enGlobal = globalStudio.contrataciones.some(
+              (c: any) =>
+                c.plan_membresia_id === planId &&
+                (c.estado === "VIGENTE" || c.estado === "POR_VENCER")
+            );
+            if (enGlobal) return true;
+          }
+        } catch {}
+
+        // 3. Revisar cobros en el store de cobros
+        const enCobros = get().cobros.some((c) => {
+          const coincideId = c.planId && c.planId === planId;
+          const coincideNombre = Boolean(
+            nombrePlan && c.servicioNombre.toLowerCase().trim() === nombrePlan
+          );
+          return (coincideId || coincideNombre) && c.estado !== "VENCIDO";
+        });
+        if (enCobros) return true;
+
+        // 4. Fallback sobre DEMO_CONTRATACIONES_CLASES
+        const enDemoClases = DEMO_CONTRATACIONES_CLASES.some(
+          (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
+        );
+        if (enDemoClases) return true;
+
+        // 5. Fallback sobre DEMO_GIMNASIO
+        const enDemoGimnasio = DEMO_GIMNASIO.contrataciones.some(
+          (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
+        );
+        if (enDemoGimnasio) return true;
+
+        return false;
+      },
+
+      obtenerPlanesActivos: () => {
+        return get().planes.filter((p) => p.activo !== false);
+      },
+
+      eliminarPlan: async (planId: string) => {
+        const planExistente = get().planes.find((p) => p.id === planId);
+        if (!planExistente) {
+          const errorMsg = `Plan con id ${planId} no encontrado`;
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
+        }
+
+        if (get().tieneContratacionesActivas(planId)) {
+          const errorMsg = `No se puede eliminar el plan '${planExistente.nombre}' porque tiene alumnos con contrataciones activas.`;
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
+        }
+
+        // Intento de actualización en Supabase (soft delete activo: false)
+        try {
+          if (supabase) {
+            await supabase
+              .from("planes_membresia")
+              .update({ activo: false, updated_at: new Date().toISOString() })
+              .eq("id", planId);
+          }
+        } catch (err) {
+          console.warn("Aviso al desactivar plan en Supabase:", err);
+        }
+
+        const aviso = `Plan '${planExistente.nombre}' eliminado correctamente.`;
+        set((state) => ({
+          planes: state.planes.map((p) =>
+            p.id === planId ? { ...p, activo: false, updated_at: new Date().toISOString() } : p
+          ),
+          aviso,
+          error: null,
+        }));
+      },
+
       vincularCobroPlan: (params) => {
         const {
           contratacionId,
@@ -961,6 +1065,7 @@ export const useCobrosStore = create<CobrosState>()(
           fechaVencimiento,
           esAdicional = true,
           notas,
+          planId,
         } = params;
 
         const nuevoCobro: CobroItem = {
@@ -970,6 +1075,7 @@ export const useCobrosStore = create<CobrosState>()(
           alumnoEmail,
           alumnoTelefono: alumnoTelefono ?? null,
           contratacionId,
+          planId: planId ?? undefined,
           servicioNombre,
           actividad: actividad ?? null,
           monto,
