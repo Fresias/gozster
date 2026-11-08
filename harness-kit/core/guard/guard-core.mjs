@@ -402,10 +402,16 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Git force push
-  if (/(^|[^a-zA-Z0-9_])git(\s+-C\s+[^\s]+)?\s+.*push/i.test(cmd)) {
+  // Evaluated per command segment: flags of other commands (e.g. `gh api -F`) are not push flags.
+  const pushSegments = cmd
+    .split(/;|&&|\|\||\|/)
+    .filter((seg) => /(^|[^a-zA-Z0-9_])git(\s+-C\s+[^\s]+)?\s+.*push/i.test(seg));
+  if (pushSegments.length > 0) {
     if (
-      /--force|--force-with-lease|--mirror|--delete|(^|\s)-f(\s|$)|push\s+.*\+[A-Za-z0-9_./-]/i.test(
-        cmd
+      pushSegments.some(
+        (seg) =>
+          /--force|--force-with-lease|--mirror|--delete|push\s+.*\s\+[A-Za-z0-9_./-]|push\s+\+[A-Za-z0-9_./-]/i.test(seg) ||
+          /(^|\s)-[a-zA-Z]*f[a-zA-Z]*(\s|$)/.test(seg.replace(/^.*?\bpush\b/, " "))
       )
     ) {
       return {

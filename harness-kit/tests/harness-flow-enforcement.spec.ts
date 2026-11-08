@@ -243,6 +243,17 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     expect(evaluateRules({ kind: "shell", command: "cp /tmp/x.md harness/guardrails.local.md" }, { repoRoot: unauthorized }).ruleId).toBe("harness.authorized-only");
   });
 
+  it("GIVEN git push seguido de gh api -F THEN no es force push (flags por segmento)", () => {
+    const cmd = 'git push -q origin chore/9-harness-fix; gh api -X PATCH repos/o/r/pulls/1 -F "body=@b.md"';
+    expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).allowed).toBe(true);
+  });
+
+  for (const cmd of ["git push -f origin x", "git push -uf origin x", "git push --force-with-lease", "git push origin +main", "echo ok && git push -f"]) {
+    it(`GIVEN "${cmd}" THEN git.force-push`, () => {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).ruleId).toBe("git.force-push");
+    });
+  }
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
