@@ -19,6 +19,7 @@ import {
   generarDemoReservasIniciales,
 } from "@/services/coach-demo-dataset";
 import type { ActividadClase, Clase, Contratacion, PlanMembresia, Reserva } from "@/types/database.types";
+import { supabase } from "@/lib/supabase/client";
 
 const NOMBRE_ACTIVIDAD: Record<string, string> = {
   FUNCIONAL: "Funcional",
@@ -86,6 +87,24 @@ interface ClasesState {
     duracion_minutos?: number;
     capacidad?: number | null;
   }) => Promise<Clase>;
+  actualizarClase: (
+    claseId: string,
+    datos: {
+      actividad?: ActividadClase;
+      inicio?: string;
+      duracion_minutos?: number;
+      capacidad?: number | null;
+    },
+  ) => Promise<boolean>;
+  editarClase: (
+    claseId: string,
+    datos: {
+      actividad?: ActividadClase;
+      inicio?: string;
+      duracion_minutos?: number;
+      capacidad?: number | null;
+    },
+  ) => Promise<boolean>;
   moverClase: (claseId: string, nuevoInicio: string) => Promise<boolean>;
   redimensionarClase: (claseId: string, nuevaDuracionMinutos: number) => Promise<boolean>;
   actualizarCupoClase: (claseId: string, nuevaCapacidad: number | null) => Promise<boolean>;
@@ -481,12 +500,80 @@ export const useClasesStore = create<ClasesState>()(
         return nuevaClase;
       },
 
+      actualizarClase: async (claseId, datos) => {
+        const claseExistente = get().clases.find((c) => c.id === claseId);
+        if (!claseExistente) return false;
+
+        const nuevaCapacidad =
+          datos.capacidad !== undefined ? datos.capacidad : claseExistente.capacidad;
+
+        const claseActualizada: Clase = {
+          ...claseExistente,
+          ...(datos.actividad !== undefined ? { actividad: datos.actividad } : {}),
+          ...(datos.inicio !== undefined ? { inicio: datos.inicio } : {}),
+          ...(datos.duracion_minutos !== undefined
+            ? { duracion_minutos: datos.duracion_minutos }
+            : {}),
+          ...(datos.capacidad !== undefined ? { capacidad: datos.capacidad } : {}),
+          updated_at: new Date().toISOString(),
+        };
+
+        const ocupados = get().agendaReservas.filter(
+          (r) => r.clase_id === claseId && ocupaCupo(r),
+        ).length;
+        let sinCupo = get().sinCupo;
+        if (nuevaCapacidad !== null && ocupados >= nuevaCapacidad) {
+          sinCupo = [...new Set([...sinCupo, claseId])];
+        } else {
+          sinCupo = sinCupo.filter((id) => id !== claseId);
+        }
+
+        set({
+          clases: get().clases.map((c) => (c.id === claseId ? claseActualizada : c)),
+          sinCupo,
+        });
+
+        if (supabase) {
+          try {
+            const payload: Record<string, any> = {
+              updated_at: claseActualizada.updated_at,
+            };
+            if (datos.actividad !== undefined) payload.actividad = datos.actividad;
+            if (datos.inicio !== undefined) payload.inicio = datos.inicio;
+            if (datos.duracion_minutos !== undefined)
+              payload.duracion_minutos = datos.duracion_minutos;
+            if (datos.capacidad !== undefined) payload.capacidad = datos.capacidad;
+
+            await (supabase as any)
+              .from("clases")
+              .update(payload)
+              .eq("id", claseId);
+          } catch {
+            // Modo offline-first: tolerar fallas de red
+          }
+        }
+
+        return true;
+      },
+
+      editarClase: async (claseId, datos) => {
+        return get().actualizarClase(claseId, datos);
+      },
+
       moverClase: async (claseId, nuevoInicio) => {
         set({
           clases: get().clases.map((c) =>
             c.id === claseId ? { ...c, inicio: nuevoInicio, updated_at: new Date().toISOString() } : c,
           ),
         });
+        if (supabase) {
+          try {
+            await (supabase as any)
+              .from("clases")
+              .update({ inicio: nuevoInicio, updated_at: new Date().toISOString() })
+              .eq("id", claseId);
+          } catch {}
+        }
         return true;
       },
 
@@ -498,6 +585,14 @@ export const useClasesStore = create<ClasesState>()(
               : c,
           ),
         });
+        if (supabase) {
+          try {
+            await (supabase as any)
+              .from("clases")
+              .update({ duracion_minutos: nuevaDuracionMinutos, updated_at: new Date().toISOString() })
+              .eq("id", claseId);
+          } catch {}
+        }
         return true;
       },
 
@@ -509,6 +604,14 @@ export const useClasesStore = create<ClasesState>()(
               : c,
           ),
         });
+        if (supabase) {
+          try {
+            await (supabase as any)
+              .from("clases")
+              .update({ capacidad: nuevaCapacidad, updated_at: new Date().toISOString() })
+              .eq("id", claseId);
+          } catch {}
+        }
         return true;
       },
 

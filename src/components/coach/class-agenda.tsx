@@ -102,6 +102,7 @@ interface ClaseBlockProps {
   top: number;
   height: number;
   onSelect: (id: string) => void;
+  onEdit?: (clase: Clase) => void;
 }
 
 export function ClaseBlock({
@@ -114,6 +115,7 @@ export function ClaseBlock({
   top,
   height,
   onSelect,
+  onEdit,
 }: ClaseBlockProps) {
   const cancelada = clase.estado === "CANCELADA";
   const finClaseMs = new Date(clase.inicio).getTime() + (clase.duracion_minutos || 60) * 60_000;
@@ -145,8 +147,9 @@ export function ClaseBlock({
   }
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(clase.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -177,16 +180,33 @@ export function ClaseBlock({
         >
           {NOMBRE_ACTIVIDAD[clase.actividad]}
         </span>
-        {llena && (
-          <span className="ml-auto shrink-0 rounded bg-foreground px-1 text-[10px] font-semibold text-background">
-            Llena
-          </span>
-        )}
-        {sobrecupo && (
-          <span className="ml-auto shrink-0 rounded bg-amber-400 px-1 font-mono text-[10px] font-semibold text-amber-950">
-            +{ocupados - capacidad!}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          {llena && (
+            <span className="rounded bg-foreground px-1 text-[10px] font-semibold text-background">
+              Llena
+            </span>
+          )}
+          {sobrecupo && (
+            <span className="rounded bg-amber-400 px-1 font-mono text-[10px] font-semibold text-amber-950">
+              +{ocupados - capacidad!}
+            </span>
+          )}
+          {!cancelada && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(clase);
+              }}
+              title="Editar clase"
+              aria-label="Editar clase"
+              data-testid="edit-class-grid-btn"
+              className="rounded px-1.5 py-0.5 text-[10px] font-medium border border-border/60 bg-background/80 hover:bg-muted text-foreground transition-colors cursor-pointer"
+            >
+              Editar clase
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Línea 2 */}
@@ -217,7 +237,7 @@ export function ClaseBlock({
           />
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -227,6 +247,7 @@ export interface ClassAgendaProps {
   initialSheetOpen?: boolean;
   initialClaseId?: string;
   initialCancelDialogOpen?: boolean;
+  initialEditDialogOpen?: boolean;
 }
 
 // Coach Studio · Agenda de Clases (GOZS-190 / GOZS-191 / GOZS-399):
@@ -237,6 +258,7 @@ export function ClassAgenda({
   initialSheetOpen,
   initialClaseId,
   initialCancelDialogOpen,
+  initialEditDialogOpen,
 }: ClassAgendaProps = {}) {
   const {
     vista,
@@ -252,6 +274,7 @@ export function ClassAgenda({
     marcarAusente,
     cancelarClase,
     crearClase,
+    actualizarClase,
     moverClase,
     redimensionarClase,
     actualizarCupoClase,
@@ -322,6 +345,81 @@ export function ClassAgenda({
   const [editandoHora, setEditandoHora] = React.useState(false);
   const [nuevaHora, setNuevaHora] = React.useState<string>("18:00");
 
+  // Modal Diálogo Unificado Editar Clase (GOZS-419)
+  const [editDialogAbierto, setEditDialogAbierto] = React.useState<boolean>(
+    initialEditDialogOpen ?? false
+  );
+  const [claseAEditar, setClaseAEditar] = React.useState<Clase | null>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    if (initialClaseId) {
+      return lista.find((c) => c.id === initialClaseId) ?? null;
+    }
+    if (initialEditDialogOpen) {
+      return lista[0] ?? null;
+    }
+    return null;
+  });
+  const [editActividad, setEditActividad] = React.useState<ActividadClase>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c?.actividad ?? "FUNCIONAL";
+  });
+  const [editFecha, setEditFecha] = React.useState<string>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c ? claveDia(c.inicio) : hoy;
+  });
+  const [editHora, setEditHora] = React.useState<string>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c ? horaLocal(c.inicio) : "18:00";
+  });
+  const [editDuracion, setEditDuracion] = React.useState<number>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c?.duracion_minutos || 60;
+  });
+  const [editSinLimite, setEditSinLimite] = React.useState<boolean>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c ? c.capacidad === null : false;
+  });
+  const [editCapacidad, setEditCapacidad] = React.useState<number | null>(() => {
+    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
+    return c ? (c.capacidad ?? 6) : 6;
+  });
+
+  const abrirDialogoEditar = React.useCallback((clase: Clase) => {
+    setClaseAEditar(clase);
+    setEditActividad(clase.actividad);
+    setEditFecha(claveDia(clase.inicio));
+    setEditHora(horaLocal(clase.inicio));
+    setEditDuracion(clase.duracion_minutos || 60);
+    setEditSinLimite(clase.capacidad === null);
+    setEditCapacidad(clase.capacidad ?? 6);
+    setEditDialogAbierto(true);
+  }, []);
+
+  const handleGuardarEdicion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claseAEditar) return;
+    const fechaHora = `${editFecha}T${editHora}:00-03:00`;
+    const nuevoInicio = new Date(fechaHora).toISOString();
+    const capacidadFinal = editSinLimite ? null : (editCapacidad ?? null);
+
+    await actualizarClase(claseAEditar.id, {
+      actividad: editActividad,
+      inicio: nuevoInicio,
+      duracion_minutos: editDuracion || 60,
+      capacidad: capacidadFinal,
+    });
+
+    setDia(editFecha);
+    setClaseId(claseAEditar.id);
+    setEditDialogAbierto(false);
+  };
+
   React.useEffect(() => {
     void cargarAgenda();
   }, [cargarAgenda]);
@@ -384,7 +482,8 @@ export function ClassAgenda({
         createDialogRef.current?.open ||
         enrollDialogRef.current?.open ||
         cancelDialogRef.current?.open ||
-        cancelDialogAbierto
+        cancelDialogAbierto ||
+        editDialogAbierto
       ) {
         return;
       }
@@ -1040,6 +1139,7 @@ export function ClassAgenda({
                                 setDia(claveDia(c.inicio));
                                 setSheetDetalleAbierto(true);
                               }}
+                              onEdit={(clase) => abrirDialogoEditar(clase)}
                             />
                           );
                         })}
@@ -1067,6 +1167,7 @@ export function ClassAgenda({
                 claseIniciada,
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
+                abrirDialogoEditar,
                 redimensionarClase,
                 editandoHora,
                 nuevaHora,
@@ -1212,6 +1313,7 @@ export function ClassAgenda({
                               setClaseId(id);
                               setSheetDetalleAbierto(true);
                             }}
+                            onEdit={(clase) => abrirDialogoEditar(clase)}
                           />
                         );
                       })}
@@ -1236,6 +1338,7 @@ export function ClassAgenda({
                 claseIniciada,
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
+                abrirDialogoEditar,
                 redimensionarClase,
                 editandoHora,
                 nuevaHora,
@@ -1510,6 +1613,7 @@ export function ClassAgenda({
                 claseIniciada,
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
+                abrirDialogoEditar,
                 redimensionarClase,
                 editandoHora,
                 nuevaHora,
@@ -1611,6 +1715,143 @@ export function ClassAgenda({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* DIÁLOGO MODAL ACCESIBLE: EDITAR CLASE (GOZS-419) */}
+      <Dialog open={editDialogAbierto} onOpenChange={setEditDialogAbierto}>
+        <DialogContent
+          forceMount
+          className="w-[min(92vw,28rem)] p-6 bg-card border border-border rounded-2xl text-foreground"
+          data-testid="edit-class-dialog"
+          aria-labelledby="editar-clase-titulo"
+          aria-describedby="editar-clase-descripcion"
+        >
+          <form onSubmit={handleGuardarEdicion} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle id="editar-clase-titulo" className="text-lg font-black">
+                Editar clase
+              </DialogTitle>
+              <DialogDescription id="editar-clase-descripcion" className="text-sm text-muted-foreground">
+                Modificá la actividad, fecha, horario, duración y cupo de la clase.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1">
+              <label htmlFor="edit-actividad" className="text-xs font-bold text-muted-foreground">
+                Actividad
+              </label>
+              <select
+                id="edit-actividad"
+                value={editActividad}
+                onChange={(e) => setEditActividad(e.target.value as ActividadClase)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                data-testid="edit-class-activity"
+              >
+                <option value="FUNCIONAL">Funcional</option>
+                <option value="BOXEO">Boxeo</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="edit-fecha" className="text-xs font-bold text-muted-foreground">
+                  Fecha
+                </label>
+                <input
+                  id="edit-fecha"
+                  type="date"
+                  value={editFecha}
+                  onChange={(e) => setEditFecha(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                  data-testid="edit-class-date"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="edit-hora" className="text-xs font-bold text-muted-foreground">
+                  Hora de inicio
+                </label>
+                <input
+                  id="edit-hora"
+                  type="time"
+                  value={editHora}
+                  onChange={(e) => setEditHora(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                  data-testid="edit-class-time"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="edit-duracion" className="text-xs font-bold text-muted-foreground">
+                Duración
+              </label>
+              <select
+                id="edit-duracion"
+                value={editDuracion}
+                onChange={(e) => setEditDuracion(Number(e.target.value))}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                data-testid="edit-class-duration"
+              >
+                <option value={45}>45 minutos</option>
+                <option value={60}>60 minutos (estándar)</option>
+                <option value={90}>90 minutos</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="edit-capacidad" className="text-xs font-bold text-muted-foreground">
+                  Cupo flexible
+                </label>
+                <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editSinLimite}
+                    onChange={(e) => {
+                      const sinLimite = e.target.checked;
+                      setEditSinLimite(sinLimite);
+                      if (!sinLimite && !editCapacidad) {
+                        setEditCapacidad(6);
+                      }
+                    }}
+                    className="rounded"
+                    data-testid="edit-class-unlimited-checkbox"
+                  />
+                  Sin límite
+                </label>
+              </div>
+              {!editSinLimite && (
+                <input
+                  id="edit-capacidad"
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={editCapacidad ?? 6}
+                  onChange={(e) => setEditCapacidad(Number(e.target.value))}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+                  data-testid="edit-class-capacity"
+                  required
+                />
+              )}
+            </div>
+
+            <DialogFooter className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogAbierto(false)}
+                data-testid="edit-class-cancel-btn"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" data-testid="edit-class-submit">
+                Guardar cambios
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -1622,20 +1863,21 @@ function renderDetalleClase(
   claseIniciada: boolean,
   abrirAnotarAlumno: () => void,
   abrirDialogoCancelar: () => void,
-  redimensionarClase: (id: string, duracion: number) => Promise<boolean>,
-  editandoHora: boolean,
-  nuevaHora: string,
-  setNuevaHora: (h: string) => void,
-  guardarNuevaHora: () => Promise<void>,
-  setEditandoHora: (b: boolean) => void,
-  editandoCupo: boolean,
-  nuevoCupo: number,
-  setNuevoCupo: (n: number) => void,
-  guardarNuevoCupo: () => Promise<void>,
-  setEditandoCupo: (b: boolean) => void,
-  marcarAusente: (reservaId: string) => Promise<void | boolean>,
-  accionEnCurso: string | null,
-  quitarAnotadoCoach: (reservaId: string) => Promise<void | boolean>
+  abrirDialogoEditar?: (clase: Clase) => void,
+  redimensionarClase?: (id: string, duracion: number) => Promise<boolean>,
+  editandoHora?: boolean,
+  nuevaHora?: string,
+  setNuevaHora?: (h: string) => void,
+  guardarNuevaHora?: () => Promise<void>,
+  setEditandoHora?: (b: boolean) => void,
+  editandoCupo?: boolean,
+  nuevoCupo?: number,
+  setNuevoCupo?: (n: number) => void,
+  guardarNuevoCupo?: () => Promise<void>,
+  setEditandoCupo?: (b: boolean) => void,
+  marcarAusente?: (reservaId: string) => Promise<void | boolean>,
+  accionEnCurso?: string | null,
+  quitarAnotadoCoach?: (reservaId: string) => Promise<void | boolean>
 ) {
   const ocupadosCount = anotados.filter((r) => ocupaCupo(r)).length;
   const capacidad = seleccionada.capacidad;
@@ -1690,6 +1932,15 @@ function renderDetalleClase(
             className="h-9 px-3.5 text-sm font-medium"
           >
             Anotar alumno
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => abrirDialogoEditar?.(seleccionada)}
+            data-testid="edit-class-dialog-btn"
+            className="h-9 px-3.5 text-sm font-medium"
+          >
+            Editar clase
           </Button>
           <Link href={`/studio/ranking-funcional?claseId=${seleccionada.id}`}>
             <Button variant="outline" size="sm" data-testid="class-ranking-btn" className="h-9 px-3.5 text-sm font-medium">
@@ -1758,7 +2009,7 @@ function renderDetalleClase(
             <span className="text-neutral-soft-foreground">Duración</span>
             <button
               type="button"
-              onClick={() => void redimensionarClase(seleccionada.id, 45)}
+              onClick={() => void redimensionarClase?.(seleccionada.id, 45)}
               className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 45
                   ? "bg-muted border-border text-foreground font-medium"
@@ -1770,7 +2021,7 @@ function renderDetalleClase(
             </button>
             <button
               type="button"
-              onClick={() => void redimensionarClase(seleccionada.id, 60)}
+              onClick={() => void redimensionarClase?.(seleccionada.id, 60)}
               className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 60
                   ? "bg-muted border-border text-foreground font-medium"
@@ -1782,7 +2033,7 @@ function renderDetalleClase(
             </button>
             <button
               type="button"
-              onClick={() => void redimensionarClase(seleccionada.id, 90)}
+              onClick={() => void redimensionarClase?.(seleccionada.id, 90)}
               className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
                 seleccionada.duracion_minutos === 90
                   ? "bg-muted border-border text-foreground font-medium"
@@ -1802,14 +2053,14 @@ function renderDetalleClase(
                 <input
                   type="time"
                   value={nuevaHora}
-                  onChange={(e) => setNuevaHora(e.target.value)}
+                  onChange={(e) => setNuevaHora?.(e.target.value)}
                   className="rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
                   data-testid="move-class-time"
                 />
-                <Button size="sm" onClick={guardarNuevaHora} data-testid="save-move-class-btn">
+                <Button size="sm" onClick={() => void guardarNuevaHora?.()} data-testid="save-move-class-btn">
                   Guardar
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditandoHora(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setEditandoHora?.(false)}>
                   Cancelar
                 </Button>
               </div>
@@ -1818,8 +2069,8 @@ function renderDetalleClase(
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setNuevaHora(horaLocal(seleccionada.inicio));
-                  setEditandoHora(true);
+                  setNuevaHora?.(horaLocal(seleccionada.inicio));
+                  setEditandoHora?.(true);
                 }}
                 data-testid="move-class-btn"
               >
@@ -1838,14 +2089,14 @@ function renderDetalleClase(
                   min="1"
                   max="50"
                   value={nuevoCupo}
-                  onChange={(e) => setNuevoCupo(Number(e.target.value))}
+                  onChange={(e) => setNuevoCupo?.(Number(e.target.value))}
                   className="w-16 rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
                   data-testid="edit-capacity-input"
                 />
-                <Button size="sm" onClick={guardarNuevoCupo} data-testid="save-capacity-btn">
+                <Button size="sm" onClick={() => void guardarNuevoCupo?.()} data-testid="save-capacity-btn">
                   Guardar
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditandoCupo(false)}>
+                <Button variant="ghost" size="sm" onClick={() => setEditandoCupo?.(false)}>
                   Cancelar
                 </Button>
               </div>
@@ -1854,14 +2105,27 @@ function renderDetalleClase(
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setNuevoCupo(seleccionada.capacidad ?? 6);
-                  setEditandoCupo(true);
+                  setNuevoCupo?.(seleccionada.capacidad ?? 6);
+                  setEditandoCupo?.(true);
                 }}
                 data-testid="edit-capacity-btn"
               >
                 Editar cupo ({seleccionada.capacidad ?? "Sin límite"})
               </Button>
             )}
+          </div>
+
+          {/* Diálogo unificado Editar Clase (GOZS-419) */}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-muted-foreground font-semibold">Edición completa:</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => abrirDialogoEditar?.(seleccionada)}
+              data-testid="edit-class-btn"
+            >
+              Editar clase
+            </Button>
           </div>
         </div>
       )}
@@ -1918,7 +2182,7 @@ function renderDetalleClase(
                             ? "Disponible solo después del inicio de la clase"
                             : undefined
                         }
-                        onClick={() => void marcarAusente(r.id)}
+                        onClick={() => void marcarAusente?.(r.id)}
                         className="min-h-11 rounded-lg px-3 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed dark:text-rose-400"
                         data-testid="mark-absent-btn"
                       >
@@ -1941,7 +2205,7 @@ function renderDetalleClase(
                   <button
                     type="button"
                     title="Quitar de la clase"
-                    onClick={() => void quitarAnotadoCoach(r.id)}
+                    onClick={() => void quitarAnotadoCoach?.(r.id)}
                     className="min-h-9 px-2 text-xs font-bold text-muted-foreground hover:text-destructive transition-colors"
                     data-testid="remove-reservation-btn"
                   >
