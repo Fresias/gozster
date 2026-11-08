@@ -160,16 +160,16 @@ describe("GOZS-286: seed del tester como ALUMNO", () => {
   });
 });
 
-// GOZS-300 (hallazgo): seed_tester crea "Press Plano con Barra" y "Prensa 45°" con id aleatorio; seed_mynter
+// GOZS-300 (hallazgo): seed_tester crea "Press Plano con Barra" y "Prensa 45°" con id aleatorio; seed_gozs
 // hace ON CONFLICT (nombre) conservando ese id y luego referencia su id fijo en ejercicios_en_rutina -> FK.
-// Pasará a fallar (y habrá que quitar .fails) cuando el orden tester -> mynter deje de romper.
-describe("GOZS-286: orden seed_tester -> seed_mynter", () => {
-  it.fails("seed_mynter no rompe por ejercicios_en_rutina_ejercicio_id_fkey", async () => {
+// Pasará a fallar (y habrá que quitar .fails) cuando el orden tester -> gozs deje de romper.
+describe("GOZS-286: orden seed_tester -> seed_gozs", () => {
+  it.fails("seed_gozs no rompe por ejercicios_en_rutina_ejercicio_id_fkey", async () => {
     await nuevaDb();
     await db.exec(`INSERT INTO auth.users (id, email) VALUES
       ('${TESTER}','94.gabriel.sanchez@gmail.com'),('${COACH}','ds.gabriel.sanchez@gmail.com')`);
     await db.exec(leerSeed("seed_tester.sql"));
-    const err = await db.exec(leerSeed("seed_mynter.sql")).then(() => null, (e: Error) => e);
+    const err = await db.exec(leerSeed("seed_gozs.sql")).then(() => null, (e: Error) => e);
     expect(err?.message ?? "").not.toMatch(/ejercicios_en_rutina_ejercicio_id_fkey/);
   }, 90_000);
 });
