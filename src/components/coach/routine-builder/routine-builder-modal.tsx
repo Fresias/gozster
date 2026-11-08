@@ -1480,6 +1480,16 @@ export function RoutineBuilderModal({
                   </div>
                 );
               })}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCatalogModal(true)}
+                className="w-full min-h-11 py-2.5 rounded-lg border-dashed border-border hover:border-primary/50 hover:bg-muted/60 text-foreground font-semibold text-sm transition-colors"
+                data-testid="add-another-exercise-btn"
+              >
+                + Añadir otro ejercicio
+              </Button>
             </div>
           )}
             </>
