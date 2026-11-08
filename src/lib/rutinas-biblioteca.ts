@@ -1,4 +1,4 @@
-import type { PlanEntrenamiento } from "@/types/database.types";
+import type { Ejercicio, PlanEntrenamiento } from "@/types/database.types";
 
 export interface RutinasClasificadas {
   plantillas: PlanEntrenamiento[];
@@ -201,4 +201,100 @@ export function heredarTagsDePlantilla(
   }
   return [...plantilla.tags];
 }
+
+/**
+ * Normaliza una cadena para búsquedas insensibles a mayúsculas y diacríticos.
+ */
+export function normalizarTexto(texto?: string | null): string {
+  if (!texto) return "";
+  return texto
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Grupos musculares oficiales / sugeridos para la barra de chips de la biblioteca de ejercicios.
+ */
+export const GRUPOS_MUSCULARES_CATALOGO = [
+  "Todos",
+  "Pecho",
+  "Espalda",
+  "Piernas",
+  "Hombros",
+  "Brazos",
+  "Core",
+] as const;
+
+export type GrupoMuscularCatalogo = (typeof GRUPOS_MUSCULARES_CATALOGO)[number];
+
+/**
+ * Filtra la lista de ejercicios del catálogo maestro por grupo muscular.
+ * Si musculo es "Todos", null o undefined, devuelve todos los ejercicios.
+ */
+export function filtrarEjerciciosPorMusculo(
+  ejercicios: Ejercicio[],
+  musculo?: string | null,
+): Ejercicio[] {
+  if (!musculo || musculo === "Todos") return ejercicios;
+  const mTarget = normalizarTexto(musculo);
+  return ejercicios.filter((ej) => {
+    const principales = (ej.musculos_principales || []).map(normalizarTexto);
+    const secundarios = (ej.musculos_secundarios || []).map(normalizarTexto);
+    return (
+      principales.some((m) => m.includes(mTarget) || mTarget.includes(m)) ||
+      secundarios.some((m) => m.includes(mTarget) || mTarget.includes(m))
+    );
+  });
+}
+
+/**
+ * Filtra ejercicios por término de búsqueda en nombre, músculos y comentarios.
+ */
+export function filtrarEjerciciosPorBusqueda(
+  ejercicios: Ejercicio[],
+  busqueda: string,
+): Ejercicio[] {
+  const query = normalizarTexto(busqueda);
+  if (!query) return ejercicios;
+  return ejercicios.filter((ej) => {
+    const nombre = normalizarTexto(ej.nombre);
+    const comentario = normalizarTexto(ej.comentario);
+    const principales = (ej.musculos_principales || []).some((m) =>
+      normalizarTexto(m).includes(query),
+    );
+    const secundarios = (ej.musculos_secundarios || []).some((m) =>
+      normalizarTexto(m).includes(query),
+    );
+    return nombre.includes(query) || comentario.includes(query) || principales || secundarios;
+  });
+}
+
+/**
+ * Filtro reactivo combinado para la biblioteca de ejercicios (músculo y búsqueda).
+ */
+export function filtrarEjercicios(
+  ejercicios: Ejercicio[],
+  musculo?: string | null,
+  busqueda: string = "",
+): Ejercicio[] {
+  const porMusculo = filtrarEjerciciosPorMusculo(ejercicios, musculo);
+  return filtrarEjerciciosPorBusqueda(porMusculo, busqueda);
+}
+
+/**
+ * Extrae todos los grupos o etiquetas musculares únicos encontrados en el catálogo.
+ */
+export function obtenerGruposMuscularesUnicos(ejercicios: Ejercicio[]): string[] {
+  const set = new Set<string>();
+  for (const ej of ejercicios) {
+    for (const m of ej.musculos_principales || []) {
+      const limpio = m.trim();
+      if (limpio) set.add(limpio);
+    }
+  }
+  return ["Todos", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+}
+
 

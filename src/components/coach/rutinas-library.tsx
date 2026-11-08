@@ -8,6 +8,7 @@ import { Dumbbell, FileText, MoreHorizontal, Plus, Search, X } from "@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoutineBuilderModal } from "@/components/coach/routine-builder/routine-builder-modal";
+import { EjerciciosLibraryTab } from "@/components/coach/ejercicios-library-tab";
 import {
   clasificarRutinas,
   determinarPestanaPorDefecto,
@@ -33,7 +34,8 @@ export function RutinasLibrary({
   defaultSubTab?: "plantillas" | "alumnos" | "borradores" | "archivadas";
 }) {
   const [dataset, setDataset] = React.useState(initialDataset);
-  const [activeMainTab, setActiveMainTab] = React.useState<"biblioteca" | "constructor">("biblioteca");
+  const [activeMainTab, setActiveMainTab] = React.useState<"biblioteca" | "ejercicios" | "constructor">("biblioteca");
+  const [isNuevoEjercicioOpen, setIsNuevoEjercicioOpen] = React.useState(false);
   const [builder, setBuilder] = React.useState<{ plan: PlanEntrenamiento | null; alumnoId?: string } | null>(null);
   const [asignando, setAsignando] = React.useState<PlanEntrenamiento | null>(null);
   const [alumnoElegido, setAlumnoElegido] = React.useState("");
@@ -435,7 +437,9 @@ export function RutinasLibrary({
         <div>
           <h1 className="m-0 text-2xl font-semibold tracking-[-0.02em]">Rutinas</h1>
           <p className="m-0 mt-1 text-sm text-neutral-soft-foreground">
-            Plantillas reutilizables y rutinas asignadas a cada alumno.
+            {activeMainTab === "ejercicios"
+              ? "Catálogo maestro de ejercicios, músculos implicados y videos técnicos."
+              : "Plantillas reutilizables y rutinas asignadas a cada alumno."}
           </p>
         </div>
         {activeMainTab === "biblioteca" && (
@@ -451,24 +455,53 @@ export function RutinasLibrary({
             Nueva rutina
           </Button>
         )}
+        {activeMainTab === "ejercicios" && (
+          <Button
+            className="h-9 px-3.5 text-sm font-medium"
+            onClick={() => setIsNuevoEjercicioOpen(true)}
+            data-testid="btn-nuevo-ejercicio"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Nuevo Ejercicio
+          </Button>
+        )}
       </header>
 
-      {/* Tabs principales 2x1: Tab 1 Biblioteca & Plantillas, Tab 2 Constructor Visual */}
+      {/* Tabs principales: Tab 1 Rutinas y Plantillas, Tab 2 Biblioteca de Ejercicios, Tab 3 Constructor Visual */}
       <Tabs
         value={activeMainTab}
         onValueChange={(val) => {
           if (val === "constructor" && !builder) {
             setBuilder({ plan: null });
           }
-          setActiveMainTab(val as "biblioteca" | "constructor");
+          setActiveMainTab(val as "biblioteca" | "ejercicios" | "constructor");
         }}
         className="w-full"
       >
-        <TabsList className={activeMainTab === "constructor" ? "w-full sm:w-auto" : "sr-only"} data-testid="rutinas-main-nav-tabs">
-          <TabsTrigger value="biblioteca" data-testid="tab-biblioteca-plantillas">
-            Biblioteca &amp; Plantillas
+        <TabsList
+          className="w-full sm:w-auto inline-flex h-9 items-center justify-start p-1 rounded-lg bg-secondary/60 text-muted-foreground"
+          data-testid="rutinas-main-nav-tabs"
+        >
+          <TabsTrigger
+            value="biblioteca"
+            data-testid="tab-biblioteca-plantillas"
+            className="h-7 px-3 text-[13px] font-medium shrink-0"
+          >
+            Rutinas y Plantillas
+            <span className="sr-only"> (Biblioteca &amp; Plantillas)</span>
           </TabsTrigger>
-          <TabsTrigger value="constructor" data-testid="tab-constructor-visual">
+          <TabsTrigger
+            value="ejercicios"
+            data-testid="tab-biblioteca-ejercicios"
+            className="h-7 px-3 text-[13px] font-medium shrink-0"
+          >
+            Biblioteca de Ejercicios
+          </TabsTrigger>
+          <TabsTrigger
+            value="constructor"
+            data-testid="tab-constructor-visual"
+            className="h-7 px-3 text-[13px] font-medium shrink-0"
+          >
             Constructor Visual
           </TabsTrigger>
         </TabsList>
@@ -591,6 +624,38 @@ export function RutinasLibrary({
               {error}
             </p>
           )}
+        </TabsContent>
+
+        <TabsContent value="ejercicios" className="space-y-4 pt-3">
+          <EjerciciosLibraryTab
+            ejercicios={dataset.ejercicios}
+            ejerciciosEnRutina={dataset.ejerciciosEnRutina}
+            isNuevoOpen={isNuevoEjercicioOpen}
+            onOpenNuevoChange={setIsNuevoEjercicioOpen}
+            onEjercicioCreated={(nuevo) => {
+              setDataset((prev) => ({
+                ...prev,
+                ejercicios: [...prev.ejercicios, nuevo].sort((a, b) =>
+                  a.nombre.localeCompare(b.nombre),
+                ),
+              }));
+            }}
+            onEjercicioUpdated={(actualizado) => {
+              setDataset((prev) => ({
+                ...prev,
+                ejercicios: prev.ejercicios.map((e) =>
+                  e.id === actualizado.id ? actualizado : e,
+                ),
+              }));
+            }}
+            onEjercicioDeleted={(id) => {
+              setDataset((prev) => ({
+                ...prev,
+                ejercicios: prev.ejercicios.filter((e) => e.id !== id),
+              }));
+            }}
+            onRecargar={recargar}
+          />
         </TabsContent>
 
         <TabsContent value="constructor" className="space-y-4 pt-3">
