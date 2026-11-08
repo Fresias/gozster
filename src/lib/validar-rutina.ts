@@ -3,12 +3,14 @@
  * Mismas reglas que los CHECK de la BD; los mensajes son lo que ve el coach junto al campo.
  */
 
+import { parsePyramidSeriesCount, validarRpeObjetivo } from "./routine-helpers";
+
 interface EjercicioValidable {
   id: string;
   series: number | null;
   repeticiones: string;
   descanso_segundos: number | null;
-  rpe_objetivo: number | null;
+  rpe_objetivo: number | string | null;
 }
 
 interface DiaValidable {
@@ -68,8 +70,13 @@ export function validarRutina(input: { nombre: string; days: DiaValidable[] }): 
       if (!Number.isInteger(e.descanso_segundos) || e.descanso_segundos! < 0 || e.descanso_segundos! > 900) {
         errores[claveEjercicio(e.id, "descanso")] = "Descanso: entre 0 y 900 s";
       }
-      if (e.rpe_objetivo !== null && !(e.rpe_objetivo >= 1 && e.rpe_objetivo <= 10 && (e.rpe_objetivo * 2) % 1 === 0)) {
-        errores[claveEjercicio(e.id, "rpe")] = "RPE: entre 1 y 10, de a 0.5";
+      if (e.rpe_objetivo !== null && e.rpe_objetivo !== undefined && String(e.rpe_objetivo).trim() !== "") {
+        const pyramidSeries = parsePyramidSeriesCount(e.repeticiones);
+        const expectedSeries = pyramidSeries ?? (typeof e.series === "number" && e.series > 0 ? e.series : null);
+        const resRpe = validarRpeObjetivo(e.rpe_objetivo, expectedSeries);
+        if (!resRpe.valido) {
+          errores[claveEjercicio(e.id, "rpe")] = resRpe.error ?? "RPE: entre 1 y 10, de a 0.5";
+        }
       }
     }
   }

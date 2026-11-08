@@ -47,6 +47,106 @@ export function parsePyramidSeriesCount(repeticiones?: string): number | null {
 }
 
 /**
+ * Parsea una secuencia de RPE piramidal con guiones (ej. "6-7-8-9" -> [6, 7, 8, 9]).
+ * Rechaza explícitamente cadenas con espacios (ej. "6 7 8 9" -> null, "6 - 7" -> null).
+ * Cada valor debe estar en el rango fisiológico de RPE [1, 10].
+ */
+export function parsePyramidRpeSteps(rpe?: string | number | null): number[] | null {
+  if (rpe === null || rpe === undefined) return null;
+  const str = String(rpe).trim();
+  if (!str) return null;
+  if (/\s/.test(str)) return null;
+  const parts = str.split("-");
+  if (
+    parts.length >= 2 &&
+    parts.every((p) => /^\d+(\.\d+)?$/.test(p) && Number(p) >= 1 && Number(p) <= 10)
+  ) {
+    return parts.map(Number);
+  }
+  return null;
+}
+
+/**
+ * Obtiene el RPE objetivo para una serie específica (1-indexed).
+ * Soporta secuencias piramidales con guiones ("6-7-8-9"), números directos (8, 8.5) y cadenas ("8").
+ * Si la serie solicitada excede los escalones definidos, se utiliza el último escalón.
+ */
+export function parseTargetRpe(rpe?: string | number | null, numeroSerie: number = 1): number | null {
+  if (rpe === null || rpe === undefined) return null;
+  if (typeof rpe === "number") {
+    return !Number.isNaN(rpe) && rpe >= 1 && rpe <= 10 ? rpe : null;
+  }
+  const str = String(rpe).trim();
+  if (!str) return null;
+  if (/\s/.test(str)) return null;
+
+  if (str.includes("-")) {
+    const steps = parsePyramidRpeSteps(str);
+    if (steps && steps.length > 0) {
+      const idx = Math.min(Math.max(0, numeroSerie - 1), steps.length - 1);
+      return steps[idx] ?? null;
+    }
+    return null;
+  }
+
+  const num = Number(str);
+  if (!Number.isNaN(num) && num >= 1 && num <= 10) {
+    return num;
+  }
+  return null;
+}
+
+/**
+ * Valida un RPE objetivo para una rutina.
+ * - Rechaza explícitamente cadenas con espacios (ej. "6 7 8 9").
+ * - Valida que los valores estén en la escala [1, 10] (de a 0.5 si es número fijo).
+ * - Si es pirámide con guiones y se provee seriesCount, valida que la cantidad de escalones coincida exactamente con las series.
+ */
+export function validarRpeObjetivo(
+  rpe?: string | number | null,
+  seriesCount?: number | null
+): { valido: boolean; error?: string } {
+  if (rpe === null || rpe === undefined) return { valido: true };
+  const str = typeof rpe === "string" ? rpe : String(rpe);
+  const trimmed = str.trim();
+  if (!trimmed) return { valido: true };
+
+  // Rechazo explícito de espacios
+  if (/\s/.test(trimmed)) {
+    return { valido: false, error: "RPE no debe contener espacios (ej. 6-7-8-9)" };
+  }
+
+  // Si contiene guión, debe ser pirámide
+  if (trimmed.includes("-")) {
+    const parts = trimmed.split("-");
+    if (parts.length < 2) {
+      return { valido: false, error: "RPE piramidal inválido" };
+    }
+    for (const part of parts) {
+      const n = Number(part);
+      if (Number.isNaN(n) || n < 1 || n > 10) {
+        return { valido: false, error: "RPE: cada valor debe estar entre 1 y 10" };
+      }
+    }
+    if (typeof seriesCount === "number" && seriesCount > 0 && parts.length !== seriesCount) {
+      return {
+        valido: false,
+        error: `RPE: la cantidad de escalones (${parts.length}) debe coincidir con las series (${seriesCount})`,
+      };
+    }
+    return { valido: true };
+  }
+
+  // Valor único
+  const num = Number(trimmed);
+  if (Number.isNaN(num) || num < 1 || num > 10 || (num * 2) % 1 !== 0) {
+    return { valido: false, error: "RPE: entre 1 y 10, de a 0.5" };
+  }
+
+  return { valido: true };
+}
+
+/**
  * Lee la prescripción de repeticiones de la rutina y devuelve el valor numérico por defecto.
  * Soporta series descendentes ("10-8-6"), rangos con barra ("8/12"), rangos con "a" o "-" ("4 a 6", "8-10"),
  * isométricos ("15'' x lado") y números directos.

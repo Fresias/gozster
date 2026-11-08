@@ -27,7 +27,7 @@ export interface BuilderExercise {
   series: number | null;
   repeticiones: string;
   descanso_segundos: number | null;
-  rpe_objetivo: number | null;
+  rpe_objetivo: number | string | null;
   tempo: string;
   tempo_activo: boolean;
   force_rpe_required: boolean;
@@ -1384,15 +1384,22 @@ export function RoutineBuilderModal({
                         <label className="text-[10px] text-muted-foreground block font-bold uppercase tracking-wider mb-1">
                           RPE Objetivo:
                         </label>
-                        <DraftNumberInput
-                          step="0.5"
-                          min="1"
-                          max="10"
-                          value={ej.rpe_objetivo}
-                          onValue={(n) => handleUpdateExercise(ej.id, "rpe_objetivo", n)}
+                        <input
+                          type="text"
+                          value={ej.rpe_objetivo === null ? "" : String(ej.rpe_objetivo)}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            handleUpdateExercise(ej.id, "rpe_objetivo", raw === "" ? null : raw);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === " ") {
+                              e.preventDefault();
+                            }
+                          }}
+                          placeholder="8 · 6-7-8-9"
+                          maxLength={30}
                           data-testid="exercise-rpe-input"
                           {...propsCampo(claveEjercicio(ej.id, "rpe"))}
-                          required={false}
                           className={`w-full min-h-[38px] rounded-xl border ${claseCampo(claveEjercicio(ej.id, "rpe"))} bg-background px-2 py-1 text-center font-mono font-bold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary`}
                         />
                         {mensajeCampo(claveEjercicio(ej.id, "rpe"))}
