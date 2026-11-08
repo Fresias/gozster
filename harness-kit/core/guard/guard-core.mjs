@@ -313,6 +313,15 @@ function prBodyText(cmd, repoRoot) {
   return cmd;
 }
 
+/** True when a gh command targets another repository (`--repo/-R owner/name` != origin of repoRoot). */
+function targetsOtherRepo(cmd, repoRoot) {
+  const m = cmd.match(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/);
+  if (!m) return false;
+  const res = spawnSync("git", ["remote", "get-url", "origin"], { cwd: repoRoot, encoding: "utf8" });
+  const origin = res.status === 0 ? res.stdout.trim().match(/[/:]([\w.-]+\/[\w.-]+?)(\.git)?$/) : null;
+  return Boolean(origin) && origin[1].toLowerCase() !== m[1].toLowerCase();
+}
+
 /** Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons. */
 function mergeCheck(selector, repoRoot) {
   const script = path.join(here, "..", "scripts", "harness-merge-check.mjs");
@@ -548,7 +557,9 @@ function evaluateShell(call, repoRoot) {
   }
 
   // gh pr create requires a valid gate seal AND the seal block in the PR body
-  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd)) {
+  // PRs of another repository (--repo owner/name) are governed by that repository's own harness.
+  const otherRepo = /(^|[;&|(\s])gh\s+(pr|api)\s/.test(cmd) && targetsOtherRepo(cmd, repoRoot);
+  if (!otherRepo && /(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd)) {
     if (!sealValid(repoRoot)) {
       return {
         allowed: false,
@@ -583,7 +594,7 @@ function evaluateShell(call, repoRoot) {
       reason: "The harness/merge-check status is posted only by harness-merge-check.mjs --post-status.",
     };
   }
-  if (mergeCmd || apiMerge) {
+  if (!otherRepo && (mergeCmd || apiMerge)) {
     const selector = apiMerge
       ? apiMerge[1]
       : (mergeCmd[2] || "").trim().split(/\s+/).find((a) => a && !a.startsWith("-")) || "";

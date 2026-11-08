@@ -265,6 +265,16 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     });
   }
 
+  it("GIVEN gh pr create/merge --repo de OTRO repositorio THEN no aplica el sello de este repo", () => {
+    const dir = repo("chore/7-harness-x");
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/app.git"], { cwd: dir });
+    const other = "gh pr create --repo acme/kit --base main --head b --title t --body-file none.md";
+    expect(evaluateRules({ kind: "shell", command: other }, { repoRoot: dir }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: "gh pr merge 3 --repo acme/kit --squash" }, { repoRoot: dir }).allowed).toBe(true);
+    const same = "gh pr create --repo acme/app --base main --head b --title t --body-file none.md";
+    expect(evaluateRules({ kind: "shell", command: same }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
+  });
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
@@ -383,6 +393,12 @@ describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranqu
 
   it("GIVEN un comando inocuo THEN permite (exit 0)", () => {
     expect(hook(workdir, "Bash", { command: "git status" }).code).toBe(0);
+  });
+
+  it("GIVEN una copia suelta del kit sin .git en el workdir THEN no se toma como repo (exit 0)", () => {
+    const stray = temp("harness-stray-");
+    execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitDir)}, ${JSON.stringify(path.join(stray, "harness-kit"))}, "junction")`]);
+    expect(hook(stray, "Bash", { command: "git branch -D foo" }).code).toBe(0);
   });
 
   it("GIVEN un directorio sin harness THEN no interviene (exit 0)", () => {

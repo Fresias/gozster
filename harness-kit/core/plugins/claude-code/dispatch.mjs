@@ -8,8 +8,9 @@ import path from "node:path";
 
 const GUARD = path.join("harness-kit", "core", "guard", "guard-cli.mjs");
 
+/** A real git checkout (dir or worktree file `.git`) that vendors the harness guard; stray kit copies don't count. */
 function hasGuard(dir) {
-  return existsSync(path.join(dir, GUARD));
+  return existsSync(path.join(dir, GUARD)) && existsSync(path.join(dir, ".git"));
 }
 
 /** Walk up from dir to the first ancestor that contains the harness guard. */
