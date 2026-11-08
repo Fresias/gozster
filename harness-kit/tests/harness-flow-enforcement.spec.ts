@@ -339,3 +339,17 @@ describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranqu
     expect(hook(temp("no-harness-"), "Bash", { command: "git branch -D foo" }).code).toBe(0);
   });
 });
+
+describe("fs.protected en shell: redirección hacia la ruta, no menciones en texto", () => {
+  const dir = repo("feature/3-z");
+  it("GIVEN echo x > .claude/settings.json THEN fs.protected", () => {
+    expect(evaluateRules({ kind: "shell", command: "echo x > .claude/settings.json" }, { repoRoot: dir }).ruleId).toBe("fs.protected");
+  });
+  it("GIVEN Set-Content sobre .gemini/ THEN fs.protected", () => {
+    expect(evaluateRules({ kind: "shell", command: "Set-Content .gemini/settings.json x" }, { repoRoot: dir }).ruleId).toBe("fs.protected");
+  });
+  it("GIVEN un mensaje de commit que menciona .claude/ y contiene <slug> THEN permitido", () => {
+    const cmd = 'git commit -m "docs: la config .claude/ se carga solo en <repo>"';
+    expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: dir }).allowed).toBe(true);
+  });
+});

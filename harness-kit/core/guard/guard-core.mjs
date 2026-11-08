@@ -478,7 +478,8 @@ function evaluateShell(call, repoRoot) {
 
   // Writing to harness hooks or runtime settings
   if (/(\.git[/\\]hooks|\.claude[/\\]|\.agents[/\\]|\.gemini[/\\]|\.opencode[/\\])/i.test(cmd)) {
-    if (/>>?/.test(cmd) || SHELL_WRITE_VERB.test(cmd)) {
+    // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
+    if (/>>?\s*["']?[^\s|&;]*(\.git[/\\]hooks|\.(claude|agents|gemini|opencode)[/\\])/i.test(cmd) || SHELL_WRITE_VERB.test(cmd)) {
       return {
         allowed: false,
         ruleId: "fs.protected",
