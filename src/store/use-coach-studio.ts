@@ -704,6 +704,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         fechaVencimiento: nuevaContratacion.fecha_fin,
         esAdicional,
         notas: notas ?? plan?.notas ?? null,
+        planId: plan?.id ?? planId,
       });
 
       return nuevaContratacion;
@@ -1275,3 +1276,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     },
   }),
 );
+
+if (typeof globalThis !== "undefined") {
+  (globalThis as any).__coachStudioStore = useCoachStudioStore;
+}

@@ -3325,7 +3325,7 @@ export function StudentDetail({
         onCerrar={() => setModalAsignarPlanAbierto(false)}
         alumnoId={alumno.id}
         alumnoNombre={alumno.nombre_completo}
-        planesDisponibles={planesCobros}
+        planesDisponibles={planesCobros.filter((p) => p.activo !== false)}
         tienePlanesActivos={todasContratacionesAlumno.length > 0}
         onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
           await vincularPlanMembresiaAlumno({

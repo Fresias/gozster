@@ -92,6 +92,8 @@ export function CobrosPanel({
     metricas,
     crearPlan,
     modificarPlan,
+    eliminarPlan,
+    tieneContratacionesActivas,
   } = useCobrosStore();
   const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
 
@@ -106,12 +108,56 @@ export function CobrosPanel({
 
   const router = useRouter();
   const selectAlumno = useCoachStudioStore((s) => s.selectAlumno);
+  const contratacionesStudio = useCoachStudioStore((s) => s.contrataciones);
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
+
+  const planesActivos = React.useMemo(() => planes.filter((p) => p.activo !== false), [planes]);
 
   // Modales de planes
   const planesDialogRef = React.useRef<HTMLDialogElement>(null);
   const planFormDialogRef = React.useRef<HTMLDialogElement>(null);
+  const eliminarPlanDialogRef = React.useRef<HTMLDialogElement>(null);
+
+  // Estado eliminar plan (GOZS-420)
+  const [planParaEliminar, setPlanParaEliminar] = React.useState<PlanMembresiaConVigencia | null>(null);
+  const [eliminandoPlan, setEliminandoPlan] = React.useState(false);
+  const [errorEliminarPlan, setErrorEliminarPlan] = React.useState<string | null>(null);
+
+  const planTieneAlumnosActivos = React.useMemo(() => {
+    if (!planParaEliminar) return false;
+    return tieneContratacionesActivas(planParaEliminar.id, contratacionesStudio);
+  }, [planParaEliminar, tieneContratacionesActivas, contratacionesStudio]);
+
+  const abrirModalEliminarPlan = (plan: PlanMembresiaConVigencia) => {
+    setPlanParaEliminar(plan);
+    setErrorEliminarPlan(null);
+    eliminarPlanDialogRef.current?.showModal();
+  };
+
+  const cerrarModalEliminarPlan = () => {
+    eliminarPlanDialogRef.current?.close();
+    setPlanParaEliminar(null);
+    setErrorEliminarPlan(null);
+  };
+
+  const handleConfirmarEliminarPlan = async () => {
+    if (!planParaEliminar) return;
+    try {
+      setEliminandoPlan(true);
+      setErrorEliminarPlan(null);
+      await eliminarPlan(planParaEliminar.id);
+      cerrarModalEliminarPlan();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorEliminarPlan(err.message);
+      } else {
+        setErrorEliminarPlan("Error al eliminar el plan.");
+      }
+    } finally {
+      setEliminandoPlan(false);
+    }
+  };
 
   // Formulario crear/editar plan
   const [planEnEdicion, setPlanEnEdicion] = React.useState<PlanMembresiaConVigencia | null>(null);
@@ -1454,7 +1500,7 @@ export function CobrosPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {planes.map((p) => (
+                {planesActivos.map((p) => (
                   <tr key={p.id} className="hover:bg-muted/40 transition-colors" data-testid={`plan-row-${p.id}`}>
                     <td className="p-3 font-bold text-foreground">
                       <div>{p.nombre}</div>
@@ -1484,16 +1530,28 @@ export function CobrosPanel({
                       {p.vigente_desde ? `Desde ${formatearFecha(p.vigente_desde)}` : "Actual"}
                     </td>
                     <td className="p-3 text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => abrirModalEditarPlan(p)}
-                        data-testid={`btn-editar-plan-${p.id}`}
-                        className="min-h-[36px] px-2.5 text-xs font-semibold hover:border-primary"
-                      >
-                        Modificar
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => abrirModalEditarPlan(p)}
+                          data-testid={`btn-editar-plan-${p.id}`}
+                          className="min-h-[36px] px-2.5 text-xs font-semibold hover:border-primary"
+                        >
+                          Modificar
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => abrirModalEliminarPlan(p)}
+                          data-testid={`btn-eliminar-plan-${p.id}`}
+                          className="min-h-[36px] px-2.5 text-xs font-semibold text-danger-soft-foreground border-danger-soft-border hover:bg-danger-soft hover:text-danger-soft-foreground rounded-lg"
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1699,6 +1757,72 @@ export function CobrosPanel({
             </Button>
           </div>
         </form>
+      </dialog>
+
+      {/* DIÁLOGO: CONFIRMAR ELIMINACIÓN DE PLAN (GOZS-420) */}
+      <dialog
+        ref={eliminarPlanDialogRef}
+        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
+        aria-labelledby="eliminar-plan-titulo"
+        aria-describedby="eliminar-plan-descripcion"
+        data-testid="dialog-eliminar-plan"
+      >
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2 id="eliminar-plan-titulo" className="text-lg font-black text-foreground">
+              {planParaEliminar
+                ? `¿Estás seguro de eliminar el plan ${planParaEliminar.nombre}?`
+                : "¿Estás seguro de eliminar el plan?"}
+            </h2>
+            <p id="eliminar-plan-descripcion" className="text-xs text-muted-foreground">
+              {planTieneAlumnosActivos
+                ? "Este plan no puede ser eliminado mientras tenga alumnos con contrataciones activas."
+                : "Esta acción desactivará el plan del catálogo y ya no estará disponible para nuevas asignaciones."}
+            </p>
+          </div>
+
+          {planTieneAlumnosActivos && (
+            <div
+              className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-xs font-semibold text-danger-soft-foreground"
+              role="alert"
+              data-testid="alerta-plan-con-contrataciones"
+            >
+              ⚠️ No es posible eliminar el plan porque cuenta con alumnos con contrataciones activas.
+            </div>
+          )}
+
+          {errorEliminarPlan && (
+            <div
+              className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-xs font-semibold text-danger-soft-foreground"
+              role="alert"
+              data-testid="alerta-error-eliminar-plan"
+            >
+              {errorEliminarPlan}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cerrarModalEliminarPlan}
+              data-testid="btn-cancelar-eliminar-plan"
+              className="min-h-[40px] rounded-lg"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={planTieneAlumnosActivos || eliminandoPlan}
+              onClick={handleConfirmarEliminarPlan}
+              data-testid="btn-confirmar-eliminar-plan"
+              className="min-h-[40px] rounded-lg bg-danger-soft text-danger-soft-foreground border border-danger-soft-border hover:brightness-95 disabled:opacity-50"
+            >
+              {eliminandoPlan ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </div>
       </dialog>
 
       {/* DIÁLOGO: KPI ANUAL DE INGRESOS (Enero a Diciembre y desagregado por actividad) */}
@@ -1992,7 +2116,7 @@ export function CobrosPanel({
           onCerrar={() => setAlumnoParaAsignar(null)}
           alumnoId={alumnoParaAsignar.alumnoId}
           alumnoNombre={alumnoParaAsignar.alumnoNombre}
-          planesDisponibles={planes}
+          planesDisponibles={planesActivos}
           tienePlanesActivos={true}
           onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
             await useCoachStudioStore.getState().vincularPlanMembresiaAlumno({
