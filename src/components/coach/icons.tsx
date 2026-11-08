@@ -33,6 +33,15 @@ function BaseIcon({ children, className, ...props }: IconProps & { children: Rea
   );
 }
 
+export function Search(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </BaseIcon>
+  );
+}
+
 export function X(props: IconProps) {
   return (
     <BaseIcon {...props}>

@@ -225,7 +225,7 @@ export const useChatStore = create<ChatStoreState>()(
   persist(
     (set, get) => ({
       conversations: INITIAL_CONVERSATIONS,
-      selectedAlumnoId: "a1111111-1111-4111-8111-111111111101",
+      selectedAlumnoId: null,
       activeCoachSender: STAFF_COACH_PRINCIPAL,
       isAthleteChatOpen: false,
 
@@ -603,7 +603,7 @@ export const useChatStore = create<ChatStoreState>()(
       resetToDefaults: () => {
         set({
           conversations: INITIAL_CONVERSATIONS,
-          selectedAlumnoId: "a1111111-1111-4111-8111-111111111101",
+          selectedAlumnoId: null,
           activeCoachSender: STAFF_COACH_PRINCIPAL,
           isAthleteChatOpen: false,
         });
