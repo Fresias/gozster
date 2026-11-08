@@ -361,8 +361,8 @@ export function extractSeedData(
 
   const coach: SeedCoach = {
     id: coachUuid,
-    email: 'coach.mynter@gozster.local',
-    nombre_completo: 'Profesor Titular Mynter',
+    email: 'coach.gozs@gozster.local',
+    nombre_completo: 'Profesor Titular GOZS',
     rol: 'ENTRENADOR',
     estado_membresia: 'ACTIVA',
   };
@@ -575,7 +575,7 @@ export function generateMynterSeedSQL(seedData: ProcessedSeedData): string {
   const lines: string[] = [];
 
   lines.push('-- ============================================================================');
-  lines.push('-- GOZSter: Carga de Datos Semilla desde Backup Mynter (13 Alumnos Reales)');
+  lines.push('-- GOZSter: Carga de Datos Semilla desde Backup GOZS (13 Alumnos Reales)');
   lines.push('-- Script SQL idempotente para PostgreSQL 15+ / Supabase');
   lines.push('-- ============================================================================');
   lines.push('');
@@ -886,7 +886,7 @@ export async function seedFromMynterBackup(options: SeedOptions = {}): Promise<S
 export async function main() {
   const args = process.argv.slice(2);
   let customFile: string | undefined;
-  let sqlOutput: string = 'supabase/seed_mynter.sql';
+  let sqlOutput: string = 'supabase/seed_gozs.sql';
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {

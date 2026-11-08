@@ -917,7 +917,7 @@ export async function catalogoPlantillas(args: string[]): Promise<void> {
     const ej = await client.from('ejercicios').select('id, nombre');
     if (ej.error) throw new Error(ej.error.message);
     existentes = ej.data ?? [];
-    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.mynter@gozster.local';
+    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.gozs@gozster.local';
     const prof = await client.from('perfiles').select('id').eq('email', email).maybeSingle();
     if (prof.error || !prof.data) throw new Error(`No existe el perfil del entrenador (${email}). Corré antes el seed (#26).`);
     profesorId = prof.data.id;
@@ -976,7 +976,7 @@ export async function alumnosPlanes(args: string[]): Promise<void> {
 
   let profesorId = toUUID(String(entradas[0]?.idProfesional ?? '66b8a2401ce75e2e247c5ff6'));
   if (client) {
-    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.mynter@gozster.local';
+    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.gozs@gozster.local';
     const prof = await client.from('perfiles').select('id').eq('email', email).maybeSingle();
     if (prof.error || !prof.data) throw new Error(`No existe el perfil del entrenador (${email}). Corré antes el seed (#26).`);
     profesorId = prof.data.id;
@@ -1036,7 +1036,7 @@ export async function historial(args: string[]): Promise<void> {
 
   let profesorId = toUUID(String(entradas[0]?.idProfesional ?? '66b8a2401ce75e2e247c5ff6'));
   if (client) {
-    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.mynter@gozster.local';
+    const email = process.env.MYNTER_COACH_EMAIL ?? 'coach.gozs@gozster.local';
     const prof = await client.from('perfiles').select('id').eq('email', email).maybeSingle();
     if (prof.error || !prof.data) throw new Error(`No existe el perfil del entrenador (${email}). Corré antes el seed (#26).`);
     profesorId = prof.data.id;

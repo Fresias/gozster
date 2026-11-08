@@ -1,7 +1,7 @@
 -- GOZS-199 / GOZS-286: alumno tester (ALUMNO del coach de pruebas) con "GABI AGOSTO" asignada,
 -- rutina de 3 días + antebrazos (inactiva) y un alumno B de pruebas para el IDOR.
 -- Idempotente. Requiere que los usuarios ya existan en Auth (no se crean credenciales aquí).
--- Orden: seed_mynter.sql (trae el plan GABI AGOSTO) y luego este archivo.
+-- Orden: seed_gozs.sql (trae el plan GABI AGOSTO) y luego este archivo.
 -- Solo escribe filas del tester, del alumno B y del plan GABI AGOSTO; no toca otros alumnos.
 DO $$
 DECLARE
@@ -35,7 +35,7 @@ BEGIN
   VALUES (v_uid, v_email, 'Gabriel Sanchez', 'ADMIN', 'ACTIVA', v_coach)
   ON CONFLICT (id) DO UPDATE SET rol = 'ADMIN', nombre_completo = 'Gabriel Sanchez', estado_membresia = 'ACTIVA', profesor_asignado_id = v_coach;
 
-  -- Catálogo: reutiliza los del seed Mynter; crea solo los que falten (nombre es UNIQUE).
+  -- Catálogo: reutiliza los del seed GOZS; crea solo los que falten (nombre es UNIQUE).
   INSERT INTO public.ejercicios (nombre, musculos_principales) VALUES
     ('Press Plano con Barra', ARRAY['Pecho']),
     ('Prensa 45°', ARRAY['Cuádriceps']),

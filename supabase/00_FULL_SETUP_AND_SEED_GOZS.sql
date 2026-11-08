@@ -1,5 +1,1712 @@
 -- ============================================================================
--- GOZSter: Carga de Datos Semilla desde Backup Mynter (13 Alumnos Reales)
+-- GOZSter: SETUP COMPLETO DE ESQUEMA, RLS Y SEED DE 13 ALUMNOS GOZS
+-- Proyecto Supabase: cutvhrxgrwwfntetdsdo
+-- Ejecución directa en SQL Editor de Supabase
+-- ============================================================================
+
+-- ============================================================================
+-- GOZSter: Esquema Relacional Inicial, Índices, RPCs y Políticas RLS
+-- Migración idempotente para PostgreSQL 15+ / Supabase
+-- ============================================================================
+
+BEGIN;
+
+-- Extensión para generación de UUIDs
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ============================================================================
+-- 1. TIPOS ENUMERADOS (IDEMPOTENTES)
+-- ============================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'rol_usuario') THEN
+    CREATE TYPE public.rol_usuario AS ENUM ('ENTRENADOR', 'ALUMNO', 'ADMIN');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'estado_membresia') THEN
+    CREATE TYPE public.estado_membresia AS ENUM ('ACTIVA', 'INACTIVA', 'PENDIENTE', 'BAJA');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'estado_plan') THEN
+    CREATE TYPE public.estado_plan AS ENUM ('ACTIVO', 'INACTIVO', 'BORRADOR');
+  END IF;
+END
+$$;
+
+-- ============================================================================
+-- 2. FUNCIÓN TRIGGER PARA SINCRONIZACIÓN OFFLINE (updated_at)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+-- ============================================================================
+-- 3. JERARQUÍA RELACIONAL OBLIGATORIA
+-- ============================================================================
+
+-- 3.1 Tabla: perfiles
+CREATE TABLE IF NOT EXISTS public.perfiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT UNIQUE,
+  nombre_completo TEXT NOT NULL,
+  rol public.rol_usuario NOT NULL DEFAULT 'ALUMNO',
+  estado_membresia public.estado_membresia NOT NULL DEFAULT 'ACTIVA',
+  profesor_asignado_id UUID REFERENCES public.perfiles(id) ON DELETE SET NULL,
+  fecha_baja TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3.2 Tabla: ejercicios (Catálogo Maestro)
+CREATE TABLE IF NOT EXISTS public.ejercicios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre TEXT NOT NULL UNIQUE,
+  comentario TEXT,
+  url_video TEXT,
+  musculos_principales TEXT[] NOT NULL DEFAULT '{}',
+  musculos_secundarios TEXT[] NOT NULL DEFAULT '{}',
+  creado_por UUID REFERENCES public.perfiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3.3 Tabla: planes_entrenamiento (Plan / Template)
+CREATE TABLE IF NOT EXISTS public.planes_entrenamiento (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profesor_id UUID REFERENCES public.perfiles(id) ON DELETE SET NULL,
+  alumno_id UUID REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  estado public.estado_plan NOT NULL DEFAULT 'ACTIVO',
+  comentarios TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3.4 Tabla: dias_rutina
+CREATE TABLE IF NOT EXISTS public.dias_rutina (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id UUID NOT NULL REFERENCES public.planes_entrenamiento(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
+  orden INTEGER NOT NULL CHECK (orden >= 1),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (plan_id, orden)
+);
+
+-- 3.5 Tabla: ejercicios_en_rutina
+CREATE TABLE IF NOT EXISTS public.ejercicios_en_rutina (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dia_id UUID NOT NULL REFERENCES public.dias_rutina(id) ON DELETE CASCADE,
+  ejercicio_id UUID NOT NULL REFERENCES public.ejercicios(id) ON DELETE RESTRICT,
+  orden INTEGER NOT NULL CHECK (orden >= 1),
+  series INTEGER NOT NULL CHECK (series >= 1),
+  repeticiones TEXT NOT NULL,
+  descanso_segundos INTEGER NOT NULL DEFAULT 90 CHECK (descanso_segundos >= 0),
+  rpe_objetivo NUMERIC(3,1) CHECK (rpe_objetivo IS NULL OR (rpe_objetivo >= 1.0 AND rpe_objetivo <= 10.0)),
+  notas TEXT,
+  es_superserie BOOLEAN NOT NULL DEFAULT false,
+  grupo_superserie INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_superserie_grupo CHECK (
+    (es_superserie = false AND grupo_superserie IS NULL) OR
+    (es_superserie = true AND grupo_superserie IS NOT NULL AND grupo_superserie >= 1)
+  )
+);
+
+-- 3.6 Tabla: registro_sesiones
+CREATE TABLE IF NOT EXISTS public.registro_sesiones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alumno_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  dia_id UUID REFERENCES public.dias_rutina(id) ON DELETE SET NULL,
+  fecha TIMESTAMPTZ NOT NULL DEFAULT now(),
+  duracion_minutos INTEGER CHECK (duracion_minutos IS NULL OR duracion_minutos >= 0),
+  volumen_total_kg NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (volumen_total_kg >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 3.7 Tabla: registro_series
+CREATE TABLE IF NOT EXISTS public.registro_series (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sesion_id UUID NOT NULL REFERENCES public.registro_sesiones(id) ON DELETE CASCADE,
+  ejercicio_id UUID NOT NULL REFERENCES public.ejercicios(id) ON DELETE RESTRICT,
+  numero_serie INTEGER NOT NULL CHECK (numero_serie >= 1),
+  peso_kg NUMERIC(6,2) NOT NULL DEFAULT 0 CHECK (peso_kg >= 0),
+  reps_hechas INTEGER NOT NULL DEFAULT 0 CHECK (reps_hechas >= 0),
+  rpe_real NUMERIC(3,1) CHECK (rpe_real IS NULL OR (rpe_real >= 1.0 AND rpe_real <= 10.0)),
+  completada BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (sesion_id, ejercicio_id, numero_serie)
+);
+
+-- ============================================================================
+-- 4. TRIGGERS DE MARCAS TEMPORALES (updated_at)
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS trg_perfiles_updated_at ON public.perfiles;
+CREATE TRIGGER trg_perfiles_updated_at
+  BEFORE UPDATE ON public.perfiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_ejercicios_updated_at ON public.ejercicios;
+CREATE TRIGGER trg_ejercicios_updated_at
+  BEFORE UPDATE ON public.ejercicios
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_planes_entrenamiento_updated_at ON public.planes_entrenamiento;
+CREATE TRIGGER trg_planes_entrenamiento_updated_at
+  BEFORE UPDATE ON public.planes_entrenamiento
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_dias_rutina_updated_at ON public.dias_rutina;
+CREATE TRIGGER trg_dias_rutina_updated_at
+  BEFORE UPDATE ON public.dias_rutina
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_ejercicios_en_rutina_updated_at ON public.ejercicios_en_rutina;
+CREATE TRIGGER trg_ejercicios_en_rutina_updated_at
+  BEFORE UPDATE ON public.ejercicios_en_rutina
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_registro_sesiones_updated_at ON public.registro_sesiones;
+CREATE TRIGGER trg_registro_sesiones_updated_at
+  BEFORE UPDATE ON public.registro_sesiones
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_registro_series_updated_at ON public.registro_series;
+CREATE TRIGGER trg_registro_series_updated_at
+  BEFORE UPDATE ON public.registro_series
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ============================================================================
+-- 5. ÍNDICES PARA RETENCIÓN Y DELTA SYNC OFFLINE
+-- ============================================================================
+
+-- Índices para consultas de retención (cantActivas, cantSinPlanEntrenamiento, cantClientesPerdidosMes)
+CREATE INDEX IF NOT EXISTS idx_perfiles_rol_membresia
+  ON public.perfiles (rol, estado_membresia);
+
+CREATE INDEX IF NOT EXISTS idx_perfiles_profesor_asignado
+  ON public.perfiles (profesor_asignado_id)
+  WHERE profesor_asignado_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_perfiles_fecha_baja
+  ON public.perfiles (fecha_baja)
+  WHERE fecha_baja IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_planes_alumno_estado
+  ON public.planes_entrenamiento (alumno_id, estado);
+
+CREATE INDEX IF NOT EXISTS idx_planes_profesor
+  ON public.planes_entrenamiento (profesor_id);
+
+-- Índices para navegación de rutinas y sesiones
+CREATE INDEX IF NOT EXISTS idx_dias_rutina_plan_orden
+  ON public.dias_rutina (plan_id, orden);
+
+CREATE INDEX IF NOT EXISTS idx_ejercicios_rutina_dia_orden
+  ON public.ejercicios_en_rutina (dia_id, orden);
+
+CREATE INDEX IF NOT EXISTS idx_registro_sesiones_alumno_fecha
+  ON public.registro_sesiones (alumno_id, fecha DESC);
+
+CREATE INDEX IF NOT EXISTS idx_registro_series_sesion_ejercicio
+  ON public.registro_series (sesion_id, ejercicio_id);
+
+-- Índices para sincronización offline (delta sync por updated_at)
+CREATE INDEX IF NOT EXISTS idx_perfiles_updated_at
+  ON public.perfiles (updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_ejercicios_updated_at
+  ON public.ejercicios (updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_planes_updated_at
+  ON public.planes_entrenamiento (updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_registro_sesiones_updated_at
+  ON public.registro_sesiones (updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_registro_series_updated_at
+  ON public.registro_series (updated_at);
+
+-- ============================================================================
+-- 6. FUNCIONES AUXILIARES DE SEGURIDAD Y RPCs DE NEGOCIO
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.es_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.perfiles
+    WHERE id = auth.uid()
+      AND rol = 'ADMIN'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.es_entrenador_o_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.perfiles
+    WHERE id = auth.uid()
+      AND rol IN ('ENTRENADOR', 'ADMIN')
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.es_entrenador_de(p_alumno_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.perfiles
+    WHERE id = p_alumno_id
+      AND profesor_asignado_id = auth.uid()
+  ) OR EXISTS (
+    SELECT 1
+    FROM public.planes_entrenamiento
+    WHERE alumno_id = p_alumno_id
+      AND profesor_id = auth.uid()
+  );
+$$;
+
+-- RPC 1: Métricas de retención para Coach Studio (cantActivas, cantSinPlanEntrenamiento, cantClientesPerdidosMes)
+CREATE OR REPLACE FUNCTION public.obtener_metricas_retencion(p_profesor_id UUID DEFAULT NULL)
+RETURNS TABLE (
+  "cantActivas" BIGINT,
+  "cantSinPlanEntrenamiento" BIGINT,
+  "cantClientesPerdidosMes" BIGINT
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia = 'ACTIVA'
+    ) AS "cantActivas",
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia = 'ACTIVA'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.planes_entrenamiento pe
+          WHERE pe.alumno_id = p.id
+            AND pe.estado = 'ACTIVO'
+        )
+    ) AS "cantSinPlanEntrenamiento",
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia IN ('INACTIVA', 'BAJA')
+        AND p.fecha_baja >= date_trunc('month', now())
+    ) AS "cantClientesPerdidosMes"
+  FROM public.perfiles p
+  WHERE (p_profesor_id IS NULL OR p.profesor_asignado_id = p_profesor_id)
+    AND public.es_entrenador_o_admin();
+$$;
+
+-- RPC 2: Cálculo de volumen semanal total (kg) de un alumno
+CREATE OR REPLACE FUNCTION public.calcular_volumen_semanal(
+  p_alumno_id UUID,
+  p_fecha_inicio TIMESTAMPTZ DEFAULT date_trunc('week', now())
+)
+RETURNS NUMERIC
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(SUM(rs.peso_kg * rs.reps_hechas), 0)::NUMERIC(10,2)
+  FROM public.registro_series rs
+  INNER JOIN public.registro_sesiones s ON s.id = rs.sesion_id
+  WHERE s.alumno_id = p_alumno_id
+    AND rs.completada = true
+    AND s.fecha >= p_fecha_inicio
+    AND s.fecha < (p_fecha_inicio + INTERVAL '7 days')
+    AND (
+      auth.uid() = p_alumno_id
+      OR public.es_entrenador_de(p_alumno_id)
+      OR public.es_admin()
+    );
+$$;
+
+-- RPC 3: Récords históricos y 1RM estimado (Epley y Brzycki) por ejercicio
+CREATE OR REPLACE FUNCTION public.obtener_records_historicos(
+  p_alumno_id UUID,
+  p_ejercicio_id UUID DEFAULT NULL
+)
+RETURNS TABLE (
+  ejercicio_id UUID,
+  peso_max_kg NUMERIC,
+  mejor_1rm_epley NUMERIC,
+  mejor_1rm_brzycki NUMERIC
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT
+    rs.ejercicio_id,
+    MAX(rs.peso_kg)::NUMERIC(6,2) AS peso_max_kg,
+    MAX(rs.peso_kg * (1.0 + (rs.reps_hechas::NUMERIC / 30.0)))::NUMERIC(6,2) AS mejor_1rm_epley,
+    MAX(
+      CASE
+        WHEN rs.reps_hechas <= 1 THEN rs.peso_kg
+        WHEN rs.reps_hechas >= 37 THEN rs.peso_kg
+        ELSE rs.peso_kg / (1.0278 - (0.0278 * rs.reps_hechas::NUMERIC))
+      END
+    )::NUMERIC(6,2) AS mejor_1rm_brzycki
+  FROM public.registro_series rs
+  INNER JOIN public.registro_sesiones s ON s.id = rs.sesion_id
+  WHERE s.alumno_id = p_alumno_id
+    AND rs.completada = true
+    AND rs.peso_kg > 0
+    AND rs.reps_hechas > 0
+    AND (p_ejercicio_id IS NULL OR rs.ejercicio_id = p_ejercicio_id)
+    AND (
+      auth.uid() = p_alumno_id
+      OR public.es_entrenador_de(p_alumno_id)
+      OR public.es_admin()
+    )
+  GROUP BY rs.ejercicio_id;
+$$;
+
+-- RPC 4: Detección de sobrecarga progresiva por ejercicio entre sesiones consecutivas
+CREATE OR REPLACE FUNCTION public.detectar_sobrecarga_progresiva(
+  p_alumno_id UUID,
+  p_ejercicio_id UUID
+)
+RETURNS TABLE (
+  sesion_id UUID,
+  fecha TIMESTAMPTZ,
+  volumen_ejercicio_kg NUMERIC,
+  peso_max_kg NUMERIC,
+  hubo_sobrecarga BOOLEAN
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  WITH metricas_sesion AS (
+    SELECT
+      s.id AS sesion_id,
+      s.fecha,
+      SUM(rs.peso_kg * rs.reps_hechas)::NUMERIC(10,2) AS volumen_ejercicio_kg,
+      MAX(rs.peso_kg)::NUMERIC(6,2) AS peso_max_kg
+    FROM public.registro_series rs
+    INNER JOIN public.registro_sesiones s ON s.id = rs.sesion_id
+    WHERE s.alumno_id = p_alumno_id
+      AND rs.ejercicio_id = p_ejercicio_id
+      AND rs.completada = true
+      AND (
+        auth.uid() = p_alumno_id
+        OR public.es_entrenador_de(p_alumno_id)
+        OR public.es_admin()
+      )
+    GROUP BY s.id, s.fecha
+  ),
+  comparativa AS (
+    SELECT
+      ms.sesion_id,
+      ms.fecha,
+      ms.volumen_ejercicio_kg,
+      ms.peso_max_kg,
+      LAG(ms.volumen_ejercicio_kg) OVER (ORDER BY ms.fecha ASC) AS volumen_previo_kg,
+      LAG(ms.peso_max_kg) OVER (ORDER BY ms.fecha ASC) AS peso_previo_kg
+    FROM metricas_sesion ms
+  )
+  SELECT
+    c.sesion_id,
+    c.fecha,
+    c.volumen_ejercicio_kg,
+    c.peso_max_kg,
+    CASE
+      WHEN c.volumen_previo_kg IS NULL THEN false
+      WHEN c.peso_max_kg > c.peso_previo_kg OR c.volumen_ejercicio_kg > c.volumen_previo_kg THEN true
+      ELSE false
+    END AS hubo_sobrecarga
+  FROM comparativa c
+  ORDER BY c.fecha DESC;
+$$;
+
+-- ============================================================================
+-- 7. ROW LEVEL SECURITY (RLS) ESTRICTO EN TODAS LAS TABLAS
+-- ============================================================================
+
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.planes_entrenamiento ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.dias_rutina ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ejercicios_en_rutina ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registro_sesiones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registro_series ENABLE ROW LEVEL SECURITY;
+
+-- ----------------------------------------------------------------------------
+-- 7.1 Políticas RLS: perfiles
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "perfiles_select_propio_o_entrenador" ON public.perfiles;
+CREATE POLICY "perfiles_select_propio_o_entrenador"
+  ON public.perfiles
+  FOR SELECT
+  TO authenticated
+  USING (
+    auth.uid() = id
+    OR profesor_asignado_id = auth.uid()
+    OR public.es_entrenador_de(id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "perfiles_insert_propio_o_admin" ON public.perfiles;
+CREATE POLICY "perfiles_insert_propio_o_admin"
+  ON public.perfiles
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = id
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "perfiles_update_propio_o_entrenador" ON public.perfiles;
+CREATE POLICY "perfiles_update_propio_o_entrenador"
+  ON public.perfiles
+  FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = id
+    OR (profesor_asignado_id = auth.uid() AND public.es_entrenador_o_admin())
+    OR public.es_admin()
+  )
+  WITH CHECK (
+    auth.uid() = id
+    OR (profesor_asignado_id = auth.uid() AND public.es_entrenador_o_admin())
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "perfiles_delete_solo_admin" ON public.perfiles;
+CREATE POLICY "perfiles_delete_solo_admin"
+  ON public.perfiles
+  FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- ----------------------------------------------------------------------------
+-- 7.2 Políticas RLS: ejercicios (Catálogo Maestro)
+-- Lectura autenticada; creación/edición/borrado exclusivo de entrenadores/admin
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "ejercicios_select_autenticados" ON public.ejercicios;
+CREATE POLICY "ejercicios_select_autenticados"
+  ON public.ejercicios
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "ejercicios_insert_entrenador_o_admin" ON public.ejercicios;
+CREATE POLICY "ejercicios_insert_entrenador_o_admin"
+  ON public.ejercicios
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (public.es_entrenador_o_admin());
+
+DROP POLICY IF EXISTS "ejercicios_update_entrenador_o_admin" ON public.ejercicios;
+CREATE POLICY "ejercicios_update_entrenador_o_admin"
+  ON public.ejercicios
+  FOR UPDATE
+  TO authenticated
+  USING (public.es_entrenador_o_admin())
+  WITH CHECK (public.es_entrenador_o_admin());
+
+DROP POLICY IF EXISTS "ejercicios_delete_entrenador_o_admin" ON public.ejercicios;
+CREATE POLICY "ejercicios_delete_entrenador_o_admin"
+  ON public.ejercicios
+  FOR DELETE
+  TO authenticated
+  USING (public.es_entrenador_o_admin());
+
+-- ----------------------------------------------------------------------------
+-- 7.3 Políticas RLS: planes_entrenamiento
+-- Alumnos leen sus planes asignados; entrenadores gestionan plantillas y planes de sus alumnos
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "planes_select_alumno_o_entrenador" ON public.planes_entrenamiento;
+CREATE POLICY "planes_select_alumno_o_entrenador"
+  ON public.planes_entrenamiento
+  FOR SELECT
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR profesor_id = auth.uid()
+    OR (alumno_id IS NULL AND public.es_entrenador_o_admin())
+    OR (alumno_id IS NOT NULL AND public.es_entrenador_de(alumno_id))
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "planes_insert_entrenador_o_admin" ON public.planes_entrenamiento;
+CREATE POLICY "planes_insert_entrenador_o_admin"
+  ON public.planes_entrenamiento
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND (
+      profesor_id = auth.uid()
+      OR public.es_admin()
+    )
+    AND (
+      alumno_id IS NULL
+      OR public.es_entrenador_de(alumno_id)
+      OR profesor_id = auth.uid()
+      OR public.es_admin()
+    )
+  );
+
+DROP POLICY IF EXISTS "planes_update_entrenador_o_admin" ON public.planes_entrenamiento;
+CREATE POLICY "planes_update_entrenador_o_admin"
+  ON public.planes_entrenamiento
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND (
+      profesor_id = auth.uid()
+      OR (alumno_id IS NOT NULL AND public.es_entrenador_de(alumno_id))
+      OR public.es_admin()
+    )
+  )
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND (
+      profesor_id = auth.uid()
+      OR (alumno_id IS NOT NULL AND public.es_entrenador_de(alumno_id))
+      OR public.es_admin()
+    )
+  );
+
+DROP POLICY IF EXISTS "planes_delete_entrenador_o_admin" ON public.planes_entrenamiento;
+CREATE POLICY "planes_delete_entrenador_o_admin"
+  ON public.planes_entrenamiento
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND (
+      profesor_id = auth.uid()
+      OR public.es_admin()
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- 7.4 Políticas RLS: dias_rutina
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "dias_rutina_select_acceso_plan" ON public.dias_rutina;
+CREATE POLICY "dias_rutina_select_acceso_plan"
+  ON public.dias_rutina
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.planes_entrenamiento p
+      WHERE p.id = dias_rutina.plan_id
+        AND (
+          p.alumno_id = auth.uid()
+          OR p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NULL AND public.es_entrenador_o_admin())
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "dias_rutina_insert_entrenador" ON public.dias_rutina;
+CREATE POLICY "dias_rutina_insert_entrenador"
+  ON public.dias_rutina
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.planes_entrenamiento p
+      WHERE p.id = dias_rutina.plan_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "dias_rutina_update_entrenador" ON public.dias_rutina;
+CREATE POLICY "dias_rutina_update_entrenador"
+  ON public.dias_rutina
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.planes_entrenamiento p
+      WHERE p.id = dias_rutina.plan_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  )
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.planes_entrenamiento p
+      WHERE p.id = dias_rutina.plan_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "dias_rutina_delete_entrenador" ON public.dias_rutina;
+CREATE POLICY "dias_rutina_delete_entrenador"
+  ON public.dias_rutina
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.planes_entrenamiento p
+      WHERE p.id = dias_rutina.plan_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- 7.5 Políticas RLS: ejercicios_en_rutina
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "ejercicios_en_rutina_select_acceso_plan" ON public.ejercicios_en_rutina;
+CREATE POLICY "ejercicios_en_rutina_select_acceso_plan"
+  ON public.ejercicios_en_rutina
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          p.alumno_id = auth.uid()
+          OR p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NULL AND public.es_entrenador_o_admin())
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "ejercicios_en_rutina_insert_entrenador" ON public.ejercicios_en_rutina;
+CREATE POLICY "ejercicios_en_rutina_insert_entrenador"
+  ON public.ejercicios_en_rutina
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "ejercicios_en_rutina_update_entrenador" ON public.ejercicios_en_rutina;
+CREATE POLICY "ejercicios_en_rutina_update_entrenador"
+  ON public.ejercicios_en_rutina
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  )
+  WITH CHECK (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "ejercicios_en_rutina_delete_entrenador" ON public.ejercicios_en_rutina;
+CREATE POLICY "ejercicios_en_rutina_delete_entrenador"
+  ON public.ejercicios_en_rutina
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.es_entrenador_o_admin()
+    AND EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          p.profesor_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  );
+
+-- ----------------------------------------------------------------------------
+-- 7.6 Políticas RLS: registro_sesiones
+-- Alumnos solo leen/escriben sus propios registros; entrenadores leen los de sus alumnos
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "registro_sesiones_select_alumno_o_entrenador" ON public.registro_sesiones;
+CREATE POLICY "registro_sesiones_select_alumno_o_entrenador"
+  ON public.registro_sesiones
+  FOR SELECT
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "registro_sesiones_insert_propio_alumno" ON public.registro_sesiones;
+CREATE POLICY "registro_sesiones_insert_propio_alumno"
+  ON public.registro_sesiones
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    alumno_id = auth.uid()
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "registro_sesiones_update_propio_alumno" ON public.registro_sesiones;
+CREATE POLICY "registro_sesiones_update_propio_alumno"
+  ON public.registro_sesiones
+  FOR UPDATE
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR public.es_admin()
+  )
+  WITH CHECK (
+    alumno_id = auth.uid()
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "registro_sesiones_delete_propio_alumno" ON public.registro_sesiones;
+CREATE POLICY "registro_sesiones_delete_propio_alumno"
+  ON public.registro_sesiones
+  FOR DELETE
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR public.es_admin()
+  );
+
+-- ----------------------------------------------------------------------------
+-- 7.7 Políticas RLS: registro_series
+-- Alumnos solo leen/escriben sus propias series; entrenadores leen las de sus alumnos
+-- ----------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS "registro_series_select_alumno_o_entrenador" ON public.registro_series;
+CREATE POLICY "registro_series_select_alumno_o_entrenador"
+  ON public.registro_series
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.registro_sesiones s
+      WHERE s.id = registro_series.sesion_id
+        AND (
+          s.alumno_id = auth.uid()
+          OR public.es_entrenador_de(s.alumno_id)
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "registro_series_insert_propio_alumno" ON public.registro_series;
+CREATE POLICY "registro_series_insert_propio_alumno"
+  ON public.registro_series
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.registro_sesiones s
+      WHERE s.id = registro_series.sesion_id
+        AND (
+          s.alumno_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "registro_series_update_propio_alumno" ON public.registro_series;
+CREATE POLICY "registro_series_update_propio_alumno"
+  ON public.registro_series
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.registro_sesiones s
+      WHERE s.id = registro_series.sesion_id
+        AND (
+          s.alumno_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.registro_sesiones s
+      WHERE s.id = registro_series.sesion_id
+        AND (
+          s.alumno_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "registro_series_delete_propio_alumno" ON public.registro_series;
+CREATE POLICY "registro_series_delete_propio_alumno"
+  ON public.registro_series
+  FOR DELETE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.registro_sesiones s
+      WHERE s.id = registro_series.sesion_id
+        AND (
+          s.alumno_id = auth.uid()
+          OR public.es_admin()
+        )
+    )
+  );
+
+COMMIT;
+
+
+-- ============================================================================
+-- GOZSter: Soporte Multi-Coach, Ciclo de Vida de Suscripción y Clonación de Rutinas
+-- Migración idempotente para PostgreSQL 15+ / Supabase
+-- GitHub Issue: #9 (GOZS-6)
+-- ============================================================================
+
+-- 1. Ampliación de estados de membresía (Ciclo de Vida del Alumno)
+-- Mantiene retrocompatibilidad agregando ACTIVE, EXPIRED_PAYMENT_PENDING y ARCHIVED.
+ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'ACTIVE';
+ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'EXPIRED_PAYMENT_PENDING';
+ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'ARCHIVED';
+
+BEGIN;
+
+-- ============================================================================
+-- 2. MODIFICACIONES EN TABLA: planes_entrenamiento (Vigencia de Plan)
+-- ============================================================================
+
+ALTER TABLE public.planes_entrenamiento
+  ADD COLUMN IF NOT EXISTS fecha_inicio TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS fecha_fin TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_planes_fecha_fin
+  ON public.planes_entrenamiento (fecha_fin);
+
+-- ============================================================================
+-- 3. TABLA: entrenador_alumnos (Soporte Multi-Coach N:M)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.entrenador_alumnos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entrenador_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  alumno_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  rol_entrenador TEXT NOT NULL DEFAULT 'COACH', -- 'PRINCIPAL', 'ASISTENTE', 'COACH'
+  es_principal BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT chk_entrenador_distinto_alumno CHECK (entrenador_id <> alumno_id),
+  CONSTRAINT uq_entrenador_alumno UNIQUE (entrenador_id, alumno_id)
+);
+
+-- Trigger para updated_at (delta sync)
+DROP TRIGGER IF EXISTS trg_entrenador_alumnos_updated_at ON public.entrenador_alumnos;
+CREATE TRIGGER trg_entrenador_alumnos_updated_at
+  BEFORE UPDATE ON public.entrenador_alumnos
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Índices de consulta rápida y sincronización offline
+CREATE INDEX IF NOT EXISTS idx_entrenador_alumnos_entrenador
+  ON public.entrenador_alumnos (entrenador_id);
+
+CREATE INDEX IF NOT EXISTS idx_entrenador_alumnos_alumno
+  ON public.entrenador_alumnos (alumno_id);
+
+CREATE INDEX IF NOT EXISTS idx_entrenador_alumnos_updated_at
+  ON public.entrenador_alumnos (updated_at);
+
+-- ============================================================================
+-- 4. ACTUALIZACIÓN DE FUNCIONES DE SEGURIDAD (MULTI-COACH)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.es_entrenador_de(p_alumno_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.perfiles
+    WHERE id = p_alumno_id
+      AND profesor_asignado_id = auth.uid()
+  ) OR EXISTS (
+    SELECT 1
+    FROM public.planes_entrenamiento
+    WHERE alumno_id = p_alumno_id
+      AND profesor_id = auth.uid()
+  ) OR EXISTS (
+    SELECT 1
+    FROM public.entrenador_alumnos
+    WHERE alumno_id = p_alumno_id
+      AND entrenador_id = auth.uid()
+  );
+$$;
+
+-- ============================================================================
+-- 5. ROW LEVEL SECURITY EN: entrenador_alumnos
+-- ============================================================================
+
+ALTER TABLE public.entrenador_alumnos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "entrenador_alumnos_select_participantes" ON public.entrenador_alumnos;
+CREATE POLICY "entrenador_alumnos_select_participantes"
+  ON public.entrenador_alumnos
+  FOR SELECT
+  TO authenticated
+  USING (
+    entrenador_id = auth.uid()
+    OR alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "entrenador_alumnos_insert_entrenador_o_admin" ON public.entrenador_alumnos;
+CREATE POLICY "entrenador_alumnos_insert_entrenador_o_admin"
+  ON public.entrenador_alumnos
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    public.es_admin()
+    OR (
+      public.es_entrenador_o_admin()
+      AND (
+        entrenador_id = auth.uid()
+        OR public.es_entrenador_de(alumno_id)
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "entrenador_alumnos_update_entrenador_o_admin" ON public.entrenador_alumnos;
+CREATE POLICY "entrenador_alumnos_update_entrenador_o_admin"
+  ON public.entrenador_alumnos
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.es_admin()
+    OR entrenador_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+  )
+  WITH CHECK (
+    public.es_admin()
+    OR entrenador_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+  );
+
+DROP POLICY IF EXISTS "entrenador_alumnos_delete_entrenador_o_admin" ON public.entrenador_alumnos;
+CREATE POLICY "entrenador_alumnos_delete_entrenador_o_admin"
+  ON public.entrenador_alumnos
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.es_admin()
+    OR entrenador_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+  );
+
+-- ============================================================================
+-- 6. ACTUALIZACIÓN DE RLS: perfiles (MULTI-COACH UPDATE)
+-- ============================================================================
+
+DROP POLICY IF EXISTS "perfiles_update_propio_o_entrenador" ON public.perfiles;
+CREATE POLICY "perfiles_update_propio_o_entrenador"
+  ON public.perfiles
+  FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = id
+    OR (profesor_asignado_id = auth.uid() AND public.es_entrenador_o_admin())
+    OR (public.es_entrenador_de(id) AND public.es_entrenador_o_admin())
+    OR public.es_admin()
+  )
+  WITH CHECK (
+    auth.uid() = id
+    OR (profesor_asignado_id = auth.uid() AND public.es_entrenador_o_admin())
+    OR (public.es_entrenador_de(id) AND public.es_entrenador_o_admin())
+    OR public.es_admin()
+  );
+
+-- ============================================================================
+-- 7. ACTUALIZACIÓN DE RLS: ejercicios_en_rutina (PAYWALL DE CUOTA VENCIDA)
+-- Alumno con 'EXPIRED_PAYMENT_PENDING' no puede leer ejercicios del día.
+-- Los entrenadores asignados mantienen visibilidad completa en todo momento.
+-- ============================================================================
+
+DROP POLICY IF EXISTS "ejercicios_en_rutina_select_acceso_plan" ON public.ejercicios_en_rutina;
+CREATE POLICY "ejercicios_en_rutina_select_acceso_plan"
+  ON public.ejercicios_en_rutina
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.dias_rutina d
+      INNER JOIN public.planes_entrenamiento p ON p.id = d.plan_id
+      WHERE d.id = ejercicios_en_rutina.dia_id
+        AND (
+          -- Condición para alumno: sólo puede leer si NO está en mora / pago pendiente
+          (
+            p.alumno_id = auth.uid()
+            AND NOT EXISTS (
+              SELECT 1
+              FROM public.perfiles perf
+              WHERE perf.id = auth.uid()
+                AND perf.estado_membresia = 'EXPIRED_PAYMENT_PENDING'
+            )
+          )
+          -- Entrenadores y administradores: acceso total e ininterrumpido
+          OR p.profesor_id = auth.uid()
+          OR (p.alumno_id IS NULL AND public.es_entrenador_o_admin())
+          OR (p.alumno_id IS NOT NULL AND public.es_entrenador_de(p.alumno_id))
+          OR public.es_admin()
+        )
+    )
+  );
+
+-- ============================================================================
+-- 8. RPC: clonar_plan_entrenamiento
+-- Duplica íntegramente la jerarquía:
+--   planes_entrenamiento -> dias_rutina -> ejercicios_en_rutina
+-- Respetando es_superserie y grupo_superserie en estado 'BORRADOR'.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.clonar_plan_entrenamiento(
+  p_plan_id UUID,
+  p_nuevo_nombre TEXT
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_plan_origen public.planes_entrenamiento%ROWTYPE;
+  v_nuevo_plan_id UUID;
+  v_nuevo_dia_id UUID;
+  v_nombre_final TEXT;
+  r_dia RECORD;
+BEGIN
+  -- Validar existencia del plan origen
+  SELECT * INTO v_plan_origen
+  FROM public.planes_entrenamiento
+  WHERE id = p_plan_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Plan de entrenamiento no encontrado con ID: %', p_plan_id;
+  END IF;
+
+  -- Validar permisos de seguridad: entrenador del alumno, creador del plan o admin
+  IF NOT (
+    public.es_admin()
+    OR v_plan_origen.profesor_id = auth.uid()
+    OR (v_plan_origen.alumno_id IS NOT NULL AND public.es_entrenador_de(v_plan_origen.alumno_id))
+    OR (v_plan_origen.alumno_id IS NULL AND public.es_entrenador_o_admin())
+  ) THEN
+    RAISE EXCEPTION 'No autorizado para clonar este plan de entrenamiento';
+  END IF;
+
+  -- Definir nombre del nuevo plan
+  v_nombre_final := COALESCE(NULLIF(TRIM(p_nuevo_nombre), ''), v_plan_origen.nombre || ' (Copia)');
+
+  -- Insertar plan clonado en estado 'BORRADOR'
+  INSERT INTO public.planes_entrenamiento (
+    profesor_id,
+    alumno_id,
+    nombre,
+    estado,
+    comentarios,
+    fecha_inicio,
+    fecha_fin
+  )
+  VALUES (
+    COALESCE(auth.uid(), v_plan_origen.profesor_id),
+    v_plan_origen.alumno_id,
+    v_nombre_final,
+    'BORRADOR', -- Estado BORRADOR obligatorio para nuevo período
+    v_plan_origen.comentarios,
+    now(),
+    NULL
+  )
+  RETURNING id INTO v_nuevo_plan_id;
+
+  -- Duplicar días de rutina ordenados
+  FOR r_dia IN
+    SELECT id, nombre, orden
+    FROM public.dias_rutina
+    WHERE plan_id = p_plan_id
+    ORDER BY orden ASC
+  LOOP
+    INSERT INTO public.dias_rutina (
+      plan_id,
+      nombre,
+      orden
+    )
+    VALUES (
+      v_nuevo_plan_id,
+      r_dia.nombre,
+      r_dia.orden
+    )
+    RETURNING id INTO v_nuevo_dia_id;
+
+    -- Duplicar ejercicios preservando superseries, orden y prescripción completa
+    INSERT INTO public.ejercicios_en_rutina (
+      dia_id,
+      ejercicio_id,
+      orden,
+      series,
+      repeticiones,
+      descanso_segundos,
+      rpe_objetivo,
+      notas,
+      es_superserie,
+      grupo_superserie
+    )
+    SELECT
+      v_nuevo_dia_id,
+      e.ejercicio_id,
+      e.orden,
+      e.series,
+      e.repeticiones,
+      e.descanso_segundos,
+      e.rpe_objetivo,
+      e.notas,
+      e.es_superserie,
+      e.grupo_superserie
+    FROM public.ejercicios_en_rutina e
+    WHERE e.dia_id = r_dia.id
+    ORDER BY e.orden ASC;
+  END LOOP;
+
+  RETURN v_nuevo_plan_id;
+END;
+$$;
+
+-- ============================================================================
+-- 9. RPC: extender_vigencia_plan
+-- Prolonga la vigencia del plan en N días sin duplicar entidades.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.extender_vigencia_plan(
+  p_plan_id UUID,
+  p_dias_adicionales INT
+)
+RETURNS public.planes_entrenamiento
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_plan public.planes_entrenamiento%ROWTYPE;
+BEGIN
+  IF p_dias_adicionales IS NULL OR p_dias_adicionales <= 0 THEN
+    RAISE EXCEPTION 'El número de días adicionales debe ser mayor a 0';
+  END IF;
+
+  SELECT * INTO v_plan
+  FROM public.planes_entrenamiento
+  WHERE id = p_plan_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Plan de entrenamiento no encontrado con ID: %', p_plan_id;
+  END IF;
+
+  IF NOT (
+    public.es_admin()
+    OR v_plan.profesor_id = auth.uid()
+    OR (v_plan.alumno_id IS NOT NULL AND public.es_entrenador_de(v_plan.alumno_id))
+    OR (v_plan.alumno_id IS NULL AND public.es_entrenador_o_admin())
+  ) THEN
+    RAISE EXCEPTION 'No autorizado para extender la vigencia de este plan';
+  END IF;
+
+  UPDATE public.planes_entrenamiento
+  SET
+    fecha_fin = GREATEST(COALESCE(fecha_fin, now()), now()) + (p_dias_adicionales || ' days')::INTERVAL,
+    estado = 'ACTIVO',
+    updated_at = now()
+  WHERE id = p_plan_id
+  RETURNING * INTO v_plan;
+
+  RETURN v_plan;
+END;
+$$;
+
+-- ============================================================================
+-- 10. ACTUALIZACIÓN DE RPC: obtener_metricas_retencion (Multi-Coach & Estados)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.obtener_metricas_retencion(p_profesor_id UUID DEFAULT NULL)
+RETURNS TABLE (
+  "cantActivas" BIGINT,
+  "cantSinPlanEntrenamiento" BIGINT,
+  "cantClientesPerdidosMes" BIGINT
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia IN ('ACTIVA', 'ACTIVE')
+    ) AS "cantActivas",
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia IN ('ACTIVA', 'ACTIVE')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.planes_entrenamiento pe
+          WHERE pe.alumno_id = p.id
+            AND pe.estado = 'ACTIVO'
+        )
+    ) AS "cantSinPlanEntrenamiento",
+    COUNT(*) FILTER (
+      WHERE p.rol = 'ALUMNO'
+        AND p.estado_membresia IN ('INACTIVA', 'BAJA', 'ARCHIVED')
+        AND p.fecha_baja >= date_trunc('month', now())
+    ) AS "cantClientesPerdidosMes"
+  FROM public.perfiles p
+  WHERE (
+    p_profesor_id IS NULL
+    OR p.profesor_asignado_id = p_profesor_id
+    OR EXISTS (
+      SELECT 1 FROM public.entrenador_alumnos ea
+      WHERE ea.alumno_id = p.id AND ea.entrenador_id = p_profesor_id
+    )
+  )
+  AND (
+    public.es_admin()
+    OR p_profesor_id = auth.uid()
+    OR public.es_entrenador_o_admin()
+  );
+$$;
+
+COMMIT;
+
+
+-- ============================================================================
+-- GOZSter: Modelo de Datos y RLS para Mensajería Unificada Staff (1:N)
+-- Migración idempotente para PostgreSQL 15+ / Supabase
+-- GitHub Issue: #17 (GOZS-11)
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1. TABLA: conversaciones (Canal 1:N Único por Alumno)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.conversaciones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alumno_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_conversaciones_alumno UNIQUE (alumno_id)
+);
+
+-- Trigger para updated_at (delta sync)
+DROP TRIGGER IF EXISTS trg_conversaciones_updated_at ON public.conversaciones;
+CREATE TRIGGER trg_conversaciones_updated_at
+  BEFORE UPDATE ON public.conversaciones
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Índices de consulta rápida y sincronización
+CREATE INDEX IF NOT EXISTS idx_conversaciones_alumno
+  ON public.conversaciones (alumno_id);
+
+CREATE INDEX IF NOT EXISTS idx_conversaciones_updated_at
+  ON public.conversaciones (updated_at);
+
+-- ============================================================================
+-- 2. TABLA: mensajes (Historial cronológico con autoría de cada mensaje)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.mensajes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversacion_id UUID NOT NULL REFERENCES public.conversaciones(id) ON DELETE CASCADE,
+  remitente_id UUID NOT NULL REFERENCES public.perfiles(id) ON DELETE CASCADE,
+  contenido TEXT NOT NULL CHECK (char_length(trim(contenido)) > 0),
+  leido BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Trigger para updated_at de mensajes (delta sync / read receipt)
+DROP TRIGGER IF EXISTS trg_mensajes_updated_at ON public.mensajes;
+CREATE TRIGGER trg_mensajes_updated_at
+  BEFORE UPDATE ON public.mensajes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Trigger para actualizar updated_at en conversaciones cuando ingresa un nuevo mensaje
+CREATE OR REPLACE FUNCTION public.handle_conversacion_nuevo_mensaje()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE public.conversaciones
+  SET updated_at = NEW.created_at
+  WHERE id = NEW.conversacion_id;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_mensajes_actualizar_conversacion ON public.mensajes;
+CREATE TRIGGER trg_mensajes_actualizar_conversacion
+  AFTER INSERT ON public.mensajes
+  FOR EACH ROW EXECUTE FUNCTION public.handle_conversacion_nuevo_mensaje();
+
+-- Índices optimizados para chat y delta sync
+CREATE INDEX IF NOT EXISTS idx_mensajes_conversacion_created
+  ON public.mensajes (conversacion_id, created_at ASC);
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_remitente
+  ON public.mensajes (remitente_id);
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_no_leidos
+  ON public.mensajes (conversacion_id, leido)
+  WHERE leido = false;
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_updated_at
+  ON public.mensajes (updated_at);
+
+-- ============================================================================
+-- 3. FUNCIONES AUXILIARES RPC DE MENSAJERÍA
+-- ============================================================================
+
+-- RPC 1: Obtener o crear canal de conversación para un alumno
+CREATE OR REPLACE FUNCTION public.obtener_o_crear_conversacion(p_alumno_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_conv_id UUID;
+BEGIN
+  -- Validar autorización: el usuario debe ser el alumno, un profesor asignado o admin
+  IF auth.uid() <> p_alumno_id
+     AND NOT public.es_entrenador_de(p_alumno_id)
+     AND NOT public.es_admin() THEN
+    RAISE EXCEPTION 'No autorizado para acceder a la conversación de este alumno';
+  END IF;
+
+  SELECT id INTO v_conv_id
+  FROM public.conversaciones
+  WHERE alumno_id = p_alumno_id;
+
+  IF v_conv_id IS NULL THEN
+    INSERT INTO public.conversaciones (alumno_id)
+    VALUES (p_alumno_id)
+    ON CONFLICT (alumno_id) DO UPDATE SET updated_at = now()
+    RETURNING id INTO v_conv_id;
+  END IF;
+
+  RETURN v_conv_id;
+END;
+$$;
+
+-- RPC 2: Marcar como leídos los mensajes recibidos en una conversación
+CREATE OR REPLACE FUNCTION public.marcar_mensajes_leidos(p_conversacion_id UUID)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_count INTEGER;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.conversaciones c
+    WHERE c.id = p_conversacion_id
+      AND (
+        c.alumno_id = auth.uid()
+        OR public.es_entrenador_de(c.alumno_id)
+        OR public.es_admin()
+      )
+  ) THEN
+    RAISE EXCEPTION 'No autorizado para actualizar mensajes en esta conversación';
+  END IF;
+
+  UPDATE public.mensajes
+  SET leido = true
+  WHERE conversacion_id = p_conversacion_id
+    AND remitente_id <> auth.uid()
+    AND leido = false;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+-- ============================================================================
+-- 4. ROW LEVEL SECURITY (RLS) - POLÍTICAS ESTRICTAS
+-- ============================================================================
+
+-- 4.1 RLS en tabla: conversaciones
+ALTER TABLE public.conversaciones ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "conversaciones_select_participantes" ON public.conversaciones;
+CREATE POLICY "conversaciones_select_participantes"
+  ON public.conversaciones
+  FOR SELECT
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "conversaciones_insert_participantes" ON public.conversaciones;
+CREATE POLICY "conversaciones_insert_participantes"
+  ON public.conversaciones
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "conversaciones_update_participantes" ON public.conversaciones;
+CREATE POLICY "conversaciones_update_participantes"
+  ON public.conversaciones
+  FOR UPDATE
+  TO authenticated
+  USING (
+    alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  )
+  WITH CHECK (
+    alumno_id = auth.uid()
+    OR public.es_entrenador_de(alumno_id)
+    OR public.es_admin()
+  );
+
+DROP POLICY IF EXISTS "conversaciones_delete_solo_admin" ON public.conversaciones;
+CREATE POLICY "conversaciones_delete_solo_admin"
+  ON public.conversaciones
+  FOR DELETE
+  TO authenticated
+  USING (public.es_admin());
+
+-- 4.2 RLS en tabla: mensajes
+ALTER TABLE public.mensajes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "mensajes_select_participantes" ON public.mensajes;
+CREATE POLICY "mensajes_select_participantes"
+  ON public.mensajes
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.conversaciones c
+      WHERE c.id = mensajes.conversacion_id
+        AND (
+          c.alumno_id = auth.uid()
+          OR public.es_entrenador_de(c.alumno_id)
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "mensajes_insert_participantes" ON public.mensajes;
+CREATE POLICY "mensajes_insert_participantes"
+  ON public.mensajes
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    remitente_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.conversaciones c
+      WHERE c.id = mensajes.conversacion_id
+        AND (
+          c.alumno_id = auth.uid()
+          OR public.es_entrenador_de(c.alumno_id)
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "mensajes_update_participantes" ON public.mensajes;
+CREATE POLICY "mensajes_update_participantes"
+  ON public.mensajes
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.conversaciones c
+      WHERE c.id = mensajes.conversacion_id
+        AND (
+          c.alumno_id = auth.uid()
+          OR public.es_entrenador_de(c.alumno_id)
+          OR public.es_admin()
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.conversaciones c
+      WHERE c.id = mensajes.conversacion_id
+        AND (
+          c.alumno_id = auth.uid()
+          OR public.es_entrenador_de(c.alumno_id)
+          OR public.es_admin()
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "mensajes_delete_autor_o_admin" ON public.mensajes;
+CREATE POLICY "mensajes_delete_autor_o_admin"
+  ON public.mensajes
+  FOR DELETE
+  TO authenticated
+  USING (
+    remitente_id = auth.uid()
+    OR public.es_admin()
+  );
+
+-- ============================================================================
+-- 5. PUBLICACIÓN SUPABASE REALTIME (PUBLICACIÓN REACTIVA)
+-- ============================================================================
+
+ALTER TABLE public.mensajes REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime'
+  ) THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'mensajes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.mensajes;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'conversaciones'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.conversaciones;
+  END IF;
+END $$;
+
+COMMIT;
+
+
+-- ============================================================================
+-- GOZSter: Carga de Datos Semilla desde Backup GOZS (13 Alumnos Reales)
 -- Script SQL idempotente para PostgreSQL 15+ / Supabase
 -- ============================================================================
 
@@ -10,12 +1717,12 @@ INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES (
   '20685bca-6304-4e55-abba-37a1cf8f6113', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'coach.mynter@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Profesor Titular Mynter"}', now(), now()
+  'coach.gozs@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Profesor Titular GOZS"}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id)
-VALUES ('20685bca-6304-4e55-abba-37a1cf8f6113', 'coach.mynter@gozster.local', 'Profesor Titular Mynter', 'ENTRENADOR', 'ACTIVA', NULL)
+VALUES ('20685bca-6304-4e55-abba-37a1cf8f6113', 'coach.gozs@gozster.local', 'Profesor Titular GOZS', 'ENTRENADOR', 'ACTIVA', NULL)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ENTRENADOR', estado_membresia = 'ACTIVA', updated_at = now();
 
