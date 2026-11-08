@@ -124,15 +124,10 @@ export function RankingFuncional({
 
   // Alumnos y ejercicios combinados (props o fallback demo/real)
   const todosAlumnos: Perfil[] = React.useMemo(() => {
-    const defaultList = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
     if (alumnosDisponibles && alumnosDisponibles.length > 0) {
-      const mapa = new Map(defaultList.map((a) => [a.id, a]));
-      for (const a of alumnosDisponibles) {
-        mapa.set(a.id, a);
-      }
-      return Array.from(mapa.values());
+      return alumnosDisponibles;
     }
-    return defaultList;
+    return [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
   }, [alumnosDisponibles]);
 
   const listaEjercicios: Ejercicio[] = React.useMemo(() => {

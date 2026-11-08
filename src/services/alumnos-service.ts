@@ -36,6 +36,13 @@ export async function fetchLiveDatasetFromSupabase(
   client: SupabaseClient<Database> = supabase,
 ): Promise<LiveSupabaseDataset> {
   try {
+    const perfilesQuery = client.from("perfiles").select("*");
+    const alumnosPromise = typeof (perfilesQuery as any).or === "function"
+      ? (perfilesQuery as any)
+          .or("rol.eq.ALUMNO,profesor_asignado_id.not.is.null,email.in.(94.gabriel.sanchez@gmail.com,gonzasalas2016@gmail.com)")
+          .order("nombre_completo", { ascending: true })
+      : perfilesQuery.eq("rol", "ALUMNO").order("nombre_completo", { ascending: true });
+
     const [
       alumnosRes,
       planesRes,
@@ -43,17 +50,15 @@ export async function fetchLiveDatasetFromSupabase(
       ejRutinaRes,
       ejerciciosRes,
     ] = await Promise.all([
-      client.from("perfiles").select("*").eq("rol", "ALUMNO").order("nombre_completo", { ascending: true }),
+      alumnosPromise,
       client.from("planes_entrenamiento").select("*").order("created_at", { ascending: false }),
       client.from("dias_rutina").select("*").order("orden", { ascending: true }),
       client.from("ejercicios_en_rutina").select("*").order("orden", { ascending: true }),
       client.from("ejercicios").select("*").order("nombre", { ascending: true }),
     ]);
 
-    if (alumnosRes.error || !alumnosRes.data || alumnosRes.data.length === 0) {
-      if (alumnosRes.error) {
-        console.warn("Aviso cargando alumnos de Supabase (usando dataset GOZS de respaldo):", alumnosRes.error.message);
-      }
+    if (alumnosRes.error) {
+      console.warn("Aviso cargando alumnos de Supabase (usando dataset GOZS de respaldo):", alumnosRes.error.message);
       return {
         alumnos: REAL_ALUMNOS,
         planes: REAL_PLANES,

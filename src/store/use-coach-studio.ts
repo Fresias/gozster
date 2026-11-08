@@ -1042,10 +1042,10 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         );
       }
 
-      // cantActivas: rol = 'ALUMNO' y estado_membresia IN ('ACTIVA', 'ACTIVE')
+      // cantActivas: rol = 'ALUMNO' o alumno dual y estado_membresia IN ('ACTIVA', 'ACTIVE')
       const activas = alumnosFiltrados.filter(
         (a) =>
-          a.rol === "ALUMNO" &&
+          (a.rol === "ALUMNO" || a.profesor_asignado_id !== null || a.email === "94.gabriel.sanchez@gmail.com" || a.email === "gonzasalas2016@gmail.com") &&
           (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE"),
       );
 
@@ -1057,12 +1057,13 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         return !planActivo;
       });
 
-      // cantClientesPerdidosMes: rol = 'ALUMNO', estado IN ('INACTIVA', 'BAJA', 'ARCHIVED')
+      // cantClientesPerdidosMes: rol = 'ALUMNO' o alumno dual, estado IN ('INACTIVA', 'BAJA', 'ARCHIVED')
       // y fecha_baja >= inicio de mes actual (PostgreSQL date_trunc('month', now()))
       const now = new Date();
       const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
       const perdidosMes = alumnosFiltrados.filter((a) => {
-        if (a.rol !== "ALUMNO") return false;
+        const esAlumno = a.rol === "ALUMNO" || a.profesor_asignado_id !== null || a.email === "94.gabriel.sanchez@gmail.com" || a.email === "gonzasalas2016@gmail.com";
+        if (!esAlumno) return false;
         const isBaja =
           a.estado_membresia === "INACTIVA" ||
           a.estado_membresia === "BAJA" ||
