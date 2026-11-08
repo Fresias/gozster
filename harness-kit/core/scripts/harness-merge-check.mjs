@@ -2,7 +2,7 @@
 // Merge gate: PR seal == PR head, issue lesson in the PR, PPC + label for harness changes.
 //
 // Usage:
-//   node harness-kit/core/scripts/harness-merge-check.mjs <pr-number|url|branch> [--json]
+//   node harness-kit/core/scripts/harness-merge-check.mjs <pr-number|url|branch> [--json] [--post-status]
 //   node harness-kit/core/scripts/harness-merge-check.mjs --pr-json <file> [--lesson-file <file>] [--json]
 //
 // The guard runs this before `gh pr merge`. Exit 0 = mergeable, exit 1 = blocked.
@@ -133,6 +133,16 @@ function main(argv) {
   }
 
   const result = evaluateMerge({ pr, project, lessonText });
+  // Commit status on the PR head: visible evidence, and a required check once branch protection exists.
+  if (argv.includes("--post-status") && pr.headRefOid) {
+    const state = result.mergeable ? "success" : "failure";
+    const description = (result.mergeable ? "seal, lesson and PPC verified" : result.errors[0] || "blocked").slice(0, 140);
+    try {
+      gh(["api", "-X", "POST", `repos/{owner}/{repo}/statuses/${pr.headRefOid}`, "-f", `state=${state}`, "-f", "context=harness/merge-check", "-f", `description=${description}`]);
+    } catch (err) {
+      process.stderr.write(`[harness-merge-check] could not post status: ${String(err.message || err).split("\n")[0]}\n`);
+    }
+  }
   if (json) process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   else if (result.mergeable) process.stdout.write(`[harness-merge-check OK] ${result.issue}: seal, lesson${result.harness_files.length ? ", PPC and authorization" : ""} verified.\n`);
   else process.stderr.write(`[harness-merge-check BLOCKED]\n- ${result.errors.join("\n- ")}\n`);

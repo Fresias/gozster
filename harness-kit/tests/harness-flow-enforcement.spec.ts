@@ -234,7 +234,25 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     });
   }
 
+  it("GIVEN la ruta absoluta del repo WHEN se escribe en harness/ desde shell THEN harness.authorized-only", () => {
+    const abs = path.join(unauthorized, "harness", "guardrails.local.md").replace(/\\/g, "/");
+    expect(evaluateRules({ kind: "shell", command: `echo x >> "${abs}"` }, { repoRoot: unauthorized }).ruleId).toBe("harness.authorized-only");
+  });
+
+  it("GIVEN cp con destino en harness/ THEN harness.authorized-only", () => {
+    expect(evaluateRules({ kind: "shell", command: "cp /tmp/x.md harness/guardrails.local.md" }, { repoRoot: unauthorized }).ruleId).toBe("harness.authorized-only");
+  });
+
+  it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
+    const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
+    expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
+  });
+
   const open: Array<Record<string, string>> = [
+    // QA GOZS-429: copiar DESDE harness/ es una lectura; rutas harness/ fuera del repo no son el harness.
+    { kind: "shell", command: "cp harness/guardrails.local.md /tmp/copy.md" },
+    { kind: "shell", command: "mkdir -p /tmp/qa/harness && printf x > /tmp/qa/harness/guardrails.local.md" },
+    { kind: "shell", command: "node harness-kit/core/scripts/harness-render.mjs --check /tmp/qa/harness" },
     { kind: "write", targetPath: "harness/experience/PROJ-9.jsonl" },
     { kind: "shell", command: "bash harness-kit/core/scripts/harness-learn.sh --lesson x" },
     { kind: "shell", command: "node harness-kit/core/scripts/harness-render.mjs --check" },
