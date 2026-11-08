@@ -1,4 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   useChatStore,
   STAFF_COACH_PRINCIPAL,
@@ -13,6 +15,8 @@ import {
   MOCK_COACH_FELIX_ID,
   MOCK_COACH_PRINCIPAL_ID,
 } from "@/services/coach-mock-data";
+import { ChatFab } from "@/components/coach/chat-fab";
+import { assertNoDemoLiteralsInLiveMode } from "@/test-utils/no-demo-literals";
 
 describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coach Studio y Athlete App", () => {
   beforeEach(() => {
@@ -357,6 +361,110 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
       expect(listenerCalls).toBe(0); // Cero llamadas a suscriptores, cero setState en render
 
       unsubscribe();
+    });
+  });
+
+  describe("7. Criterios de Aceptación GOZS-416: Master-Detail Inbox general vs. Chat directo simplificado sin alertas de dolor", () => {
+    it("GIVEN el botón global de Chat en el shell del Coach WHEN el entrenador lo abre (alumno = null) THEN se muestra por defecto el Inbox de Chats con buscador, filtros y lista de conversaciones", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(ChatFab, { alumno: null, isOpen: true, onToggle: vi.fn() })
+      );
+
+      // Renderiza el drawer
+      expect(html).toContain('data-testid="coach-chat-drawer"');
+
+      // Título del Inbox y descripción
+      expect(html).toContain('data-testid="chat-inbox-title"');
+      expect(html).toContain("Inbox de Chats");
+      expect(html).toContain("Bandeja unificada de conversaciones activas");
+
+      // Buscador
+      expect(html).toContain('data-testid="chat-inbox-search"');
+      expect(html).toContain('placeholder="Buscar conversación..."');
+
+      // Barra de filtros con TODOS / NUEVOS / PENDIENTES
+      expect(html).toContain('data-testid="coach-chat-filter-bar"');
+      expect(html).toContain('data-testid="chat-filter-todos"');
+      expect(html).toContain('data-testid="chat-filter-nuevos"');
+      expect(html).toContain('data-testid="chat-filter-pendientes"');
+
+      // Lista de conversaciones activas
+      expect(html).toContain('data-testid="chat-inbox-list"');
+      expect(html).toContain("Lucas Giménez");
+      expect(html).toContain("Sofía Rossi");
+
+      // Badge de no leídos para Sofía Rossi
+      const sofiaId = "a2222222-2222-4222-8222-222222222202";
+      expect(html).toContain(`data-testid="unread-badge-${sofiaId}"`);
+
+      // Cero literales de demo
+      assertNoDemoLiteralsInLiveMode(html);
+    });
+
+    it("GIVEN que el entrenador abre el chat desde la ficha o directorio de un alumno específico (openChatForAlumno) THEN se abre directamente la conversación con dicho alumno en modo simplificado", () => {
+      const alumno = MOCK_ALUMNOS[0]!;
+      const html = renderToStaticMarkup(
+        React.createElement(ChatFab, { alumno, isOpen: true, onToggle: vi.fn() })
+      );
+
+      // Renderiza el drawer
+      expect(html).toContain('data-testid="coach-chat-drawer"');
+
+      // Título de la conversación con el alumno
+      expect(html).toContain(`Chat con ${alumno.nombre_completo}`);
+      expect(html).toContain("Staff Compartido");
+      expect(html).toContain("Hilo de equipo sincronizado en tiempo real");
+
+      // Botón para volver al Inbox de chats
+      expect(html).toContain('data-testid="chat-back-to-conversations"');
+      expect(html).toContain("← Volver a chats");
+
+      // Modo simplificado: SIN barra de filtros ni selector de coach
+      expect(html).not.toContain('data-testid="coach-chat-filter-bar"');
+      expect(html).not.toContain('data-testid="chat-filter-todos"');
+      expect(html).not.toContain("Responder como:");
+
+      // Enfocado en la mensajería
+      expect(html).toContain('data-testid="coach-chat-messages-container"');
+      expect(html).toContain('data-testid="coach-chat-input"');
+      expect(html).toContain('data-testid="coach-chat-send-btn"');
+
+      // Cero literales de demo
+      assertNoDemoLiteralsInLiveMode(html);
+    });
+
+    it("AND se elimina por completo el banner de molestia (activePainAlert / DEMO_CRITICAL_ALERTS) y el filtro 'MOLESTIAS' dentro del drawer de chat", () => {
+      const alumno = MOCK_ALUMNOS[0]!;
+      const htmlDirecto = renderToStaticMarkup(
+        React.createElement(ChatFab, { alumno, isOpen: true, onToggle: vi.fn() })
+      );
+      const htmlInbox = renderToStaticMarkup(
+        React.createElement(ChatFab, { alumno: null, isOpen: true, onToggle: vi.fn() })
+      );
+
+      // Ni en modo directo ni en inbox existe el banner de dolor ni el filtro de molestias
+      expect(htmlDirecto).not.toContain('data-testid="chat-pain-alert-banner"');
+      expect(htmlDirecto).not.toContain("Molestia:");
+      expect(htmlDirecto).not.toContain("DEMO_CRITICAL_ALERTS");
+      expect(htmlDirecto).not.toContain("activePainAlert");
+      expect(htmlDirecto).not.toContain("MOLESTIAS");
+
+      expect(htmlInbox).not.toContain('data-testid="chat-pain-alert-banner"');
+      expect(htmlInbox).not.toContain('data-testid="chat-filter-molestias"');
+      expect(htmlInbox).not.toContain("MOLESTIAS");
+      expect(htmlInbox).not.toContain("DEMO_CRITICAL_ALERTS");
+      expect(htmlInbox).not.toContain("activePainAlert");
+    });
+
+    it("GIVEN openChatForAlumno WHEN se dispara THEN actualiza stores y permite abrir directamente la conversación", () => {
+      const coachStudio = useCoachStudioStore.getState();
+      const targetAlumnoId = "a2222222-2222-4222-8222-222222222202";
+
+      coachStudio.openChatForAlumno(targetAlumnoId);
+
+      expect(useCoachStudioStore.getState().isChatOpen).toBe(true);
+      expect(useCoachStudioStore.getState().chatAlumnoId).toBe(targetAlumnoId);
+      expect(useChatStore.getState().selectedAlumnoId).toBe(targetAlumnoId);
     });
   });
 });

@@ -780,7 +780,13 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
             {/* Botón de ícono Mensajes (P09) */}
             <button
               type="button"
-              onClick={() => setChatOpen(!isChatOpen)}
+              onClick={() => {
+                if (!isChatOpen) {
+                  store.setChatAlumnoId(null);
+                  useChatStore.getState().setSelectedAlumnoId(null);
+                }
+                setChatOpen(!isChatOpen);
+              }}
               data-testid="topbar-mensajes-btn"
               aria-label={
                 unreadMessagesCount > 0
@@ -869,7 +875,13 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         <ChatFab
           alumno={activeChatAlumno}
           isOpen={isChatOpen}
-          onToggle={() => setChatOpen(!isChatOpen)}
+          onToggle={() => {
+            if (isChatOpen) {
+              store.setChatAlumnoId(null);
+              useChatStore.getState().setSelectedAlumnoId(null);
+            }
+            setChatOpen(!isChatOpen);
+          }}
         />
       )}
 

@@ -189,8 +189,8 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
     });
   });
 
-  describe("4. Notificaciones, Filtros y Reportes de Molestias", () => {
-    it("ChatFab provee filtros por pestaña ('TODOS', 'NUEVOS', 'PENDIENTES', 'MOLESTIAS')", () => {
+  describe("4. Notificaciones, Filtros y Desacople de Molestias (GOZS-416)", () => {
+    it("ChatFab provee filtros por pestaña ('TODOS', 'NUEVOS', 'PENDIENTES') en Inbox sin pestaña de MOLESTIAS", () => {
       const chatFabPath = path.resolve(
         process.cwd(),
         "src/components/coach/chat-fab.tsx",
@@ -202,18 +202,19 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
       expect(chatFabSource).toContain('"TODOS"');
       expect(chatFabSource).toContain('"NUEVOS"');
       expect(chatFabSource).toContain('"PENDIENTES"');
-      expect(chatFabSource).toContain('"MOLESTIAS"');
+      expect(chatFabSource).not.toContain('"MOLESTIAS"');
     });
 
-    it("muestra una alerta de molestia activa cuando el alumno tiene dolor articular reportado", () => {
+    it("se elimina por completo la alerta de molestia física (activePainAlert) dentro del drawer de chat", () => {
       const chatFabPath = path.resolve(
         process.cwd(),
         "src/components/coach/chat-fab.tsx",
       );
       const chatFabSource = fs.readFileSync(chatFabPath, "utf-8");
 
-      expect(chatFabSource).toContain('data-testid="chat-pain-alert-banner"');
-      expect(chatFabSource).toContain("activePainAlert");
+      expect(chatFabSource).not.toContain('data-testid="chat-pain-alert-banner"');
+      expect(chatFabSource).not.toContain("activePainAlert");
+      expect(chatFabSource).not.toContain("DEMO_CRITICAL_ALERTS");
     });
 
     it("permite actualizar el estado de la conversación (ABIERTA, PENDIENTE, ATENDIDA)", async () => {

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
+import { useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
@@ -56,10 +57,12 @@ export function CoachDashboardView({
     isHistoricalLoadsOpen,
     isChatOpen,
     selectedAlumnoId,
+    chatAlumnoId,
     dismissToast,
     selectAlumno,
     setHistoricalLoadsOpen,
     setChatOpen,
+    setChatAlumnoId,
     obtenerMetricasRetencion,
     getAlertasSobrecargaProgresiva,
     asignarPlanUrgente,
@@ -129,6 +132,12 @@ export function CoachDashboardView({
 
   const selectedAlumno = getSelectedAlumno();
   const historialCargas = selectedAlumno ? getHistorialCargasAlumno(selectedAlumno.id) : [];
+  const chatAlumno = React.useMemo(() => {
+    if (chatAlumnoId) {
+      return alumnos.find((a) => a.id === chatAlumnoId) ?? null;
+    }
+    return null;
+  }, [chatAlumnoId, alumnos]);
 
   const handleOpenHistoricalLoadsFor = (alumnoId: string) => {
     selectAlumno(alumnoId);
@@ -314,9 +323,15 @@ export function CoachDashboardView({
 
       {/* Floating Action Button (FAB) de Chat */}
       <ChatFab
-        alumno={selectedAlumno}
+        alumno={chatAlumno}
         isOpen={isChatOpen}
-        onToggle={() => setChatOpen(!isChatOpen)}
+        onToggle={() => {
+          if (isChatOpen) {
+            setChatAlumnoId(null);
+            useChatStore.getState().setSelectedAlumnoId(null);
+          }
+          setChatOpen(!isChatOpen);
+        }}
       />
     </div>
   );

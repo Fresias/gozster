@@ -27,6 +27,7 @@ import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
+import { useChatStore } from "@/store/use-chat-store";
 import { ClasesHoyAtajosChat } from "@/components/coach/clases-hoy-atajos-chat";
 import { ParaRevisarHoy } from "@/components/coach/para-revisar-hoy";
 import { useClasesDeHoy } from "@/components/coach/clases-hoy-atajos-chat";
@@ -198,6 +199,7 @@ export function CoachStudioView({
     setActiveTab,
     setHistoricalLoadsOpen,
     setChatOpen,
+    setChatAlumnoId,
     setRoutineBuilderOpen,
     setCurrentPage,
     dismissToast,
@@ -675,8 +677,8 @@ export function CoachStudioView({
     if (chatAlumnoId) {
       return alumnos.find((a) => a.id === chatAlumnoId) ?? null;
     }
-    return selectedAlumno;
-  }, [chatAlumnoId, alumnos, selectedAlumno]);
+    return null;
+  }, [chatAlumnoId, alumnos]);
   const activePlan = React.useMemo(() => {
     if (!selectedAlumno) return null;
     return (
@@ -1817,9 +1819,15 @@ export function CoachStudioView({
 
       {/* Floating Action Button (FAB) of Chat */}
       <ChatFab
-        alumno={chatAlumno || selectedAlumno}
+        alumno={chatAlumno}
         isOpen={isChatOpen}
-        onToggle={() => setChatOpen(!isChatOpen)}
+        onToggle={() => {
+          if (isChatOpen) {
+            setChatAlumnoId(null);
+            useChatStore.getState().setSelectedAlumnoId(null);
+          }
+          setChatOpen(!isChatOpen);
+        }}
       />
     </div>
   );
