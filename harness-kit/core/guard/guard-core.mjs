@@ -313,13 +313,13 @@ function prBodyText(cmd, repoRoot) {
   return cmd;
 }
 
-/** True when a gh command targets another repository (`--repo/-R owner/name` != origin of repoRoot). */
+/** True when every `--repo/-R owner/name` of a gh command differs from the origin of repoRoot. */
 function targetsOtherRepo(cmd, repoRoot) {
-  const m = cmd.match(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/);
-  if (!m) return false;
+  const repos = [...cmd.matchAll(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/g)].map((m) => m[1].toLowerCase());
+  if (!repos.length) return false;
   const res = spawnSync("git", ["remote", "get-url", "origin"], { cwd: repoRoot, encoding: "utf8" });
   const origin = res.status === 0 ? res.stdout.trim().match(/[/:]([\w.-]+\/[\w.-]+?)(\.git)?$/) : null;
-  return Boolean(origin) && origin[1].toLowerCase() !== m[1].toLowerCase();
+  return Boolean(origin) && repos.every((r) => r !== origin[1].toLowerCase());
 }
 
 /** Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons. */
