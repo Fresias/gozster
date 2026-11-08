@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { validarRutina, repsValidas, claveDia, claveEjercicio, claveRutina } from "@/lib/validar-rutina";
 
-const ej = (o: Partial<{ series: number | null; repeticiones: string; descanso_segundos: number | null; rpe_objetivo: number | null }> = {}) => ({
+const ej = (o: Partial<{ series: number | null; repeticiones: string; descanso_segundos: number | null; rpe_objetivo: number | string | null }> = {}) => ({
   id: "e1",
   series: 3,
   repeticiones: "10",
   descanso_segundos: 90,
-  rpe_objetivo: 8 as number | null,
+  rpe_objetivo: 8 as number | string | null,
   ...o,
 });
 const rutina = (e = ej(), nombre = "Rutina", diaNombre = "Día 1") =>
@@ -45,6 +45,36 @@ describe("validarRutina (GOZS-322)", () => {
   });
   it.each([null, 1, 7.5, 10])("RPE %s es válido (opcional)", (v) => {
     expect(rutina(ej({ rpe_objetivo: v })).errores).toEqual({});
+  });
+
+  describe("RPE piramidal escalonado con guiones (GOZS-418)", () => {
+    it("acepta RPE con guiones '6-7-8-9' sincronizado con 4 series (ej. '12-10-8-6')", () => {
+      const r = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "6-7-8-9" }));
+      expect(r.errores).toEqual({});
+    });
+
+    it("acepta RPE con decimales escalonados '6-7-8.5-9' para 4 series", () => {
+      const r = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "6-7-8.5-9" }));
+      expect(r.errores).toEqual({});
+    });
+
+    it("rechaza explícitamente secuencias con espacios '6 7 8 9'", () => {
+      const r = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "6 7 8 9" }));
+      expect(r.errores[claveEjercicio("e1", "rpe")]).toBe("RPE no debe contener espacios (ej. 6-7-8-9)");
+    });
+
+    it("rechaza cuando la cantidad de escalones de RPE no coincide con las series", () => {
+      const r = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "6-7-8" }));
+      expect(r.errores[claveEjercicio("e1", "rpe")]).toContain("la cantidad de escalones (3) debe coincidir con las series (4)");
+    });
+
+    it("rechaza cuando un valor se sale de la escala 1 a 10", () => {
+      const rMax = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "6-7-8-11" }));
+      expect(rMax.errores[claveEjercicio("e1", "rpe")]).toBe("RPE: cada valor debe estar entre 1 y 10");
+
+      const rMin = rutina(ej({ series: 4, repeticiones: "12-10-8-6", rpe_objetivo: "0-7-8-9" }));
+      expect(rMin.errores[claveEjercicio("e1", "rpe")]).toBe("RPE: cada valor debe estar entre 1 y 10");
+    });
   });
 
   it("nombre de rutina y de día obligatorios, sin solo espacios", () => {

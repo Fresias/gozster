@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
-import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
+import { parseDefaultReps, parseTargetRpe, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
@@ -56,7 +56,7 @@ export interface LiveWorkoutExercise {
   nombre: string;
   musculos_principales: string[];
   descanso_segundos: number;
-  rpe_objetivo: number;
+  rpe_objetivo: number | string;
   repeticiones_objetivo: string;
   series: LiveWorkoutSet[];
   url_video?: string | null;
@@ -1739,7 +1739,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
               numero_serie: sIdx + 1,
               peso_kg: defaultPeso,
               reps_hechas: reps,
-              rpe_real: er.rpe_objetivo || 7.5,
+              rpe_real: parseTargetRpe(er.rpe_objetivo, sIdx + 1) || (typeof er.rpe_objetivo === "number" ? er.rpe_objetivo : 7.5),
               completada: false,
               estimated1RM: calculateEpley1RM(defaultPeso, reps),
             };

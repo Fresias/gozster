@@ -48,7 +48,7 @@ import { esNuevoRecord, type ResultadoRecord } from "@/lib/record-ejercicio";
 import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
-import { parseRepRange } from "@/lib/routine-helpers";
+import { parseRepRange, parseTargetRpe } from "@/lib/routine-helpers";
 // GOZS-275 / GOZS-351: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
 // GOZS-351: en Vista Técnica se elimina en runtime el bloque de ayuda y el popover de taxonomía W/N/F/D
@@ -364,12 +364,23 @@ export function LiveWorkout() {
   const firstIncompleteExercise = currentSession.ejercicios.find((ej) =>
     ej.series.some((s) => !s.completada),
   );
-  const currentExercise =
+  const rawExercise =
     (selectedExerciseId
       ? currentSession.ejercicios.find((ej) => ej.id === selectedExerciseId)
       : null) ||
     firstIncompleteExercise ||
     currentSession.ejercicios[0];
+
+  const currentSet =
+    rawExercise?.series.find((s) => !s.completada) ||
+    (rawExercise?.series.length ? rawExercise.series[rawExercise.series.length - 1] : null);
+
+  const currentExercise = rawExercise
+    ? {
+        ...rawExercise,
+        rpe_objetivo: (currentSet && parseTargetRpe(rawExercise.rpe_objetivo, currentSet.numero_serie)) ?? rawExercise.rpe_objetivo,
+      }
+    : rawExercise;
 
   const currentExerciseIndex = currentSession.ejercicios.findIndex(
     (ej) => ej.id === currentExercise?.id,
@@ -382,11 +393,6 @@ export function LiveWorkout() {
       ej.force_rpe_required &&
       ej.series.some((s) => !s.rpe_real || s.rpe_real < 6 || s.rpe_real > 10),
   );
-
-  // Determinar la serie actual dentro del ejercicio (la primera no completada, o la última)
-  const currentSet =
-    currentExercise?.series.find((s) => !s.completada) ||
-    (currentExercise?.series.length ? currentExercise.series[currentExercise.series.length - 1] : null);
 
   // Variable alias `ejercicio` y `serie` requeridas por tests de string matching
   const ejercicio = currentExercise!;
