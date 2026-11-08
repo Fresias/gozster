@@ -886,7 +886,7 @@ export async function seedFromMynterBackup(options: SeedOptions = {}): Promise<S
 export async function main() {
   const args = process.argv.slice(2);
   let customFile: string | undefined;
-  let sqlOutput: string = 'supabase/seed_mynter.sql';
+  let sqlOutput: string = 'supabase/seed_gozs.sql';
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {
