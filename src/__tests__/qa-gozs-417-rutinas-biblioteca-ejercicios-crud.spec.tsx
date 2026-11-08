@@ -299,9 +299,8 @@ describe("GOZS-417: Rutinas - Pestaña 'Biblioteca de Ejercicios' con CRUD compl
       fireEvent.change(getByTestId("input-ejercicio-nombre"), {
         target: { value: "Hip Thrust con Barra" },
       });
-      fireEvent.change(getByTestId("input-ejercicio-musculos"), {
-        target: { value: "Glúteos, Isquiotibiales" },
-      });
+      fireEvent.click(getByTestId("chip-musculo-piernas"));
+      fireEvent.click(getByTestId("chip-musculo-core"));
       fireEvent.change(getByTestId("input-ejercicio-video"), {
         target: { value: "https://www.youtube.com/watch?v=mock-hip-thrust" },
       });
@@ -317,7 +316,7 @@ describe("GOZS-417: Rutinas - Pestaña 'Biblioteca de Ejercicios' con CRUD compl
       expect(onCreated).toHaveBeenCalledTimes(1);
       const createdEj = onCreated.mock.calls[0]![0] as Ejercicio;
       expect(createdEj.nombre).toBe("Hip Thrust con Barra");
-      expect(createdEj.musculos_principales).toEqual(["Glúteos", "Isquiotibiales"]);
+      expect(createdEj.musculos_principales).toEqual(["Piernas", "Core"]);
       expect(createdEj.comentario).toBe("Pausa de 1 segundo arriba en contracción máxima");
     });
   });
@@ -350,6 +349,31 @@ describe("GOZS-417: Rutinas - Pestaña 'Biblioteca de Ejercicios' con CRUD compl
       const updated = onUpdated.mock.calls[0]![0] as Ejercicio;
       expect(updated.id).toBe("ej-press-banca");
       expect(updated.nombre).toBe("Press de Banca Plano con Mancuernas");
+    });
+
+    it("GOZS-426: chips de músculos principales preseleccionados al editar, multiselección y sin input de texto", async () => {
+      const onUpdated = vi.fn();
+      const { getByTestId } = render(
+        <EjerciciosLibraryTab
+          ejercicios={mockEjercicios}
+          ejerciciosEnRutina={mockEjerciciosEnRutina}
+          onEjercicioUpdated={onUpdated}
+        />
+      );
+      fireEvent.click(getByTestId("btn-editar-ejercicio-ej-sentadilla"));
+      expect(getByTestId("chip-musculo-piernas").getAttribute("aria-pressed")).toBe("true");
+      expect(getByTestId("chip-musculo-pecho").getAttribute("aria-pressed")).toBe("false");
+      expect(getByTestId("input-ejercicio-musculos").querySelector("input")).toBeNull();
+
+      fireEvent.click(getByTestId("chip-musculo-piernas"));
+      fireEvent.click(getByTestId("chip-musculo-pecho"));
+      fireEvent.click(getByTestId("chip-musculo-brazos"));
+      fireEvent.click(getByTestId("btn-guardar-ejercicio"));
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const updated = onUpdated.mock.calls[0]![0] as Ejercicio;
+      expect(updated.musculos_principales).toEqual(["Cuádriceps", "Glúteos", "Pecho", "Brazos"]);
     });
   });
 

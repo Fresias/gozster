@@ -65,7 +65,7 @@ export function EjerciciosLibraryTab({
 
   // Campos del formulario
   const [nombre, setNombre] = React.useState("");
-  const [musculos, setMusculos] = React.useState("");
+  const [musculos, setMusculos] = React.useState<string[]>([]);
   const [musculosSecundarios, setMusculosSecundarios] = React.useState("");
   const [urlVideo, setUrlVideo] = React.useState("");
   const [comentario, setComentario] = React.useState("");
@@ -103,7 +103,7 @@ export function EjerciciosLibraryTab({
   const handleOpenCreate = () => {
     setEditingEjercicio(null);
     setNombre("");
-    setMusculos("");
+    setMusculos([]);
     setMusculosSecundarios("");
     setUrlVideo("");
     setComentario("");
@@ -114,7 +114,7 @@ export function EjerciciosLibraryTab({
   const handleOpenEdit = (ej: Ejercicio) => {
     setEditingEjercicio(ej);
     setNombre(ej.nombre);
-    setMusculos((ej.musculos_principales || []).join(", "));
+    setMusculos(ej.musculos_principales || []);
     setMusculosSecundarios((ej.musculos_secundarios || []).join(", "));
     setUrlVideo(ej.url_video || "");
     setComentario(ej.comentario || "");
@@ -140,7 +140,7 @@ export function EjerciciosLibraryTab({
     setIsSubmitting(true);
     setFormError(null);
 
-    const musculosPrincipalesArray = parseMusculosInput(musculos);
+    const musculosPrincipalesArray = musculos;
     const musculosSecundariosArray = parseMusculosInput(musculosSecundarios);
     const videoTrim = urlVideo.trim() || null;
     const comentarioTrim = comentario.trim() || null;
@@ -503,21 +503,42 @@ export function EjerciciosLibraryTab({
               </div>
 
               <div>
-                <label
-                  htmlFor="ejercicio-musculos"
+                <span
+                  id="ejercicio-musculos-label"
                   className="block text-xs font-semibold text-foreground mb-1"
                 >
-                  Músculos principales (separados por coma)
-                </label>
-                <input
-                  id="ejercicio-musculos"
-                  type="text"
-                  value={musculos}
-                  onChange={(e) => setMusculos(e.target.value)}
-                  placeholder="Ej. Pecho, Tríceps, Deltoides Anterior"
+                  Músculos principales
+                </span>
+                <div
+                  role="group"
+                  aria-labelledby="ejercicio-musculos-label"
                   data-testid="input-ejercicio-musculos"
-                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+                  className="flex flex-wrap gap-2"
+                >
+                  {GRUPOS_MUSCULARES_CATALOGO.filter((g) => g !== "Todos").map((grupo) => {
+                    const activo = musculos.includes(grupo);
+                    return (
+                      <button
+                        key={grupo}
+                        type="button"
+                        aria-pressed={activo}
+                        data-testid={`chip-musculo-${tagToSlug(grupo)}`}
+                        onClick={() =>
+                          setMusculos((prev) =>
+                            prev.includes(grupo) ? prev.filter((m) => m !== grupo) : [...prev, grupo],
+                          )
+                        }
+                        className={`h-10 px-4 rounded-full border text-sm font-medium transition-colors ${
+                          activo
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border hover:bg-secondary"
+                        }`}
+                      >
+                        {grupo}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
