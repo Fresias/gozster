@@ -120,6 +120,7 @@ interface CobrosState {
   setBusqueda: (busqueda: string) => void;
   setComprobanteActivo: (comprobante: ComprobanteInterno | null) => void;
   limpiarMensajes: () => void;
+  syncWithLiveAlumnos: (alumnos: { id: string }[]) => void;
 
   cargarCobros: () => Promise<void>;
   registrarPago: (params: {
@@ -477,6 +478,12 @@ export const useCobrosStore = create<CobrosState>()(
       setBusqueda: (busqueda) => set({ busqueda }),
       setComprobanteActivo: (comprobanteActivo) => set({ comprobanteActivo }),
       limpiarMensajes: () => set({ error: null, aviso: null }),
+      syncWithLiveAlumnos: (alumnos) => {
+        const ids = new Set(alumnos.map((a) => a.id));
+        set((state) => ({
+          cobros: state.cobros.filter((c) => ids.has(c.alumnoId)),
+        }));
+      },
 
       resetDemoDataset: () => {
         const demo = generarDemoCobrosIniciales();

@@ -235,8 +235,10 @@ export function CoachStudioView({
           dias: initialDataset.dias || [],
           ejerciciosEnRutina: initialDataset.ejerciciosEnRutina || [],
           ejercicios: initialDataset.ejercicios || [],
+          contrataciones: [],
           isLiveDatabase: true,
         });
+        useCobrosStore.getState().syncWithLiveAlumnos(initialDataset.alumnos || []);
       }, 0);
       return () => clearTimeout(timer);
     } else {
@@ -428,6 +430,9 @@ export function CoachStudioView({
 
   const isLiveInicioKpis = store.isLiveDatabase || hasInitialData;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
+    if (isLiveInicioKpis) {
+      return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ADMIN");
+    }
     const rango = rangoPeriodo("mes");
     const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
     if (!puedeVerMontos(userRole ?? "ADMIN")) {
@@ -455,10 +460,13 @@ export function CoachStudioView({
   React.useEffect(() => {
     void cargarCobrosInicio();
   }, [cargarCobrosInicio]);
-  const cuotasVencidasInicio = React.useMemo(
-    () => cobrosInicio.filter((c) => c.estado === "VENCIDO"),
-    [cobrosInicio]
-  );
+  const cuotasVencidasInicio = React.useMemo(() => {
+    if (isLiveInicio) {
+      const alumnosIds = new Set(alumnos.map((a) => a.id));
+      return cobrosInicio.filter((c) => c.estado === "VENCIDO" && alumnosIds.has(c.alumnoId));
+    }
+    return cobrosInicio.filter((c) => c.estado === "VENCIDO");
+  }, [cobrosInicio, isLiveInicio, alumnos]);
   const { clasesHoy: clasesHoyInicio } = useClasesDeHoy({ isLiveMode: isLiveInicio });
   const [totalParaRevisar, setTotalParaRevisar] = React.useState(0);
 
