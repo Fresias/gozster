@@ -329,10 +329,14 @@ function targetsOtherRepo(cmd, repoRoot) {
   return Boolean(origin) && repos.every((r) => r !== origin[1].toLowerCase());
 }
 
-/** Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons. */
+/**
+ * Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons.
+ * Verify only: the required `harness/merge-check` status is posted by CI (GitHub Actions app). A status posted
+ * here by the user would be newer, would not count for branch protection and would hide the CI one.
+ */
 function mergeCheck(selector, repoRoot) {
   const script = path.join(here, "..", "scripts", "harness-merge-check.mjs");
-  const args = [script, "--post-status"];
+  const args = [script];
   if (selector) args.push(selector);
   const res = spawnSync(process.execPath, args, { cwd: repoRoot, encoding: "utf8" });
   return res.status === 0 ? "" : (res.stderr || res.stdout || "merge check failed").trim();

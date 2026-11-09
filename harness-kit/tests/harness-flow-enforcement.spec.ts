@@ -293,6 +293,15 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     expect(evaluateRules({ kind: "shell", command: "gh api repos/acme/kit/pulls/3/merge -X PUT" }, { repoRoot: dir }).allowed).toBe(true);
   });
 
+  it("GIVEN gh pr merge THEN el guard solo verifica: no publica el status (lo publica el CI, app GitHub Actions)", () => {
+    const core = readFileSync(path.resolve(here, "..", "core", "guard", "guard-core.mjs"), "utf8");
+    const fn = core.slice(core.indexOf("function mergeCheck("), core.indexOf("function mergeCheck(") + 400);
+    expect(fn).not.toContain("--post-status");
+    // En el consumidor, el CI es quien publica el status (en el repo del kit no hay ci.yml).
+    const ciPath = path.resolve(here, "..", "..", ".github", "workflows", "ci.yml");
+    if (existsSync(ciPath)) expect(readFileSync(ciPath, "utf8")).toContain("harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status");
+  });
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
