@@ -8,6 +8,7 @@ import { nombreUnico } from "@/lib/rutinas-biblioteca";
 import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/validar-rutina";
 import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import { parsePyramidSeriesCount } from "@/lib/routine-helpers";
+import { ExercisePreviewModal, type ExercisePreviewData } from "./exercise-preview-modal";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 export const TAGS_RUTINA_PREDEFINIDAS = [
@@ -349,6 +350,22 @@ export function RoutineBuilderModal({
   const [openCircuit, setOpenCircuit] = React.useState<number | null>(null);
   const [showCatalogModal, setShowCatalogModal] = React.useState(false);
   const [catalogSearch, setCatalogSearch] = React.useState("");
+  const [previewEjercicio, setPreviewEjercicio] = React.useState<{ data: ExercisePreviewData; catalogo: Ejercicio | null } | null>(null);
+  const abrirPreviewRutina = (ej: BuilderExercise) => {
+    const cat = catalogoEjercicios.find((c) => c.id === ej.ejercicio_id);
+    setPreviewEjercicio({
+      data: {
+        id: ej.ejercicio_id,
+        nombre: ej.nombre,
+        musculos_principales: cat?.musculos_principales ?? [],
+        musculos_secundarios: cat?.musculos_secundarios ?? [],
+        url_video: ej.url_video ?? cat?.url_video ?? null,
+        comentario: cat?.comentario ?? null,
+        notas: ej.notas || null,
+      },
+      catalogo: null,
+    });
+  };
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -1133,7 +1150,14 @@ export function RoutineBuilderModal({
                           #{index + 1}
                         </span>
                         <h4 className="text-sm font-bold text-foreground">
-                          {ej.nombre}
+                          <button
+                            type="button"
+                            onClick={() => abrirPreviewRutina(ej)}
+                            className="cursor-pointer text-left hover:underline"
+                            data-testid={`preview-ejercicio-${ej.id}`}
+                          >
+                            {ej.nombre}
+                          </button>
                         </h4>
                         {isSuperset && (
                           <Badge className="bg-purple-600 text-white text-[10px] font-bold">
@@ -1172,11 +1196,15 @@ export function RoutineBuilderModal({
                             RPE Obligatorio
                           </Badge>
                         )}
-                        {ej.url_video && (
-                          <span className="text-[10px] font-semibold text-primary inline-flex items-center gap-1">
-                            <span>🎬</span> Video OK
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => abrirPreviewRutina(ej)}
+                          aria-label={`Ver técnica de ${ej.nombre}`}
+                          className="text-[10px] font-semibold text-primary inline-flex items-center gap-1 cursor-pointer"
+                          data-testid={`preview-btn-${ej.id}`}
+                        >
+                          <span>🎬</span> Ver Técnica
+                        </button>
                         <button
                           type="button"
                           onClick={() =>
@@ -1604,9 +1632,15 @@ export function RoutineBuilderModal({
                     className="flex items-center justify-between p-2 rounded-lg border border-border/50 bg-secondary/10 hover:bg-secondary/30 transition-colors"
                   >
                     <div>
-                      <span className="font-bold text-xs text-foreground block">
-                        {ej.nombre}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewEjercicio({ data: ej, catalogo: ej })}
+                        aria-label={`Ver técnica de ${ej.nombre}`}
+                        className="font-bold text-xs text-foreground block text-left hover:underline cursor-pointer"
+                        data-testid={`catalog-preview-${ej.id}`}
+                      >
+                        🎬 {ej.nombre}
+                      </button>
                       <span className="text-[10px] text-muted-foreground">
                         {ej.musculos_principales.join(", ")}
                       </span>
@@ -1624,6 +1658,17 @@ export function RoutineBuilderModal({
             </div>
           </div>
         )}
+
+        <ExercisePreviewModal
+          exercise={previewEjercicio?.data ?? null}
+          isOpen={previewEjercicio !== null}
+          onClose={() => setPreviewEjercicio(null)}
+          onAddExercise={
+            previewEjercicio?.catalogo
+              ? () => handleAddExerciseToCurrentDay(previewEjercicio.catalogo!)
+              : undefined
+          }
+        />
 
         {/* Pie de modal con botón de guardado a Supabase */}
         <div className="p-4 border-t border-border/60 bg-secondary/10 flex flex-col sm:flex-row items-center justify-between gap-3">
