@@ -217,6 +217,16 @@
   transform-style: preserve-3d;
 }
 
+/* Retícula técnica de fondo del hero (solo decorativa, sin animación) */
+.hero-grid {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.7) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.7) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 25% 0%, #000 15%, transparent 75%);
+  mask-image: radial-gradient(ellipse 90% 70% at 25% 0%, #000 15%, transparent 75%);
+}
+
 /* Inactivación absoluta ante prefers-reduced-motion: reduce */
 @media (prefers-reduced-motion: reduce) {
   .glitch-hover,
