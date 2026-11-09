@@ -119,6 +119,12 @@
     "message": "Merge blocked: run node harness-kit/core/scripts/harness-merge-check.mjs <pr> and fix every reported item."
   },
   {
+    "id": "repo.protection-locked",
+    "target": "shell",
+    "description": "Agents never change branch protection or rulesets via gh api (PUT/PATCH/POST/DELETE)",
+    "message": "Changing branch protection or rulesets is forbidden for agents (it would disable the merge gate)."
+  },
+  {
     "id": "harness.authorized-only",
     "target": "all",
     "description": "harness/, harness-kit/, .github/ and render/compose change only on an authorized <type>/<issue-#>-harness-<slug> branch",
