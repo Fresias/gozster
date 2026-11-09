@@ -57,29 +57,23 @@ describe("GOZS-441 / GOZS-440: Auditoría Integral Frontend de Landing Zinc", ()
     });
 
     it("renderiza las 3 tarjetas en perspectiva 3D escalonada con datos realistas", () => {
-      expect(html).toContain('data-testid="hero-card-rutinas"');
-      expect(html).toContain('data-testid="hero-card-live"');
-      expect(html).toContain('data-testid="hero-card-1rm"');
+      expect(html).toContain('data-testid="hero-card-layer-back"');
+      expect(html).toContain('data-testid="hero-card-layer-middle"');
+      expect(html).toContain('data-testid="hero-card-layer-front"');
 
-      // Tarjeta 1: Rutinas
-      expect(text).toContain("Sentadilla Trasera (Back Squat)");
-      expect(text).toContain("140 kg");
-      expect(text).toContain("3-1-X-1");
-      expect(text).toContain("180s");
+      // Capa 1: Atmósfera B&N
+      expect(text).toContain("MÉTODO GONZALO SALAS · 2026");
+      expect(text).toContain("Hierro pesado, técnica estricta y magnesio.");
 
-      // Tarjeta 2: En Vivo
-      expect(text).toContain("01:45");
-      expect(text).toContain("Cronómetro Inteligente de Descanso Automático");
-      expect(text).toContain("Esfuerzo Percibido (RPE)");
-      expect(text).toContain("RPE 8.5");
-      expect(text).toContain("100% Offline-First PWA");
+      // Capa 2: Tarjeta Blanca Nítida
+      expect(text).toContain("El 90% de los que van al gimnasio no tienen un problema de voluntad. Tienen una rutina genérica y nadie que les mire la técnica.");
 
-      // Tarjeta 3: 1RM
-      expect(text).toContain("1RM Estimado (Fórmula Epley)");
-      expect(text).toContain("185.0 kg");
-      expect(text).toContain("1RM Estimado (Fórmula Brzycki)");
-      expect(text).toContain("183.4 kg");
-      expect(text).toContain("14,250 kg");
+      // Capa 3: Autoridad y Métricas
+      expect(text).toContain("+150");
+      expect(text).toContain("que dejaron de estancarse y hoy levantan con técnica impecable.");
+      expect(text).toContain("Halterofilia");
+      expect(text).toContain("Fuerza");
+      expect(text).toContain("Boxeo");
     });
   });
 
