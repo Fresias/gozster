@@ -419,6 +419,32 @@ describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranqu
     expect(hook(stray, "Bash", { command: "git branch -D foo" }).code).toBe(0);
   });
 
+  it("GIVEN una rama con el guard viejo o editado THEN el dispatcher instalado aplica el kit instalado (GOZS-430/#417)", () => {
+    const home = temp("harness-home-");
+    const install = path.join(kitDir, "core", "plugins", "claude-code", "install.mjs");
+    execFileSync(process.execPath, [install, "--home", home], { stdio: "pipe" });
+    expect(run(process.execPath, [install, "--home", home, "--check"], home).code).toBe(0);
+    // Repo cuyo guard propio permite todo (rama desactualizada o guard manipulado).
+    const wd = temp("harness-stale-wd-");
+    const stale = path.join(wd, "repo");
+    mkdirSync(path.join(stale, "harness-kit", "core", "guard"), { recursive: true });
+    writeFileSync(path.join(stale, "harness-kit", "core", "guard", "guard-cli.mjs"), "process.exit(0)\n");
+    mkdirSync(path.join(stale, "harness"));
+    writeFileSync(path.join(stale, "harness", "project.json"), JSON.stringify({ name: "s", runtimes: [], gate: "npm test" }));
+    execFileSync("git", ["init", "-q"], { cwd: stale });
+    const installedDispatch = path.join(home, ".claude", "hooks", "harness-dispatch.mjs");
+    let code = 0;
+    try {
+      execFileSync(process.execPath, [installedDispatch], {
+        input: JSON.stringify({ hook_event_name: "PreToolUse", cwd: wd, tool_name: "Bash", tool_input: { command: "cd repo && git branch -D foo" } }),
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (err) {
+      code = (err as { status?: number }).status ?? 1;
+    }
+    expect(code).toBe(2);
+  });
+
   it("GIVEN un directorio sin harness THEN no interviene (exit 0)", () => {
     expect(hook(temp("no-harness-"), "Bash", { command: "git branch -D foo" }).code).toBe(0);
   });
