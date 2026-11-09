@@ -63,6 +63,8 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 - [verified 2026-11-08 | src: GOZS-428] Lessons per issue live in `harness/experience/<ISSUE>.jsonl`; search them first: `rg -n <term> harness/experience`.
 
+- [verified 2026-11-09 | src: PPC] Rutas de memoria son escribibles y rechazan .. y %2e.
+
 ### Experience Library (Harness²)
 
 - [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
