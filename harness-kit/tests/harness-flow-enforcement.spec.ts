@@ -302,6 +302,36 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     if (existsSync(ciPath)) expect(readFileSync(ciPath, "utf8")).toContain("harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status");
   });
 
+  it("GIVEN la memoria del agente (~/.claude/projects/<p>/memory/) THEN escribible; hooks y settings siguen protegidos", () => {
+    const mem = "C:/Users/u/.claude/projects/C--work-task/memory/MEMORY.md";
+    expect(evaluateRules({ kind: "write", targetPath: mem }, { repoRoot: unauthorized }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: `cp notes.md "${mem}"` }, { repoRoot: unauthorized }).allowed).toBe(true);
+    for (const p of ["C:/Users/u/.claude/settings.json", "C:/Users/u/.claude/hooks/harness-dispatch.mjs", "C:/Users/u/.claude/hooks/harness-kit/core/guard/rules.json", "C:/Users/u/.claude/projects/x/settings.json"]) {
+      expect(evaluateRules({ kind: "write", targetPath: p }, { repoRoot: unauthorized }).ruleId).toBe("fs.protected");
+    }
+    expect(evaluateRules({ kind: "shell", command: `cp a.md "${mem}" && cp b.json C:/Users/u/.claude/settings.json` }, { repoRoot: unauthorized }).ruleId).toBe("fs.protected");
+  });
+
+  it("GIVEN cambios a la protección de rama o rulesets por gh api THEN repo.protection-locked; leerla se permite", () => {
+    for (const cmd of [
+      "gh api -X PUT repos/o/r/branches/main/protection --input p.json",
+      "gh api --method DELETE repos/o/r/branches/main/protection/enforce_admins",
+      "gh api -X POST repos/o/r/rulesets -f name=x",
+      "gh api -X PATCH repos/o/r/branches/main/protection/required_status_checks -f strict=false",
+    ]) {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("repo.protection-locked");
+    }
+    expect(evaluateRules({ kind: "shell", command: "gh api repos/o/r/branches/main/protection" }, { repoRoot: unauthorized }).allowed).toBe(true);
+  });
+
+  it("GIVEN gh api con ../ o %2e en la ruta THEN no se exime: corre el merge-check", () => {
+    const dir = repo("chore/9-harness-y");
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/app.git"], { cwd: dir });
+    for (const cmd of ["gh api repos/acme/kit/../app/pulls/3/merge -X PUT", "gh api repos/acme/kit/%2e%2e/app/pulls/3/merge -X PUT"]) {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    }
+  });
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");

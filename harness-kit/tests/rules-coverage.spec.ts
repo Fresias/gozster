@@ -93,6 +93,7 @@ const coverage: Record<string, Record<string, unknown>> = {
   "shell.oversize-cat": { kind: "shell", command: "cat harness-kit/core/guard/guard-core.mjs" },
   "pr.requires-seal": { kind: "shell", command: "gh pr create --fill" },
   "pr.merge-check": { kind: "shell", command: "gh pr merge 99999 --squash" },
+  "repo.protection-locked": { kind: "shell", command: "gh api -X DELETE repos/o/r/branches/main/protection" },
   "harness.authorized-only": { kind: "write", targetPath: "harness/guardrails.local.md" },
   // --- Pre (escritura) ---
   "fs.protected": { kind: "write", targetPath: ".claude/settings.json" },
