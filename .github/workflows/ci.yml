@@ -49,3 +49,7 @@ jobs:
 
       - name: Run unit tests (Vitest)
         run: npx vitest run
+
+      - name: Harness² Post-Merge Propose & Consolidate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node harness-kit/core/scripts/harness-propose.mjs --post-merge
