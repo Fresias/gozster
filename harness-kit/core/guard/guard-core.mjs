@@ -316,7 +316,13 @@ function prBodyText(cmd, repoRoot) {
 /** True when a gh pr/api segment has `--repo/-R owner/name` flags and all differ from the origin of repoRoot. */
 function targetsOtherRepo(cmd, repoRoot) {
   if (!/(^|[(\s])gh\s+(pr|api)\s/.test(cmd)) return false;
-  const repos = [...cmd.matchAll(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/g)].map((m) => m[1].toLowerCase());
+  let repos;
+  if (/(^|[(\s])gh\s+api\s/.test(cmd)) {
+    // gh api ignores --repo: the target is the `repos/<owner>/<name>/` path ({owner}/{repo} = this repo).
+    repos = [...cmd.matchAll(/repos\/([\w.-]+\/[\w.-]+)\//g)].map((m) => m[1].toLowerCase());
+  } else {
+    repos = [...cmd.matchAll(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/g)].map((m) => m[1].toLowerCase());
+  }
   if (!repos.length) return false;
   const res = spawnSync("git", ["remote", "get-url", "origin"], { cwd: repoRoot, encoding: "utf8" });
   const origin = res.status === 0 ? res.stdout.trim().match(/[/:]([\w.-]+\/[\w.-]+?)(\.git)?$/) : null;

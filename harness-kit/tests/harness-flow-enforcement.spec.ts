@@ -279,6 +279,18 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
       expect(evaluateRules({ kind: "shell", command: `gh pr merge 3 --squash${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
       expect(evaluateRules({ kind: "shell", command: `gh pr create --title t --body x${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
     }
+    // QA GOZS-432 r2: un --repo ajeno ANTES del merge propio tampoco exime.
+    expect(evaluateRules({ kind: "shell", command: "echo '--repo acme/kit'; gh pr merge 3" }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+  });
+
+  it("GIVEN gh api …/pulls/N/merge THEN el repo sale de la ruta, no de --repo (gh api lo ignora)", () => {
+    const dir = repo("chore/8-harness-x");
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/app.git"], { cwd: dir });
+    const own = "gh api repos/acme/app/pulls/3/merge -X PUT --repo acme/kit";
+    expect(evaluateRules({ kind: "shell", command: own }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    const placeholder = "gh api repos/{owner}/{repo}/pulls/3/merge -X PUT --repo acme/kit";
+    expect(evaluateRules({ kind: "shell", command: placeholder }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    expect(evaluateRules({ kind: "shell", command: "gh api repos/acme/kit/pulls/3/merge -X PUT" }, { repoRoot: dir }).allowed).toBe(true);
   });
 
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
