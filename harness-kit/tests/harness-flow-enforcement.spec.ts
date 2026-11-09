@@ -306,22 +306,55 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     const mem = "C:/Users/u/.claude/projects/C--work-task/memory/MEMORY.md";
     expect(evaluateRules({ kind: "write", targetPath: mem }, { repoRoot: unauthorized }).allowed).toBe(true);
     expect(evaluateRules({ kind: "shell", command: `cp notes.md "${mem}"` }, { repoRoot: unauthorized }).allowed).toBe(true);
-    for (const p of ["C:/Users/u/.claude/settings.json", "C:/Users/u/.claude/hooks/harness-dispatch.mjs", "C:/Users/u/.claude/hooks/harness-kit/core/guard/rules.json", "C:/Users/u/.claude/projects/x/settings.json"]) {
+    for (const p of [
+      "C:/Users/u/.claude/settings.json",
+      "C:/Users/u/.claude/hooks/harness-dispatch.mjs",
+      "C:/Users/u/.claude/hooks/harness-kit/core/guard/rules.json",
+      "C:/Users/u/.claude/projects/x/settings.json",
+      "C:/Users/u/.claude/projects/p/memory/../../../settings.json",
+      "C:/Users/u/.claude/projects/p/memory/../../../hooks/guard.sh",
+      "C:\\Users\\u\\.claude\\projects\\p\\memory\\..\\..\\..\\settings.json",
+      "C:/Users/u/.claude/projects/p/memory/%2e%2e/settings.json",
+    ]) {
       expect(evaluateRules({ kind: "write", targetPath: p }, { repoRoot: unauthorized }).ruleId).toBe("fs.protected");
     }
     expect(evaluateRules({ kind: "shell", command: `cp a.md "${mem}" && cp b.json C:/Users/u/.claude/settings.json` }, { repoRoot: unauthorized }).ruleId).toBe("fs.protected");
+    for (const cmd of [
+      "echo x > ~/.claude/projects/p/memory/../../../settings.json",
+      "echo x > \"~/.claude/projects/p/memory/../../../settings.json\"",
+      "Set-Content C:\\Users\\u\\.claude\\projects\\p\\memory\\..\\..\\..\\settings.json x",
+      "echo x > ~/.claude/projects/p/memory/%2e%2e/settings.json",
+    ]) {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("fs.protected");
+    }
   });
 
   it("GIVEN cambios a la protección de rama o rulesets por gh api THEN repo.protection-locked; leerla se permite", () => {
     for (const cmd of [
       "gh api -X PUT repos/o/r/branches/main/protection --input p.json",
+      "gh api -XPUT repos/o/r/branches/main/protection",
       "gh api --method DELETE repos/o/r/branches/main/protection/enforce_admins",
+      "gh api -XDELETE repos/o/r/branches/main/protection/enforce_admins",
       "gh api -X POST repos/o/r/rulesets -f name=x",
       "gh api -X PATCH repos/o/r/branches/main/protection/required_status_checks -f strict=false",
+      "gh api repos/o/r/branches/main/protection -f required=x",
+      "gh api repos/o/r/branches/main/protection -F required=x",
+      "gh api repos/o/r/branches/main/protection --input file.json",
+      "gh api repos/o/r/rulesets -f name=x",
+      "gh api repos/o/r/rulesets --input file.json",
     ]) {
       expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("repo.protection-locked");
     }
-    expect(evaluateRules({ kind: "shell", command: "gh api repos/o/r/branches/main/protection" }, { repoRoot: unauthorized }).allowed).toBe(true);
+    for (const cmd of [
+      "gh api repos/o/r/branches/main/protection",
+      "gh api -X GET repos/o/r/branches/main/protection",
+      "gh api -XGET repos/o/r/branches/main/protection",
+      "gh api --method=GET repos/o/r/branches/main/protection",
+      "gh api repos/o/r/rulesets",
+      "gh api repos/o/r/rulesets/123",
+    ]) {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).allowed).toBe(true);
+    }
   });
 
   it("GIVEN gh api con ../ o %2e en la ruta THEN no se exime: corre el merge-check", () => {

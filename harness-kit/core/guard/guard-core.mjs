@@ -250,7 +250,10 @@ function currentBranch(repoRoot) {
 
 /** Agent memory files (Claude Code: ~/.claude/projects/<project>/memory/...). */
 export function isAgentMemoryPath(p) {
-  return /(^|\/)\.claude\/projects\/[^/]+\/memory\//i.test(String(p || "").replace(/\\/g, "/"));
+  const raw = String(p || "").replace(/\\/g, "/");
+  if (/\.\.|%2e/i.test(raw)) return false;
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.claude\/projects\/[^/]+\/memory(\/.*)?$/i.test(norm);
 }
 
 /** Harness mutations are allowed only on an authorized harness branch: <type>/<issue-#>-harness-<slug>. */
@@ -553,18 +556,33 @@ function evaluateShell(call, repoRoot) {
   // Branch protection / rulesets are configured by Gabriel or the PM by hand, never by an agent command.
   if (
     /(^|[;&|(\s])gh\s+api\s/.test(cmd) &&
-    /(branches\/[^/\s"']+\/protection|\/rulesets)/i.test(cmd) &&
-    /(-X|--method)[\s=]+["']?(PUT|PATCH|POST|DELETE)/i.test(cmd)
+    /(branches\/[^/\s"']+\/protection|\/rulesets)/i.test(cmd)
   ) {
-    return {
-      allowed: false,
-      ruleId: "repo.protection-locked",
-      reason: "Changing branch protection or rulesets is forbidden for agents (it would disable the merge gate).",
-    };
+    const methodMatch = cmd.match(/(?:-X\s*=?\s*|--method[\s=]+)["']?([a-zA-Z]+)["']?/i);
+    const explicitMethod = methodMatch ? methodMatch[1].toUpperCase() : null;
+    const isMutating = explicitMethod
+      ? explicitMethod !== "GET"
+      : /(^|[\s"'])(-[fF]\b|-[fF]\S|--field\b|--raw-field\b|--input\b)/.test(cmd);
+    if (isMutating) {
+      return {
+        allowed: false,
+        ruleId: "repo.protection-locked",
+        reason: "Changing branch protection or rulesets is forbidden for agents (it would disable the merge gate).",
+      };
+    }
   }
 
   // Writing to harness hooks or runtime settings (the agent memory dir is not protected)
-  const cmdNoMemory = cmd.replace(/[^\s"']*\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]memory[/\\][^\s"']*/gi, "");
+  const cmdNoMemory = cmd.replace(
+    /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"']*\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]memory[/\\][^\s"']*))/gi,
+    (match, q, pQuoted, pUnquoted) => {
+      const p = pQuoted || pUnquoted;
+      if (/\.\.|%2e/i.test(p)) return match;
+      const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+      if (!isAgentMemoryPath(norm)) return match;
+      return "";
+    }
+  );
   if (/(\.git[/\\]hooks|\.claude[/\\]|\.agents[/\\]|\.gemini[/\\]|\.opencode[/\\])/i.test(cmdNoMemory)) {
     // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
     if (/>>?\s*["']?[^\s|&;]*(\.git[/\\]hooks|\.(claude|agents|gemini|opencode)[/\\])/i.test(cmdNoMemory) || SHELL_WRITE_VERB.test(cmdNoMemory)) {
@@ -659,7 +677,7 @@ function evaluateWrite(call, repoRoot) {
   const target = call.targetPath || "";
   if (!target) return { allowed: true };
 
-  const norm = target.replace(/\\/g, "/");
+  const norm = path.posix.normalize(target.replace(/\\/g, "/"));
 
   // Protect AGENTS.md
   if (norm === "AGENTS.md" || norm.endsWith("/AGENTS.md")) {
@@ -695,7 +713,7 @@ function evaluateWrite(call, repoRoot) {
 
   // Protect git hooks and Claude settings
   // The agent's memory (~/.claude/projects/<p>/memory/) is writable: it is the memory component, not the sandbox.
-  if (norm.includes(".git/hooks/") || (norm.includes(".claude/") && !isAgentMemoryPath(norm))) return tamper;
+  if (norm.includes(".git/hooks/") || (norm.includes(".claude/") && (!isAgentMemoryPath(norm) || !isAgentMemoryPath(target)))) return tamper;
 
   // Generated artifacts (single source: harness.lock written by the render)
   const resolved = path.isAbsolute(target) ? target : path.resolve(repoRoot, target);
