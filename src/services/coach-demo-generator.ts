@@ -579,7 +579,18 @@ export function derivarKpisNegocio(
   ahora: Date,
   rango?: { desde: string; hasta: string },
 ): KpisNegocio {
-  const hoy = inicioDia(ahora);
+  // "Hoy" es la fecha civil de Argentina, igual que la RPC obtener_kpis_negocio: con la zona del
+  // proceso (UTC en CI) después de las 21:00 ART ya sería el día siguiente y cambia vencido/porCobrar.
+  const [anioAr, mesAr, diaAr] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(ahora)
+    .split("-")
+    .map(Number);
+  const hoy = new Date(anioAr!, mesAr! - 1, diaAr!);
   const hoyIso = ymd(hoy);
   const inicioMes = ymd(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   const fechaDesde = rango ? rango.desde : inicioMes;
