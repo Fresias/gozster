@@ -67,45 +67,37 @@ describe("GOZS-441: Rediseño Integral del Inicio (/) — Estética Zinc /studio
       expect(htmlMarkup).toContain('data-testid="theme-toggle"');
     });
 
-    it("3. Hero Section con composición 3D Spectup, micro-glitch en 'GONZALO SALAS' y 3 pantallas simuladas", () => {
+    it("3. Hero Section con composición 3D Spectup, micro-glitch en 'GONZALO SALAS' y 3 capas de alto contraste", () => {
       // Badge superior técnico en monoespaciado
-      expect(textContent).toContain("DIRECTOR TÉCNICO & INFRAESTRUCTURA DE FUERZA");
-      expect(textContent).toContain("$0 LICENCIAS");
+      expect(textContent).toContain("PREPARACIÓN FÍSICA DE FUERZA · TECNOLOGÍA PROPIA · 0 HUMO");
 
       // Título editorial sobrio y micro-glitch en hover
       expect(textContent).toContain("GONZALO SALAS");
       expect(pageContent).toContain("glitch-hover");
       expect(pageContent).toContain('data-text="GONZALO SALAS"');
-      expect(textContent).toContain("Entrenamiento de élite e infraestructura tecnológica soberana.");
+      expect(textContent).toContain("Entrenar no es cansarse hasta transpirar. Es mover más peso con mejor técnica, semana a semana.");
 
       // Escenario 3D en desktop
       expect(pageContent).toContain("perspective-1200");
-      expect(htmlMarkup).toContain('data-testid="hero-card-rutinas"');
-      expect(htmlMarkup).toContain('data-testid="hero-card-live"');
-      expect(htmlMarkup).toContain('data-testid="hero-card-1rm"');
+      expect(htmlMarkup).toContain('data-testid="hero-card-layer-back"');
+      expect(htmlMarkup).toContain('data-testid="hero-card-layer-middle"');
+      expect(htmlMarkup).toContain('data-testid="hero-card-layer-front"');
 
-      // Tarjeta 1: Planificación Técnica de Rutinas
-      expect(textContent).toContain("PLANIFICACIÓN TÉCNICA");
-      expect(textContent).toContain("Sentadilla Trasera (Back Squat)");
-      expect(textContent).toContain("4 series × 5 reps @ 80% (140 kg)");
-      expect(textContent).toContain("3-1-X-1");
+      // Capa 1: Atmósfera B&N y Fotografía Técnica
+      expect(textContent).toContain("MÉTODO GONZALO SALAS · 2026");
+      expect(textContent).toContain("Hierro pesado, técnica estricta y magnesio.");
 
-      // Tarjeta 2: Registro en Vivo con Cronómetro y RPE
-      expect(textContent).toContain("REGISTRO EN VIVO");
-      expect(textContent).toContain("100% Offline-First PWA");
-      expect(textContent).toContain("01:45");
-      expect(textContent).toContain("Cronómetro Inteligente de Descanso Automático");
-      expect(textContent).toContain("Esfuerzo Percibido (RPE)");
-      expect(textContent).toContain("Serie 2: 140 kg × 5 reps");
+      // Capa 2: Tarjeta Blanca Nítida de Contraste
+      expect(pageContent).toContain("bg-white text-zinc-950");
+      expect(textContent).toContain("El 90% de los que van al gimnasio no tienen un problema de voluntad. Tienen una rutina genérica y nadie que les mire la técnica.");
 
-      // Tarjeta 3: Progresión 1RM y Fórmulas Auditadas
-      expect(textContent).toContain("PROGRESIÓN Y 1RM");
-      expect(textContent).toContain("1RM Estimado (Fórmula Epley)");
-      expect(textContent).toContain("185.0 kg");
-      expect(textContent).toContain("1RM Estimado (Fórmula Brzycki)");
-      expect(textContent).toContain("183.4 kg");
-      expect(textContent).toContain("Tonelaje Semanal Acumulado");
-      expect(textContent).toContain("14,250 kg");
+      // Capa 3: Tarjeta Frontal de Autoridad y Métricas
+      expect(textContent).toContain("+150");
+      expect(textContent).toContain("que dejaron de estancarse y hoy levantan con técnica impecable.");
+      expect(textContent).toContain("Halterofilia");
+      expect(textContent).toContain("Fuerza");
+      expect(textContent).toContain("Boxeo");
+      expect(textContent).toContain("Ver metodología auditada");
     });
 
     it("4. Grilla de Métricas de Impacto con separadores y datos reales", () => {

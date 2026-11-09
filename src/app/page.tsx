@@ -10,7 +10,6 @@ import { useLandingSession } from "@/lib/use-landing-session";
 
 export default function HomePage() {
   const { user } = useLandingSession();
-  const [activeRpe, setActiveRpe] = React.useState<number>(8.5);
 
   const whatsappMessage = encodeURIComponent(
     "Hola Gonza, quiero comenzar a entrenar con vos. Me gustaría consultar por las modalidades disponibles."
@@ -121,9 +120,7 @@ export default function HomePage() {
           {/* Badge superior técnico en monoespaciado */}
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-container/60 px-3.5 py-1 font-mono text-xs text-muted-foreground mb-6 shadow-xs">
             <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
-            <span>DIRECTOR TÉCNICO &amp; INFRAESTRUCTURA DE FUERZA</span>
-            <span className="text-border" aria-hidden="true">•</span>
-            <span className="text-foreground font-semibold">$0 LICENCIAS</span>
+            <span>PREPARACIÓN FÍSICA DE FUERZA · TECNOLOGÍA PROPIA · 0 HUMO</span>
           </div>
 
           {/* Título editorial sobrio y de impacto atlético con micro-glitch */}
@@ -137,12 +134,12 @@ export default function HomePage() {
               </span>
             </div>
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.12]">
-              Entrenamiento de élite e infraestructura tecnológica soberana.
+              Entrenar no es cansarse hasta transpirar. Es mover más peso con mejor técnica, semana a semana.
             </h1>
           </div>
 
-          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-10">
-            Preparación física de fuerza, levantamiento olímpico y boxeo técnico. Planificación biomecánica respaldada por un sistema de software libre, autónomo y sin costos de suscripción mensual.
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-10">
+            La mayoría de la gente pasa meses en el gimnasio levantando la misma mancuerna, siguiendo una rutina fotocopiada que nadie mira y adivinando si progresa. Con Gonzalo Salas cada serie tiene un número, la técnica se audita antes de subir los kilos y tu avance se mide con datos reales.
           </p>
 
           {/* Conversión Bivalente (CTAs del Hero adaptados dinámicamente a la sesión) */}
@@ -266,180 +263,142 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Abanico de 3 Tarjetas en Perspectiva 3D (Desktop >= 1024px) */}
-          <div className="relative max-w-6xl mx-auto perspective-1200 pt-4">
+          {/* Abanico Escalonado de 3 Capas con Contraste Dramático (Spectup Style) */}
+          <div className="relative max-w-6xl mx-auto perspective-1200 pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch transform-style-3d text-left">
-              {/* Tarjeta 1: Planificación de Rutinas */}
+              {/* Capa 1: Capa Posterior (Atmósfera y Fotografía Técnica B&N) */}
               <Card
-                className="hero-3d-card p-5 sm:p-6 border-border/80 bg-card/95 shadow-lg flex flex-col justify-between lg:[transform:rotateY(10deg)_rotateX(4deg)_translateZ(-20px)] lg:hover:[transform:rotateY(4deg)_rotateX(2deg)_translateZ(0px)] transition-all duration-300"
-                data-testid="hero-card-rutinas"
+                className="hero-3d-card group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col justify-between shadow-xl min-h-[420px] lg:[transform:rotateY(10deg)_rotateX(4deg)_translateZ(-20px)] lg:hover:[transform:rotateY(4deg)_rotateX(2deg)_translateZ(0px)] transition-all duration-300"
+                data-testid="hero-card-layer-back"
               >
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-border/80">
-                    <span className="font-mono text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      01 · PLANIFICACIÓN TÉCNICA
-                    </span>
-                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
-                      MICROCICLO 4
+                {/* Fotografía B&N de alta resolución y contraste */}
+                <img
+                  src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop"
+                  alt="Barra cargada con discos olímpicos de fuerza y magnesio"
+                  className="absolute inset-0 w-full h-full object-cover grayscale contrast-150 brightness-[0.35] transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent pointer-events-none" />
+
+                {/* Encabezado con Badge superior */}
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-[10px] tracking-wider uppercase border-white/20 bg-black/60 text-zinc-200 backdrop-blur-md px-2.5 py-1"
+                    >
+                      MÉTODO GONZALO SALAS · 2026
                     </Badge>
+                    <span className="font-mono text-[10px] text-zinc-400">01 / ATMÓSFERA</span>
                   </div>
-                  <h3 className="text-base font-bold text-foreground mb-1">
-                    Sentadilla Trasera (Back Squat)
+                  <div className="font-mono text-xs uppercase tracking-widest text-zinc-400 mb-1">
+                    Fuerza Aplicada &amp; Rigor Técnico
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight text-white leading-snug">
+                    Hierro pesado, técnica estricta y magnesio.
                   </h3>
-                  <div className="font-mono tabular-nums text-sm font-semibold text-primary mb-3">
-                    4 series × 5 reps @ 80% (140 kg)
-                  </div>
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    <div className="flex justify-between py-1 border-b border-border/50">
-                      <span>Tempo excéntrico</span>
-                      <span className="font-mono font-bold text-foreground">3-1-X-1</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-border/50">
-                      <span>Descanso entre series</span>
-                      <span className="font-mono font-bold text-foreground">180s</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span>Intensidad programada</span>
-                      <span className="font-mono font-bold text-foreground">RPE 8.5 (RIR 2)</span>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-border/70 text-[11px] text-muted-foreground leading-relaxed">
-                  <span className="font-semibold text-foreground">Nota biomecánica:</span> Mantener bracing intraabdominal firme y verticalidad del torso sin rebote en paralelo.
+                {/* Pie técnico */}
+                <div className="relative z-10 mt-6 pt-4 border-t border-white/10">
+                  <p className="text-xs text-zinc-300 leading-relaxed mb-3">
+                    Levantamientos olímpicos, sobrecarga progresiva y cero distracciones. Cada kilogramo en la barra tiene justificación biomecánica.
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                    <span>Auditoría de palancas y movilidad</span>
+                  </div>
                 </div>
               </Card>
 
-              {/* Tarjeta 2: Registro en Vivo (Focal Point / Centro) */}
+              {/* Capa 2: Capa Intermedia (Tarjeta Blanca Nítida de Contraste) */}
               <Card
-                className="hero-3d-card p-5 sm:p-6 border-primary/40 bg-card shadow-2xl flex flex-col justify-between lg:[transform:translateZ(30px)_scale(1.02)] lg:hover:[transform:translateZ(45px)_scale(1.04)] z-20 transition-all duration-300"
-                data-testid="hero-card-live"
+                className="hero-3d-card relative rounded-2xl bg-white text-zinc-950 p-6 sm:p-8 shadow-2xl border border-zinc-200 flex flex-col justify-between min-h-[420px] lg:[transform:translateZ(30px)_scale(1.02)] lg:hover:[transform:translateZ(45px)_scale(1.04)] z-20 transition-all duration-300"
+                data-testid="hero-card-layer-middle"
               >
                 <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-border/80">
+                  <div className="flex items-center justify-between pb-3 mb-6 border-b border-zinc-200">
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-600">
+                      02 · DIAGNÓSTICO SIN FILTRO
+                    </span>
+                    <span className="font-mono text-[10px] font-black uppercase bg-zinc-900 text-white px-2 py-0.5 rounded">
+                      REALIDAD
+                    </span>
+                  </div>
+
+                  <blockquote className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-zinc-950 mb-6">
+                    &ldquo;El 90% de los que van al gimnasio no tienen un problema de voluntad. Tienen una rutina genérica y nadie que les mire la técnica.&rdquo;
+                  </blockquote>
+
+                  <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                    Poner ganas no alcanza si estás haciendo ejercicios que no coinciden con tu anatomía o si levantás el mismo peso hace seis meses.
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-zinc-200 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black text-zinc-950 uppercase tracking-wide">
+                      Gonzalo Salas
+                    </div>
+                    <div className="text-[11px] text-zinc-600 font-mono">
+                      Head Coach · Director Técnico
+                    </div>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-zinc-900 bg-zinc-100 border border-zinc-300 px-2.5 py-1 rounded-md">
+                    0 Humo
+                  </span>
+                </div>
+              </Card>
+
+              {/* Capa 3: Capa Frontal (Tarjeta Técnica de Métricas y Autoridad) */}
+              <Card
+                className="hero-3d-card relative rounded-2xl bg-[#121214] border border-zinc-800 text-zinc-100 p-6 sm:p-8 shadow-2xl flex flex-col justify-between min-h-[420px] lg:[transform:rotateY(-10deg)_rotateX(4deg)_translateZ(50px)] lg:hover:[transform:rotateY(-4deg)_rotateX(2deg)_translateZ(65px)] z-30 transition-all duration-300"
+                data-testid="hero-card-layer-front"
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-3 mb-5 border-b border-zinc-800">
                     <div className="flex items-center gap-2">
                       <span className="size-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                      <span className="font-mono text-xs font-bold text-foreground uppercase tracking-wider">
-                        02 · REGISTRO EN VIVO
+                      <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-300">
+                        03 · AUTORIDAD
                       </span>
                     </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] font-bold">
-                      100% Offline-First PWA
+                    <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-700">
+                      AUDITADO
                     </Badge>
                   </div>
 
-                  {/* Cronómetro de Descanso Automático */}
-                  <div className="rounded-xl border border-border/80 bg-secondary/40 p-3 mb-4 text-center">
-                    <div className="text-[11px] font-mono uppercase text-muted-foreground mb-1">
-                      Cronómetro Inteligente de Descanso Automático
-                    </div>
-                    <div className="font-mono tabular-nums text-4xl font-black tracking-wider text-foreground">
-                      01:45
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1 flex items-center justify-center gap-1.5">
-                      <span className="size-1.5 rounded-full bg-primary" />
-                      <span>Calentamiento Específico, alerta audible y vibración sincronizada</span>
-                    </div>
+                  <div className="font-mono tabular-nums text-5xl sm:text-6xl font-black text-white tracking-tight mb-2">
+                    +150
                   </div>
-
-                  {/* Selector Interactivo RPE 1-10 */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-semibold text-foreground">Esfuerzo Percibido (RPE)</span>
-                      <span className="font-mono font-bold text-primary tabular-nums">
-                        RPE {activeRpe}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {[7, 7.5, 8, 8.5, 9].map((rpeVal) => (
-                        <button
-                          key={rpeVal}
-                          type="button"
-                          onClick={() => setActiveRpe(rpeVal)}
-                          className={`min-h-[48px] rounded-lg border font-mono text-xs font-bold transition-all ${
-                            activeRpe === rpeVal
-                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                              : "border-border/80 bg-background hover:bg-secondary text-foreground"
-                          }`}
-                          aria-label={`Seleccionar RPE ${rpeVal}`}
-                        >
-                          {rpeVal}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 font-semibold mb-2">
+                    Alumnos activos y graduados
                   </div>
+                  <p className="text-sm text-zinc-300 leading-snug mb-5">
+                    que dejaron de estancarse y hoy levantan con técnica impecable.
+                  </p>
 
-                  {/* Checkbox de Serie Completada */}
-                  <div className="rounded-lg border border-border/80 bg-background/80 p-2.5 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="size-4 rounded border border-primary bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">
-                        ✓
-                      </div>
-                      <span className="font-medium text-foreground">
-                        Serie 2: 140 kg × 5 reps
-                      </span>
-                    </div>
-                    <span className="font-mono font-bold text-muted-foreground">RPE 8.0</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-border/70 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Serie actual: 3 de 4</span>
-                  <span className="font-mono font-semibold text-foreground">Carga activa: 140 kg</span>
-                </div>
-              </Card>
-
-              {/* Tarjeta 3: Progresión 1RM y Analítica */}
-              <Card
-                className="hero-3d-card p-5 sm:p-6 border-border/80 bg-card/95 shadow-lg flex flex-col justify-between lg:[transform:rotateY(-10deg)_rotateX(4deg)_translateZ(-20px)] lg:hover:[transform:rotateY(-4deg)_rotateX(2deg)_translateZ(0px)] transition-all duration-300"
-                data-testid="hero-card-1rm"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-border/80">
-                    <span className="font-mono text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      03 · PROGRESIÓN Y 1RM
+                  {/* Chips de especialidades */}
+                  <div className="flex flex-wrap gap-1.5 mb-6">
+                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
+                      Halterofilia
                     </span>
-                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
-                      FÓRMULAS AUDITADAS
-                    </Badge>
-                  </div>
-                  <h3 className="text-base font-bold text-foreground mb-1">
-                    Cálculo Biomecánico de Fuerza
-                  </h3>
-                  <div className="space-y-3 mt-3">
-                    <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5">
-                      <div className="text-[11px] text-muted-foreground">1RM Estimado (Fórmula Epley)</div>
-                      <div className="font-mono tabular-nums text-xl font-bold text-foreground">
-                        185.0 kg <span className="text-xs font-normal text-muted-foreground">(+12.5 kg)</span>
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5">
-                      <div className="text-[11px] text-muted-foreground">1RM Estimado (Fórmula Brzycki)</div>
-                      <div className="font-mono tabular-nums text-xl font-bold text-foreground">
-                        183.4 kg
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5">
-                      <div className="text-[11px] text-muted-foreground">Tonelaje Semanal Acumulado</div>
-                      <div className="font-mono tabular-nums text-xl font-bold text-foreground">
-                        14,250 kg
-                      </div>
-                    </div>
+                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
+                      Fuerza
+                    </span>
+                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
+                      Boxeo
+                    </span>
                   </div>
                 </div>
 
-                {/* Micro barra visual de sobrecarga progresiva */}
-                <div className="mt-4 pt-3 border-t border-border/70">
-                  <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
-                    <span>Sobrecarga en 4 semanas</span>
-                    <span className="font-mono font-bold text-foreground">+16.6%</span>
-                  </div>
-                  <div className="flex items-end gap-1.5 h-8">
-                    <div className="flex-1 bg-muted rounded-xs h-4" title="Semana 1: 120 kg" />
-                    <div className="flex-1 bg-muted rounded-xs h-5" title="Semana 2: 127.5 kg" />
-                    <div className="flex-1 bg-muted rounded-xs h-6.5" title="Semana 3: 135 kg" />
-                    <div className="flex-1 bg-primary rounded-xs h-8" title="Semana 4: 140 kg" />
-                  </div>
+                <div className="pt-4 border-t border-zinc-800">
+                  <a
+                    href="#trayectoria"
+                    className="inline-flex min-h-[48px] items-center justify-between w-full px-4 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs sm:text-sm font-bold transition-all"
+                  >
+                    <span>Ver metodología auditada</span>
+                    <span aria-hidden="true">→</span>
+                  </a>
                 </div>
               </Card>
             </div>
@@ -486,11 +445,140 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 4. Credenciales de Gonzalo Salas (Franjas GlyphsLabs) */}
+        {/* 4. Bloque de Contraste de Realidad (Estilo Tarascón) */}
+        <section
+          id="contraste"
+          className="py-16 sm:py-24 border-t border-border/80 bg-background"
+          data-testid="seccion-contraste-realidad"
+        >
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center sm:text-left mb-10 sm:mb-14">
+              <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
+                01 / CRITERIO &amp; TRANSPARENCIA
+              </div>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
+                Lo que pasa en un gimnasio común vs. Entrenar con Gonzalo Salas
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
+                Sin promesas vacías ni recetas mágicas. Compará lo que vivís todos los días con el método de trabajo riguroso de GOZSter.
+              </p>
+            </div>
+
+            {/* Tabla / Grilla Comparativa Elegante en Zinc */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              {/* Columna A: Gimnasio Común */}
+              <div className="rounded-2xl border border-border/70 bg-card/40 p-6 sm:p-8 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/60">
+                    <span className="size-3 rounded-full bg-destructive/60" aria-hidden="true" />
+                    <h3 className="font-mono text-sm sm:text-base font-bold uppercase tracking-wider text-muted-foreground">
+                      Lo que pasa en un gimnasio común
+                    </h3>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
+                        Rutina
+                      </div>
+                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
+                        Fotocopia arrugada y genérica que nadie mira ni actualiza.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
+                        Carga
+                      </div>
+                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
+                        Adivinar el peso y levantar la misma mancuerna hace 6 meses.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
+                        Técnica
+                      </div>
+                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
+                        Profesor en recepción mirando el celular mientras hacés sentadilla con la espalda doblada.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
+                        Software
+                      </div>
+                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
+                        Apps comerciales lentas en dólares que se tildan y cobran por alumno.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna B: Con Gonzalo Salas (GOZSter) */}
+              <div className="rounded-2xl border-2 border-primary/50 bg-card p-6 sm:p-8 shadow-md flex flex-col justify-between relative">
+                <div className="absolute top-4 right-4">
+                  <Badge className="bg-primary text-primary-foreground font-mono text-[10px] font-bold uppercase">
+                    EL MÉTODO
+                  </Badge>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/80">
+                    <span className="size-3 rounded-full bg-emerald-500" aria-hidden="true" />
+                    <h3 className="font-mono text-sm sm:text-base font-bold uppercase tracking-wider text-foreground">
+                      Entrenar con Gonzalo Salas
+                    </h3>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-primary uppercase">
+                        Rutina
+                      </div>
+                      <p className="text-sm sm:text-base font-semibold text-foreground">
+                        Plan individualizado según tus palancas y movilidad.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-primary uppercase">
+                        Carga
+                      </div>
+                      <p className="text-sm sm:text-base font-semibold text-foreground">
+                        Sobrecarga progresiva kilo por kilo registrado.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-primary uppercase">
+                        Técnica
+                      </div>
+                      <p className="text-sm sm:text-base font-semibold text-foreground">
+                        Ojos de Director Técnico (Romero Brest, FAB, Halterofilia).
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-bold text-primary uppercase">
+                        Software
+                      </div>
+                      <p className="text-sm sm:text-base font-semibold text-foreground">
+                        GOZSter, tecnología propia, offline y sin suscripción.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 5. Credenciales de Gonzalo Salas (Franjas GlyphsLabs) */}
         <section id="trayectoria" className="py-16 sm:py-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center sm:text-left mb-10 sm:mb-14">
             <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-              01 / ACREDITACIONES Y TRAYECTORIA
+              02 / ACREDITACIONES Y TRAYECTORIA
             </div>
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
               Formación Académica y Dirección Técnica
@@ -596,11 +684,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 5. Modalidades de Trabajo (Exactamente 3 Disciplinas) */}
+        {/* 6. Modalidades de Trabajo (Exactamente 3 Disciplinas con Copys Refinados) */}
         <section id="modalidades" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
             <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-              02 / DISCIPLINAS DISPONIBLES
+              03 / DISCIPLINAS DISPONIBLES
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
               Modalidades de Trabajo
@@ -624,20 +712,20 @@ export default function HomePage() {
                   Funcional
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Desarrollo de fuerza integral, control postural y acondicionamiento cardiovascular mediante patrones motores básicos: empujes, tracciones, bisagras de cadera y traslaciones.
+                  Entrenamiento basado en movimientos humanos reales: empujar, traccionar, bisagras de cadera y acarreos. Ganás fuerza útil, corregís vicios posturales y aumentás tu capacidad de trabajo sin quemarte las articulaciones.
                 </p>
                 <ul className="space-y-2 text-xs text-muted-foreground mb-6">
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Movilidad articular y prevención de lesiones</span>
+                    <span>Movilidad activa y blindaje articular contra lesiones cotidianas</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Cargas reguladas según test de aptitud</span>
+                    <span>Cargas progresivas reguladas según tu rango de movimiento real</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Densidad de trabajo y resistencia metabólica</span>
+                    <span>Resistencia metabólica y potencia cardiovascular sin perder masa muscular</span>
                   </li>
                 </ul>
               </div>
@@ -666,20 +754,20 @@ export default function HomePage() {
                   Boxeo
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Escuela técnica avalada por la Federación Argentina de Boxeo. Trabajo de desplazamientos, combinaciones en manoplas, bolsa pesada, reflejos defensivos y acondicionamiento específico de combate.
+                  Dirección técnica oficial FAB. Aprendés a pegar con la biomecánica correcta, mover las piernas con balance y defender con criterio. Sesiones intensas de manoplas, bolsa y reflejos donde cada round tiene un objetivo.
                 </p>
                 <ul className="space-y-2 text-xs text-muted-foreground mb-6">
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Fundamentos biomecánicos del golpeo</span>
+                    <span>Mecánica de golpeo y transferencia de potencia desde el piso</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Coordinación óculo-manual y juego de pies</span>
+                    <span>Velocidad de reacción, distancia y coordinación bajo fatiga</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Sparring técnico controlado y optativo</span>
+                    <span>Condicionamiento físico de combate (opción de sparring técnico sólo para avanzados)</span>
                   </li>
                 </ul>
               </div>
@@ -702,26 +790,26 @@ export default function HomePage() {
                   <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
                     MODALIDAD 03
                   </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">REMOTO / PWA</span>
+                  <span className="text-xs font-mono text-muted-foreground">100% Offline-First PWA</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-3">
                   Rutinas online
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Planificación personalizada e individualizada cargada directamente en la Athlete App. Registro de series, cargas, RPE, descansos automáticos y feedback continuado para entrenar en cualquier gimnasio del mundo.
+                  Planificación kilo a kilo cargada en tu celular. No hay PDFs genéricos ni rutinas copiadas: cada serie tiene su carga, descanso cronometrado y auditoría de técnica por video para que progreses en cualquier gimnasio del mundo.
                 </p>
                 <ul className="space-y-2 text-xs text-muted-foreground mb-6">
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Modo avión con tolerancia total sin señal</span>
+                    <span>App 100% Offline-First PWA para entrenar sin depender de la señal del gimnasio</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Cálculo automático de 1RM y sobrecarga</span>
+                    <span>Cronómetro Inteligente de descansos automáticos y Calentamiento Específico</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Actualización periódica de microciclos</span>
+                    <span>Sobrecarga progresiva y ajustes de microciclos según tus sensaciones</span>
                   </li>
                 </ul>
               </div>
@@ -739,86 +827,110 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 6. Infraestructura Tecnológica & Conversión Bivalente */}
-        <section id="infraestructura" className="py-16 sm:py-24 border-t border-border/80 bg-card/30">
+        {/* 7. Sección para Entrenadores y Gimnasios (Infraestructura Tecnológica) */}
+        <section
+          id="infraestructura"
+          className="py-16 sm:py-24 border-t border-border/80 bg-card/30"
+          data-testid="seccion-entrenadores"
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center mb-12">
+            <div className="max-w-3xl mx-auto text-center mb-12 sm:mb-16">
               <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-                03 / TECNOLOGÍA PROPIA Y SOBERANA
+                04 / PLATAFORMA PARA PROFESIONALES
               </div>
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-                Infraestructura GOZSter
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground leading-tight">
+                ¿Sos entrenador o tenés un gimnasio? Dejá de perder 10 horas por semana con Excels y fotocopias.
               </h2>
-              <p className="text-sm sm:text-base text-muted-foreground mt-2">
-                Arquitectura de alto rendimiento para entrenadores y atletas. Sin intermediarios, sin comisiones y con $0 costo en licencias mensuales comerciales.
+              <p className="text-base sm:text-lg text-muted-foreground mt-4 leading-relaxed">
+                Las apps comerciales cobran en dólares por cada alumno que sumás y se tildan en el sótano del gimnasio. GOZSter es tecnología propia construida para entrenadores reales.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-14">
-              {/* Bloque Coach Studio */}
-              <Card className="p-6 sm:p-8 border-border/80 bg-card rounded-2xl">
-                <div className="font-mono text-xs text-muted-foreground uppercase mb-2">
-                  PLATAFORMA WEB
+            {/* 4 Beneficios concretos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-14">
+              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+                <div>
+                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
+                    01
+                  </div>
+                  <h3 className="text-base font-bold text-foreground mb-2">
+                    Constructor de rutinas con superseries en segundos.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Armá bloques de entrenamiento, series piramidales y descansos automáticos con fluidez táctil instantánea.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  Coach Studio (Desktop &amp; Tablet)
-                </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-6">
-                  Panel de control de alumnos, constructor visual de rutinas, superseries, analítica de bajas y gestión de cobros en tiempo real.
-                </p>
-                <Link
-                  href="/studio"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-5 py-2.5 text-xs sm:text-sm font-bold hover:opacity-90 transition-all w-full"
-                >
-                  <span>Ingresar a Coach Studio</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
               </Card>
 
-              {/* Bloque Athlete App */}
-              <Card className="p-6 sm:p-8 border-border/80 bg-card rounded-2xl">
-                <div className="font-mono text-xs text-muted-foreground uppercase mb-2">
-                  MOBILE FIRST &amp; PWA
+              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+                <div>
+                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
+                    02
+                  </div>
+                  <h3 className="text-base font-bold text-foreground mb-2">
+                    Seguimiento de retención y alertas automáticas de sobrecarga.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Semáforo de bajas potenciales, detección de fatiga aguda y control de alumnos sin plan al instante.
+                  </p>
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  Athlete App (Entrenamiento en Vivo)
-                </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mb-6">
-                  App instalable y liviana, optimizada para el gimnasio con botones grandes, cronómetro audible con vibración y 100% Offline-First.
-                </p>
-                <Link
-                  href="/athlete"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground px-5 py-2.5 text-xs sm:text-sm font-bold transition-all w-full"
-                >
-                  <span>Abrir Athlete App</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
+              </Card>
+
+              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+                <div>
+                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
+                    03
+                  </div>
+                  <h3 className="text-base font-bold text-foreground mb-2">
+                    Funciona 100% offline en sótanos sin señal.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Tus atletas registran series en modo avión sin caídas de UI, sincronizando en silencio al salir a la calle.
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+                <div>
+                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
+                    04
+                  </div>
+                  <h3 className="text-base font-bold text-foreground mb-2">
+                    $0 en licencias comerciales (software libre y soberano).
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Cero comisiones, sin suscripciones mensuales abusivas y con total soberanía sobre la base de datos de tu gimnasio.
+                  </p>
+                </div>
               </Card>
             </div>
 
-            {/* Banner Final de Conversión Bivalente */}
+            {/* Banner CTA Destacado para Coach Studio */}
             <div className="rounded-2xl border border-border/80 bg-card p-8 sm:p-12 text-center max-w-3xl mx-auto shadow-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-3.5 py-1 font-mono text-xs text-muted-foreground mb-4">
+                <span>ACCESO INMEDIATO</span>
+                <span className="text-border" aria-hidden="true">•</span>
+                <span className="text-foreground font-semibold">SIN INSTALADORES PESADOS</span>
+              </div>
               <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-                ¿Listo para elevar tu estándar de entrenamiento?
+                Comenzá a profesionalizar tu gimnasio hoy mismo
               </h3>
               <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-8">
-                Coordiná tu entrevista inicial con Gonzalo Salas para definir tus objetivos y comenzar tu plan de fuerza o boxeo.
+                Explorá el panel de control de Coach Studio con dataset de demostración cargado y experimentá la diferencia de trabajar con tecnología propia.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
-                >
-                  <span>Comenzar a Entrenar con Gonza</span>
-                  <span aria-hidden="true">→</span>
-                </a>
                 <Link
                   href="/studio"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 text-sm font-bold active:scale-[0.98] transition-all"
+                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
                 >
-                  <span>Ingresar a Coach Studio</span>
+                  <span>Ingresar a Coach Studio Gratis (Sin tarjeta)</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link
+                  href="/athlete"
+                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 text-sm sm:text-base font-bold active:scale-[0.98] transition-all"
+                >
+                  <span>Probar Athlete App (PWA)</span>
                 </Link>
               </div>
             </div>
@@ -826,7 +938,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* 7. Footer Corporativo Sobrio Zinc */}
+      {/* 8. Footer Corporativo Sobrio Zinc */}
       <footer className="border-t border-border/80 bg-background py-10 px-4 sm:px-6 lg:px-8 text-center sm:text-left text-xs text-muted-foreground">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
