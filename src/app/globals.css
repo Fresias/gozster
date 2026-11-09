@@ -176,3 +176,59 @@
   }
 }
 
+/* Micro-Glitch Quirúrgico en CSS Puro (GOZS-441) */
+@keyframes micro-glitch {
+  0% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+  20% {
+    transform: translate(-1px, 1px);
+    text-shadow: 1px 0 hsl(var(--primary) / 0.8), -1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  40% {
+    transform: translate(-1px, -1px);
+    text-shadow: -1px 0 hsl(var(--primary) / 0.8), 1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  60% {
+    transform: translate(1px, 1px);
+    text-shadow: 1px 0 hsl(var(--primary) / 0.8), -1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  80% {
+    transform: translate(1px, -1px);
+    text-shadow: -1px 0 hsl(var(--primary) / 0.8), 1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  100% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+}
+
+.glitch-hover:hover {
+  animation: micro-glitch 0.22s ease-in-out infinite alternate;
+}
+
+/* Perspectiva 3D Hero Spectup */
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+/* Inactivación absoluta ante prefers-reduced-motion: reduce */
+@media (prefers-reduced-motion: reduce) {
+  .glitch-hover,
+  .glitch-hover:hover {
+    animation: none !important;
+    transform: none !important;
+    text-shadow: none !important;
+  }
+  .hero-3d-card,
+  .hero-3d-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
