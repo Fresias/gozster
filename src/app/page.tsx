@@ -485,11 +485,11 @@ export default function HomePage() {
         </section>
 
         {/* 3. Métricas de Impacto */}
-        <section className="border-b border-border/80 bg-card/40 py-10 mb-10 sm:mb-16">
+        <section className="border-b border-border/80 bg-card/40 py-10 sm:py-14">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/80 text-center">
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   +150
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -497,7 +497,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   3
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -505,7 +505,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   5+
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -513,7 +513,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   $0
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -596,7 +596,7 @@ export default function HomePage() {
               </div>
 
               {/* Columna B: Con Gonzalo Salas (GOZSter) */}
-              <div className="rounded-2xl border-2 border-primary/50 bg-card p-6 sm:p-8 shadow-md flex flex-col justify-between relative">
+              <div className="dark rounded-2xl border border-border bg-background text-foreground p-6 sm:p-8 shadow-2xl flex flex-col justify-between relative md:scale-[1.03]">
                 <div className="absolute top-4 right-4">
                   <Badge className="bg-primary text-primary-foreground font-mono text-[10px] font-bold uppercase">
                     EL MÉTODO
@@ -909,9 +909,10 @@ export default function HomePage() {
         {/* 7. Sección para Entrenadores y Gimnasios (Infraestructura Tecnológica) */}
         <section
           id="infraestructura"
-          className="py-16 sm:py-24 border-t border-border/80 bg-card/30"
+          className="dark relative isolate overflow-hidden py-16 sm:py-24 border-t border-border bg-background text-foreground"
           data-testid="seccion-entrenadores"
         >
+          <div className="hero-grid absolute inset-0 -z-10 pointer-events-none" aria-hidden="true" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-12 sm:mb-16">
               <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
