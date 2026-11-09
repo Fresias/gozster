@@ -3,6 +3,7 @@
 //
 // Usage:
 //   node harness-kit/core/scripts/harness-merge-check.mjs <pr-number|url|branch> [--json] [--post-status]
+//   --post-status is for CI only: branch protection requires the status from the GitHub Actions app.
 //   node harness-kit/core/scripts/harness-merge-check.mjs --pr-json <file> [--lesson-file <file>] [--json]
 //
 // The guard runs this before `gh pr merge`. Exit 0 = mergeable, exit 1 = blocked.

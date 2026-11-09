@@ -5,11 +5,13 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const GUARD = path.join("harness-kit", "core", "guard", "guard-cli.mjs");
 
+/** A real git checkout (dir or worktree file `.git`) that vendors the harness guard; stray kit copies don't count. */
 function hasGuard(dir) {
-  return existsSync(path.join(dir, GUARD));
+  return existsSync(path.join(dir, GUARD)) && existsSync(path.join(dir, ".git"));
 }
 
 /** Walk up from dir to the first ancestor that contains the harness guard. */
@@ -68,11 +70,15 @@ process.stdin.on("end", () => {
   }
   const repo = resolveRepo(payload);
   if (!repo) process.exit(0);
-  // The project hook already runs when the session was opened inside the repo itself.
+  // Prefer the kit installed from main next to this file (~/.claude/hooks/harness-kit, which the guard itself
+  // protects): a stale or edited guard on the agent's branch must not weaken the rules.
+  const installed = path.join(path.dirname(fileURLToPath(import.meta.url)), GUARD);
+  const guard = existsSync(installed) ? installed : path.join(repo, GUARD);
+  // Without an installed kit, the project hook already runs when the session was opened inside the repo.
   const projectDir = process.env.CLAUDE_PROJECT_DIR || "";
-  if (projectDir && same(projectDir, repo) && existsSync(path.join(repo, ".claude", "settings.json"))) process.exit(0);
+  if (guard !== installed && projectDir && same(projectDir, repo) && existsSync(path.join(repo, ".claude", "settings.json"))) process.exit(0);
 
-  const res = spawnSync(process.execPath, [path.join(repo, GUARD), "--runtime", "claude-code"], {
+  const res = spawnSync(process.execPath, [guard, "--runtime", "claude-code"], {
     cwd: repo,
     input: raw,
     encoding: "utf8",

@@ -313,10 +313,30 @@ function prBodyText(cmd, repoRoot) {
   return cmd;
 }
 
-/** Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons. */
+/** True when a gh pr/api segment has `--repo/-R owner/name` flags and all differ from the origin of repoRoot. */
+function targetsOtherRepo(cmd, repoRoot) {
+  if (!/(^|[(\s])gh\s+(pr|api)\s/.test(cmd)) return false;
+  let repos;
+  if (/(^|[(\s])gh\s+api\s/.test(cmd)) {
+    // gh api ignores --repo: the target is the `repos/<owner>/<name>/` path ({owner}/{repo} = this repo).
+    repos = [...cmd.matchAll(/repos\/([\w.-]+\/[\w.-]+)\//g)].map((m) => m[1].toLowerCase());
+  } else {
+    repos = [...cmd.matchAll(/(?:--repo|\s-R)[\s=]+["']?([\w.-]+\/[\w.-]+)/g)].map((m) => m[1].toLowerCase());
+  }
+  if (!repos.length) return false;
+  const res = spawnSync("git", ["remote", "get-url", "origin"], { cwd: repoRoot, encoding: "utf8" });
+  const origin = res.status === 0 ? res.stdout.trim().match(/[/:]([\w.-]+\/[\w.-]+?)(\.git)?$/) : null;
+  return Boolean(origin) && repos.every((r) => r !== origin[1].toLowerCase());
+}
+
+/**
+ * Runs harness-merge-check.mjs for the PR selector; returns "" if mergeable, else the reasons.
+ * Verify only: the required `harness/merge-check` status is posted by CI (GitHub Actions app). A status posted
+ * here by the user would be newer, would not count for branch protection and would hide the CI one.
+ */
 function mergeCheck(selector, repoRoot) {
   const script = path.join(here, "..", "scripts", "harness-merge-check.mjs");
-  const args = [script, "--post-status"];
+  const args = [script];
   if (selector) args.push(selector);
   const res = spawnSync(process.execPath, args, { cwd: repoRoot, encoding: "utf8" });
   return res.status === 0 ? "" : (res.stderr || res.stdout || "merge check failed").trim();
@@ -464,11 +484,16 @@ function evaluateShell(call, repoRoot) {
   }
 
   // rm -rf
-  if (/(^|[^a-zA-Z0-9_])rm(\s|$)/i.test(cmd)) {
-    if (
-      /(-[a-zA-Z]*r|--recursive)/i.test(cmd) &&
-      /(-[a-zA-Z]*f|--force)/i.test(cmd)
-    ) {
+  // Flags are separate tokens of the rm segment (file names like harness-flow.md are not flags).
+  const rmSegments = cmd.split(/;|&&|\|\||\|/).filter((seg) => /(^|[^a-zA-Z0-9_-])rm(\s|$)/i.test(seg));
+  if (rmSegments.length > 0) {
+    const tokens = (seg) => seg.replace(/^.*?(^|[^a-zA-Z0-9_-])rm(\s|$)/i, " ").split(/\s+/);
+    const isRf = (seg) => {
+      const t = tokens(seg);
+      const short = t.filter((x) => /^-[a-zA-Z]+$/.test(x)).join("");
+      return (/[rR]/.test(short) || t.includes("--recursive")) && (/f/.test(short) || t.includes("--force"));
+    };
+    if (rmSegments.some(isRf)) {
       return {
         allowed: false,
         ruleId: "shell.rm-rf",
@@ -543,7 +568,10 @@ function evaluateShell(call, repoRoot) {
   }
 
   // gh pr create requires a valid gate seal AND the seal block in the PR body
-  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(cmd)) {
+  // gh segments of another repository (--repo owner/name) are governed by that repository's own harness;
+  // the seal and merge rules apply to the remaining segments (a --repo elsewhere exempts nothing).
+  const ownCmd = cmd.split(/;|&&|\|\||\||\n/).filter((seg) => !targetsOtherRepo(seg, repoRoot)).join(" ; ");
+  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(ownCmd)) {
     if (!sealValid(repoRoot)) {
       return {
         allowed: false,
@@ -568,8 +596,8 @@ function evaluateShell(call, repoRoot) {
   }
 
   // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
-  const mergeCmd = cmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
-  const apiMerge = cmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
+  const mergeCmd = ownCmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
+  const apiMerge = ownCmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
   // The harness/merge-check status is posted only by harness-merge-check.mjs, never by hand.
   if (/gh\s+api\s+[^;&|]*statuses\//i.test(cmd) && /harness\/merge-check/i.test(cmd)) {
     return {

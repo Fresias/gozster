@@ -254,6 +254,54 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     });
   }
 
+  it("GIVEN rm de un archivo con guiones en el nombre THEN no es rm -rf", () => {
+    const cmd = "npx vitest run a/zz-upstream-check.spec.ts; rm a/harness-flow-enforcement.spec.ts";
+    expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).allowed).toBe(true);
+  });
+
+  for (const cmd of ["rm -rf dist", "rm -r -f dist", "rm -fr dist", "rm --recursive --force dist", "ls && rm -Rf dist"]) {
+    it(`GIVEN "${cmd}" THEN shell.rm-rf`, () => {
+      expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: authorized }).ruleId).toBe("shell.rm-rf");
+    });
+  }
+
+  it("GIVEN gh pr create/merge --repo de OTRO repositorio THEN no aplica el sello de este repo", () => {
+    const dir = repo("chore/7-harness-x");
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/app.git"], { cwd: dir });
+    const other = "gh pr create --repo acme/kit --base main --head b --title t --body-file none.md";
+    expect(evaluateRules({ kind: "shell", command: other }, { repoRoot: dir }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: "gh pr merge 3 --repo acme/kit --squash" }, { repoRoot: dir }).allowed).toBe(true);
+    const same = "gh pr create --repo acme/app --base main --head b --title t --body-file none.md";
+    expect(evaluateRules({ kind: "shell", command: same }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
+    const spoof = "gh pr merge 3 -R acme/kit --repo acme/app --squash";
+    expect(evaluateRules({ kind: "shell", command: spoof }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    for (const tail of ["; echo --repo acme/kit", " && gh pr view 1 --repo acme/kit", "; echo -R acme/kit"]) {
+      expect(evaluateRules({ kind: "shell", command: `gh pr merge 3 --squash${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+      expect(evaluateRules({ kind: "shell", command: `gh pr create --title t --body x${tail}` }, { repoRoot: dir }).ruleId).toBe("pr.requires-seal");
+    }
+    // QA GOZS-432 r2: un --repo ajeno ANTES del merge propio tampoco exime.
+    expect(evaluateRules({ kind: "shell", command: "echo '--repo acme/kit'; gh pr merge 3" }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+  });
+
+  it("GIVEN gh api …/pulls/N/merge THEN el repo sale de la ruta, no de --repo (gh api lo ignora)", () => {
+    const dir = repo("chore/8-harness-x");
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/app.git"], { cwd: dir });
+    const own = "gh api repos/acme/app/pulls/3/merge -X PUT --repo acme/kit";
+    expect(evaluateRules({ kind: "shell", command: own }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    const placeholder = "gh api repos/{owner}/{repo}/pulls/3/merge -X PUT --repo acme/kit";
+    expect(evaluateRules({ kind: "shell", command: placeholder }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
+    expect(evaluateRules({ kind: "shell", command: "gh api repos/acme/kit/pulls/3/merge -X PUT" }, { repoRoot: dir }).allowed).toBe(true);
+  });
+
+  it("GIVEN gh pr merge THEN el guard solo verifica: no publica el status (lo publica el CI, app GitHub Actions)", () => {
+    const core = readFileSync(path.resolve(here, "..", "core", "guard", "guard-core.mjs"), "utf8");
+    const fn = core.slice(core.indexOf("function mergeCheck("), core.indexOf("function mergeCheck(") + 400);
+    expect(fn).not.toContain("--post-status");
+    // En el consumidor, el CI es quien publica el status (en el repo del kit no hay ci.yml).
+    const ciPath = path.resolve(here, "..", "..", ".github", "workflows", "ci.yml");
+    if (existsSync(ciPath)) expect(readFileSync(ciPath, "utf8")).toContain("harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status");
+  });
+
   it("GIVEN publicar a mano el status harness/merge-check THEN pr.merge-check", () => {
     const cmd = "gh api -X POST repos/o/r/statuses/abc -f state=success -f context=harness/merge-check";
     expect(evaluateRules({ kind: "shell", command: cmd }, { repoRoot: unauthorized }).ruleId).toBe("pr.merge-check");
@@ -330,11 +378,16 @@ describe("Render: gate de encoding del overlay", () => {
 });
 
 describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranque fuera del repo (workdir Multica)", () => {
-  const kitRepo = path.resolve(here, "..", "..");
-  const dispatch = path.resolve(here, "..", "core", "plugins", "claude-code", "dispatch.mjs");
+  const kitDir = path.resolve(here, "..");
+  const dispatch = path.join(kitDir, "core", "plugins", "claude-code", "dispatch.mjs");
+  // Layout Multica: <workdir>/<repo>/ con el kit en <repo>/harness-kit (junction: sin privilegios en Windows).
+  // Independiente del layout: sirve igual en el repo del kit y en un consumidor.
   const workdir = temp("harness-workdir-");
-  // Layout Multica: <workdir>/<repo>/ (junction: sin privilegios en Windows).
-  execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitRepo)}, ${JSON.stringify(path.join(workdir, "repo"))}, "junction")`]);
+  const consumer = path.join(workdir, "repo");
+  mkdirSync(path.join(consumer, "harness"), { recursive: true });
+  writeFileSync(path.join(consumer, "harness", "project.json"), JSON.stringify({ name: "c", runtimes: [], gate: "npm test" }));
+  execFileSync("git", ["init", "-q"], { cwd: consumer });
+  execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitDir)}, ${JSON.stringify(path.join(consumer, "harness-kit"))}, "junction")`]);
 
   function hook(cwd: string, tool_name: string, tool_input: Record<string, unknown>): { code: number; out: string } {
     try {
@@ -367,6 +420,38 @@ describe("Claude Code user dispatcher: el guard aplica aunque la sesión arranqu
 
   it("GIVEN un comando inocuo THEN permite (exit 0)", () => {
     expect(hook(workdir, "Bash", { command: "git status" }).code).toBe(0);
+  });
+
+  it("GIVEN una copia suelta del kit sin .git en el workdir THEN no se toma como repo (exit 0)", () => {
+    const stray = temp("harness-stray-");
+    execFileSync(process.execPath, ["-e", `require("fs").symlinkSync(${JSON.stringify(kitDir)}, ${JSON.stringify(path.join(stray, "harness-kit"))}, "junction")`]);
+    expect(hook(stray, "Bash", { command: "git branch -D foo" }).code).toBe(0);
+  });
+
+  it("GIVEN una rama con el guard viejo o editado THEN el dispatcher instalado aplica el kit instalado (GOZS-430/#417)", () => {
+    const home = temp("harness-home-");
+    const install = path.join(kitDir, "core", "plugins", "claude-code", "install.mjs");
+    execFileSync(process.execPath, [install, "--home", home], { stdio: "pipe" });
+    expect(run(process.execPath, [install, "--home", home, "--check"], home).code).toBe(0);
+    // Repo cuyo guard propio permite todo (rama desactualizada o guard manipulado).
+    const wd = temp("harness-stale-wd-");
+    const stale = path.join(wd, "repo");
+    mkdirSync(path.join(stale, "harness-kit", "core", "guard"), { recursive: true });
+    writeFileSync(path.join(stale, "harness-kit", "core", "guard", "guard-cli.mjs"), "process.exit(0)\n");
+    mkdirSync(path.join(stale, "harness"));
+    writeFileSync(path.join(stale, "harness", "project.json"), JSON.stringify({ name: "s", runtimes: [], gate: "npm test" }));
+    execFileSync("git", ["init", "-q"], { cwd: stale });
+    const installedDispatch = path.join(home, ".claude", "hooks", "harness-dispatch.mjs");
+    let code = 0;
+    try {
+      execFileSync(process.execPath, [installedDispatch], {
+        input: JSON.stringify({ hook_event_name: "PreToolUse", cwd: wd, tool_name: "Bash", tool_input: { command: "cd repo && git branch -D foo" } }),
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (err) {
+      code = (err as { status?: number }).status ?? 1;
+    }
+    expect(code).toBe(2);
   });
 
   it("GIVEN un directorio sin harness THEN no interviene (exit 0)", () => {
