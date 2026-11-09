@@ -115,35 +115,42 @@ export default function HomePage() {
 
       {/* Contenido Principal */}
       <main className="flex-1">
-        {/* 2. Hero Section (Composición 3D Spectup) */}
-        <section className="relative pt-12 pb-16 sm:pt-20 sm:pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
+        {/* 2. Hero Section de Impacto: escenario oscuro fijo + 3 puertas de entrada + abanico 3D */}
+        <section
+          className="dark relative isolate overflow-hidden bg-background text-foreground border-b border-border"
+          data-testid="hero-impacto"
+        >
+          <div className="hero-grid absolute inset-0 -z-10 pointer-events-none" aria-hidden="true" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-20 sm:pb-24">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-end mb-16 sm:mb-20">
+          <div className="lg:col-span-7">
           {/* Badge superior técnico en monoespaciado */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-container/60 px-3.5 py-1 font-mono text-xs text-muted-foreground mb-6 shadow-xs">
-            <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-container/60 px-3.5 py-1 font-mono text-[10px] sm:text-xs text-muted-foreground mb-6 shadow-xs">
+            <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
             <span>PREPARACIÓN FÍSICA DE FUERZA · TECNOLOGÍA PROPIA · 0 HUMO</span>
           </div>
 
-          {/* Título editorial sobrio y de impacto atlético con micro-glitch */}
-          <div className="max-w-4xl mx-auto mb-6">
-            <div className="mb-2">
+          {/* Nombre en escala de póster con micro-glitch + titular editorial */}
+          <div className="mb-6">
+            <div className="mb-5 sm:mb-6">
               <span
                 data-text="GONZALO SALAS"
-                className="glitch-hover inline-block font-black text-3xl sm:text-5xl lg:text-6xl tracking-tight text-foreground uppercase cursor-default select-none"
+                className="glitch-hover inline-block font-black text-[15vw] sm:text-8xl xl:text-9xl leading-[0.85] tracking-tighter text-foreground uppercase cursor-default select-none"
               >
                 GONZALO SALAS
               </span>
             </div>
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.12]">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-foreground leading-[1.15] max-w-2xl">
               Entrenar no es cansarse hasta transpirar. Es mover más peso con mejor técnica, semana a semana.
             </h1>
           </div>
 
-          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed mb-10">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl leading-relaxed mb-8">
             La mayoría de la gente pasa meses en el gimnasio levantando la misma mancuerna, siguiendo una rutina fotocopiada que nadie mira y adivinando si progresa. Con Gonzalo Salas cada serie tiene un número, la técnica se audita antes de subir los kilos y tu avance se mide con datos reales.
           </p>
 
           {/* Conversión Bivalente (CTAs del Hero adaptados dinámicamente a la sesión) */}
-          <div className="flex flex-wrap justify-center items-center gap-3.5 sm:gap-4 mb-16">
+          <div className="flex flex-wrap items-center gap-3.5 sm:gap-4">
             {user?.rol === "ALUMNO" ? (
               <>
                 <Link
@@ -261,6 +268,77 @@ export default function HomePage() {
                 </Link>
               </>
             )}
+          </div>
+          </div>
+
+          {/* 3 puertas de entrada: una por audiencia (entrenar, entrenadores, alumnos) */}
+          <nav className="lg:col-span-5" aria-label="Elegí tu camino">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-3">
+              Una plataforma · tres formas de entrar
+            </div>
+            <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border shadow-2xl">
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
+                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  data-testid="hero-puerta-1"
+                >
+                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
+                    01
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
+                      Para entrenar
+                    </span>
+                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
+                      Quiero entrenar con Gonzalo
+                    </span>
+                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
+                      Funcional, boxeo o rutina online. Plan individual y técnica auditada antes de sumar kilos.
+                    </span>
+                  </span>
+                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
+                </a>
+                <Link href="/studio"
+                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  data-testid="hero-puerta-2"
+                >
+                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
+                    02
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
+                      Para entrenadores
+                    </span>
+                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
+                      Soy entrenador
+                    </span>
+                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
+                      Coach Studio: tu dashboard y centro de monitoreo. Armá rutinas y seguí a cada alumno.
+                    </span>
+                  </span>
+                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
+                </Link>
+                <Link href="/athlete"
+                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  data-testid="hero-puerta-3"
+                >
+                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
+                    03
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
+                      Para alumnos
+                    </span>
+                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
+                      Mi entrenador usa GOZSter
+                    </span>
+                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
+                      Athlete App: tu rutina en el celular, serie por serie, también sin señal.
+                    </span>
+                  </span>
+                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
+                </Link>
+            </div>
+          </nav>
           </div>
 
           {/* Abanico Escalonado de 3 Capas con Contraste Dramático (Spectup Style) */}
@@ -403,14 +481,15 @@ export default function HomePage() {
               </Card>
             </div>
           </div>
+          </div>
         </section>
 
         {/* 3. Métricas de Impacto */}
-        <section className="border-y border-border/80 bg-card/40 py-10 my-10 sm:my-16">
+        <section className="border-b border-border/80 bg-card/40 py-10 sm:py-14">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/80 text-center">
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   +150
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -418,7 +497,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   3
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -426,7 +505,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   5+
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -434,7 +513,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-3xl sm:text-5xl font-black text-foreground">
+                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
                   $0
                 </div>
                 <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -517,7 +596,7 @@ export default function HomePage() {
               </div>
 
               {/* Columna B: Con Gonzalo Salas (GOZSter) */}
-              <div className="rounded-2xl border-2 border-primary/50 bg-card p-6 sm:p-8 shadow-md flex flex-col justify-between relative">
+              <div className="dark rounded-2xl border border-border bg-background text-foreground p-6 sm:p-8 shadow-2xl flex flex-col justify-between relative md:scale-[1.03]">
                 <div className="absolute top-4 right-4">
                   <Badge className="bg-primary text-primary-foreground font-mono text-[10px] font-bold uppercase">
                     EL MÉTODO
@@ -830,9 +909,10 @@ export default function HomePage() {
         {/* 7. Sección para Entrenadores y Gimnasios (Infraestructura Tecnológica) */}
         <section
           id="infraestructura"
-          className="py-16 sm:py-24 border-t border-border/80 bg-card/30"
+          className="dark relative isolate overflow-hidden py-16 sm:py-24 border-t border-border bg-background text-foreground"
           data-testid="seccion-entrenadores"
         >
+          <div className="hero-grid absolute inset-0 -z-10 pointer-events-none" aria-hidden="true" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-12 sm:mb-16">
               <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
