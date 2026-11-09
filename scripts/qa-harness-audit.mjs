@@ -32,6 +32,7 @@ const requiredFiles = [
   { name: "7. scripts (harness-learn)", file: path.join(kitDir, "core", "scripts", "harness-learn.sh") },
   { name: "7. scripts (harness-telemetry)", file: path.join(kitDir, "core", "scripts", "harness-telemetry.mjs") },
   { name: "7. scripts (harness-probe)", file: path.join(kitDir, "core", "scripts", "harness-probe.mjs") },
+  { name: "7. scripts (harness-propose)", file: path.join(kitDir, "core", "scripts", "harness-propose.mjs") },
 ];
 
 for (const { name, file } of requiredFiles) {
@@ -87,6 +88,15 @@ try {
   console.log("   -> OK: No drift detectado en runtime targets.");
 } catch (e) {
   errors.push("harness-render.mjs --check reportó drift o fallo de compilación.");
+}
+
+// 5. Auditando deuda de lecciones del arnés (Candado 2)
+console.log("5. Auditando deuda de lecciones del arnés...");
+try {
+  execSync("node harness-kit/core/scripts/harness-propose.mjs --check-debt --max-debt 5", { cwd: repoRoot, stdio: "pipe" });
+  console.log("   -> OK: Deuda de arnés dentro del límite permitido (<=5).");
+} catch (e) {
+  errors.push("Deuda de lecciones de arnés excedida (>5 sin procesar por harness-propose).");
 }
 
 // Resumen final
