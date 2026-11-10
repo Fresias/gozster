@@ -133,7 +133,6 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(guidance).toMatch(/squad queue resilience|native queue|wait in line/i);
     expect(guidance).toMatch(/strictly no sleep, poll, or wakeup polling|no repeated mentions, sleeps, or polls/i);
   });
-  });
 
   // GOZS-83 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
   it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails", () => {
