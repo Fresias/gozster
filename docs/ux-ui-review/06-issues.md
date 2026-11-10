@@ -1,6 +1,6 @@
 # 06 · Issues listos para Multica
 
-> **Para:** `@PM-GOZster`. Cada bloque entre `---` es un issue. Copiar a un archivo y crear con `multica issue create --description-file <archivo>` (regla del repo: descripciones largas siempre por archivo).
+> **Para:** `@PM-GOZster`. Cada bloque entre `---` es un issue. Copiar a un archivo y crear con `multica issue create --pr-auto-complete off --description-file <archivo>` (regla del repo: descripciones largas siempre por archivo; `--pr-auto-complete off` previene cierre prematuro en tareas multi-stage).
 > Reemplazar `<#>` por el número asignado. Todas las ramas salen de `main` después de mergear `feature/student-detail-canvas-islas`.
 > Cada issue hereda: gate `npm test && npm run typecheck && npm run lint && npm run build`, revisión Selection de `@qa-eng`, y actualización de specs afectados sin relajarlos (`04-frontend.md §6`).
 
