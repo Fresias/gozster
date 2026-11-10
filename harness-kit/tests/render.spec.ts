@@ -128,6 +128,12 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(tmpl).toContain("--pr-auto-complete off");
   });
 
+  it("GIVEN tool_guidance de Multica THEN especifica resiliencia de la cola nativa de squads y prohíbe polling de wakeup (GOZS-454)", () => {
+    const guidance = readFileSync(path.join(repoRoot, "harness-kit", "adapters", "multica", "tool_guidance.md"), "utf8");
+    expect(guidance).toMatch(/squad queue resilience|native queue|wait in line/i);
+    expect(guidance).toMatch(/strictly no sleep, poll, or wakeup polling|no repeated mentions, sleeps, or polls/i);
+  });
+
   // GOZS-83 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
   it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails", () => {
     const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");
