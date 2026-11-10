@@ -32,17 +32,24 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
     });
 
     it("cuenta el relato en orden, un capítulo por pantalla", () => {
-      const ids = ["problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo", "entrenadores", "faq", "empezar"];
+      const ids = [
+        "problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo",
+        "entrenadores", "studio-hoy", "studio-rutinas", "studio-alumno", "studio-negocio", "studio-empezar",
+        "faq", "empezar",
+      ];
       const posiciones = ids.map((id) => html.indexOf(`id="${id}"`));
       expect(posiciones.every((p) => p > 0)).toBe(true);
       expect([...posiciones].sort((a, b) => a - b)).toEqual(posiciones);
-      // hero + 10 capítulos, cada uno con alto mínimo de un viewport (menos el header fijo)
-      expect((html.match(/landing-section[^"]*min-h-\[calc\(100svh-4rem\)\]/g) ?? []).length).toBe(11);
+      // hero + 15 capítulos, cada uno con alto mínimo de un viewport (menos el header fijo)
+      expect((html.match(/landing-section[^"]*min-h-\[calc\(100svh-4rem\)\]/g) ?? []).length).toBe(16);
     });
 
     it("cada capítulo termina con un enlace que invita a seguir al siguiente", () => {
-      const destinos = [...html.matchAll(/<a href="#([a-z]+)"[^>]*data-siguiente/g)].map((m) => m[1]);
-      expect(destinos).toEqual(["problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo", "entrenadores", "faq", "empezar"]);
+      const destinos = [...html.matchAll(/<a href="#([a-z-]+)"[^>]*data-siguiente/g)].map((m) => m[1]);
+      expect(destinos).toEqual([
+        "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo", "entrenadores",
+        "studio-hoy", "studio-rutinas", "studio-alumno", "studio-negocio", "studio-empezar", "faq", "empezar",
+      ]);
     });
 
     it("incluye testimonios de alumnos y preguntas frecuentes para los dos públicos", () => {
@@ -84,6 +91,25 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
         expect(text).toContain(`Consultar por ${m}`);
       }
       expect(html).toContain("https://wa.me/541162752515");
+    });
+
+    it("el hero y el header llevan al entrenador directo a su recorrido", () => {
+      const heroCta = html.split('data-testid="hero-cta"')[1]?.split("</div>")[0] ?? "";
+      expect(heroCta).toContain('href="#entrenadores"');
+      expect(texto(heroCta)).toContain("Soy entrenador: ver Coach Studio");
+      expect(html).toContain('data-testid="hero-puerta-entrenadores"');
+      const header = html.split("</header>")[0] ?? "";
+      expect(header).toContain('href="#entrenadores"');
+    });
+
+    it("recorre Coach Studio con imágenes del producto, una pantalla por capítulo", () => {
+      expect((html.match(/data-testid="studio-pantalla"/g) ?? []).length).toBe(4);
+      for (const img of ["studio-inicio", "studio-rutinas", "studio-alumno", "studio-cobros", "studio-movil"]) {
+        expect(html).toContain(`/landing/${img}.jpg`);
+        expect(fs.existsSync(path.resolve(__dirname, `../../public/landing/${img}.jpg`))).toBe(true);
+      }
+      expect(text).toContain("Pantalla de Coach Studio con datos de ejemplo.");
+      expect((html.match(/href="\/studio"/g) ?? []).length).toBeGreaterThanOrEqual(4);
     });
 
     it("presenta Coach Studio a los entrenadores con acceso a /studio", () => {
@@ -179,9 +205,8 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
     });
 
     it("los ejemplos de producto se declaran como ilustrativos y son accesibles", () => {
-      expect((html.match(/role="img"/g) ?? []).length).toBe(2);
+      expect((html.match(/role="img"/g) ?? []).length).toBe(1);
       expect(text).toContain("Ejemplo ilustrativo de la app.");
-      expect(text).toContain("Ejemplo ilustrativo de Coach Studio.");
       // toda imagen declara alt; solo el retrato decorativo del hero lo deja vacío
       expect(html).not.toMatch(/<img(?![^>]*\salt=")[^>]*>/);
       expect((html.match(/<img[^>]*alt=""/g) ?? []).length).toBe(1);
