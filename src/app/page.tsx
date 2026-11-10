@@ -2,77 +2,35 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { LandingSessionCapsule } from "@/components/landing-session-capsule";
 import { useLandingSession } from "@/lib/use-landing-session";
-
-/* Configuración única de contacto: cambiar acá el número de WhatsApp. */
-const WHATSAPP_NUMERO = "541162752515";
-const whatsapp = (mensaje: string) => `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
-const WHATSAPP_ALUMNO = whatsapp("Hola Gonza, quiero empezar a entrenar con vos. ¿Me contás cómo trabajás?");
-const WHATSAPP_COACH = whatsapp("Hola Gonza, soy entrenador y quiero conocer Coach Studio.");
-const FOTO_GONZALO = "/landing/gonzalo-salas.jpg";
-
-/* Recetas visuales compartidas con Coach Studio (tokens zinc, borde 1px, micro-etiquetas mono). */
-const MICRO_LABEL = "font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground";
-const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-const BTN =
-  "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition-all duration-150 active:scale-[0.98] " +
-  FOCUS_RING;
-const BTN_PRIMARY = `${BTN} bg-primary text-primary-foreground hover:opacity-90`;
-const BTN_GHOST = `${BTN} border border-border bg-transparent text-foreground hover:bg-secondary`;
-const CONTAINER = "mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12";
-/* Cada capítulo ocupa, como mínimo, un viewport (descontando el header fijo). */
-const SECCION = "landing-section relative isolate flex min-h-[calc(100svh-4rem)] scroll-mt-16 flex-col border-t border-border pb-24 pt-8 sm:py-14";
-const CUERPO = `${CONTAINER} flex flex-1 flex-col justify-center`;
-const H2 = "text-balance text-[clamp(2rem,4.6vw,3.75rem)] font-black leading-[0.98] tracking-tighter text-foreground";
-/* En móvil, los grupos de tres se recorren deslizando: el capítulo sigue entrando en una pantalla. */
-const FILA =
-  "-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden";
-const FILA_ITEM = "w-[82%] shrink-0 snap-start md:w-auto";
-const LEAD = "text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg";
-
-function ArrowIcon({ className = "size-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-function CheckIcon({ className = "size-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
-
-/* Etiqueta de capítulo: numera el relato y da ritmo a la lectura. */
-function Capitulo({ n, children }: { n: string; children: React.ReactNode }) {
-  return (
-    <div className={`${MICRO_LABEL} mb-3 flex items-center gap-3 sm:mb-5`} data-reveal>
-      <span className="tabular-nums text-foreground">{n}</span>
-      <span className="h-px w-10 bg-border" aria-hidden="true" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-/* Cierre de cada capítulo: una pregunta o promesa que invita a seguir bajando. */
-function Siguiente({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <div className={`${CONTAINER} mt-6 sm:mt-10`}>
-      <a href={href} className={`group inline-flex min-h-[48px] items-center gap-3 rounded-full text-sm font-bold text-foreground ${FOCUS_RING}`} data-siguiente>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border transition-colors duration-150 group-hover:bg-foreground group-hover:text-background">
-          <ArrowIcon className="landing-nudge size-4 rotate-90" />
-        </span>
-        <span className="underline-offset-4 group-hover:underline">{children}</span>
-      </a>
-    </div>
-  );
-}
+import {
+  ArrowIcon,
+  BarraMovil,
+  BTN,
+  BTN_GHOST,
+  BTN_PRIMARY,
+  Capitulo,
+  CheckIcon,
+  CONTAINER,
+  CUERPO,
+  FILA,
+  FILA_ITEM,
+  FOCUS_RING,
+  FOTO_GONZALO,
+  H2,
+  LandingFooter,
+  LandingHeader,
+  LEAD,
+  MICRO_LABEL,
+  Preguntas,
+  SECCION,
+  Siguiente,
+  useBarraMovil,
+  useScrollReveal,
+  whatsapp,
+  WHATSAPP_ALUMNO,
+  WHATSAPP_COACH,
+} from "@/components/landing/kit";
 
 /* Las "tendencias" que el relato tacha: el dolor contado con las palabras del alumno. */
 const TENDENCIAS = [
@@ -194,71 +152,6 @@ const TESTIMONIOS = [
   },
 ];
 
-/* Lo que el entrenador deja atrás (mismo recurso del tachado que usa el hero). */
-const DOLORES_COACH = [
-  "Planillas que solo vos entendés",
-  "Rutinas por PDF y audios de WhatsApp",
-  "Enterarte tarde de quién dejó de entrenar",
-  "Perseguir cuotas por chat",
-];
-
-/* Recorrido por Coach Studio. Las imágenes salen de las pantallas canónicas del producto
-   (docs/ux-ui-review/objetivo/html), con datos de ejemplo. */
-const STUDIO_PANTALLAS = [
-  {
-    id: "studio-hoy",
-    n: "08.1",
-    etiqueta: "Tu día",
-    titulo: "Abrís y sabés quién te necesita hoy.",
-    detalle: "Quién avisó una molestia, quién hace días que no entrena, a quién se le venció la cuota y qué clases tenés. Todo en la primera pantalla.",
-    puntos: ["Avisos ordenados por prioridad", "Clases del día con sus anotados", "Tus alumnos y su estado, de un vistazo"],
-    img: "/landing/studio-inicio.jpg",
-    alto: 1600,
-    alt: "Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos",
-    sigueHref: "#studio-rutinas",
-    sigueTexto: "Ahora, armá una rutina",
-  },
-  {
-    id: "studio-rutinas",
-    n: "08.2",
-    etiqueta: "Tus rutinas",
-    titulo: "Armás la rutina como vos la pensás.",
-    detalle: "Tus ejercicios, tus días, tu criterio. Guardás plantillas para reutilizar y adaptás cada rutina al alumno que tenés adelante.",
-    puntos: ["Plantillas propias y rutinas por alumno", "Aviso cuando una rutina está por vencer", "Cambiás un ejercicio sin rehacer todo"],
-    img: "/landing/studio-rutinas.jpg",
-    alto: 1280,
-    alt: "Biblioteca de rutinas de Coach Studio con las rutinas asignadas a cada alumno",
-    sigueHref: "#studio-alumno",
-    sigueTexto: "Mirá la ficha de un alumno",
-  },
-  {
-    id: "studio-alumno",
-    n: "08.3",
-    etiqueta: "Cada alumno",
-    titulo: "La historia completa de cada alumno.",
-    detalle: "Lo que entrenó, sus mejores marcas, la rutina vigente y cualquier molestia que haya avisado. Decidís con información, no de memoria.",
-    puntos: ["Últimas sesiones y récords", "Molestias con tu nota de seguimiento", "Mensaje directo desde la ficha"],
-    img: "/landing/studio-alumno.jpg",
-    alto: 1600,
-    alt: "Ficha de un alumno en Coach Studio: últimas sesiones, rutina vigente y un aviso de molestia",
-    sigueHref: "#studio-negocio",
-    sigueTexto: "¿Y las clases y las cuotas?",
-  },
-  {
-    id: "studio-negocio",
-    n: "08.4",
-    etiqueta: "Clases y cuotas",
-    titulo: "Agenda y cobros, sin otra planilla.",
-    detalle: "Armás las clases de la semana con sus cupos y registrás cada pago. Sabés cuánto cobraste, cuánto falta y quién está vencido.",
-    puntos: ["Agenda semanal con cupos y anotados", "Cada pago queda registrado con su recibo", "Cuotas vencidas y por vencer, a la vista"],
-    img: "/landing/studio-cobros.jpg",
-    alto: 1600,
-    alt: "Pantalla de cobros de Coach Studio: total cobrado, por cobrar, vencido y el estado de cada cuota",
-    sigueHref: "#studio-empezar",
-    sigueTexto: "Cómo empezar hoy",
-  },
-];
-
 const CREDENCIALES = [
   {
     titulo: "Profesor Nacional de Educación Física",
@@ -306,68 +199,12 @@ const FAQ_ALUMNOS = [
   },
 ];
 
-const FAQ_COACHES = [
-  {
-    q: "¿Coach Studio tiene costo?",
-    a: "Hoy podés ingresar gratis y sin tarjeta. No se cobra por alumno.",
-  },
-  {
-    q: "¿Puedo usar mis ejercicios y mi forma de planificar?",
-    a: "Sí. Coach Studio se adapta a tu método, no al revés: armás las rutinas con tu criterio y tus ejercicios.",
-  },
-  {
-    q: "¿Qué necesitan mis alumnos?",
-    a: "Solo su celular. Abren la app, ven qué les toca y registran lo que hicieron, incluso sin señal.",
-  },
-  {
-    q: "¿Puedo verlo antes de decidir?",
-    a: "Sí. Escribile a Gonzalo y te lo muestra funcionando con casos reales.",
-  },
-];
-
 const NAV = [
   ["#metodo", "El método"],
-  ["#alumnos", "Para alumnos"],
-  ["#entrenadores", "Para entrenadores"],
+  ["#modalidades", "Modalidades"],
   ["#gonzalo", "Gonzalo"],
   ["#faq", "Preguntas"],
 ] as const;
-
-/* Revela cada bloque al entrar en pantalla. Sin JS o con movimiento reducido, todo queda visible. */
-function useScrollReveal() {
-  React.useEffect(() => {
-    /* Scroll suave y anclaje por capítulo, solo mientras la home está montada. */
-    document.documentElement.classList.add("landing-scroll");
-    const limpiarScroll = () => document.documentElement.classList.remove("landing-scroll");
-
-    if (typeof IntersectionObserver === "undefined") return limpiarScroll;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return limpiarScroll;
-
-    const elementos = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          entry.target.classList.remove("reveal-pending");
-          observer.unobserve(entry.target);
-        }
-      },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
-    );
-
-    for (const el of elementos) {
-      if (el.getBoundingClientRect().top < window.innerHeight * 0.92) continue;
-      el.classList.add("reveal-pending");
-      observer.observe(el);
-    }
-
-    return () => {
-      limpiarScroll();
-      observer.disconnect();
-      for (const el of elementos) el.classList.remove("reveal-pending");
-    };
-  }, []);
-}
 
 /* Ejemplo ilustrativo de la app del alumno: qué toca hoy y cuánto avanzó. */
 function TelefonoEjemplo() {
@@ -420,30 +257,10 @@ function TelefonoEjemplo() {
   );
 }
 
-function Preguntas({ titulo, items }: { titulo: string; items: { q: string; a: string }[] }) {
-  return (
-    <div data-reveal>
-      <h3 className={`${MICRO_LABEL} mb-2`}>{titulo}</h3>
-      <div className="border-t border-border">
-        {items.map((item) => (
-          <details key={item.q} className="group border-b border-border">
-            <summary className={`flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-4 py-2 text-[15px] font-bold leading-snug sm:py-3 sm:text-base tracking-tight [&::-webkit-details-marker]:hidden ${FOCUS_RING}`}>
-              <span>{item.q}</span>
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border text-sm transition-transform duration-150 group-open:rotate-45" aria-hidden="true">
-                +
-              </span>
-            </summary>
-            <p className="pb-4 pr-10 text-sm leading-relaxed text-muted-foreground">{item.a}</p>
-          </details>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function HomePage() {
   const { user } = useLandingSession();
   useScrollReveal();
+  const { heroCtaRef, visible: barraVisible } = useBarraMovil();
 
   /* Acción principal: una sola por visitante, la misma en hero, header, barra móvil y cierre. */
   const principal =
@@ -469,13 +286,8 @@ export default function HomePage() {
       kicker: "Soy entrenador",
       titulo: "Coach Studio",
       detalle: "Tu método, tus alumnos, un solo lugar.",
-      accion:
-        user?.rol === "ADMIN"
-          ? "Ingresar al Panel de Administrador"
-          : user?.rol === "ALUMNO"
-            ? "Explorar Coach Studio"
-            : "Ingresar a Coach Studio",
-      href: "/studio",
+      accion: user?.rol === "ADMIN" ? "Ingresar al Panel de Administrador" : "Conocer Coach Studio",
+      href: user?.rol === "ADMIN" ? "/studio" : "/entrenadores",
       externo: false,
     },
     {
@@ -489,32 +301,6 @@ export default function HomePage() {
     },
   ];
   const destacado = user?.rol === "ADMIN" ? "02" : user?.rol === "ALUMNO" ? "03" : "01";
-
-  /* Barra de acción móvil: aparece cuando los botones del hero salen de pantalla. */
-  const heroCtaRef = React.useRef<HTMLDivElement>(null);
-  const [barraVisible, setBarraVisible] = React.useState(false);
-  React.useEffect(() => {
-    const el = heroCtaRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry) setBarraVisible(!entry.isIntersecting && entry.boundingClientRect.top < 0);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  /* Dentro del recorrido para entrenadores, la barra móvil ofrece la acción de entrenadores. */
-  const coachRef = React.useRef<HTMLDivElement>(null);
-  const [enCoach, setEnCoach] = React.useState(false);
-  React.useEffect(() => {
-    const el = coachRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry) setEnCoach(entry.isIntersecting);
-    }, { rootMargin: "-50% 0px -50% 0px" });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const enlacePrincipal = (className: string, etiqueta: string, tabIndex?: number) =>
     principal.externo ? (
@@ -534,39 +320,12 @@ export default function HomePage() {
       {/* Progreso de lectura del relato */}
       <div className="landing-progress pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 bg-foreground" aria-hidden="true" />
 
-      {/* Header fijo */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className={`${CONTAINER} flex h-16 items-center justify-between gap-3`}>
-          <div className="flex items-center gap-8">
-            <Link href="/" className={`flex items-center gap-2.5 rounded-lg ${FOCUS_RING}`} aria-label="Inicio GOZSter">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base font-black text-primary-foreground">G</span>
-              <span className="text-lg font-black tracking-tight">GOZSter</span>
-            </Link>
-            <nav className="hidden items-center gap-6 xl:flex" aria-label="Navegación principal">
-              {NAV.map(([href, label]) => (
-                <a key={href} href={href} className={`rounded text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${FOCUS_RING}`}>
-                  {label}
-                </a>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LandingSessionCapsule
-              initialUser={
-                user
-                  ? { email: user.email, nombre: `${user.displayName} (${user.rol === "ADMIN" ? "Admin" : "Atleta"})` }
-                  : null
-              }
-            />
-            <a href="#entrenadores" className={`${BTN_GHOST} !hidden !min-h-[40px] !px-4 !py-2 md:!inline-flex`}>
-              Soy entrenador
-            </a>
-            {enlacePrincipal(`${BTN_PRIMARY} !hidden !min-h-[40px] !px-4 !py-2 md:!inline-flex`, principal.corto)}
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <LandingHeader
+        publico="alumnos"
+        nav={NAV}
+        user={user}
+        accion={enlacePrincipal(`${BTN_PRIMARY} !hidden !min-h-[40px] !px-4 !py-2 md:!inline-flex`, principal.corto)}
+      />
 
       <main className="flex-1">
         {/* Hero: la promesa, en una frase, y quién la sostiene */}
@@ -609,13 +368,13 @@ export default function HomePage() {
                 data-testid="hero-cta"
               >
                 {enlacePrincipal(`${BTN_PRIMARY} !px-8 !py-4 text-base`, principal.largo)}
-                <a
-                  href="#entrenadores"
+                <Link
+                  href="/entrenadores"
                   className={`${BTN} border-2 border-foreground/80 bg-background/50 !px-8 !py-4 text-base text-foreground backdrop-blur-sm hover:bg-foreground hover:text-background`}
                 >
                   <span>Soy entrenador: ver Coach Studio</span>
                   <ArrowIcon />
-                </a>
+                </Link>
               </div>
               {principal.externo ? (
                 <p className="landing-rise mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm" style={{ animationDelay: "520ms" }}>
@@ -637,8 +396,8 @@ export default function HomePage() {
                   </div>
                 ))}
               </dl>
-              <a
-                href="#entrenadores"
+              <Link
+                href="/entrenadores"
                 className={`group hidden max-w-sm items-center gap-4 rounded-2xl border border-border bg-background/70 p-4 backdrop-blur-sm transition-colors hover:border-foreground/60 lg:flex ${FOCUS_RING}`}
                 data-testid="hero-puerta-entrenadores"
               >
@@ -649,7 +408,7 @@ export default function HomePage() {
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border transition-colors group-hover:bg-foreground group-hover:text-background">
                   <ArrowIcon className="size-4" />
                 </span>
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -935,165 +694,68 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <Siguiente href="#entrenadores">¿Entrenás a otros? Esto es para vos</Siguiente>
+          <Siguiente href="#puente-entrenadores">¿Entrenás a otros? Esto es para vos</Siguiente>
         </section>
 
-        <div ref={coachRef} data-testid="recorrido-entrenadores">
-        {/* 08 · Para entrenadores: el dolor */}
-        <section id="entrenadores" className={`${SECCION} dark overflow-hidden bg-background text-foreground`} data-testid="seccion-entrenadores">
+        {/* 08 · Puente a la página de entrenadores */}
+        <section id="puente-entrenadores" className={`${SECCION} dark overflow-hidden bg-background text-foreground`} data-testid="puente-entrenadores">
           <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <div className={CUERPO}>
-            <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-10 lg:gap-16">
-              <div className="md:col-span-7">
-                <Capitulo n="08">Para vos, que entrenás a otros</Capitulo>
-                <h2 className="text-balance text-[clamp(2.2rem,5.6vw,4.75rem)] font-black leading-[0.95] tracking-tighter" data-reveal>
-                  Tu método no entra en una app genérica.
-                </h2>
-                <p className={`${LEAD} mt-5 max-w-xl`} data-reveal>
-                  Las apps de siempre te obligan a trabajar a su manera. Coach Studio nació de ese cansancio: lo pensó un entrenador, para entrenadores.
-                </p>
-                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" data-reveal>
-                  <Link href="/studio" className={`${BTN_PRIMARY} !px-8 !py-4 text-base`}>
-                    <span>Ingresar a Coach Studio</span>
-                    <ArrowIcon />
-                  </Link>
-                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !hidden !px-8 !py-4 text-base sm:!inline-flex`}>
-                    Hablar con Gonzalo
-                  </a>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground" data-reveal>
-                  Gratis, sin tarjeta.
-                </p>
-              </div>
-              <div className="md:col-span-5">
-                <p className={`${MICRO_LABEL} mb-3`} data-reveal>
-                  Lo que dejás atrás
-                </p>
-                <ul className="border-t border-border">
-                  {DOLORES_COACH.map((d, i) => (
-                    <li
-                      key={d}
-                      className="border-b border-border py-2.5 text-base font-bold leading-snug tracking-tight text-muted-foreground line-through decoration-2 sm:py-4 sm:text-2xl"
-                      data-reveal
-                      style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
-                    >
-                      {d}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-          <Siguiente href="#studio-hoy">Mirá Coach Studio por dentro</Siguiente>
-        </section>
-
-        {/* 08.1 a 08.4 · Coach Studio por dentro, una pantalla por capítulo */}
-        {STUDIO_PANTALLAS.map((pantalla, i) => (
-          <section key={pantalla.id} id={pantalla.id} className={`${SECCION} overflow-hidden ${i % 2 === 0 ? "bg-secondary/40" : ""}`} data-testid="studio-pantalla">
-            <div className={CUERPO}>
-              <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12 lg:gap-10">
-                <div className="lg:col-span-4">
-                  <Capitulo n={pantalla.n}>{pantalla.etiqueta}</Capitulo>
-                  <h2 className="text-balance text-[clamp(1.9rem,3.6vw,3rem)] font-black leading-[1] tracking-tighter" data-reveal>
-                    {pantalla.titulo}
-                  </h2>
-                  <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground" data-reveal>
-                    {pantalla.detalle}
-                  </p>
-                  <ul className="mt-5 hidden space-y-2.5 sm:block">
-                    {pantalla.puntos.map((punto) => (
-                      <li key={punto} className="flex items-start gap-3 text-sm font-semibold sm:text-base" data-reveal>
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
-                          <CheckIcon className="size-3" />
-                        </span>
-                        <span>{punto}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <figure className="lg:col-span-8" data-reveal>
-                  <div className="overflow-hidden rounded-xl border border-border bg-white shadow-2xl lg:-mr-[14%] lg:rounded-2xl">
-                    <div className="flex items-center gap-1.5 border-b border-zinc-200 bg-zinc-100 px-3 py-2" aria-hidden="true">
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                    </div>
-                    <div className="max-h-[220px] overflow-hidden sm:max-h-none">
-                      <img src={pantalla.img} alt={pantalla.alt} width={2560} height={pantalla.alto} loading="lazy" className="h-auto w-[165%] max-w-none sm:w-full" />
-                    </div>
-                  </div>
-                  <figcaption className="mt-3 text-xs text-muted-foreground">Pantalla de Coach Studio con datos de ejemplo.</figcaption>
-                </figure>
-              </div>
-            </div>
-            <Siguiente href={pantalla.sigueHref}>{pantalla.sigueTexto}</Siguiente>
-          </section>
-        ))}
-
-        {/* 08.5 · Empezar con Coach Studio */}
-        <section id="studio-empezar" className={`${SECCION} dark overflow-hidden bg-background text-foreground`} data-testid="studio-empezar">
-          <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
-          <div className={CUERPO}>
-            <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-10">
-              <div className="md:col-span-8">
-                <Capitulo n="08.5">Empezar</Capitulo>
+            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-12">
+              <div className="lg:col-span-5">
+                <Capitulo n="08">¿Entrenás a otros?</Capitulo>
                 <h2 className={H2} data-reveal>
-                  Lo pensó un entrenador, para entrenadores.
+                  Hay una parte de GOZSter hecha para vos.
                 </h2>
                 <p className={`${LEAD} mt-4 max-w-xl`} data-reveal>
-                  En la compu cuando planificás, en el celular entre clase y clase.
+                  Coach Studio es la herramienta con la que Gonzalo planifica, sigue a sus alumnos y ordena sus clases. Ahora la pueden usar otros entrenadores.
                 </p>
-                <dl className="mt-7 grid grid-cols-3 gap-4 border-t border-border pt-5 sm:gap-8">
-                  {[
-                    ["$0", "por alumno"],
-                    ["Sin", "tarjeta para empezar"],
-                    ["Sin señal", "tus alumnos entrenan igual"],
-                  ].map(([valor, texto]) => (
-                    <div key={texto} data-reveal>
-                      <dd className="text-2xl font-black tracking-tighter sm:text-4xl">{valor}</dd>
-                      <dt className="mt-1 text-xs leading-snug text-muted-foreground sm:text-sm">{texto}</dt>
-                    </div>
-                  ))}
-                </dl>
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" data-reveal>
-                  <Link href="/studio" className={`${BTN_PRIMARY} !px-8 !py-4 text-base`}>
-                    <span>Ingresar a Coach Studio</span>
+                <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center" data-reveal>
+                  <Link href="/entrenadores" className={`${BTN_PRIMARY} !px-8 !py-4 text-base`}>
+                    <span>Conocer Coach Studio</span>
                     <ArrowIcon />
                   </Link>
-                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !px-8 !py-4 text-base`}>
-                    Que Gonzalo te lo muestre
-                  </a>
+                  <Link href="/studio" className={`${BTN_GHOST} !hidden !px-8 !py-4 text-base sm:!inline-flex`}>
+                    Ya lo uso: ingresar
+                  </Link>
                 </div>
               </div>
-              <figure className="hidden md:col-span-4 md:block" data-reveal>
-                <div className="mx-auto w-full max-w-[250px] rounded-[2.2rem] border border-zinc-700 bg-zinc-950 p-2 shadow-2xl">
-                  <img
-                    src="/landing/studio-movil.jpg"
-                    alt="Coach Studio en el celular: resumen del día, avisos para revisar y clases de hoy"
-                    width={780}
-                    height={1600}
-                    loading="lazy"
-                    className="h-auto w-full rounded-[1.7rem]"
-                  />
-                </div>
-                <figcaption className="mt-3 text-center text-xs text-muted-foreground">Pantalla de Coach Studio con datos de ejemplo.</figcaption>
+              <figure className="lg:col-span-7" data-reveal>
+                <Link href="/entrenadores" className={`block overflow-hidden rounded-xl border border-border bg-white shadow-2xl lg:-mr-[16%] lg:rounded-2xl ${FOCUS_RING}`} aria-label="Conocer Coach Studio">
+                  <div className="max-h-[180px] overflow-hidden sm:max-h-none">
+                    <img
+                      src="/landing/studio-inicio.jpg"
+                      alt="Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos"
+                      width={2560}
+                      height={1600}
+                      loading="lazy"
+                      className="h-auto w-[165%] max-w-none sm:w-full"
+                    />
+                  </div>
+                </Link>
+                <figcaption className="mt-3 text-xs text-muted-foreground">Pantalla de Coach Studio con datos de ejemplo.</figcaption>
               </figure>
             </div>
           </div>
           <Siguiente href="#faq">¿Te quedaron dudas?</Siguiente>
         </section>
-        </div>
 
         {/* 09 · Preguntas frecuentes */}
         <section id="faq" className={SECCION} data-testid="seccion-faq">
           <div className={CUERPO}>
-            <Capitulo n="09">Preguntas frecuentes</Capitulo>
-            <h2 className={`${H2} max-w-4xl`} data-reveal>
-              Lo que todos preguntan antes de empezar.
-            </h2>
-            <div className="mt-5 grid grid-cols-1 gap-5 sm:mt-8 sm:gap-10 lg:grid-cols-2 lg:gap-12">
-              <Preguntas titulo="Si querés entrenar" items={FAQ_ALUMNOS} />
-              <Preguntas titulo="Si sos entrenador" items={FAQ_COACHES} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-12">
+              <div className="lg:col-span-5">
+                <Capitulo n="09">Preguntas frecuentes</Capitulo>
+                <h2 className={H2} data-reveal>
+                  Lo que todos preguntan antes de empezar.
+                </h2>
+                <p className={`${LEAD} mt-4 hidden max-w-md sm:block`} data-reveal>
+                  ¿No está tu duda? Escribile a Gonzalo y te responde él.
+                </p>
+              </div>
+              <div className="lg:col-span-7">
+                <Preguntas titulo="Si querés entrenar" items={FAQ_ALUMNOS} />
+              </div>
             </div>
           </div>
           <Siguiente href="#empezar">Listo. Elegí por dónde empezar</Siguiente>
@@ -1149,58 +811,15 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/80 bg-background px-5 pb-28 pt-8 text-xs text-muted-foreground sm:px-8 md:pb-8 lg:px-12">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center md:flex-row md:text-left">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-black text-primary-foreground">G</span>
-            <span className="font-bold text-foreground">GOZSter</span>
-            <span aria-hidden="true">·</span>
-            <span>Gonzalo Salas &amp; Fresias</span>
-          </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1" aria-label="Pie de página">
-            {NAV.map(([href, label]) => (
-              <a key={href} href={href} className={`inline-flex min-h-[48px] items-center rounded px-2 transition-colors hover:text-foreground ${FOCUS_RING}`}>
-                {label}
-              </a>
-            ))}
-            <Link href="/studio" className={`inline-flex min-h-[48px] items-center rounded px-2 transition-colors hover:text-foreground ${FOCUS_RING}`}>
-              Coach Studio
-            </Link>
-            <Link href="/athlete" className={`inline-flex min-h-[48px] items-center rounded px-2 transition-colors hover:text-foreground ${FOCUS_RING}`}>
-              Athlete App
-            </Link>
-          </nav>
-          <div>Entrenamiento basado en evidencia, no en tendencias.</div>
-        </div>
-      </footer>
+      <LandingFooter nav={NAV} />
 
       {/* Barra de acción móvil: la misma acción principal, siempre a mano */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-300 md:hidden ${
-          barraVisible ? "translate-y-0" : "translate-y-full"
-        }`}
-        aria-hidden={!barraVisible}
-        data-testid="barra-accion-movil"
-      >
-        {enCoach ? (
-          <div className="flex items-center gap-2">
-            <Link href="/studio" className={`${BTN_PRIMARY} flex-1 !px-4`} tabIndex={barraVisible ? 0 : -1}>
-              <span>Ingresar a Coach Studio</span>
-              <ArrowIcon />
-            </Link>
-            <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !px-4`} tabIndex={barraVisible ? 0 : -1}>
-              Consultar
-            </a>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            {enlacePrincipal(`${BTN_PRIMARY} flex-1 !px-4`, principal.corto, barraVisible ? 0 : -1)}
-            <a href="#entrenadores" className={`${BTN_GHOST} !px-4`} tabIndex={barraVisible ? 0 : -1}>
-              Soy entrenador
-            </a>
-          </div>
-        )}
-      </div>
+      <BarraMovil visible={barraVisible}>
+        {enlacePrincipal(`${BTN_PRIMARY} flex-1 !px-4`, principal.corto, barraVisible ? 0 : -1)}
+        <Link href="/entrenadores" className={`${BTN_GHOST} !px-4`} tabIndex={barraVisible ? 0 : -1}>
+          Soy entrenador
+        </Link>
+      </BarraMovil>
     </div>
   );
 }

@@ -162,8 +162,8 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       expect(athleteShellContent).toContain("ThemeToggle");
     });
 
-    it("verifica que Landing Page (src/app/page.tsx) incluye ThemeToggle en su navbar", () => {
-      const landingPath = path.resolve(__dirname, "../app/page.tsx");
+    it("verifica que la Landing incluye ThemeToggle en su navbar (header compartido de la landing)", () => {
+      const landingPath = path.resolve(__dirname, "../components/landing/kit.tsx");
       const landingContent = fs.readFileSync(landingPath, "utf-8");
       expect(landingContent).toContain("ThemeToggle");
     });
