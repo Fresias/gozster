@@ -85,21 +85,21 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Multica CLI Guidance (Anti-Token-Waste)
 
 ## Command Rules
-- **Bounded queries:** never run `multica issue list --output json` without `--limit` (max 15).
-- **Scan-Then-Expand comments:** scan roots (`--roots-only --summary --compact`), expand thread (`--thread <id> --tail 10 --compact`).
-- **Large payloads:** long descriptions/comments use `--description-file`/`--content-file` in workdir, never `/tmp`.
-- **Stream separation:** never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
+- **Bounded queries:** `multica issue list` with JSON requires `--limit` (≤15).
+- **Scan-Then-Expand:** scan roots (`--roots-only --summary --compact`), expand (`--thread <id> --tail 10 --compact`).
+- **Payloads:** long text uses `--description-file`/`--content-file` in workdir, never `/tmp`.
+- **Streams:** never merge `stderr` into `stdout` (`2>&1`) with JSON.
 - **Multi-stage issues:** pass `--pr-auto-complete off` on `multica issue create` for multi-stage/squad tasks to prevent premature auto-close before QA audit and final approval.
 
 ## Comment Discipline (No-Action, No-Reply)
-- **No action, no comment:** if a wakeup/mention needs no concrete action (acks, thanks, echoes), end run without commenting.
-- **No ack mentions:** never @mention agents unless requiring action — mentions trigger paid runs.
-- **One hand-off per state change:** comment only on delivery, block, or concrete action request.
+- **No action, no comment:** if wakeup needs no action (acks, thanks, echoes), end run without commenting.
+- **No ack mentions:** never @mention without needed action; no repeated mentions, sleeps, or polls.
+- **One hand-off:** deliver state once to squad/leader; native queue enqueues handoffs without task loss.
 
 ## Terminal States (Stop the Loop)
-- **Retries (max 2):** max 2 attempts on failure; if 2nd fails, set `blocked` with evidence and end run.
-- **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, stop.
-- **Waits by condition:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep/poll.
+- **Retries (max 2):** 2 tries max; on 2nd failure, set `blocked` with evidence; no retry loops, sleeps, or polls.
+- **Hand-off, no start:** hand off once to squad/leader (native squad queue resilience: wait in line without task loss); record goal, changes, evidence, risks, name ONE next action, end run.
+- **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); strictly no sleep, poll, or wakeup polling.
 
 - **RPCs Supabase (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
 - **Modales (GOZS-321):** isSaving atómico y botón submit deshabilitado para evitar carreras.
