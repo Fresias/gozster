@@ -63,7 +63,7 @@ describe("GOZS-441: Rediseño Integral del Inicio (/) — Estética Zinc /studio
       expect(htmlMarkup).toContain('href="/studio"');
       expect(textContent).toContain("Coach Studio");
       expect(htmlMarkup).toContain('href="/athlete"');
-      expect(textContent).toContain("Portal Alumnos");
+      expect(textContent).toContain("Athlete App");
       expect(htmlMarkup).toContain('data-testid="theme-toggle"');
     });
 

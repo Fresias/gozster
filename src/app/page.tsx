@@ -2,70 +2,244 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LandingSessionCapsule } from "@/components/landing-session-capsule";
 import { useLandingSession } from "@/lib/use-landing-session";
 
+/* Configuración única de contacto: cambiar acá el número de WhatsApp. */
+const WHATSAPP_URL = `https://wa.me/5491100000000?text=${encodeURIComponent(
+  "Hola Gonza, quiero comenzar a entrenar con vos. Me gustaría consultar por las modalidades disponibles."
+)}`;
+
+/* Recetas visuales compartidas con Coach Studio (tokens zinc, borde 1px, micro-etiquetas mono). */
+const MICRO_LABEL = "font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
+const BADGE =
+  "inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/60 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground";
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const BTN =
+  "inline-flex min-h-[48px] items-center justify-center gap-2 whitespace-nowrap rounded-xl px-5 py-3 text-sm font-bold transition-all duration-150 active:scale-[0.98] " +
+  FOCUS_RING;
+
+function ArrowIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+function CrossIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function SectionHeader({
+  index,
+  kicker,
+  title,
+  lead,
+  display = false,
+}: {
+  index: string;
+  kicker: string;
+  title: string;
+  lead: string;
+  display?: boolean;
+}) {
+  return (
+    <div className="max-w-3xl mb-10 sm:mb-14">
+      <div className={`${MICRO_LABEL} mb-3 flex items-center gap-3`}>
+        <span className="font-mono tabular-nums text-foreground">{index} /</span>
+        <span>{kicker}</span>
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      </div>
+      <h2
+        className={
+          display
+            ? "text-3xl sm:text-5xl font-black tracking-tight text-foreground leading-[1.05]"
+            : "text-2xl sm:text-4xl font-bold tracking-tight text-foreground leading-tight"
+        }
+      >
+        {title}
+      </h2>
+      <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed max-w-2xl">{lead}</p>
+    </div>
+  );
+}
+
+const METRICAS = [
+  { valor: "+150", texto: "Alumnos acompañados en fuerza, hipertrofia y acondicionamiento" },
+  { valor: "3", texto: "Modalidades de trabajo (Funcional, Boxeo y Rutinas online)" },
+  { valor: "5+", texto: "Años de trayectoria profesional y formación docente continua" },
+  { valor: "$0", texto: "Costo en licencias corporativas por mes (Software Soberano)" },
+];
+
+const CONTRASTE = [
+  {
+    eje: "Rutina",
+    comun: "Fotocopia arrugada y genérica que nadie mira ni actualiza.",
+    metodo: "Plan individualizado según tus palancas y movilidad.",
+  },
+  {
+    eje: "Carga",
+    comun: "Adivinar el peso y levantar la misma mancuerna hace 6 meses.",
+    metodo: "Sobrecarga progresiva kilo por kilo registrado.",
+  },
+  {
+    eje: "Técnica",
+    comun: "Profesor en recepción mirando el celular mientras hacés sentadilla con la espalda doblada.",
+    metodo: "Ojos de Director Técnico (Romero Brest, FAB, Halterofilia).",
+  },
+  {
+    eje: "Software",
+    comun: "Apps comerciales lentas en dólares que se tildan y cobran por alumno.",
+    metodo: "GOZSter, tecnología propia, offline y sin suscripción.",
+  },
+];
+
+const CREDENCIALES = [
+  {
+    titulo: "Profesor Nacional de Educación Física",
+    institucion: 'ISEF N°1 "Dr. Enrique Romero Brest"',
+    area: "Docencia de Grado & Fisiología Humana",
+  },
+  {
+    titulo: "Personal Trainer Certificado",
+    institucion: "Centro Europeo de Educación Física",
+    area: "Hipertrofia & Prescripción de Fuerza",
+  },
+  {
+    titulo: "Entrenador en Halterofilia",
+    institucion: "Grupo GPO Latam",
+    area: "Levantamiento Olímpico & Potencia",
+  },
+  {
+    titulo: "Director Técnico de Boxeo",
+    institucion: "Federación Argentina de Boxeo (FAB)",
+    area: "Técnica Pugilística & Combate",
+  },
+];
+
+const MODALIDADES = [
+  {
+    nombre: "Funcional",
+    badge: "Presencial",
+    descripcion:
+      "Entrenamiento basado en movimientos humanos reales: empujar, traccionar, bisagras de cadera y acarreos. Ganás fuerza útil, corregís vicios posturales y aumentás tu capacidad de trabajo sin quemarte las articulaciones.",
+    puntos: [
+      "Movilidad activa y blindaje articular contra lesiones cotidianas",
+      "Cargas progresivas reguladas según tu rango de movimiento real",
+      "Resistencia metabólica y potencia cardiovascular sin perder masa muscular",
+    ],
+  },
+  {
+    nombre: "Boxeo",
+    badge: "Escuela FAB",
+    descripcion:
+      "Dirección técnica oficial FAB. Aprendés a pegar con la biomecánica correcta, mover las piernas con balance y defender con criterio. Sesiones intensas de manoplas, bolsa y reflejos donde cada round tiene un objetivo.",
+    puntos: [
+      "Mecánica de golpeo y transferencia de potencia desde el piso",
+      "Velocidad de reacción, distancia y coordinación bajo fatiga",
+      "Condicionamiento físico de combate (opción de sparring técnico sólo para avanzados)",
+    ],
+  },
+  {
+    nombre: "Rutinas online",
+    badge: "100% Offline-First PWA",
+    descripcion:
+      "Planificación kilo a kilo cargada en tu celular. No hay PDFs genéricos ni rutinas copiadas: cada serie tiene su carga, descanso cronometrado y auditoría de técnica por video para que progreses en cualquier gimnasio del mundo.",
+    puntos: [
+      "App 100% Offline-First PWA para entrenar sin depender de la señal del gimnasio",
+      "Cronómetro Inteligente de descansos automáticos y Calentamiento Específico",
+      "Sobrecarga progresiva y ajustes de microciclos según tus sensaciones",
+    ],
+  },
+];
+
 export default function HomePage() {
   const { user } = useLandingSession();
 
-  const whatsappMessage = encodeURIComponent(
-    "Hola Gonza, quiero comenzar a entrenar con vos. Me gustaría consultar por las modalidades disponibles."
-  );
-  const whatsappUrl = `https://wa.me/5491100000000?text=${whatsappMessage}`;
+  /* Selector único de 3 caminos: las etiquetas de acción se adaptan a la sesión activa. */
+  const caminos = [
+    {
+      n: "01",
+      kicker: "Para entrenar",
+      titulo: "Entrenar con Gonzalo",
+      detalle: "Funcional, boxeo o rutina online.",
+      accion: user?.rol === "ALUMNO" ? "Consultar con Gonza" : "Comenzar a Entrenar con Gonza",
+      href: WHATSAPP_URL,
+      externo: true,
+    },
+    {
+      n: "02",
+      kicker: "Para entrenadores",
+      titulo: "Coach Studio",
+      detalle: "Dashboard y centro de monitoreo.",
+      accion:
+        user?.rol === "ADMIN"
+          ? "Ingresar al Panel de Administrador"
+          : user?.rol === "ALUMNO"
+            ? "Explorar Coach Studio"
+            : "Ingresar a Coach Studio",
+      href: "/studio",
+      externo: false,
+    },
+    {
+      n: "03",
+      kicker: "Para alumnos",
+      titulo: "Athlete App",
+      detalle: "Tu rutina en el celular, sin señal.",
+      accion: user ? "Entrenar como Atleta (Mi Rutina)" : "Abrir mi rutina",
+      href: "/athlete",
+      externo: false,
+    },
+  ];
+  /* El camino destacado es el que corresponde al rol de la sesión. */
+  const destacado = user?.rol === "ADMIN" ? "02" : user?.rol === "ALUMNO" ? "03" : "01";
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200 flex flex-col antialiased overflow-x-hidden selection:bg-primary/20 selection:text-primary">
-      {/* 1. Header / Barra de Navegación Fija */}
+      {/* 1. Header fijo: anclas + dos accesos (Athlete App, Coach Studio) */}
       <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-md transition-colors duration-150">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          {/* Logo Zinc "G" y Enlaces Técnicos */}
           <div className="flex items-center gap-6 lg:gap-8">
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
-              aria-label="Inicio GOZSter"
-            >
+            <Link href="/" className={`flex items-center gap-2.5 group rounded-lg ${FOCUS_RING}`} aria-label="Inicio GOZSter">
               <div className="size-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-base shadow-sm group-hover:opacity-90 transition-opacity">
                 G
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black tracking-tight text-foreground">
-                  GOZSter
-                </span>
-                <span className="hidden sm:inline-block font-mono text-[10px] tracking-wider uppercase font-semibold text-muted-foreground border border-border px-1.5 py-0.5 rounded">
-                  HEAD COACH
-                </span>
-              </div>
+              <span className="text-lg font-black tracking-tight text-foreground">GOZSter</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-6" aria-label="Navegación principal">
-              <a
-                href="#trayectoria"
-                className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Trayectoria
-              </a>
-              <a
-                href="#modalidades"
-                className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Modalidades
-              </a>
-              <a
-                href="#infraestructura"
-                className="text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Infraestructura
-              </a>
+              {[
+                ["#trayectoria", "Trayectoria"],
+                ["#modalidades", "Modalidades"],
+                ["#infraestructura", "Infraestructura"],
+              ].map(([href, label]) => (
+                <a
+                  key={href}
+                  href={href}
+                  className={`text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded ${FOCUS_RING}`}
+                >
+                  {label}
+                </a>
+              ))}
             </nav>
           </div>
 
-          {/* Acciones de Cabecera: Sesión, Acceso a Portales y ThemeToggle */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Cápsula de Sesión Inteligente con Botón de Logout */}
             <LandingSessionCapsule
               initialUser={
                 user
@@ -76,837 +250,304 @@ export default function HomePage() {
                   : null
               }
             />
-
-            {/* Portal Alumnos (Athlete App) */}
             <Link
               href="/athlete"
-              className="hidden sm:inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border/80 bg-secondary/60 hover:bg-secondary text-secondary-foreground px-3.5 py-2 text-xs sm:text-sm font-semibold shadow-xs active:scale-[0.98] transition-all"
+              className={`hidden sm:inline-flex min-h-[48px] items-center px-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors rounded-lg ${FOCUS_RING}`}
             >
-              <svg
-                className="size-4 text-muted-foreground"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="5" y="2" width="14" height="20" rx="3" ry="3" />
-                <path d="M12 18h.01" />
-              </svg>
-              <span>Portal Alumnos</span>
+              Athlete App
             </Link>
-
-            {/* Acceso a Coach Studio */}
-            <Link
-              href="/studio"
-              className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 text-xs sm:text-sm font-bold shadow-xs active:scale-[0.98] transition-all"
-            >
+            <Link href="/studio" className={`${BTN} bg-primary text-primary-foreground hover:opacity-90 shadow-xs !px-3 sm:!px-4 !py-2`}>
               <span>Coach Studio</span>
-              <span aria-hidden="true">→</span>
+              <ArrowIcon />
             </Link>
-
-            {/* Selector de Tema */}
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      {/* Contenido Principal */}
       <main className="flex-1">
-        {/* 2. Hero Section de Impacto: escenario oscuro fijo + 3 puertas de entrada + abanico 3D */}
+        {/* 2. Hero: escenario oscuro fijo. Izquierda: mensaje + selector único. Derecha: composición atmósfera + diagnóstico. */}
         <section
           className="dark relative isolate overflow-hidden bg-background text-foreground border-b border-border"
           data-testid="hero-impacto"
         >
           <div className="hero-grid absolute inset-0 -z-10 pointer-events-none" aria-hidden="true" />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-20 sm:pb-24">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-end mb-16 sm:mb-20">
-          <div className="lg:col-span-7">
-          {/* Badge superior técnico en monoespaciado */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-container/60 px-3.5 py-1 font-mono text-[10px] sm:text-xs text-muted-foreground mb-6 shadow-xs">
-            <span className="size-2 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-            <span>PREPARACIÓN FÍSICA DE FUERZA · TECNOLOGÍA PROPIA · 0 HUMO</span>
-          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-16 sm:pb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+              <div className="lg:col-span-7">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-container/60 px-3.5 py-1 font-mono text-[10px] sm:text-xs text-muted-foreground mb-6 shadow-xs">
+                  <span className="size-2 shrink-0 rounded-full bg-success" aria-hidden="true" />
+                  <span>PREPARACIÓN FÍSICA DE FUERZA · TECNOLOGÍA PROPIA · 0 HUMO</span>
+                </div>
 
-          {/* Nombre en escala de póster con micro-glitch + titular editorial */}
-          <div className="mb-6">
-            <div className="mb-5 sm:mb-6">
-              <span
-                data-text="GONZALO SALAS"
-                className="glitch-hover inline-block font-black text-[15vw] sm:text-8xl xl:text-9xl leading-[0.85] tracking-tighter text-foreground uppercase cursor-default select-none"
-              >
-                GONZALO SALAS
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-foreground leading-[1.15] max-w-2xl">
-              Entrenar no es cansarse hasta transpirar. Es mover más peso con mejor técnica, semana a semana.
-            </h1>
-          </div>
-
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl leading-relaxed mb-8">
-            La mayoría de la gente pasa meses en el gimnasio levantando la misma mancuerna, siguiendo una rutina fotocopiada que nadie mira y adivinando si progresa. Con Gonzalo Salas cada serie tiene un número, la técnica se audita antes de subir los kilos y tu avance se mide con datos reales.
-          </p>
-
-          {/* Conversión Bivalente (CTAs del Hero adaptados dinámicamente a la sesión) */}
-          <div className="flex flex-wrap items-center gap-3.5 sm:gap-4">
-            {user?.rol === "ALUMNO" ? (
-              <>
-                <Link
-                  href="/athlete"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                <div className="mb-5">
+                  <span
+                    data-text="GONZALO SALAS"
+                    className="glitch-hover inline-block font-black text-[15vw] sm:text-7xl xl:text-8xl leading-[0.85] tracking-tighter text-foreground uppercase cursor-default select-none"
                   >
-                    <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12" />
-                  </svg>
-                  <span>Entrenar como Atleta (Mi Rutina)</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <Link
-                  href="/studio"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-secondary text-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>Explorar Coach Studio</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border/80 bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-                >
-                  <span>Consultar con Gonza</span>
-                </a>
-              </>
-            ) : user?.rol === "ADMIN" ? (
-              <>
-                <Link
-                  href="/studio"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>Ingresar al Panel de Administrador</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <Link
-                  href="/athlete"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-secondary text-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                    GONZALO SALAS
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground leading-[1.15] max-w-2xl mb-5">
+                  Entrenar no es cansarse hasta transpirar. Es mover más peso con mejor técnica, semana a semana.
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-2xl leading-relaxed mb-8">
+                  La mayoría de la gente pasa meses en el gimnasio levantando la misma mancuerna, siguiendo una rutina fotocopiada que nadie mira y adivinando si progresa. Con Gonzalo Salas cada serie tiene un número, la técnica se audita antes de subir los kilos y tu avance se mide con datos reales.
+                </p>
+
+                {/* Selector único de 3 caminos (reemplaza botones duplicados + nav) */}
+                <nav aria-label="Elegí tu camino">
+                  <div className={`${MICRO_LABEL} mb-3`}>Elegí tu camino</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {caminos.map((c) => {
+                      const activo = c.n === destacado;
+                      const className = `group flex min-h-[48px] flex-col justify-between gap-5 rounded-xl border p-4 transition-all duration-150 active:scale-[0.98] ${FOCUS_RING} ${
+                        activo
+                          ? "border-primary bg-primary text-primary-foreground hover:opacity-90"
+                          : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-secondary"
+                      }`;
+                      const sub = activo ? "text-primary-foreground/70" : "text-muted-foreground";
+                      const contenido = (
+                        <>
+                          <span>
+                            <span className={`flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wider ${sub}`}>
+                              <span className="tabular-nums">{c.n}</span>
+                              <span>{c.kicker}</span>
+                            </span>
+                            <span className="mt-2 block text-base font-black tracking-tight leading-snug">{c.titulo}</span>
+                            <span className={`mt-1 block text-xs leading-relaxed ${sub}`}>{c.detalle}</span>
+                          </span>
+                          <span className="flex items-center justify-between gap-2 text-xs font-bold">
+                            <span>{c.accion}</span>
+                            <ArrowIcon className="size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5" />
+                          </span>
+                        </>
+                      );
+                      return c.externo ? (
+                        <a key={c.n} href={c.href} target="_blank" rel="noopener noreferrer" className={className} data-testid={`hero-camino-${c.n}`}>
+                          {contenido}
+                        </a>
+                      ) : (
+                        <Link key={c.n} href={c.href} className={className} data-testid={`hero-camino-${c.n}`}>
+                          {contenido}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </nav>
+              </div>
+
+              {/* Composición: atmósfera (fondo) + diagnóstico (frente) + franja de especialidades */}
+              <div className="lg:col-span-5 perspective-1200">
+                <div className="transform-style-3d">
+                  <div
+                    className="hero-3d-card group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6 min-h-[260px] sm:min-h-[300px] shadow-xl lg:[transform:rotateY(-6deg)_rotateX(3deg)] transition-transform duration-300"
+                    data-testid="hero-card-layer-back"
                   >
-                    <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12" />
-                  </svg>
-                  <span>Entrenar como Atleta (Mi Rutina)</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border/80 bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-                >
-                  <span>Comenzar a Entrenar con Gonza</span>
-                </a>
-              </>
-            ) : (
-              <>
-                {/* CTA Primario Atleta: Entrenar con Gonza */}
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                  </svg>
-                  <span>Comenzar a Entrenar con Gonza</span>
-                  <span aria-hidden="true">→</span>
-                </a>
-
-                {/* CTA Secundario Coach: Ingresar al Panel de Administrador / Coach Studio */}
-                <Link
-                  href="/studio"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-card hover:bg-secondary text-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-xs active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>Ingresar a Coach Studio</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-
-                {/* CTA Atleta directo */}
-                <Link
-                  href="/athlete"
-                  className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-border/80 bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground px-4 py-3 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
-                >
-                  <span>Athlete App (PWA)</span>
-                </Link>
-              </>
-            )}
-          </div>
-          </div>
-
-          {/* 3 puertas de entrada: una por audiencia (entrenar, entrenadores, alumnos) */}
-          <nav className="lg:col-span-5" aria-label="Elegí tu camino">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground mb-3">
-              Una plataforma · tres formas de entrar
-            </div>
-            <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border shadow-2xl">
-                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
-                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  data-testid="hero-puerta-1"
-                >
-                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
-                    01
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
-                      Para entrenar
-                    </span>
-                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
-                      Quiero entrenar con Gonzalo
-                    </span>
-                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
-                      Funcional, boxeo o rutina online. Plan individual y técnica auditada antes de sumar kilos.
-                    </span>
-                  </span>
-                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
-                </a>
-                <Link href="/studio"
-                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  data-testid="hero-puerta-2"
-                >
-                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
-                    02
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
-                      Para entrenadores
-                    </span>
-                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
-                      Soy entrenador
-                    </span>
-                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
-                      Coach Studio: tu dashboard y centro de monitoreo. Armá rutinas y seguí a cada alumno.
-                    </span>
-                  </span>
-                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
-                </Link>
-                <Link href="/athlete"
-                  className="group flex min-h-[48px] items-center gap-4 sm:gap-5 bg-card hover:bg-primary hover:text-primary-foreground px-5 py-5 sm:px-6 sm:py-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  data-testid="hero-puerta-3"
-                >
-                  <span className="font-mono tabular-nums text-3xl sm:text-4xl font-black text-muted-foreground/50 group-hover:text-primary-foreground/50 transition-colors" aria-hidden="true">
-                    03
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-muted-foreground group-hover:text-primary-foreground/70 transition-colors">
-                      Para alumnos
-                    </span>
-                    <span className="block text-lg sm:text-xl font-black tracking-tight leading-snug">
-                      Mi entrenador usa GOZSter
-                    </span>
-                    <span className="block text-xs sm:text-sm text-muted-foreground group-hover:text-primary-foreground/80 leading-relaxed mt-1 transition-colors">
-                      Athlete App: tu rutina en el celular, serie por serie, también sin señal.
-                    </span>
-                  </span>
-                  <span className="text-xl font-black transition-transform group-hover:translate-x-1" aria-hidden="true">→</span>
-                </Link>
-            </div>
-          </nav>
-          </div>
-
-          {/* Abanico Escalonado de 3 Capas con Contraste Dramático (Spectup Style) */}
-          <div className="relative max-w-6xl mx-auto perspective-1200 pt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch transform-style-3d text-left">
-              {/* Capa 1: Capa Posterior (Atmósfera y Fotografía Técnica B&N) */}
-              <Card
-                className="hero-3d-card group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 p-6 flex flex-col justify-between shadow-xl min-h-[420px] lg:[transform:rotateY(10deg)_rotateX(4deg)_translateZ(-20px)] lg:hover:[transform:rotateY(4deg)_rotateX(2deg)_translateZ(0px)] transition-all duration-300"
-                data-testid="hero-card-layer-back"
-              >
-                {/* Fotografía B&N de alta resolución y contraste */}
-                <img
-                  src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop"
-                  alt="Barra cargada con discos olímpicos de fuerza y magnesio"
-                  className="absolute inset-0 w-full h-full object-cover grayscale contrast-150 brightness-[0.35] transition-transform duration-700 group-hover:scale-105 pointer-events-none"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent pointer-events-none" />
-
-                {/* Encabezado con Badge superior */}
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
-                    <Badge
-                      variant="outline"
-                      className="font-mono text-[10px] tracking-wider uppercase border-white/20 bg-black/60 text-zinc-200 backdrop-blur-md px-2.5 py-1"
-                    >
-                      MÉTODO GONZALO SALAS · 2026
-                    </Badge>
-                    <span className="font-mono text-[10px] text-zinc-400">01 / ATMÓSFERA</span>
-                  </div>
-                  <div className="font-mono text-xs uppercase tracking-widest text-zinc-400 mb-1">
-                    Fuerza Aplicada &amp; Rigor Técnico
-                  </div>
-                  <h3 className="text-xl font-black tracking-tight text-white leading-snug">
-                    Hierro pesado, técnica estricta y magnesio.
-                  </h3>
-                </div>
-
-                {/* Pie técnico */}
-                <div className="relative z-10 mt-6 pt-4 border-t border-white/10">
-                  <p className="text-xs text-zinc-300 leading-relaxed mb-3">
-                    Levantamientos olímpicos, sobrecarga progresiva y cero distracciones. Cada kilogramo en la barra tiene justificación biomecánica.
-                  </p>
-                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
-                    <span className="size-1.5 rounded-full bg-emerald-400" />
-                    <span>Auditoría de palancas y movilidad</span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Capa 2: Capa Intermedia (Tarjeta Blanca Nítida de Contraste) */}
-              <Card
-                className="hero-3d-card relative rounded-2xl bg-white text-zinc-950 p-6 sm:p-8 shadow-2xl border border-zinc-200 flex flex-col justify-between min-h-[420px] lg:[transform:translateZ(30px)_scale(1.02)] lg:hover:[transform:translateZ(45px)_scale(1.04)] z-20 transition-all duration-300"
-                data-testid="hero-card-layer-middle"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-6 border-b border-zinc-200">
-                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-600">
-                      02 · DIAGNÓSTICO SIN FILTRO
-                    </span>
-                    <span className="font-mono text-[10px] font-black uppercase bg-zinc-900 text-white px-2 py-0.5 rounded">
-                      REALIDAD
-                    </span>
-                  </div>
-
-                  <blockquote className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-zinc-950 mb-6">
-                    &ldquo;El 90% de los que van al gimnasio no tienen un problema de voluntad. Tienen una rutina genérica y nadie que les mire la técnica.&rdquo;
-                  </blockquote>
-
-                  <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                    Poner ganas no alcanza si estás haciendo ejercicios que no coinciden con tu anatomía o si levantás el mismo peso hace seis meses.
-                  </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-zinc-200 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-black text-zinc-950 uppercase tracking-wide">
-                      Gonzalo Salas
-                    </div>
-                    <div className="text-[11px] text-zinc-600 font-mono">
-                      Head Coach · Director Técnico
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-zinc-900 bg-zinc-100 border border-zinc-300 px-2.5 py-1 rounded-md">
-                    0 Humo
-                  </span>
-                </div>
-              </Card>
-
-              {/* Capa 3: Capa Frontal (Tarjeta Técnica de Métricas y Autoridad) */}
-              <Card
-                className="hero-3d-card relative rounded-2xl bg-[#121214] border border-zinc-800 text-zinc-100 p-6 sm:p-8 shadow-2xl flex flex-col justify-between min-h-[420px] lg:[transform:rotateY(-10deg)_rotateX(4deg)_translateZ(50px)] lg:hover:[transform:rotateY(-4deg)_rotateX(2deg)_translateZ(65px)] z-30 transition-all duration-300"
-                data-testid="hero-card-layer-front"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-5 border-b border-zinc-800">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                      <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-300">
-                        03 · AUTORIDAD
+                    <img
+                      src="https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop"
+                      alt="Barra cargada con discos olímpicos de fuerza y magnesio"
+                      className="absolute inset-0 w-full h-full object-cover grayscale contrast-150 brightness-[0.4] transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent pointer-events-none" />
+                    <div className="relative z-10">
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-black/60 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-200 backdrop-blur-md">
+                        MÉTODO GONZALO SALAS · 2026
                       </span>
+                      <h3 className="mt-4 max-w-[16rem] text-xl sm:text-2xl font-black tracking-tight text-white leading-snug">
+                        Hierro pesado, técnica estricta y magnesio.
+                      </h3>
                     </div>
-                    <Badge variant="outline" className="font-mono text-[10px] text-zinc-400 border-zinc-700">
-                      AUDITADO
-                    </Badge>
                   </div>
 
-                  <div className="font-mono tabular-nums text-5xl sm:text-6xl font-black text-white tracking-tight mb-2">
-                    +150
-                  </div>
-                  <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 font-semibold mb-2">
-                    Alumnos activos y graduados
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-snug mb-5">
-                    que dejaron de estancarse y hoy levantan con técnica impecable.
-                  </p>
-
-                  {/* Chips de especialidades */}
-                  <div className="flex flex-wrap gap-1.5 mb-6">
-                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
-                      Halterofilia
-                    </span>
-                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
-                      Fuerza
-                    </span>
-                    <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700">
-                      Boxeo
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-zinc-800">
-                  <a
-                    href="#trayectoria"
-                    className="inline-flex min-h-[48px] items-center justify-between w-full px-4 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs sm:text-sm font-bold transition-all"
+                  <figure
+                    className="hero-3d-card relative z-20 -mt-20 sm:-mt-24 ml-5 sm:ml-10 rounded-2xl border border-zinc-200 bg-white text-zinc-950 p-5 sm:p-7 shadow-2xl"
+                    data-testid="hero-card-layer-middle"
                   >
-                    <span>Ver metodología auditada</span>
-                    <span aria-hidden="true">→</span>
-                  </a>
+                    <span className="inline-flex rounded-md bg-zinc-900 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
+                      Diagnóstico sin filtro
+                    </span>
+                    <blockquote className="mt-4 text-lg sm:text-xl font-black tracking-tight leading-tight text-zinc-950">
+                      &ldquo;El 90% de los que van al gimnasio no tienen un problema de voluntad. Tienen una rutina genérica y nadie que les mire la técnica.&rdquo;
+                    </blockquote>
+                    <figcaption className="mt-4 pt-4 border-t border-zinc-200 text-xs text-zinc-600">
+                      <span className="font-black uppercase tracking-wide text-zinc-950">Gonzalo Salas</span>
+                      <span className="font-mono"> · Head Coach · Director Técnico</span>
+                    </figcaption>
+                  </figure>
+
+                  <div
+                    className="hero-3d-card relative z-30 -mt-3 mr-5 sm:mr-10 rounded-xl border border-zinc-800 bg-[#121214] text-zinc-100 p-4 shadow-2xl"
+                    data-testid="hero-card-layer-front"
+                  >
+                    <p className="text-xs text-zinc-300 leading-relaxed">
+                      Alumnos que dejaron de estancarse y hoy levantan con técnica impecable.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Halterofilia", "Fuerza", "Boxeo"].map((e) => (
+                          <span key={e} className="rounded-md border border-zinc-700 bg-zinc-800 px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-200">
+                            {e}
+                          </span>
+                        ))}
+                      </div>
+                      <a
+                        href="#trayectoria"
+                        className="inline-flex min-h-[48px] items-center gap-1.5 text-xs font-bold text-zinc-100 underline-offset-4 hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+                      >
+                        <span>Ver metodología auditada</span>
+                        <ArrowIcon className="size-3.5" />
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </Card>
+              </div>
             </div>
-          </div>
           </div>
         </section>
 
         {/* 3. Métricas de Impacto */}
-        <section className="border-b border-border/80 bg-card/40 py-10 sm:py-14">
+        <section className="border-b border-border bg-card" aria-label="Métricas">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/80 text-center">
-              <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
-                  +150
+            <dl className="grid grid-cols-2 lg:grid-cols-4">
+              {METRICAS.map((m, i) => (
+                <div
+                  key={m.valor}
+                  className={`px-4 py-8 sm:px-6 sm:py-10 border-border ${i % 2 === 1 ? "border-l" : ""} ${i > 1 ? "border-t lg:border-t-0" : ""} ${i === 2 ? "lg:border-l" : ""}`}
+                >
+                  <dd className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">{m.valor}</dd>
+                  <dt className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed max-w-[16rem]">{m.texto}</dt>
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Alumnos acompañados en fuerza, hipertrofia y acondicionamiento
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        {/* 4. Sección 01: tabla diff de auditoría */}
+        <section id="contraste" className="py-16 sm:py-24" data-testid="seccion-contraste-realidad">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SectionHeader
+              index="01"
+              kicker="Criterio & Transparencia"
+              title="Lo que pasa en un gimnasio común vs. Entrenar con Gonzalo Salas"
+              lead="Sin promesas vacías ni recetas mágicas. Compará lo que vivís todos los días con el método de trabajo riguroso de GOZSter."
+            />
+
+            <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+              <div className="hidden md:grid grid-cols-[9rem_1fr_1fr] border-b border-border bg-secondary/60">
+                <div className={`${MICRO_LABEL} px-5 py-3`}>Eje</div>
+                <div className={`${MICRO_LABEL} px-5 py-3 border-l border-border flex items-center gap-2`}>
+                  <span className="size-2 rounded-full bg-destructive" aria-hidden="true" />
+                  Lo que pasa en un gimnasio común
+                </div>
+                <div className="px-5 py-3 border-l border-border bg-card flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-foreground flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-success" aria-hidden="true" />
+                    Entrenar con Gonzalo Salas
+                  </span>
+                  <span className="rounded-md bg-primary px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
+                    El método
+                  </span>
                 </div>
               </div>
-              <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
-                  3
+              {CONTRASTE.map((fila, i) => (
+                <div key={fila.eje} className={`grid grid-cols-1 md:grid-cols-[9rem_1fr_1fr] ${i > 0 ? "border-t border-border" : ""}`}>
+                  <div className={`${MICRO_LABEL} px-5 pt-4 md:py-5 bg-secondary/60`}>{fila.eje}</div>
+                  <div className="flex items-start gap-3 px-5 py-3 md:py-5 md:border-l border-border bg-secondary/60">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger-soft-foreground border border-danger-soft-border">
+                      <CrossIcon className="size-3" />
+                    </span>
+                    <span className="text-sm text-muted-foreground line-through decoration-muted-foreground/40 leading-relaxed">{fila.comun}</span>
+                  </div>
+                  <div className="flex items-start gap-3 px-5 py-3 pb-5 md:py-5 md:border-l border-border bg-card">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-success-soft text-success-soft-foreground border border-success-soft-border">
+                      <CheckIcon className="size-3" />
+                    </span>
+                    <span className="text-sm sm:text-base font-semibold text-foreground leading-relaxed">{fila.metodo}</span>
+                  </div>
                 </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Modalidades de trabajo (Funcional, Boxeo y Rutinas online)
-                </div>
-              </div>
-              <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
-                  5+
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Años de trayectoria profesional y formación docente continua
-                </div>
-              </div>
-              <div className="p-4 sm:p-6">
-                <div className="font-mono tabular-nums text-4xl sm:text-6xl font-black tracking-tighter text-foreground">
-                  $0
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed">
-                  Costo en licencias corporativas por mes (Software Soberano)
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 4. Bloque de Contraste de Realidad (Estilo Tarascón) */}
-        <section
-          id="contraste"
-          className="py-16 sm:py-24 border-t border-border/80 bg-background"
-          data-testid="seccion-contraste-realidad"
-        >
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center sm:text-left mb-10 sm:mb-14">
-              <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-                01 / CRITERIO &amp; TRANSPARENCIA
+        {/* 5. Sección 02: libro técnico de credenciales */}
+        <section id="trayectoria" className="py-16 sm:py-24 border-t border-border bg-secondary/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SectionHeader
+              index="02"
+              kicker="Acreditaciones y Trayectoria"
+              title="Formación Académica y Dirección Técnica"
+              lead="Respaldado por las instituciones de educación física, fuerza y deportes de combate de mayor rigor técnico de Argentina y Europa."
+            />
+
+            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+              <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr] gap-6 border-b border-border bg-secondary/60 px-6 py-3">
+                <div className={MICRO_LABEL}>Título</div>
+                <div className={MICRO_LABEL}>Institución</div>
+                <div className={`${MICRO_LABEL} text-right`}>Especialidad</div>
               </div>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
-                Lo que pasa en un gimnasio común vs. Entrenar con Gonzalo Salas
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
-                Sin promesas vacías ni recetas mágicas. Compará lo que vivís todos los días con el método de trabajo riguroso de GOZSter.
-              </p>
-            </div>
-
-            {/* Tabla / Grilla Comparativa Elegante en Zinc */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Columna A: Gimnasio Común */}
-              <div className="rounded-2xl border border-border/70 bg-card/40 p-6 sm:p-8 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/60">
-                    <span className="size-3 rounded-full bg-destructive/60" aria-hidden="true" />
-                    <h3 className="font-mono text-sm sm:text-base font-bold uppercase tracking-wider text-muted-foreground">
-                      Lo que pasa en un gimnasio común
-                    </h3>
+              {CREDENCIALES.map((c, i) => (
+                <div
+                  key={c.titulo}
+                  className={`group grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1fr] gap-2 md:gap-6 md:items-center px-5 sm:px-6 py-5 hover:bg-foreground hover:text-background transition-colors duration-150 ${i > 0 ? "border-t border-border" : ""}`}
+                  data-testid={`franja-cv-${i + 1}`}
+                >
+                  <h3 className="text-base sm:text-lg font-bold tracking-tight">{c.titulo}</h3>
+                  <div>
+                    <span className="inline-flex items-center rounded-md border border-border bg-secondary/60 px-2 py-1 font-mono text-[11px] font-semibold text-foreground group-hover:border-background/30 group-hover:bg-background/10 group-hover:text-background transition-colors duration-150">
+                      {c.institucion}
+                    </span>
                   </div>
-
-                  <div className="space-y-6">
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                        Rutina
-                      </div>
-                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
-                        Fotocopia arrugada y genérica que nadie mira ni actualiza.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                        Carga
-                      </div>
-                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
-                        Adivinar el peso y levantar la misma mancuerna hace 6 meses.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                        Técnica
-                      </div>
-                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
-                        Profesor en recepción mirando el celular mientras hacés sentadilla con la espalda doblada.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-muted-foreground uppercase">
-                        Software
-                      </div>
-                      <p className="text-sm sm:text-base text-muted-foreground line-through decoration-muted-foreground/40">
-                        Apps comerciales lentas en dólares que se tildan y cobran por alumno.
-                      </p>
-                    </div>
+                  <div className="text-xs sm:text-sm text-muted-foreground md:text-right group-hover:text-background/70 transition-colors duration-150">
+                    {c.area}
                   </div>
                 </div>
-              </div>
-
-              {/* Columna B: Con Gonzalo Salas (GOZSter) */}
-              <div className="dark rounded-2xl border border-border bg-background text-foreground p-6 sm:p-8 shadow-2xl flex flex-col justify-between relative md:scale-[1.03]">
-                <div className="absolute top-4 right-4">
-                  <Badge className="bg-primary text-primary-foreground font-mono text-[10px] font-bold uppercase">
-                    EL MÉTODO
-                  </Badge>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-6 pb-4 border-b border-border/80">
-                    <span className="size-3 rounded-full bg-emerald-500" aria-hidden="true" />
-                    <h3 className="font-mono text-sm sm:text-base font-bold uppercase tracking-wider text-foreground">
-                      Entrenar con Gonzalo Salas
-                    </h3>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-primary uppercase">
-                        Rutina
-                      </div>
-                      <p className="text-sm sm:text-base font-semibold text-foreground">
-                        Plan individualizado según tus palancas y movilidad.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-primary uppercase">
-                        Carga
-                      </div>
-                      <p className="text-sm sm:text-base font-semibold text-foreground">
-                        Sobrecarga progresiva kilo por kilo registrado.
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-primary uppercase">
-                        Técnica
-                      </div>
-                      <p className="text-sm sm:text-base font-semibold text-foreground">
-                        Ojos de Director Técnico (Romero Brest, FAB, Halterofilia).
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-mono text-xs font-bold text-primary uppercase">
-                        Software
-                      </div>
-                      <p className="text-sm sm:text-base font-semibold text-foreground">
-                        GOZSter, tecnología propia, offline y sin suscripción.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 5. Credenciales de Gonzalo Salas (Franjas GlyphsLabs) */}
-        <section id="trayectoria" className="py-16 sm:py-24 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center sm:text-left mb-10 sm:mb-14">
-            <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-              02 / ACREDITACIONES Y TRAYECTORIA
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
-              Formación Académica y Dirección Técnica
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
-              Respaldado por las instituciones de educación física, fuerza y deportes de combate de mayor rigor técnico de Argentina y Europa.
-            </p>
-          </div>
+        {/* 6. Sección 03: fichas de modalidad */}
+        <section id="modalidades" className="py-16 sm:py-24 border-t border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SectionHeader
+              index="03"
+              kicker="Disciplinas Disponibles"
+              title="Modalidades de Trabajo"
+              lead="Entrenamiento adaptado a tus metas atléticas, ya sea presencial o a distancia mediante software dedicado."
+            />
 
-          {/* 4 Franjas Apiladas con Inversión Nítida de Color al Hover */}
-          <div className="border-t border-border/80">
-            {/* Franja 01 */}
-            <div
-              className="group border-b border-border/80 px-4 sm:px-8 py-6 sm:py-7 transition-colors duration-150 hover:bg-foreground hover:text-background cursor-default flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              data-testid="franja-cv-1"
-            >
-              <div className="flex items-start sm:items-center gap-4 sm:gap-6">
-                <span className="font-mono text-xl sm:text-2xl font-bold text-muted-foreground group-hover:text-background transition-colors duration-150">
-                  01
-                </span>
-                <div>
-                  <h3 className="text-base sm:text-xl font-bold tracking-tight text-foreground group-hover:text-background transition-colors duration-150">
-                    Profesor Nacional de Educación Física
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground group-hover:text-background/80 transition-colors duration-150">
-                    ISEF N°1 &quot;Dr. Enrique Romero Brest&quot;
-                  </p>
-                </div>
-              </div>
-              <div className="text-xs font-mono text-muted-foreground group-hover:text-background/80 transition-colors duration-150 sm:text-right">
-                Docencia de Grado &amp; Fisiología Humana
-              </div>
-            </div>
-
-            {/* Franja 02 */}
-            <div
-              className="group border-b border-border/80 px-4 sm:px-8 py-6 sm:py-7 transition-colors duration-150 hover:bg-foreground hover:text-background cursor-default flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              data-testid="franja-cv-2"
-            >
-              <div className="flex items-start sm:items-center gap-4 sm:gap-6">
-                <span className="font-mono text-xl sm:text-2xl font-bold text-muted-foreground group-hover:text-background transition-colors duration-150">
-                  02
-                </span>
-                <div>
-                  <h3 className="text-base sm:text-xl font-bold tracking-tight text-foreground group-hover:text-background transition-colors duration-150">
-                    Personal Trainer Certificado
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground group-hover:text-background/80 transition-colors duration-150">
-                    Centro Europeo de Educación Física
-                  </p>
-                </div>
-              </div>
-              <div className="text-xs font-mono text-muted-foreground group-hover:text-background/80 transition-colors duration-150 sm:text-right">
-                Hipertrofia &amp; Prescripción de Fuerza
-              </div>
-            </div>
-
-            {/* Franja 03 */}
-            <div
-              className="group border-b border-border/80 px-4 sm:px-8 py-6 sm:py-7 transition-colors duration-150 hover:bg-foreground hover:text-background cursor-default flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              data-testid="franja-cv-3"
-            >
-              <div className="flex items-start sm:items-center gap-4 sm:gap-6">
-                <span className="font-mono text-xl sm:text-2xl font-bold text-muted-foreground group-hover:text-background transition-colors duration-150">
-                  03
-                </span>
-                <div>
-                  <h3 className="text-base sm:text-xl font-bold tracking-tight text-foreground group-hover:text-background transition-colors duration-150">
-                    Entrenador en Halterofilia
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground group-hover:text-background/80 transition-colors duration-150">
-                    Grupo GPO Latam
-                  </p>
-                </div>
-              </div>
-              <div className="text-xs font-mono text-muted-foreground group-hover:text-background/80 transition-colors duration-150 sm:text-right">
-                Levantamiento Olímpico &amp; Potencia
-              </div>
-            </div>
-
-            {/* Franja 04 */}
-            <div
-              className="group border-b border-border/80 px-4 sm:px-8 py-6 sm:py-7 transition-colors duration-150 hover:bg-foreground hover:text-background cursor-default flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              data-testid="franja-cv-4"
-            >
-              <div className="flex items-start sm:items-center gap-4 sm:gap-6">
-                <span className="font-mono text-xl sm:text-2xl font-bold text-muted-foreground group-hover:text-background transition-colors duration-150">
-                  04
-                </span>
-                <div>
-                  <h3 className="text-base sm:text-xl font-bold tracking-tight text-foreground group-hover:text-background transition-colors duration-150">
-                    Director Técnico de Boxeo
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground group-hover:text-background/80 transition-colors duration-150">
-                    Federación Argentina de Boxeo (FAB)
-                  </p>
-                </div>
-              </div>
-              <div className="text-xs font-mono text-muted-foreground group-hover:text-background/80 transition-colors duration-150 sm:text-right">
-                Técnica Pugilística &amp; Combate
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+              {MODALIDADES.map((m) => (
+                <article key={m.nombre} className="flex flex-col rounded-xl border border-border bg-card p-6 shadow-xs hover:border-foreground/30 transition-colors duration-150">
+                  <span className={`${BADGE} self-start`}>{m.badge}</span>
+                  <h3 className="mt-4 text-xl sm:text-2xl font-black tracking-tight text-foreground">{m.nombre}</h3>
+                  <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{m.descripcion}</p>
+                  <ul className="mt-5 pt-5 border-t border-border space-y-3 flex-1">
+                    {m.puntos.map((p) => (
+                      <li key={p} className="flex items-start gap-2.5 text-sm text-foreground leading-snug">
+                        <CheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
+                        <span>{p}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={WHATSAPP_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${BTN} mt-6 w-full border border-border bg-secondary/60 text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary`}
+                  >
+                    <span>Consultar por {m.nombre}</span>
+                    <ArrowIcon />
+                  </a>
+                </article>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* 6. Modalidades de Trabajo (Exactamente 3 Disciplinas con Copys Refinados) */}
-        <section id="modalidades" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
-            <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-              03 / DISCIPLINAS DISPONIBLES
-            </div>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-              Modalidades de Trabajo
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground mt-2">
-              Entrenamiento adaptado a tus metas atléticas, ya sea presencial o a distancia mediante software dedicado.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-            {/* Modalidad 1: Funcional */}
-            <Card className="p-6 sm:p-8 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/60 transition-colors">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-                    MODALIDAD 01
-                  </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">PRESENCIAL</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-3">
-                  Funcional
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Entrenamiento basado en movimientos humanos reales: empujar, traccionar, bisagras de cadera y acarreos. Ganás fuerza útil, corregís vicios posturales y aumentás tu capacidad de trabajo sin quemarte las articulaciones.
-                </p>
-                <ul className="space-y-2 text-xs text-muted-foreground mb-6">
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Movilidad activa y blindaje articular contra lesiones cotidianas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Cargas progresivas reguladas según tu rango de movimiento real</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Resistencia metabólica y potencia cardiovascular sin perder masa muscular</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-foreground text-xs sm:text-sm font-bold transition-all"
-              >
-                <span>Consultar por Funcional</span>
-                <span aria-hidden="true">→</span>
-              </a>
-            </Card>
-
-            {/* Modalidad 2: Boxeo */}
-            <Card className="p-6 sm:p-8 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/60 transition-colors">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-                    MODALIDAD 02
-                  </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">ESCUELA FAB</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-3">
-                  Boxeo
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Dirección técnica oficial FAB. Aprendés a pegar con la biomecánica correcta, mover las piernas con balance y defender con criterio. Sesiones intensas de manoplas, bolsa y reflejos donde cada round tiene un objetivo.
-                </p>
-                <ul className="space-y-2 text-xs text-muted-foreground mb-6">
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Mecánica de golpeo y transferencia de potencia desde el piso</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Velocidad de reacción, distancia y coordinación bajo fatiga</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Condicionamiento físico de combate (opción de sparring técnico sólo para avanzados)</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-foreground text-xs sm:text-sm font-bold transition-all"
-              >
-                <span>Consultar por Boxeo</span>
-                <span aria-hidden="true">→</span>
-              </a>
-            </Card>
-
-            {/* Modalidad 3: Rutinas online */}
-            <Card className="p-6 sm:p-8 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/60 transition-colors">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-                    MODALIDAD 03
-                  </Badge>
-                  <span className="text-xs font-mono text-muted-foreground">100% Offline-First PWA</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mb-3">
-                  Rutinas online
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Planificación kilo a kilo cargada en tu celular. No hay PDFs genéricos ni rutinas copiadas: cada serie tiene su carga, descanso cronometrado y auditoría de técnica por video para que progreses en cualquier gimnasio del mundo.
-                </p>
-                <ul className="space-y-2 text-xs text-muted-foreground mb-6">
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>App 100% Offline-First PWA para entrenar sin depender de la señal del gimnasio</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Cronómetro Inteligente de descansos automáticos y Calentamiento Específico</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span>Sobrecarga progresiva y ajustes de microciclos según tus sensaciones</span>
-                  </li>
-                </ul>
-              </div>
-
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 hover:bg-secondary text-foreground text-xs sm:text-sm font-bold transition-all"
-              >
-                <span>Consultar por Rutinas online</span>
-                <span aria-hidden="true">→</span>
-              </a>
-            </Card>
-          </div>
-        </section>
-
-        {/* 7. Sección para Entrenadores y Gimnasios (Infraestructura Tecnológica) */}
+        {/* 7. Sección 04: bento de plataforma para profesionales (escenario oscuro) */}
         <section
           id="infraestructura"
           className="dark relative isolate overflow-hidden py-16 sm:py-24 border-t border-border bg-background text-foreground"
@@ -914,143 +555,128 @@ export default function HomePage() {
         >
           <div className="hero-grid absolute inset-0 -z-10 pointer-events-none" aria-hidden="true" />
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto text-center mb-12 sm:mb-16">
-              <div className="font-mono text-xs font-semibold text-muted-foreground tracking-wider uppercase mb-2">
-                04 / PLATAFORMA PARA PROFESIONALES
-              </div>
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground leading-tight">
-                ¿Sos entrenador o tenés un gimnasio? Dejá de perder 10 horas por semana con Excels y fotocopias.
-              </h2>
-              <p className="text-base sm:text-lg text-muted-foreground mt-4 leading-relaxed">
-                Las apps comerciales cobran en dólares por cada alumno que sumás y se tildan en el sótano del gimnasio. GOZSter es tecnología propia construida para entrenadores reales.
-              </p>
-            </div>
+            <SectionHeader
+              index="04"
+              kicker="Plataforma para Profesionales"
+              title="¿Sos entrenador o tenés un gimnasio? Dejá de perder 10 horas por semana con Excels y fotocopias."
+              lead="Las apps comerciales cobran en dólares por cada alumno que sumás y se tildan en el sótano del gimnasio. GOZSter es tecnología propia construida para entrenadores reales."
+              display
+            />
 
-            {/* 4 Beneficios concretos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto mb-14">
-              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              {/* Constructor */}
+              <article className="md:col-span-4 flex flex-col justify-between gap-6 rounded-xl border border-border bg-card p-6">
                 <div>
-                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
-                    01
-                  </div>
-                  <h3 className="text-base font-bold text-foreground mb-2">
-                    Constructor de rutinas con superseries en segundos.
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <span className={BADGE}>Constructor</span>
+                  <h3 className="mt-4 text-lg sm:text-xl font-bold tracking-tight">Constructor de rutinas con superseries en segundos.</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed max-w-xl">
                     Armá bloques de entrenamiento, series piramidales y descansos automáticos con fluidez táctil instantánea.
                   </p>
                 </div>
-              </Card>
+                <div className="flex flex-wrap items-center gap-2" aria-hidden="true">
+                  <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-1 font-mono text-[11px] font-semibold text-warning">Superserie</span>
+                  <span className="rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold">A1</span>
+                  <span className="h-px w-4 bg-border" />
+                  <span className="rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold">A2</span>
+                  <span className="rounded-md border border-dashed border-border px-2.5 py-1 font-mono text-[11px] tabular-nums text-muted-foreground">Descanso 01:30</span>
+                  <span className="rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-semibold">Piramidal</span>
+                </div>
+              </article>
 
-              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+              {/* Retención */}
+              <article className="md:col-span-2 flex flex-col justify-between gap-6 rounded-xl border border-border bg-card p-6">
                 <div>
-                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
-                    02
-                  </div>
-                  <h3 className="text-base font-bold text-foreground mb-2">
-                    Seguimiento de retención y alertas automáticas de sobrecarga.
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <span className={BADGE}>Retención</span>
+                  <h3 className="mt-4 text-lg font-bold tracking-tight">Seguimiento de retención y alertas automáticas de sobrecarga.</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                     Semáforo de bajas potenciales, detección de fatiga aguda y control de alumnos sin plan al instante.
                   </p>
                 </div>
-              </Card>
+                <ul className="space-y-2 font-mono text-[11px] font-semibold uppercase tracking-wider" aria-hidden="true">
+                  <li className="flex items-center gap-2"><span className="size-2 rounded-full bg-success" />Al día</li>
+                  <li className="flex items-center gap-2"><span className="size-2 rounded-full bg-warning" />En riesgo</li>
+                  <li className="flex items-center gap-2"><span className="size-2 rounded-full bg-destructive" />Sin plan</li>
+                </ul>
+              </article>
 
-              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+              {/* Offline */}
+              <article className="md:col-span-3 flex flex-col justify-between gap-6 rounded-xl border border-border bg-card p-6">
                 <div>
-                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
-                    03
-                  </div>
-                  <h3 className="text-base font-bold text-foreground mb-2">
-                    Funciona 100% offline en sótanos sin señal.
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <span className={BADGE}>
+                    <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden="true" />
+                    Offline
+                  </span>
+                  <h3 className="mt-4 text-lg font-bold tracking-tight">Funciona 100% offline en sótanos sin señal.</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                     Tus atletas registran series en modo avión sin caídas de UI, sincronizando en silencio al salir a la calle.
                   </p>
                 </div>
-              </Card>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] font-semibold" aria-hidden="true">
+                  <span className="rounded-md border border-dashed border-border px-2.5 py-1 text-muted-foreground">Sin señal · guardado local</span>
+                  <ArrowIcon className="size-3.5 text-muted-foreground" />
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-success/40 bg-success/10 px-2.5 py-1 text-success">
+                    <CheckIcon className="size-3" />
+                    Sincronizado
+                  </span>
+                </div>
+              </article>
 
-              <Card className="p-6 border-border/80 bg-card rounded-2xl flex flex-col justify-between hover:border-primary/50 transition-colors">
+              {/* Licencias */}
+              <article className="md:col-span-3 flex flex-col justify-between gap-6 rounded-xl border border-border bg-card p-6">
                 <div>
-                  <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono font-bold text-sm mb-4">
-                    04
-                  </div>
-                  <h3 className="text-base font-bold text-foreground mb-2">
-                    $0 en licencias comerciales (software libre y soberano).
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  <span className={BADGE}>Licencias</span>
+                  <h3 className="mt-4 text-lg font-bold tracking-tight">$0 en licencias comerciales (software libre y soberano).</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                     Cero comisiones, sin suscripciones mensuales abusivas y con total soberanía sobre la base de datos de tu gimnasio.
                   </p>
                 </div>
-              </Card>
-            </div>
+                <div className="flex items-baseline gap-3" aria-hidden="true">
+                  <span className="font-mono tabular-nums text-5xl font-black tracking-tighter">$0</span>
+                  <span className={MICRO_LABEL}>por alumno · por mes</span>
+                </div>
+              </article>
 
-            {/* Banner CTA Destacado para Coach Studio */}
-            <div className="rounded-2xl border border-border/80 bg-card p-8 sm:p-12 text-center max-w-3xl mx-auto shadow-sm">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/60 px-3.5 py-1 font-mono text-xs text-muted-foreground mb-4">
-                <span>ACCESO INMEDIATO</span>
-                <span className="text-border" aria-hidden="true">•</span>
-                <span className="text-foreground font-semibold">SIN INSTALADORES PESADOS</span>
-              </div>
-              <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
-                Comenzá a profesionalizar tu gimnasio hoy mismo
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-8">
-                Explorá el panel de control de Coach Studio con dataset de demostración cargado y experimentá la diferencia de trabajar con tecnología propia.
-              </p>
-              <div className="flex flex-wrap justify-center gap-4">
-                <Link
-                  href="/studio"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-6 py-3 text-sm sm:text-base font-bold shadow-sm hover:opacity-90 active:scale-[0.98] transition-all"
-                >
-                  <span>Ingresar a Coach Studio Gratis (Sin tarjeta)</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <Link
-                  href="/athlete"
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-border bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 text-sm sm:text-base font-bold active:scale-[0.98] transition-all"
-                >
-                  <span>Probar Athlete App (PWA)</span>
-                </Link>
+              {/* Cierre */}
+              <div className="md:col-span-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 rounded-xl border border-border bg-secondary/40 p-6 sm:p-8">
+                <div className="max-w-2xl">
+                  <span className={BADGE}>Acceso inmediato · Sin instaladores pesados</span>
+                  <h3 className="mt-4 text-xl sm:text-2xl font-black tracking-tight">Comenzá a profesionalizar tu gimnasio hoy mismo</h3>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    Explorá el panel de control de Coach Studio con dataset de demostración cargado y experimentá la diferencia de trabajar con tecnología propia.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
+                  <Link href="/studio" className={`${BTN} bg-primary text-primary-foreground hover:opacity-90`}>
+                    <span>Ingresar a Coach Studio Gratis (Sin tarjeta)</span>
+                    <ArrowIcon />
+                  </Link>
+                  <Link href="/athlete" className={`${BTN} border border-border bg-card text-foreground hover:bg-secondary`}>
+                    <span>Probar Athlete App (PWA)</span>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      {/* 8. Footer Corporativo Sobrio Zinc */}
+      {/* 8. Footer */}
       <footer className="border-t border-border/80 bg-background py-10 px-4 sm:px-6 lg:px-8 text-center sm:text-left text-xs text-muted-foreground">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="size-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-black text-xs">
-              G
-            </div>
+            <div className="size-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-black text-xs">G</div>
             <span className="font-bold text-foreground">GOZSter</span>
-            <span>•</span>
+            <span aria-hidden="true">•</span>
             <span>Gonzalo Salas &amp; Fresias</span>
           </div>
-
-          <div className="flex items-center gap-6">
-            <a href="#trayectoria" className="hover:text-foreground transition-colors">
-              Trayectoria
-            </a>
-            <a href="#modalidades" className="hover:text-foreground transition-colors">
-              Modalidades
-            </a>
-            <a href="#infraestructura" className="hover:text-foreground transition-colors">
-              Infraestructura
-            </a>
-            <Link href="/studio" className="hover:text-foreground transition-colors">
-              Coach Studio
-            </Link>
-            <Link href="/athlete" className="hover:text-foreground transition-colors">
-              Athlete App
-            </Link>
-          </div>
-
-          <div className="font-mono text-[11px] text-muted-foreground">
-            Plataforma libre y de código abierto • $0 licencias
-          </div>
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2" aria-label="Pie de página">
+            <a href="#trayectoria" className="hover:text-foreground transition-colors">Trayectoria</a>
+            <a href="#modalidades" className="hover:text-foreground transition-colors">Modalidades</a>
+            <a href="#infraestructura" className="hover:text-foreground transition-colors">Infraestructura</a>
+            <Link href="/studio" className="hover:text-foreground transition-colors">Coach Studio</Link>
+            <Link href="/athlete" className="hover:text-foreground transition-colors">Athlete App</Link>
+          </nav>
+          <div className="font-mono text-[11px]">Plataforma libre y de código abierto • $0 licencias</div>
         </div>
       </footer>
     </div>
