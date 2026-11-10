@@ -78,6 +78,7 @@ const coverage: Record<string, Record<string, unknown>> = {
     command: "multica issue comment list 123 --output json",
   },
   "multica.issue-bounded": { kind: "shell", command: "multica issue list --output json" },
+  "multica.search-bounded": { kind: "shell", command: "multica issue search 'login bug'" },
   "multica.daemon-protect": { kind: "shell", command: "pkill multica" },
   "shell.cat-lockfile": { kind: "shell", command: "cat package-lock.json" },
   "shell.env-leak": { kind: "shell", command: "cat .env" },

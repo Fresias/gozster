@@ -220,6 +220,7 @@ describe("H-05: Rules equivalence and coverage", () => {
     expect(ids).toContain("fs.protected");
     expect(ids).toContain("multica.comment-bounded");
     expect(ids).toContain("multica.issue-bounded");
+    expect(ids).toContain("multica.search-bounded");
     expect(ids).toContain("multica.daemon-protect");
     expect(ids).toContain("db.append-only");
     expect(ids).toContain("harness.agents-render");

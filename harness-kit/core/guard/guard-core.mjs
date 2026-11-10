@@ -383,6 +383,15 @@ function evaluateShell(call, repoRoot) {
         };
       }
     }
+  } else if (/multica\s+issue\s+search/i.test(cmd)) {
+    if (!/--project[\s=]+[^\s"']+/i.test(cmd)) {
+      return {
+        allowed: false,
+        ruleId: "multica.search-bounded",
+        reason:
+          "multica issue search must include --project <id> to bound search scope.",
+      };
+    }
   }
 
   // Multica daemon protection
