@@ -109,6 +109,14 @@ describe("guard.sh — multica anti-waste rules", () => {
   it("allows an issue list with --limit", () => {
     expect(runGuard(bashPayload("multica issue list --limit 10 --output json")).code).toBe(0);
   });
+
+  it("blocks issue search without --project", () => {
+    expect(runGuard(bashPayload("multica issue search 'bug'")).code).toBe(2);
+  });
+
+  it("allows an issue search with --project", () => {
+    expect(runGuard(bashPayload("multica issue search 'bug' --project p-123")).code).toBe(0);
+  });
 });
 
 describe("guard.sh — Read token-waste rules", () => {
