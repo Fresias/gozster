@@ -139,6 +139,45 @@
 .theme-athlete { --primary: 221 83% 53%; --primary-foreground: 210 40% 98%; --ring: 221 83% 53%; }
 .dark .theme-athlete { --primary: 199 89% 48%; --ring: 199 89% 48%; }
 
+/* Athlete App · pulido visual (GOZS-448). Solo estilo: sin cambios de DOM, estado ni flujo.
+   Selectores con :where() para que cualquier utilidad de Tailwind del componente siga ganando. */
+
+/* Capas de superficie de Coach Studio: lienzo = --sidebar, tarjetas y campos un nivel arriba. */
+.theme-athlete { --background: 0 0% 98%; }
+.dark .theme-athlete { --background: 240 10% 3.9%; --card: 240 5.9% 7%; --popover: 240 5.9% 7%; }
+
+/* Cifras como instrumento: pesos, reps, series y timers alineados en columnas. */
+.theme-athlete :where(input, select, textarea, time, output, [inputmode="decimal"], [inputmode="numeric"]) {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Títulos con el tracking de Studio. */
+.theme-athlete :where(h1, h2, h3) { letter-spacing: -0.015em; }
+
+/* Foco de teclado visible en todo control que no declare el suyo. */
+.theme-athlete :where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Respuesta al toque: `scale` es independiente de `transform`, no pisa translate/rotate existentes. */
+.theme-athlete :where(button:not(:disabled), [role="button"]) {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale;
+  transition-duration: 150ms;
+}
+.theme-athlete :where(button:not(:disabled), [role="button"]):active { scale: 0.98; }
+
+/* Campos de texto y número con altura táctil cómoda. */
+.theme-athlete :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]), select) {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-athlete :where(button, [role="button"]) { transition: none; }
+  .theme-athlete :where(button, [role="button"]):active { scale: none; }
+}
+
   * {
     @apply border-border;
   }
