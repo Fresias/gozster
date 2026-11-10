@@ -111,6 +111,29 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(idxC4Multica).toBeGreaterThan(idxC4Core);
   });
 
+  // GOZS-450/GOZS-451: directiva --pr-auto-complete off en tool_guidance y templates de sub-issues
+  it("Multica tool_guidance y templates incluyen la regla obligatoria de --pr-auto-complete off para multi-stage (GOZS-450/GOZS-451)", () => {
+    const guidancePath = path.join(repoRoot, "harness-kit", "adapters", "multica", "tool_guidance.md");
+    const guidance = readFileSync(guidancePath, "utf8");
+    expect(guidance).toContain("--pr-auto-complete off");
+    expect(guidance).toContain("multi-stage");
+
+    const agentsPath = path.join(repoRoot, "AGENTS.md");
+    const agents = readFileSync(agentsPath, "utf8");
+    expect(agents).toContain("--pr-auto-complete off");
+
+    const templatePath = path.join(repoRoot, "harness-kit", "core", "templates", "sub-issue.md.tmpl");
+    expect(existsSync(templatePath)).toBe(true);
+    const tmpl = readFileSync(templatePath, "utf8");
+    expect(tmpl).toContain("--pr-auto-complete off");
+  });
+
+  it("GIVEN tool_guidance de Multica THEN especifica resiliencia de la cola nativa de squads y prohíbe polling de wakeup (GOZS-454)", () => {
+    const guidance = readFileSync(path.join(repoRoot, "harness-kit", "adapters", "multica", "tool_guidance.md"), "utf8");
+    expect(guidance).toMatch(/squad queue resilience|native queue|wait in line/i);
+    expect(guidance).toMatch(/strictly no sleep, poll, or wakeup polling|no repeated mentions, sleeps, or polls/i);
+  });
+
   // GOZS-83 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
   it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails", () => {
     const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");

@@ -12,6 +12,12 @@
     "message": "multica issue list with --output json must include --limit <N> (e.g. --limit 15) to avoid dumping the whole backlog."
   },
   {
+    "id": "multica.search-bounded",
+    "target": "shell",
+    "description": "Require --project on multica issue search",
+    "message": "multica issue search must include --project <id> to bound search scope."
+  },
+  {
     "id": "multica.daemon-protect",
     "target": "shell",
     "description": "Protect multica daemon process from being killed by name",
