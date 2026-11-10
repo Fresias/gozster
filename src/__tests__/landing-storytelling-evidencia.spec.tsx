@@ -45,6 +45,7 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
       expect(text).toContain("Tu método no entra en una app genérica.");
       expect(html).toContain('data-testid="contraste-tendencia-evidencia"');
       expect(html).toContain('data-testid="tendencias-tachadas"');
+      expect(html).toContain('data-testid="mensaje-coach"');
     });
 
     it("no usa tecnicismos ni nombra a otras apps en el texto visible", () => {

@@ -474,6 +474,11 @@ export default function HomePage() {
                   Soy entrenador
                 </a>
               </div>
+              {principal.externo ? (
+                <p className="landing-rise mt-4 text-sm text-muted-foreground" style={{ animationDelay: "520ms" }}>
+                  Sin compromiso: le escribís por WhatsApp y te cuenta cómo trabaja.
+                </p>
+              ) : null}
             </div>
 
             <dl className="grid grid-cols-3 gap-4 border-t border-border pt-6 sm:max-w-2xl sm:gap-8">
@@ -623,6 +628,16 @@ export default function HomePage() {
               </div>
               <div className="lg:col-span-5" data-reveal>
                 <TelefonoEjemplo />
+                {/* Del otro lado, una persona: el seguimiento contado como conversación */}
+                <div className="mx-auto mt-5 max-w-[300px] space-y-2 text-sm" data-testid="mensaje-coach">
+                  <p className="w-fit max-w-[88%] rounded-2xl rounded-bl-md bg-secondary px-4 py-2.5">
+                    <span className="block text-[11px] font-bold text-muted-foreground">Gonzalo</span>
+                    Muy bien la sentadilla de ayer. La próxima, bajá un poco más lento.
+                  </p>
+                  <p className="ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-background">
+                    ¡Dale! Sentí la diferencia.
+                  </p>
+                </div>
                 <p className="mt-4 text-center text-xs text-muted-foreground">Ejemplo ilustrativo de la app.</p>
               </div>
             </div>
