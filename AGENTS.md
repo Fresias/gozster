@@ -15,13 +15,13 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Core Guardrails (Invariants)
 
 ## Always
-- Read a file before editing it; understand the surrounding context first.
-- Keep every change surgical, minimal and strictly scoped to the task (Karpathy).
-- Re-run the project gate before declaring a task completed or opening a PR (zero stale claims).
+- Read file before editing; understand context first.
+- Surgical, minimal changes strictly scoped to task (Karpathy).
+- Run project gate before declaring task done or opening PR (zero stale claims).
 
 ## Ask First
-- Adding any external dependency to the project manifest (Ponytail).
-- Modifying public APIs, interfaces or schemas outside the issue's stated scope.
+- Adding external dependency to manifest (Ponytail).
+- Modifying public APIs or schemas outside stated scope.
 
 ## Never (Enforced by Guard)
 - Destructive: `git push --force`/`+branch`, `git reset --hard`, `git clean -fd`, `rm -rf`, `sudo` (rules: `git.force-push`, `git.reset-hard`, `shell.rm-rf`, `shell.sudo`).
@@ -34,9 +34,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Multica Guardrails
 
 ## Invariants
-- **Daemon protection:** Never terminate `multica` by process name. Check `multica daemon status --output json` and terminate only specific child PIDs (`multica.daemon-protect`).
-- **Foreground blocking:** Never exit turn "standing by"; run work synchronously in foreground tool calls.
-- **Windows comment encoding:** Write comments to UTF-8 file in workdir, submit via `--content-file`, delete on success.
+- **Daemon protection:** Never kill `multica` by name. Check `multica daemon status --output json`; kill child PID only (`multica.daemon-protect`).
+- **Foreground blocking:** Never exit turn "standing by"; run work synchronously in blocking calls.
+- **Windows comment encoding:** Comments go to UTF-8 file in workdir, post via `--content-file`, delete on success.
 
 # GOZSter Local Guardrails
 
@@ -75,8 +75,8 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 ## File Exploration & Editing
 - **Scan-before-read:** Locate target range with `rg -n` before reading.
 - **Bounded reading:** Files >300 lines require `offset`+`limit` (≤200) or `StartLine`+`EndLine` (≤300).
-- **Time-to-First-Edit (TTFE):** Aim to read and edit within ≤5 tool calls.
-- **Quiet inspection:** Prefer `git diff --stat` or `git status -s` before full diffs.
+- **Time-to-First-Edit (TTFE):** Read and edit within ≤5 tool calls.
+- **Quiet inspection:** Prefer `git diff --stat` or `git status -s`.
 
 ## Test & Gate Workflow
 - **Iterative development:** Run ONLY affected test file (`npx vitest run <path/to/spec.ts>`).
@@ -85,21 +85,22 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Multica CLI Guidance (Anti-Token-Waste)
 
 ## Command Rules
-- **Bounded queries:** never run `multica issue list --output json` without `--limit` (max 15).
+- **Bounded queries:** `multica issue list` with JSON requires `--limit` (≤15).
 - **Bounded search:** never run `multica issue search` without `--project <id>`.
-- **Scan-Then-Expand comments:** scan roots (`--roots-only --summary --compact`), then expand a thread (`--thread <id> --tail 10 --compact`).
-- **Large payloads:** long descriptions/comments use `--description-file`/`--content-file` in task workdir, never `/tmp`.
-- **Stream separation:** never merge `stderr` into `stdout` (`2>&1`) when parsing `--output json`.
+- **Scan-Then-Expand:** scan roots (`--roots-only --summary --compact`), expand (`--thread <id> --tail 10 --compact`).
+- **Payloads:** long text uses `--description-file`/`--content-file` in workdir, never `/tmp`.
+- **Streams:** never merge `stderr` into `stdout` (`2>&1`) with JSON.
+- **Multi-stage issues:** pass `--pr-auto-complete off` on `multica issue create` for multi-stage tasks to prevent premature auto-close before QA audit.
 
 ## Comment Discipline (No-Action, No-Reply)
-- **No action, no comment:** if a wakeup/mention needs no action (acks, thanks), end run WITHOUT commenting.
-- **No ack mentions:** never @mention another agent unless you need them to act — mentions trigger runs.
-- **One hand-off per state change:** comment only when you deliver, block, or request a specific action.
+- **No action, no comment:** if wakeup needs no action (acks, thanks, echoes), end run without commenting.
+- **No ack mentions:** never @mention without needed action; no repeated mentions, sleeps, or polls.
+- **One hand-off:** deliver state once to squad/leader; native queue enqueues without task loss.
 
 ## Terminal States (Stop the Loop)
-- **Retries (max 2):** max 2 tries on failure; if 2nd fails, set `blocked` with evidence and end run.
-- **Hand-off, no start:** record goal, changes, evidence, risks, name ONE next action, end run.
-- **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`); no sleep/poll.
+- **Retries (max 2):** 2 tries max; on 2nd failure, set `blocked` with evidence; no retry loops or polls.
+- **Hand-off, no start:** hand off once to squad/leader (native squad queue enqueues without task loss); record goal, changes, evidence, risks, name ONE next action, end run.
+- **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
 
 - **RPCs Supabase (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
 - **Modales (GOZS-321):** isSaving atómico y botón submit deshabilitado para evitar carreras.
