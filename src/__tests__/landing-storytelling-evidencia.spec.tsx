@@ -31,11 +31,26 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
       expect((html.match(/<h1/g) ?? []).length).toBe(1);
     });
 
-    it("cuenta el relato en orden: problema, método, alumnos, entrenadores, Gonzalo, cierre", () => {
-      const ids = ["problema", "metodo", "alumnos", "entrenadores", "gonzalo", "empezar"];
+    it("cuenta el relato en orden, un capítulo por pantalla", () => {
+      const ids = ["problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo", "entrenadores", "faq", "empezar"];
       const posiciones = ids.map((id) => html.indexOf(`id="${id}"`));
       expect(posiciones.every((p) => p > 0)).toBe(true);
       expect([...posiciones].sort((a, b) => a - b)).toEqual(posiciones);
+      // hero + 10 capítulos, cada uno con alto mínimo de un viewport (menos el header fijo)
+      expect((html.match(/landing-section[^"]*min-h-\[calc\(100svh-4rem\)\]/g) ?? []).length).toBe(11);
+    });
+
+    it("cada capítulo termina con un enlace que invita a seguir al siguiente", () => {
+      const destinos = [...html.matchAll(/<a href="#([a-z]+)"[^>]*data-siguiente/g)].map((m) => m[1]);
+      expect(destinos).toEqual(["problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "gonzalo", "entrenadores", "faq", "empezar"]);
+    });
+
+    it("incluye testimonios de alumnos y preguntas frecuentes para los dos públicos", () => {
+      for (const nombre of ["Mirko", "Franco", "German"]) expect(text).toContain(nombre);
+      expect(html).toContain('data-testid="seccion-faq"');
+      expect(text).toContain("Si querés entrenar");
+      expect(text).toContain("Si sos entrenador");
+      expect((html.match(/<details/g) ?? []).length).toBe(9);
     });
 
     it("habla desde el dolor del alumno y del entrenador", () => {
@@ -68,7 +83,7 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
       for (const m of ["Funcional", "Boxeo", "Rutinas online"]) {
         expect(text).toContain(`Consultar por ${m}`);
       }
-      expect(html).toContain("https://wa.me/5491100000000");
+      expect(html).toContain("https://wa.me/541162752515");
     });
 
     it("presenta Coach Studio a los entrenadores con acceso a /studio", () => {
@@ -143,7 +158,7 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
       expect(html).toContain("<header");
       expect(html).toContain("sticky top-0");
       expect(pageCode).toContain("size-8 items-center justify-center rounded-lg bg-primary");
-      for (const ancla of ["#metodo", "#alumnos", "#entrenadores", "#gonzalo"]) {
+      for (const ancla of ["#metodo", "#alumnos", "#entrenadores", "#gonzalo", "#faq"]) {
         expect(html).toContain(`href="${ancla}"`);
       }
       expect(html).toContain('data-testid="theme-toggle"');
@@ -167,12 +182,16 @@ describe("Home storytelling: 'Entrenamiento basado en evidencia, no en tendencia
       expect((html.match(/role="img"/g) ?? []).length).toBe(2);
       expect(text).toContain("Ejemplo ilustrativo de la app.");
       expect(text).toContain("Ejemplo ilustrativo de Coach Studio.");
-      expect(html).not.toMatch(/<img(?![^>]*\salt="[^"]+")[^>]*>/);
+      // toda imagen declara alt; solo el retrato decorativo del hero lo deja vacío
+      expect(html).not.toMatch(/<img(?![^>]*\salt=")[^>]*>/);
+      expect((html.match(/<img[^>]*alt=""/g) ?? []).length).toBe(1);
+      expect(html).toContain('alt="Retrato de Gonzalo Salas, Head Coach"');
+      expect(fs.existsSync(path.resolve(__dirname, "../../public/landing/gonzalo-salas.jpg"))).toBe(true);
     });
 
     it("todas las animaciones del relato se apagan con prefers-reduced-motion", () => {
       const reduced = globalsCode.slice(globalsCode.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
-      for (const sel of [".landing-rise", ".landing-marquee-track", ".landing-progress", ".landing-strike::after", "[data-reveal]"]) {
+      for (const sel of [".landing-nudge", "html.landing-scroll", ".landing-rise", ".landing-marquee-track", ".landing-progress", ".landing-strike::after", "[data-reveal]"]) {
         expect(reduced).toContain(sel);
       }
       expect(reduced).toContain("animation: none !important");
