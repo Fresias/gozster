@@ -194,7 +194,7 @@ const MODALIDADES = [
     foto: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800&auto=format&fit=crop",
     alt: "Atleta registrando series en la aplicación móvil de gimnasio",
     descripcion:
-      "Planificación kilo a kilo cargada en tu celular.",
+      "Planificación kilo a kilo cargada en tu celular. Cronómetro Inteligente y Calentamiento Específico con videos.",
     chips: ["Sobrecarga Kilo a Kilo", "RPE 1-10", "100% Offline PWA"],
     cta: "Comenzar Rutina Online",
   },
