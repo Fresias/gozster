@@ -1,13 +1,13 @@
 # Core Guardrails (Invariants)
 
 ## Always
-- Read a file before editing it; understand the surrounding context first.
-- Keep every change surgical, minimal and strictly scoped to the task (Karpathy).
-- Re-run the project gate before declaring a task completed or opening a PR (zero stale claims).
+- Read file before editing; understand context first.
+- Surgical, minimal changes strictly scoped to task (Karpathy).
+- Run project gate before declaring task done or opening PR (zero stale claims).
 
 ## Ask First
-- Adding any external dependency to the project manifest (Ponytail).
-- Modifying public APIs, interfaces or schemas outside the issue's stated scope.
+- Adding external dependency to manifest (Ponytail).
+- Modifying public APIs or schemas outside stated scope.
 
 ## Never (Enforced by Guard)
 - Destructive: `git push --force`/`+branch`, `git reset --hard`, `git clean -fd`, `rm -rf`, `sudo` (rules: `git.force-push`, `git.reset-hard`, `shell.rm-rf`, `shell.sudo`).
