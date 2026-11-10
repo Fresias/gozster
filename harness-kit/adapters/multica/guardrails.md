@@ -1,6 +1,6 @@
 # Multica Guardrails
 
 ## Invariants
-- **Daemon protection:** Never terminate `multica` by process name. Check `multica daemon status --output json` and terminate only specific child PIDs (`multica.daemon-protect`).
-- **Foreground blocking:** Never exit turn "standing by"; run work synchronously in foreground tool calls.
-- **Windows comment encoding:** Write comments to UTF-8 file in workdir, submit via `--content-file`, delete on success.
+- **Daemon protection:** Never kill `multica` by name. Check `multica daemon status --output json`; kill child PID only (`multica.daemon-protect`).
+- **Foreground blocking:** Never exit turn "standing by"; run work synchronously in blocking calls.
+- **Windows comment encoding:** Comments go to UTF-8 file in workdir, post via `--content-file`, delete on success.
