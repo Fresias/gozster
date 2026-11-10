@@ -52,7 +52,7 @@ describe("GOZS-340 UI: Botón y accesibilidad de Cerrar Sesión en Studio, Athle
     const html = renderToStaticMarkup(<HomePage />);
 
     expect(html).toContain("Iniciar Sesión");
-    expect(html).toContain("100% Offline-First PWA");
+    expect(html).toContain("Entrenamiento basado en evidencia");
     expect(html).toContain("Coach Studio");
     expect(html).toContain("Athlete App");
   });

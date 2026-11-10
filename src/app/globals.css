@@ -281,3 +281,90 @@
   }
 }
 
+
+/* Home storytelling: animaciones del relato (entrada del hero, tachado, marquesina, revelado y progreso) */
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.landing-rise {
+  animation: landing-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes landing-strike {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.landing-strike {
+  position: relative;
+  display: inline-block;
+}
+.landing-strike::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56%;
+  height: 0.085em;
+  background: hsl(var(--foreground));
+  transform-origin: left center;
+  animation: landing-strike 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.9s both;
+}
+
+@keyframes landing-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.landing-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: landing-marquee 60s linear infinite;
+}
+.landing-marquee:hover .landing-marquee-track {
+  animation-play-state: paused;
+}
+
+[data-reveal] {
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms),
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+[data-reveal].reveal-pending {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+@keyframes landing-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.landing-progress {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@supports (animation-timeline: scroll()) {
+  .landing-progress {
+    animation: landing-progress linear both;
+    animation-timeline: scroll(root);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise,
+  .landing-marquee-track,
+  .landing-progress,
+  .landing-strike::after {
+    animation: none !important;
+  }
+  .landing-strike::after { transform: scaleX(1); }
+  .landing-progress { transform: scaleX(0); }
+  [data-reveal],
+  [data-reveal].reveal-pending {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
