@@ -102,9 +102,10 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - **Hand-off, no start:** hand off once to squad/leader (native squad queue enqueues without task loss); record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
 
-- **RPCs Supabase (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
-- **Modales (GOZS-321):** isSaving atómico y botón submit deshabilitado para evitar carreras.
-- **Fechas (GOZS-327):** vi.setSystemTime() lunes 09:00 ART en tests para evitar desfases UTC.
+- **RPCs (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL, opcionales en TS.
+- **Modales (GOZS-321):** isSaving atómico + submit deshabilitado para evitar carreras.
+
+- Limitar inspección previa a rangos acotados (StartLine/EndLine <= 300) y evitar comandos cat no acotados.
 
 # Helper scripts (run via bash)
 
