@@ -1,6 +1,8 @@
 // "La última vez" de cada ejercicio (GOZS-159, spec docs/specs/historial-progreso.md §0 y §1).
 // El ejercicio es canónico: se agrupa por registro_series.ejercicio_id, sin mirar plan ni día.
 
+import { isWorkingSet } from "@/lib/serie-tipo";
+
 const ZONA = "America/Argentina/Buenos_Aires";
 
 export interface SerieHistorica {
@@ -31,7 +33,7 @@ export interface UltimaVezEjercicio {
 
 // §0.1: completada, no atípica, no calentamiento y al menos una rep.
 export function esSerieValida(s: SerieHistorica): boolean {
-  return s.completada && !s.atipica && s.set_type !== "WARMUP" && s.set_type !== "W" && s.reps_hechas >= 1;
+  return s.completada && !s.atipica && isWorkingSet(s.set_type) && s.reps_hechas >= 1;
 }
 
 // Última sesión (anterior a `antesDe`) con al menos una serie válida de ese ejercicio. null = sin historial.
