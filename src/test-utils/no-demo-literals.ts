@@ -176,6 +176,14 @@ export class TestHTMLElement {
     this.setAttribute("class", val);
   }
 
+  get src(): string {
+    return this.attrs.get("src") ?? "";
+  }
+
+  set src(val: string) {
+    this.setAttribute("src", val);
+  }
+
   get value(): string {
     if (this.__reactProps.value !== undefined && this.__reactProps.value !== null) {
       return String(this.__reactProps.value);
@@ -1217,6 +1225,36 @@ export const fireEvent = {
   keyDown(element: HTMLElement, init?: { key?: string; code?: string; [k: string]: any }): any {
     const el = element as unknown as TestHTMLElement;
     const handler = el.__reactProps?.onKeyDown;
+    if (typeof handler === "function") {
+      const res = handler({
+        target: el,
+        currentTarget: el,
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        ...init,
+      });
+      (el.__refresh ?? activeRefreshFn)?.();
+      return res;
+    }
+  },
+  mouseEnter(element: HTMLElement, init?: Record<string, any>): any {
+    const el = element as unknown as TestHTMLElement;
+    const handler = el.__reactProps?.onMouseEnter;
+    if (typeof handler === "function") {
+      const res = handler({
+        target: el,
+        currentTarget: el,
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        ...init,
+      });
+      (el.__refresh ?? activeRefreshFn)?.();
+      return res;
+    }
+  },
+  mouseLeave(element: HTMLElement, init?: Record<string, any>): any {
+    const el = element as unknown as TestHTMLElement;
+    const handler = el.__reactProps?.onMouseLeave;
     if (typeof handler === "function") {
       const res = handler({
         target: el,
