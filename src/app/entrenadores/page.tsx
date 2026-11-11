@@ -8,10 +8,13 @@ import {
   BarraMovil,
   BTN_GHOST,
   BTN_PRIMARY,
+  BTN_XL,
   Capitulo,
   CheckIcon,
   CONTAINER,
   CUERPO,
+  DOLORES_COACH,
+  EnlaceSiguiente,
   FOCUS_RING,
   H2,
   LandingFooter,
@@ -21,18 +24,12 @@ import {
   Preguntas,
   SECCION,
   Siguiente,
+  Tachados,
+  Tilt,
   useBarraMovil,
   useScrollReveal,
   WHATSAPP_COACH,
 } from "@/components/landing/kit";
-
-/* Lo que el entrenador deja atrás (mismo recurso del tachado que usa el hero). */
-const DOLORES_COACH = [
-  "Planillas que solo vos entendés",
-  "Rutinas por PDF y audios de WhatsApp",
-  "Enterarte tarde de quién dejó de entrenar",
-  "Perseguir cuotas por chat",
-];
 
 /* Recorrido por Coach Studio. Las imágenes salen de las pantallas canónicas del producto
    (docs/ux-ui-review/objetivo/html), con datos de ejemplo. */
@@ -56,7 +53,7 @@ const STUDIO_PANTALLAS = [
     etiqueta: "Tus rutinas",
     titulo: "Armás la rutina como vos la pensás.",
     detalle: "Tus ejercicios, tus días, tu criterio. Guardás plantillas para reutilizar y adaptás cada rutina al alumno que tenés adelante.",
-    puntos: ["Plantillas propias y rutinas por alumno", "Aviso cuando una rutina está por vencer", "Cambiás un ejercicio sin rehacer todo"],
+    puntos: ["Plantillas propias y rutinas por alumno", "Constructor por días, con tus ejercicios", "Cambiás un ejercicio sin rehacer todo"],
     img: "/landing/studio-rutinas.jpg",
     alto: 1280,
     alt: "Biblioteca de rutinas de Coach Studio con las rutinas asignadas a cada alumno",
@@ -118,76 +115,201 @@ const NAV = [
   ["#faq", "Preguntas"],
 ] as const;
 
+/* Vista ilustrativa del constructor de rutinas: días, ejercicios y biblioteca propia. */
+const CONSTRUCTOR_DIAS = ["Día 1 · Piernas", "Día 2 · Empuje", "Día 3 · Tirón"];
+const CONSTRUCTOR_EJERCICIOS = [
+  { nombre: "Sentadilla", series: "4 × 6", descanso: "2:30", grupo: "" },
+  { nombre: "Peso muerto rumano", series: "3 × 8", descanso: "2:00", grupo: "" },
+  { nombre: "Estocadas", series: "3 × 10", descanso: "1:00", grupo: "Superserie" },
+  { nombre: "Plancha", series: "3 × 40 s", descanso: "1:00", grupo: "Superserie" },
+];
+const CONSTRUCTOR_BIBLIOTECA = ["Sentadilla búlgara", "Hip thrust", "Prensa", "Gemelos de pie", "Puente de glúteos"];
+
+function ConstructorEjemplo() {
+  return (
+    <div
+      role="img"
+      aria-label="Vista ilustrativa del constructor de rutinas: los días de la semana, los ejercicios de cada día con series y descansos, y tu biblioteca de ejercicios"
+      className="aspect-[2/1] min-w-[640px] bg-zinc-50 p-4 text-zinc-900 sm:min-w-0 lg:p-5"
+    >
+      <div className="flex h-full flex-col gap-3" aria-hidden="true">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Nueva rutina</div>
+            <div className="text-lg font-black tracking-tight lg:text-xl">Fuerza · Tren inferior</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-semibold text-zinc-500">Borrador</span>
+            <span className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-bold text-zinc-50">Guardar y asignar</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {CONSTRUCTOR_DIAS.map((d, i) => (
+            <span key={d} className={`rounded-full px-3 py-1.5 text-xs font-bold ${i === 0 ? "bg-zinc-900 text-zinc-50" : "border border-zinc-200 bg-white text-zinc-600"}`}>
+              {d}
+            </span>
+          ))}
+          <span className="rounded-full border border-dashed border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-500">+ Día</span>
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
+          <ul className="col-span-8 flex flex-col gap-2">
+            {CONSTRUCTOR_EJERCICIOS.map((e, i) => (
+              <li
+                key={e.nombre}
+                className={`landing-pop flex flex-1 items-center gap-3 rounded-xl border bg-white px-3 ${e.grupo ? "border-zinc-900" : "border-zinc-200"}`}
+                style={{ "--pop-delay": `${150 + i * 140}ms` } as React.CSSProperties}
+              >
+                <span className="grid grid-cols-2 gap-0.5">
+                  {[0, 1, 2, 3, 4, 5].map((p) => (
+                    <span key={p} className="size-1 rounded-full bg-zinc-300" />
+                  ))}
+                </span>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 font-mono text-[11px] font-bold">{i + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{e.nombre}</span>
+                  {e.grupo ? <span className="block font-mono text-[9px] font-semibold uppercase tracking-wider text-zinc-500">{e.grupo}</span> : null}
+                </span>
+                <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-bold tabular-nums">{e.series}</span>
+                <span className="hidden rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs tabular-nums text-zinc-600 md:block">{e.descanso}</span>
+              </li>
+            ))}
+            <li className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-zinc-300 text-xs font-bold text-zinc-500">+ Agregar ejercicio</li>
+          </ul>
+          <div className="col-span-4 flex flex-col rounded-xl border border-zinc-200 bg-white p-3">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Tu biblioteca</div>
+            <div className="mt-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-400">Buscar ejercicio…</div>
+            <ul className="mt-2 flex flex-1 flex-col justify-between">
+              {CONSTRUCTOR_BIBLIOTECA.map((b) => (
+                <li key={b} className="flex items-center justify-between gap-2 border-b border-zinc-100 py-1 text-xs font-semibold last:border-0">
+                  <span className="truncate">{b}</span>
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-zinc-500">+</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Marco de navegador para las pantallas del producto. */
+function Ventana({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`overflow-hidden rounded-xl border border-border bg-white shadow-2xl lg:rounded-2xl ${className}`}>
+      <div className="flex items-center gap-1.5 border-b border-zinc-200 bg-zinc-100 px-3 py-2" aria-hidden="true">
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+        <span className="size-2.5 rounded-full bg-zinc-300" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const VISTAS_RUTINAS = [
+  { id: "biblioteca", etiqueta: "Biblioteca" },
+  { id: "constructor", etiqueta: "Constructor" },
+] as const;
+
 export default function EntrenadoresPage() {
   const { user } = useLandingSession();
   useScrollReveal();
   const { heroCtaRef, visible: barraVisible } = useBarraMovil();
+  const [vistaRutinas, setVistaRutinas] = React.useState<(typeof VISTAS_RUTINAS)[number]["id"]>("biblioteca");
 
-  /* Acción principal de la página: entrar a Coach Studio. */
-  const ingresar = user?.rol === "ADMIN" ? "Ingresar al Panel de Administrador" : "Ingresar a Coach Studio";
+  /* Quien ya usa Coach Studio entra desde el header; la página invita a conocerlo. */
+  const accionCorta = (className: string, tabIndex?: number) =>
+    user?.rol === "ADMIN" ? (
+      <Link href="/studio" className={className} tabIndex={tabIndex}>
+        <span>Ir a Coach Studio</span>
+        <ArrowIcon />
+      </Link>
+    ) : (
+      <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={className} tabIndex={tabIndex}>
+        <span>Pedir una demo</span>
+        <ArrowIcon />
+      </a>
+    );
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-clip bg-background text-foreground antialiased selection:bg-primary/20">
+    <div className="landing-root flex min-h-screen flex-col overflow-x-clip bg-background text-foreground antialiased">
       <div className="landing-progress pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5 bg-foreground" aria-hidden="true" />
 
-      <LandingHeader
-        publico="entrenadores"
-        nav={NAV}
-        user={user}
-        accion={
-          <Link href="/studio" className={`${BTN_PRIMARY} !hidden !min-h-[40px] !px-4 !py-2 md:!inline-flex`}>
-            <span>Ingresar</span>
-            <ArrowIcon />
-          </Link>
-        }
-      />
+      <LandingHeader publico="entrenadores" user={user} accion={accionCorta(`${BTN_PRIMARY} !hidden !min-h-[40px] !px-4 !py-2 md:!inline-flex`)} />
 
       <main className="flex-1">
-        {/* Hero: el dolor del entrenador y la promesa */}
+        {/* Hero: quién lo hizo, para quién, y el producto a la vista */}
         <section className="landing-section dark relative isolate flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden bg-background text-foreground" data-testid="hero-entrenadores">
           <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
-          <div className={`${CONTAINER} flex flex-1 flex-col justify-between gap-8 pb-6 pt-8 sm:pb-8 sm:pt-14`}>
-            <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-10 lg:gap-16">
-              <div className="md:col-span-7">
+          <div className={`${CONTAINER} flex flex-1 flex-col justify-between gap-8 pb-6 pt-8 sm:pb-8 sm:pt-12`}>
+            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-10">
+              <div className="lg:col-span-7">
                 <p className={`${MICRO_LABEL} landing-rise flex items-center gap-3`}>
-                  <span className="size-2 rounded-full bg-success" aria-hidden="true" />
+                  <span className="landing-dot size-2 rounded-full bg-foreground text-foreground" aria-hidden="true" />
                   <span>Coach Studio · Para entrenadores</span>
                 </p>
-                <h1 className="landing-rise mt-5 text-balance text-[clamp(2.5rem,6.2vw,5.25rem)] font-black leading-[0.93] tracking-tighter" style={{ animationDelay: "80ms" }}>
-                  Tu método no entra en una app genérica.
+                <h1 className="mt-5 text-[clamp(2.4rem,5.4vw,4.5rem)] font-black leading-[0.93] tracking-tighter">
+                  <span className="landing-rise block" style={{ animationDelay: "80ms" }}>
+                    Lo pensó un
+                  </span>{" "}
+                  <span className="landing-rise block" style={{ animationDelay: "170ms" }}>
+                    entrenador,
+                  </span>{" "}
+                  <span className="landing-rise block lg:whitespace-nowrap" style={{ animationDelay: "260ms" }}>
+                    <span className="landing-outline">para</span> entrenadores.
+                  </span>
                 </h1>
-                <p className="landing-rise mt-5 max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:mt-7 sm:text-xl" style={{ animationDelay: "200ms" }}>
-                  Las apps de siempre te obligan a trabajar a su manera. Coach Studio nació de ese cansancio: lo pensó un entrenador, para entrenadores.
+                <p className="landing-rise mt-5 max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:mt-6 sm:text-xl" style={{ animationDelay: "320ms" }}>
+                  Tu método no entra en una app genérica. Coach Studio nació en el gimnasio: Gonzalo Salas lo usa todos los días para planificar, seguir a sus alumnos y ordenar clases y cuotas.
                 </p>
                 <div
                   ref={heroCtaRef}
                   className="landing-rise mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center"
-                  style={{ animationDelay: "320ms" }}
+                  style={{ animationDelay: "440ms" }}
                   data-testid="hero-cta"
                 >
-                  <Link href="/studio" className={`${BTN_PRIMARY} !px-8 !py-4 text-base`}>
-                    <span>{ingresar}</span>
-                    <ArrowIcon />
-                  </Link>
-                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !hidden bg-background/40 !px-8 !py-4 text-base sm:!inline-flex`}>
-                    Hablar con Gonzalo
+                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_PRIMARY} ${BTN_XL}`}>
+                    <span>Pedir una demo</span>
+                    <ArrowIcon className="size-5" />
+                  </a>
+                  <a href="#studio-hoy" className={`${BTN_GHOST} ${BTN_XL} bg-background/40`}>
+                    Verlo por dentro
                   </a>
                 </div>
-                <p className="landing-rise mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm" style={{ animationDelay: "400ms" }}>
-                  Gratis, sin tarjeta.
+                <p className="landing-rise mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm" style={{ animationDelay: "520ms" }}>
+                  Gonzalo te lo muestra funcionando, con casos reales. Gratis, sin tarjeta.
                 </p>
               </div>
 
-              <div className="landing-rise md:col-span-5" style={{ animationDelay: "440ms" }} data-testid="dolores-entrenador">
-                <p className={`${MICRO_LABEL} mb-3`}>Lo que dejás atrás</p>
-                <ul className="border-t border-border">
-                  {DOLORES_COACH.map((d) => (
-                    <li key={d} className="border-b border-border py-2.5 text-base font-bold leading-snug tracking-tight text-muted-foreground line-through decoration-2 sm:py-4 sm:text-2xl">
-                      {d}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <figure className="landing-media landing-rise relative hidden sm:block lg:col-span-5" style={{ animationDelay: "500ms" }}>
+                <Tilt className="lg:-mr-[62%]" max={6}>
+                  <Ventana>
+                    <img
+                      src="/landing/studio-inicio.jpg"
+                      alt="Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos"
+                      width={2560}
+                      height={1600}
+                      className="h-auto w-full"
+                    />
+                  </Ventana>
+                </Tilt>
+                {["Avisos del día", "Rutinas a tu manera", "Cuotas al día"].map((chip, i) => (
+                  <span
+                    key={chip}
+                    className={`landing-float absolute hidden items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-bold shadow-2xl lg:flex ${
+                      ["-left-8 top-[14%]", "-left-14 top-[46%]", "-left-6 top-[78%]"][i]
+                    }`}
+                    style={{ "--float-delay": `${i * 0.9}s` } as React.CSSProperties}
+                    aria-hidden="true"
+                  >
+                    <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-background">
+                      <CheckIcon className="size-3" />
+                    </span>
+                    {chip}
+                  </span>
+                ))}
+              </figure>
             </div>
 
             <div className="flex flex-col gap-5 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between sm:pt-6">
@@ -203,58 +325,81 @@ export default function EntrenadoresPage() {
                   </div>
                 ))}
               </dl>
-              <a href="#studio-hoy" className={`group hidden min-h-[48px] items-center gap-3 rounded-full text-sm font-bold sm:inline-flex ${FOCUS_RING}`} data-siguiente>
-                <span className="flex size-10 items-center justify-center rounded-full border border-border transition-colors group-hover:bg-foreground group-hover:text-background">
-                  <ArrowIcon className="landing-nudge size-4 rotate-90" />
-                </span>
-                <span className="underline-offset-4 group-hover:underline">Mirá Coach Studio por dentro</span>
-              </a>
+              <EnlaceSiguiente href="#studio-hoy">Mirá Coach Studio por dentro</EnlaceSiguiente>
             </div>
           </div>
+
+          {/* Lo que el entrenador deja atrás, tachado */}
+          <Tachados items={DOLORES_COACH} intro="Lo que dejás atrás" testid="dolores-entrenador" />
         </section>
 
         {/* 01 a 04 · Coach Studio por dentro, una pantalla por capítulo */}
-        {STUDIO_PANTALLAS.map((pantalla, i) => (
-          <section key={pantalla.id} id={pantalla.id} className={`${SECCION} overflow-hidden ${i % 2 === 0 ? "bg-secondary/40" : ""}`} data-testid="studio-pantalla">
-            <div className={CUERPO}>
-              <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12 lg:gap-10">
-                <div className="lg:col-span-4">
-                  <Capitulo n={pantalla.n}>{pantalla.etiqueta}</Capitulo>
-                  <h2 className="text-balance text-[clamp(1.9rem,3.6vw,3rem)] font-black leading-[1] tracking-tighter" data-reveal>
-                    {pantalla.titulo}
-                  </h2>
-                  <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground" data-reveal>
-                    {pantalla.detalle}
-                  </p>
-                  <ul className="mt-5 hidden space-y-2.5 sm:block">
-                    {pantalla.puntos.map((punto) => (
-                      <li key={punto} className="flex items-start gap-3 text-sm font-semibold sm:text-base" data-reveal>
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
-                          <CheckIcon className="size-3" />
-                        </span>
-                        <span>{punto}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <figure className="lg:col-span-8" data-reveal>
-                  <div className="overflow-hidden rounded-xl border border-border bg-white shadow-2xl lg:-mr-[14%] lg:rounded-2xl">
-                    <div className="flex items-center gap-1.5 border-b border-zinc-200 bg-zinc-100 px-3 py-2" aria-hidden="true">
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                      <span className="size-2.5 rounded-full bg-zinc-300" />
-                    </div>
-                    <div className="max-h-[220px] overflow-hidden sm:max-h-none">
-                      <img src={pantalla.img} alt={pantalla.alt} width={2560} height={pantalla.alto} loading="lazy" className="h-auto w-[165%] max-w-none sm:w-full" />
-                    </div>
+        {STUDIO_PANTALLAS.map((pantalla, i) => {
+          const conConstructor = pantalla.id === "studio-rutinas";
+          return (
+            <section key={pantalla.id} id={pantalla.id} className={`${SECCION} overflow-hidden ${i % 2 === 0 ? "bg-secondary/40" : ""}`} data-testid="studio-pantalla">
+              <div className={CUERPO}>
+                <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12 lg:gap-10">
+                  <div className="lg:col-span-4">
+                    <Capitulo n={pantalla.n}>{pantalla.etiqueta}</Capitulo>
+                    <h2 className="text-balance text-[clamp(1.9rem,3.6vw,3rem)] font-black leading-[1] tracking-tighter" data-reveal>
+                      {pantalla.titulo}
+                    </h2>
+                    <p className="mt-4 text-pretty text-base leading-relaxed text-muted-foreground" data-reveal>
+                      {pantalla.detalle}
+                    </p>
+                    <ul className="mt-5 hidden space-y-2.5 sm:block">
+                      {pantalla.puntos.map((punto, k) => (
+                        <li key={punto} className="flex items-start gap-3 text-sm font-semibold sm:text-base" data-reveal style={{ "--reveal-delay": `${k * 80}ms` } as React.CSSProperties}>
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                            <CheckIcon className="size-3" />
+                          </span>
+                          <span>{punto}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <figcaption className="mt-3 text-xs text-muted-foreground">Pantalla de Coach Studio con datos de ejemplo.</figcaption>
-                </figure>
+                  <figure className="landing-media lg:col-span-8" data-reveal>
+                    {conConstructor ? (
+                      <div className="mb-3 inline-flex rounded-full border border-border bg-secondary/60 p-1" role="tablist" aria-label="Vistas de rutinas" data-testid="vistas-rutinas">
+                        {VISTAS_RUTINAS.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={vistaRutinas === v.id}
+                            onClick={() => setVistaRutinas(v.id)}
+                            className={`min-h-[40px] rounded-full px-5 text-sm font-bold transition-colors duration-150 ${FOCUS_RING} ${
+                              vistaRutinas === v.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {v.etiqueta}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <Tilt className="lg:-mr-[14%]" max={3}>
+                      <Ventana>
+                        <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${conConstructor && vistaRutinas !== "biblioteca" ? "hidden" : ""}`}>
+                          <img src={pantalla.img} alt={pantalla.alt} width={2560} height={pantalla.alto} loading="lazy" className="h-auto w-[165%] max-w-none sm:w-full" />
+                        </div>
+                        {conConstructor ? (
+                          <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${vistaRutinas === "constructor" ? "" : "hidden"}`} data-testid="vista-constructor">
+                            <ConstructorEjemplo />
+                          </div>
+                        ) : null}
+                      </Ventana>
+                    </Tilt>
+                    <figcaption className="mt-3 text-xs text-muted-foreground">
+                      {conConstructor && vistaRutinas === "constructor" ? "Vista ilustrativa del constructor de rutinas." : "Pantalla de Coach Studio con datos de ejemplo."}
+                    </figcaption>
+                  </figure>
+                </div>
               </div>
-            </div>
-            <Siguiente href={pantalla.sigueHref}>{pantalla.sigueTexto}</Siguiente>
-          </section>
-        ))}
+              <Siguiente href={pantalla.sigueHref}>{pantalla.sigueTexto}</Siguiente>
+            </section>
+          );
+        })}
 
         {/* 05 · Preguntas frecuentes */}
         <section id="faq" className={SECCION} data-testid="seccion-faq">
@@ -274,42 +419,33 @@ export default function EntrenadoresPage() {
               </div>
             </div>
           </div>
-          <Siguiente href="#empezar">Listo. Empezá hoy</Siguiente>
+          <Siguiente href="#empezar">Listo. Coordiná tu demo</Siguiente>
         </section>
 
-        {/* Cierre: empezar con Coach Studio */}
+        {/* Cierre: coordinar una demo con Gonzalo */}
         <section id="empezar" className={`${SECCION} dark overflow-hidden bg-background text-foreground`} data-testid="cierre-entrenadores">
           <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <div className={CUERPO}>
             <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-10">
               <div className="md:col-span-8">
                 <h2 className="max-w-3xl text-balance text-[clamp(2.2rem,5.6vw,4.75rem)] font-black leading-[0.95] tracking-tighter" data-reveal>
-                  Lo pensó un entrenador, para entrenadores.
+                  Tu método no entra en una app <span className="landing-tachar text-muted-foreground">genérica</span>.
                 </h2>
                 <p className={`${LEAD} mt-4 max-w-xl`} data-reveal>
-                  Gonzalo Salas lo usa todos los días con sus alumnos. En la compu cuando planifica, en el celular entre clase y clase.
+                  Coach Studio se adapta a cómo trabajás vos. Gonzalo te lo muestra funcionando, en la compu y en el celular, y resolvés tus dudas con alguien que lo usa todos los días.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" data-reveal>
-                  <Link href="/studio" className={`${BTN_PRIMARY} !px-8 !py-4 text-base`}>
-                    <span>{ingresar}</span>
-                    <ArrowIcon />
-                  </Link>
-                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !px-8 !py-4 text-base`}>
-                    Que Gonzalo te lo muestre
+                  <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_PRIMARY} ${BTN_XL}`}>
+                    <span>Coordinar una demo con Gonzalo</span>
+                    <ArrowIcon className="size-5" />
                   </a>
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground" data-reveal>
-                  Gratis, sin tarjeta.
-                </p>
-                <p className="mt-8 border-t border-border pt-5 text-sm text-muted-foreground" data-reveal>
-                  ¿Buscabas entrenar con Gonzalo?{" "}
-                  <Link href="/" className={`font-bold text-foreground underline underline-offset-4 ${FOCUS_RING}`}>
-                    Ir a la página para alumnos
-                  </Link>
+                  Por WhatsApp, sin compromiso. Gratis, sin tarjeta.
                 </p>
               </div>
               <figure className="hidden md:col-span-4 md:block" data-reveal>
-                <div className="mx-auto w-full max-w-[250px] rounded-[2.2rem] border border-zinc-700 bg-zinc-950 p-2 shadow-2xl">
+                <div className="landing-float mx-auto w-full max-w-[250px] rounded-[2.2rem] border border-zinc-700 bg-zinc-950 p-2 shadow-2xl">
                   <img
                     src="/landing/studio-movil.jpg"
                     alt="Coach Studio en el celular: resumen del día, avisos para revisar y clases de hoy"
@@ -329,12 +465,9 @@ export default function EntrenadoresPage() {
       <LandingFooter nav={NAV} />
 
       <BarraMovil visible={barraVisible}>
-        <Link href="/studio" className={`${BTN_PRIMARY} flex-1 !px-4`} tabIndex={barraVisible ? 0 : -1}>
-          <span>Ingresar a Coach Studio</span>
-          <ArrowIcon />
-        </Link>
-        <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_GHOST} !px-4`} tabIndex={barraVisible ? 0 : -1}>
-          Consultar
+        {accionCorta(`${BTN_PRIMARY} flex-1 !px-4`, barraVisible ? 0 : -1)}
+        <a href="#studio-hoy" className={`${BTN_GHOST} !px-4`} tabIndex={barraVisible ? 0 : -1}>
+          Verlo
         </a>
       </BarraMovil>
     </div>

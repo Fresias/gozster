@@ -6,10 +6,11 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { LandingSessionCapsule } from "@/components/landing-session-capsule";
 
 /* Configuración única de contacto: cambiar acá el número de WhatsApp. */
-export const WHATSAPP_NUMERO = "541162752515";
+/* +54 9 11 6275-2515, en el formato internacional que pide wa.me (con el 9 de celular). */
+export const WHATSAPP_NUMERO = "5491162752515";
 export const whatsapp = (mensaje: string) => `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
 export const WHATSAPP_ALUMNO = whatsapp("Hola Gonza, quiero empezar a entrenar con vos. ¿Me contás cómo trabajás?");
-export const WHATSAPP_COACH = whatsapp("Hola Gonza, soy entrenador y quiero conocer Coach Studio.");
+export const WHATSAPP_COACH = whatsapp("Hola Gonza, soy entrenador y quiero ver una demo de Coach Studio.");
 export const FOTO_GONZALO = "/landing/gonzalo-salas.jpg";
 
 /* Recetas visuales compartidas con Coach Studio (tokens zinc, borde 1px, micro-etiquetas mono). */
@@ -17,13 +18,15 @@ export const MICRO_LABEL = "font-mono text-[11px] font-semibold uppercase tracki
 export const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 export const BTN =
-  "inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition-all duration-150 active:scale-[0.98] " +
+  "landing-btn inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition-all duration-200 active:scale-[0.98] " +
   FOCUS_RING;
-export const BTN_PRIMARY = `${BTN} bg-primary text-primary-foreground hover:opacity-90`;
+export const BTN_PRIMARY = `${BTN} landing-shine bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30`;
+/* Tamaño protagonista: la acción que cierra cada capítulo. */
+export const BTN_XL = "!min-h-[56px] !px-8 !py-4 !text-base sm:!text-lg";
 export const BTN_GHOST = `${BTN} border border-border bg-transparent text-foreground hover:bg-secondary`;
-export const CONTAINER = "mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12";
+export const CONTAINER = "landing-container mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12";
 /* Cada capítulo ocupa, como mínimo, un viewport (descontando el header fijo). */
-export const SECCION = "landing-section relative isolate flex min-h-[calc(100svh-4rem)] scroll-mt-16 flex-col border-t border-border pb-24 pt-8 sm:py-14";
+export const SECCION = "landing-section relative isolate flex min-h-[calc(100svh-4rem)] flex-col border-t border-border pb-24 pt-8 sm:py-14";
 export const CUERPO = `${CONTAINER} flex flex-1 flex-col justify-center`;
 export const H2 = "text-balance text-[clamp(2rem,4.6vw,3.75rem)] font-black leading-[0.98] tracking-tighter text-foreground";
 /* En móvil, los grupos de tres se recorren deslizando: el capítulo sigue entrando en una pantalla. */
@@ -60,35 +63,49 @@ export function Capitulo({ n, children }: { n: string; children: React.ReactNode
 }
 
 /* Cierre de cada capítulo: una pregunta o promesa que invita a seguir bajando. */
-export function Siguiente({ href, children }: { href: string; children: React.ReactNode }) {
+export function Siguiente({ href, children, className = "" }: { href: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`${CONTAINER} mt-6 sm:mt-10`}>
-      <a href={href} className={`group inline-flex min-h-[48px] items-center gap-3 rounded-full text-sm font-bold text-foreground ${FOCUS_RING}`} data-siguiente>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border transition-colors duration-150 group-hover:bg-foreground group-hover:text-background">
-          <ArrowIcon className="landing-nudge size-4 rotate-90" />
-        </span>
-        <span className="underline-offset-4 group-hover:underline">{children}</span>
-      </a>
+    <div className={`${CONTAINER} mt-6 sm:mt-10 ${className}`}>
+      <EnlaceSiguiente href={href}>{children}</EnlaceSiguiente>
     </div>
+  );
+}
+
+export function EnlaceSiguiente({ href, children, className = "" }: { href: string; children: React.ReactNode; className?: string }) {
+  return (
+    <a
+      href={href}
+      className={`group inline-flex min-h-[56px] items-center gap-4 rounded-full border border-border bg-background/80 py-1.5 pl-1.5 pr-6 text-left text-base font-black tracking-tight text-foreground backdrop-blur-sm transition-all duration-200 hover:border-foreground hover:bg-foreground hover:text-background active:scale-[0.98] sm:text-lg ${FOCUS_RING} ${className}`}
+      data-siguiente
+    >
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors duration-200 group-hover:bg-background group-hover:text-foreground">
+        <ArrowIcon className="landing-nudge size-5 rotate-90" />
+      </span>
+      <span>{children}</span>
+    </a>
   );
 }
 
 /* Revela cada bloque al entrar en pantalla. Sin JS o con movimiento reducido, todo queda visible. */
 export function useScrollReveal() {
   React.useEffect(() => {
-    /* Scroll suave y anclaje por capítulo, solo mientras la home está montada. */
-    document.documentElement.classList.add("landing-scroll");
-    const limpiarScroll = () => document.documentElement.classList.remove("landing-scroll");
+    /* Scroll suave y anclaje por capítulo, solo mientras la landing está montada. */
+    const raiz = document.documentElement;
+    raiz.classList.add("landing-scroll");
+    const limpiarScroll = () => raiz.classList.remove("landing-scroll", "landing-motion");
 
     if (typeof IntersectionObserver === "undefined") return limpiarScroll;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return limpiarScroll;
 
+    /* landing-motion habilita las animaciones que dependen de .in-view (tachados, líneas, sellos). */
+    raiz.classList.add("landing-motion");
     const elementos = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           entry.target.classList.remove("reveal-pending");
+          entry.target.classList.add("in-view");
           observer.unobserve(entry.target);
         }
       },
@@ -96,17 +113,108 @@ export function useScrollReveal() {
     );
 
     for (const el of elementos) {
-      if (el.getBoundingClientRect().top < window.innerHeight * 0.92) continue;
-      el.classList.add("reveal-pending");
+      if (el.getBoundingClientRect().top >= window.innerHeight * 0.92) el.classList.add("reveal-pending");
       observer.observe(el);
     }
 
     return () => {
       limpiarScroll();
       observer.disconnect();
-      for (const el of elementos) el.classList.remove("reveal-pending");
+      for (const el of elementos) el.classList.remove("reveal-pending", "in-view");
     };
   }, []);
+}
+
+/* Número que cuenta hasta su valor al entrar en pantalla. Sin JS muestra el valor final. */
+export function Contador({ valor, prefijo = "", sufijo = "", duracion = 1400 }: { valor: number; prefijo?: string; sufijo?: string; duracion?: number }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const [actual, setActual] = React.useState(valor);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      observer.disconnect();
+      const inicio = performance.now();
+      const paso = (ahora: number) => {
+        const t = Math.min(1, (ahora - inicio) / duracion);
+        setActual(Math.round(valor * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) frame = requestAnimationFrame(paso);
+      };
+      setActual(0);
+      frame = requestAnimationFrame(paso);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [valor, duracion]);
+  return (
+    <span ref={ref} aria-label={`${prefijo}${valor}${sufijo}`}>
+      <span aria-hidden="true">
+        {prefijo}
+        {actual}
+        {sufijo}
+      </span>
+    </span>
+  );
+}
+
+/* Contenedor que se inclina siguiendo al cursor (solo con mouse; se apaga con movimiento reducido). */
+export function Tilt({ children, className = "", max = 5 }: { children: React.ReactNode; className?: string; max?: number }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const mover = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== "mouse") return;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    el.style.setProperty("--tilt-x", `${(-y * max).toFixed(2)}deg`);
+    el.style.setProperty("--tilt-y", `${(x * max).toFixed(2)}deg`);
+  };
+  const soltar = () => {
+    ref.current?.style.removeProperty("--tilt-x");
+    ref.current?.style.removeProperty("--tilt-y");
+  };
+  return (
+    <div ref={ref} className={`landing-tilt ${className}`} onPointerMove={mover} onPointerLeave={soltar}>
+      {children}
+    </div>
+  );
+}
+
+/* Lo que el entrenador deja atrás (mismo recurso del tachado que usa el hero de alumnos). */
+export const DOLORES_COACH = [
+  "Planillas que solo vos entendés",
+  "Rutinas por PDF y audios de WhatsApp",
+  "Enterarte tarde de quién dejó de entrenar",
+  "Perseguir cuotas por chat",
+];
+
+/* Marquesina de frases tachadas: lo que queda afuera. */
+export function Tachados({ items, intro, testid }: { items: string[]; intro: string; testid: string }) {
+  return (
+    <div className="landing-marquee overflow-hidden border-t border-border bg-background/70 py-3.5" data-testid={testid}>
+      <p className="sr-only">
+        {intro}: {items.join(", ")}.
+      </p>
+      <div className="landing-marquee-track" aria-hidden="true">
+        {[0, 1, 2, 3].map((copia) => (
+          <ul key={copia} className="flex shrink-0 items-center">
+            {items.map((t) => (
+              <li key={t} className="flex items-center whitespace-nowrap">
+                <span className="px-6 text-lg font-bold tracking-tight text-muted-foreground line-through decoration-2 sm:text-xl">{t}</span>
+                <span className="size-1.5 rounded-full bg-border" />
+              </li>
+            ))}
+          </ul>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function Preguntas({ titulo, items }: { titulo: string; items: { q: string; a: string }[] }) {
@@ -141,12 +249,10 @@ const PUBLICOS = [
 
 export function LandingHeader({
   publico,
-  nav,
   user,
   accion,
 }: {
   publico: "alumnos" | "entrenadores";
-  nav: readonly (readonly [string, string])[];
   user: UsuarioLanding;
   accion: React.ReactNode;
 }) {
@@ -168,7 +274,7 @@ export function LandingHeader({
                   href={p.href}
                   aria-current={activo ? "page" : undefined}
                   className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-xs font-bold transition-colors duration-150 sm:px-4 sm:text-sm ${FOCUS_RING} ${
-                    activo ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                    activo ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"
                   }`}
                 >
                   <span className="sm:hidden">{p.corto}</span>
@@ -178,13 +284,6 @@ export function LandingHeader({
             })}
           </nav>
 
-          <nav className="hidden items-center gap-5 xl:flex" aria-label="Navegación principal">
-            {nav.map(([href, label]) => (
-              <a key={href} href={href} className={`rounded text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${FOCUS_RING}`}>
-                {label}
-              </a>
-            ))}
-          </nav>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
@@ -233,7 +332,9 @@ export function LandingFooter({ nav }: { nav: readonly (readonly [string, string
             Athlete App
           </Link>
         </nav>
-        <div>Entrenamiento basado en evidencia, no en tendencias.</div>
+        <div>
+          Entrenamiento basado en evidencia, <s>no tendencias</s>.
+        </div>
       </div>
     </footer>
   );
