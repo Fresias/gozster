@@ -239,6 +239,48 @@ describe("GOZS-481: Panel Fijo de Video Preview con Hover (Master-Detail Desktop
     // Vuelve al estado inicial
     expect(queryByTestId("video-preview-iframe")).toBeNull();
   });
+
+  it("GIVEN reproducción activa en el panel lateral WHEN el usuario mueve el cursor a otra tarjeta THEN detiene inmediatamente la reproducción anterior y conmuta a la portada", () => {
+    const { getByTestId, queryByTestId } = render(
+      <EjerciciosLibraryTab
+        ejercicios={mockEjercicios}
+        ejerciciosEnRutina={mockEjerciciosEnRutina}
+      />
+    );
+
+    const cardBanca = getByTestId("ejercicio-card-ej-banca");
+    const cardSentadilla = getByTestId("ejercicio-card-ej-sentadilla");
+
+    fireEvent.mouseEnter(cardBanca);
+    fireEvent.click(getByTestId("btn-play-preview-video"));
+    expect(getByTestId("video-preview-iframe")).toBeTruthy();
+
+    // Mover cursor a sentadilla
+    fireEvent.mouseEnter(cardSentadilla);
+    expect(queryByTestId("video-preview-iframe")).toBeNull();
+    const thumb = getByTestId("video-preview-thumbnail") as HTMLImageElement;
+    expect(thumb.src).toContain("bEv6CCg2BC8");
+  });
+
+  it("GIVEN el panel de preview visible WHEN se hace clic en 'Ampliar visor' THEN se abre el modal completo para ese ejercicio", () => {
+    const { getByTestId, queryByTestId } = render(
+      <EjerciciosLibraryTab
+        ejercicios={mockEjercicios}
+        ejerciciosEnRutina={mockEjerciciosEnRutina}
+      />
+    );
+
+    const cardBanca = getByTestId("ejercicio-card-ej-banca");
+    fireEvent.mouseEnter(cardBanca);
+
+    expect(queryByTestId("modal-video-preview")).toBeNull();
+    const expandBtn = getByTestId("btn-expand-modal-preview");
+    fireEvent.click(expandBtn);
+
+    const modal = getByTestId("modal-video-preview");
+    expect(modal).toBeTruthy();
+    expect(modal.textContent).toContain("Press de Banca");
+  });
 });
 
 describe("GOZS-481: Modo Mobile / Acceso Accesible sin Hover", () => {
