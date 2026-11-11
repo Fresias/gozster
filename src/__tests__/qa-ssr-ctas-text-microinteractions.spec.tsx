@@ -72,11 +72,11 @@ describe("QA Audit GOZS-483 / GOZS-484: Optimización SSR de CTAs y Microinterac
       expect(html).toContain("landing-outline");
     });
 
-    it("HomePage integra ScrambleText en la sección 'El método' con la palabra 'novedad'", () => {
-      expect(homeCode).toContain('<ScrambleText text="novedad"');
+    it("HomePage renderiza 'novedad' como texto estático y sobrio (sin ScrambleText)", () => {
+      expect(homeCode).not.toContain("ScrambleText");
       const html = renderToStaticMarkup(createElement(HomePage));
-      expect(html).toContain('data-testid="scramble-text"');
-      expect(html).toContain('aria-label="novedad"');
+      expect(html).toContain("novedad");
+      expect(html).not.toContain('data-testid="scramble-text"');
     });
 
     it("ScrambleText respeta prefers-reduced-motion y usa requestAnimationFrame para 60 FPS", () => {
