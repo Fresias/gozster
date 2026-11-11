@@ -588,6 +588,23 @@ html.landing-motion .in-view .landing-char-item {
     transform: none !important;
     transition: none !important;
   }
+  #problema {
+    height: auto !important;
+  }
+  #problema-sticky-viewport {
+    position: static !important;
+    height: auto !important;
+  }
+  #story-track {
+    width: 100% !important;
+    flex-direction: column !important;
+    transform: none !important;
+  }
+  #story-track > div {
+    width: 100% !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+  }
   .landing-char-item {
     opacity: 1 !important;
   }
