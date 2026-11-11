@@ -15,7 +15,11 @@ import {
   GRUPOS_MUSCULARES_CATALOGO,
   tagToSlug,
 } from "@/lib/rutinas-biblioteca";
-import { getYouTubeEmbedUrl, extractYouTubeVideoId } from "@/lib/youtube";
+import {
+  getYouTubeEmbedUrl,
+  extractYouTubeVideoId,
+  getYouTubeThumbnailUrl,
+} from "@/lib/youtube";
 import { createClient } from "@/lib/supabase/browser";
 import {
   Search,
@@ -23,6 +27,7 @@ import {
   Pencil,
   Trash2,
   Video,
+  Play,
   AlertTriangle,
 } from "@/components/ui/icons";
 import type { Ejercicio, EjercicioEnRutina } from "@/types/database.types";
@@ -76,8 +81,43 @@ export function EjerciciosLibraryTab({
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deletingEjercicio, setDeletingEjercicio] = React.useState<Ejercicio | null>(null);
 
-  // Estado del Diálogo de Preview de Video
+  // Estado del Diálogo de Preview de Video (Modal manual / mobile)
   const [videoPreviewEjercicio, setVideoPreviewEjercicio] = React.useState<Ejercicio | null>(null);
+
+  // Estado del Panel Fijo de Video Preview con Hover (Master-Detail desktop)
+  const [hoveredVideoEjercicio, setHoveredVideoEjercicio] = React.useState<Ejercicio | null>(null);
+  const [pinnedEjercicio, setPinnedEjercicio] = React.useState<Ejercicio | null>(null);
+  const [isPlayingInPanel, setIsPlayingInPanel] = React.useState(false);
+
+  const activePreview = pinnedEjercicio || hoveredVideoEjercicio;
+  const activeThumbnailUrl = activePreview?.url_video
+    ? getYouTubeThumbnailUrl(activePreview.url_video)
+    : null;
+
+  const handleCardMouseEnter = (ej: Ejercicio) => {
+    const hasVid = Boolean(ej.url_video && extractYouTubeVideoId(ej.url_video));
+    if (hasVid) {
+      setPinnedEjercicio(null);
+      setIsPlayingInPanel(false);
+      setHoveredVideoEjercicio(ej);
+    } else {
+      setPinnedEjercicio(null);
+      setIsPlayingInPanel(false);
+      setHoveredVideoEjercicio(null);
+    }
+  };
+
+  const handleCardMouseLeave = (_ej: Ejercicio) => {
+    if (!pinnedEjercicio) {
+      setHoveredVideoEjercicio(null);
+    }
+  };
+
+  const handleListMouseLeave = () => {
+    if (!pinnedEjercicio) {
+      setHoveredVideoEjercicio(null);
+    }
+  };
 
   // Sincronizar trigger externo para 'Nuevo Ejercicio'
   React.useEffect(() => {
@@ -361,111 +401,307 @@ export function EjerciciosLibraryTab({
           </div>
         </div>
       ) : (
-        <div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"
-          data-testid="ejercicios-list"
-        >
-          {filteredEjercicios.map((ej) => {
-            const cantEnUso = conteoUso.get(ej.id) ?? 0;
-            const tieneVideo = Boolean(ej.url_video && extractYouTubeVideoId(ej.url_video));
+        <div className="flex flex-col lg:flex-row items-start gap-5">
+          {/* Lista de ejercicios */}
+          <div className="flex-1 w-full min-w-0">
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3.5"
+              data-testid="ejercicios-list"
+              onMouseLeave={handleListMouseLeave}
+            >
+              {filteredEjercicios.map((ej) => {
+                const cantEnUso = conteoUso.get(ej.id) ?? 0;
+                const tieneVideo = Boolean(ej.url_video && extractYouTubeVideoId(ej.url_video));
+                const isSelectedInPreview = activePreview?.id === ej.id;
 
-            return (
+                return (
+                  <div
+                    key={ej.id}
+                    data-testid={`ejercicio-card-${ej.id}`}
+                    onMouseEnter={() => handleCardMouseEnter(ej)}
+                    onMouseLeave={() => handleCardMouseLeave(ej)}
+                    className={`flex flex-col justify-between rounded-xl border p-4 transition-all ${
+                      isSelectedInPreview
+                        ? "border-primary/60 bg-card shadow-sm ring-1 ring-primary/20"
+                        : "border-border bg-card hover:border-border/80"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2.5">
+                        <h4
+                          data-testid={`ejercicio-nombre-${ej.id}`}
+                          className="text-base font-bold text-foreground leading-snug tracking-tight"
+                        >
+                          {ej.nombre}
+                        </h4>
+                        {cantEnUso > 0 && (
+                          <span
+                            data-testid={`ejercicio-uso-${ej.id}`}
+                            className="inline-flex items-center shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300"
+                            title={`En uso en ${cantEnUso} rutina(s)`}
+                          >
+                            En {cantEnUso} {cantEnUso === 1 ? "rutina" : "rutinas"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Badges de músculos */}
+                      <div
+                        className="flex flex-wrap items-center gap-1 mb-2.5"
+                        data-testid={`ejercicio-musculos-${ej.id}`}
+                      >
+                        {(ej.musculos_principales || []).map((m, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center rounded-md border border-border/60 bg-secondary/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          >
+                            {m}
+                          </span>
+                        ))}
+                        {(ej.musculos_secundarios || []).map((m, idx) => (
+                          <span
+                            key={`sec-${idx}`}
+                            className="inline-flex items-center rounded-md border border-border/30 bg-secondary/25 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/75"
+                          >
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Comentario o descripción */}
+                      {ej.comentario && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          {ej.comentario}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Pie con Video y Acciones */}
+                    <div className="flex items-center justify-between pt-3 border-t border-border/60 mt-2 gap-2">
+                      <div>
+                        {tieneVideo ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 gap-1.5"
+                            onClick={() => setVideoPreviewEjercicio(ej)}
+                            data-testid={`btn-preview-video-${ej.id}`}
+                          >
+                            <Video className="h-3.5 w-3.5" />
+                            Video YouTube
+                          </Button>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">Sin video</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs font-medium"
+                          onClick={() => handleOpenEdit(ej)}
+                          data-testid={`btn-editar-ejercicio-${ej.id}`}
+                          aria-label={`Editar ejercicio ${ej.nombre}`}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleOpenDelete(ej)}
+                          data-testid={`btn-eliminar-ejercicio-${ej.id}`}
+                          aria-label={`Eliminar ejercicio ${ej.nombre}`}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Eliminar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Panel fijo / sticky de Video Preview (Desktop Master-Detail) */}
+          <aside
+            className="hidden lg:block w-80 xl:w-96 shrink-0 sticky top-4"
+            data-testid="video-preview-sidebar"
+            aria-label="Panel de previsualización de video"
+          >
+            {activePreview ? (
               <div
-                key={ej.id}
-                data-testid={`ejercicio-card-${ej.id}`}
-                className="flex flex-col justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-border/80"
+                className="rounded-xl border border-border bg-card p-4 shadow-xs space-y-3"
+                data-testid="video-preview-active-content"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="font-semibold text-sm text-foreground leading-snug">
-                      {ej.nombre}
-                    </h4>
-                    {cantEnUso > 0 && (
-                      <span
-                        data-testid={`ejercicio-uso-${ej.id}`}
-                        className="inline-flex items-center shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300"
-                        title={`En uso en ${cantEnUso} rutina(s)`}
-                      >
-                        En {cantEnUso} {cantEnUso === 1 ? "rutina" : "rutinas"}
-                      </span>
-                    )}
+                <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                    <Video className="h-4 w-4" />
+                    <span>Vista previa técnica</span>
                   </div>
-
-                  {/* Badges de músculos */}
-                  <div className="flex flex-wrap gap-1 mb-2.5">
-                    {(ej.musculos_principales || []).map((m, idx) => (
-                      <span
-                        key={idx}
-                        className="rounded-full border border-border/80 bg-secondary/80 px-2 py-0.5 text-[11px] font-medium text-foreground"
-                      >
-                        {m}
-                      </span>
-                    ))}
-                    {(ej.musculos_secundarios || []).map((m, idx) => (
-                      <span
-                        key={`sec-${idx}`}
-                        className="rounded-full border border-border/40 bg-secondary/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
-                      >
-                        {m}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Comentario o descripción */}
-                  {ej.comentario && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                      {ej.comentario}
-                    </p>
+                  {isPlayingInPanel && (
+                    <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      Reproduciendo
+                    </span>
                   )}
                 </div>
 
-                {/* Pie con Video y Acciones */}
-                <div className="flex items-center justify-between pt-3 border-t border-border/60 mt-2 gap-2">
-                  <div>
-                    {tieneVideo ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 gap-1"
-                        onClick={() => setVideoPreviewEjercicio(ej)}
-                        data-testid={`btn-preview-video-${ej.id}`}
+                <div>
+                  <h3
+                    data-testid="video-preview-title"
+                    className="text-base font-bold text-foreground leading-snug line-clamp-1"
+                  >
+                    {activePreview.nombre}
+                  </h3>
+                  <div
+                    className="flex flex-wrap gap-1 mt-1.5"
+                    data-testid="video-preview-muscles"
+                  >
+                    {(activePreview.musculos_principales || []).map((m, idx) => (
+                      <span
+                        key={`prev-p-${idx}`}
+                        className="rounded-md border border-border/60 bg-secondary/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
                       >
-                        <Video className="h-3.5 w-3.5" />
-                        Video YouTube
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">Sin video</span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2 text-xs font-medium"
-                      onClick={() => handleOpenEdit(ej)}
-                      data-testid={`btn-editar-ejercicio-${ej.id}`}
-                      aria-label={`Editar ejercicio ${ej.nombre}`}
-                    >
-                      <Pencil className="h-3 w-3 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleOpenDelete(ej)}
-                      data-testid={`btn-eliminar-ejercicio-${ej.id}`}
-                      aria-label={`Eliminar ejercicio ${ej.nombre}`}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Eliminar
-                    </Button>
+                        {m}
+                      </span>
+                    ))}
+                    {(activePreview.musculos_secundarios || []).map((m, idx) => (
+                      <span
+                        key={`prev-s-${idx}`}
+                        className="rounded-md border border-border/30 bg-secondary/25 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/75"
+                      >
+                        {m}
+                      </span>
+                    ))}
                   </div>
                 </div>
+
+                {/* Visor Multimedia */}
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/80 bg-black shadow-xs">
+                  {isPlayingInPanel && activePreview.url_video ? (
+                    <>
+                      <iframe
+                        src={getYouTubeEmbedUrl(activePreview.url_video)!}
+                        title={`Video de técnica para ${activePreview.nombre}`}
+                        className="absolute inset-0 h-full w-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        data-testid="video-preview-iframe"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setIsPlayingInPanel(false);
+                          setPinnedEjercicio(null);
+                        }}
+                        className="absolute top-2 right-2 h-6 px-2 text-[10px] font-medium shadow-md opacity-90 hover:opacity-100 z-10"
+                        data-testid="btn-stop-preview-video"
+                      >
+                        Detener
+                      </Button>
+                    </>
+                  ) : activeThumbnailUrl ? (
+                    <div className="relative h-full w-full group">
+                      <img
+                        src={activeThumbnailUrl}
+                        alt={`Portada de video para ${activePreview.nombre}`}
+                        className="h-full w-full object-cover"
+                        data-testid="video-preview-thumbnail"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPinnedEjercicio(activePreview);
+                          setIsPlayingInPanel(true);
+                        }}
+                        className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors cursor-pointer"
+                        data-testid="btn-play-preview-video"
+                        aria-label={`Reproducir video de ${activePreview.nombre}`}
+                      >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-lg group-hover:scale-110 group-hover:bg-primary transition-transform">
+                          <Play className="h-5 w-5 ml-0.5 fill-current" />
+                        </div>
+                      </button>
+                      <span className="absolute bottom-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-xs flex items-center gap-1">
+                        <Video className="h-3 w-3" /> Clic para reproducir
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                      Sin video disponible
+                    </div>
+                  )}
+                </div>
+
+                {/* Biomecánica principal */}
+                {activePreview.comentario && (
+                  <div
+                    className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 text-xs text-muted-foreground space-y-1"
+                    data-testid="video-preview-comentario"
+                  >
+                    <span className="font-semibold text-foreground text-[11px] uppercase tracking-wider block">
+                      Biomecánica y ejecución
+                    </span>
+                    <p className="line-clamp-4 leading-relaxed whitespace-pre-line">
+                      {activePreview.comentario}
+                    </p>
+                  </div>
+                )}
+
+                {/* Acciones del preview */}
+                <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-border/50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs font-medium"
+                    onClick={() => setVideoPreviewEjercicio(activePreview)}
+                    data-testid="btn-expand-modal-preview"
+                  >
+                    Ampliar visor
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs font-medium"
+                    onClick={() => handleOpenEdit(activePreview)}
+                    data-testid="btn-edit-from-preview"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Editar
+                  </Button>
+                </div>
               </div>
-            );
-          })}
+            ) : (
+              <div
+                className="rounded-xl border border-border bg-card p-4 shadow-xs space-y-3"
+                data-testid="video-preview-sidebar-container"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60 pb-2.5">
+                  <Video className="h-4 w-4 text-primary" />
+                  <span>Vista previa de técnica</span>
+                </div>
+
+                <div
+                  className="rounded-lg border border-dashed border-border bg-secondary/20 p-6 text-center space-y-2"
+                  data-testid="video-preview-empty-state"
+                >
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-secondary/60 text-muted-foreground">
+                    <Video className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Explorador de Video
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Pasa el cursor sobre cualquier ejercicio con video para ver su portada en HD y biomecánica sin salir del catálogo.
+                  </p>
+                </div>
+              </div>
+            )}
+          </aside>
         </div>
       )}
 

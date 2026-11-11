@@ -428,3 +428,11 @@ export function Video(props: IconProps) {
   );
 }
 
+export function Play(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </BaseIcon>
+  );
+}
+
