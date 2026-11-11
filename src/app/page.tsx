@@ -38,6 +38,7 @@ import {
   WHATSAPP_ALUMNO,
   WHATSAPP_COACH,
 } from "@/components/landing/kit";
+import { useModalidadesDeal } from "@/components/landing/use-modalidades-deal";
 
 const FOTO_FELIPE = "/images/coaches/Felipe.jfif";
 const FOTO_LLESET = "/images/coaches/Lleset.jfif";
@@ -335,6 +336,7 @@ function TelefonoEjemplo() {
 export default function HomePage() {
   const { user } = useLandingSession();
   useScrollReveal();
+  const deal = useModalidadesDeal();
 
   /* Quien ya tiene cuenta entra desde el header; el relato siempre invita a empezar. */
   const accionCorta = (className: string, tabIndex?: number) =>
@@ -649,42 +651,56 @@ export default function HomePage() {
         </section>
 
         {/* 04 · Modalidades */}
-        <section id="modalidades" className={`${SECCION} bg-secondary/40`}>
+        <section id="modalidades" ref={deal.sectionRef} className={`${SECCION} bg-secondary/40`}>
           <div className={CUERPO}>
             <Capitulo n="04">Modalidades</Capitulo>
             <h2 className={H2} data-reveal>
               Tres formas de empezar.
             </h2>
-            <div className={`${FILA} mt-8 md:gap-5`}>
+            <div
+              ref={deal.gridRef}
+              className={`${FILA} mt-8 md:gap-5`}
+              style={{ perspective: "1400px" }}
+            >
               {MODALIDADES.map((m, i) => (
-                <article
+                <div
                   key={m.nombre}
-                  className={`${FILA_ITEM} landing-card group relative isolate flex min-h-[380px] flex-col justify-end overflow-hidden rounded-2xl bg-zinc-950 p-6 text-zinc-50 lg:min-h-[400px]`}
-                  data-reveal
-                  style={retraso(i * 80)}
+                  ref={(el) => {
+                    deal.wrapperRefs.current[i] = el;
+                  }}
+                  className={FILA_ITEM}
+                  data-modalidad-wrapper={i}
                 >
-                  <img
-                    src={m.foto}
-                    alt={m.alt}
-                    loading="lazy"
-                    className="absolute inset-0 -z-20 size-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 -z-10 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/20" aria-hidden="true" />
-                  <span className="mb-auto self-start rounded-full border border-zinc-50/30 bg-zinc-950/60 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider">
-                    {m.badge}
-                  </span>
-                  <h3 className="text-3xl font-black tracking-tighter lg:text-4xl">{m.nombre}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">{m.descripcion}</p>
-                  <a
-                    href={whatsapp(`Hola equipo de GOZS, quiero consultar por ${m.nombre}.`)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${BTN} mt-5 w-full bg-zinc-50 text-zinc-950 hover:bg-white focus-visible:ring-zinc-50 focus-visible:ring-offset-zinc-950`}
+                  <article
+                    ref={(el) => {
+                      deal.cardRefs.current[i] = el;
+                    }}
+                    className="landing-card group relative isolate flex min-h-[380px] w-full flex-col justify-end overflow-hidden rounded-2xl bg-zinc-950 p-6 text-zinc-50 lg:min-h-[400px]"
+                    data-modalidad-card={i}
                   >
-                    <span>{m.cta}</span>
-                    <ArrowIcon />
-                  </a>
-                </article>
+                    <img
+                      src={m.foto}
+                      alt={m.alt}
+                      loading="lazy"
+                      className="absolute inset-0 -z-20 size-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 -z-10 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/20" aria-hidden="true" />
+                    <span className="mb-auto self-start rounded-full border border-zinc-50/30 bg-zinc-950/60 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider">
+                      {m.badge}
+                    </span>
+                    <h3 className="text-3xl font-black tracking-tighter lg:text-4xl">{m.nombre}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-300">{m.descripcion}</p>
+                    <a
+                      href={whatsapp(`Hola equipo de GOZS, quiero consultar por ${m.nombre}.`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${BTN} mt-5 w-full bg-zinc-50 text-zinc-950 hover:bg-white focus-visible:ring-zinc-50 focus-visible:ring-offset-zinc-950`}
+                    >
+                      <span>{m.cta}</span>
+                      <ArrowIcon />
+                    </a>
+                  </article>
+                </div>
               ))}
             </div>
             <div className="mt-8 flex justify-center" data-reveal>
