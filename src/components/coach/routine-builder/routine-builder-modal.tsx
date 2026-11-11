@@ -9,6 +9,8 @@ import { validarRutina, claveRutina, claveDia, claveEjercicio } from "@/lib/vali
 import { asignarGrupo, moverEjercicio, normalizarSuperseries } from "@/lib/superseries";
 import { parsePyramidSeriesCount } from "@/lib/routine-helpers";
 import { ExercisePreviewModal, type ExercisePreviewData } from "./exercise-preview-modal";
+import { RoutineBuilderWeeklyBoard } from "./routine-builder-weekly-board";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
 import type { Ejercicio, DiaRutina, EjercicioEnRutina, PlanEntrenamiento } from "@/types/database.types";
 
 export const TAGS_RUTINA_PREDEFINIDAS = [
@@ -65,11 +67,13 @@ interface RoutineBuilderModalProps {
   soloLectura?: boolean;
   /** Modo incrustado a pantalla completa sin backdrop fijo (GOZS-345) */
   embedded?: boolean;
+  /** Modo inicial del constructor: "modal" (clásico por pasos) o "tablero" (planner semanal) */
+  initialMode?: "modal" | "tablero";
 }
 
-const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
+export const DEFAULT_BUILDER_DAYS: BuilderDay[] = [];
 
-type SaveMode = "guardar" | "version" | "nueva";
+export type SaveMode = "guardar" | "version" | "nueva";
 
 const GENERIC_SAVE_ERROR = "No se pudo guardar la rutina. Intenta de nuevo.";
 const OFFLINE_SAVE_ERROR = "Sin conexión: tus cambios siguen acá y se guardan cuando vuelva la red";
@@ -157,7 +161,7 @@ export function resumenPayload(p: ReturnType<typeof buildGuardarRutinaPayload>) 
   };
 }
 
-function mapPlanToBuilderDays(
+export function mapPlanToBuilderDays(
   planId: string,
   dias: DiaRutina[],
   ejerciciosEnRutina: EjercicioEnRutina[],
@@ -264,7 +268,19 @@ export function RoutineBuilderModal({
   catalogoEjercicios,
   onRoutineSaved,
   embedded = false,
+  initialMode = "modal",
 }: RoutineBuilderModalProps) {
+  const studioBuilderMode = useCoachStudioStore((s) => s.routineBuilderMode);
+  const setStudioBuilderMode = useCoachStudioStore((s) => s.setRoutineBuilderMode);
+  const [viewMode, setViewMode] = React.useState<"modal" | "tablero">(
+    () => initialMode ?? studioBuilderMode ?? "modal"
+  );
+
+  const handleSetViewMode = (mode: "modal" | "tablero") => {
+    setViewMode(mode);
+    setStudioBuilderMode(mode);
+  };
+
   const [planName, setPlanName] = React.useState(() => planInicial?.nombre ?? "");
   const [comentarios, setComentarios] = React.useState(() => planInicial?.comentarios ?? "");
   const [selectedTags, setSelectedTags] = React.useState<string[]>(() => (planInicial as any)?.tags ?? []);
@@ -884,6 +900,53 @@ export function RoutineBuilderModal({
       e.musculos_principales.some((m) => normalizar(m).includes(termino))
   );
 
+  if (viewMode === "tablero") {
+    return (
+      <RoutineBuilderWeeklyBoard
+        isOpen={isOpen}
+        embedded={embedded}
+        onClose={handleClose}
+        catalogoEjercicios={catalogoEjercicios}
+        alumnoId={alumnoId}
+        alumnoNombre={alumnoNombre}
+        planInicial={planInicial}
+        soloLectura={soloLectura}
+        nombresExistentes={nombresExistentes}
+        planName={planName}
+        onPlanNameChange={setPlanName}
+        comentarios={comentarios}
+        onComentariosChange={setComentarios}
+        selectedTags={selectedTags}
+        onToggleTag={handleToggleTag}
+        estado={estado}
+        onEstadoChange={setEstado}
+        days={days}
+        onDaysChange={setDays}
+        selectedDayIdx={selectedDayIdx}
+        onSelectDayIdx={irADia}
+        onAddDay={handleAddDay}
+        onRemoveDay={handleRemoveDay}
+        onAddExerciseToCurrentDay={handleAddExerciseToCurrentDay}
+        onUpdateExercise={handleUpdateExercise}
+        onUpdateSeries={handleUpdateSeries}
+        onUpdateReps={handleUpdateReps}
+        onUpdateDescanso={(exId, val) => handleUpdateExercise(exId, "descanso_segundos", val)}
+        onRemoveExercise={handleRemoveExercise}
+        onMoveExercise={(exId, dir) => {
+          if (!currentDay) return;
+          const idx = currentDay.ejercicios.findIndex((e) => e.id === exId);
+          if (idx >= 0) handleMoveExercise(idx, dir);
+        }}
+        onToggleSuperserie={handleToggleSuperset}
+        onSave={handleSaveToSupabase}
+        isSaving={isSaving}
+        saveSuccess={saveSuccess}
+        errorMessage={errorMessage}
+        onSwitchToClassic={() => handleSetViewMode("modal")}
+      />
+    );
+  }
+
   return (
     <div
       className={
@@ -916,6 +979,32 @@ export function RoutineBuilderModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Switcher de vista: Clásico vs Tablero Semanal */}
+            <div
+              className="inline-flex items-center rounded-lg bg-secondary/80 p-0.5 border border-border/60"
+              data-testid="routine-builder-view-switcher"
+              role="group"
+              aria-label="Modo de vista del constructor"
+            >
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("modal")}
+                className="rounded-md px-2.5 py-1 text-xs font-semibold bg-background text-foreground shadow-xs font-bold transition-all"
+                data-testid="view-mode-classic-btn"
+                aria-pressed={true}
+              >
+                Constructor Clásico
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("tablero")}
+                className="rounded-md px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-all"
+                data-testid="view-mode-board-btn"
+                aria-pressed={false}
+              >
+                Tablero Semanal
+              </button>
+            </div>
             {embedded && (
               <button
                 type="button"
