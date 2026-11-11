@@ -3,6 +3,7 @@
 
 import type { PlanEntrenamiento, RegistroSerie } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import { isWarmup } from "@/lib/serie-tipo";
 
 const ZONA_BUENOS_AIRES = "America/Argentina/Buenos_Aires";
 const MESES_CORTO = [
@@ -51,7 +52,7 @@ export function formatearFechaDashboard(fechaIso: string): string {
 /**
  * §0.1: Una serie cuenta como marca histórica válida sólo si:
  * - completada === true
- * - set_type !== "WARMUP" y !== "W"
+ * - isWorkingSet(set_type) (excluye series de calentamiento WARMUP / W)
  * - reps_hechas >= 1
  */
 export function esSerieValida(
@@ -60,7 +61,7 @@ export function esSerieValida(
   },
 ): boolean {
   if (!serie.completada) return false;
-  if (serie.set_type === "WARMUP" || serie.set_type === "W") return false;
+  if (isWarmup(serie.set_type)) return false;
   return (serie.reps_hechas ?? 0) >= 1;
 }
 

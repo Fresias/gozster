@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
+import { isWarmup, isDropset, isWorkingSet, normalizeSerieTipo } from "@/lib/serie-tipo";
 import { parseDefaultReps, parseTargetRpe, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
@@ -546,7 +547,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 reps_hechas: s.reps_hechas,
                 rpe_real: s.rpe_real ?? null,
                 completada: true,
-                set_type: (s.set_type === "W" ? "WARMUP" : s.set_type === "F" ? "FAILURE" : s.set_type === "D" ? "DROPSET" : "NORMAL") as any,
+                set_type: normalizeSerieTipo(s.set_type) as any,
                 pain_reported: s.pain_reported || false,
                 pain_notes: s.pain_notes || null,
                 video_url: s.video_url || null,
@@ -882,10 +883,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
               if (ej.id !== exerciseId) return ej;
               // Conservar calentamientos ya completados si los hubiera, descartar calentamientos pendientes previos para evitar duplicación
               const completedWarmups = ej.series.filter(
-                (s) => (s.set_type === "W" || s.set_type === "WARMUP") && s.completada
+                (s) => isWarmup(s.set_type) && s.completada
               );
               const effectiveSets = ej.series.filter(
-                (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+                (s) => isWorkingSet(s.set_type)
               );
 
               // Crear series de calentamiento con set_type = 'W'
@@ -927,10 +928,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const estimated1RM = calculateEpley1RM(warmup.peso_kg, warmup.reps);
 
         const existingWarmups = targetExercise.series.filter(
-          (s) => s.set_type === "W" || s.set_type === "WARMUP"
+          (s) => isWarmup(s.set_type)
         );
         const effectiveSets = targetExercise.series.filter(
-          (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+          (s) => isWorkingSet(s.set_type)
         );
 
         const newWarmupSet: LiveWorkoutSet = {
@@ -1047,7 +1048,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     };
                   }
                   if (s.numero_serie === setNumber + 1 && !s.completada) {
-                    if ((s.set_type === "W" || s.set_type === "WARMUP") && s.peso_kg > 0) {
+                    if (isWarmup(s.set_type) && s.peso_kg > 0) {
                       return s;
                     }
                     return {
@@ -1096,10 +1097,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         if (hasRemainingIncompleteSets && state.mostrarTimerDescanso !== false) {
           const isDropsetExercise =
-            targetExercise.tipo_serie === "DROPSET" ||
+            isDropset(targetExercise.tipo_serie) ||
             Boolean((targetExercise as any).es_dropset) ||
-            targetSet.set_type === "DROPSET" ||
-            targetSet.set_type === "D";
+            isDropset(targetSet.set_type);
 
           if (isDropsetExercise) {
             // Dropset Quirúrgico: El atleta ejecuta todas las bajadas seguidas.
@@ -1542,14 +1542,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             // Guardar cada serie en registro_series
             for (const s of allSets) {
               if (!s.completada) continue;
-              const mappedType =
-                s.set_type === "W"
-                  ? "WARMUP"
-                  : s.set_type === "F"
-                  ? "FAILURE"
-                  : s.set_type === "D"
-                  ? "DROPSET"
-                  : "NORMAL";
+              const mappedType = normalizeSerieTipo(s.set_type);
 
               // Resolver ejercicio_id válido para FK de Supabase
               const resolvedEjId = s.exerciseId.length === 36 ? s.exerciseId : "55ddab2b-3449-41af-a04d-1f5ce33ad7d6";

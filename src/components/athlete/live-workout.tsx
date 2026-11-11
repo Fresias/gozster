@@ -49,6 +49,7 @@ import { serieDeReferencia } from "@/lib/historial-ejercicio";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { parseRepRange, parseTargetRpe } from "@/lib/routine-helpers";
+import { isWarmup, isDropset, isWorkingSet, normalizeSerieTipo } from "@/lib/serie-tipo";
 // GOZS-275 / GOZS-351: el alumno ya no elige W/N/F/D; el tipo lo fija el constructor.
 const MOSTRAR_SELECTOR_MANUAL_TIPO_SERIE = false as boolean;
 // GOZS-351: en Vista Técnica se elimina en runtime el bloque de ayuda y el popover de taxonomía W/N/F/D
@@ -1452,7 +1453,7 @@ export function LiveWorkout() {
                   </div>
 
                   {/* Bloque dedicado: Series de Calentamiento */}
-                  {currentExercise.series.some((s) => s.set_type === "W" || s.set_type === "WARMUP") && (
+                  {currentExercise.series.some((s) => isWarmup(s.set_type)) && (
                     <div
                       className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5"
                       data-testid="warmup-sets-section"
@@ -1481,7 +1482,7 @@ export function LiveWorkout() {
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {currentExercise.series
-                          .filter((s) => s.set_type === "W" || s.set_type === "WARMUP")
+                          .filter((s) => isWarmup(s.set_type))
                           .map((ws) => {
                             const isCurrent = serie && serie.numero_serie === ws.numero_serie;
                             return (
@@ -1520,13 +1521,13 @@ export function LiveWorkout() {
                   )}
 
                   {/* Separador de Series Efectivas si hay calentamiento */}
-                  {currentExercise.series.some((s) => s.set_type === "W" || s.set_type === "WARMUP") && (
+                  {currentExercise.series.some((s) => isWarmup(s.set_type)) && (
                     <div className="flex items-center justify-between px-1 pt-1" data-testid="effective-sets-section">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                         Series Efectivas
                       </span>
                       <span className="text-xs font-mono text-muted-foreground">
-                        {currentExercise.series.filter((s) => s.set_type !== "W" && s.set_type !== "WARMUP" && s.completada).length} / {currentExercise.series.filter((s) => s.set_type !== "W" && s.set_type !== "WARMUP").length}
+                        {currentExercise.series.filter((s) => isWorkingSet(s.set_type) && s.completada).length} / {currentExercise.series.filter((s) => isWorkingSet(s.set_type)).length}
                       </span>
                     </div>
                   )}
@@ -1535,7 +1536,7 @@ export function LiveWorkout() {
                   {serie && !currentExercise.series.every((s) => s.completada) && !isAllWorkoutCompleted && !workoutFinished ? (
                     <Card
                       className={`border-2 rounded-3xl p-4 sm:p-5 bg-card/90 shadow-md space-y-4 ${
-                        currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET"
+                        isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type)
                           ? "border-purple-500/50"
                           : "border-primary/40"
                       }`}
@@ -1545,15 +1546,15 @@ export function LiveWorkout() {
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${
-                              serie.set_type === "W" || serie.set_type === "WARMUP"
+                              isWarmup(serie.set_type)
                                 ? "text-amber-500 bg-amber-500/10 border border-amber-500/20"
-                                : currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET"
+                                : isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type)
                                 ? "text-purple-300 bg-purple-500/15 border border-purple-500/30"
                                 : "text-primary bg-primary/10"
                             }`}
                           >
                             Serie {serie.numero_serie} de {currentExercise.series.length}
-                            {(currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET") && " · Drop Set"}
+                            {(isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type)) && " · Drop Set"}
                           </span>
                           {currentExercise.repeticiones_objetivo && (
                             <span className="text-xs text-muted-foreground font-semibold">
@@ -1562,7 +1563,7 @@ export function LiveWorkout() {
                           )}
                         </div>
 
-                        {serie.set_type === "W" || serie.set_type === "WARMUP" ? (
+                        {isWarmup(serie.set_type) ? (
                           <Badge
                             variant="outline"
                             className="font-mono font-bold text-xs border-amber-500/40 bg-amber-500/10 text-amber-500"
@@ -1571,7 +1572,7 @@ export function LiveWorkout() {
                           >
                             Aproximación (W)
                           </Badge>
-                        ) : currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET" ? (
+                        ) : isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type) ? (
                           <Badge
                             variant="outline"
                             className="font-mono font-bold text-xs border-purple-500/40 bg-purple-500/10 text-purple-300"
@@ -1579,21 +1580,21 @@ export function LiveWorkout() {
                           >
                             ⚡ Drop Set
                           </Badge>
-                        ) : serie.set_type && serie.set_type !== "N" ? (
+                        ) : serie.set_type && !["N", "NORMAL"].includes(serie.set_type.toUpperCase().trim()) ? (
                           <Badge variant="outline" className="font-mono font-bold text-xs">
                             {serie.set_type}
                           </Badge>
                         ) : null}
                       </div>
 
-                      {(serie.set_type === "W" || serie.set_type === "WARMUP") && (
+                      {isWarmup(serie.set_type) && (
                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 font-medium">
                           <Flame className="h-4 w-4 shrink-0" />
                           <span>Serie de aproximación: no computa para volumen efectivo ni récord personal (PR).</span>
                         </div>
                       )}
 
-                      {(currentExercise.tipo_serie === "DROPSET" || serie.set_type === "D" || serie.set_type === "DROPSET") && (
+                      {(isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type)) && (
                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 font-medium">
                           <span className="shrink-0 font-bold">⚡</span>
                           <span>Serie Drop Set: reducción inmediata de peso sin pausa previa para fatiga metabólica.</span>
@@ -2102,22 +2103,22 @@ export function LiveWorkout() {
                         {currentExercise.series.map((s) => {
                           const isDone = s.completada;
                           const isCurrent = s.numero_serie === serie.numero_serie;
-                          const isWarmup = s.set_type === "W" || s.set_type === "WARMUP";
+                          const isWarmupSet = isWarmup(s.set_type);
                           return (
                             <span
                               key={s.numero_serie}
                               className={`h-2 rounded-full transition-all duration-200 ${
                                 isCurrent
-                                  ? isWarmup
+                                  ? isWarmupSet
                                     ? "w-8 bg-amber-500"
                                     : "w-8 bg-primary"
                                   : isDone
-                                  ? isWarmup
+                                  ? isWarmupSet
                                     ? "w-8 bg-amber-500/70"
                                     : "w-8 bg-emerald-500"
                                   : "w-8 bg-muted"
                               }`}
-                              title={`Serie ${s.numero_serie}${isWarmup ? " (Calentamiento)" : ""}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
+                              title={`Serie ${s.numero_serie}${isWarmupSet ? " (Calentamiento)" : ""}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
                             />
                           );
                         })}
@@ -2189,10 +2190,10 @@ export function LiveWorkout() {
                       <CardContent className="p-0">
                         {(() => {
                           const completedWarmups = ej.series.filter(
-                            (s) => (s.set_type === "W" || s.set_type === "WARMUP") && s.completada
+                            (s) => isWarmup(s.set_type) && s.completada
                           );
                           const completedEffectives = ej.series.filter(
-                            (s) => s.set_type !== "W" && s.set_type !== "WARMUP" && s.completada
+                            (s) => isWorkingSet(s.set_type) && s.completada
                           );
 
                           const renderLogRow = (s: LiveWorkoutSet, isWarmupRow: boolean) => {
@@ -2366,7 +2367,7 @@ export function LiveWorkout() {
                                         Aproximación (W)
                                       </Badge>
                                     )}
-                                    {(s.set_type === "DROPSET" || s.set_type === "D" || ej.tipo_serie === "DROPSET") && (
+                                    {(isDropset(s.set_type) || isDropset(ej.tipo_serie)) && (
                                       <Badge
                                         variant="outline"
                                         className="border-purple-500/40 bg-purple-500/10 text-purple-300 font-mono text-[10px] sm:text-xs font-bold"
@@ -2742,7 +2743,7 @@ export function LiveWorkout() {
           repsObjetivo={warmupModalExercise.repeticiones_objetivo}
           workingWeightKg={
             warmupModalExercise.series.find(
-              (s) => s.set_type !== "W" && s.set_type !== "WARMUP"
+              (s) => isWorkingSet(s.set_type)
             )?.peso_kg ||
             warmupModalExercise.series[0]?.peso_kg ||
             0
