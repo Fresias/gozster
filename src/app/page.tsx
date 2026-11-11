@@ -3,6 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useLandingSession } from "@/lib/use-landing-session";
+import { ScrambleText } from "@/components/landing/scramble-text";
+import { CharacterReveal } from "@/components/landing/character-reveal";
+import { NosotrosInteraction } from "@/components/landing/nosotros-badge";
 import {
   ArrowIcon,
   BarraMovil,
@@ -506,7 +509,7 @@ export default function HomePage() {
             <Capitulo n="03">El método</Capitulo>
             <h2 className={`${H2} max-w-4xl`} data-reveal>
               <span className="block">
-                Lo que funciona no es <span className="landing-outline">novedad</span>.
+                Lo que funciona no es <ScrambleText text="novedad" className="landing-outline" />.
               </span>{" "}
               <span className="block">Es método.</span>
             </h2>
@@ -558,7 +561,7 @@ export default function HomePage() {
           <div className={CUERPO}>
             <Capitulo n="04">Cómo se trabaja</Capitulo>
             <h2 className={`${H2} max-w-4xl`} data-reveal>
-              Tres pasos. <span className="landing-outline">Cero</span> adivinanzas.
+              Tres pasos, <CharacterReveal text="CERO" className="font-black text-foreground" /> adivinanzas.
             </h2>
             <div className="relative mt-8 lg:mt-12" data-reveal>
               {/* Línea de tiempo: se dibuja al entrar y une los tres pasos */}
@@ -692,7 +695,7 @@ export default function HomePage() {
           <div className={CUERPO}>
             <Capitulo n="07">Quienes ya entrenan</Capitulo>
             <h2 className={`${H2} max-w-4xl`} data-reveal>
-              No lo decimos <span className="landing-outline">nosotros</span>.
+              No lo decimos <NosotrosInteraction>nosotros</NosotrosInteraction>.
             </h2>
             <div className={`${FILA} mt-8 md:gap-5 lg:mt-12`}>
               {TESTIMONIOS.map((t, i) => (

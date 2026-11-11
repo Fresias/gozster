@@ -369,3 +369,7 @@ export function BarraMovil({ visible, children }: { visible: boolean; children: 
     </div>
   );
 }
+
+export { ScrambleText, useScrambleText } from "./scramble-text";
+export { CharacterReveal } from "./character-reveal";
+export { NosotrosInteraction } from "./nosotros-badge";
