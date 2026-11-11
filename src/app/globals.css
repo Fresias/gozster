@@ -529,6 +529,41 @@ html.landing-motion [data-reveal]:not(.in-view) .landing-pop {
   -webkit-text-stroke: 0.025em hsl(var(--muted-foreground));
 }
 
+/* Character Reveal secuencial de caracteres a 60 FPS */
+@keyframes landing-char-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(0.28em) scale(0.88);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-0.04em) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-char-item {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+html.landing-motion .landing-char-item {
+  opacity: 0;
+}
+
+html.landing-motion .landing-char-item.is-revealed,
+html.landing-motion .in-view .landing-char-item {
+  animation: landing-char-reveal 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Microinteracción en 'nosotros' */
+.landing-nosotros-line {
+  transform-origin: left center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.landing-scroll { scroll-behavior: auto; scroll-snap-type: none; }
   .landing-nudge,
@@ -538,6 +573,7 @@ html.landing-motion [data-reveal]:not(.in-view) .landing-pop {
   .landing-dot::after,
   .landing-float,
   .landing-pop,
+  .landing-char-item,
   .landing-strike::after {
     animation: none !important;
   }
@@ -545,9 +581,18 @@ html.landing-motion [data-reveal]:not(.in-view) .landing-pop {
   .landing-card,
   .landing-card:hover,
   .landing-btn > svg:last-child,
+  .landing-char-item,
+  .landing-nosotros-interaction,
+  .landing-nosotros-line,
   .landing-shine::before {
     transform: none !important;
     transition: none !important;
+  }
+  .landing-char-item {
+    opacity: 1 !important;
+  }
+  .landing-nosotros-line {
+    transform: scaleX(1) !important;
   }
   .landing-strike::after { transform: scaleX(1); }
   .landing-progress { transform: scaleX(0); }

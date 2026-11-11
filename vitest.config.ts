@@ -12,6 +12,7 @@ export default defineConfig({
     globals: false,
     testTimeout: 30000,
     hookTimeout: 120000,
+    teardownTimeout: 60000,
   },
   resolve: {
     alias: {

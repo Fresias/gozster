@@ -3,6 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useLandingSession } from "@/lib/use-landing-session";
+import { ScrambleText } from "@/components/landing/scramble-text";
+import { CharacterReveal } from "@/components/landing/character-reveal";
+import { NosotrosInteraction } from "@/components/landing/nosotros-badge";
 import {
   ArrowIcon,
   BTN,
@@ -549,7 +552,7 @@ export default function HomePage() {
             <div className="mt-12" data-testid="contraste-tendencia-evidencia">
               <div className="mb-4">
                 <h3 className="text-xl font-black tracking-tight sm:text-2xl" data-reveal>
-                  Lo que funciona no es <span className="landing-outline">novedad</span>. Es método.
+                  Lo que funciona no es <ScrambleText text="novedad" className="landing-outline" />. Es método.
                 </h3>
                 <p className={`${LEAD} mt-1 text-sm sm:text-base`} data-reveal>
                   Las modas cambian cada mes. Lo que hace progresar a una persona se sabe hace años. El equipo de GOZS trabaja con eso.
@@ -704,7 +707,7 @@ export default function HomePage() {
           <div className={CUERPO}>
             <Capitulo n="05">Cómo se trabaja</Capitulo>
             <h2 className={`${H2} max-w-4xl`} data-reveal>
-              Tres pasos, <span className="landing-outline">CERO</span> adivinanzas.
+              Tres pasos, <CharacterReveal text="CERO" className="font-black text-foreground" /> adivinanzas.
             </h2>
             <div className="relative mt-8 lg:mt-12" data-reveal>
               {/* Línea de tiempo: se dibuja al entrar y une los tres pasos */}
@@ -743,7 +746,7 @@ export default function HomePage() {
           <div className={CUERPO}>
             <Capitulo n="06">Quienes ya entrenan</Capitulo>
             <h2 className={`${H2} max-w-4xl`} data-reveal>
-              No lo decimos <span className="landing-outline">nosotros</span>.
+              No lo decimos <NosotrosInteraction>nosotros</NosotrosInteraction>.
             </h2>
             <div className={`${FILA} mt-8 md:gap-5 lg:mt-12`}>
               {TESTIMONIOS.map((t, i) => (
