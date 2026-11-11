@@ -39,6 +39,15 @@ export function getYouTubeEmbedUrl(input?: string | null): string | null {
 }
 
 /**
+ * Retorna la URL oficial de la miniatura de YouTube en alta definición (hqdefault).
+ */
+export function getYouTubeThumbnailUrl(input?: string | null): string | null {
+  const videoId = extractYouTubeVideoId(input);
+  if (!videoId) return null;
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+/**
  * Retorna la URL de búsqueda en YouTube en caso de que un ejercicio no tenga video cargado.
  */
 export function getYouTubeSearchUrl(exerciseName: string): string {

@@ -122,6 +122,7 @@ interface CoachStudioState {
   isChatOpen: boolean;
   isWhatsAppEnabled: boolean;
   isRoutineBuilderOpen: boolean;
+  routineBuilderMode: "modal" | "tablero";
   isInviteModalOpen: boolean;
   toast: ToastNotification | null;
 
@@ -145,6 +146,7 @@ interface CoachStudioState {
   setAlumnoActividades: (actividades: AlumnoActividad[]) => void;
   setCurrentPage: (page: number) => void;
   setRoutineBuilderOpen: (open: boolean) => void;
+  setRoutineBuilderMode: (mode: "modal" | "tablero") => void;
   setInviteModalOpen: (open: boolean) => void;
   dismissToast: () => void;
 
@@ -260,6 +262,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     isChatOpen: false,
     isWhatsAppEnabled: false,
     isRoutineBuilderOpen: false,
+    routineBuilderMode: "modal",
     isInviteModalOpen: false,
     toast: null,
 
@@ -322,6 +325,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     setCurrentPage: (currentPage) => set({ currentPage }),
 
     setRoutineBuilderOpen: (isRoutineBuilderOpen) => set({ isRoutineBuilderOpen }),
+
+    setRoutineBuilderMode: (routineBuilderMode) => set({ routineBuilderMode }),
 
     setInviteModalOpen: (isInviteModalOpen) => set({ isInviteModalOpen }),
 
@@ -1276,6 +1281,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     },
   }),
 );
+
+export const useCoachStudio = useCoachStudioStore;
 
 if (typeof globalThis !== "undefined") {
   (globalThis as any).__coachStudioStore = useCoachStudioStore;

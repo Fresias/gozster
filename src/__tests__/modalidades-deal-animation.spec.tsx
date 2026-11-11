@@ -108,10 +108,10 @@ describe("GOZS-485 / GOZS-471: Animación bidireccional Deal-from-center en secc
     it("conserva intactos los textos, badges y CTAs de WhatsApp de las 3 modalidades", () => {
       expect(html).toContain("Funcional");
       expect(html).toContain("Boxeo");
-      expect(html).toContain("Rutinas online");
-      expect(html).toContain("Consultar por Funcional");
-      expect(html).toContain("Consultar por Boxeo");
-      expect(html).toContain("Consultar por Rutinas online");
+      expect(html).toContain("Planes online");
+      expect(html).toContain("QUIERO entrenar");
+      expect(html).toContain("PONERME los guantes");
+      expect(html).toContain("PEDIR mi plan");
       expect(html).toContain("https://wa.me/5491162752515");
     });
 
