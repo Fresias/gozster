@@ -14,7 +14,6 @@ import {
   CONTAINER,
   CUERPO,
   DOLORES_COACH,
-  EnlaceSiguiente,
   FOCUS_RING,
   H2,
   LandingFooter,
@@ -45,18 +44,18 @@ const STUDIO_PANTALLAS = [
     alto: 1600,
     alt: "Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos",
     sigueHref: "#studio-rutinas",
-    sigueTexto: "Ahora, armá una rutina",
+    sigueTexto: "Ahora, armá un plan",
   },
   {
     id: "studio-rutinas",
     n: "02",
-    etiqueta: "Tus rutinas",
-    titulo: "Armás la rutina como vos la pensás.",
-    detalle: "Tus ejercicios, tus días, tu criterio. Guardás plantillas para reutilizar y adaptás cada rutina al alumno que tenés adelante.",
-    puntos: ["Plantillas propias y rutinas por alumno", "Constructor por días, con tus ejercicios", "Cambiás un ejercicio sin rehacer todo"],
+    etiqueta: "Tus planes",
+    titulo: "Armás el plan como vos lo pensás.",
+    detalle: "Guardá plantillas para optimizar tu workflow y dedicá tu tiempo a personalizar el plan de cada alumno.",
+    puntos: ["Plantillas propias y planes por alumno", "Constructor por días, con tus ejercicios", "Cambiás un ejercicio sin rehacer todo"],
     img: "/landing/studio-rutinas.jpg",
     alto: 1280,
-    alt: "Biblioteca de rutinas de Coach Studio con las rutinas asignadas a cada alumno",
+    alt: "Biblioteca de planes de Coach Studio con los planes asignados a cada alumno",
     sigueHref: "#studio-alumno",
     sigueTexto: "Mirá la ficha de un alumno",
   },
@@ -65,11 +64,11 @@ const STUDIO_PANTALLAS = [
     n: "03",
     etiqueta: "Cada alumno",
     titulo: "La historia completa de cada alumno.",
-    detalle: "Lo que entrenó, sus mejores marcas, la rutina vigente y cualquier molestia que haya avisado. Decidís con información, no de memoria.",
+    detalle: "Lo que entrenó, sus mejores marcas, el plan vigente y cualquier molestia que haya avisado. Decidís con información, no de memoria.",
     puntos: ["Últimas sesiones y récords", "Molestias con tu nota de seguimiento", "Mensaje directo desde la ficha"],
     img: "/landing/studio-alumno.jpg",
     alto: 1600,
-    alt: "Ficha de un alumno en Coach Studio: últimas sesiones, rutina vigente y un aviso de molestia",
+    alt: "Ficha de un alumno en Coach Studio: últimas sesiones, plan vigente y un aviso de molestia",
     sigueHref: "#studio-negocio",
     sigueTexto: "¿Y las clases y las cuotas?",
   },
@@ -78,7 +77,7 @@ const STUDIO_PANTALLAS = [
     n: "04",
     etiqueta: "Clases y cuotas",
     titulo: "Agenda y cobros, sin otra planilla.",
-    detalle: "Armás las clases de la semana con sus cupos y registrás cada pago. Sabés cuánto cobraste, cuánto falta y quién está vencido.",
+    detalle: "Armás las clases de la semana con sus cupos y registrás cada pago. Sabés cuánto cobraste, cuánto falta y quién tiene la cuota pendiente.",
     puntos: ["Agenda semanal con cupos y anotados", "Cada pago queda registrado con su recibo", "Cuotas vencidas y por vencer, a la vista"],
     img: "/landing/studio-cobros.jpg",
     alto: 1600,
@@ -91,11 +90,11 @@ const STUDIO_PANTALLAS = [
 const FAQ_COACHES = [
   {
     q: "¿Coach Studio tiene costo?",
-    a: "Hoy podés ingresar gratis y sin tarjeta. No se cobra por alumno.",
+    a: "Hasta 3 alumnos sin costo. Después, $1.000 por alumno al mes. Empezás gratis y SIN tarjeta.",
   },
   {
     q: "¿Puedo usar mis ejercicios y mi forma de planificar?",
-    a: "Sí. Coach Studio se adapta a tu método, no al revés: armás las rutinas con tu criterio y tus ejercicios.",
+    a: "Sí. Coach Studio se adapta a tu método, no al revés: armás los planes con tu criterio y tus ejercicios.",
   },
   {
     q: "¿Qué necesitan mis alumnos?",
@@ -103,19 +102,19 @@ const FAQ_COACHES = [
   },
   {
     q: "¿Puedo verlo antes de decidir?",
-    a: "Sí. Escribile a Gonzalo y te lo muestra funcionando con casos reales.",
+    a: "Sí. Escribinos y el equipo de GOZS te lo muestra funcionando con casos reales.",
   },
 ];
 
 const NAV = [
   ["#studio-hoy", "Tu día"],
-  ["#studio-rutinas", "Rutinas"],
+  ["#studio-rutinas", "Planes"],
   ["#studio-alumno", "Alumnos"],
   ["#studio-negocio", "Clases y cuotas"],
   ["#faq", "Preguntas"],
 ] as const;
 
-/* Vista ilustrativa del constructor de rutinas: días, ejercicios y biblioteca propia. */
+/* Vista ilustrativa del constructor de rutinas y planes: días, ejercicios y biblioteca propia. */
 const CONSTRUCTOR_DIAS = ["Día 1 · Piernas", "Día 2 · Empuje", "Día 3 · Tirón"];
 const CONSTRUCTOR_EJERCICIOS = [
   { nombre: "Sentadilla", series: "4 × 6", descanso: "2:30", grupo: "" },
@@ -129,13 +128,13 @@ function ConstructorEjemplo() {
   return (
     <div
       role="img"
-      aria-label="Vista ilustrativa del constructor de rutinas: los días de la semana, los ejercicios de cada día con series y descansos, y tu biblioteca de ejercicios"
+      aria-label="Vista ilustrativa del constructor de planes: los días de la semana, los ejercicios de cada día con series y descansos, y tu biblioteca de ejercicios"
       className="aspect-[2/1] min-w-[640px] bg-zinc-50 p-4 text-zinc-900 sm:min-w-0 lg:p-5"
     >
       <div className="flex h-full flex-col gap-3" aria-hidden="true">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Nueva rutina</div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Nuevo plan</div>
             <div className="text-lg font-black tracking-tight lg:text-xl">Fuerza · Tren inferior</div>
           </div>
           <div className="flex items-center gap-2">
@@ -193,6 +192,77 @@ function ConstructorEjemplo() {
   );
 }
 
+const BIBLIOTECA_DESTACADOS = [
+  { nombre: "Sentadilla Trasera con Barra", grupo: "Piernas", patron: "Rodilla dominante", series: "Barra olímpica" },
+  { nombre: "Press de Banca Plano", grupo: "Empuje", patron: "Empuje horizontal", series: "Barra / Mancuernas" },
+  { nombre: "Peso Muerto Rumano", grupo: "Isquios", patron: "Cadera dominante", series: "Barra olímpica" },
+  { nombre: "Dominadas Pronas", grupo: "Tirón", patron: "Tracción vertical", series: "Peso corporal" },
+  { nombre: "Hip Thrust con Barra", grupo: "Glúteos", patron: "Extensión de cadera", series: "Barra olímpica" },
+  { nombre: "Press Militar de Pie", grupo: "Hombros", patron: "Empuje vertical", series: "Barra olímpica" },
+];
+
+function BibliotecaEjemplo() {
+  return (
+    <div
+      role="img"
+      aria-label="Vista ilustrativa del catálogo de ejercicios: biblioteca de ejercicios con nombres destacados, grupos musculares y patrones de movimiento"
+      className="aspect-[2/1] min-w-[640px] bg-zinc-50 p-4 text-zinc-900 sm:min-w-0 lg:p-5"
+    >
+      <div className="flex h-full flex-col gap-3" aria-hidden="true">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Catálogo de ejercicios</div>
+            <div className="text-lg font-black tracking-tight lg:text-xl">Biblioteca de movimientos</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-600">
+              +120 ejercicios
+            </span>
+            <span className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-bold text-zinc-50">+ Crear ejercicio</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {["Todos", "Piernas", "Empuje", "Tirón", "Core"].map((cat, i) => (
+            <span
+              key={cat}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                i === 0 ? "bg-zinc-900 text-zinc-50" : "border border-zinc-200 bg-white text-zinc-600"
+              }`}
+            >
+              {cat}
+            </span>
+          ))}
+          <span className="ml-auto hidden rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-400 sm:inline-block">
+            Buscar ejercicio…
+          </span>
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {BIBLIOTECA_DESTACADOS.map((ej, i) => (
+            <div
+              key={ej.nombre}
+              className="landing-pop flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-3 shadow-xs"
+              style={{ "--pop-delay": `${100 + i * 80}ms` } as React.CSSProperties}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-500">{ej.grupo}</span>
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-zinc-600">Video</span>
+              </div>
+              <div className="my-1">
+                <div className="truncate text-sm font-black tracking-tight text-zinc-900">{ej.nombre}</div>
+                <div className="truncate text-[11px] text-zinc-500">{ej.patron}</div>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-100 pt-1.5 text-[10px] font-semibold text-zinc-600">
+                <span>{ej.series}</span>
+                <span className="text-zinc-900">Ver técnica →</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Marco de navegador para las pantallas del producto. */
 function Ventana({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -207,16 +277,17 @@ function Ventana({ children, className = "" }: { children: React.ReactNode; clas
   );
 }
 
-const VISTAS_RUTINAS = [
-  { id: "biblioteca", etiqueta: "Biblioteca" },
+const VISTAS_PLANES = [
+  { id: "planes", etiqueta: "Planes" },
   { id: "constructor", etiqueta: "Constructor" },
+  { id: "biblioteca", etiqueta: "Biblioteca" },
 ] as const;
 
 export default function EntrenadoresPage() {
   const { user } = useLandingSession();
   useScrollReveal();
   const { heroCtaRef, visible: barraVisible } = useBarraMovil();
-  const [vistaRutinas, setVistaRutinas] = React.useState<(typeof VISTAS_RUTINAS)[number]["id"]>("biblioteca");
+  const [vistaPlanes, setVistaPlanes] = React.useState<(typeof VISTAS_PLANES)[number]["id"]>("planes");
 
   /* Quien ya usa Coach Studio entra desde el header; la página invita a conocerlo. */
   const accionCorta = (className: string, tabIndex?: number) =>
@@ -227,7 +298,7 @@ export default function EntrenadoresPage() {
       </Link>
     ) : (
       <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={className} tabIndex={tabIndex}>
-        <span>Pedir una demo</span>
+        <span>Pedí tu demo</span>
         <ArrowIcon />
       </a>
     );
@@ -257,11 +328,11 @@ export default function EntrenadoresPage() {
                     entrenador,
                   </span>{" "}
                   <span className="landing-rise block lg:whitespace-nowrap" style={{ animationDelay: "260ms" }}>
-                    <span className="landing-outline">para</span> entrenadores.
+                    <span className="text-white">para</span> entrenadores.
                   </span>
                 </h1>
                 <p className="landing-rise mt-5 max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:mt-6 sm:text-xl" style={{ animationDelay: "320ms" }}>
-                  Tu método no entra en una app genérica. Coach Studio nació en el gimnasio: Gonzalo Salas lo usa todos los días para planificar, seguir a sus alumnos y ordenar clases y cuotas.
+                  Dejá de pelear con interfaces poco intuitivas y apps que no se adaptan a tu trabajo. Coach Studio nace de la necesidad real de centralizar todo el workflow del gimnasio (rutinas, alumnos, cuotas). Una herramienta rápida y con un diseño limpio, pensada para mejorar la experiencia del entrenador y del alumno.
                 </p>
                 <div
                   ref={heroCtaRef}
@@ -270,7 +341,7 @@ export default function EntrenadoresPage() {
                   data-testid="hero-cta"
                 >
                   <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_PRIMARY} ${BTN_XL}`}>
-                    <span>Pedir una demo</span>
+                    <span>Pedí tu demo</span>
                     <ArrowIcon className="size-5" />
                   </a>
                   <a href="#studio-hoy" className={`${BTN_GHOST} ${BTN_XL} bg-background/40`}>
@@ -278,7 +349,7 @@ export default function EntrenadoresPage() {
                   </a>
                 </div>
                 <p className="landing-rise mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm" style={{ animationDelay: "520ms" }}>
-                  Gonzalo te lo muestra funcionando, con casos reales. Gratis, sin tarjeta.
+                  El equipo de GOZS te lo muestra funcionando, con casos reales. Gratis, sin tarjeta.
                 </p>
               </div>
 
@@ -294,30 +365,15 @@ export default function EntrenadoresPage() {
                     />
                   </Ventana>
                 </Tilt>
-                {["Avisos del día", "Rutinas a tu manera", "Cuotas al día"].map((chip, i) => (
-                  <span
-                    key={chip}
-                    className={`landing-float absolute hidden items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-bold shadow-2xl lg:flex ${
-                      ["-left-8 top-[14%]", "-left-14 top-[46%]", "-left-6 top-[78%]"][i]
-                    }`}
-                    style={{ "--float-delay": `${i * 0.9}s` } as React.CSSProperties}
-                    aria-hidden="true"
-                  >
-                    <span className="flex size-5 items-center justify-center rounded-full bg-foreground text-background">
-                      <CheckIcon className="size-3" />
-                    </span>
-                    {chip}
-                  </span>
-                ))}
               </figure>
             </div>
 
-            <div className="flex flex-col gap-5 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between sm:pt-6">
+            <div className="border-t border-border pt-4 sm:pt-6">
               <dl className="grid grid-cols-3 gap-4 sm:max-w-2xl sm:gap-10">
                 {[
-                  ["$0", "por alumno"],
-                  ["Sin", "tarjeta para empezar"],
-                  ["Sin señal", "tus alumnos entrenan igual"],
+                  ["$1.000", "por alumno"],
+                  ["SIN", "tarjeta para empezar"],
+                  ["100%", "gestión centralizada"],
                 ].map(([valor, texto]) => (
                   <div key={texto}>
                     <dd className="text-2xl font-black tracking-tighter sm:text-4xl">{valor}</dd>
@@ -325,7 +381,6 @@ export default function EntrenadoresPage() {
                   </div>
                 ))}
               </dl>
-              <EnlaceSiguiente href="#studio-hoy">Mirá Coach Studio por dentro</EnlaceSiguiente>
             </div>
           </div>
 
@@ -361,16 +416,16 @@ export default function EntrenadoresPage() {
                   </div>
                   <figure className="landing-media lg:col-span-8" data-reveal>
                     {conConstructor ? (
-                      <div className="mb-3 inline-flex rounded-full border border-border bg-secondary/60 p-1" role="tablist" aria-label="Vistas de rutinas" data-testid="vistas-rutinas">
-                        {VISTAS_RUTINAS.map((v) => (
+                      <div className="mb-3 inline-flex rounded-full border border-border bg-secondary/60 p-1" role="tablist" aria-label="Vistas de planes" data-testid="vistas-rutinas">
+                        {VISTAS_PLANES.map((v) => (
                           <button
                             key={v.id}
                             type="button"
                             role="tab"
-                            aria-selected={vistaRutinas === v.id}
-                            onClick={() => setVistaRutinas(v.id)}
+                            aria-selected={vistaPlanes === v.id}
+                            onClick={() => setVistaPlanes(v.id)}
                             className={`min-h-[40px] rounded-full px-5 text-sm font-bold transition-colors duration-150 ${FOCUS_RING} ${
-                              vistaRutinas === v.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+                              vistaPlanes === v.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                             }`}
                           >
                             {v.etiqueta}
@@ -380,18 +435,27 @@ export default function EntrenadoresPage() {
                     ) : null}
                     <Tilt className="lg:-mr-[14%]" max={3}>
                       <Ventana>
-                        <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${conConstructor && vistaRutinas !== "biblioteca" ? "hidden" : ""}`}>
+                        <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${conConstructor && vistaPlanes !== "planes" ? "hidden" : ""}`}>
                           <img src={pantalla.img} alt={pantalla.alt} width={2560} height={pantalla.alto} loading="lazy" className="h-auto w-[165%] max-w-none sm:w-full" />
                         </div>
                         {conConstructor ? (
-                          <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${vistaRutinas === "constructor" ? "" : "hidden"}`} data-testid="vista-constructor">
-                            <ConstructorEjemplo />
-                          </div>
+                          <>
+                            <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${vistaPlanes === "constructor" ? "" : "hidden"}`} data-testid="vista-constructor">
+                              <ConstructorEjemplo />
+                            </div>
+                            <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${vistaPlanes === "biblioteca" ? "" : "hidden"}`} data-testid="vista-biblioteca">
+                              <BibliotecaEjemplo />
+                            </div>
+                          </>
                         ) : null}
                       </Ventana>
                     </Tilt>
                     <figcaption className="mt-3 text-xs text-muted-foreground">
-                      {conConstructor && vistaRutinas === "constructor" ? "Vista ilustrativa del constructor de rutinas." : "Pantalla de Coach Studio con datos de ejemplo."}
+                      {conConstructor && vistaPlanes === "constructor"
+                        ? "Vista ilustrativa del constructor de planes."
+                        : conConstructor && vistaPlanes === "biblioteca"
+                        ? "Vista ilustrativa de la biblioteca de ejercicios."
+                        : "Pantalla de Coach Studio con datos de ejemplo."}
                     </figcaption>
                   </figure>
                 </div>
@@ -411,7 +475,7 @@ export default function EntrenadoresPage() {
                   Antes de sumar a tus alumnos.
                 </h2>
                 <p className={`${LEAD} mt-4 hidden max-w-md sm:block`} data-reveal>
-                  ¿No está tu duda? Escribile a Gonzalo: te lo muestra funcionando.
+                  ¿No está tu duda? Escribinos: el equipo de GOZS te lo muestra funcionando.
                 </p>
               </div>
               <div className="lg:col-span-7">
@@ -422,7 +486,7 @@ export default function EntrenadoresPage() {
           <Siguiente href="#empezar">Listo. Coordiná tu demo</Siguiente>
         </section>
 
-        {/* Cierre: coordinar una demo con Gonzalo */}
+        {/* Cierre: coordinar una demo con el equipo de GOZS */}
         <section id="empezar" className={`${SECCION} dark overflow-hidden bg-background text-foreground`} data-testid="cierre-entrenadores">
           <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <div className={CUERPO}>
@@ -432,11 +496,11 @@ export default function EntrenadoresPage() {
                   Tu método no entra en una app <span className="landing-tachar text-muted-foreground">genérica</span>.
                 </h2>
                 <p className={`${LEAD} mt-4 max-w-xl`} data-reveal>
-                  Coach Studio se adapta a cómo trabajás vos. Gonzalo te lo muestra funcionando, en la compu y en el celular, y resolvés tus dudas con alguien que lo usa todos los días.
+                  Coach Studio se adapta a cómo trabajás vos. El equipo de GOZS te lo muestra funcionando, en la compu y en el celular, y resolvés tus dudas con entrenadores que lo usan todos los días.
                 </p>
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center" data-reveal>
                   <a href={WHATSAPP_COACH} target="_blank" rel="noopener noreferrer" className={`${BTN_PRIMARY} ${BTN_XL}`}>
-                    <span>Coordinar una demo con Gonzalo</span>
+                    <span>Pedí tu demo</span>
                     <ArrowIcon className="size-5" />
                   </a>
                 </div>
