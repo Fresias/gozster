@@ -70,17 +70,17 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
     });
 
     it("cuenta el relato en orden (la autoridad de Gonzalo apenas termina el hero), un capítulo por pantalla", () => {
-      const ids = ["gonzalo", "problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "puente-entrenadores", "faq", "empezar"];
+      const ids = ["gonzalo", "problema", "alumnos", "modalidades", "como", "testimonios", "puente-entrenadores", "faq"];
       const posiciones = ids.map((id) => html.indexOf(`id="${id}"`));
       expect(posiciones.every((p) => p > 0)).toBe(true);
       expect([...posiciones].sort((a, b) => a - b)).toEqual(posiciones);
-      // hero + 10 capítulos, cada uno con alto mínimo de un viewport (menos el header fijo)
-      expect((html.match(SECCION_VIEWPORT) ?? []).length).toBe(11);
+      // hero + 8 capítulos, cada uno con alto mínimo de un viewport (menos el header fijo)
+      expect((html.match(SECCION_VIEWPORT) ?? []).length).toBe(9);
       expect(html).not.toContain('data-testid="studio-pantalla"');
     });
 
     it("el hero y cada capítulo terminan con un enlace que invita a seguir al siguiente", () => {
-      expect(siguientes(html)).toEqual(["gonzalo", "problema", "metodo", "como", "alumnos", "modalidades", "testimonios", "puente-entrenadores", "faq", "empezar"]);
+      expect(siguientes(html)).toEqual(["gonzalo", "problema", "alumnos", "modalidades", "como", "testimonios", "puente-entrenadores", "faq"]);
     });
 
     it("habla desde el dolor del alumno", () => {
@@ -106,19 +106,39 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
   });
 
   describe("2. Contenido para quien quiere entrenar", () => {
-    it("ofrece las tres modalidades con contacto por WhatsApp", () => {
-      for (const m of ["Funcional", "Boxeo", "Rutinas online"]) expect(text).toContain(`Consultar por ${m}`);
+    it("ofrece las tres modalidades con contacto por WhatsApp y CTAs unificados", () => {
+      for (const m of ["Funcional", "Boxeo", "Planes online"]) expect(text).toContain(m);
+      expect(text).toContain("QUIERO entrenar");
+      expect(text).toContain("PONERME los guantes");
+      expect(text).toContain("PEDIR mi plan");
+      expect(text).toContain("Nuestra comunidad");
       // +54 9 11 6275-2515
       expect(html).toContain("https://wa.me/5491162752515");
       expect(html).not.toContain("wa.me/541162752515");
     });
 
-    it("incluye testimonios y preguntas frecuentes solo de alumnos", () => {
+    it("incluye testimonios y preguntas frecuentes solo de alumnos con nuevas preguntas", () => {
       for (const nombre of ["Mirko", "Franco", "German"]) expect(text).toContain(nombre);
       expect(html).toContain('data-testid="seccion-faq"');
       expect(text).toContain("Si querés entrenar");
       expect(text).not.toContain("Si sos entrenador");
-      expect((html.match(/<details/g) ?? []).length).toBe(5);
+      expect(text).toContain("¿Realizan clases presenciales personalizadas?");
+      expect(text).toContain("¿El boxeo es con contacto?");
+      expect(text).toContain("al equipo de GOZS");
+      expect((html.match(/<details/g) ?? []).length).toBe(7);
+    });
+
+    it("presenta al equipo completo de GOZS con títulos IURP y cargos comerciales", () => {
+      expect(html).toContain('data-testid="equipo-gozs"');
+      expect(text).toContain("Gonzalo Salas");
+      expect(text).toContain("Head Coach");
+      expect(text).toContain("Felipe Leites");
+      expect(text).toContain("Online Coach");
+      expect(text).toContain("Leonel Lleset");
+      expect(text).toContain("Boxing Coach");
+      expect(text).toContain("Licenciado en Educación Física IURP");
+      expect(html).toContain("/images/coaches/Felipe.jfif");
+      expect(html).toContain("/images/coaches/Lleset.jfif");
     });
 
     it("respalda el relato con las 4 credenciales de Gonzalo Salas", () => {
@@ -135,25 +155,27 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
   });
 
   describe("3. El entrenador encuentra su página desde el primer pantallazo", () => {
-    it("el selector de público del header marca 'Para entrenar' y enlaza a /entrenadores", () => {
+    it("el selector de público del header marca 'Método GOZS' / 'Método' y enlaza a /entrenadores", () => {
       const selector = bloque(html, "selector-publico").split("</nav>")[0] ?? "";
       expect(selector).toMatch(/href="\/"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/"/);
       expect(selector).toContain('href="/entrenadores"');
       expect(texto(selector)).toContain("Para entrenadores");
+      expect(texto(selector)).toContain("Método GOZS");
+      expect(texto(selector)).toContain("Método");
     });
 
-    it("el hero, el puente y el cierre llevan a /entrenadores", () => {
+    it("el hero y el puente llevan a /entrenadores sin barra móvil duplicada en home", () => {
       expect(heroCta(html)).toContain('href="/entrenadores"');
       expect(texto(heroCta(html))).toContain("Soy entrenador: ver Coach Studio");
       const puente = bloque(html, "puente-entrenadores").split("</section>")[0] ?? "";
       expect(puente).toContain('href="/entrenadores"');
-      expect(texto(puente)).toContain("¿Entrenás a otros ?");
+      expect(texto(puente)).toContain("¿Entrenás a otros?");
       expect(texto(puente)).toContain("Conocer Coach Studio");
       expect(texto(puente)).toContain("Pedir una demo");
       expect(texto(puente)).not.toContain("Ya lo uso");
       expect(puente).toContain("/landing/studio-inicio.jpg");
-      expect(bloque(html, "camino-02").slice(0, 400) + html.split('data-testid="camino-02"')[0]!.slice(-300)).toContain('href="/entrenadores"');
-      expect(bloque(html, "barra-accion-movil")).toContain('href="/entrenadores"');
+      expect(html).not.toContain('data-testid="barra-accion-movil"');
+      expect(html).not.toContain('data-testid="cierre-caminos"');
       expect(html).not.toContain('href="#entrenadores"');
     });
   });
@@ -163,18 +185,14 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
       conSesion(user);
       return renderToStaticMarkup(createElement(HomePage));
     };
-    const barra = (h: string) => texto(bloque(h, "barra-accion-movil"));
 
-    it("visitante: la acción principal es escribirle a Gonzalo en hero, header, barra móvil y cierre", () => {
+    it("visitante: la acción principal es escribirle al equipo en hero y header", () => {
       const h = render(null);
       expect(texto(heroCta(h))).toContain("Quiero empezar a entrenar");
       expect(heroCta(h)).toContain("https://wa.me/5491162752515");
       expect(cabecera(h)).toContain("https://wa.me/5491162752515");
-      expect(barra(h)).toContain("Quiero entrenar");
-      expect(barra(h)).toContain("Soy entrenador");
       expect(texto(cabecera(h))).toContain("Iniciar Sesión");
-      expect(bloque(h, "camino-01").slice(0, 200) + h.split('data-testid="camino-01"')[0]!.slice(-700)).toContain("https://wa.me/5491162752515");
-      expect(h).not.toContain('data-testid="camino-03"');
+      expect(h).not.toContain('data-testid="barra-accion-movil"');
     });
 
     it("ninguna sección del relato llama a iniciar sesión ni a entrar a las apps", () => {
@@ -186,19 +204,17 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
       }
     });
 
-    it("ADMIN: el header y la barra móvil llevan a Coach Studio", () => {
+    it("ADMIN: el header lleva a Coach Studio", () => {
       const h = render({ id: "admin-1", email: "admin@example.com", displayName: "admin", rol: "ADMIN" });
       expect(cabecera(h)).toContain('href="/studio"');
       expect(texto(cabecera(h))).toContain("Ir a Coach Studio");
-      expect(barra(h)).toContain("Ir a Coach Studio");
       expect(texto(h)).toContain("admin (Admin)");
     });
 
-    it("ALUMNO: el header y la barra móvil abren su rutina", () => {
+    it("ALUMNO: el header abre su rutina", () => {
       const h = render({ id: "alumno-1", email: "celeste@example.com", displayName: "Celeste Gerardi", rol: "ALUMNO" });
       expect(cabecera(h)).toContain('href="/athlete"');
       expect(texto(cabecera(h))).toContain("Abrir mi rutina");
-      expect(barra(h)).toContain("Abrir mi rutina");
       expect(texto(h)).toContain("Celeste Gerardi (Atleta)");
     });
   });
@@ -216,6 +232,8 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
     expect((html.match(/<img[^>]*alt=""/g) ?? []).length).toBe(1);
     expect(html).toContain('alt="Retrato de Gonzalo Salas, Head Coach"');
     expect(existe("../../public/landing/gonzalo-salas.jpg")).toBe(true);
+    expect(existe("../../public/images/coaches/Felipe.jfif")).toBe(true);
+    expect(existe("../../public/images/coaches/Lleset.jfif")).toBe(true);
   });
 });
 
