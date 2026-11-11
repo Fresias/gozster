@@ -228,6 +228,9 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
     expect(bloque(html, "hero-entrenadores").split("</section>")[0]).toContain("/landing/studio-inicio.jpg");
     expect((html.match(/<h1/g) ?? []).length).toBe(1);
     expect(text).toContain("Coach Studio · Para entrenadores");
+    expect(text).toContain("$1.000 por alumno");
+    expect(text).toContain("SIN tarjeta para empezar");
+    expect(text).toContain("Dejá de pelear con interfaces poco intuitivas");
     const dolores = texto(bloque(html, "dolores-entrenador").split("</ul>")[0] ?? "");
     for (const d of ["Planillas que solo vos entendés", "Rutinas por PDF y audios de WhatsApp", "Perseguir cuotas por chat"]) {
       expect(dolores).toContain(d);
@@ -240,7 +243,7 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
     expect(posiciones.every((p) => p > 0)).toBe(true);
     expect([...posiciones].sort((a, b) => a - b)).toEqual(posiciones);
     expect((html.match(SECCION_VIEWPORT) ?? []).length).toBe(7);
-    expect(siguientes(html)).toEqual(["studio-hoy", "studio-rutinas", "studio-alumno", "studio-negocio", "faq", "empezar"]);
+    expect(siguientes(html)).toEqual(["studio-rutinas", "studio-alumno", "studio-negocio", "faq", "empezar"]);
 
     expect((html.match(/data-testid="studio-pantalla"/g) ?? []).length).toBe(4);
     for (const img of ["studio-inicio", "studio-rutinas", "studio-alumno", "studio-cobros", "studio-movil"]) {
@@ -251,27 +254,29 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
     expect(html).not.toMatch(/<img(?![^>]*\salt="[^"]+")[^>]*>/);
   });
 
-  it("'Tus rutinas' ofrece dos vistas: la biblioteca y el constructor", () => {
+  it("'Tus planes' ofrece tres vistas: planes, constructor y biblioteca", () => {
     const rutinas = html.split('id="studio-rutinas"')[1]?.split("</section>")[0] ?? "";
     const pestanas = texto(bloque(rutinas, "vistas-rutinas").split("</div>")[0] ?? "");
-    expect(pestanas).toContain("Biblioteca");
+    expect(pestanas).toContain("Planes");
     expect(pestanas).toContain("Constructor");
-    expect((rutinas.match(/role="tab"/g) ?? []).length).toBe(2);
+    expect(pestanas).toContain("Biblioteca");
+    expect((rutinas.match(/role="tab"/g) ?? []).length).toBe(3);
     expect(rutinas).toContain('data-testid="vista-constructor"');
+    expect(rutinas).toContain('data-testid="vista-biblioteca"');
     expect(rutinas).toContain("/landing/studio-rutinas.jpg");
-    expect((html.match(/role="img"/g) ?? []).length).toBe(1);
-    expect(entrenadoresCode).toContain("Vista ilustrativa del constructor de rutinas.");
+    expect((html.match(/role="img"/g) ?? []).length).toBe(2);
+    expect(entrenadoresCode).toContain("Vista ilustrativa del constructor de rutinas");
   });
 
   it("la acción principal es coordinar una demo, no iniciar sesión: hero, header, cierre y barra móvil", () => {
     const demo = "https://wa.me/5491162752515";
     expect(heroCta(html)).toContain(demo);
-    expect(texto(heroCta(html))).toContain("Pedir una demo");
+    expect(texto(heroCta(html))).toContain("Pedí tu demo");
     expect(heroCta(html)).toContain('href="#studio-hoy"');
     expect(cabecera(html)).toContain(demo);
     const cierre = bloque(html, "cierre-entrenadores").split("</section>")[0] ?? "";
     expect(cierre).toContain(demo);
-    expect(texto(cierre)).toContain("Coordinar una demo con Gonzalo");
+    expect(texto(cierre)).toContain("Pedí tu demo");
     expect(bloque(html, "barra-accion-movil")).toContain(demo);
     for (const destino of ['href="/login"', 'href="/studio"', 'href="/athlete"']) expect(principal(html)).not.toContain(destino);
     expect(texto(principal(html))).not.toContain("Ingresar");
@@ -283,7 +288,7 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
     const h = renderToStaticMarkup(createElement(EntrenadoresPage));
     expect(cabecera(h)).toContain('href="/studio"');
     expect(texto(cabecera(h))).toContain("Ir a Coach Studio");
-    expect(texto(heroCta(h))).toContain("Pedir una demo");
+    expect(texto(heroCta(h))).toContain("Pedí tu demo");
     expect(principal(h)).not.toContain('href="/studio"');
   });
 
@@ -298,6 +303,7 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
   it("responde solo las preguntas de entrenadores y evita tecnicismos", () => {
     expect(text).toContain("Si sos entrenador");
     expect(text).not.toContain("Si querés entrenar");
+    expect(text).toContain("Hasta 3 alumnos sin costo");
     expect((html.match(/<details/g) ?? []).length).toBe(4);
     expect(text).not.toMatch(PROHIBIDOS);
   });
