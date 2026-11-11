@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isDropset,
+  isFailure,
   isWarmup,
   isWorkingSet,
   normalizeSerieTipo,
@@ -20,6 +21,11 @@ describe("serie-tipo: normalización y vocabulario único", () => {
       ["d", "DROPSET"],
       ["dropset", "DROPSET"],
       [" DROPSET ", "DROPSET"],
+      ["F", "FAILURE"],
+      ["FAILURE", "FAILURE"],
+      ["f", "FAILURE"],
+      ["failure", "FAILURE"],
+      [" FAILURE ", "FAILURE"],
       ["N", "NORMAL"],
       ["NORMAL", "NORMAL"],
       ["n", "NORMAL"],
@@ -51,6 +57,8 @@ describe("serie-tipo: normalización y vocabulario único", () => {
       expect(isWarmup("NORMAL")).toBe(false);
       expect(isWarmup("D")).toBe(false);
       expect(isWarmup("DROPSET")).toBe(false);
+      expect(isWarmup("F")).toBe(false);
+      expect(isWarmup("FAILURE")).toBe(false);
       expect(isWarmup(null)).toBe(false);
       expect(isWarmup(undefined)).toBe(false);
       expect(isWarmup("")).toBe(false);
@@ -66,16 +74,37 @@ describe("serie-tipo: normalización y vocabulario único", () => {
       expect(isDropset("WARMUP")).toBe(false);
       expect(isDropset("N")).toBe(false);
       expect(isDropset("NORMAL")).toBe(false);
+      expect(isDropset("F")).toBe(false);
+      expect(isDropset("FAILURE")).toBe(false);
       expect(isDropset(null)).toBe(false);
       expect(isDropset(undefined)).toBe(false);
       expect(isDropset("")).toBe(false);
     });
 
-    it("isWorkingSet es true para toda serie que no sea de calentamiento (incluye NORMAL y DROPSET)", () => {
+    it("isFailure es true solo para variantes de serie al fallo", () => {
+      expect(isFailure("F")).toBe(true);
+      expect(isFailure("FAILURE")).toBe(true);
+      expect(isFailure("f")).toBe(true);
+      expect(isFailure("failure")).toBe(true);
+
+      expect(isFailure("W")).toBe(false);
+      expect(isFailure("WARMUP")).toBe(false);
+      expect(isFailure("N")).toBe(false);
+      expect(isFailure("NORMAL")).toBe(false);
+      expect(isFailure("D")).toBe(false);
+      expect(isFailure("DROPSET")).toBe(false);
+      expect(isFailure(null)).toBe(false);
+      expect(isFailure(undefined)).toBe(false);
+      expect(isFailure("")).toBe(false);
+    });
+
+    it("isWorkingSet es true para toda serie que no sea de calentamiento (incluye NORMAL, DROPSET y FAILURE)", () => {
       expect(isWorkingSet("NORMAL")).toBe(true);
       expect(isWorkingSet("N")).toBe(true);
       expect(isWorkingSet("DROPSET")).toBe(true);
       expect(isWorkingSet("D")).toBe(true);
+      expect(isWorkingSet("FAILURE")).toBe(true);
+      expect(isWorkingSet("F")).toBe(true);
       expect(isWorkingSet(null)).toBe(true);
       expect(isWorkingSet(undefined)).toBe(true);
       expect(isWorkingSet("")).toBe(true);
@@ -106,6 +135,8 @@ describe("serie-tipo: normalización y vocabulario único", () => {
       { numero_serie: 7, peso_kg: 100, reps_hechas: 5, set_type: "NORMAL", completada: false },
       { numero_serie: 8, peso_kg: 60, reps_hechas: 10, set_type: null, completada: true },
       { numero_serie: 9, peso_kg: 60, reps_hechas: 10, set_type: undefined, completada: true },
+      { numero_serie: 10, peso_kg: 100, reps_hechas: 3, set_type: "F", completada: true },
+      { numero_serie: 11, peso_kg: 90, reps_hechas: 2, set_type: "FAILURE", completada: true },
     ];
 
     it("fija métricas de conteo y tonelaje efectivo idénticas al comportamiento pre-refactor", () => {
@@ -117,6 +148,9 @@ describe("serie-tipo: normalización y vocabulario único", () => {
       );
       const seriesDropset = fixtureSesion.filter(
         (s) => isDropset(s.set_type) && s.completada,
+      );
+      const seriesFallo = fixtureSesion.filter(
+        (s) => isFailure(s.set_type) && s.completada,
       );
 
       const volumenEfectivo = seriesEfectivas.reduce(
@@ -133,6 +167,7 @@ describe("serie-tipo: normalización y vocabulario único", () => {
         efectivasCount: seriesEfectivas.length,
         calentamientoCount: seriesCalentamiento.length,
         dropsetCount: seriesDropset.length,
+        falloCount: seriesFallo.length,
         volumenEfectivoKg: volumenEfectivo,
         volumenCalentamientoKg: volumenCalentamiento,
       };
@@ -141,12 +176,23 @@ describe("serie-tipo: normalización y vocabulario único", () => {
         {
           "calentamientoCount": 2,
           "dropsetCount": 2,
-          "efectivasCount": 6,
-          "totalSeries": 9,
+          "efectivasCount": 8,
+          "falloCount": 2,
+          "totalSeries": 11,
           "volumenCalentamientoKg": 450,
-          "volumenEfectivoKg": 3980,
+          "volumenEfectivoKg": 4460,
         }
       `);
+    });
+
+    it("persiste el estado FAILURE sin colapsarlo a NORMAL (regresión PR #448)", () => {
+      const persistidas = fixtureSesion
+        .filter((s) => s.completada)
+        .map((s) => normalizeSerieTipo(s.set_type));
+
+      expect(persistidas.filter((t) => t === "FAILURE")).toHaveLength(2);
+      expect(normalizeSerieTipo("F")).toBe("FAILURE");
+      expect(normalizeSerieTipo("FAILURE")).toBe("FAILURE");
     });
   });
 });
