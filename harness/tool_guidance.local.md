@@ -1,3 +1,2 @@
-- **RPCs Supabase (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL y opcionales en TypeScript.
-- **Modales (GOZS-321):** isSaving atómico y botón submit deshabilitado para evitar carreras.
-- **Fechas (GOZS-327):** vi.setSystemTime() lunes 09:00 ART en tests para evitar desfases UTC.
+- **RPCs (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL, opcionales en TS.
+- **Modales (GOZS-321):** isSaving atómico + submit deshabilitado para evitar carreras.
