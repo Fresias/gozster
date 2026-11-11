@@ -243,7 +243,7 @@ type UsuarioLanding = { email: string; displayName: string; rol: string } | null
 
 /* Selector de público: la misma pieza en las dos páginas, para que cada visitante encuentre la suya. */
 const PUBLICOS = [
-  { id: "alumnos", href: "/", corto: "Entrenar", largo: "Para entrenar" },
+  { id: "alumnos", href: "/", corto: "Método", largo: "Método GOZS" },
   { id: "entrenadores", href: "/entrenadores", corto: "Entrenadores", largo: "Para entrenadores" },
 ] as const;
 
