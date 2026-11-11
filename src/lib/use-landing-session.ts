@@ -23,9 +23,15 @@ export interface LandingSessionState {
  * del usuario para el cabezal inteligente y CTAs de la landing unificada.
  */
 export function useLandingSession(): LandingSessionState {
+  /*
+   * SSR Instantáneo: Se inicializa con user: null y loading: false para que el
+   * renderizado en servidor (SSR) y el primer paint en el cliente desplieguen de inmediato
+   * el CTA público ("Quiero entrenar") sin demoras de red ni saltos de layout.
+   * La rehidratación con sesión autenticada se efectúa asíncronamente en segundo plano.
+   */
   const [session, setSession] = React.useState<LandingSessionState>({
     user: null,
-    loading: true,
+    loading: false,
   });
 
   React.useEffect(() => {
@@ -38,7 +44,7 @@ export function useLandingSession(): LandingSessionState {
 
         if (authError || !auth?.user) {
           if (activo) {
-            setSession({ user: null, loading: false });
+            setSession((prev) => (prev.user === null && !prev.loading ? prev : { user: null, loading: false }));
           }
           return;
         }
@@ -68,7 +74,7 @@ export function useLandingSession(): LandingSessionState {
         }
       } catch {
         if (activo) {
-          setSession({ user: null, loading: false });
+          setSession((prev) => (prev.user === null && !prev.loading ? prev : { user: null, loading: false }));
         }
       }
     }

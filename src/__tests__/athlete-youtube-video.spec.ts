@@ -12,6 +12,7 @@ import {
   extractYouTubeVideoId,
   getYouTubeEmbedUrl,
   getYouTubeSearchUrl,
+  getYouTubeThumbnailUrl,
 } from "@/lib/youtube";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
@@ -63,6 +64,17 @@ describe("Pilar C: Utilidades de Extracción de Video de YouTube", () => {
     );
 
     expect(getYouTubeEmbedUrl(null)).toBeNull();
+  });
+
+  it("debe generar URLs de miniaturas en alta definición de YouTube (hqdefault)", () => {
+    const thumbFromId = getYouTubeThumbnailUrl("noTGHlQVKfA");
+    expect(thumbFromId).toBe("https://img.youtube.com/vi/noTGHlQVKfA/hqdefault.jpg");
+
+    const thumbFromUrl = getYouTubeThumbnailUrl("https://www.youtube.com/watch?v=rT7DgCr-3pg");
+    expect(thumbFromUrl).toBe("https://img.youtube.com/vi/rT7DgCr-3pg/hqdefault.jpg");
+
+    expect(getYouTubeThumbnailUrl(null)).toBeNull();
+    expect(getYouTubeThumbnailUrl("")).toBeNull();
   });
 
   it("debe generar URLs de búsqueda en YouTube en caso de fallback", () => {
