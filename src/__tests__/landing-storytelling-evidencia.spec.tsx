@@ -26,7 +26,7 @@ const conSesion = (user: Sesion) =>
 
 const PROHIBIDOS =
   /telemetr|\bRPE\b|halterofilia|carga efectiva|biomec|\b1RM\b|hipertrofia|microciclo|tonelaje|antropom|churn|offline|\bPWA\b|mynter/i;
-const SECCION_VIEWPORT = /landing-section[^"]*min-h-\[calc\(100svh-4rem\)\]/g;
+const SECCION_VIEWPORT = /landing-section[^"]*(?:min-h-landing-chapter|min-h-\[calc\(100svh-4rem\)\])/g;
 const siguientes = (h: string) => [...h.matchAll(/<a href="#([a-z-]+)"[^>]*data-siguiente/g)].map((m) => m[1]);
 const bloque = (h: string, testid: string) => h.split(`data-testid="${testid}"`)[1] ?? "";
 const heroCta = (h: string) => bloque(h, "hero-cta").split("</div>")[0] ?? "";
@@ -248,7 +248,7 @@ describe("Página /entrenadores: Coach Studio para quienes entrenan a otros", ()
     expect(text).toContain("Coach Studio · Para entrenadores");
     expect(text).toContain("$1.000 por alumno");
     expect(text).toContain("SIN tarjeta para empezar");
-    expect(text).toContain("Dejá de pelear con interfaces poco intuitivas");
+    expect(text).not.toContain("Dejá de pelear con interfaces poco intuitivas");
     const dolores = texto(bloque(html, "dolores-entrenador").split("</ul>")[0] ?? "");
     for (const d of ["Planillas que solo vos entendés", "Rutinas por PDF y audios de WhatsApp", "Perseguir cuotas por chat"]) {
       expect(dolores).toContain(d);
@@ -396,7 +396,7 @@ describe("Landing: invariantes de diseño, ergonomía y accesibilidad (ambas pá
   });
 
   it("los enlaces internos encuadran la sección completa: el header se descuenta una sola vez", () => {
-    expect(globalsCode).toMatch(/html\.landing-scroll \{[^}]*scroll-padding-top: 4rem/);
+    expect(globalsCode).toMatch(/html\.landing-scroll \{[^}]*scroll-padding-top:\s*(?:var\(--landing-header-h\)|4rem)/);
     expect(landingCode).not.toContain("scroll-mt-");
     // en pantallas bajas el capítulo se achica para entrar en un viewport
     expect(globalsCode).toContain("--landing-zoom");

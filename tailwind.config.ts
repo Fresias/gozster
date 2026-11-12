@@ -133,6 +133,8 @@ const config: Config = {
         target: "var(--target)",
         "target-lg": "var(--target-lg)",
         "target-quick": "var(--target-quick)",
+        "landing-header": "var(--landing-header-h)",
+        "landing-chapter": "var(--landing-chapter-h)",
       },
     },
   },
