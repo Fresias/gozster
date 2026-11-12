@@ -34,18 +34,23 @@
 
   /* 1 · PRIMITIVOS: escala de tamaño de control */
   --size-32: 2rem;  --size-36: 2.25rem;  --size-40: 2.5rem;  --size-48: 3rem;  --size-56: 3.5rem;
+  --size-64: 4rem;
+  --scale-88: 0.88;
 
   /* 2 · SEMÁNTICOS */
   --target-sm: var(--size-32);     /* control compacto, con mouse */
   --target: var(--size-36);        /* control estándar, con mouse */
   --target-lg: var(--size-40);     /* control destacado, con mouse */
   --target-quick: var(--size-56);  /* acción rápida de gimnasio: 56 px siempre */
+  --landing-header-h: var(--size-64);   /* hoy "4rem"/"h-16" repetido en varios lugares */
+  --landing-zoom-min: var(--scale-88);  /* piso de reducción en pantallas bajas */
 
   /* 3 · COMPONENTE */
   --button-h-sm: var(--target-sm);
   --button-h: var(--target);
   --button-h-lg: var(--target-lg);
   --button-h-quick: var(--target-quick);
+  --landing-chapter-h: calc(100svh - var(--landing-header-h));
 
   /* Semántica deportiva */
   --success: 142 76% 36%;             /* #16A34A  puntos y barras */
@@ -368,7 +373,7 @@
 /* Anclaje por capítulo: scroll suave; el header fijo se descuenta una sola vez (acá) */
 html.landing-scroll {
   scroll-behavior: smooth;
-  scroll-padding-top: 4rem;
+  scroll-padding-top: var(--landing-header-h);
 }
 @media (min-width: 1024px) and (min-height: 760px) {
   html.landing-scroll {
@@ -398,22 +403,7 @@ html.landing-scroll {
   .landing-section { --landing-zoom: 0.94; }
 }
 @media (min-width: 1024px) and (max-height: 840px) {
-  .landing-section { --landing-zoom: 0.88; }
-}
-@media (min-width: 1024px) and (max-height: 795px) {
-  .landing-section { --landing-zoom: 0.82; }
-}
-@media (min-width: 1024px) and (max-height: 745px) {
-  .landing-section { --landing-zoom: 0.76; }
-}
-@media (min-width: 1024px) and (max-height: 700px) {
-  .landing-section { --landing-zoom: 0.7; }
-}
-@media (min-width: 1024px) and (max-height: 655px) {
-  .landing-section { --landing-zoom: 0.64; }
-}
-@media (min-width: 1024px) and (max-height: 630px) {
-  .landing-section { --landing-zoom: 0.6; }
+  .landing-section { --landing-zoom: var(--landing-zoom-min); }
 }
 
 @keyframes landing-nudge {

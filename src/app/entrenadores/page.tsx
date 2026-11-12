@@ -286,7 +286,7 @@ const VISTAS_PLANES = [
 export default function EntrenadoresPage() {
   const { user } = useLandingSession();
   useScrollReveal();
-  const { heroCtaRef, visible: barraVisible } = useBarraMovil();
+  const { heroCtaRef, visible: barraVisible } = useBarraMovil("empezar");
   const [vistaPlanes, setVistaPlanes] = React.useState<(typeof VISTAS_PLANES)[number]["id"]>("planes");
 
   /* Quien ya usa Coach Studio entra desde el header; la página invita a conocerlo. */
@@ -311,7 +311,7 @@ export default function EntrenadoresPage() {
 
       <main className="flex-1">
         {/* Hero: quién lo hizo, para quién, y el producto a la vista */}
-        <section className="landing-section dark relative isolate flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden bg-background text-foreground" data-testid="hero-entrenadores">
+        <section className="landing-section dark relative isolate flex min-h-landing-chapter flex-col overflow-hidden bg-background text-foreground" data-testid="hero-entrenadores">
           <div className="hero-grid pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
           <div className={`${CONTAINER} flex flex-1 flex-col justify-between gap-8 pb-6 pt-8 sm:pb-8 sm:pt-12`}>
             <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-10">
@@ -331,12 +331,9 @@ export default function EntrenadoresPage() {
                     <span className="text-white">para</span> entrenadores.
                   </span>
                 </h1>
-                <p className="landing-rise mt-5 max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:mt-6 sm:text-xl" style={{ animationDelay: "320ms" }}>
-                  Dejá de pelear con interfaces poco intuitivas y apps que no se adaptan a tu trabajo. Coach Studio nace de la necesidad real de centralizar todo el workflow del gimnasio (rutinas, alumnos, cuotas). Una herramienta rápida y con un diseño limpio, pensada para mejorar la experiencia del entrenador y del alumno.
-                </p>
                 <div
                   ref={heroCtaRef}
-                  className="landing-rise mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center"
+                  className="landing-rise mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center"
                   style={{ animationDelay: "440ms" }}
                   data-testid="hero-cta"
                 >
@@ -509,7 +506,7 @@ export default function EntrenadoresPage() {
                 </p>
               </div>
               <figure className="hidden md:col-span-4 md:block" data-reveal>
-                <div className="landing-float mx-auto w-full max-w-[250px] rounded-[2.2rem] border border-zinc-700 bg-zinc-950 p-2 shadow-2xl">
+                <div className="landing-float mx-auto w-full max-w-[250px] rounded-[2.2rem] border border-border bg-background p-2 shadow-2xl">
                   <img
                     src="/landing/studio-movil.jpg"
                     alt="Coach Studio en el celular: resumen del día, avisos para revisar y clases de hoy"

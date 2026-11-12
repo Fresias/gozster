@@ -93,23 +93,23 @@ function SparklineSvg({
 
   const strokeClass =
     variant === "emerald"
-      ? "stroke-emerald-500"
+      ? "stroke-success"
       : variant === "amber"
-      ? "stroke-amber-500"
+      ? "stroke-warning"
       : "stroke-primary";
 
   const fillClass =
     variant === "emerald"
-      ? "fill-emerald-500/10"
+      ? "fill-success/10"
       : variant === "amber"
-      ? "fill-amber-500/10"
+      ? "fill-warning/10"
       : "fill-primary/10";
 
   const dotClass =
     variant === "emerald"
-      ? "fill-emerald-500"
+      ? "fill-success"
       : variant === "amber"
-      ? "fill-amber-500"
+      ? "fill-warning"
       : "fill-primary";
 
   return (
@@ -445,7 +445,7 @@ export function IslaMetricas1RM({
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <p className="m-0 text-[11px] text-muted-foreground">Se muestra Epley.</p>
+                <p className="m-0 text-xs text-muted-foreground">Se muestra Epley.</p>
               </div>
             </details>
 

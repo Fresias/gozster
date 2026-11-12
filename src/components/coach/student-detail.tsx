@@ -1269,7 +1269,7 @@ export function StudentDetail({
             {cuestionario?.completado_at ? (
               <Badge
                 variant="success"
-                className="text-[10px] font-bold inline-flex items-center gap-1"
+                className="text-xs font-bold inline-flex items-center gap-1"
                 data-testid="coach-cuestionario-badge-completado"
               >
                 <Check className="h-3 w-3 inline" aria-hidden="true" /> Completado ({formatFecha(cuestionario.completado_at)})
@@ -1277,7 +1277,7 @@ export function StudentDetail({
             ) : (
               <Badge
                 variant="outline"
-                className="text-[10px] font-bold text-muted-foreground"
+                className="text-xs font-bold text-muted-foreground"
                 data-testid="coach-cuestionario-badge-pendiente"
               >
                 Pendiente (Opcional)
@@ -1294,7 +1294,7 @@ export function StudentDetail({
           {cuestionario?.completado_at ? (
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Objetivo Principal
                 </span>
                 <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-objetivo">
@@ -1302,7 +1302,7 @@ export function StudentDetail({
                 </p>
               </div>
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Experiencia Previa
                 </span>
                 <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-experiencia">
@@ -1310,7 +1310,7 @@ export function StudentDetail({
                 </p>
               </div>
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Días por Semana
                 </span>
                 <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-dias">
@@ -1318,7 +1318,7 @@ export function StudentDetail({
                 </p>
               </div>
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Equipamiento
                 </span>
                 <p className="mt-1 text-xs font-semibold text-foreground" data-testid="coach-cuestionario-equipamiento">
@@ -1326,14 +1326,14 @@ export function StudentDetail({
                 </p>
               </div>
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5 sm:col-span-2">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Molestias o Lesiones Previas
                 </span>
                 <p
                   className={`mt-1 text-xs font-medium ${
                     cuestionario.molestias_o_lesiones_previas &&
                     cuestionario.molestias_o_lesiones_previas !== "Ninguna reportada"
-                      ? "text-amber-500 font-semibold"
+                      ? "text-warning font-semibold"
                       : "text-foreground"
                   }`}
                   data-testid="coach-cuestionario-molestias"
@@ -1344,7 +1344,7 @@ export function StudentDetail({
               {cuestionario.respuestas_extra &&
                 typeof cuestionario.respuestas_extra === "object" && (
                   <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5 sm:col-span-2 lg:col-span-3">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Comentarios Extra
                     </span>
                     <p className="mt-1 text-xs font-medium text-foreground" data-testid="coach-cuestionario-comentarios">
@@ -1370,14 +1370,14 @@ export function StudentDetail({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <span>Atención y Chat GOZS (Equipo)</span>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                 Canal Institucional
               </span>
             </CardTitle>
             <div className="flex items-center gap-2">
               {chatActivePainAlert && (
                 <span
-                  className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive inline-flex items-center gap-1"
+                  className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-bold text-destructive inline-flex items-center gap-1"
                   data-testid="student-pain-alert-badge"
                 >
                   <TriangleAlert className="h-3 w-3 inline text-destructive" aria-hidden="true" />
@@ -1385,7 +1385,7 @@ export function StudentDetail({
                 </span>
               )}
               <span
-                className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary-foreground uppercase"
+                className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground uppercase"
                 data-testid="student-chat-estado"
               >
                 {chatConv.estado || "ABIERTA"}
@@ -1396,7 +1396,7 @@ export function StudentDetail({
         <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Profesor Responsable
               </p>
               <p
@@ -1405,21 +1405,21 @@ export function StudentDetail({
               >
                 <span>{chatConv.responsable_nombre || "Coach Principal"}</span>
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Vínculo RLS en entrenador_alumnos
               </p>
             </div>
 
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Mensajes en Hilo
               </p>
               <p className="mt-1 text-sm font-bold text-foreground">
                 {chatConv.mensajes.length} mensajes
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {chatConv.unreadCount > 0 ? (
-                  <span className="text-amber-400 font-bold">
+                  <span className="text-warning font-bold">
                     {chatConv.unreadCount} no leídos por el staff
                   </span>
                 ) : (
@@ -1430,10 +1430,10 @@ export function StudentDetail({
 
             <div className="rounded-lg border border-border bg-secondary/30 p-3 flex flex-col justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Acceso a Chat
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Interactuar en tiempo real con {alumno.nombre_completo}
                 </p>
               </div>
@@ -1462,14 +1462,14 @@ export function StudentDetail({
                 <h4 className="text-xs font-bold text-foreground">
                   Transferir responsable de conversación (RPC)
                 </h4>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Reasigna el caso a otro profesor del staff y audita el cambio en auditoria_cambios.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="text-[11px] font-semibold text-muted-foreground">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Nuevo Responsable
                 <select
                   value={transferTargetCoachId}
@@ -1485,7 +1485,7 @@ export function StudentDetail({
                 </select>
               </label>
 
-              <label className="text-[11px] font-semibold text-muted-foreground">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Motivo de la transferencia
                 <input
                   type="text"
@@ -1512,7 +1512,7 @@ export function StudentDetail({
 
               {transferSuccess && (
                 <span
-                  className="text-xs font-semibold text-emerald-400 inline-flex items-center gap-1"
+                  className="text-xs font-semibold text-success inline-flex items-center gap-1"
                   data-testid="student-transfer-success"
                 >
                   <Check className="h-3 w-3 inline" aria-hidden="true" /> {transferSuccess}
@@ -1674,7 +1674,7 @@ export function StudentDetail({
                                       {item.es_superserie && (
                                         <Badge
                                           variant="warning"
-                                          className="text-[10px]"
+                                          className="text-xs"
                                         >
                                           Superserie G{item.grupo_superserie}
                                         </Badge>
@@ -1682,7 +1682,7 @@ export function StudentDetail({
                                       {item.tempo_activo && item.tempo && (
                                         <Badge
                                           variant="outline"
-                                          className="border-sky-500 text-sky-400 text-[10px]"
+                                          className="border-neutral-soft-border text-neutral-soft-foreground text-xs"
                                         >
                                           Tempo {item.tempo}
                                         </Badge>
@@ -1690,20 +1690,20 @@ export function StudentDetail({
                                       {item.force_rpe_required && (
                                         <Badge
                                           variant="outline"
-                                          className="border-amber-500 text-amber-400 text-[10px]"
+                                          className="border-warning-soft-border text-warning-soft-foreground text-xs"
                                         >
                                           RPE Obligatorio
                                         </Badge>
                                       )}
                                     </div>
                                     {item.notas && (
-                                      <p className="text-[11px] text-muted-foreground">
+                                      <p className="text-xs text-muted-foreground">
                                         {item.notas}
                                       </p>
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-3 font-mono text-[11px]">
+                                  <div className="flex items-center gap-3 font-mono text-xs">
                                     <span className="rounded bg-secondary px-2 py-1">
                                       {item.series} × {item.repeticiones}
                                     </span>
@@ -1795,12 +1795,12 @@ export function StudentDetail({
                 <h3 className="text-sm font-bold text-foreground">
                   Registro de Sustituciones Trazables
                 </h3>
-                <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 font-bold">
+                <Badge variant="outline" className="text-xs border-success-soft-border text-success-soft-foreground font-bold">
                   Inmutabilidad Garantizada
                 </Badge>
               </div>
               <p
-                className="text-[11px] text-muted-foreground"
+                className="text-xs text-muted-foreground"
                 data-testid="aviso-inmutabilidad-sustituciones"
               >
                 Sesiones y series completadas previamente permanecen 100% inmutables.
@@ -1843,19 +1843,19 @@ export function StudentDetail({
                           <div className="flex items-center gap-2 flex-wrap font-bold">
                             <span className="line-through text-muted-foreground">{ejOrigen}</span>
                             <span className="text-primary font-black">→</span>
-                            <span className="text-foreground text-sm font-black text-emerald-500">
+                            <span className="text-sm font-black text-success">
                               {ejSustituto}
                             </span>
-                            <Badge className="bg-primary/20 text-primary border border-primary/30 text-[10px]">
+                            <Badge className="bg-primary/20 text-primary border border-primary/30 text-xs">
                               Toda la Rutina Vigente
                             </Badge>
                           </div>
-                          <span className="text-[11px] font-mono text-muted-foreground">
+                          <span className="text-xs font-mono text-muted-foreground">
                             {fechaSust}
                           </span>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] pt-1 border-t border-border/40">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs pt-1 border-t border-border/40">
                           <div className="text-muted-foreground">
                             <strong className="text-foreground">Motivo:</strong>{" "}
                             {sust.motivo || "Sustitución biomecánica por molestia"}
@@ -1907,7 +1907,7 @@ export function StudentDetail({
                             </h4>
                             {getPlanBadge(plan.estado, plan.fecha_fin)}
                             {index === 0 && (
-                              <Badge variant="outline" className="text-[10px]">
+                              <Badge variant="outline" className="text-xs">
                                 Más Reciente
                               </Badge>
                             )}
@@ -1964,7 +1964,7 @@ export function StudentDetail({
 
           {/* Filtro de Rutina para explorar sesiones de la rutina actual o pasadas */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Filtro de Rutina:
             </span>
             <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border/60 text-xs font-semibold">
@@ -2041,7 +2041,7 @@ export function StudentDetail({
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-foreground capitalize">{fechaStr}</span>
                             {entry.plan?.nombre && (
-                              <Badge variant="outline" className="text-[11px] font-normal">
+                              <Badge variant="outline" className="text-xs font-normal">
                                 {entry.plan.nombre}
                               </Badge>
                             )}
@@ -2071,7 +2071,7 @@ export function StudentDetail({
                                   {s.peso_kg} kg × {s.reps_hechas}
                                 </span>
                                 {s.rpe_real ? (
-                                  <Badge variant="secondary" className="text-[10px] py-0 px-1">
+                                  <Badge variant="secondary" className="text-xs py-0 px-1">
                                     @{s.rpe_real}
                                   </Badge>
                                 ) : null}
@@ -2099,7 +2099,7 @@ export function StudentDetail({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 flex-1">
               {/* 1. Actividad y frecuencia */}
               <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Actividad y Frecuencia
                 </p>
                 <div className="flex items-center gap-2">
@@ -2110,40 +2110,40 @@ export function StudentDetail({
                     {actividadFrecuencia.etiqueta}
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground" data-testid="ficha-actividad-detalle">
+                <p className="text-xs text-muted-foreground" data-testid="ficha-actividad-detalle">
                   {actividadFrecuencia.detalle}
                 </p>
               </div>
 
               {/* 2. Estado de pago (si pagó o no) */}
               <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Estado de Pago
                 </p>
                 <div className="flex items-center gap-2">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-black border ${
                       estadoPagoInfo.pago
-                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        ? "bg-success-soft text-success-soft-foreground border-success-soft-border"
                         : estadoPagoInfo.estado === "VENCIDO"
-                        ? "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
-                        : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                        ? "bg-danger-soft text-danger-soft-foreground border-danger-soft-border"
+                        : "bg-warning-soft text-warning-soft-foreground border-warning-soft-border"
                     }`}
                     data-testid="ficha-estado-pago"
                   >
                     <span
                       className={`h-2 w-2 rounded-full ${
                         estadoPagoInfo.pago
-                          ? "bg-emerald-500"
+                          ? "bg-success"
                           : estadoPagoInfo.estado === "VENCIDO"
-                          ? "bg-rose-500"
-                          : "bg-amber-500"
+                          ? "bg-destructive"
+                          : "bg-warning"
                       }`}
                     />
                     {estadoPagoInfo.etiquetaPrincipal} • {estadoPagoInfo.etiquetaDetalle}
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {estadoPagoInfo.pago
                     ? "Cuota vigente al día"
                     : estadoPagoInfo.estado === "VENCIDO"
@@ -2154,7 +2154,7 @@ export function StudentDetail({
 
               {/* 3. Monto de la suscripción */}
               <div className="rounded-xl border border-border bg-secondary/30 p-3.5 space-y-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Monto de la Suscripción
                 </p>
                 <div className="flex items-baseline gap-1.5">
@@ -2164,9 +2164,9 @@ export function StudentDetail({
                   >
                     {montoSuscripcion.formateado}
                   </span>
-                  <span className="text-[11px] text-muted-foreground font-semibold">/mes</span>
+                  <span className="text-xs text-muted-foreground font-semibold">/mes</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Día {contratacion.dia_vencimiento} anclado • Vence {formatFecha(contratacion.fecha_fin)}
                 </p>
               </div>
@@ -2189,7 +2189,7 @@ export function StudentDetail({
 
           {avisoPago && (
             <div
-              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-400 font-medium"
+              className="mt-3 rounded-lg border border-success-soft-border bg-success-soft p-2.5 text-xs text-success-soft-foreground font-medium"
               data-testid="aviso-pago-exitoso"
             >
               ✓ {avisoPago}
@@ -2211,7 +2211,7 @@ export function StudentDetail({
                 </h3>
                 <Badge
                   variant={nivelVista === "SIMPLE" ? "secondary" : "default"}
-                  className="text-[10px] font-bold"
+                  className="text-xs font-bold"
                   data-testid="coach-nivel-vista-badge"
                 >
                   {nivelVista === "SIMPLE" ? "SIMPLE (Minimalista)" : "TÉCNICA (Avanzada)"}
@@ -2273,7 +2273,7 @@ export function StudentDetail({
         <CardContent className="space-y-5 p-4 pt-0 sm:p-6 sm:pt-0">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Estado de Cuenta
               </p>
               <div className="mt-1.5" data-testid="estado-cuenta">
@@ -2281,7 +2281,7 @@ export function StudentDetail({
               </div>
             </div>
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Estado de Contratación
               </p>
               <div className="mt-1.5" data-testid="estado-contratacion">
@@ -2289,7 +2289,7 @@ export function StudentDetail({
               </div>
             </div>
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Vencimiento
               </p>
               <p
@@ -2298,12 +2298,12 @@ export function StudentDetail({
               >
                 {formatFecha(contratacion.fecha_fin)}
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Día {contratacion.dia_vencimiento} anclado
               </p>
             </div>
             <div className="rounded-lg border border-border bg-secondary/30 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Estado de Rutina
               </p>
               <div className="mt-1.5" data-testid="estado-rutina">
@@ -2322,7 +2322,7 @@ export function StudentDetail({
               <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
                 Planes de Membresía & Multiactividad
                 {todasContratacionesAlumno.length > 1 && (
-                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold">
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs font-bold">
                     Multiactividad ({todasContratacionesAlumno.length} planes)
                   </Badge>
                 )}
@@ -2377,19 +2377,19 @@ export function StudentDetail({
                 >
                   <div className="rounded-lg border border-border bg-secondary/30 p-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Plan {todasContratacionesAlumno.length > 1 ? `#${idx + 1}` : "de Membresía"}
                       </p>
                       {esGratis ? (
                         <Badge
                           variant="default"
-                          className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/40 text-[10px] font-bold"
+                          className="bg-neutral-soft text-neutral-soft-foreground border-neutral-soft-border text-xs font-bold"
                           data-testid="badge-corpo-0"
                         >
                           CORPO $0
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] font-bold">
+                        <Badge variant="outline" className="text-xs font-bold">
                           {c.precio_pactado ? formatearDinero(c.precio_pactado) : "Membresía"}
                         </Badge>
                       )}
@@ -2397,7 +2397,7 @@ export function StudentDetail({
                     <p className="mt-1 text-sm font-bold text-foreground" data-testid="plan-membresia-nombre">
                       {nombrePlan}
                     </p>
-                    <p className="text-[11px] text-muted-foreground" data-testid="plan-membresia-detalle">
+                    <p className="text-xs text-muted-foreground" data-testid="plan-membresia-detalle">
                       {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
                         ? "Asesoría Online · Sin límite de clases"
                         : c.plan_membresia_id === "demo-plan-funcional-2x"
@@ -2409,14 +2409,14 @@ export function StudentDetail({
                         : "Pase libre sin límite semanal"}
                     </p>
                     {plan?.notas && (
-                      <p className="mt-1 text-[11px] text-muted-foreground italic" data-testid="plan-membresia-notas">
+                      <p className="mt-1 text-xs text-muted-foreground italic" data-testid="plan-membresia-notas">
                         📝 {plan.notas}
                       </p>
                     )}
                   </div>
 
                   <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Actividad de la Contratación
                     </p>
                     <p className="mt-1 text-sm font-bold text-foreground" data-testid="actividad-contratacion">
@@ -2430,7 +2430,7 @@ export function StudentDetail({
                         ? "Rutinas Online (Asesoría)"
                         : "Funcional + Boxeo (Pase libre)"}
                     </p>
-                    <p className="text-[11px] text-muted-foreground" data-testid="tipo-servicio-contratacion">
+                    <p className="text-xs text-muted-foreground" data-testid="tipo-servicio-contratacion">
                       {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
                         ? "Modalidad Online"
                         : "Modalidad Presencial"}
@@ -2451,7 +2451,7 @@ export function StudentDetail({
                 <h4 className="text-sm font-semibold text-foreground">
                   Renovación manual
                 </h4>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   No se corre la fecha: el próximo corte queda el{" "}
                   <strong className="text-foreground">
                     {formatFecha(proximaFechaAnclada)}
@@ -2460,7 +2460,7 @@ export function StudentDetail({
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                <label className="flex-1 min-w-[8rem] text-xs font-semibold text-muted-foreground">
                   Medio de pago
                   <select
                     value={renovMedio}
@@ -2474,7 +2474,7 @@ export function StudentDetail({
                     <option value="EFECTIVO">Efectivo</option>
                   </select>
                 </label>
-                <label className="flex-1 min-w-[8rem] text-[11px] font-semibold text-muted-foreground">
+                <label className="flex-1 min-w-[8rem] text-xs font-semibold text-muted-foreground">
                   Monto
                   <input
                     type="number"
@@ -2503,18 +2503,18 @@ export function StudentDetail({
 
             {/* Extensión excepcional (motivo obligatorio) */}
             <div
-              className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3.5"
+              className="space-y-3 rounded-lg border border-warning-soft-border bg-warning-soft p-3.5"
               data-testid="extension-excepcional"
             >
               <div>
                 <h4 className="text-sm font-semibold text-foreground">
                   Extensión excepcional
                 </h4>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Fuera de ciclo. Requiere motivo obligatorio para auditoría.
                 </p>
               </div>
-              <label className="block text-[11px] font-semibold text-muted-foreground">
+              <label className="block text-xs font-semibold text-muted-foreground">
                 Nueva fecha de vencimiento
                 <input
                   type="date"
@@ -2524,7 +2524,7 @@ export function StudentDetail({
                   data-testid="extension-fecha"
                 />
               </label>
-              <label className="block text-[11px] font-semibold text-muted-foreground">
+              <label className="block text-xs font-semibold text-muted-foreground">
                 Motivo (obligatorio)
                 <textarea
                   value={extMotivo}
@@ -3112,7 +3112,7 @@ export function StudentDetail({
                   <h3 className="text-sm font-bold text-foreground">
                     Personalizar Islas del Canvas
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Elegí qué componentes ver u ocultar en la vista del alumno.
                   </p>
                 </div>
@@ -3150,7 +3150,7 @@ export function StudentDetail({
                         <span className="text-xs font-bold text-foreground block">
                           {item.title}
                         </span>
-                        <span className="text-[10px] text-muted-foreground block">
+                        <span className="text-xs text-muted-foreground block">
                           {item.desc}
                         </span>
                       </div>
@@ -3230,7 +3230,7 @@ export function StudentDetail({
             <p>
               <span className="font-bold">Actividad:</span> {actividadFrecuencia.etiqueta}
             </p>
-            <p className="text-muted-foreground text-[11px]">
+            <p className="text-muted-foreground text-xs">
               Ciclo anclado al día {contratacion.dia_vencimiento} de cada mes.
             </p>
           </div>
@@ -3263,7 +3263,7 @@ export function StudentDetail({
                 data-testid="btn-medio-transferencia"
               >
                 <p className="text-xs font-bold text-foreground">Transferencia</p>
-                <p className="text-[10px] text-muted-foreground">CBU / MP</p>
+                <p className="text-xs text-muted-foreground">CBU / MP</p>
               </button>
 
               <button
@@ -3277,7 +3277,7 @@ export function StudentDetail({
                 data-testid="btn-medio-efectivo"
               >
                 <p className="text-xs font-bold text-foreground">Efectivo</p>
-                <p className="text-[10px] text-muted-foreground">En gimnasio</p>
+                <p className="text-xs text-muted-foreground">En gimnasio</p>
               </button>
             </div>
           </div>

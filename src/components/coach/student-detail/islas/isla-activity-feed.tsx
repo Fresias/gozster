@@ -153,7 +153,7 @@ export function IslaActivityFeed({
           <span
             role="img"
             aria-label="Pago confirmado"
-            className="h-6 w-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"
+            className="h-6 w-6 rounded-full bg-success-soft text-success-soft-foreground flex items-center justify-center"
           >
             <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
@@ -163,7 +163,7 @@ export function IslaActivityFeed({
           <span
             role="img"
             aria-label="Sesión completada"
-            className="h-6 w-6 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center"
+            className="h-6 w-6 rounded-full bg-neutral-soft text-neutral-soft-foreground flex items-center justify-center"
           >
             <Dumbbell className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
@@ -173,7 +173,7 @@ export function IslaActivityFeed({
           <span
             role="img"
             aria-label="Alerta de dolor"
-            className="h-6 w-6 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center"
+            className="h-6 w-6 rounded-full bg-danger-soft text-danger-soft-foreground flex items-center justify-center"
           >
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
@@ -184,7 +184,7 @@ export function IslaActivityFeed({
           <span
             role="img"
             aria-label="Cambio de rutina"
-            className="h-6 w-6 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center"
+            className="h-6 w-6 rounded-full bg-warning-soft text-warning-soft-foreground flex items-center justify-center"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" />
           </span>

@@ -115,18 +115,18 @@ export function IslaAdministrativa({
     if (esVencido) {
       return {
         texto: "Vencido",
-        className: "border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10",
+        className: "border-danger-soft-border text-danger-soft-foreground bg-danger-soft",
       };
     }
     if (esPendiente) {
       return {
         texto: "Pendiente",
-        className: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10",
+        className: "border-warning-soft-border text-warning-soft-foreground bg-warning-soft",
       };
     }
     return {
       texto: "Al día",
-      className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+      className: "border-success-soft-border text-success-soft-foreground bg-success-soft",
     };
   }, [esVencido, esPendiente]);
 

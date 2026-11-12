@@ -370,7 +370,7 @@ export default function HomePage() {
       <main className="flex-1">
         {/* Hero: la promesa, en una frase, y quién la sostiene */}
         <section
-          className="landing-section dark relative isolate flex min-h-[calc(100svh-4rem)] flex-col overflow-hidden bg-background text-foreground"
+          className="landing-section dark relative isolate flex min-h-landing-chapter flex-col overflow-hidden bg-background text-foreground"
           data-testid="hero-impacto"
         >
           <div className="hero-grid pointer-events-none absolute inset-0 -z-20" aria-hidden="true" />
@@ -450,17 +450,17 @@ export default function HomePage() {
         <section id="gonzalo" className={SECCION}>
           <div className={CUERPO}>
             <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-12 md:gap-10 lg:gap-12">
-              <figure className="landing-media dark group relative isolate overflow-hidden rounded-2xl bg-zinc-950 md:col-span-4" data-reveal>
+              <figure className="landing-media dark group relative isolate overflow-hidden rounded-2xl bg-background md:col-span-4" data-reveal>
                 <img
                   src={FOTO_GONZALO}
                   alt="Retrato de Gonzalo Salas, Head Coach"
                   loading="lazy"
                   className="aspect-[2/1] w-full object-cover object-top grayscale contrast-125 transition-transform duration-700 group-hover:scale-105 md:aspect-[3/4]"
                 />
-                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 to-transparent p-5 pt-16 text-zinc-50">
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent p-5 pt-16 text-foreground">
                   <span className="block text-3xl font-black leading-none tracking-tighter">Gonzalo Salas</span>
-                  <span className="mt-2 flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
-                    <span className="landing-dot size-1.5 rounded-full bg-zinc-50 text-zinc-50" aria-hidden="true" />
+                  <span className="mt-2 flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className="landing-dot size-1.5 rounded-full bg-foreground text-foreground" aria-hidden="true" />
                     Head Coach
                   </span>
                 </figcaption>
@@ -468,6 +468,7 @@ export default function HomePage() {
 
               <div className="md:col-span-8">
                 <Capitulo n="01">Quién te entrena</Capitulo>
+                <h2 className="sr-only">Quién te entrena</h2>
                 <blockquote className="text-balance text-xl font-black leading-[1.05] tracking-tighter sm:text-4xl lg:text-[2.75rem]" data-reveal>
                   &ldquo;No tenés un problema de voluntad. Tenés una <span className="landing-tachar text-muted-foreground">rutina genérica</span> y nadie que te mire entrenar.&rdquo;
                 </blockquote>
@@ -513,7 +514,7 @@ export default function HomePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Felipe Leites */}
                 <div className="landing-card group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-foreground/40">
-                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-zinc-950">
+                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-background">
                     <img
                       src={FOTO_FELIPE}
                       alt="Retrato de Felipe Leites, Online Coach"
@@ -522,7 +523,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className={MICRO_LABEL}>
                       Online Coach
                     </span>
                     <h4 className="text-base font-black leading-snug tracking-tight text-foreground">
@@ -537,7 +538,7 @@ export default function HomePage() {
 
                 {/* Leonel Lleset */}
                 <div className="landing-card group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-foreground/40">
-                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-zinc-950">
+                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-background">
                     <img
                       src={FOTO_LLESET}
                       alt="Retrato de Leonel Lleset, Boxing Coach"
@@ -546,7 +547,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div>
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className={MICRO_LABEL}>
                       Boxing Coach
                     </span>
                     <h4 className="text-base font-black leading-snug tracking-tight text-foreground">
@@ -568,17 +569,17 @@ export default function HomePage() {
         <section
           id="problema"
           ref={containerRef}
-          className="landing-section relative min-h-[calc(100svh-4rem)] h-[220vh] bg-secondary/40 text-foreground"
+          className="landing-section relative min-h-landing-chapter h-[220vh] bg-secondary/40 text-foreground"
         >
           <div id="metodo" className="sr-only" />
 
           {/* Elemento Sticky de 100vh exacto (1 solo viewport) */}
           <div
             id="problema-sticky-viewport"
-            className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-between py-6 px-4 md:px-8"
+            className="sticky top-landing-header flex h-landing-chapter w-full flex-col justify-between overflow-hidden py-4"
           >
             {/* Barra superior de estado y progreso narrativo monocromático */}
-            <div className="max-w-7xl mx-auto w-full flex items-center justify-between pb-3 border-b border-border">
+            <div className={`${CONTAINER} flex items-center justify-between border-b border-border pb-3`}>
               <Capitulo n="02">¿Te suena?</Capitulo>
               <div className="w-24 sm:w-36 h-1 rounded-full bg-border/60 overflow-hidden">
                 <div
@@ -590,7 +591,7 @@ export default function HomePage() {
             </div>
 
             {/* TRACK HORIZONTAL: Contiene Panel 1 (El Dolor) y Panel 2 (El Método) */}
-            <div className="max-w-7xl mx-auto w-full my-auto overflow-hidden">
+            <div className={`${CONTAINER} my-auto overflow-hidden`}>
               <div
                 ref={trackRef}
                 id="story-track"
@@ -618,7 +619,10 @@ export default function HomePage() {
                           key={d.n}
                           className="landing-card rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground"
                         >
-                          <span className="font-mono text-4xl sm:text-5xl font-black tabular-nums tracking-tighter text-foreground/15 block">
+                          <span
+                            aria-hidden="true"
+                            className="block font-mono text-2xl font-black leading-none tabular-nums tracking-tighter text-foreground/15 sm:text-5xl"
+                          >
                             {d.n}
                           </span>
                           <h3 className="mt-2 text-balance text-base sm:text-lg font-black leading-tight tracking-tight text-foreground">
@@ -677,7 +681,7 @@ export default function HomePage() {
             </div>
 
             {/* Pie del Viewport Sticky con enlace a la siguiente sección */}
-            <div className="max-w-7xl mx-auto w-full pt-3 border-t border-border flex items-center justify-end">
+            <div className={`${CONTAINER} flex items-center justify-end border-t border-border pt-3`}>
               <Siguiente href="#alumnos" className="!mt-0 !p-0">
                 Mirá cómo se ve tu plan
               </Siguiente>
@@ -748,6 +752,9 @@ export default function HomePage() {
               ref={deal.gridRef}
               className={`${FILA} mt-8 md:gap-5`}
               style={{ perspective: "1400px" }}
+              tabIndex={0}
+              role="group"
+              aria-label="Modalidades de entrenamiento"
             >
               {MODALIDADES.map((m, i) => (
                 <div
@@ -762,7 +769,7 @@ export default function HomePage() {
                     ref={(el) => {
                       deal.cardRefs.current[i] = el;
                     }}
-                    className="landing-card group relative isolate flex min-h-[380px] w-full flex-col justify-end overflow-hidden rounded-2xl bg-zinc-950 p-6 text-zinc-50 lg:min-h-[400px]"
+                    className="landing-card dark group relative isolate flex min-h-[380px] w-full flex-col justify-end overflow-hidden rounded-2xl bg-background p-6 text-foreground lg:min-h-[400px]"
                     data-modalidad-card={i}
                   >
                     <img
@@ -771,17 +778,17 @@ export default function HomePage() {
                       loading="lazy"
                       className="absolute inset-0 -z-20 size-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 -z-10 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-zinc-950/20" aria-hidden="true" />
-                    <span className="mb-auto self-start rounded-full border border-zinc-50/30 bg-zinc-950/60 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider">
+                    <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/70 to-background/20" aria-hidden="true" />
+                    <span className="mb-auto self-start rounded-full border border-foreground/30 bg-background/60 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider">
                       {m.badge}
                     </span>
                     <h3 className="text-3xl font-black tracking-tighter lg:text-4xl">{m.nombre}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-300">{m.descripcion}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.descripcion}</p>
                     <a
                       href={whatsapp(`Hola equipo de GOZS, quiero consultar por ${m.nombre}.`)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`${BTN} mt-5 w-full bg-zinc-50 text-zinc-950 hover:bg-white focus-visible:ring-zinc-50 focus-visible:ring-offset-zinc-950`}
+                      className={`${BTN} mt-5 w-full bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-ring focus-visible:ring-offset-background`}
                     >
                       <span>{m.cta}</span>
                       <ArrowIcon />
@@ -815,7 +822,7 @@ export default function HomePage() {
             <div className="relative mt-8 lg:mt-12" data-reveal>
               {/* Línea de tiempo: se dibuja al entrar y une los tres pasos */}
               <div className="landing-linea absolute inset-x-0 top-7 hidden h-0.5 bg-foreground md:block" aria-hidden="true" />
-              <ol className={`${FILA} md:gap-6`}>
+              <ol className={`${FILA} md:gap-6`} tabIndex={0} role="group" aria-label="Pasos de trabajo">
                 {PASOS.map((p, i) => (
                   <li key={p.n} className={`${FILA_ITEM} group relative`}>
                     <span
@@ -851,7 +858,7 @@ export default function HomePage() {
             <h2 className={`${H2} max-w-4xl`} data-reveal>
               No lo decimos <NosotrosInteraction>nosotros</NosotrosInteraction>.
             </h2>
-            <div className={`${FILA} mt-8 md:gap-5 lg:mt-12`}>
+            <div className={`${FILA} mt-8 md:gap-5 lg:mt-12`} tabIndex={0} role="group" aria-label="Testimonios de quienes ya entrenan">
               {TESTIMONIOS.map((t, i) => (
                 <figure
                   key={t.nombre}
@@ -942,9 +949,19 @@ export default function HomePage() {
                 <h2 className={H2} data-reveal>
                   Lo que todos preguntan antes de empezar.
                 </h2>
-                <p className={`${LEAD} mt-4 hidden max-w-md sm:block`} data-reveal>
+                <p className={`${LEAD} mt-4 max-w-md`} data-reveal>
                   ¿No está tu duda? Escribile al equipo de GOZS y te respondemos.
                 </p>
+                <a
+                  href={whatsapp("Hola equipo de GOZS, tengo una pregunta antes de empezar.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${BTN_GHOST} mt-5`}
+                  data-reveal
+                >
+                  <span>Hacer mi pregunta</span>
+                  <ArrowIcon className="size-5" />
+                </a>
               </div>
               <div className="lg:col-span-7">
                 <Preguntas titulo="Si querés entrenar" items={FAQ_ALUMNOS} />
