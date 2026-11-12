@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { useAthleteStore } from "@/store/use-athlete-store";
+import { cn } from "@/lib/utils";
+import { Play, Pause } from "@/components/athlete/icons";
 
 export function RestTimer() {
   const {
@@ -55,107 +57,85 @@ export function RestTimer() {
     }
   };
 
+  const pausado = restTimer.isPaused;
+
   return (
     <aside
       aria-label="Temporizador de descanso"
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/80 bg-card/95 p-4 shadow-lg backdrop-blur-xl transition-colors duration-150"
       data-testid="rest-timer-banner"
+      className="fixed inset-x-0 bottom-0 z-40 overflow-hidden border-t border-border bg-rest-timer pb-[env(safe-area-inset-bottom)] lg:inset-x-auto lg:bottom-6 lg:right-6 lg:w-[400px] lg:rounded-2xl lg:border lg:shadow-m3-2"
     >
-      <div className="mx-auto max-w-md space-y-3">
-        {/* Barra de progreso de descanso bimodal */}
-        <div className="h-2 w-full overflow-hidden rounded-full bg-secondary border border-border/50">
-          <div
-            className={`h-full transition-all duration-300 ease-linear rounded-full ${
-              restTimer.isPaused
-                ? "bg-amber-400"
-                : "bg-gradient-to-r from-primary to-emerald-500"
-            }`}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+      <div
+        role="progressbar"
+        aria-label="Progreso del descanso"
+        aria-valuemin={0}
+        aria-valuemax={restTimer.totalSeconds}
+        aria-valuenow={restTimer.totalSeconds - restTimer.secondsRemaining}
+        className="h-1.5 w-full bg-rest-timer-track"
+      >
+        <div
+          className={cn(
+            "h-full transition-[width] duration-300 ease-linear motion-reduce:transition-none",
+            pausado ? "bg-rest-timer-paused" : "bg-rest-timer-fill",
+          )}
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
 
-        <div className="flex items-center justify-between gap-3">
+      <div className="mx-auto max-w-md space-y-3 p-4">
+        <div className="flex items-end justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full ${
-                  restTimer.isPaused
-                    ? "bg-amber-400"
-                    : "bg-primary animate-ping"
-                }`}
-              />
-              <p
-                className={`text-xs font-bold uppercase tracking-wider ${
-                  restTimer.isPaused
-                    ? "text-amber-500 dark:text-amber-400"
-                    : "text-primary font-extrabold"
-                }`}
-              >
-                {restTimer.isPaused ? "Descanso Pausado" : "Descanso Activo"}
-              </p>
-            </div>
-            <p className="truncate text-xs text-muted-foreground mt-0.5">
-              {restTimer.exerciseName} • Serie #{restTimer.setNumber}
+            <p
+              className={cn(
+                "text-sm font-bold uppercase tracking-wider",
+                pausado ? "text-rest-timer-paused" : "text-foreground",
+              )}
+            >
+              {pausado ? "Pausado" : "Descanso"}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">
+              {restTimer.exerciseName} · Serie {restTimer.setNumber}
             </p>
           </div>
-
           <div
-            className="text-3xl sm:text-4xl font-mono font-black tracking-tight text-primary tabular-nums drop-shadow-xs"
-            aria-live="polite"
+            role="timer"
+            aria-live="off"
+            aria-label={`Quedan ${minutes} minutos y ${seconds} segundos`}
+            className="font-mono text-6xl font-black leading-none tracking-tight tabular-nums text-rest-timer-time"
           >
             {formattedTime}
           </div>
         </div>
 
-        {/* Botones táctiles ergonómicos de gran formato (+30s / -30s / Pausa / Omitir) */}
-        <div className="grid grid-cols-4 gap-2 pt-1">
+        <div className="grid grid-cols-4 gap-2">
           <Button
             variant="outline"
-            size="default"
-            className="text-xs font-bold touch-manipulation min-h-11 border-border/80 hover:bg-secondary active:scale-95"
-            onClick={() => addTimerSeconds(30)}
-            title="Añadir 30 segundos"
-          >
-            +30s
-          </Button>
-
-          <Button
-            variant="outline"
-            size="default"
-            className="text-xs font-bold touch-manipulation min-h-11 border-border/80 hover:bg-secondary active:scale-95 disabled:opacity-40"
+            size="quick"
+            className="font-mono"
+            aria-label="Restar 30 segundos"
             disabled={restTimer.secondsRemaining <= 5}
             onClick={handleSubtract30}
-            title="Restar 30 segundos"
           >
-            -30s
+            −30 s
           </Button>
-
-          {restTimer.isPaused ? (
-            <Button
-              variant="default"
-              size="default"
-              className="text-xs font-bold touch-manipulation min-h-11 bg-primary text-primary-foreground hover:brightness-105 active:scale-95"
-              onClick={resumeTimer}
-            >
-              ▶ Reanudar
-            </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              size="default"
-              className="text-xs font-bold touch-manipulation min-h-11 border border-border/60 hover:bg-secondary/80 active:scale-95"
-              onClick={pauseTimer}
-            >
-              ⏸ Pausar
-            </Button>
-          )}
-
           <Button
-            variant="ghost"
-            size="default"
-            className="text-xs font-semibold text-muted-foreground hover:text-destructive touch-manipulation min-h-11"
-            onClick={stopTimer}
+            variant="outline"
+            size="quick"
+            className="font-mono"
+            aria-label="Sumar 30 segundos"
+            onClick={() => addTimerSeconds(30)}
           >
+            +30 s
+          </Button>
+          <Button
+            variant={pausado ? "default" : "outline"}
+            size="quick"
+            aria-label={pausado ? "Reanudar descanso" : "Pausar descanso"}
+            onClick={pausado ? resumeTimer : pauseTimer}
+          >
+            {pausado ? <Play className="size-6" /> : <Pause className="size-6" />}
+          </Button>
+          <Button variant="secondary" size="quick" onClick={stopTimer}>
             Omitir
           </Button>
         </div>

@@ -159,6 +159,14 @@
 .theme-athlete { --primary: 221 83% 53%; --primary-foreground: 210 40% 98%; --ring: 221 83% 53%; }
 .dark .theme-athlete { --primary: 199 89% 48%; --primary-foreground: 240 5.9% 10%; --ring: 199 89% 48%; }
 
+.theme-athlete {
+  --rest-timer-bg: var(--card);
+  --rest-timer-time-fg: var(--foreground);
+  --rest-timer-track-bg: var(--muted);
+  --rest-timer-fill-bg: var(--primary);
+  --rest-timer-fill-bg-paused: var(--warning-soft-foreground);
+}
+
 /* Athlete App · pulido visual (GOZS-448). Solo estilo: sin cambios de DOM, estado ni flujo.
    Selectores con :where() para que cualquier utilidad de Tailwind del componente siga ganando. */
 

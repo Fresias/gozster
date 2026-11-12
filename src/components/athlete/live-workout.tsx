@@ -714,7 +714,7 @@ export function LiveWorkout() {
   const isAllWorkoutCompleted = completedSetsCount === totalSets && totalSets > 0;
 
   return (
-    <div className="space-y-6 pb-28" data-testid="live-workout-container">
+    <div className="space-y-6 pb-44" data-testid="live-workout-container">
       {/* Vista de Cuestionario Inicial si fue activado desde Configuración */}
       {activeTab === "cuestionario" ? (
         <div className="space-y-4">
