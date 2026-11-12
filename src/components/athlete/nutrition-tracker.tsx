@@ -115,7 +115,7 @@ export function NutritionTracker({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500 text-lg">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-soft text-warning text-lg">
               🥗
             </span>
             <div>
@@ -144,7 +144,7 @@ export function NutritionTracker({
           </div>
           <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full bg-orange-500 transition-all"
+              className="h-full bg-warning transition-all"
               style={{
                 width: `${getPercent(nutrition.calorias_consumidas, nutrition.calorias_meta)}%`,
               }}
@@ -156,7 +156,7 @@ export function NutritionTracker({
         <div className="grid grid-cols-3 gap-2">
           {/* Proteínas */}
           <div className="rounded-xl border border-border/60 bg-secondary/30 p-2.5 text-center space-y-1.5">
-            <span className="text-[11px] font-bold text-blue-400 block">
+            <span className="text-xs font-bold text-primary block">
               🥩 Proteínas
             </span>
             <span className="font-mono text-xs font-bold text-foreground block">
@@ -164,7 +164,7 @@ export function NutritionTracker({
             </span>
             <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full bg-blue-500"
+                className="h-full bg-primary"
                 style={{
                   width: `${getPercent(nutrition.proteinas_g, nutrition.proteinas_meta_g)}%`,
                 }}
@@ -174,7 +174,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("proteinas_g", -10)}
               >
                 -10
@@ -182,7 +182,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("proteinas_g", 10)}
               >
                 +10
@@ -192,7 +192,7 @@ export function NutritionTracker({
 
           {/* Carbohidratos */}
           <div className="rounded-xl border border-border/60 bg-secondary/30 p-2.5 text-center space-y-1.5">
-            <span className="text-[11px] font-bold text-amber-400 block">
+            <span className="text-xs font-bold text-warning block">
               🍚 Carbos
             </span>
             <span className="font-mono text-xs font-bold text-foreground block">
@@ -200,7 +200,7 @@ export function NutritionTracker({
             </span>
             <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full bg-amber-500"
+                className="h-full bg-warning"
                 style={{
                   width: `${getPercent(nutrition.carbos_g, nutrition.carbos_meta_g)}%`,
                 }}
@@ -210,7 +210,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("carbos_g", -15)}
               >
                 -15
@@ -218,7 +218,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("carbos_g", 15)}
               >
                 +15
@@ -228,7 +228,7 @@ export function NutritionTracker({
 
           {/* Grasas */}
           <div className="rounded-xl border border-border/60 bg-secondary/30 p-2.5 text-center space-y-1.5">
-            <span className="text-[11px] font-bold text-rose-400 block">
+            <span className="text-xs font-bold text-destructive block">
               🥑 Grasas
             </span>
             <span className="font-mono text-xs font-bold text-foreground block">
@@ -236,7 +236,7 @@ export function NutritionTracker({
             </span>
             <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full bg-rose-500"
+                className="h-full bg-destructive"
                 style={{
                   width: `${getPercent(nutrition.grasas_g, nutrition.grasas_meta_g)}%`,
                 }}
@@ -246,7 +246,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("grasas_g", -5)}
               >
                 -5
@@ -254,7 +254,7 @@ export function NutritionTracker({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 flex-1 text-[10px] px-1"
+                className="h-6 flex-1 text-xs px-1"
                 onClick={() => updateMacro("grasas_g", 5)}
               >
                 +5
@@ -264,7 +264,7 @@ export function NutritionTracker({
         </div>
 
         {saveSuccess && (
-          <p className="text-center text-[10px] text-emerald-400 font-semibold pt-1">
+          <p className="text-center text-xs text-success font-semibold pt-1">
             ✓ Nutrición sincronizada en Supabase con éxito
           </p>
         )}

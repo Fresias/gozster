@@ -204,7 +204,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
 
           {!isOnline && (
             <div
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-500"
+              className="inline-flex items-center gap-1.5 rounded-full border border-warning-soft-border bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning"
               title="Modo Avión: las correcciones se guardan localmente y se sincronizan al volver la conexión"
             >
               <CloudOff className="h-3.5 w-3.5" />
@@ -216,7 +216,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         {/* Resumen numérico rápido (Poda de Volumen Total según GOZS-359) */}
         <div className="grid grid-cols-2 gap-2 pt-1 text-center">
           <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Sesiones Realizadas
             </span>
             <div className="font-mono text-xl font-black text-foreground">
@@ -224,7 +224,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
             </div>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Series Totales
             </span>
             <div className="font-mono text-xl font-black text-primary">
@@ -269,7 +269,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/15 p-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400 animate-in fade-in slide-in-from-top-1"
+          className="flex items-center gap-2 rounded-xl border border-success-soft-border bg-success-soft p-3 text-sm font-semibold text-success-soft-foreground animate-in fade-in slide-in-from-top-1"
           data-testid="toast-guardado-exitoso"
         >
           <Check className="h-4 w-4 shrink-0" />
@@ -323,7 +323,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                         </span>
                         {sesion.motivoCambioDia && (
                           <span
-                            className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                            className="inline-flex items-center rounded-full border border-warning-soft-border bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-soft-foreground"
                             data-testid="badge-cambio-dia"
                           >
                             Cambio de día
@@ -368,7 +368,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                 <Dumbbell className="h-3.5 w-3.5 text-primary shrink-0" />
                                 <span>{ej.ejercicioNombre}</span>
                               </h3>
-                              <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+                              <span className="text-xs font-mono font-semibold text-muted-foreground">
                                 Máx: {ej.maxPesoKg} kg
                               </span>
                             </div>
@@ -423,7 +423,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                               className="h-11 w-20 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
                                               data-testid={`input-peso-${s.id}`}
                                             />
-                                            <span className="text-[11px] text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground">
                                               kg
                                             </span>
                                           </div>
@@ -451,7 +451,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                               className="h-11 w-16 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
                                               data-testid={`input-reps-${s.id}`}
                                             />
-                                            <span className="text-[11px] text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground">
                                               reps
                                             </span>
                                           </div>
@@ -462,7 +462,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                             type="button"
                                             onClick={() => handleSaveEdit(false)}
                                             aria-label="Guardar corrección"
-                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-transform"
+                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-success px-3 text-xs font-bold text-success-foreground shadow-sm hover:bg-success/90 active:scale-95 transition-transform"
                                             data-testid={`btn-guardar-serie-${s.id}`}
                                           >
                                             <Check className="h-4 w-4 mr-1" />
@@ -493,19 +493,19 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                       /* VISTA NORMAL DE SERIE */
                                       <>
                                         <div className="flex items-center gap-2">
-                                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-mono font-bold text-muted-foreground">
+                                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-mono font-bold text-muted-foreground">
                                             {s.numeroSerie}
                                           </span>
 
                                           {/* Badge tipo de serie */}
                                           <span
-                                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                                            className={`rounded px-1.5 py-0.5 text-xs font-bold uppercase ${
                                               s.setType === "WARMUP" || s.setType === "W"
-                                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                                ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
                                                 : s.setType === "FAILURE" || s.setType === "F"
                                                 ? "bg-destructive/15 text-destructive font-black"
                                                 : s.setType === "DROPSET" || s.setType === "D"
-                                                ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
+                                                ? "bg-neutral-soft text-neutral-soft-foreground border border-neutral-soft-border"
                                                 : "bg-primary/10 text-primary"
                                             }`}
                                           >
@@ -527,7 +527,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                               {s.repsHechas} reps
                                             </span>
                                             {s.rpeReal && (
-                                              <span className="text-[11px] text-muted-foreground">
+                                              <span className="text-xs text-muted-foreground">
                                                 @ RPE {s.rpeReal}
                                               </span>
                                             )}
@@ -535,7 +535,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground">
+                                          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
                                             <span>1RM: {Math.round(s.estimated1RM)} kg</span>
                                             <Tooltip1RM size="sm" />
                                           </span>
@@ -579,7 +579,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
               >
                 Ejercicio para Analizar
               </label>
-              <span className="text-[11px] font-mono text-muted-foreground">
+              <span className="text-xs font-mono text-muted-foreground">
                 {contratoDashboard.listaEjercicios.length} ejercicios registrados
               </span>
             </div>
@@ -606,7 +606,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="rounded-xl border border-border/80 bg-card p-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <Trophy className="h-4 w-4 text-amber-500" />
+                    <Trophy className="h-4 w-4 text-warning" />
                     <span>Récord de Carga</span>
                   </div>
                   <div className="mt-1 font-mono text-2xl font-black text-foreground">
@@ -618,7 +618,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                 <div className="rounded-xl border border-border/80 bg-card p-3">
                   <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
                     <div className="flex items-center gap-1.5">
-                      <Flame className="h-4 w-4 text-rose-500" />
+                      <Flame className="h-4 w-4 text-destructive" />
                       <span>Mejor 1RM (Epley)</span>
                     </div>
                     <Tooltip1RM size="sm" />
@@ -658,7 +658,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                         <div className="font-bold text-foreground">
                           {punto.fechaLegible}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           {punto.diaNombre} · {punto.seriesCount} {punto.seriesCount === 1 ? "serie" : "series"}
                         </div>
                       </div>
@@ -667,7 +667,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                         <div className="font-mono text-sm font-black text-primary">
                           {punto.maxPesoKg} kg
                         </div>
-                        <div className="text-[11px] font-mono text-muted-foreground inline-flex items-center gap-1 justify-end">
+                        <div className="text-xs font-mono text-muted-foreground inline-flex items-center gap-1 justify-end">
                           <span>1RM: {Math.round(punto.bestEstimated1RM)} kg</span>
                           <Tooltip1RM size="sm" />
                         </div>
@@ -693,7 +693,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         onClose={() => setAtypicalPrompt(null)}
       >
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
+          <div className="flex items-center gap-2 text-warning font-bold text-base">
             <TriangleAlert className="h-5 w-5" />
             <span>Carga atípica</span>
           </div>

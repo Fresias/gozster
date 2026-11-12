@@ -86,7 +86,7 @@ export function AthleteClasses() {
       <div className="flex items-center justify-between">
         <h1 id="clases-titulo" className="text-xl font-black tracking-tight">Clases</h1>
         {!isOnline && (
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+          <span className="rounded-full border border-warning-soft-border bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-soft-foreground">
             Sin conexión · datos guardados
           </span>
         )}
@@ -98,7 +98,7 @@ export function AthleteClasses() {
           <p className="text-xs font-bold text-foreground">
             Alumno activo
           </p>
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Dataset Demo
           </span>
         </div>
@@ -160,7 +160,7 @@ export function AthleteClasses() {
           <button
             type="button"
             onClick={() => setMostrarTodas(!mostrarTodas)}
-            className="font-semibold text-primary hover:underline text-[11px]"
+            className="font-semibold text-primary hover:underline text-xs"
             data-testid="toggle-filter-actividades"
           >
             {mostrarTodas ? "Ver solo mi actividad" : "Ver todas las actividades"}
@@ -173,8 +173,8 @@ export function AthleteClasses() {
           role="alert"
           className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${
             error
-              ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-              : "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
+              ? "border-danger-soft-border bg-danger-soft text-danger-soft-foreground"
+              : "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground"
           }`}
           data-testid="alert-message"
         >
@@ -213,7 +213,7 @@ export function AthleteClasses() {
               <li
                 key={clase.id}
                 className={`rounded-2xl border bg-card p-4 transition-all ${
-                  estado === "RESERVADA" ? "border-emerald-500/60 ring-1 ring-emerald-500/30" : "border-border/80"
+                  estado === "RESERVADA" ? "border-success ring-1 ring-success/30" : "border-border/80"
                 }`}
                 data-testid="class-booking-card"
               >
@@ -230,13 +230,13 @@ export function AthleteClasses() {
                       {NOMBRE_ACTIVIDAD[clase.actividad]}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                         estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                          ? "bg-success-soft text-success-soft-foreground border border-success-soft-border"
                           : estado === "CANCELADA"
-                          ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+                          ? "bg-danger-soft text-danger-soft-foreground border border-danger-soft-border"
                           : estado === "INICIADA"
-                          ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                          ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
                           : "bg-secondary text-muted-foreground"
                       }`}
                       data-testid="class-status"
@@ -255,7 +255,7 @@ export function AthleteClasses() {
                 </div>
 
                 {renovacion && estado === "DISPONIBLE" && (
-                  <p className="mt-3 rounded-xl border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-300" data-testid="renewal-period-banner">
+                  <p className="mt-3 rounded-xl border border-neutral-soft-border bg-neutral-soft p-3 text-xs text-neutral-soft-foreground" data-testid="renewal-period-banner">
                     Esta clase corresponde a tu período de renovación a partir del {renovacion}.
                   </p>
                 )}
@@ -274,7 +274,7 @@ export function AthleteClasses() {
                   )}
                   {estado === "RESERVADA" && reserva && (
                     <div className="space-y-2">
-                      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">✓ Tu reserva está confirmada</p>
+                      <p className="text-sm font-bold text-success">✓ Tu reserva está confirmada</p>
                       <Button
                         variant="outline"
                         size="touch"
@@ -289,7 +289,7 @@ export function AthleteClasses() {
                   )}
                   {estado === "RESERVADA_INICIADA" && (
                     <div className="space-y-2">
-                      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">✓ Estás anotado</p>
+                      <p className="text-sm font-bold text-success">✓ Estás anotado</p>
                       <Button variant="outline" size="touch" className="w-full" disabled>
                         La clase ya comenzó: venció el plazo para cancelar
                       </Button>

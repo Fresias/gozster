@@ -87,7 +87,7 @@ export function Tooltip1RM({ className = "", size = "sm" }: Tooltip1RMProps) {
               <X className="h-3.5 w-3.5" />
             </button>
           </span>
-          <span className="block text-[11px] text-muted-foreground">
+          <span className="block text-xs text-muted-foreground">
             Es la <strong>repetición máxima teórica</strong> que podrías alcanzar, calculada por fórmula matemática (Epley / Brzycki) a partir del peso y las repeticiones que realizaste.
           </span>
           {/* Flecha indicadora */}

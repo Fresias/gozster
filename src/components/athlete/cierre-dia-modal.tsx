@@ -170,7 +170,7 @@ export function CierreDiaModal({
         >
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-background/80 p-3 border border-border/60 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                 Series
               </span>
               <span
@@ -179,13 +179,13 @@ export function CierreDiaModal({
               >
                 {`${seriesCompletadas}/${totalSeries}`}
               </span>
-              <span className="text-[10px] text-muted-foreground block">
+              <span className="text-xs text-muted-foreground block">
                 100% completadas
               </span>
             </div>
 
             <div className="rounded-xl bg-background/80 p-3 border border-border/60 text-center">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                 Tiempo
               </span>
               <span
@@ -194,7 +194,7 @@ export function CierreDiaModal({
               >
                 {tiempoTexto}
               </span>
-              <span className="text-[10px] text-muted-foreground block">
+              <span className="text-xs text-muted-foreground block">
                 Duración de sesión
               </span>
             </div>
@@ -205,12 +205,12 @@ export function CierreDiaModal({
         <div className="space-y-2.5 text-left">
           {/* Card de Racha Semanal */}
           <div
-            className="flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-amber-500/25 bg-amber-500/10 shadow-xs"
+            className="flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-warning-soft-border bg-warning-soft shadow-xs"
             data-testid="cierre-dia-racha-card"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500 text-xl border border-amber-500/30">
-                <Flame className="h-6 w-6 text-amber-500" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-warning-soft text-warning text-xl border border-warning-soft-border">
+                <Flame className="h-6 w-6 text-warning" />
               </div>
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
@@ -218,19 +218,19 @@ export function CierreDiaModal({
                     Racha Semanal:
                   </span>
                   <span
-                    className="text-xs font-black text-amber-500 font-mono"
+                    className="text-xs font-black text-warning font-mono"
                     data-testid="racha-dias-valor"
                   >
                     {`${rachaDias} ${rachaDias === 1 ? "día" : "días"}`}
                   </span>
                   <span
-                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30"
+                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-xs font-extrabold bg-success-soft text-success border border-success-soft-border"
                     data-testid="racha-incremento-badge"
                   >
                     +1 día hoy
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground" data-testid="meta-semanal-avance">
+                <p className="text-xs text-muted-foreground" data-testid="meta-semanal-avance">
                   {`Día ${diasCompletadosSemana} de ${metaDiasSemana} completados esta semana`}
                 </p>
               </div>
@@ -243,7 +243,7 @@ export function CierreDiaModal({
                   key={i}
                   className={`h-2.5 w-2 rounded-full transition-colors ${
                     i < diasCompletadosSemana
-                      ? "bg-amber-500 shadow-xs"
+                      ? "bg-warning shadow-xs"
                       : "bg-border"
                   }`}
                 />
@@ -261,7 +261,7 @@ export function CierreDiaModal({
               <span className="font-bold text-foreground block">
                 Impacto en Ranking de Constancia
               </span>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Mantener una buena racha tendrá su recompensa.
               </p>
             </div>
@@ -276,10 +276,10 @@ export function CierreDiaModal({
           >
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <span className="text-amber-500 text-sm">🏆</span>
+                <span className="text-warning text-sm">🏆</span>
                 <span>Nuevos Récords Personales (PRs)</span>
               </span>
-              <span className="text-[10px] font-bold text-amber-500 uppercase font-mono">
+              <span className="text-xs font-bold text-warning uppercase font-mono">
                 {`${recordsObtenidos.length} ${recordsObtenidos.length === 1 ? "récord" : "récords"}`}
               </span>
             </div>
@@ -289,7 +289,7 @@ export function CierreDiaModal({
                 <div
                   key={`${rec.exerciseName}-${idx}`}
                   data-testid={`cierre-dia-pr-item-${idx}`}
-                  className="flex items-center justify-between p-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-amber-500/15 shadow-xs"
+                  className="flex items-center justify-between p-3 rounded-2xl border border-warning-soft-border bg-warning-soft shadow-xs"
                 >
                   <div className="space-y-0.5">
                     <span className="text-xs font-bold text-foreground block">
@@ -309,7 +309,7 @@ export function CierreDiaModal({
                   {/* Distintivo dorado */}
                   <span
                     data-testid={`cierre-dia-pr-badge-${idx}`}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-gradient-to-r from-amber-400 to-amber-500 text-amber-950 border border-amber-300 shadow-xs tracking-wider"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-warning text-warning-foreground border border-amber-300 shadow-xs tracking-wider"
                   >
                     <span>🏆</span>
                     <span>PR</span>

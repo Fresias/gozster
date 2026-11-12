@@ -135,7 +135,7 @@ export function PlateCalculatorModal({
                   <span className="text-sm font-bold font-mono">
                     {opt.weightKg} kg
                   </span>
-                  <span className="text-[10px] leading-tight line-clamp-1">
+                  <span className="text-xs leading-tight line-clamp-1">
                     {opt.shortName.split(" ")[0]}
                   </span>
                 </button>
@@ -150,7 +150,7 @@ export function PlateCalculatorModal({
             <label className="text-xs font-semibold text-muted-foreground block">
               Peso Total en Barra (kg):
             </label>
-            <span className="text-[11px] font-mono font-medium text-muted-foreground">
+            <span className="text-xs font-mono font-medium text-muted-foreground">
               Mínimo: {selectedBar} kg
             </span>
           </div>
@@ -195,7 +195,7 @@ export function PlateCalculatorModal({
 
         {/* Resumen por Lado y Normalización de Peso */}
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-center space-y-1.5">
-          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
             Carga Por Cada Lado:
           </span>
           <div
@@ -204,11 +204,11 @@ export function PlateCalculatorModal({
           >
             {result.perSideWeightKg} kg
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             (Barra: {result.barWeightKg} kg + {result.perSideWeightKg * 2} kg en discos = {result.totalWeightKg} kg total)
           </p>
           <div
-            className="mt-2 pt-2 border-t border-primary/10 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-center gap-1.5"
+            className="mt-2 pt-2 border-t border-primary/10 text-xs text-success font-medium flex items-center justify-center gap-1.5"
             data-testid="pr-normalization-badge"
           >
             <span>⚖️</span>
@@ -261,7 +261,7 @@ export function PlateCalculatorModal({
           )}
 
           {result.remainderKg > 0 && (
-            <p className="text-[11px] text-amber-500 dark:text-amber-400 font-medium pt-1">
+            <p className="text-xs text-warning font-medium pt-1">
               ⚠️ Sobrante de {result.remainderKg} kg por lado no divisible con discos disponibles.
             </p>
           )}

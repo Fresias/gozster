@@ -84,7 +84,7 @@ export function WarmupModal({
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 text-lg">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-soft text-warning text-lg">
               <Flame className="h-4 w-4" />
             </span>
             <div>
@@ -121,13 +121,13 @@ export function WarmupModal({
         {/* Alerta de recomendación estimada (1 sesión previa o > 8 semanas) */}
         {esEstimada && evaluacion?.mensajeAviso && (
           <div
-            className="flex items-start gap-2 p-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-xs text-amber-500"
+            className="flex items-start gap-2 p-3 rounded-xl border border-warning-soft-border bg-warning-soft text-xs text-warning"
             data-testid="estimada-aviso"
           >
             <TriangleAlert className="h-4 w-4 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-bold block">Recomendación Estimada</span>
-              <p className="text-[11px] text-muted-foreground leading-snug">
+              <p className="text-xs text-muted-foreground leading-snug">
                 {evaluacion.mensajeAviso}
               </p>
             </div>
@@ -137,14 +137,14 @@ export function WarmupModal({
         {/* Aviso para el alumno sin datos suficientes (GOZS-236) */}
         {esSinDatos && (
           <div
-            className="space-y-2 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs"
+            className="space-y-2 p-3.5 rounded-xl border border-warning-soft-border bg-warning-soft text-xs"
             data-testid="sin-datos-aviso"
           >
-            <div className="flex items-center gap-1.5 font-bold text-amber-500">
+            <div className="flex items-center gap-1.5 font-bold text-warning">
               <TriangleAlert className="h-4 w-4 shrink-0" />
               <span>Sin PR previo en este ejercicio</span>
             </div>
-            <p className="text-muted-foreground leading-relaxed text-[11px]">
+            <p className="text-muted-foreground leading-relaxed text-xs">
               {MENSAJE_SIN_DATOS}
             </p>
           </div>
@@ -203,20 +203,20 @@ export function WarmupModal({
                   className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-background/50 text-xs"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded bg-amber-500/20 text-amber-500 font-bold text-[10px]">
+                    <span className="flex h-5 w-5 items-center justify-center rounded bg-warning-soft text-warning font-bold text-xs">
                       W{p.setNumber}
                     </span>
                     <div>
                       <span className="font-bold text-foreground">
                         {p.peso_kg} kg × {p.reps} reps
                       </span>
-                      <span className="text-[10px] text-muted-foreground block">
+                      <span className="text-xs text-muted-foreground block">
                         {p.descripcion}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold text-amber-400 text-xs">
+                    <span className="font-mono font-semibold text-warning text-xs">
                       {p.percentage > 0 ? `${p.percentage}%` : "Barra"}
                     </span>
                     {onRegisterWarmupSet && (
@@ -224,7 +224,7 @@ export function WarmupModal({
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-7 px-2.5 text-[11px] font-bold border-amber-500/40 text-amber-500 hover:bg-amber-500/10 cursor-pointer"
+                        className="h-7 px-2.5 text-xs font-bold border-warning-soft-border text-warning hover:bg-warning-soft cursor-pointer"
                         onClick={() => {
                           onRegisterWarmupSet(p);
                           onClose();
@@ -247,7 +247,7 @@ export function WarmupModal({
             Cerrar
           </Button>
           <Button
-            className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold disabled:opacity-50"
+            className="flex-1 bg-warning hover:bg-warning/90 text-warning-foreground font-bold disabled:opacity-50"
             disabled={progressions.length === 0}
             onClick={() => {
               onApplyWarmupSets(progressions);

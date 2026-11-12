@@ -197,11 +197,11 @@ export function PainReportModal({
               Intensidad Percibida:
             </label>
             <span
-              className={`font-mono font-bold px-2 py-0.5 rounded-full text-[11px] ${
+              className={`font-mono font-bold px-2 py-0.5 rounded-full text-xs ${
                 severidad === "LEVE"
-                  ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30"
+                  ? "bg-success-soft text-success border border-success-soft-border"
                   : severidad === "MODERADO"
-                  ? "bg-amber-500/20 text-amber-500 border border-amber-500/30"
+                  ? "bg-warning-soft text-warning border border-warning-soft-border"
                   : "bg-destructive/20 text-destructive border border-destructive/30"
               }`}
               data-testid="pain-severity-badge"
@@ -255,7 +255,7 @@ export function PainReportModal({
                   <span>ℹ️</span>
                   <span>Aviso Neutro (Rango 1-3)</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Aviso neutro de que se notifica al coach, sin colores de alerta. Puedes continuar con precaución según tus sensaciones.
                 </p>
               </div>
@@ -263,14 +263,14 @@ export function PainReportModal({
 
             {intensidad >= 4 && intensidad <= 6 && (
               <div
-                className="rounded-xl border-2 border-amber-500/50 bg-amber-500/10 p-3 text-xs space-y-0.5 text-amber-500 dark:text-amber-400 animate-in fade-in"
+                className="rounded-xl border-2 border-warning-soft-border bg-warning-soft p-3 text-xs space-y-0.5 text-warning animate-in fade-in"
                 data-testid="pain-modal-cartel-4-6"
               >
                 <div className="flex items-center gap-2 font-bold">
                   <span>⚠️</span>
                   <span>Cartel Amarillo (Rango 4-6)</span>
                 </div>
-                <p className="text-[11px] font-semibold text-foreground leading-relaxed">
+                <p className="text-xs font-semibold text-foreground leading-relaxed">
                   Cartel amarillo, recomienda reducir peso si continúa la molestia en las siguientes series.
                 </p>
               </div>
@@ -285,7 +285,7 @@ export function PainReportModal({
                   <span>🛑</span>
                   <span>Cartel Rojo a Prueba de Errores (Rango 7-9)</span>
                 </div>
-                <p className="text-[11px] font-bold text-foreground leading-relaxed">
+                <p className="text-xs font-bold text-foreground leading-relaxed">
                   Cartel rojo a prueba de errores: suspender ese ejercicio y cualquiera que acentúe el dolor, seguir con lo que no moleste; no debe invitar a seguir.
                 </p>
               </div>
@@ -300,7 +300,7 @@ export function PainReportModal({
                   <span>🚨</span>
                   <span>Cartel Rojo: Parada Total (Rango 10)</span>
                 </div>
-                <p className="text-[11px] font-bold text-foreground leading-relaxed">
+                <p className="text-xs font-bold text-foreground leading-relaxed">
                   Cartel rojo, cesar el entrenamiento y contactar al entrenador de inmediato.
                 </p>
               </div>
@@ -316,7 +316,7 @@ export function PainReportModal({
               Síntomas de Alarma (Red Flags)
             </label>
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Marca si experimentas alguno de estos síntomas críticos durante el ejercicio:
           </p>
 
@@ -360,7 +360,7 @@ export function PainReportModal({
             <p className="text-xs font-bold leading-relaxed text-foreground">
               Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Ante síntomas de alarma o dolor agudo, no se sugieren sustituciones automáticas sin supervisión presencial. Se enviará una alerta CRÍTICA a tu coach.
             </p>
           </div>

@@ -155,7 +155,7 @@ export function AthleteChat({
           {unreadStaffMessagesCount > 0 && (
             <span
               data-testid="unread-chat-badge"
-              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white ring-2 ring-background animate-pulse"
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground ring-2 ring-background animate-pulse"
               aria-label={`${unreadStaffMessagesCount} mensajes no leídos del equipo GOZS`}
             >
               {unreadStaffMessagesCount}
@@ -181,11 +181,11 @@ export function AthleteChat({
                 className="text-sm font-bold text-foreground flex items-center gap-2"
               >
                 <span>GOZS</span>
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold text-primary">
                   Equipo
                 </span>
               </h3>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Tu equipo de entrenadores GOZS
               </p>
             </div>
@@ -206,7 +206,7 @@ export function AthleteChat({
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <span className="text-sm">🔔</span>
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground truncate">
                 {pushStatus.message ||
                   (pushStatus.isSubscribed
                     ? "Notificaciones push activadas"
@@ -218,9 +218,9 @@ export function AthleteChat({
               onClick={handleTogglePush}
               data-testid="toggle-push-btn"
               disabled={pushStatus.loading}
-              className={`min-h-8 min-w-[90px] px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors touch-manipulation cursor-pointer ${
+              className={`min-h-8 min-w-[90px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors touch-manipulation cursor-pointer ${
                 pushStatus.isSubscribed
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                  ? "bg-success-soft text-success-soft-foreground border border-success-soft-border"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
@@ -234,8 +234,8 @@ export function AthleteChat({
 
           {/* Advertencia Offline si está en modo avión */}
           {!isOnline && (
-            <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5 text-[11px] text-amber-300 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <div className="bg-warning-soft border-b border-warning-soft-border px-3 py-1.5 text-xs text-warning-soft-foreground flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-warning" />
               <span>Modo Avión: Tu mensaje se enviará al retomar conexión.</span>
             </div>
           )}
@@ -261,18 +261,18 @@ export function AthleteChat({
                       {/* Identidad institucional GOZS hacia el alumno (sin firmas individuales ni nombres de profesores) */}
                       <div className="flex items-center gap-1.5 mb-1 ml-9">
                         <span
-                          className="text-[11px] font-bold text-primary"
+                          className="text-xs font-bold text-primary"
                           data-testid={`staff-author-${msg.id}`}
                         >
                           GOZS
                         </span>
-                        <span className="rounded bg-primary/20 px-1.5 py-0.2 text-[9px] font-extrabold text-primary uppercase">
+                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-xs font-extrabold text-primary uppercase">
                           Equipo
                         </span>
                         {!msg.leido && (
                           <span
                             data-testid={`unread-tag-${msg.id}`}
-                            className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-emerald-400 uppercase border border-emerald-500/30"
+                            className="rounded bg-success-soft px-1.5 py-0.5 text-xs font-extrabold text-success uppercase border border-success-soft-border"
                           >
                             No leído
                           </span>
@@ -282,7 +282,7 @@ export function AthleteChat({
                       <div className="flex items-start gap-2 max-w-[90%]">
                         {/* Avatar institucional unificado GOZS */}
                         <div
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[11px] font-bold text-primary ring-2 ring-primary/40 select-none"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary ring-2 ring-primary/40 select-none"
                           title="GOZS"
                           aria-label="Avatar del equipo GOZS"
                         >
@@ -294,7 +294,7 @@ export function AthleteChat({
                         </div>
                       </div>
 
-                      <span className="mt-1 text-[10px] text-muted-foreground ml-9">
+                      <span className="mt-1 text-xs text-muted-foreground ml-9">
                         {msg.hora}
                       </span>
                     </div>
@@ -309,17 +309,17 @@ export function AthleteChat({
                           <p className="text-xs leading-relaxed">{msg.contenido}</p>
                         </div>
                         <div
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/30 text-[10px] font-bold text-primary-foreground ring-1 ring-primary-foreground/30 select-none"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/30 text-xs font-bold text-primary-foreground ring-1 ring-primary-foreground/30 select-none"
                           aria-label="Tu avatar"
                         >
                           Tú
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground mr-9">
+                      <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground mr-9">
                         <span>{msg.hora}</span>
                         {msg.estado_envio === "pendiente" && (
-                          <span className="text-amber-400 font-semibold">
+                          <span className="text-warning font-semibold">
                             ⏳ Pendiente
                           </span>
                         )}
@@ -334,7 +334,7 @@ export function AthleteChat({
 
           {/* Respuestas rápidas táctiles para el gimnasio (chips ergonómicos) */}
           <div className="border-t border-border/60 bg-muted/30 px-3 py-2">
-            <p className="text-[10px] text-muted-foreground font-medium mb-1.5">
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">
               Respuestas rápidas para el gimnasio:
             </p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -343,7 +343,7 @@ export function AthleteChat({
                   key={idx}
                   type="button"
                   onClick={() => handleSend(quickText)}
-                  className="shrink-0 min-h-7 rounded-full bg-secondary/80 hover:bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground transition-colors border border-border/50 touch-manipulation"
+                  className="shrink-0 min-h-7 rounded-full bg-secondary/80 hover:bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground transition-colors border border-border/50 touch-manipulation"
                 >
                   {quickText}
                 </button>

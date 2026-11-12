@@ -106,7 +106,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
         isNeutral
           ? "border border-border/80 bg-secondary/50 text-foreground"
           : isWarning
-          ? "border-2 border-amber-500/60 bg-amber-500/10 text-amber-500 dark:text-amber-300"
+          ? "border-2 border-warning-soft-border bg-warning-soft text-warning"
           : "border-2 border-destructive bg-destructive/15 text-destructive"
       } ${className}`}
       data-testid={banner.testId}
@@ -123,7 +123,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
                   ℹ️
                 </span>
               ) : isWarning ? (
-                <TriangleAlert className="h-6 w-6 text-amber-500 shrink-0" />
+                <TriangleAlert className="h-6 w-6 text-warning shrink-0" />
               ) : (
                 <OctagonAlert className="h-6 w-6 text-destructive shrink-0" />
               )}
@@ -134,7 +134,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
                   isNeutral
                     ? "text-foreground"
                     : isWarning
-                    ? "text-amber-500 dark:text-amber-300"
+                    ? "text-warning"
                     : "text-destructive"
                 }`}
                 data-testid="pain-banner-title"
@@ -142,7 +142,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
                 {banner.title}
               </h4>
               {banner.exerciseName && (
-                <p className="text-[11px] text-muted-foreground font-medium">
+                <p className="text-xs text-muted-foreground font-medium">
                   {banner.exerciseName} • Intensidad {banner.intensidadNumerica}/10
                 </p>
               )}
@@ -167,7 +167,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
               isNeutral
                 ? "text-foreground"
                 : isWarning
-                ? "text-amber-600 dark:text-amber-200"
+                ? "text-warning"
                 : "text-destructive font-black"
             }`}
             data-testid="pain-banner-message"
@@ -175,7 +175,7 @@ export function PainReportBanner({ banner, onDismiss, className = "" }: PainRepo
             {banner.message}
           </p>
           <p
-            className="text-muted-foreground text-[11px] leading-relaxed"
+            className="text-muted-foreground text-xs leading-relaxed"
             data-testid="pain-banner-recommendation"
           >
             {banner.recommendation}
