@@ -919,7 +919,19 @@ export default function HomePage() {
                 </div>
               </div>
               <figure className="landing-media lg:col-span-6" data-reveal>
-                <Tilt className="lg:-mr-[30%]">
+                <div className="mx-auto w-full max-w-[230px] rounded-[2.2rem] border border-foreground/20 bg-foreground p-2 shadow-2xl sm:hidden">
+                  <Link href="/entrenadores" className={`block focus:outline-none ${FOCUS_RING} rounded-[1.7rem]`} aria-label="Conocer Coach Studio">
+                    <img
+                      src="/landing/studio-movil.jpg"
+                      alt="Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos"
+                      width={780}
+                      height={1600}
+                      loading="lazy"
+                      className="max-h-[330px] w-full rounded-[1.7rem] object-cover object-top"
+                    />
+                  </Link>
+                </div>
+                <Tilt className="hidden sm:block lg:-mr-[30%]">
                   <Link href="/entrenadores" className={`block overflow-hidden rounded-xl border border-border bg-white shadow-2xl lg:rounded-2xl ${FOCUS_RING}`} aria-label="Conocer Coach Studio">
                     <div className="max-h-[180px] overflow-hidden sm:max-h-none">
                       <img

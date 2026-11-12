@@ -41,6 +41,7 @@ const STUDIO_PANTALLAS = [
     detalle: "Quién avisó una molestia, quién hace días que no entrena, a quién se le venció la cuota y qué clases tenés. Todo en la primera pantalla.",
     puntos: ["Avisos ordenados por prioridad", "Clases del día con sus anotados", "Tus alumnos y su estado, de un vistazo"],
     img: "/landing/studio-inicio.jpg",
+    imgMovil: "/landing/studio-movil.jpg",
     alto: 1600,
     alt: "Pantalla de inicio de Coach Studio: avisos para revisar hoy, clases del día y lista de alumnos",
     sigueHref: "#studio-rutinas",
@@ -69,6 +70,7 @@ const STUDIO_PANTALLAS = [
     img: "/landing/studio-alumno.jpg",
     alto: 1600,
     alt: "Ficha de un alumno en Coach Studio: últimas sesiones, plan vigente y un aviso de molestia",
+    foco: { x: "10%", y: "0%" },
     sigueHref: "#studio-negocio",
     sigueTexto: "¿Y las clases y las cuotas?",
   },
@@ -82,6 +84,7 @@ const STUDIO_PANTALLAS = [
     img: "/landing/studio-cobros.jpg",
     alto: 1600,
     alt: "Pantalla de cobros de Coach Studio: total cobrado, por cobrar, vencido y el estado de cada cuota",
+    foco: { x: "10%", y: "19%" },
     sigueHref: "#faq",
     sigueTexto: "¿Te quedaron dudas?",
   },
@@ -430,10 +433,45 @@ export default function EntrenadoresPage() {
                         ))}
                       </div>
                     ) : null}
-                    <Tilt className="lg:-mr-[14%]" max={3}>
+                    {pantalla.imgMovil ? (
+                      <div className="mx-auto w-full max-w-[230px] rounded-[2.2rem] border border-foreground/20 bg-foreground p-2 shadow-2xl sm:hidden">
+                        <img
+                          src={pantalla.imgMovil}
+                          alt={pantalla.alt}
+                          width={780}
+                          height={1600}
+                          loading="lazy"
+                          className="max-h-[330px] w-full rounded-[1.7rem] object-cover object-top"
+                        />
+                      </div>
+                    ) : null}
+                    <Tilt className={`lg:-mr-[14%] ${pantalla.imgMovil ? "hidden sm:block" : ""}`} max={3}>
                       <Ventana>
-                        <div className={`max-h-[220px] overflow-hidden sm:max-h-none ${conConstructor && vistaPlanes !== "planes" ? "hidden" : ""}`}>
-                          <img src={pantalla.img} alt={pantalla.alt} width={2560} height={pantalla.alto} loading="lazy" className="h-auto w-[165%] max-w-none sm:w-full" />
+                        <div
+                          className={`${
+                            pantalla.foco ? "max-h-[260px]" : "max-h-[220px]"
+                          } overflow-hidden sm:max-h-none ${conConstructor && vistaPlanes !== "planes" ? "hidden" : ""}`}
+                        >
+                          <img
+                            src={pantalla.img}
+                            alt={pantalla.alt}
+                            width={2560}
+                            height={pantalla.alto}
+                            loading="lazy"
+                            style={
+                              pantalla.foco
+                                ? ({
+                                    "--shot-x": pantalla.foco.x,
+                                    "--shot-y": pantalla.foco.y,
+                                  } as React.CSSProperties)
+                                : undefined
+                            }
+                            className={
+                              pantalla.foco
+                                ? "-ml-[var(--shot-x)] -mt-[var(--shot-y)] h-auto w-[240%] max-w-none sm:m-0 sm:w-full"
+                                : "h-auto w-[165%] max-w-none sm:w-full"
+                            }
+                          />
                         </div>
                         {conConstructor ? (
                           <>
