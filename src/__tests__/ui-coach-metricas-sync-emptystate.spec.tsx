@@ -14,7 +14,7 @@ import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
 import type { AlertaSobrecargaProgresiva } from "@/store/use-coach-studio";
 
-describe("GOZS-401: Coach Studio: Vista de Métricas - Unificación de Alumnos Activos y EmptyState", () => {
+describe("GOZS-401: Coach Studio: Vista de Métricas - Unificación de Alumnos activos y EmptyState", () => {
   describe("Criterio 1: Sincronización de 'Alumnos activos' con KpisNegocio (cantActivas)", () => {
     it("GIVEN la vista de Métricas en /studio/dashboard WHEN se compara el contador de 'Alumnos activos' con el indicador de Inicio THEN ambos valores son exactamente idénticos (32 atletas)", () => {
       const html = renderToStaticMarkup(<CoachDashboardView />);
@@ -181,7 +181,7 @@ describe("GOZS-401: Coach Studio: Vista de Métricas - Unificación de Alumnos A
       expect(html).toContain("text-amber-600 dark:text-amber-400");
     });
 
-    it("GIVEN RetentionKpiCards con atletas sin rutina THEN el texto de alerta cumple contraste WCAG AA (text-amber-700 dark:text-amber-400)", () => {
+    it("GIVEN RetentionKpiCards con atletas sin rutina THEN el texto de alerta cumple contraste WCAG AA (text-warning-soft-foreground)", () => {
       const metricasConSinRutina = {
         cantActivas: 32,
         cantSinPlanEntrenamiento: 2,
@@ -195,7 +195,7 @@ describe("GOZS-401: Coach Studio: Vista de Métricas - Unificación de Alumnos A
         />,
       );
 
-      expect(html).toContain("text-amber-700 dark:text-amber-400");
+      expect(html).toContain("text-warning-soft-foreground");
     });
 
     it("GIVEN CoachDashboardView THEN alertas secundarias (offline, estancamiento) usan text-amber-800 dark:text-amber-300", () => {

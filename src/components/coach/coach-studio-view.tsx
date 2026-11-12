@@ -796,6 +796,7 @@ export function CoachStudioView({
     {
       id: "atleta",
       accessorKey: "nombre_completo",
+      mobile: "title",
       header: "Alumno",
       headerClassName: "h-10 px-4 text-left font-medium w-64",
       className: `${rowPaddingClass} px-4`,
@@ -814,7 +815,7 @@ export function CoachStudioView({
             type="button"
             onClick={() => selectAlumno(alumno.id)}
             aria-label={`Ver ficha de ${alumno.nombre_completo}`}
-            className="flex items-center gap-3 text-left w-full rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-3 text-left w-full min-h-target rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
               {getInitials(alumno.nombre_completo)}
@@ -829,6 +830,7 @@ export function CoachStudioView({
     },
     {
       id: "cuota",
+      mobile: "meta",
       header: "Cuota",
       headerClassName: "h-10 px-4 text-left font-medium w-36",
       className: `${rowPaddingClass} px-4 text-left`,
@@ -932,6 +934,7 @@ export function CoachStudioView({
     },
     {
       id: "vigencia_rutina",
+      mobile: "meta",
       header: "Rutina",
       headerClassName: "h-10 px-4 text-left font-medium",
       className: `${rowPaddingClass} px-4 text-left`,
@@ -966,6 +969,7 @@ export function CoachStudioView({
     },
     {
       id: "actividad",
+      mobile: "meta",
       header: "Último entreno",
       headerClassName: "h-10 px-4 text-left font-medium w-36",
       className: `${rowPaddingClass} px-4 text-left`,
@@ -1023,6 +1027,7 @@ export function CoachStudioView({
     },
     {
       id: "alertas",
+      mobile: "meta",
       header: "Alertas",
       headerClassName: "h-10 px-4 text-left font-medium min-w-[150px]",
       className: `${rowPaddingClass} px-4 text-left`,
@@ -1034,7 +1039,7 @@ export function CoachStudioView({
         const hasAnyAlerts = Boolean(estancadoInfo || molestiasAlumno.length > 0 || demoBadges.length > 0);
 
         return (
-          <div className="flex flex-wrap gap-1.5 min-w-[130px] max-w-[190px]">
+          <div className="flex flex-wrap gap-1.5 md:min-w-[130px] md:max-w-[190px]">
             {estancadoInfo && (
               <StatusBadge
                 variant="neutral"
@@ -1142,6 +1147,7 @@ export function CoachStudioView({
     },
     {
       id: "acciones",
+      mobile: "action",
       header: <span className="sr-only">Acciones</span>,
       headerClassName: "h-10 px-4 w-14",
       className: `${rowPaddingClass} px-4 text-right`,
@@ -1160,7 +1166,7 @@ export function CoachStudioView({
               open={isMenuControlledOpen ? true : undefined}
             >
               <DropdownMenuTrigger
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex size-target items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`Acciones para ${alumno.nombre_completo}`}
                 data-testid={`btn-acciones-alumno-${alumno.id}`}
               >

@@ -885,32 +885,34 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* BARRA INFERIOR MÓVIL (< 768px) - 5 ítems con cajas táctiles ≥ 44×44 px (min-h-11) */}
+      {/* BARRA INFERIOR MÓVIL (< 768px) - 5 ítems con cajas táctiles ≥ 48×48 px y sección activa destacada */}
       <nav
         aria-label="Navegación inferior móvil"
         data-testid="studio-mobile-bottom-nav"
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="grid grid-cols-5 h-16 items-center px-1">
+        <div className="grid h-16 grid-cols-5">
           {/* 1. Inicio */}
           <Link
             href="/studio"
+            aria-current={isStudioActive && !selectedAlumnoId ? "page" : undefined}
             onClick={() => selectAlumno(null)}
             className={cn(
-              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
+              "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation",
               isStudioActive && !selectedAlumnoId
-                ? "text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                ? "font-semibold text-foreground before:absolute before:inset-x-5 before:top-0 before:h-0.5 before:rounded-full before:bg-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             aria-label="Inicio"
           >
-            <Home className="h-4 w-4" aria-hidden="true" />
+            <Home className="size-5" aria-hidden="true" />
             <span>Inicio</span>
           </Link>
 
           {/* 2. Alumnos */}
           <Link
             href="/studio#alumnos-directory"
+            aria-current={isStudioActive && selectedAlumnoId ? "page" : undefined}
             onClick={(e) => {
               selectAlumno(null);
               if (typeof window !== "undefined") {
@@ -925,29 +927,30 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               }
             }}
             className={cn(
-              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
+              "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation",
               isStudioActive && selectedAlumnoId
-                ? "text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                ? "font-semibold text-foreground before:absolute before:inset-x-5 before:top-0 before:h-0.5 before:rounded-full before:bg-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             aria-label="Alumnos"
           >
-            <Users className="h-4 w-4" aria-hidden="true" />
+            <Users className="size-5" aria-hidden="true" />
             <span>Alumnos</span>
           </Link>
 
           {/* 3. Agenda */}
           <Link
             href="/studio/agenda"
+            aria-current={isAgendaActive ? "page" : undefined}
             className={cn(
-              "flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium transition-colors touch-manipulation",
+              "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation",
               isAgendaActive
-                ? "text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                ? "font-semibold text-foreground before:absolute before:inset-x-5 before:top-0 before:h-0.5 before:rounded-full before:bg-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
             aria-label="Agenda"
           >
-            <Calendar className="h-4 w-4" aria-hidden="true" />
+            <Calendar className="size-5" aria-hidden="true" />
             <span>Agenda</span>
           </Link>
 
@@ -955,10 +958,16 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setChatOpen(true)}
-            className="flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer relative"
+            aria-current={isChatOpen ? "page" : undefined}
+            className={cn(
+              "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation cursor-pointer",
+              isChatOpen
+                ? "font-semibold text-foreground before:absolute before:inset-x-5 before:top-0 before:h-0.5 before:rounded-full before:bg-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
             aria-label="Mensajes"
           >
-            <MessageSquare className="h-4 w-4" aria-hidden="true" />
+            <MessageSquare className="size-5" aria-hidden="true" />
             <span>Mensajes</span>
           </button>
 
@@ -966,10 +975,16 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center min-h-11 min-w-11 gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-pointer"
+            aria-current={isMobileMenuOpen ? "page" : undefined}
+            className={cn(
+              "relative flex h-full flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-manipulation cursor-pointer",
+              isMobileMenuOpen
+                ? "font-semibold text-foreground before:absolute before:inset-x-5 before:top-0 before:h-0.5 before:rounded-full before:bg-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
             aria-label="Más"
           >
-            <Menu className="h-4 w-4" aria-hidden="true" />
+            <Menu className="size-5" aria-hidden="true" />
             <span>Más</span>
           </button>
         </div>

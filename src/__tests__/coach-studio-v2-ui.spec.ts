@@ -69,7 +69,7 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(viewContent).not.toContain("sentadillaRecord");
     });
 
-    it("simplifica retention-kpi-cards.tsx a un banner ejecutivo compacto de Alumnos Activos eliminando Churn y Sin Plan gigantes", () => {
+    it("simplifica retention-kpi-cards.tsx a un banner ejecutivo compacto de Alumnos activos eliminando Churn y Sin Plan gigantes", () => {
       expect(retentionContent).toContain("retention-executive-banner");
       expect(retentionContent).toContain('data-testid="kpi-cant-activas"');
       expect(retentionContent).not.toContain("Deserción Mensual (Churn)");
@@ -117,8 +117,8 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
       expect(viewContent).not.toMatch(/\{planActivo \? \(historial\.length > 0 \? "1" : "3"\) : "8"\}/);
     });
 
-    it("implementa la Columna de Alertas Responsive con contenedor min-w-[130px] max-w-[190px] y badges simultáneos", () => {
-      expect(viewContent).toContain("min-w-[130px] max-w-[190px]");
+    it("implementa la Columna de Alertas Responsive con contenedor md:min-w-[130px] md:max-w-[190px] y badges simultáneos", () => {
+      expect(viewContent).toContain("md:min-w-[130px] md:max-w-[190px]");
       expect(viewContent).toContain("flex flex-wrap gap-1.5");
       expect(viewContent).toContain("getDemoAlumnoAlerts(alumno.nombre_completo)");
       expect(fs.readFileSync(path.resolve(__dirname, "../services/coach-demo-dataset.ts"), "utf-8")).toContain("PR Banca");
@@ -158,8 +158,8 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
   // 4. ACCIONES TÁCTILES FAT-FINGER FRIENDLY Y TEMPLATES ARGENTINOS
   // ==========================================================================
   describe("4. Acciones Táctiles 'Fat-Finger Friendly' y Templates Argentinos", () => {
-    it("usa el botón de ícono ⋯ del diseño (32 px) dentro de filas de 56 px y separación de 8 px", () => {
-      expect(viewContent).toContain("inline-flex h-8 w-8 items-center justify-center rounded-md");
+    it("usa el botón de ícono ⋯ del diseño (size-target) dentro de filas de 56 px y separación de 8 px", () => {
+      expect(viewContent).toContain("inline-flex size-target items-center justify-center rounded-md");
       expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
       expect(viewContent).toContain("gap-2"); // 8px de separación
     });

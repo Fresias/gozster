@@ -246,7 +246,7 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
       // En CoachStudioView: botones de WhatsApp y Quick Swap
       // Fila de 56 px con botón de ícono ⋯ de 32 px (objetivo Inicio.html)
       expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
-      expect(viewContent).toContain("inline-flex h-8 w-8 items-center justify-center rounded-md");
+      expect(viewContent).toContain("inline-flex size-target items-center justify-center rounded-md");
 
       // En WhatsAppTemplateModal: botones de acción con min-h-12 (48px)
       expect(whatsappContent).toContain("min-h-12");
@@ -260,7 +260,7 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
     });
 
     it("comprueba que la celda de alertas combine múltiples eventos sin colapso ni desbordamiento de grilla", () => {
-      expect(viewContent).toContain("min-w-[130px] max-w-[190px]");
+      expect(viewContent).toContain("md:min-w-[130px] md:max-w-[190px]");
       expect(viewContent).toContain("flex flex-wrap gap-1.5");
       expect(viewContent).toContain("getDemoAlumnoAlerts(alumno.nombre_completo)");
       const dataset = fs.readFileSync(path.resolve(__dirname, "../services/coach-demo-dataset.ts"), "utf-8");

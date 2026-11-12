@@ -38,6 +38,8 @@ export interface ColumnDef<TData, TValue = unknown> {
         value: TValue;
         index: number;
       }) => React.TdHTMLAttributes<HTMLTableCellElement> & Record<string, any>);
+  /** Lugar de la columna en la tarjeta mobile (< 768 px). Si ninguna columna lo declara, la tabla se comporta como hoy. */
+  mobile?: "title" | "meta" | "action";
 }
 
 export interface DataTableProps<TData> {
@@ -58,6 +60,21 @@ export interface DataTableProps<TData> {
   onRowClick?: (row: TData) => void;
   tableTestId?: string;
   rowTestId?: string | ((row: TData, index: number) => string);
+  isMobile?: boolean;
+}
+
+/** true solo en pantallas < 768 px. En servidor y en tests devuelve false: se renderiza la tabla de siempre. */
+function useEsMovil() {
+  return React.useSyncExternalStore(
+    (onChange) => {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+      const mq = window.matchMedia("(max-width: 767px)");
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches,
+    () => false,
+  );
 }
 
 export function DataTable<TData>({
@@ -78,6 +95,7 @@ export function DataTable<TData>({
   onRowClick,
   tableTestId,
   rowTestId,
+  isMobile: isMobileProp,
 }: DataTableProps<TData>) {
   const [pageIndex, setPageIndex] = React.useState(0);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -158,6 +176,15 @@ export function DataTable<TData>({
     }
   };
 
+  const esMovil = isMobileProp ?? useEsMovil();
+  const usaTarjetas = esMovil && columns.some((c) => c.mobile);
+  const enSlot = (slot: ColumnDef<TData>["mobile"]) => columns.filter((c) => c.mobile === slot);
+  const colKey = (col: ColumnDef<TData>, i: number) => (col.id || col.accessorKey || i).toString();
+  const renderCell = (col: ColumnDef<TData>, row: TData, index: number) => {
+    const value = getCellValue(row, col);
+    return col.cell ? col.cell({ row, value, index }) : ((value as React.ReactNode) ?? "—");
+  };
+
   return (
     <div className={cn("w-full space-y-3", className)}>
       {searchKey && (
@@ -175,148 +202,182 @@ export function DataTable<TData>({
         </div>
       )}
 
-      <div className={cn("rounded-xl border border-border bg-card shadow-none overflow-hidden", containerClassName)}>
-        <Table className={tableClassName} data-testid={tableTestId}>
-          <TableHeader>
-            <TableRow className={headerRowClassName}>
-              {columns.map((col, idx) => {
-                const colId = (col.id || col.accessorKey || idx).toString();
-                const isSortable = col.sortable ?? col.enableSorting ?? false;
-                const isCurrentSorted = sortKey === colId;
-                const currentDirection = isCurrentSorted ? sortOrder : false;
+      {usaTarjetas ? (
+        <ul className="divide-y divide-border-subtle" data-testid={tableTestId ? `${tableTestId}-mobile` : undefined}>
+          {paginatedData.length === 0 && (
+            <li><EmptyState bordered={false} title={emptyTitle} description={emptyDescription} /></li>
+          )}
+          {paginatedData.map((row, rowIdx) => (
+            <li
+              key={rowIdx}
+              onClick={() => onRowClick?.(row)}
+              className={cn("space-y-2 px-4 py-3", onRowClick && "cursor-pointer active:bg-muted/60")}
+            >
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  {enSlot("title").map((col, i) => (
+                    <React.Fragment key={colKey(col, i)}>{renderCell(col, row, rowIdx)}</React.Fragment>
+                  ))}
+                </div>
+                {enSlot("action").map((col, i) => (
+                  <div key={colKey(col, i)} className="shrink-0">{renderCell(col, row, rowIdx)}</div>
+                ))}
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {enSlot("meta").map((col, i) => (
+                  <div key={colKey(col, i)} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{typeof col.header === "function" ? null : col.header}</dt>
+                    <dd className="mt-0.5 text-sm text-foreground">{renderCell(col, row, rowIdx)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className={cn("rounded-xl border border-border bg-card shadow-none overflow-hidden", containerClassName)}>
+          <Table className={tableClassName} data-testid={tableTestId}>
+            <TableHeader>
+              <TableRow className={headerRowClassName}>
+                {columns.map((col, idx) => {
+                  const colId = (col.id || col.accessorKey || idx).toString();
+                  const isSortable = col.sortable ?? col.enableSorting ?? false;
+                  const isCurrentSorted = sortKey === colId;
+                  const currentDirection = isCurrentSorted ? sortOrder : false;
 
-                const ariaSortValue: "ascending" | "descending" | "none" | undefined = isSortable
-                  ? isCurrentSorted && sortOrder === "asc"
-                    ? "ascending"
-                    : isCurrentSorted && sortOrder === "desc"
-                      ? "descending"
-                      : "none"
-                  : undefined;
+                  const ariaSortValue: "ascending" | "descending" | "none" | undefined = isSortable
+                    ? isCurrentSorted && sortOrder === "asc"
+                      ? "ascending"
+                      : isCurrentSorted && sortOrder === "desc"
+                        ? "descending"
+                        : "none"
+                    : undefined;
 
-                return (
-                  <TableHead
-                    key={colId}
-                    role="columnheader"
-                    aria-sort={ariaSortValue}
-                    className={cn(col.headerClassName)}
-                  >
-                    {isSortable ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSort(colId)}
-                        className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none -ml-1 px-1 py-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {typeof col.header === "function"
-                          ? col.header({
-                              column: col,
-                              isSorted: currentDirection || false,
-                              toggleSorting: () => handleSort(colId),
-                            })
-                          : col.header}
-                        {isCurrentSorted ? (
-                          sortOrder === "asc" ? (
-                            <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+                  return (
+                    <TableHead
+                      key={colId}
+                      role="columnheader"
+                      aria-sort={ariaSortValue}
+                      className={cn(col.headerClassName)}
+                    >
+                      {isSortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(colId)}
+                          className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer select-none -ml-1 px-1 py-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {typeof col.header === "function"
+                            ? col.header({
+                                column: col,
+                                isSorted: currentDirection || false,
+                                toggleSorting: () => handleSort(colId),
+                              })
+                            : col.header}
+                          {isCurrentSorted ? (
+                            sortOrder === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5 text-foreground" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5 text-foreground" />
+                            )
                           ) : (
-                            <ArrowDown className="h-3.5 w-3.5 text-foreground" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="h-3 w-3 opacity-50" />
-                        )}
-                      </button>
-                    ) : typeof col.header === "function" ? (
-                      col.header({
-                        column: col,
-                        isSorted: false,
-                        toggleSorting: () => {},
-                      })
-                    ) : (
-                      col.header
-                    )}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedData.length > 0 ? (
-              paginatedData.map((row, rowIdx) => (
-                <TableRow
-                  key={rowIdx}
-                  data-testid={
-                    typeof rowTestId === "function"
-                      ? rowTestId(row, rowIdx)
-                      : rowTestId
-                  }
-                  onClick={() => onRowClick?.(row)}
-                  className={cn(
-                    onRowClick && "cursor-pointer hover:bg-muted/60 transition-colors",
-                    typeof rowClassName === "function" ? rowClassName(row, rowIdx) : rowClassName,
-                  )}
-                >
-                  {columns.map((col, colIdx) => {
-                    const colId = (col.id || col.accessorKey || colIdx).toString();
-                    const val = getCellValue(row, col);
-                    const extraProps = typeof col.cellProps === "function"
-                      ? col.cellProps({ row, value: val, index: rowIdx })
-                      : col.cellProps;
-                    return (
-                      <TableCell key={colId} className={col.className} {...extraProps}>
-                        {col.cell
-                          ? col.cell({ row, value: val, index: rowIdx })
-                          : (val as React.ReactNode) ?? "—"}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center p-0"
-                >
-                  <EmptyState
-                    bordered={false}
-                    title={emptyTitle}
-                    description={emptyDescription}
-                  />
-                </TableCell>
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
+                      ) : typeof col.header === "function" ? (
+                        col.header({
+                          column: col,
+                          isSorted: false,
+                          toggleSorting: () => {},
+                        })
+                      ) : (
+                        col.header
+                      )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {paginatedData.length > 0 ? (
+                paginatedData.map((row, rowIdx) => (
+                  <TableRow
+                    key={rowIdx}
+                    data-testid={
+                      typeof rowTestId === "function"
+                        ? rowTestId(row, rowIdx)
+                        : rowTestId
+                    }
+                    onClick={() => onRowClick?.(row)}
+                    className={cn(
+                      onRowClick && "cursor-pointer hover:bg-muted/60 transition-colors",
+                      typeof rowClassName === "function" ? rowClassName(row, rowIdx) : rowClassName,
+                    )}
+                  >
+                    {columns.map((col, colIdx) => {
+                      const colId = (col.id || col.accessorKey || colIdx).toString();
+                      const val = getCellValue(row, col);
+                      const extraProps = typeof col.cellProps === "function"
+                        ? col.cellProps({ row, value: val, index: rowIdx })
+                        : col.cellProps;
+                      return (
+                        <TableCell key={colId} className={col.className} {...extraProps}>
+                          {col.cell
+                            ? col.cell({ row, value: val, index: rowIdx })
+                            : (val as React.ReactNode) ?? "—"}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-32 text-center p-0"
+                  >
+                    <EmptyState
+                      bordered={false}
+                      title={emptyTitle}
+                      description={emptyDescription}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {showPagination && (
-        <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground select-none", paginationClassName)}>
+        <div className={cn("flex items-center justify-between gap-3 px-4 py-3 text-xs text-muted-foreground select-none md:px-1 md:py-2", paginationClassName)}>
           <div data-testid="data-table-legend">
             Mostrando {currentCount} de {totalRows}
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
               disabled={currentPage === 0}
               aria-label="Página anterior"
-              className="h-8 px-3 text-xs gap-1"
+              className="md:w-auto md:gap-1 md:px-3"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Anterior</span>
+              <ChevronLeft className="size-4" />
+              <span className="hidden md:inline">Anterior</span>
             </Button>
             <div className="text-xs font-medium text-foreground px-2">
               Página {currentPage + 1} de {totalPages}
             </div>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
               disabled={currentPage >= totalPages - 1}
               aria-label="Página siguiente"
-              className="h-8 px-3 text-xs gap-1"
+              className="md:w-auto md:gap-1 md:px-3"
             >
-              <span>Siguiente</span>
-              <ChevronRight className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Siguiente</span>
+              <ChevronRight className="size-4" />
             </Button>
           </div>
         </div>
