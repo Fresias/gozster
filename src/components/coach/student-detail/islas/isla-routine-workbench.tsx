@@ -498,7 +498,7 @@ export function IslaRoutineWorkbench({
                                     {item.es_superserie && (
                                       <span
                                         data-testid="workbench-superserie-connector"
-                                        className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-[11px] text-neutral-soft-foreground"
+                                        className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-0.5 text-xs text-neutral-soft-foreground"
                                       >
                                         <LinkIcon className="h-3 w-3 inline" aria-hidden="true" /> Superserie G{item.grupo_superserie}
                                       </span>
@@ -589,11 +589,11 @@ export function IslaRoutineWorkbench({
                     >
                       <div>
                         <span className="font-semibold text-foreground">{plan.nombre}</span>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Creado el {new Date(plan.created_at).toLocaleDateString("es-AR")}
                         </p>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {plan.estado}
                       </Badge>
                     </div>
@@ -625,7 +625,7 @@ export function IslaRoutineWorkbench({
                     >
                       <div>
                         <span className="font-semibold text-foreground">{entry.sesion.fecha}</span>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           {entry.series.length} series registradas
                         </p>
                       </div>

@@ -180,7 +180,7 @@ export function IslaTimelineRibbon({
             type="button"
             onClick={onToggleCollapse}
             data-testid="ribbon-collapse-btn"
-            className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+            className="text-xs font-semibold text-primary hover:underline cursor-pointer"
           >
             Expandir sesiones
           </button>
