@@ -14,7 +14,7 @@ export const WHATSAPP_COACH = whatsapp("Hola Gonza, soy entrenador y quiero ver 
 export const FOTO_GONZALO = "/landing/gonzalo-salas.jpg";
 
 /* Recetas visuales compartidas con Coach Studio (tokens zinc, borde 1px, micro-etiquetas mono). */
-export const MICRO_LABEL = "font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground";
+export const MICRO_LABEL = "font-mono text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground";
 export const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 export const BTN =
@@ -26,7 +26,7 @@ export const BTN_XL = "!min-h-[56px] !px-8 !py-4 !text-base sm:!text-lg";
 export const BTN_GHOST = `${BTN} border border-border bg-transparent text-foreground hover:bg-secondary`;
 export const CONTAINER = "landing-container mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12";
 /* Cada capítulo ocupa, como mínimo, un viewport (descontando el header fijo). */
-export const SECCION = "landing-section relative isolate flex min-h-[calc(100svh-4rem)] flex-col border-t border-border pb-24 pt-8 sm:py-14";
+export const SECCION = "landing-section relative isolate flex min-h-landing-chapter flex-col border-t border-border pb-24 pt-8 sm:py-14";
 export const CUERPO = `${CONTAINER} flex flex-1 flex-col justify-center`;
 export const H2 = "text-balance text-[clamp(2rem,4.6vw,3.75rem)] font-black leading-[0.98] tracking-tighter text-foreground";
 /* En móvil, los grupos de tres se recorren deslizando: el capítulo sigue entrando en una pantalla. */
@@ -258,7 +258,7 @@ export function LandingHeader({
 }) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-md">
-      <div className={`${CONTAINER} flex h-16 items-center justify-between gap-2 sm:gap-3`}>
+      <div className={`${CONTAINER} flex h-landing-header items-center justify-between gap-2 sm:gap-3`}>
         <div className="flex items-center gap-3 sm:gap-5">
           <Link href="/" className={`-m-2 flex items-center gap-2.5 rounded-lg p-2 ${FOCUS_RING}`} aria-label="Inicio GOZSter">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base font-black text-primary-foreground">G</span>
@@ -305,15 +305,23 @@ export function LandingHeader({
 export function LandingFooter({ nav }: { nav: readonly (readonly [string, string])[] }) {
   const enlace = `inline-flex min-h-[48px] items-center rounded px-2 transition-colors hover:text-foreground ${FOCUS_RING}`;
   return (
-    <footer className="border-t border-border/80 bg-background px-5 pb-28 pt-8 text-xs text-muted-foreground sm:px-8 md:pb-8 lg:px-12">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center md:flex-row md:text-left">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-black text-primary-foreground">G</span>
-          <span className="font-bold text-foreground">GOZSter</span>
-          <span aria-hidden="true">·</span>
-          <span>Gonzalo Salas &amp; Fresias</span>
+    <footer className="border-t border-border/80 bg-background pb-28 pt-8 text-sm text-muted-foreground md:pb-8">
+      <div className={CONTAINER}>
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 md:justify-between">
+          <div className="flex items-center gap-2.5 whitespace-nowrap">
+            <span className="flex size-6 items-center justify-center rounded-md bg-primary text-xs font-black text-primary-foreground">G</span>
+            <span className="font-bold text-foreground">GOZSter</span>
+            <span aria-hidden="true">·</span>
+            <span>Gonzalo Salas &amp; Fresias</span>
+          </div>
+          <p className="text-balance md:whitespace-nowrap">
+            Entrenamiento basado en evidencia, <s>no tendencias</s>.
+          </p>
         </div>
-        <nav className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1" aria-label="Pie de página">
+        <nav
+          aria-label="Pie de página"
+          className="-mx-2 mt-3 flex flex-wrap items-center justify-center gap-x-2 border-t border-border pt-2 md:justify-start"
+        >
           {nav.map(([href, label]) => (
             <a key={href} href={href} className={enlace}>
               {label}
@@ -332,28 +340,39 @@ export function LandingFooter({ nav }: { nav: readonly (readonly [string, string
             Athlete App
           </Link>
         </nav>
-        <div>
-          Entrenamiento basado en evidencia, <s>no tendencias</s>.
-        </div>
       </div>
     </footer>
   );
 }
 
-/* Barra de acción móvil: aparece cuando los botones del hero salen de pantalla. */
-export function useBarraMovil() {
+/* Barra de acción móvil: aparece cuando los botones del hero salen de pantalla y se oculta si la sección de cierre está en pantalla. */
+export function useBarraMovil(cierreId?: string) {
   const heroCtaRef = React.useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = React.useState(false);
+  const [heroPasado, setHeroPasado] = React.useState(false);
+  const [cierreVisible, setCierreVisible] = React.useState(false);
+
   React.useEffect(() => {
     const el = heroCtaRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry) setVisible(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+      if (entry) setHeroPasado(!entry.isIntersecting && entry.boundingClientRect.top < 0);
     });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  return { heroCtaRef, visible };
+
+  React.useEffect(() => {
+    if (!cierreId || typeof IntersectionObserver === "undefined") return;
+    const cierreEl = document.getElementById(cierreId);
+    if (!cierreEl) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setCierreVisible(entry.isIntersecting);
+    });
+    observer.observe(cierreEl);
+    return () => observer.disconnect();
+  }, [cierreId]);
+
+  return { heroCtaRef, visible: heroPasado && !cierreVisible };
 }
 
 export function BarraMovil({ visible, children }: { visible: boolean; children: React.ReactNode }) {
