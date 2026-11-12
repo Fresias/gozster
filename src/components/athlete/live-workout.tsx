@@ -743,11 +743,11 @@ export function LiveWorkout() {
             {syncError && (
               <div
                 role="alert"
-                className="flex items-center justify-between gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-semibold text-rose-700 dark:text-rose-300 animate-in fade-in duration-200"
+                className="flex items-center justify-between gap-2 rounded-xl border border-danger-soft-border bg-danger-soft px-3.5 py-2.5 text-xs font-semibold text-danger-soft-foreground animate-in fade-in duration-200"
                 data-testid="sync-error-notice"
               >
                 <div className="flex items-center gap-2">
-                  <CloudOff className="h-4 w-4 shrink-0 text-rose-500" />
+                  <CloudOff className="h-4 w-4 shrink-0 text-destructive" />
                   <span>
                     No pudimos guardar en el servidor. Tus datos siguen en el teléfono.
                   </span>
@@ -755,7 +755,7 @@ export function LiveWorkout() {
                 <button
                   type="button"
                   onClick={clearSyncError}
-                  className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-500/70 hover:text-rose-500 touch-manipulation cursor-pointer"
+                  className="-m-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-danger-soft-foreground/70 hover:text-danger-soft-foreground touch-manipulation cursor-pointer"
                   aria-label="Cerrar aviso de error"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -885,17 +885,17 @@ export function LiveWorkout() {
             {rpeValidationError && (
               <div
                 role="alert"
-                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/15 px-3.5 py-2.5 text-xs font-semibold text-amber-200 animate-in fade-in duration-200"
+                className="flex items-center justify-between gap-2 rounded-xl border border-warning-soft-border bg-warning-soft px-3.5 py-2.5 text-xs font-semibold text-warning-soft-foreground animate-in fade-in duration-200"
                 data-testid="rpe-validation-banner"
               >
                 <div className="flex items-center gap-2">
-                  <TriangleAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                  <TriangleAlert className="h-4 w-4 shrink-0 text-warning-soft-foreground" />
                   <span>{rpeValidationError}</span>
                 </div>
                 <button
                   type="button"
                   onClick={clearRpeValidationError}
-                  className="text-amber-300/80 hover:text-amber-200 px-2 touch-manipulation cursor-pointer"
+                  className="text-warning-soft-foreground/80 hover:text-warning-soft-foreground px-2 touch-manipulation cursor-pointer"
                   aria-label="Descartar aviso"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -918,11 +918,11 @@ export function LiveWorkout() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-primary">Mensaje del Coach</span>
-                      <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+                      <span className="rounded-full bg-success-soft text-success-soft-foreground border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">
                         No leído
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+                    <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
                       {latestUnreadStaffMessage.contenido}
                     </p>
                   </div>
@@ -944,16 +944,16 @@ export function LiveWorkout() {
             {(rpeReminderNotification || pendingRpeExercise) && (
               <div
                 role="alert"
-                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 animate-in fade-in duration-200"
+                className="flex items-center justify-between gap-2 rounded-xl border border-warning-soft-border bg-warning-soft px-3.5 py-2.5 text-xs text-warning-soft-foreground animate-in fade-in duration-200"
                 data-testid="rpe-reminder-banner"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-400 font-bold text-xs">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-warning-soft-border text-warning-soft-foreground font-bold text-xs">
                     ⚡
                   </span>
                   <div className="min-w-0">
-                    <span className="font-bold text-amber-300">RPE obligatorio (sin bloqueo):</span>{" "}
-                    <span className="text-amber-200/90 text-[11px]">
+                    <span className="font-bold text-warning-soft-foreground">RPE obligatorio (sin bloqueo):</span>{" "}
+                    <span className="text-warning-soft-foreground/90 text-xs">
                       {rpeReminderNotification ||
                         `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
                     </span>
@@ -966,7 +966,7 @@ export function LiveWorkout() {
                       setSelectedExerciseId(pendingRpeExercise.id);
                       clearRpeReminderNotification();
                     }}
-                    className="shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors touch-manipulation cursor-pointer"
+                    className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-md bg-warning-soft-border hover:bg-warning-soft-border/80 text-warning-soft-foreground transition-colors touch-manipulation cursor-pointer"
                   >
                     Ir al ejercicio
                   </button>
@@ -1086,7 +1086,7 @@ export function LiveWorkout() {
                   {colapsarRutina && (
                     <span
                       data-testid="badge-rutina-colapsada"
-                      className="text-[10px] lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
+                      className="text-xs lowercase font-normal px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
                     >
                       colapsada ({currentSession.ejercicios.length} ejercicios)
                     </span>
@@ -1097,7 +1097,7 @@ export function LiveWorkout() {
                     type="button"
                     onClick={() => setRutinaDesplegadaManual(!rutinaDesplegadaManual)}
                     data-testid="btn-toggle-rutina-colapsada"
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer touch-manipulation py-1"
                     aria-expanded={rutinaDesplegadaManual}
                   >
                     <span>{rutinaDesplegadaManual ? "Colapsar rutina" : `Ver todos (${currentSession.ejercicios.length})`}</span>
@@ -1148,7 +1148,7 @@ export function LiveWorkout() {
                               ? "border-purple-500 bg-purple-500/15 shadow-xs ring-1 ring-purple-500/40"
                               : "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/40"
                             : isDone
-                            ? "border-emerald-500/30 bg-emerald-500/5 hover:bg-secondary/40"
+                            ? "border-success-soft-border bg-success-soft/30 hover:bg-secondary/40"
                             : isDropSet
                             ? "border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/10"
                             : "border-border/70 bg-card hover:bg-secondary/40"
@@ -1159,7 +1159,7 @@ export function LiveWorkout() {
                         <div
                           className={`h-6 w-6 rounded-lg text-xs font-mono font-extrabold flex items-center justify-center shrink-0 transition-colors ${
                             isDone
-                              ? "bg-emerald-500 text-white"
+                              ? "bg-success text-success-foreground"
                               : isSelected
                               ? (isDropSet || isSuperset)
                                 ? "bg-purple-600 text-white"
@@ -1178,7 +1178,7 @@ export function LiveWorkout() {
                             {isWarmup && (
                               <span
                                 data-testid={`warmup-tag-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0"
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-warning-soft text-warning-soft-foreground border border-warning-soft-border uppercase tracking-wider shrink-0"
                               >
                                 Aproximación
                               </span>
@@ -1186,7 +1186,7 @@ export function LiveWorkout() {
                             {isDropSet && (
                               <span
                                 data-testid={`dropset-tag-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
                               >
                                 <span>⚡</span> Drop Set
                               </span>
@@ -1194,7 +1194,7 @@ export function LiveWorkout() {
                             {isSuperset && (
                               <span
                                 data-testid={`superserie-tag-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/30 uppercase tracking-wider shrink-0 flex items-center gap-1"
                               >
                                 <span>🔗</span> {etiquetaGrupoSuperserie(currentSession.ejercicios, ej)}
                               </span>
@@ -1202,7 +1202,7 @@ export function LiveWorkout() {
                             {ej.es_unilateral && (
                               <span
                                 data-testid={`badge-unilateral-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-500 uppercase tracking-wider shrink-0"
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-warning-soft text-warning-soft-foreground border border-warning-soft-border uppercase tracking-wider shrink-0"
                               >
                                 c/lado
                               </span>
@@ -1210,7 +1210,7 @@ export function LiveWorkout() {
                             {ej.tipo_medicion === "TIEMPO" && (
                               <span
                                 data-testid={`badge-tiempo-${ej.id}`}
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-500 uppercase tracking-wider shrink-0 inline-flex items-center gap-1"
+                                className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-neutral-soft text-neutral-soft-foreground border border-neutral-soft-border uppercase tracking-wider shrink-0 inline-flex items-center gap-1"
                               >
                                 <Timer className="h-3 w-3" /> Tiempo
                               </span>
@@ -1223,7 +1223,7 @@ export function LiveWorkout() {
                               {ej.nombre}
                             </span>
                           </div>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
                             {ej.repeticiones_objetivo}
                           </p>
                         </div>
@@ -1232,7 +1232,7 @@ export function LiveWorkout() {
                       {/* Estado a la derecha (sin repetir 'series') */}
                       <div className="shrink-0 flex items-center gap-1 pl-1">
                         {isDone ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-success-soft-foreground bg-success-soft border border-success-soft-border px-2.5 py-0.5 rounded-full">
                             <Check className="h-3 w-3" strokeWidth={3} /> Hecho
                           </span>
                         ) : (
@@ -1273,12 +1273,12 @@ export function LiveWorkout() {
                           <div className="font-bold text-purple-900 dark:text-purple-100">
                             {etiquetaGrupoSuperserie(currentSession.ejercicios, currentExercise)}
                           </div>
-                          <div className="text-[11px] text-purple-800 dark:text-purple-200">
+                          <div className="text-xs text-purple-800 dark:text-purple-200">
                             Ejecutar consecutivamente sin descanso previo
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/40 shrink-0">
+                      <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-800 dark:text-purple-200 border border-purple-500/40 shrink-0">
                         Superserie
                       </span>
                     </div>
@@ -1298,14 +1298,14 @@ export function LiveWorkout() {
                           <div className="font-bold text-purple-200">
                             Ejercicio Drop Set
                           </div>
-                          <div className="text-[11px] text-purple-300/80">
+                          <div className="text-xs text-purple-300/80">
                             Reducción inmediata de peso sin descanso para extender fatiga metabólica
                           </div>
                         </div>
                       </div>
                       <Badge
                         variant="outline"
-                        className="border-purple-500/40 bg-purple-500/20 text-purple-300 uppercase tracking-wider font-bold text-[10px] px-2 py-0.5"
+                        className="border-purple-500/40 bg-purple-500/20 text-purple-300 uppercase tracking-wider font-bold text-xs px-2 py-0.5"
                         data-testid="dropset-badge"
                       >
                         Drop Set
@@ -1344,7 +1344,7 @@ export function LiveWorkout() {
                           {currentExercise.es_unilateral && (
                             <Badge
                               variant="outline"
-                              className="border-amber-500/50 bg-amber-500/15 text-amber-500 dark:text-amber-400 font-bold text-xs"
+                              className="border-warning-soft-border bg-warning-soft text-warning-soft-foreground font-bold text-xs"
                               data-testid="badge-unilateral"
                             >
                               c/lado
@@ -1353,7 +1353,7 @@ export function LiveWorkout() {
                           {currentExercise.tipo_medicion === "TIEMPO" && (
                             <Badge
                               variant="secondary"
-                              className="border border-blue-500/40 bg-blue-500/10 text-blue-500 font-bold text-xs inline-flex items-center gap-1"
+                              className="border border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground font-bold text-xs inline-flex items-center gap-1"
                               data-testid="badge-tipo-tiempo"
                             >
                               <Timer className="h-3.5 w-3.5" /> {currentExercise.tiempo_objetivo_segundos ?? tiempoObjetivo}s
@@ -1364,7 +1364,7 @@ export function LiveWorkout() {
                           {currentExercise.musculos_principales.map((m) => (
                             <span
                               key={m}
-                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground"
+                              className="text-xs font-semibold px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground"
                             >
                               {m}
                             </span>
@@ -1372,7 +1372,7 @@ export function LiveWorkout() {
                           {currentExercise.force_rpe_required && (
                             <span
                               data-testid={`force-rpe-badge-${currentExercise.id}`}
-                              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1"
+                              className="text-xs font-semibold px-2 py-0.5 rounded-md bg-warning-soft text-warning-soft-foreground border border-warning-soft-border inline-flex items-center gap-1"
                             >
                               RPE obligatorio
                             </span>
@@ -1455,16 +1455,16 @@ export function LiveWorkout() {
                   {/* Bloque dedicado: Series de Calentamiento */}
                   {currentExercise.series.some((s) => isWarmup(s.set_type)) && (
                     <div
-                      className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2.5"
+                      className="rounded-2xl border border-warning-soft-border bg-warning-soft/30 p-3.5 space-y-2.5"
                       data-testid="warmup-sets-section"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500 text-xs">
-                            <Flame className="h-3.5 w-3.5 text-amber-500" />
+                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-warning-soft-border text-warning-soft-foreground text-xs">
+                            <Flame className="h-3.5 w-3.5 text-warning-soft-foreground" />
                           </span>
                           <h4
-                            className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider"
+                            className="text-xs sm:text-sm font-bold text-warning-soft-foreground uppercase tracking-wider"
                             title="Series de Calentamiento"
                           >
                             Series de Aproximación
@@ -1472,7 +1472,7 @@ export function LiveWorkout() {
                         </div>
                         <Badge
                           variant="outline"
-                          className="border-amber-500/40 bg-amber-500/10 text-amber-400 font-mono text-[10px] font-bold"
+                          className="border-amber-500/40 bg-warning-soft text-warning-soft-foreground font-mono text-xs font-bold"
                           data-testid="warmup-badge"
                           title="Calentamiento (W)"
                         >
@@ -1490,27 +1490,27 @@ export function LiveWorkout() {
                                 key={ws.numero_serie}
                                 className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between transition-all ${
                                   ws.completada
-                                    ? "border-emerald-500/40 bg-emerald-500/10"
+                                    ? "border-success-soft-border bg-success-soft text-success-soft-foreground"
                                     : isCurrent
-                                    ? "border-amber-500 bg-amber-500/15 ring-1 ring-amber-500 shadow-sm"
+                                    ? "border-warning bg-warning-soft ring-1 ring-warning shadow-sm"
                                     : "border-border/60 bg-background/60 text-muted-foreground"
                                 }`}
                                 data-testid={`warmup-set-card-${ws.numero_serie}`}
                               >
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="font-mono text-[11px] font-bold text-amber-500">
+                                  <span className="font-mono text-xs font-bold text-warning-soft-foreground">
                                     W{ws.numero_serie}
                                   </span>
                                   {ws.completada ? (
-                                    <Check className="h-3.5 w-3.5 text-emerald-500 stroke-[3]" />
+                                    <Check className="h-3.5 w-3.5 text-success stroke-[3]" />
                                   ) : isCurrent ? (
-                                    <span className="text-[10px] font-bold text-amber-400">Activa</span>
+                                    <span className="text-xs font-bold text-warning-soft-foreground">Activa</span>
                                   ) : null}
                                 </div>
                                 <div className="font-bold font-mono text-sm text-foreground">
-                                  {ws.peso_kg} <span className="text-[10px] font-normal text-muted-foreground">kg</span>
+                                  {ws.peso_kg} <span className="text-xs font-normal text-muted-foreground">kg</span>
                                 </div>
-                                <div className="text-[11px] text-muted-foreground">
+                                <div className="text-xs text-muted-foreground">
                                   {ws.reps_hechas} reps
                                 </div>
                               </div>
@@ -1547,7 +1547,7 @@ export function LiveWorkout() {
                           <span
                             className={`font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${
                               isWarmup(serie.set_type)
-                                ? "text-amber-500 bg-amber-500/10 border border-amber-500/20"
+                                ? "text-warning-soft-foreground bg-warning-soft border border-warning-soft-border"
                                 : isDropset(currentExercise.tipo_serie) || isDropset(serie.set_type)
                                 ? "text-purple-300 bg-purple-500/15 border border-purple-500/30"
                                 : "text-primary bg-primary/10"
@@ -1566,7 +1566,7 @@ export function LiveWorkout() {
                         {isWarmup(serie.set_type) ? (
                           <Badge
                             variant="outline"
-                            className="font-mono font-bold text-xs border-amber-500/40 bg-amber-500/10 text-amber-500"
+                            className="font-mono font-bold text-xs border-amber-500/40 bg-warning-soft text-warning-soft-foreground"
                             data-testid="warmup-badge"
                             title="Calentamiento (W)"
                           >
@@ -1588,7 +1588,7 @@ export function LiveWorkout() {
                       </div>
 
                       {isWarmup(serie.set_type) && (
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-500 font-medium">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning-soft border border-warning-soft-border text-xs text-warning-soft-foreground font-medium">
                           <Flame className="h-4 w-4 shrink-0" />
                           <span>Serie de aproximación: no computa para volumen efectivo ni récord personal (PR).</span>
                         </div>
@@ -1621,17 +1621,17 @@ export function LiveWorkout() {
                       {currentExercise.tipo_medicion === "TIEMPO" && (
                         <div
                           data-testid="timer-ejercicio-tiempo"
-                          className="rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4 sm:p-5 space-y-3"
+                          className="rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5 space-y-3"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <Timer className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                              <Timer className="h-5 w-5 text-primary" />
+                              <span className="text-xs font-bold uppercase tracking-wider text-primary">
                                 Temporizador de Ejercicio ({tiempoObjetivo}s)
                               </span>
                             </div>
                             {timerTiempoCompletado && (
-                              <Badge className="bg-emerald-500 text-white font-bold text-xs" data-testid="timer-tiempo-completado-badge">
+                              <Badge className="bg-success text-success-foreground font-bold text-xs" data-testid="timer-tiempo-completado-badge">
                                 ✓ ¡Tiempo completado!
                               </Badge>
                             )}
@@ -1652,10 +1652,10 @@ export function LiveWorkout() {
                             <div
                               className={`h-full transition-all duration-300 ease-linear rounded-full ${
                                 timerTiempoCompletado
-                                  ? "bg-emerald-500"
+                                  ? "bg-success"
                                   : timerTiempoPausado
-                                  ? "bg-amber-400"
-                                  : "bg-blue-500"
+                                  ? "bg-warning"
+                                  : "bg-primary"
                               }`}
                               style={{
                                 width: `${
@@ -1680,7 +1680,7 @@ export function LiveWorkout() {
                                   setTimerTiempoPausado(false);
                                   setTimerTiempoCompletado(false);
                                 }}
-                                className="flex-1 h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                className="flex-1 h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
                                 data-testid="timer-tiempo-iniciar-btn"
                               >
                                 {tiempoCountdown === 0 || timerTiempoCompletado ? "Reiniciar e Iniciar" : "Iniciar"}
@@ -1689,7 +1689,7 @@ export function LiveWorkout() {
                               <Button
                                 type="button"
                                 onClick={() => setTimerTiempoPausado(false)}
-                                className="flex-1 h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
+                                className="flex-1 h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground text-base active:scale-95 transition-all touch-manipulation cursor-pointer"
                                 data-testid="timer-tiempo-reanudar-btn"
                               >
                                 ▶ Reanudar
@@ -1736,7 +1736,7 @@ export function LiveWorkout() {
                             Peso
                           </label>
                           {currentExercise.es_unilateral && (
-                            <span className="text-[11px] font-bold text-amber-500" data-testid="badge-peso-unilateral">
+                            <span className="text-xs font-bold text-warning-soft-foreground" data-testid="badge-peso-unilateral">
                               c/lado
                             </span>
                           )}
@@ -1802,7 +1802,7 @@ export function LiveWorkout() {
                             {currentExercise.tipo_medicion !== "TIEMPO" && repRange?.isRange && (
                               <Badge
                                 variant="outline"
-                                className="font-mono font-semibold text-[11px] px-2 py-0.5 border-primary/30 bg-primary/10 text-primary"
+                                className="font-mono font-semibold text-xs px-2 py-0.5 border-primary/30 bg-primary/10 text-primary"
                                 data-testid="rep-range-badge"
                               >
                                 {`Rango: ${repRange.min} a ${repRange.max} reps (máx. ${repRange.max})`}
@@ -1810,7 +1810,7 @@ export function LiveWorkout() {
                             )}
                           </div>
                           {currentExercise.es_unilateral && (
-                            <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1" data-testid="unilateral-indicator">
+                            <span className="text-xs font-bold text-warning-soft-foreground flex items-center gap-1" data-testid="unilateral-indicator">
                               (c/lado)
                             </span>
                           )}
@@ -1909,62 +1909,62 @@ export function LiveWorkout() {
                                   data-testid="set-type-popover-content"
                                 >
                                   <div className="space-y-2.5">
-                                    <div className="font-bold text-slate-100 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                                    <div className="font-bold text-popover-foreground flex items-center gap-1.5 border-b border-border pb-1.5">
                                       <HelpCircle className="h-4 w-4 text-primary" />
                                       <span>Taxonomía de Series</span>
                                     </div>
                                     <div className="space-y-2 text-left">
                                       <div className="flex items-start gap-2.5">
-                                        <span className="shrink-0 h-5 w-5 rounded-md bg-amber-500 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-amber-500 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                                           W
                                         </span>
                                         <div className="leading-tight">
-                                          <p className="font-semibold text-slate-100">
+                                          <p className="font-semibold text-popover-foreground">
                                             W (Warm-up / Calentamiento)
                                           </p>
-                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                                             Series de aproximación, no computan al volumen efectivo ni PRs.
                                           </p>
                                         </div>
                                       </div>
 
                                       <div className="flex items-start gap-2.5">
-                                        <span className="shrink-0 h-5 w-5 rounded-md bg-primary text-primary-foreground font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center shadow-xs">
                                           N
                                         </span>
                                         <div className="leading-tight">
-                                          <p className="font-semibold text-slate-100">
+                                          <p className="font-semibold text-popover-foreground">
                                             N (Normal / Efectiva)
                                           </p>
-                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                                             Serie de trabajo principal programada por el entrenador.
                                           </p>
                                         </div>
                                       </div>
 
                                       <div className="flex items-start gap-2.5">
-                                        <span className="shrink-0 h-5 w-5 rounded-md bg-rose-600 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-rose-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                                           F
                                         </span>
                                         <div className="leading-tight">
-                                          <p className="font-semibold text-slate-100">
+                                          <p className="font-semibold text-popover-foreground">
                                             F (Failure / Al Fallo)
                                           </p>
-                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                                             Esfuerzo máximo absoluto sin repeticiones en reserva (RIR 0 / RPE 10).
                                           </p>
                                         </div>
                                       </div>
 
                                       <div className="flex items-start gap-2.5">
-                                        <span className="shrink-0 h-5 w-5 rounded-md bg-purple-600 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                                        <span className="shrink-0 h-5 w-5 rounded-md bg-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                                           D
                                         </span>
                                         <div className="leading-tight">
-                                          <p className="font-semibold text-slate-100">
+                                          <p className="font-semibold text-popover-foreground">
                                             D (Drop Set)
                                           </p>
-                                          <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
                                             Reducción inmediata de peso sin pausa previa para extender la fatiga metabólica.
                                           </p>
                                         </div>
@@ -2057,7 +2057,7 @@ export function LiveWorkout() {
                                       RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador
                                     </span>
                                   </Badge>
-                                  <p className="text-[11px] text-muted-foreground pt-0.5">
+                                  <p className="text-xs text-muted-foreground pt-0.5">
                                     Intensidad fija del ejercicio fundamental. Solo lectura para el atleta.
                                   </p>
                                 </div>
@@ -2071,7 +2071,7 @@ export function LiveWorkout() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="w-full min-h-11 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-bold text-xs"
+                              className="w-full min-h-11 border-warning-soft-border text-warning-soft-foreground hover:bg-warning-soft font-bold text-xs"
                               onClick={() => setWarmupModalExercise(currentExercise)}
                               data-testid={`warmup-btn-${currentExercise.id}`}
                               aria-label="Aproximación"
@@ -2110,12 +2110,12 @@ export function LiveWorkout() {
                               className={`h-2 rounded-full transition-all duration-200 ${
                                 isCurrent
                                   ? isWarmupSet
-                                    ? "w-8 bg-amber-500"
+                                    ? "w-8 bg-warning"
                                     : "w-8 bg-primary"
                                   : isDone
                                   ? isWarmupSet
-                                    ? "w-8 bg-amber-500/70"
-                                    : "w-8 bg-emerald-500"
+                                    ? "w-8 bg-warning/70"
+                                    : "w-8 bg-success"
                                   : "w-8 bg-muted"
                               }`}
                               title={`Serie ${s.numero_serie}${isWarmupSet ? " (Calentamiento)" : ""}: ${isDone ? "Guardada" : isCurrent ? "Actual" : "Pendiente"}`}
@@ -2125,8 +2125,8 @@ export function LiveWorkout() {
                       </div>
                     </Card>
                   ) : (
-                    <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-6 text-center space-y-3">
-                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white">
+                    <div className="rounded-2xl border border-success-soft-border bg-success-soft p-6 text-center space-y-3">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-success text-success-foreground">
                         <Check className="h-6 w-6" strokeWidth={3} />
                       </div>
                       <h3 className="text-xl font-bold text-foreground">
@@ -2345,7 +2345,7 @@ export function LiveWorkout() {
                               <div
                                 key={s.numero_serie}
                                 className={`flex items-center justify-between p-3 sm:p-4 hover:bg-secondary/10 transition-colors ${
-                                  isWarmupRow ? "bg-amber-500/5" : ""
+                                  isWarmupRow ? "bg-warning-soft/30" : ""
                                 }`}
                                 data-testid={`log-row-${ej.id}-${s.numero_serie}`}
                               >
@@ -2360,7 +2360,7 @@ export function LiveWorkout() {
                                     {isWarmupRow && (
                                       <Badge
                                         variant="outline"
-                                        className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] sm:text-xs font-bold"
+                                        className="border-amber-500/40 bg-warning-soft text-warning-soft-foreground font-mono text-xs font-bold"
                                         data-testid="warmup-badge"
                                         title="Calentamiento (W)"
                                       >
@@ -2370,7 +2370,7 @@ export function LiveWorkout() {
                                     {(isDropset(s.set_type) || isDropset(ej.tipo_serie)) && (
                                       <Badge
                                         variant="outline"
-                                        className="border-purple-500/40 bg-purple-500/10 text-purple-300 font-mono text-[10px] sm:text-xs font-bold"
+                                        className="border-purple-500/40 bg-purple-500/10 text-purple-300 font-mono text-xs font-bold"
                                         data-testid="dropset-badge"
                                       >
                                         ⚡ Drop Set
@@ -2433,14 +2433,14 @@ export function LiveWorkout() {
                             <div>
                               {completedWarmups.length > 0 && (
                                 <div
-                                  className="bg-amber-500/5 border-b border-border/60"
+                                  className="bg-warning-soft/30 border-b border-border/60"
                                   data-testid={`registro-warmup-section-${ej.id}`}
                                 >
-                                  <div className="px-3 sm:px-4 py-2 flex items-center justify-between bg-amber-500/10">
+                                  <div className="px-3 sm:px-4 py-2 flex items-center justify-between bg-warning-soft/50">
                                     <div className="flex items-center gap-1.5">
-                                      <Flame className="h-4 w-4 text-amber-500" />
+                                      <Flame className="h-4 w-4 text-warning-soft-foreground" />
                                       <span
-                                        className="text-xs font-bold text-amber-500 uppercase tracking-wider"
+                                        className="text-xs font-bold text-warning-soft-foreground uppercase tracking-wider"
                                         title="Series de Calentamiento"
                                       >
                                         Series de Aproximación
@@ -2448,7 +2448,7 @@ export function LiveWorkout() {
                                     </div>
                                     <Badge
                                       variant="outline"
-                                      className="border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] font-bold"
+                                      className="border-amber-500/40 bg-warning-soft text-warning-soft-foreground font-mono text-xs font-bold"
                                       data-testid="warmup-badge"
                                       title="Calentamiento (W)"
                                     >
@@ -2634,7 +2634,7 @@ export function LiveWorkout() {
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Define cuánto suman o restan los botones en cada toque (por defecto 2.5 kg).
               </p>
             </div>
@@ -2649,7 +2649,7 @@ export function LiveWorkout() {
                   >
                     Colapsar rutina en cascada
                   </label>
-                  <p className="text-[11px] text-muted-foreground leading-tight">
+                  <p className="text-xs text-muted-foreground leading-tight">
                     Minimiza los ejercicios mostrando únicamente el activo para llegar más rápido al registro.
                   </p>
                 </div>
@@ -2694,11 +2694,11 @@ export function LiveWorkout() {
                   <span>Cuestionario Inicial</span>
                 </div>
                 {cuestionarioInicial?.completado_at ? (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-success-soft text-success-soft-foreground border border-success-soft-border font-bold px-2 py-0.5 rounded-full">
                     Completado
                   </span>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">Opcional</span>
+                  <span className="text-xs text-muted-foreground">Opcional</span>
                 )}
               </button>
             </div>
@@ -2833,7 +2833,7 @@ export function LiveWorkout() {
         onClose={() => setAtypicalPrompt(null)}
       >
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-amber-500 font-bold text-base">
+          <div className="flex items-center gap-2 text-warning font-bold text-base">
             <TriangleAlert className="h-5 w-5" />
             <span>Carga atípica</span>
           </div>
