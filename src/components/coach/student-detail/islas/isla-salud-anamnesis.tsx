@@ -469,7 +469,7 @@ export function IslaSaludAnamnesis({
                 <button
                   type="button"
                   onClick={() => setErrorMsg(null)}
-                  className="text-[11px] underline hover:text-foreground cursor-pointer"
+                  className="text-xs underline hover:text-foreground cursor-pointer"
                 >
                   Descartar
                 </button>

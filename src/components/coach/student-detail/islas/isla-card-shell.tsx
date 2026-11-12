@@ -165,12 +165,12 @@ export function IslaCardShell({
                 onClick={() => onResizeWidth(-5)}
                 disabled={(currentWidth ?? 50) <= 25}
                 data-testid={`resize-dec-${id}`}
-                className="h-5 w-4 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                className="h-5 w-4 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                 title="Reducir ancho en la fila (-5%)"
               >
                 -
               </button>
-              <span className="font-mono text-[11px] font-medium text-foreground tabular-nums px-0.5 select-none">
+              <span className="font-mono text-xs font-medium text-foreground tabular-nums px-0.5 select-none">
                 {currentWidth ?? 50}%
               </span>
               <button
@@ -178,7 +178,7 @@ export function IslaCardShell({
                 onClick={() => onResizeWidth(+5)}
                 disabled={(currentWidth ?? 50) >= 75}
                 data-testid={`resize-inc-${id}`}
-                className="h-5 w-4 text-[11px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                className="h-5 w-4 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                 title="Aumentar ancho en la fila (+5%)"
               >
                 +
@@ -188,7 +188,7 @@ export function IslaCardShell({
                   type="button"
                   onClick={onSeparateRow}
                   data-testid={`separate-row-${id}`}
-                  className="ml-1 text-[11px] text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                  className="ml-1 text-xs text-muted-foreground hover:text-foreground font-medium cursor-pointer"
                   title="Expandir a fila propia completa (100%)"
                 >
                   ⤢
