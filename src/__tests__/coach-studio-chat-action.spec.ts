@@ -121,7 +121,7 @@ describe("GOZS-244: FE Studio - Botón de mensaje por la app (chat) en acciones 
 
   describe("3. Ergonomía Táctil M3 (Fat-Finger Friendly ≥ 48px y separación ≥ 8px)", () => {
     it("el menú ⋯ que contiene 'Enviar mensaje' usa el botón de ícono del diseño (32 px) dentro de una fila de 56 px", () => {
-      expect(viewContent).toContain("inline-flex h-8 w-8 items-center justify-center rounded-md");
+      expect(viewContent).toContain("inline-flex size-target items-center justify-center rounded-md");
       expect(viewContent).toContain('const rowPaddingClass = "h-14 py-2";');
     });
 
