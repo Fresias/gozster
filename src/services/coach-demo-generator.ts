@@ -61,7 +61,18 @@ const entre = (rng: () => number, min: number, max: number) => min + Math.floor(
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const inicioDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const inicioDia = (d: Date) => {
+  const [anio, mes, dia] = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(d)
+    .split("-")
+    .map(Number);
+  return new Date(anio!, mes! - 1, dia!);
+};
 const mismoMes = (iso: string, ref: Date) => {
   const d = new Date(iso);
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
