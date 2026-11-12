@@ -337,7 +337,7 @@ export default function HomePage() {
   const { user } = useLandingSession();
   useScrollReveal();
   const deal = useModalidadesDeal();
-  const { containerRef, trackRef, progressBarRef, progressPercentRef, phaseBadgeRef } = useHorizontalStorytelling();
+  const { containerRef, trackRef, progressBarRef } = useHorizontalStorytelling();
 
   /* Quien ya tiene cuenta entra desde el header; el relato siempre invita a empezar. */
   const accionCorta = (className: string, tabIndex?: number) =>
@@ -449,133 +449,113 @@ export default function HomePage() {
         {/* 01 · Quién te entrena: la autoridad, apenas termina la promesa */}
         <section id="gonzalo" className={SECCION}>
           <div className={CUERPO}>
-            <Capitulo n="01">Quién te entrena</Capitulo>
-            <blockquote className="text-balance text-xl font-black leading-[1.05] tracking-tighter sm:text-4xl lg:text-[2.75rem]" data-reveal>
-              &ldquo;No tenés un problema de voluntad. Tenés una <span className="landing-tachar text-muted-foreground">rutina genérica</span>.&rdquo;
-            </blockquote>
-            <p className={`${LEAD} mt-3 max-w-3xl`} data-reveal>
-              Profesores y licenciados en Educación Física, entrenadores y especialistas. Un equipo real que te acompaña a entrenar mejor, sin atajos y sin humo.
-            </p>
+            <div className="grid grid-cols-1 items-center gap-5 md:grid-cols-12 md:gap-10 lg:gap-12">
+              <figure className="landing-media dark group relative isolate overflow-hidden rounded-2xl bg-zinc-950 md:col-span-4" data-reveal>
+                <img
+                  src={FOTO_GONZALO}
+                  alt="Retrato de Gonzalo Salas, Head Coach"
+                  loading="lazy"
+                  className="aspect-[2/1] w-full object-cover object-top grayscale contrast-125 transition-transform duration-700 group-hover:scale-105 md:aspect-[3/4]"
+                />
+                <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 to-transparent p-5 pt-16 text-zinc-50">
+                  <span className="block text-3xl font-black leading-none tracking-tighter">Gonzalo Salas</span>
+                  <span className="mt-2 flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                    <span className="landing-dot size-1.5 rounded-full bg-zinc-50 text-zinc-50" aria-hidden="true" />
+                    Head Coach
+                  </span>
+                </figcaption>
+              </figure>
 
-            {/* Equipo GOZS: Hero Asimétrico de Gonzalo Salas + Staff Satélite */}
-            <div className="mt-8" data-testid="equipo-gozs">
-              {/* TARJETA HERO ASIMÉTRICA: GONZALO SALAS (HEAD COACH) */}
-              <div className="relative overflow-hidden rounded-3xl border-2 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-6 md:p-8 shadow-xl mb-8">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  {/* Foto de Gonzalo (Aspect 4/5) */}
-                  <div className="lg:col-span-5">
-                    <div className="aspect-[4/5] relative rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-inner group">
-                      <img
-                        src={FOTO_GONZALO}
-                        alt="Retrato de Gonzalo Salas, Head Coach"
-                        loading="lazy"
-                        className="size-full object-cover object-top grayscale contrast-125 transition-transform duration-700 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/30 to-transparent" />
-                      <div className="absolute bottom-0 inset-x-0 p-5 text-white">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1.5">
-                          <span className="size-1.5 rounded-full bg-emerald-400" />
-                          HEAD COACH · FUNDADOR
-                        </span>
-                        <h3 className="text-3xl font-black leading-tight tracking-tight">Gonzalo Salas</h3>
-                        <p className="text-xs text-zinc-300 font-medium mt-0.5">Profesor Nacional de Educación Física</p>
+              <div className="md:col-span-8">
+                <Capitulo n="01">Quién te entrena</Capitulo>
+                <blockquote className="text-balance text-xl font-black leading-[1.05] tracking-tighter sm:text-4xl lg:text-[2.75rem]" data-reveal>
+                  &ldquo;No tenés un problema de voluntad. Tenés una <span className="landing-tachar text-muted-foreground">rutina genérica</span> y nadie que te mire entrenar.&rdquo;
+                </blockquote>
+                <p className={`${LEAD} mt-4 hidden max-w-2xl sm:block`} data-reveal>
+                  Profesor de Educación Física, entrenador y director técnico de boxeo. Lleva más de cinco años acompañando a personas reales a entrenar mejor, sin atajos y sin humo.
+                </p>
+
+                <ul className="mt-6 border-t border-border" id="trayectoria">
+                  {CREDENCIALES.map((c, i) => (
+                    <li
+                      key={c.titulo}
+                      className="group grid grid-cols-1 gap-1 border-b border-border px-0 py-2.5 transition-all duration-200 hover:bg-foreground hover:text-background sm:grid-cols-12 sm:gap-6 sm:px-4 sm:py-3.5 sm:hover:pl-6"
+                      data-testid={`franja-cv-${i + 1}`}
+                      data-reveal
+                      style={retraso(i * 70)}
+                    >
+                      <span className="hidden font-mono text-sm font-semibold tabular-nums text-muted-foreground transition-colors group-hover:text-background/70 sm:col-span-1 sm:block sm:pt-0.5">
+                        0{i + 1}
+                      </span>
+                      <div className="sm:col-span-6">
+                        <h3 className="text-base font-black leading-snug tracking-tight sm:text-lg">{c.titulo}</h3>
+                        <p className="text-sm text-muted-foreground transition-colors group-hover:text-background/70">{c.institucion}</p>
                       </div>
-                    </div>
-                  </div>
+                      <p className="hidden text-sm font-medium leading-relaxed sm:col-span-5 sm:block sm:pt-0.5">{c.paraVos}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
 
-                  {/* Bio y sus 4 CREDENCIALES EXCLUSIVAS */}
-                  <div className="lg:col-span-7 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
-                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Credenciales Oficiales</span>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                          Exclusivas de Gonzalo Salas
-                        </span>
-                      </div>
-
-                      <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed mb-6">
-                        Director Técnico de Boxeo (FAB) y entrenador con más de 5 años guiando atletas. Creador de la metodología y líder técnico del equipo de profesores de GOZS.
-                      </p>
-
-                      {/* Las 4 credenciales fijas 01 a 04 */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" id="trayectoria">
-                        {CREDENCIALES.map((c, i) => (
-                          <div
-                            key={c.titulo}
-                            className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/80 transition-all duration-200 hover:bg-foreground hover:text-background group"
-                            data-testid={`franja-cv-${i + 1}`}
-                            data-reveal
-                            style={retraso(i * 70)}
-                          >
-                            <span className="font-mono text-xs font-bold text-zinc-400 dark:text-zinc-500 group-hover:text-background/70">
-                              0{i + 1}
-                            </span>
-                            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-background mt-0.5">
-                              {c.titulo}
-                            </h4>
-                            <p className="text-[11px] text-zinc-500 group-hover:text-background/80">{c.institucion}</p>
-                            <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 group-hover:text-background mt-1">
-                              {c.paraVos}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+            {/* Staff Técnico GOZS: debajo de Gonzalo, mismo estilo de tipografía, fuentes y tamaños */}
+            <div className="mt-12 border-t border-border pt-8" data-testid="equipo-gozs">
+              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="landing-dot size-1.5 rounded-full bg-foreground" aria-hidden="true" />
+                  <h3 className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Staff Técnico GOZS · Licenciados en Educación Física IURP
+                  </h3>
                 </div>
+                <span className="font-mono text-xs text-muted-foreground">Equipo operativo</span>
               </div>
 
-              {/* FILA DE STAFF SATÉLITE: FELIPE LEITES Y LEONEL LLESET */}
-              <div className="pt-4">
-                <div className="flex items-center justify-between mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-zinc-400" />
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Staff Técnico GOZS · Licenciados Universitarios IURP
-                    </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Felipe Leites */}
+                <div className="landing-card group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-foreground/40">
+                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-zinc-950">
+                    <img
+                      src={FOTO_FELIPE}
+                      alt="Retrato de Felipe Leites, Online Coach"
+                      loading="lazy"
+                      className="size-full object-cover grayscale contrast-125"
+                    />
                   </div>
-                  <span className="text-xs text-zinc-400 hidden sm:inline">Equipo operativo</span>
+                  <div>
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Online Coach
+                    </span>
+                    <h4 className="text-base font-black leading-snug tracking-tight text-foreground">
+                      Felipe Leites
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Licenciado en Educación Física IURP</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      Especialista en planificación, seguimiento continuo y planes a distancia.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Felipe Leites */}
-                  <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center gap-4 shadow-sm hover:border-zinc-400 dark:hover:border-zinc-600 transition-all">
-                    <div className="size-20 rounded-xl overflow-hidden bg-zinc-950 shrink-0 border border-zinc-200 dark:border-zinc-800">
-                      <img
-                        src={FOTO_FELIPE}
-                        alt="Retrato de Felipe Leites, Online Coach"
-                        loading="lazy"
-                        className="size-full object-cover grayscale contrast-125"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                        Online Coach
-                      </span>
-                      <h4 className="text-base font-black text-zinc-900 dark:text-zinc-100 mt-1">Felipe Leites</h4>
-                      <p className="text-xs font-medium text-zinc-500">Licenciado en Educación Física IURP</p>
-                      <p className="text-xs text-zinc-400 mt-1">Especialista en planificación, seguimiento continuo y planes a distancia.</p>
-                    </div>
+                {/* Leonel Lleset */}
+                <div className="landing-card group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-foreground/40">
+                  <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-zinc-950">
+                    <img
+                      src={FOTO_LLESET}
+                      alt="Retrato de Leonel Lleset, Boxing Coach"
+                      loading="lazy"
+                      className="size-full object-cover grayscale contrast-125"
+                    />
                   </div>
-
-                  {/* Leonel Lleset */}
-                  <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center gap-4 shadow-sm hover:border-zinc-400 dark:hover:border-zinc-600 transition-all">
-                    <div className="size-20 rounded-xl overflow-hidden bg-zinc-950 shrink-0 border border-zinc-200 dark:border-zinc-800">
-                      <img
-                        src={FOTO_LLESET}
-                        alt="Retrato de Leonel Lleset, Boxing Coach"
-                        loading="lazy"
-                        className="size-full object-cover grayscale contrast-125"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                        Boxing Coach
-                      </span>
-                      <h4 className="text-base font-black text-zinc-900 dark:text-zinc-100 mt-1">Leonel Lleset</h4>
-                      <p className="text-xs font-medium text-zinc-500">Licenciado en Educación Física IURP</p>
-                      <p className="text-xs text-zinc-400 mt-1">A cargo de clases presenciales de Funcional y Boxeo.</p>
-                    </div>
+                  <div>
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Boxing Coach
+                    </span>
+                    <h4 className="text-base font-black leading-snug tracking-tight text-foreground">
+                      Leonel Lleset
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Licenciado en Educación Física IURP</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      A cargo de clases presenciales de Funcional y Boxeo.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -584,45 +564,28 @@ export default function HomePage() {
           <Siguiente href="#problema">¿Te suena esto?</Siguiente>
         </section>
 
-        {/* 02 · ¿Te suena? (Storytelling con Scroll Horizontal Anclado en 1 Solo Viewport) */}
+        {/* 02 · ¿Te suena? (Storytelling con Scroll Horizontal en 1 Solo Viewport) */}
         <section
           id="problema"
           ref={containerRef}
-          className="landing-section relative min-h-[calc(100svh-4rem)] h-[240vh] bg-zinc-950 text-white"
+          className="landing-section relative min-h-[calc(100svh-4rem)] h-[220vh] bg-secondary/40 text-foreground"
         >
           <div id="metodo" className="sr-only" />
 
           {/* Elemento Sticky de 100vh exacto (1 solo viewport) */}
           <div
             id="problema-sticky-viewport"
-            className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-between py-6 px-4 md:px-8 bg-zinc-950"
+            className="sticky top-0 h-screen w-full overflow-hidden flex flex-col justify-between py-6 px-4 md:px-8"
           >
-            {/* Barra superior de estado y progreso narrativo */}
-            <div className="max-w-7xl mx-auto w-full flex items-center justify-between pb-2 border-b border-zinc-800">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-800/80 px-3 py-1 font-mono text-xs font-bold uppercase tracking-wider text-zinc-200">
-                  02 · ¿Te suena?
-                </span>
-                {/* Etiqueta de fase actual */}
-                <span ref={phaseBadgeRef} className="text-xs font-mono font-bold text-red-400 transition-colors">
-                  Fase 1: El Dolor
-                </span>
-              </div>
-
-              {/* Indicador de Scroll Horizontal */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-zinc-400 hidden sm:inline">
-                  Scroll down para avanzar el relato
-                </span>
-                <div className="w-24 sm:w-36 h-2 rounded-full bg-zinc-800 overflow-hidden">
-                  <div
-                    ref={progressBarRef}
-                    className="h-full bg-emerald-500 w-0 transition-all duration-75 shadow-[0_0_12px_rgba(16,185,129,0.4)]"
-                  />
-                </div>
-                <span ref={progressPercentRef} className="text-xs font-mono text-zinc-300 w-8 text-right">
-                  0%
-                </span>
+            {/* Barra superior de estado y progreso narrativo monocromático */}
+            <div className="max-w-7xl mx-auto w-full flex items-center justify-between pb-3 border-b border-border">
+              <Capitulo n="02">¿Te suena?</Capitulo>
+              <div className="w-24 sm:w-36 h-1 rounded-full bg-border/60 overflow-hidden">
+                <div
+                  ref={progressBarRef}
+                  className="h-full bg-foreground origin-left will-change-transform"
+                  style={{ transform: "scaleX(0)" }}
+                />
               </div>
             </div>
 
@@ -633,82 +596,80 @@ export default function HomePage() {
                 id="story-track"
                 className="flex items-center w-[200%] transition-transform duration-75 ease-out will-change-transform"
               >
-                {/* PANEL 1: EL DOLOR (100% del ancho del viewport visible) */}
-                <div className="w-1/2 shrink-0 pr-4 md:pr-12">
+                {/* PANEL 1: EL DOLOR */}
+                <div className="w-1/2 shrink-0 pr-4 md:pr-10">
                   <div className="max-w-5xl mx-auto">
-                    <span className="text-xs font-mono font-bold tracking-widest text-red-400 uppercase">
-                      01 · El Síntoma
-                    </span>
-                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black leading-[0.95] tracking-tighter mt-1 mb-6">
-                      Vas al gimnasio, cumplís y aun así{" "}
-                      <span className="text-zinc-400 underline decoration-red-500 decoration-2">no avanzás</span>.
+                    <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-[0.95] tracking-tighter mb-6">
+                      <span className="block text-muted-foreground">Vas al gimnasio,</span>{" "}
+                      <span className="block text-muted-foreground">cumplís</span>{" "}
+                      <span className="block text-foreground">
+                        y aun así{" "}
+                        <span className="relative inline-block">
+                          no avanzás
+                          <span className="landing-linea absolute inset-x-0 -bottom-1 h-[0.09em] bg-foreground" aria-hidden="true" />
+                        </span>
+                        .
+                      </span>
                     </h2>
 
-                    {/* 3 Tarjetas de dolor con alto contraste para modo noche */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {DOLORES.map((d) => (
-                        <div key={d.n} className="p-5 rounded-2xl border border-zinc-800 bg-zinc-900/90 shadow-lg">
-                          <span className="font-mono text-4xl font-black text-zinc-500 block">{d.n}</span>
-                          <h3 className="text-base font-bold text-zinc-100 mt-2">{d.titulo}</h3>
-                          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">{d.detalle}</p>
+                        <div
+                          key={d.n}
+                          className="landing-card rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground"
+                        >
+                          <span className="font-mono text-4xl sm:text-5xl font-black tabular-nums tracking-tighter text-foreground/15 block">
+                            {d.n}
+                          </span>
+                          <h3 className="mt-2 text-balance text-base sm:text-lg font-black leading-tight tracking-tight text-foreground">
+                            {d.titulo}
+                          </h3>
+                          <p className="mt-2 text-xs sm:text-sm leading-relaxed text-muted-foreground">
+                            {d.detalle}
+                          </p>
                         </div>
                       ))}
-                    </div>
-
-                    <div className="mt-6 flex items-center gap-2 text-xs text-zinc-400">
-                      <span className="text-emerald-400 text-sm">↓</span>
-                      <span>Continuá scrolleando hacia abajo para ver la solución metodológica →</span>
                     </div>
                   </div>
                 </div>
 
-                {/* PANEL 2: EL MÉTODO (100% del ancho del viewport visible) - CERO EFECTO EN NOVEDAD */}
-                <div className="w-1/2 shrink-0 pl-4 md:pl-12">
+                {/* PANEL 2: EL MÉTODO (CERO EFECTOS EN NOVEDAD, 100% MONOCROMÁTICO) */}
+                <div className="w-1/2 shrink-0 pl-4 md:pl-10">
                   <div className="max-w-5xl mx-auto" data-testid="contraste-tendencia-evidencia">
-                    <span className="text-xs font-mono font-bold tracking-widest text-emerald-400 uppercase">
-                      02 · La Evidencia
-                    </span>
-                    {/* TÍTULO 100% ESTÁTICO, SIN SCRAMBLETEXT, SIN GLITCH */}
-                    <h2 className="text-3xl sm:text-5xl lg:text-5xl font-black leading-tight tracking-tight mt-1 mb-2">
-                      Lo que funciona no es <span className="font-black text-zinc-100">novedad</span>. Es método.
+                    <Capitulo n="02">El método</Capitulo>
+                    <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight mt-1 mb-2">
+                      Lo que funciona no es novedad. Es método.
                     </h2>
-                    <p className="text-xs sm:text-sm text-zinc-400 mb-5 max-w-2xl">
-                      Las modas cambian cada mes. Lo que hace progresar a una persona se sabe hace años. El equipo de GOZS trabaja con eso.
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-4 max-w-2xl">
+                      Las modas cambian cada mes. Lo que hace progresar a una persona se sabe hace años. Gonzalo trabaja con eso.
                     </p>
 
-                    {/* Tabla de Contraste Tendencia vs Evidencia (Alto Contraste WCAG AAA) */}
-                    <div className="rounded-2xl border-2 border-zinc-700 bg-zinc-900 p-4 sm:p-5 shadow-2xl">
-                      <div className="grid grid-cols-2 gap-3 px-3 pb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-800 mb-2">
-                        <span>La tendencia comercial</span>
-                        <span className="text-emerald-400 pl-3">La evidencia GOZS</span>
-                      </div>
-
-                      <ul className="space-y-2">
-                        {CONTRASTE.map((c) => (
-                          <li
-                            key={c.tendencia}
-                            className="grid grid-cols-1 sm:grid-cols-2 rounded-xl border border-zinc-800 bg-zinc-950 text-xs overflow-hidden"
-                          >
-                            <p className="flex items-center gap-2.5 p-2.5 text-zinc-400">
-                              <span className="size-5 rounded-full border border-red-500/40 text-red-400 flex items-center justify-center font-bold text-[10px] shrink-0">
-                                ✕
-                              </span>
-                              <span>{c.tendencia}</span>
-                            </p>
-                            <p className="flex items-center gap-2.5 p-2.5 font-bold text-zinc-50 bg-zinc-800/90 border-t sm:border-t-0 sm:border-l border-zinc-700">
-                              <span className="size-5 rounded-full bg-emerald-500 text-zinc-950 flex items-center justify-center font-black text-[11px] shrink-0">
-                                ✓
-                              </span>
-                              <span>{c.evidencia}</span>
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between text-xs text-zinc-400">
-                      <span className="font-mono text-emerald-400 font-bold">✓ Relato completado</span>
-                      <span>Continuá hacia abajo para ver tu plan en el bolsillo ↓</span>
+                    <div className="space-y-2">
+                      {CONTRASTE.map((c) => (
+                        <div
+                          key={c.tendencia}
+                          className="landing-card group grid grid-cols-1 overflow-hidden rounded-xl border border-border bg-card sm:grid-cols-2"
+                        >
+                          <p className="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold leading-snug text-muted-foreground sm:px-4 sm:py-2.5 sm:text-sm">
+                            <span className="hidden sm:inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border">
+                              <XIcon className="size-2.5" />
+                            </span>
+                            <span>
+                              <span className="sr-only">Tendencia: </span>
+                              <span className="landing-tachar">{c.tendencia}</span>
+                            </span>
+                          </p>
+                          <p className="flex items-center gap-2.5 bg-secondary/50 px-3.5 py-2 text-xs font-semibold leading-snug text-foreground transition-colors group-hover:bg-foreground group-hover:text-background sm:border-l sm:border-border sm:px-4 sm:py-2.5 sm:text-sm">
+                            <span className="hidden sm:inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors group-hover:bg-background group-hover:text-foreground">
+                              <CheckIcon className="size-2.5" />
+                            </span>
+                            <span>
+                              <span className="sr-only">Evidencia: </span>
+                              {c.evidencia}
+                            </span>
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -716,8 +677,7 @@ export default function HomePage() {
             </div>
 
             {/* Pie del Viewport Sticky con enlace a la siguiente sección */}
-            <div className="max-w-7xl mx-auto w-full pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500">
-              <span className="hidden sm:inline">Storytelling horizontal contenido en 1 solo viewport</span>
+            <div className="max-w-7xl mx-auto w-full pt-3 border-t border-border flex items-center justify-end">
               <Siguiente href="#alumnos" className="!mt-0 !p-0">
                 Mirá cómo se ve tu plan
               </Siguiente>
