@@ -58,7 +58,7 @@ export function LandingSessionCapsule({ initialUser }: { initialUser?: AuthUserD
     return (
       <Link
         href="/login"
-        className="inline-flex min-h-[36px] items-center rounded-lg border border-border/80 bg-secondary/60 px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary active:scale-[0.98] transition-all"
+        className="inline-flex min-h-target items-center rounded-lg border border-border/80 bg-secondary/60 px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary active:scale-[0.98] transition-all"
       >
         Iniciar Sesión
       </Link>
