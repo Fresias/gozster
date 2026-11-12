@@ -225,7 +225,7 @@ export function InicioMisDias() {
             <p className="text-xs sm:text-sm font-bold text-foreground">
               Actualizá tu peso corporal para calibrar tus marcas de fuerza (kg)
             </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {student?.peso_corporal_kg
                 ? `Último registro: ${student.peso_corporal_kg} kg (hace ${diasSinActualizarPeso} días)`
                 : "Calibración en kilogramos puros sin métricas invasivas"}
@@ -246,7 +246,7 @@ export function InicioMisDias() {
 
       {pesoGuardadoMensaje ? (
         <div
-          className="rounded-xl bg-emerald-500/15 border border-emerald-500/30 p-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+          className="rounded-xl bg-success-soft border border-success-soft-border p-2.5 text-xs font-bold text-success-soft-foreground"
           data-testid="peso-guardado-feedback"
         >
           ✓ {pesoGuardadoMensaje}
@@ -299,11 +299,11 @@ export function InicioMisDias() {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-primary">Mensaje nuevo del Coach</span>
-            <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+            <span className="rounded-full bg-success-soft text-success border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">
               No leído
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+          <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
             {latestUnreadStaffMessage.contenido}
           </p>
         </div>
@@ -372,11 +372,11 @@ export function InicioMisDias() {
           data-testid="ultimo-entrenamiento-card"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500 font-bold">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success font-bold">
               <Check className="h-4 w-4" strokeWidth={3} />
             </span>
             <div className="truncate">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Último entrenamiento realizado
               </p>
               <p className="text-sm font-bold text-foreground truncate mt-0.5">
@@ -386,7 +386,7 @@ export function InicioMisDias() {
           </div>
           <div className="shrink-0 text-right">
             <span
-              className="inline-block px-2.5 py-1 rounded-lg bg-background/80 border border-border/60 text-[11px] font-bold text-foreground"
+              className="inline-block px-2.5 py-1 rounded-lg bg-background/80 border border-border/60 text-xs font-bold text-foreground"
               data-testid="ultimo-entrenamiento-fecha"
             >
               {ultimoDiaRealizado.tiempoRelativo
@@ -404,16 +404,16 @@ export function InicioMisDias() {
       {(rpeReminderNotification || pendingRpeExercise) && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200"
+          className="flex items-center justify-between gap-2 rounded-2xl border border-warning-soft-border bg-warning-soft p-3.5 text-xs text-warning-soft-foreground"
           data-testid="rpe-reminder-banner"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 font-bold text-xs">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning font-bold text-xs">
               ⚡
             </span>
             <div className="min-w-0">
-              <span className="font-bold text-amber-300">RPE obligatorio (sin bloqueo):</span>{" "}
-              <span className="text-amber-200/90 text-[11px]">
+              <span className="font-bold text-warning">RPE obligatorio (sin bloqueo):</span>{" "}
+              <span className="text-warning-soft-foreground text-xs">
                 {rpeReminderNotification ||
                   `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
               </span>
@@ -426,31 +426,31 @@ export function InicioMisDias() {
       {diaHero && (
         <section
           aria-label="Día de hoy"
-          className="rounded-[20px] bg-[#0F172A] p-5 text-[#F8FAFC] shadow-xl border border-slate-800"
+          className="rounded-[20px] bg-[#0F172A] p-5 text-white shadow-xl border border-border"
           data-testid="hero-dia-hoy"
         >
           <div className="flex items-center gap-2 flex-wrap">
             {cambioDeDia ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
+                <span className="text-xs font-bold tracking-wider text-primary uppercase">
                   Hoy
                 </span>
                 <span
-                  className="rounded-full bg-[#FDE68A] px-2 py-0.5 text-[11px] font-bold text-[#0F172A]"
+                  className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-soft-foreground border border-warning-soft-border"
                   data-testid="tag-cambiaste-dia"
                 >
                   Cambiaste de día
                 </span>
               </div>
             ) : (
-              <span className="text-xs font-bold tracking-wider text-[#93C5FD] uppercase">
+              <span className="text-xs font-bold tracking-wider text-primary uppercase">
                 Te toca hoy
               </span>
             )}
             {hasSuperserie && (
               <span
                 data-testid="hero-superserie-badge"
-                className="inline-flex items-center gap-1 rounded-full border border-purple-400/40 bg-purple-500/20 px-2 py-0.5 text-[11px] font-bold text-purple-300"
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-soft-border bg-neutral-soft px-2 py-0.5 text-xs font-bold text-neutral-soft-foreground"
               >
                 Circuito Violeta
               </span>
@@ -461,7 +461,7 @@ export function InicioMisDias() {
             {etiquetaDia(diaHero)}
           </h2>
 
-          <p className="text-sm font-medium text-[#CBD5E1] mt-1">
+          <p className="text-sm font-medium text-muted-foreground mt-1">
             <span className="font-mono">{diaHero.ejerciciosCount}</span> ejercicios ·{" "}
             <span className="font-mono">~{diaHero.duracionMinutos}</span> min
           </p>
@@ -470,7 +470,7 @@ export function InicioMisDias() {
           <button
             type="button"
             onClick={() => empezarDia(diaHero.id)}
-            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#38BDF8] text-[#0F172A] text-[17px] font-bold shadow-md hover:bg-[#38BDF8]/90 active:scale-[0.97] transition-all"
+            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#38BDF8] text-[#0F172A] text-base font-bold shadow-md hover:bg-[#38BDF8]/90 active:scale-[0.97] transition-all"
             data-testid="empezar-dia-btn"
           >
             <Play className="h-5 w-5" />
@@ -481,7 +481,7 @@ export function InicioMisDias() {
           <button
             type="button"
             onClick={() => handleOpenSheet()}
-            className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-[#334155] bg-transparent text-[#F8FAFC] text-[15px] font-semibold hover:bg-slate-800/60 active:scale-[0.97] transition-all"
+            className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-border bg-transparent text-foreground text-sm font-semibold hover:bg-secondary/60 active:scale-[0.97] transition-all"
             data-testid="hacer-otro-dia-btn"
           >
             <ArrowRightLeft className="h-4 w-4" />
@@ -539,11 +539,11 @@ export function InicioMisDias() {
                 <div
                   className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl font-mono text-lg font-extrabold ${
                     isDone
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-success-soft text-success-soft-foreground"
                       : isToday
                       ? "bg-primary text-primary-foreground"
                       : isSkipped
-                      ? "bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]"
+                      ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
                       : "bg-secondary text-foreground"
                   }`}
                 >
@@ -558,7 +558,7 @@ export function InicioMisDias() {
                     </b>
                     {isUltimo && (
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500"
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-success-soft text-success"
                         data-testid={`badge-ultimo-realizado-${dia.id}`}
                       >
                         Último realizado
@@ -570,7 +570,7 @@ export function InicioMisDias() {
                       isToday
                         ? "text-primary font-semibold"
                         : isSkipped
-                        ? "text-[#B45309] font-semibold"
+                        ? "text-warning font-semibold"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -593,7 +593,7 @@ export function InicioMisDias() {
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-background/80 backdrop-blur-xs transition-opacity"
             onClick={() => setIsSheetOpen(false)}
             data-testid="sheet-backdrop"
           />
@@ -641,7 +641,7 @@ export function InicioMisDias() {
                       key={dia.id}
                       className="flex min-h-[64px] items-center gap-3.5 rounded-2xl bg-secondary/40 border border-secondary px-4 py-3 opacity-80 cursor-not-allowed"
                     >
-                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-card text-emerald-600 dark:text-emerald-400">
+                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-card text-success">
                         <Check className="h-5 w-5 stroke-[2.5]" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -739,7 +739,7 @@ export function InicioMisDias() {
                         }
                         className={`flex h-11 items-center justify-center rounded-full px-3.5 text-sm font-semibold transition-all active:scale-[0.97] border ${
                           isSelected
-                            ? "border-primary bg-primary/10 text-primary dark:text-blue-400 font-bold shadow-xs"
+                            ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
                             : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary/40"
                         }`}
                         data-testid={`chip-motivo-${chip.id.toLowerCase()}`}
@@ -757,7 +757,7 @@ export function InicioMisDias() {
               type="button"
               onClick={handleConfirmChange}
               disabled={!sheetSelectedDiaId}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-[14px] bg-primary text-primary-foreground text-[17px] font-bold shadow-md hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all"
+              className="mt-5 flex h-14 w-full items-center justify-center rounded-[14px] bg-primary text-primary-foreground text-base font-bold shadow-md hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all"
               data-testid="confirmar-cambio-dia-btn"
             >
               Hacer Día {diasConEstado.find((d) => d.id === sheetSelectedDiaId)?.orden ?? 1} hoy
@@ -771,11 +771,11 @@ export function InicioMisDias() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-[14px] bg-[#0F172A] px-4 py-3 text-white shadow-2xl flex items-center justify-between border border-slate-800 animate-in fade-in slide-in-from-bottom duration-150"
+          className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-[14px] bg-[#0F172A] px-4 py-3 text-white shadow-2xl flex items-center justify-between border border-border animate-in fade-in slide-in-from-bottom duration-150"
           data-testid="toast-cambio-dia"
         >
           <div className="flex items-center gap-2.5 text-sm font-medium">
-            <Check className="h-5 w-5 text-emerald-400 stroke-[2.5]" />
+            <Check className="h-5 w-5 text-success stroke-[2.5]" />
             <span>{toastMessage}</span>
           </div>
           <button

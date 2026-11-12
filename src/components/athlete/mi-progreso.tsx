@@ -101,7 +101,7 @@ function TarjetaEjercicio({ ejercicio, vista }: { ejercicio: EjercicioProgreso; 
   const { puntos, a_peso_corporal } = ejercicio;
   const ultimo = puntos[puntos.length - 1];
   const delta = formatearDelta(ejercicio);
-  const colorDelta = delta?.signo === "positivo" ? "text-emerald-700 dark:text-success" : "text-muted-foreground";
+  const colorDelta = delta?.signo === "positivo" ? "text-success" : "text-muted-foreground";
 
   return (
     <article className="rounded-2xl border border-border bg-card p-4 space-y-2" data-testid="progreso-ejercicio">

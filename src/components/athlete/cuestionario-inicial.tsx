@@ -170,7 +170,7 @@ export function CuestionarioInicial({
             {isCompleted ? (
               <Badge
                 variant="success"
-                className="text-[10px] font-bold"
+                className="text-xs font-bold"
                 data-testid="cuestionario-completado-badge"
               >
                 ✓ Completado
@@ -178,7 +178,7 @@ export function CuestionarioInicial({
             ) : (
               <Badge
                 variant="secondary"
-                className="text-[10px] font-bold"
+                className="text-xs font-bold"
                 data-testid="cuestionario-opcional-badge"
               >
                 Opcional • Demo
@@ -208,7 +208,7 @@ export function CuestionarioInicial({
       {feedbackMessage && (
         <div
           role="alert"
-          className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+          className="rounded-lg border border-success-soft-border bg-success-soft p-3 text-xs font-semibold text-success-soft-foreground"
           data-testid="cuestionario-feedback-msg"
         >
           {feedbackMessage}
@@ -229,7 +229,7 @@ export function CuestionarioInicial({
           <CardContent className="space-y-3 p-4 pt-0">
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Objetivo Principal
                 </span>
                 <p
@@ -241,7 +241,7 @@ export function CuestionarioInicial({
               </div>
 
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Experiencia Previa
                 </span>
                 <p
@@ -253,7 +253,7 @@ export function CuestionarioInicial({
               </div>
 
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Días Disponibles / Semana
                 </span>
                 <p
@@ -265,7 +265,7 @@ export function CuestionarioInicial({
               </div>
 
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Equipamiento Disponible
                 </span>
                 <p
@@ -278,7 +278,7 @@ export function CuestionarioInicial({
             </div>
 
             <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Molestias o Lesiones Previas
               </span>
               <p
@@ -291,7 +291,7 @@ export function CuestionarioInicial({
 
             {comentarios && (
               <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Comentarios o Preferencias
                 </span>
                 <p

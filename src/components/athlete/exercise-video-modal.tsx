@@ -53,11 +53,11 @@ export function ExerciseVideoModal({
         <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-3">
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-primary">
                 🎬 Guía de Técnica
               </span>
               {videoId && (
-                <span className="text-[10px] font-mono text-muted-foreground">
+                <span className="text-xs font-mono text-muted-foreground">
                   ID: {videoId}
                 </span>
               )}

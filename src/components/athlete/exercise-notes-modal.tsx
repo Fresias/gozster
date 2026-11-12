@@ -53,7 +53,7 @@ export function ExerciseNotesModal({
         <div className="flex items-start justify-between gap-3 border-b border-border/80 pb-3">
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-primary">
                 <ClipboardList className="h-3.5 w-3.5" />
                 Notas del Ejercicio
               </span>

@@ -132,7 +132,7 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 text-lg">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-success-soft text-success text-lg">
               🎯
             </span>
             <div>
@@ -146,7 +146,7 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
           </div>
 
           {/* Racha (Streak) */}
-          <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 border border-amber-500/20 text-xs font-bold text-amber-500">
+          <div className="flex items-center gap-1.5 rounded-full bg-warning-soft px-3 py-1 border border-warning-soft-border text-xs font-bold text-warning">
             <span>🔥</span>
             <span>Racha: {streakDays} días</span>
           </div>
@@ -167,7 +167,7 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
           {/* Barra de progreso */}
           <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full bg-cyan-500 transition-all"
+              className="h-full bg-primary transition-all"
               style={{ width: `${Math.min(100, (todayHabits.agua_ml / 3000) * 100)}%` }}
             />
           </div>
@@ -203,7 +203,7 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
           </div>
           <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
             <div
-              className="h-full bg-emerald-500 transition-all"
+              className="h-full bg-success transition-all"
               style={{ width: `${Math.min(100, (todayHabits.pasos / 10000) * 100)}%` }}
             />
           </div>
@@ -257,8 +257,8 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
             variant={todayHabits.habitos_completados ? "outline" : "default"}
             className={`w-full font-bold ${
               todayHabits.habitos_completados
-                ? "border-emerald-500 text-emerald-400 bg-emerald-500/10"
-                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                ? "border-success-soft-border text-success-soft-foreground bg-success-soft"
+                : "bg-success hover:bg-success/90 text-success-foreground"
             }`}
             onClick={toggleComplete}
             data-testid="toggle-habits-completed-btn"
@@ -268,7 +268,7 @@ export function HabitTracker({ athleteId = "66b92b9a-1ce7-4e2e-a47c-7c5600000000
               : "Marcar Hábitos como Cumplidos"}
           </Button>
           {saveSuccess && (
-            <p className="text-center text-[10px] text-emerald-400 font-semibold pt-1">
+            <p className="text-center text-xs text-success font-semibold pt-1">
               ✓ Sincronizado en Supabase con éxito
             </p>
           )}

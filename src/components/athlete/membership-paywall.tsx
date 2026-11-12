@@ -56,16 +56,16 @@ export function MembershipExpiredNotice() {
       <div
         role="status"
         aria-live="polite"
-        className="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-2 rounded-xl border border-warning-soft-border bg-warning-soft p-3 text-warning-soft-foreground sm:flex-row sm:items-center sm:justify-between"
         data-testid="athlete-expired-banner"
       >
         <div className="flex items-start gap-2">
-          <span className="mt-0.5 flex h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 animate-pulse" />
+          <span className="mt-0.5 flex h-2.5 w-2.5 shrink-0 rounded-full bg-warning animate-pulse" />
           <div className="space-y-0.5">
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+            <p className="text-xs font-bold uppercase tracking-wider text-warning">
               Suscripción GOZS vencida
             </p>
-            <p className="text-xs text-amber-700/90 dark:text-amber-200/90">
+            <p className="text-xs text-warning-soft-foreground">
               Seguís teniendo acceso completo. Hablá con el equipo GOZS para
               regularizar tu cuota.
             </p>
@@ -74,7 +74,7 @@ export function MembershipExpiredNotice() {
         <div className="flex shrink-0 gap-2">
           <Button
             size="sm"
-            className="min-h-11 bg-emerald-600 text-white hover:bg-emerald-500 touch-manipulation"
+            className="min-h-11 bg-success text-success-foreground hover:bg-success/90 touch-manipulation"
             onClick={openGozsChat}
             data-testid="expired-open-chat-banner"
           >
@@ -101,7 +101,7 @@ export function MembershipExpiredNotice() {
       >
         <div className="space-y-5 p-5 sm:p-6">
           <div className="space-y-2 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/15 text-3xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warning-soft text-warning text-3xl">
               ⏳
             </div>
             <h2
@@ -148,7 +148,7 @@ export function MembershipExpiredNotice() {
 
           <div className="space-y-2">
             <Button
-              className="min-h-14 w-full bg-emerald-600 text-base text-white hover:bg-emerald-500 active:scale-[0.99] touch-manipulation"
+              className="min-h-14 w-full bg-success text-base text-success-foreground hover:bg-success/90 active:scale-[0.99] touch-manipulation"
               onClick={openGozsChat}
               data-testid="expired-open-chat-dialog"
             >
@@ -173,7 +173,7 @@ export function MembershipExpiredNotice() {
           </div>
 
           <div className="border-t border-border pt-3">
-            <p className="mb-2 text-center text-[11px] text-muted-foreground">
+            <p className="mb-2 text-center text-xs text-muted-foreground">
               Entorno de Pruebas &amp; Auditoría QA:
             </p>
             <Button
