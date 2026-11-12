@@ -178,6 +178,15 @@ export function Play(props: IconProps) {
   );
 }
 
+export function Pause(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </Icon>
+  );
+}
+
 export function ArrowRightLeft(props: IconProps) {
   return (
     <Icon {...props}>

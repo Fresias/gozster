@@ -103,6 +103,13 @@ const config: Config = {
         },
         "act-boxeo-bg": "hsl(var(--act-boxeo-bg))",
         "act-boxeo-border": "hsl(var(--act-boxeo-border))",
+        "rest-timer": {
+          DEFAULT: "hsl(var(--rest-timer-bg))",
+          time: "hsl(var(--rest-timer-time-fg))",
+          track: "hsl(var(--rest-timer-track-bg))",
+          fill: "hsl(var(--rest-timer-fill-bg))",
+          paused: "hsl(var(--rest-timer-fill-bg-paused))",
+        },
       },
       fontFamily: {
         sans: ["Geist", "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
