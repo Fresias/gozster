@@ -325,7 +325,7 @@ describe("GOZS-389: Auditoría de Accesibilidad Web (WCAG 2.1 Nivel AA) y Navega
     });
 
     it("GIVEN todos los tamaños de Button, THEN garantizan accesibilidad y foco visible", () => {
-      const sizes = ["default", "sm", "lg", "touch", "icon"] as const;
+      const sizes = ["default", "sm", "lg", "quick", "touch", "icon"] as const;
       for (const size of sizes) {
         const html = renderToStaticMarkup(<Button size={size}>Botón {size}</Button>);
         expect(html).toContain("focus-visible:ring-2");

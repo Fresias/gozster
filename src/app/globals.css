@@ -32,6 +32,21 @@
   --radius: 0.5rem;
   --sidebar: 0 0% 98%;                /* #FAFAFA */
 
+  /* 1 · PRIMITIVOS: escala de tamaño de control */
+  --size-32: 2rem;  --size-36: 2.25rem;  --size-40: 2.5rem;  --size-48: 3rem;  --size-56: 3.5rem;
+
+  /* 2 · SEMÁNTICOS */
+  --target-sm: var(--size-32);     /* control compacto, con mouse */
+  --target: var(--size-36);        /* control estándar, con mouse */
+  --target-lg: var(--size-40);     /* control destacado, con mouse */
+  --target-quick: var(--size-56);  /* acción rápida de gimnasio: 56 px siempre */
+
+  /* 3 · COMPONENTE */
+  --button-h-sm: var(--target-sm);
+  --button-h: var(--target);
+  --button-h-lg: var(--target-lg);
+  --button-h-quick: var(--target-quick);
+
   /* Semántica deportiva */
   --success: 142 76% 36%;             /* #16A34A  puntos y barras */
   --success-foreground: 0 0% 100%;
@@ -67,6 +82,11 @@
   --act-boxeo-border: 32 98% 83%;     /* #FED7AA */
   --act-boxeo-fg: 15 75% 15%;
   --act-boxeo-bar: 25 95% 53%;
+}
+
+/* Con el dedo, ningún control baja de 48 px. Con mouse, el Studio conserva su densidad. */
+@media (pointer: coarse) {
+  :root { --target-sm: var(--size-48); --target: var(--size-48); --target-lg: var(--size-48); }
 }
 
 /* MODO NOCHE (Dark Mode Zinc — 08 §2, P13) */
@@ -137,7 +157,7 @@
 
 /* Athlete App y landing: envolver su raíz en .theme-athlete (P01) */
 .theme-athlete { --primary: 221 83% 53%; --primary-foreground: 210 40% 98%; --ring: 221 83% 53%; }
-.dark .theme-athlete { --primary: 199 89% 48%; --ring: 199 89% 48%; }
+.dark .theme-athlete { --primary: 199 89% 48%; --primary-foreground: 240 5.9% 10%; --ring: 199 89% 48%; }
 
 /* Athlete App · pulido visual (GOZS-448). Solo estilo: sin cambios de DOM, estado ni flujo.
    Selectores con :where() para que cualquier utilidad de Tailwind del componente siga ganando. */

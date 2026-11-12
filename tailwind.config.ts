@@ -121,6 +121,12 @@ const config: Config = {
         "m3-2": "0 4px 8px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4)",
         "m3-3": "0 12px 24px -4px rgb(0 0 0 / 0.5), 0 4px 8px -4px rgb(0 0 0 / 0.4)",
       },
+      spacing: {
+        "target-sm": "var(--target-sm)",
+        target: "var(--target)",
+        "target-lg": "var(--target-lg)",
+        "target-quick": "var(--target-quick)",
+      },
     },
   },
   plugins: [],

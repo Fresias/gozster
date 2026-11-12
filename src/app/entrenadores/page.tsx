@@ -424,7 +424,7 @@ export default function EntrenadoresPage() {
                             role="tab"
                             aria-selected={vistaPlanes === v.id}
                             onClick={() => setVistaPlanes(v.id)}
-                            className={`min-h-[40px] rounded-full px-5 text-sm font-bold transition-colors duration-150 ${FOCUS_RING} ${
+                            className={`min-h-target-lg rounded-full px-5 text-sm font-bold transition-colors duration-150 ${FOCUS_RING} ${
                               vistaPlanes === v.id ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                             }`}
                           >

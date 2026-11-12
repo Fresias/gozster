@@ -260,7 +260,7 @@ export function LandingHeader({
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-md">
       <div className={`${CONTAINER} flex h-16 items-center justify-between gap-2 sm:gap-3`}>
         <div className="flex items-center gap-3 sm:gap-5">
-          <Link href="/" className={`flex items-center gap-2.5 rounded-lg ${FOCUS_RING}`} aria-label="Inicio GOZSter">
+          <Link href="/" className={`-m-2 flex items-center gap-2.5 rounded-lg p-2 ${FOCUS_RING}`} aria-label="Inicio GOZSter">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-base font-black text-primary-foreground">G</span>
             <span className="hidden text-lg font-black tracking-tight md:inline">GOZSter</span>
           </Link>
@@ -273,7 +273,7 @@ export function LandingHeader({
                   key={p.id}
                   href={p.href}
                   aria-current={activo ? "page" : undefined}
-                  className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-xs font-bold transition-colors duration-150 sm:px-4 sm:text-sm ${FOCUS_RING} ${
+                  className={`inline-flex min-h-target items-center rounded-full px-3 text-xs font-bold transition-colors duration-150 sm:px-4 sm:text-sm ${FOCUS_RING} ${
                     activo ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"
                   }`}
                 >
