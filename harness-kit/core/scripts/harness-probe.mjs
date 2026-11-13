@@ -284,6 +284,8 @@ export function runProbe(opts) {
       const startTime = Date.now();
       const probeExec = spawnSync(probeCmd, {
         cwd: repoDir,
+        // Keep probe telemetry isolated in the probe checkout (read back below), not the shared git common dir.
+        env: { ...process.env, HARNESS_TELEMETRY_DIR: path.join(repoDir, ".harness", "telemetry") },
         shell: true,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],

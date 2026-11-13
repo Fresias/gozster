@@ -7,9 +7,15 @@ del guard en lugar de impresiones.
 ## Flujo
 
 1. **Emisión** — `guard-cli.mjs` escribe un evento por tool call (fase `pre`, más la fase `post` cuando inyecta contexto) en
-   `.harness/telemetry/events.jsonl` vía `harness-kit/core/guard/telemetry.mjs`.
+   `events.jsonl` vía `harness-kit/core/guard/telemetry.mjs`. Ruta, por prioridad:
+   `HARNESS_TELEMETRY_DIR` > `$(git rev-parse --git-common-dir)/harness/telemetry/` (compartida por
+   todos los worktrees del clon; sobrevive al borrado del worktree) > `<repoRoot>/.harness/telemetry/`
+   (respaldo sin git). `HARNESS_TELEMETRY=0` la desactiva; `vitest.config.ts` lo fija para que los
+   tests (y sus procesos hijo, que heredan `process.env`) no contaminen la telemetría real.
    Sin PII ni secretos: `sk-…` y `eyJ…` se redactan y `cmd` se trunca a 120 caracteres.
-   La carpeta `.harness/` está en `.gitignore` (es runtime local, no se commitea).
+   Nada de esto se commitea.
+   **Limitaciones conocidas:** las sesiones cloud no persisten la telemetría (su clon se descarta), y
+   si Multica poda su caché de clones se pierde el common dir junto con sus eventos.
 2. **Agregación** — `harness-kit/core/scripts/harness-telemetry.mjs` lee el `events.jsonl`
    y produce el resumen.
 3. **Ledger** — `LEDGER.json` registra cada experimento (`L-###`) con su hipótesis,
@@ -34,8 +40,10 @@ Un objeto JSON por línea:
 
 ## Métricas del resumen
 
-El resumen de texto ocupa ≤ 40 líneas (listas recortadas a 5 entradas) y usa tres secciones:
+El resumen de texto ocupa ≤ 40 líneas (listas recortadas a 5 entradas) y usa cuatro secciones:
 
+- **`[RUNTIME]` Desglose por runtime** — por cada `runtime`: eventos, sesiones distintas y bloqueos
+  por regla (`byRuntime` en `--json`).
 - **`[ACTION]` Tool calls por kind** — eventos `pre` agrupados por `kind`.
 - **`[OBSERVATION]` Bloqueos por regla** — conteo de `decision="block"` agrupado por `rule`.
 - **`[OBSERVATION]` Inyecciones por regla** — conteo de `inject=true` agrupado por `rule`.
@@ -47,7 +55,7 @@ El resumen de texto ocupa ≤ 40 líneas (listas recortadas a 5 entradas) y usa 
 ## Uso
 
 ```bash
-# Resumen legible (lee .harness/telemetry/events.jsonl por defecto)
+# Resumen legible (lee <git common dir>/harness/telemetry/events.jsonl por defecto)
 node harness-kit/core/scripts/harness-telemetry.mjs
 
 # Un archivo específico, salida JSON

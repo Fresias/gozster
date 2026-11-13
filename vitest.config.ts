@@ -10,6 +10,8 @@ export default defineConfig({
       "harness-kit/tests/**/*.spec.ts",
     ],
     globals: false,
+    // Child processes inherit process.env, so the guard never writes real telemetry from tests.
+    env: { HARNESS_TELEMETRY: "0" },
     testTimeout: 30000,
     hookTimeout: 120000,
     teardownTimeout: 60000,

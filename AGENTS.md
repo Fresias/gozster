@@ -117,4 +117,4 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
 - `harness-kit/core/scripts/harness-propose.mjs`: Analyzes accumulated lessons, clusters friction and proposes PPC candidate mutations (Harness²).
 - `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
-- `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:
+- `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (<git common dir>/harness/telemetry/events.jsonl) into a summary:

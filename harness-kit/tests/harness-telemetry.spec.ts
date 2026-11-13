@@ -1,10 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { buildEvent, recordEvent, redactCmd } from "../core/guard/telemetry.mjs";
+import { buildEvent, recordEvent, redactCmd, resolveTelemetryDir } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
 import { evaluatePpcTrigger, formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
@@ -17,6 +18,7 @@ import { evaluatePpcTrigger, formatSummary, parseJsonl, percentile, summarize } 
 
 let tempDirs: string[] = [];
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
   tempDirs = [];
 });
@@ -94,6 +96,9 @@ function synthEvents() {
 }
 
 describe("H-12: redacción de secretos (criterio 2)", () => {
+  // vitest.config.ts desactiva la telemetría; estos tests escriben en un dir temporal explícito.
+  beforeEach(() => vi.stubEnv("HARNESS_TELEMETRY", "1"));
+
   it("redacta claves sk-… y conserva el resto", () => {
     const out = redactCmd("export KEY=sk-ABCDEFGHIJKLMNOP1234 && run");
     expect(out).toContain("sk-[REDACTED]");
@@ -258,5 +263,127 @@ describe("H-12: summarize con 100 eventos sintéticos (criterio 1)", () => {
     expect(trigger.triggers[0]!.rule).toBe("shell.destructive");
     expect(trigger.triggers[0]!.block_count).toBe(2);
     expect(trigger.triggers[0]!.recommendation).toContain("Trigger harness-proposer");
+  });
+});
+
+// GOZS-516 — Telemetría persistente entre worktrees, sin eventos de tests y por runtime.
+function git(cwd: string, ...args: string[]): string {
+  return execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
+}
+
+function tempDir(): string {
+  const d = realpathSync(mkdtempSync(path.join(tmpdir(), "harness-telemetry-")));
+  tempDirs.push(d);
+  return d;
+}
+
+const preEvent = (runtime: string) => ({ runtime, kind: "shell", tool: "Bash", phase: "pre", command: "ls", raw: {} });
+
+describe("GOZS-516: ruta de telemetría", () => {
+  beforeEach(() => {
+    vi.stubEnv("HARNESS_TELEMETRY", "1");
+    vi.stubEnv("HARNESS_TELEMETRY_DIR", "");
+  });
+
+  it("dos worktrees del mismo clon escriben en el mismo events.jsonl bajo el git common dir, que sobrevive al borrado del worktree", () => {
+    const root = tempDir();
+    const main = path.join(root, "main");
+    const wt = path.join(root, "wt");
+    execFileSync("git", ["init", "-q", main]);
+    git(main, "commit", "-q", "--allow-empty", "-m", "init");
+    git(main, "worktree", "add", "-q", wt);
+
+    recordEvent(preEvent("claude-code"), { allowed: true }, { repoRoot: main });
+    recordEvent(preEvent("antigravity"), { allowed: true }, { repoRoot: wt });
+
+    const shared = path.join(main, ".git", "harness", "telemetry");
+    expect(resolveTelemetryDir(wt)).toBe(shared);
+    git(main, "worktree", "remove", "--force", wt);
+    expect(existsSync(wt)).toBe(false);
+
+    const events = parseJsonl(readFileSync(path.join(shared, "events.jsonl"), "utf8")) as { runtime: string }[];
+    expect(events.map((e) => e.runtime)).toEqual(["claude-code", "antigravity"]);
+  });
+
+  it("HARNESS_TELEMETRY_DIR tiene prioridad sobre el git common dir", () => {
+    const dir = tempDir();
+    vi.stubEnv("HARNESS_TELEMETRY_DIR", dir);
+    recordEvent(preEvent("claude-code"), { allowed: true }, { repoRoot: process.cwd() });
+    expect(parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))).toHaveLength(1);
+  });
+
+  it("sin git escribe en <repoRoot>/.harness/telemetry y no falla", () => {
+    const repoRoot = tempDir();
+    recordEvent(preEvent("claude-code"), { allowed: true }, { repoRoot });
+    const file = path.join(repoRoot, ".harness", "telemetry", "events.jsonl");
+    expect(parseJsonl(readFileSync(file, "utf8"))).toHaveLength(1);
+  });
+
+  it("un error al resolver el common dir falla en silencio", () => {
+    const notADir = path.join(tempDir(), "file");
+    writeFileSync(notADir, "");
+    expect(() => recordEvent(preEvent("claude-code"), { allowed: true }, { repoRoot: notADir })).not.toThrow();
+  });
+});
+
+describe("GOZS-516: los tests no escriben telemetría real", () => {
+  it("vitest.config.ts fija HARNESS_TELEMETRY=0 para el proceso de tests", () => {
+    expect(process.env.HARNESS_TELEMETRY).toBe("0");
+  });
+
+  it("todo spec que lanza un proceso hijo hereda process.env o pasa HARNESS_TELEMETRY=0", () => {
+    const repo = path.resolve(__dirname, "../..");
+    const specs = ["harness-kit/tests", "tests", "src"].flatMap((d) =>
+      existsSync(path.join(repo, d))
+        ? (readdirSync(path.join(repo, d), { recursive: true }) as string[])
+            .filter((f) => /\.(spec|test)\.tsx?$/.test(f))
+            .map((f) => path.join(d, f))
+        : [],
+    );
+    const offenders: string[] = [];
+    for (const rel of specs) {
+      const src = readFileSync(path.join(repo, rel), "utf8");
+      if (!src.includes("child_process")) continue;
+      // Each `env:` option must spread process.env (directly or via a const) or disable telemetry.
+      for (const m of src.matchAll(/^\s*env:\s*([^,\n]+)/gm)) {
+        const value = m[1]!.trim();
+        const ident = /^[A-Za-z_$][\w$]*$/.test(value) ? value : null;
+        const def = ident ? (src.match(new RegExp(`const ${ident}\\s*=([\\s\\S]*?);`))?.[1] ?? "") : value;
+        if (!/process\.env|HARNESS_TELEMETRY:\s*["']0["']/.test(def)) offenders.push(`${rel}: env: ${value}`);
+      }
+    }
+    expect(specs.length).toBeGreaterThan(0);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("GOZS-516: byRuntime", () => {
+  const events = [
+    { ts: "2026-11-13T10:00:00.000Z", session: "a", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "shell.rm-rf" },
+    { ts: "2026-11-13T10:00:01.000Z", session: "a", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", rule: null },
+    { ts: "2026-11-13T10:00:02.000Z", session: "b", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", rule: null },
+    { ts: "2026-11-13T10:00:03.000Z", session: "c", runtime: "antigravity", phase: "pre", kind: "shell", decision: "block", rule: "git.reset-hard" },
+  ];
+
+  it("separa eventos, sesiones y bloqueos por regla de cada runtime", () => {
+    expect(summarize(events).byRuntime).toEqual({
+      "claude-code": { events: 3, sessions: 2, blocksByRule: { "shell.rm-rf": 1 } },
+      antigravity: { events: 1, sessions: 1, blocksByRule: { "git.reset-hard": 1 } },
+    });
+  });
+
+  it("la CLI --json incluye byRuntime y el texto la sección [RUNTIME]", () => {
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, events.map((e) => JSON.stringify(e)).join("\n"));
+    const script = path.resolve(__dirname, "../core/scripts/harness-telemetry.mjs");
+    const json = JSON.parse(execFileSync(process.execPath, [script, file, "--json"], { encoding: "utf8" }));
+    expect(json.byRuntime.antigravity.blocksByRule).toEqual({ "git.reset-hard": 1 });
+    const text = execFileSync(process.execPath, [script, file], { encoding: "utf8" });
+    expect(text).toContain("[RUNTIME]");
+    expect(text).toContain("3  claude-code  sessions 2  blocks shell.rm-rf=1");
   });
 });
