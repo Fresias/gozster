@@ -154,13 +154,18 @@ describe("Harness² Sintetizador: runCompose (promoción y persistencia de exper
     const guidanceContent = readFileSync(path.join(ws, "harness", "tool_guidance.local.md"), "utf8");
     expect(guidanceContent).toContain("fast winning rule promoted");
 
-    // Verificar que se registró la lección en experience_library.jsonl
+    // Verificar que se registró la lección en experience_library.jsonl con bloque PPC y matriz de contraste
     const expLibContent = readFileSync(path.join(ws, "harness", "experience_library.jsonl"), "utf8");
     const parsedExp = JSON.parse(expLibContent);
     expect(parsedExp.lesson).toContain("cand-fast");
     expect(parsedExp.task).toBe("Optimize schema inspection");
     expect(parsedExp.verified).toBe(true);
     expect(parsedExp.tags).toContain("db");
+    expect(parsedExp.ppc).toBeDefined();
+    expect(parsedExp.ppc.winner_id).toBe("cand-fast");
+    expect(parsedExp.ppc.candidates).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(parsedExp.ppc.contrast_matrix)).toBe(true);
+    expect(parsedExp.ppc.contrast_matrix.length).toBeGreaterThanOrEqual(2);
   });
 
   it("bloquea promoción de mutaciones fuera de harness/ por seguridad", () => {

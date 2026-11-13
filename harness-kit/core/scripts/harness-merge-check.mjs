@@ -49,6 +49,22 @@ function parseLessons(text) {
     });
 }
 
+export function hasContrastEvidence(lessonText, ppc = {}) {
+  const text = String(lessonText || "");
+  // Metric: duration/duration_ms, blocks, tool_calls, score, out_of_scope, friction
+  const hasMetric = /(duration(_ms)?|blocks|tool_calls|score|out_of_scope|friction)/i.test(text);
+  if (!hasMetric) return false;
+
+  // Candidate: winner_id, baseline, c1, cand-*, etc.
+  const winnerId = String(ppc.winner_id || "").toLowerCase();
+  const hasCandidate = (winnerId && text.toLowerCase().includes(winnerId)) || /(baseline|c[0-9]+|cand-[a-z0-9_-]+|candidate)/i.test(text);
+  if (!hasCandidate) return false;
+
+  // Delta: vs <target>, +<num>, -<num>, or delta:
+  const hasDelta = /(vs\s+[a-z0-9_-]+|[-+]\d+|delta)/i.test(text);
+  return Boolean(hasDelta);
+}
+
 /**
  * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}] }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
@@ -83,8 +99,23 @@ export function evaluateMerge({ pr, project, lessonText }) {
   if (harnessFiles.length > 0) {
     if (!/^[a-z]+\/\d+-harness-/.test(pr.headRefName || "")) errors.push(`harness: ${harnessFiles.length} protected file(s) changed on a non-harness branch (${harnessFiles.slice(0, 3).join(", ")}).`);
     if (!labels.includes("harness-authorized")) errors.push("harness: missing label `harness-authorized` (PM/Gabriel authorization).");
-    const ppc = lessons.find((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
-    if (!ppc) errors.push("ppc: no Propose-Probe-Compose record (harness-compose.mjs --task <ISSUE> after harness-probe.mjs).");
+    const ppcEntry = lessons.find((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
+    if (!ppcEntry) {
+      errors.push("ppc: no Propose-Probe-Compose record (harness-compose.mjs --task <ISSUE> after harness-probe.mjs).");
+    } else {
+      const ppc = ppcEntry.ppc;
+      if (Number(ppc.candidates ?? 0) < 2) {
+        errors.push(`ppc: candidates count must be >= 2 for contrast evaluation (found ${ppc.candidates ?? 1}).`);
+      }
+      const contrast = ppc.contrast || ppc.contrast_matrix;
+      if (!contrast || (Array.isArray(contrast) && contrast.length === 0)) {
+        errors.push("ppc: missing contrast matrix (must include contrast verification from harness-contrast).");
+      }
+      const lessonText = String(ppcEntry.lesson || "");
+      if (lessonText.includes("resolved task in") || !hasContrastEvidence(lessonText, ppc)) {
+        errors.push('ppc: lesson must cite contrast evidence from contrast_matrix (candidate, metric, and delta, e.g. "c1 vs baseline: blocks -3").');
+      }
+    }
   }
 
   return { mergeable: errors.length === 0, issue, harness_files: harnessFiles, errors };

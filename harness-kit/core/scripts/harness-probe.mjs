@@ -209,7 +209,15 @@ export function runProbe(opts) {
     runGit(repoDir, [...(wipSha ? raw : []), "checkout", "-b", probeBranch, originalHead]);
     branchCreated = true;
 
-    // 2. Apply mutations (only allowed inside harness/)
+    // 2. Baseline candidate: restore clean harness from origin/main if available
+    if (candidate.candidate_id === "baseline") {
+      try {
+        runGit(repoDir, ["rev-parse", "--verify", "origin/main"]);
+        runGit(repoDir, ["checkout", "origin/main", "--", "harness/"]);
+      } catch {}
+    }
+
+    // 2b. Apply mutations (only allowed inside harness/)
     for (const mutation of candidate.mutations) {
       const relFile = mutation.file || "harness/guardrails.local.md";
       const normalizedRel = relFile.replace(/\\/g, "/");
@@ -422,8 +430,21 @@ export function runProbe(opts) {
   return probeResult;
 }
 
+export function ensureBaseline(candidates) {
+  if (candidates.length === 1 && candidates[0].candidate_id !== "baseline") {
+    return [
+      { candidate_id: "baseline", target_component: "baseline", mutations: [] },
+      candidates[0],
+    ];
+  }
+  return candidates;
+}
+
 export function runProbeBatch(opts) {
-  const candidates = loadCandidates(opts.batch || opts.candidate);
+  let candidates = Array.isArray(opts.candidate)
+    ? opts.candidate
+    : loadCandidates(opts.batch || opts.candidate);
+  candidates = ensureBaseline(candidates);
   const results = [];
   for (const c of candidates) {
     const singleOpts = {
@@ -447,10 +468,11 @@ export function runProbeBatch(opts) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const opts = parseArgs(process.argv.slice(2));
-  const isBatch = Boolean(opts.batch) || (opts.candidate && loadCandidates(opts.candidate).length > 1);
+  let candidates = loadCandidates(opts.batch || opts.candidate);
+  candidates = ensureBaseline(candidates);
 
-  if (isBatch) {
-    const results = runProbeBatch(opts);
+  if (candidates.length > 1) {
+    const results = runProbeBatch({ ...opts, candidate: candidates });
     if (opts.json) {
       process.stdout.write(JSON.stringify(results, null, 2) + "\n");
     } else {

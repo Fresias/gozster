@@ -161,8 +161,18 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     expect(all).toContain("ppc:");
   });
 
-  it("GIVEN rama harness + label + registro PPC con probe aprobado THEN mergeable", () => {
-    const ppcLesson = JSON.stringify({ task: "PROJ-12", lesson: "x", ppc: { winner_id: "c1", probe_passed: true } }) + "\n";
+  it("GIVEN rama harness + label + registro PPC con probe aprobado y contraste THEN mergeable", () => {
+    const ppcLesson =
+      JSON.stringify({
+        task: "PROJ-12",
+        lesson: "Candidate c1 vs baseline: blocks -3",
+        ppc: {
+          winner_id: "c1",
+          candidates: 2,
+          probe_passed: true,
+          contrast: [{ candidate_id: "c1", blocks: 1 }, { candidate_id: "baseline", blocks: 4 }],
+        },
+      }) + "\n";
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
@@ -170,6 +180,100 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       labels: [{ name: "harness-authorized" }],
     };
     expect(evaluateMerge({ pr, project, lessonText: ppcLesson }).mergeable).toBe(true);
+  });
+
+  it("GIVEN lección con 'resolved task in' THEN falla por falta de contraste", () => {
+    const ppcLesson =
+      JSON.stringify({
+        task: "PROJ-12",
+        lesson: "Candidate cand-1 on harness/guardrails.md resolved task in 99279ms",
+        ppc: {
+          winner_id: "cand-1",
+          candidates: 2,
+          probe_passed: true,
+          contrast: [{ candidate_id: "cand-1", score: 10 }, { candidate_id: "baseline", score: 5 }],
+        },
+      }) + "\n";
+    const pr = {
+      ...base,
+      headRefName: "chore/12-harness-fix",
+      files: [...base.files, { path: "harness/guardrails.md" }],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join()).toContain("must cite contrast evidence");
+  });
+
+  it("GIVEN lección sin candidato, métrica o delta THEN falla por falta de evidencia", () => {
+    const ppcLesson =
+      JSON.stringify({
+        task: "PROJ-12",
+        lesson: "This is a very long lesson description but it does not cite any candidate or metric delta",
+        ppc: {
+          winner_id: "cand-1",
+          candidates: 2,
+          probe_passed: true,
+          contrast: [{ candidate_id: "cand-1", score: 10 }, { candidate_id: "baseline", score: 5 }],
+        },
+      }) + "\n";
+    const pr = {
+      ...base,
+      headRefName: "chore/12-harness-fix",
+      files: [...base.files, { path: "harness/guardrails.md" }],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join()).toContain("must cite contrast evidence");
+  });
+
+  it("GIVEN PR con ppc.candidates = 1 THEN falla exigiendo al menos 2 candidatos", () => {
+    const ppcLesson =
+      JSON.stringify({
+        task: "PROJ-12",
+        lesson: "Candidate cand-1 vs baseline: score +5",
+        ppc: {
+          winner_id: "cand-1",
+          candidates: 1,
+          probe_passed: true,
+          contrast: [{ candidate_id: "cand-1", score: 10 }],
+        },
+      }) + "\n";
+    const pr = {
+      ...base,
+      headRefName: "chore/12-harness-fix",
+      files: [...base.files, { path: "harness/guardrails.md" }],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join()).toContain("candidates count must be >= 2");
+  });
+
+  it("GIVEN lección de compose que cita 'cand-1 vs baseline: blocks -3' con 2 candidatos THEN aprueba", () => {
+    const ppcLesson =
+      JSON.stringify({
+        task: "PROJ-12",
+        lesson: "Candidate cand-1 on harness/guardrails.md (cand-1 vs baseline: blocks -3)",
+        ppc: {
+          winner_id: "cand-1",
+          candidates: 2,
+          probe_passed: true,
+          contrast_matrix: [
+            { candidate_id: "cand-1", blocks: 0, score: 10 },
+            { candidate_id: "baseline", blocks: 3, score: 7 },
+          ],
+        },
+      }) + "\n";
+    const pr = {
+      ...base,
+      headRefName: "chore/12-harness-fix",
+      files: [...base.files, { path: "harness/guardrails.md" }],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    expect(res.mergeable).toBe(true);
   });
 
   it("GIVEN un PPC sin probe aprobado (solo decisión explícita) THEN bloqueado", () => {
