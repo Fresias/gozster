@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +91,57 @@ describe("Harness² Proposer & Debt Controller (harness-propose)", () => {
       encoding: "utf8",
     });
     expect(out).toContain("sin procesar: 6 (límite: 10)");
+  });
+
+  it("GIVEN fixture con lecciones sin procesar WHEN --check-debt o --post-merge THEN pureza estricta sin escrituras en harness/", () => {
+    const libPath = path.join(tmpRepo, "harness", "experience_library.jsonl");
+    const shaBefore = createHash("sha256").update(readFileSync(libPath)).digest("hex");
+    const harnessFilesBefore = readdirSync(path.join(tmpRepo, "harness")).sort();
+
+    for (let i = 1; i <= 6; i++) {
+      const item = { id: `exp-pure-${i}`, task: `GOZS-80${i}`, lesson: `Fricción pura ${i}` };
+      writeFileSync(path.join(tmpRepo, "harness", "experience", `GOZS-80${i}.jsonl`), JSON.stringify(item) + "\n", "utf8");
+    }
+
+    // 1. Con >5 lecciones sin procesar, --check-debt sale con 1, sha256 idéntico, no crea archivos en harness/
+    let checkErr: any = null;
+    try {
+      execFileSync(process.execPath, [proposeScript, "--workdir", tmpRepo, "--check-debt", "--max-debt", "5"], {
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+    } catch (e: any) {
+      checkErr = e;
+    }
+
+    expect(checkErr).not.toBeNull();
+    expect(checkErr.status).toBe(1);
+    const errOutput = (checkErr.stderr?.toString() || "") + (checkErr.stdout?.toString() || "");
+    expect(errOutput).toContain("harness-debt-consolidacion");
+    expect(errOutput).not.toContain("--generate");
+
+    const shaAfterCheck = createHash("sha256").update(readFileSync(libPath)).digest("hex");
+    expect(shaAfterCheck).toBe(shaBefore);
+    expect(readdirSync(path.join(tmpRepo, "harness")).sort()).toEqual(harnessFilesBefore);
+
+    // 2. Con 5 o menos (maxDebt 10), sale con 0 sin escrituras en harness/
+    const okOut = execFileSync(process.execPath, [proposeScript, "--workdir", tmpRepo, "--check-debt", "--max-debt", "10"], {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    expect(okOut).toContain("sin procesar: 6 (límite: 10)");
+    const shaAfterOk = createHash("sha256").update(readFileSync(libPath)).digest("hex");
+    expect(shaAfterOk).toBe(shaBefore);
+    expect(readdirSync(path.join(tmpRepo, "harness")).sort()).toEqual(harnessFilesBefore);
+
+    // 3. --post-merge no modifica harness/experience_library.jsonl
+    execFileSync(process.execPath, [proposeScript, "--workdir", tmpRepo, "--post-merge"], {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    const shaAfterPostMerge = createHash("sha256").update(readFileSync(libPath)).digest("hex");
+    expect(shaAfterPostMerge).toBe(shaBefore);
+    expect(readdirSync(path.join(tmpRepo, "harness")).sort()).toEqual(harnessFilesBefore);
   });
 
   it("GIVEN lecciones con patrones de fricción WHEN analyzeFrictionAndPropose THEN genera candidatos conformes al contrato", () => {

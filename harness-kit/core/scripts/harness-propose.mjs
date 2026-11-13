@@ -78,7 +78,7 @@ export function readJsonLines(filePath) {
 }
 
 /** Consolidates individual task lessons from harness/experience/*.jsonl into harness/experience_library.jsonl */
-export function consolidateLessons(workdir) {
+export function consolidateLessons(workdir, { write = true } = {}) {
   const expDir = path.join(workdir, "harness", "experience");
   const libFile = path.join(workdir, "harness", "experience_library.jsonl");
 
@@ -115,7 +115,7 @@ export function consolidateLessons(workdir) {
     }
   }
 
-  if (added > 0 || modified) {
+  if (write && (added > 0 || modified)) {
     const content = existingLib.map((e) => JSON.stringify(e)).join("\n") + "\n";
     writeFileSync(libFile, content, "utf8");
   }
@@ -125,7 +125,7 @@ export function consolidateLessons(workdir) {
 
 /** Calculates lesson debt: count of lessons not yet processed by the proposer */
 export function calculateDebt(workdir, maxDebt = 5) {
-  const { lessons } = consolidateLessons(workdir);
+  const { lessons } = consolidateLessons(workdir, { write: false });
   const unanalyzed = lessons.filter((l) => !l.processed_by_proposer && !l.ppc);
 
   return {
@@ -138,8 +138,8 @@ export function calculateDebt(workdir, maxDebt = 5) {
 }
 
 /** Analyzes friction patterns across lessons and proposes candidates */
-export function analyzeFrictionAndPropose(workdir, maxCandidates = 3) {
-  const { lessons } = consolidateLessons(workdir);
+export function analyzeFrictionAndPropose(workdir, maxCandidates = 3, { write = false } = {}) {
+  const { lessons } = consolidateLessons(workdir, { write });
   const unanalyzed = lessons.filter((l) => !l.processed_by_proposer && !l.ppc);
   const targetLessons = unanalyzed.length > 0 ? unanalyzed : lessons.slice(-10);
 
@@ -240,7 +240,7 @@ function main() {
       process.stdout.write(`[harness-propose] Lecciones totales: ${debt.total}, sin procesar: ${debt.unprocessed} (límite: ${debt.maxDebt})\n`);
     }
     if (debt.debtExceeded) {
-      process.stderr.write(`[harness-propose ERROR] Deuda de arnés excedida: ${debt.unprocessed} lecciones sin procesar (${debt.unanalyzedTasks.join(", ")}). Ejecute 'node harness-kit/core/scripts/harness-propose.mjs --generate' para proponer mejoras antes de abrir nuevos PRs.\n`);
+      process.stderr.write(`[harness-propose ERROR] Deuda de arnés excedida: ${debt.unprocessed} lecciones sin procesar (${debt.unanalyzedTasks.join(", ")}). Abrir un PR chore/<#>-harness-debt-consolidacion con etiqueta harness-authorized (PM).\n`);
       process.exit(1);
     }
     process.exit(0);
@@ -248,7 +248,7 @@ function main() {
 
   // 2. Consolidación explícita
   if (opts.consolidate) {
-    const res = consolidateLessons(opts.workdir);
+    const res = consolidateLessons(opts.workdir, { write: true });
     if (opts.json) process.stdout.write(JSON.stringify(res, null, 2) + "\n");
     else process.stdout.write(`[harness-propose] Consolidación completada: ${res.added} lecciones agregadas, ${res.total} en total.\n`);
     process.exit(0);
@@ -260,7 +260,7 @@ function main() {
     process.stdout.write(`[harness-propose post-merge] Lecciones sin procesar: ${debt.unprocessed}/${debt.maxDebt}\n`);
     if (debt.unprocessed >= 3) {
       process.stdout.write(`[harness-propose post-merge] Umbral alcanzado. Generando candidatos...\n`);
-      const { candidates } = analyzeFrictionAndPropose(opts.workdir);
+      const { candidates } = analyzeFrictionAndPropose(opts.workdir, 3, { write: false });
       const outPath = path.join(opts.workdir, ".harness", "candidates.json");
       mkdirSync(path.dirname(outPath), { recursive: true });
       writeFileSync(outPath, JSON.stringify(candidates, null, 2), "utf8");
@@ -270,7 +270,7 @@ function main() {
   }
 
   // 4. Modo Generación (por defecto si no se especifican otros modos)
-  const analysis = analyzeFrictionAndPropose(opts.workdir);
+  const analysis = analyzeFrictionAndPropose(opts.workdir, 3, { write: false });
   const outPath = opts.output || path.join(opts.workdir, ".harness", "candidates.json");
 
   mkdirSync(path.dirname(outPath), { recursive: true });

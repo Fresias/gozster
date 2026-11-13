@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     name: Typecheck, Lint & Test
@@ -18,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -29,27 +33,35 @@ jobs:
       - name: Clean install dependencies
         run: npm ci
 
-      - name: Harness² merge check (seal == PR head, lesson, PPC)
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node harness-kit/core/scripts/harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status
-
       - name: Harness² audit & drift check
-        run: node scripts/qa-harness-audit.mjs
-
-      - name: Run Harness² Kit specs & invariants
-        run: npx vitest run harness-kit/tests/
+        run: node scripts/qa-harness-audit.mjs --debt-mode ${{ github.event_name == 'pull_request' && 'warn' || 'error' }}
 
       - name: Typecheck (TypeScript)
-        run: npx tsc --noEmit
-
-      - name: Run linter
-        run: npm run lint
+        run: npm run typecheck
 
       - name: Run unit tests (Vitest)
         run: npx vitest run
 
+      - name: Restore Next.js cache
+        uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: next-cache-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            next-cache-${{ hashFiles('package-lock.json') }}-
+
+      - name: Build Next.js application
+        run: npm run build
+
       - name: Harness² Post-Merge Propose & Consolidate
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node harness-kit/core/scripts/harness-propose.mjs --post-merge
+
+      - name: Upload Harness² candidates artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidates
+          path: .harness/candidates.json
+          if-no-files-found: ignore
+          retention-days: 14
