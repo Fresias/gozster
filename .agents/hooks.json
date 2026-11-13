@@ -3,11 +3,11 @@
     "enabled": true,
     "PreToolUse": [
       {
-        "matcher": "run_command|view_file|write_to_file|replace_file_content|multi_replace_file_content",
+        "matcher": "run_command|view_file|read_file|write_to_file|replace_file_content|multi_replace_file_content|write_file|edit_file",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"exec bash \\\"$(git rev-parse --show-toplevel)/.claude/hooks/guard.sh\\\" --runtime antigravity\"",
+            "command": "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity",
             "timeout": 10
           }
         ]

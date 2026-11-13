@@ -22,13 +22,18 @@
   },
   "tools": {
     "shell": { "name": "run_command", "command": "CommandLine", "extra": ["Cwd", "WaitMsBeforeAsync"] },
-    "read": { "name": "view_file", "path": "AbsolutePath", "bound": ["StartLine", "EndLine"] },
+    "read": [
+      { "name": "view_file", "path": "AbsolutePath", "bound": ["StartLine", "EndLine"] },
+      { "name": "read_file", "path": "Path" }
+    ],
     "write": [
       { "name": "write_to_file", "path": "TargetFile", "content": "CodeContent", "extra": ["Overwrite"] },
       { "name": "replace_file_content", "path": "TargetFile", "old": "TargetContent", "new": "ReplacementContent", "extra": ["AllowMultiple", "Instruction"] },
-      { "name": "multi_replace_file_content", "path": "TargetFile", "chunks": "ReplacementChunks" }
+      { "name": "multi_replace_file_content", "path": "TargetFile", "chunks": "ReplacementChunks" },
+      { "name": "write_file", "path": "Path", "content": "Content", "extra": ["Overwrite"] },
+      { "name": "edit_file", "path": "Path", "old": "Target", "new": "Replacement" }
     ],
-    "write_args_confidence": "confirmado en captura live (agy 1.4.4): tools nativas del modelo son run_command, read_file/view_file, write_file y edit_file (mapeadas a shell, read y write en normalize.mjs); alias binarios write_to_file, replace_file_content y multi_replace_file_content soportados por el guard"
+    "write_args_confidence": "confirmado en captura live (agy 1.4.4): tools nativas del modelo son run_command, read_file/view_file, write_file y edit_file (mapeadas a shell, read y write en normalize.mjs); alias binarios write_to_file, replace_file_content y multi_replace_file_content soportados por el guard. Args de read_file/write_file/edit_file confirmados en captura live con agy 1.5.7 (2026-11-13, GOZS-513)"
   },
   "skills": { "dir": ".agents/skills/<name>/SKILL.md", "frontmatter_required": ["name", "description"], "limit": "cuerpo <= 24 KB", "shared_agents_dir": true },
   "subagents": {
