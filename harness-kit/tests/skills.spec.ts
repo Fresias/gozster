@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,5 +76,53 @@ describe("harness-bootstrap (core)", () => {
     writeFileSync(path.join(dir, "package.json"), "{}");
     run(bootstrapPath, [dir]);
     expect(() => run(bootstrapPath, [dir])).toThrow(/overlay already exists/);
+  });
+
+  it("genera un subagente con --subagent y --description y el render lo distribuye", () => {
+    tmp = mkdtempSync(path.join(tmpdir(), "harness-bootstrap-subagent-"));
+    writeFileSync(
+      path.join(tmp, "package.json"),
+      JSON.stringify({ name: "demo-subagent", scripts: { test: "vitest run" } }),
+    );
+
+    run(bootstrapPath, [tmp, "--subagent", "custom-analyst", "--description", "Analista de rendimiento"]);
+
+    const subagentFile = path.join(tmp, "harness", "subagents", "custom-analyst.md");
+    expect(existsSync(subagentFile)).toBe(true);
+    const subagentContent = readFileSync(subagentFile, "utf8");
+    expect(subagentContent).toMatch(/^---\r?\nname:\s*custom-analyst\r?\ndescription:\s*Analista de rendimiento/m);
+
+    const overlay = path.join(tmp, "harness");
+    expect(() => run(renderPath, [overlay])).not.toThrow();
+    expect(() => run(renderPath, ["--check", overlay])).not.toThrow();
+
+    expect(existsSync(path.join(tmp, ".claude", "agents", "custom-analyst.md"))).toBe(true);
+    expect(existsSync(path.join(tmp, ".agents", "agents", "custom-analyst.md"))).toBe(true);
+    expect(existsSync(path.join(tmp, ".gemini", "agents", "custom-analyst.md"))).toBe(true);
+    expect(existsSync(path.join(tmp, ".opencode", "agents", "custom-analyst.md"))).toBe(true);
+  });
+});
+
+describe("sub-issue.md.tmpl (PM GOZSter template)", () => {
+  const templatePath = path.resolve(here, "..", "core", "templates", "sub-issue.md.tmpl");
+
+  it("contiene todas las secciones del formato obligatorio del PM y nota de pr-auto-complete off", () => {
+    const content = readFileSync(templatePath, "utf8");
+    expect(content).toContain("Contexto");
+    expect(content).toContain("Alcance Quirúrgico");
+    expect(content).toContain("Criterios de Aceptación (Gherkin)");
+    expect(content).toContain("Asignado a");
+    expect(content).toContain("Restricciones");
+    expect(content).toContain("Aplicar Ponytail y Karpathy");
+    expect(content).toContain("Contrato Harness");
+    expect(content).toContain("--pr-auto-complete off");
+  });
+
+  it("tool_guidance en AGENTS.md referencia la plantilla y respeta el presupuesto", () => {
+    const agents = readFileSync(path.join(repo, "AGENTS.md"), "utf8");
+    expect(agents).toContain("sub-issue.md.tmpl");
+    expect(agents).toContain("--pr-auto-complete off");
+    expect(agents.replace(/\r\n/g, "\n").length).toBeLessThanOrEqual(8000);
+    expect(agents.replace(/\r\n/g, "\n").split("\n").length).toBeLessThan(150);
   });
 });

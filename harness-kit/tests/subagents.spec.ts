@@ -127,4 +127,12 @@ describe("H-09: wiring del repo (GOZSter)", () => {
     expect(content).toContain('mode: "subagent"');
     expect(frontmatterKeys(content)).not.toContain("name");
   });
+
+  it("subagent.md.tmpl declara frontmatter name y description", () => {
+    const tmplPath = path.join(kitDir, "core", "templates", "subagent.md.tmpl");
+    expect(existsSync(tmplPath)).toBe(true);
+    const content = readFileSync(tmplPath, "utf8");
+    expect(content).toContain("name: {subagent_name}");
+    expect(content).toContain("description: {subagent_description}");
+  });
 });
