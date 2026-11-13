@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { hasContrastEvidence } from "./harness-merge-check.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..", "..");
@@ -260,9 +261,18 @@ if (existsSync(expLibPath)) {
     }
 
     if (selected.length === 0) {
-      // Curated (pinned) lessons keep AGENTS.md stable while per-issue lessons accumulate in harness/experience/.
+      // Criterio B: N=3 lecciones más recientes con evidencia de contraste (candidato + métrica + delta).
+      // pinned: true se mantiene como excepción manual (aparece aunque no esté entre las 3 más recientes).
       const pinned = validLessons.filter((l) => l.pinned === true);
-      selected = (pinned.length > 0 ? pinned : validLessons).slice(-3);
+      const withEvidence = validLessons.filter((l) => hasContrastEvidence(l.lesson, l.ppc));
+      const pool = withEvidence.length > 0 ? withEvidence : validLessons;
+      const recent = pool.slice(-3);
+
+      const selectedSet = new Set([
+        ...pinned.map((l) => l.id || `${l.task}:${l.lesson}`),
+        ...recent.map((l) => l.id || `${l.task}:${l.lesson}`),
+      ]);
+      selected = validLessons.filter((l) => selectedSet.has(l.id || `${l.task}:${l.lesson}`));
     }
 
     const lines = selected.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);

@@ -51,8 +51,8 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
-- Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
-- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
+- Harness changes: branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe` → `harness-compose`), label `harness-authorized`.
+- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`.
 
 ## Skills
 
@@ -67,8 +67,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
-- [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
+- [lesson 2026-11-13 | task: GOZS-517] Candidate c1-contrast-selection on harness (c1-contrast-selection vs baseline: score +20)
+- [lesson 2026-11-13 | task: GOZS-518] Candidate c1-templates-wiring on harness (c1-templates-wiring vs baseline: score +20)
+- [lesson 2026-11-13 | task: GOZS-519] Candidate c1-ledger-l001 on harness (c1-ledger-l001 vs baseline: score +20)
 
 # Tool Guidance & Execution Rules
 

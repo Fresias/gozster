@@ -11,5 +11,5 @@
 
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
-- Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
-- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
+- Harness changes: branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe` → `harness-compose`), label `harness-authorized`.
+- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`.

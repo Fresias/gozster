@@ -74,7 +74,99 @@
           "repeatedBlockSessions": null
         }
       },
-      "notes": "Cierre de línea base L-000 consolidado tras 17 días de operación real (2026-10-20 a 2026-11-06) cubriendo los 4 runtimes (Claude Code, Gemini CLI, Antigravity y OpenCode) y los 5 Stages del rediseño integral GOZS-368 (45 sesiones, 4.355 eventos). Mediana de TTFE: 1.687 ms (p90: 3.936 ms)."
+      "notes": "Cierre de línea base L-000 consolidado tras 17 días de operación real (2026-10-20 a 2026-11-06) cubriendo los 4 runtimes (Claude Code, Gemini CLI, Antigravity y OpenCode) y los 5 Stages del rediseño integral GOZS-368 (45 sesiones, 4.355 eventos). Mediana de TTFE: 1.687 ms (p90: 3.936 ms).",
+      "caveat": "Línea base contaminada: conteos simétricos de 206 (git.reset-hard, shell.rm-rf, shell.env-leak) y 103 (multica.comment-bounded, multica.issue-bounded) provenientes de ejecuciones de tests unitarios locales; 599 inyecciones de git.gh007-noreply debidas a falsos positivos por coincidencia de texto en comandos distintos a git push. Ventana posterior quedó en null por cierre sin contraste."
+    },
+    {
+      "id": "L-001",
+      "title": "Harness Hardening y telemetría limpia multi-runtime",
+      "status": "in_progress",
+      "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "experience": "EXPERIENCE-L-001.md",
+      "window": {
+        "durationDays": 7,
+        "before": {
+          "start": "2026-11-06T23:05:00Z",
+          "end": "2026-11-13T22:15:00Z"
+        },
+        "after": {
+          "start": "2026-11-13T22:15:00Z",
+          "end": "2026-11-20T22:15:00Z"
+        }
+      },
+      "metrics": {
+        "before": {
+          "totalEvents": 112,
+          "totalSessions": 1,
+          "byRuntime": {
+            "antigravity": {
+              "events": 100,
+              "sessions": 1,
+              "blocksByRule": {
+                "harness.agents-render": 2,
+                "db.append-only": 1,
+                "shell.cat-lockfile": 1,
+                "fs.env-leak": 1,
+                "git.reset-hard": 1
+              }
+            },
+            "claude-code": {
+              "events": 4,
+              "sessions": 1,
+              "blocksByRule": {}
+            },
+            "opencode": {
+              "events": 5,
+              "sessions": 1,
+              "blocksByRule": {
+                "git.force-push": 1,
+                "fs.bloatware": 1
+              }
+            },
+            "gemini-cli": {
+              "events": 3,
+              "sessions": 1,
+              "blocksByRule": {}
+            }
+          },
+          "actionsByKind": {
+            "shell": 56,
+            "read": 37,
+            "write": 9
+          },
+          "blocksByRule": {
+            "harness.agents-render": 2,
+            "db.append-only": 1,
+            "git.force-push": 1,
+            "fs.bloatware": 1,
+            "shell.cat-lockfile": 1,
+            "fs.env-leak": 1,
+            "git.reset-hard": 1
+          },
+          "injectionsByRule": {
+            "git.gh007-noreply": 4,
+            "db.migration-test-reminder": 3,
+            "remediate.cwd-lost": 2,
+            "remediate.oversize-output": 1
+          },
+          "timeToFirstEditMs": {
+            "median": 406715,
+            "p90": 406715
+          },
+          "repeatedBlockSessions": []
+        },
+        "after": {
+          "totalEvents": null,
+          "totalSessions": null,
+          "byRuntime": null,
+          "actionsByKind": null,
+          "blocksByRule": null,
+          "injectionsByRule": null,
+          "timeToFirstEditMs": { "median": null, "p90": null },
+          "repeatedBlockSessions": null
+        }
+      },
+      "notes": "Línea base inicial de L-001 registrada con telemetría persistente en git common dir tras el merge de los Stages 1 a 5 de GOZS-512. Ventana after definida para medición de 7 días contados desde la instalación de los guardias actualizados."
     }
   ]
 }
