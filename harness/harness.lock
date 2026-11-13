@@ -6,7 +6,7 @@
     ".agents/agents/harness-proposer.md": "sha256:2fd8f3a8ccf1c380f53269b17fd3cc029b9e1944387ebb74d518dec196e2216b",
     ".agents/agents/schema-inspector.md": "sha256:c99aabfba58549a399782efe779f5c8014bd57ae29da065b26bdb172614c2765",
     ".agents/agents/trace-auditor.md": "sha256:39cdf676745fed4cef21f6bc489228d49518017c2aa9cad9b6c1313ddac4415d",
-    ".agents/hooks.json": "sha256:54a535e667b9de48cdcf839410fdfae97a90a1d64bcfe61eff38586dfb05c279",
+    ".agents/hooks.json": "sha256:4d87a19f3f6b691f7a39b7217b9e3af7dc4432aa1c8ac4b55fae2d7ec67e14f6",
     ".agents/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
     ".agents/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
     ".claude/agents/harness-composer.md": "sha256:aa730f4e5a687b8a3af22961a99435e5e7ba31a39bc3c7651fa5f7f21b3cf03a",

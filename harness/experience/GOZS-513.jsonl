@@ -1,0 +1,1 @@
+{"id":"exp-gozs-513-1","timestamp":"2026-11-13T20:45:39.282Z","task":"GOZS-513","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Sincronizacion atomica del guard instalado desde origin/main (cacheado por sha) y cobertura de Antigravity via node sin dependencia de bash","verified":true,"tags":["harness"]}

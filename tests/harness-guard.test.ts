@@ -156,8 +156,8 @@ describe("multi-runtime hook configs", () => {
     const cfg = JSON.parse(readFileSync(path.join(repoRoot, ".agents", "hooks.json"), "utf8"));
     const entry = cfg["gozster-guard"].PreToolUse[0];
     expect(cfg["gozster-guard"].enabled).toBe(true);
-    expect(entry.matcher).toBe("run_command|view_file|write_to_file|replace_file_content|multi_replace_file_content");
-    expect(entry.hooks[0].command).toBe('bash -c "exec bash \\"$(git rev-parse --show-toplevel)/.claude/hooks/guard.sh\\" --runtime antigravity"');
+    expect(entry.matcher).toBe("run_command|view_file|read_file|write_to_file|replace_file_content|multi_replace_file_content|write_file|edit_file");
+    expect(entry.hooks[0].command).toBe("node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity");
   });
 
   it(".gemini/settings.json loads AGENTS.md, disables YOLO and wires BeforeTool", () => {

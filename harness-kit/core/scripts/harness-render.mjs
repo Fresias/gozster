@@ -478,9 +478,9 @@ if (runtimes.has("antigravity")) {
           hooks: [
             {
               type: "command",
-              // cwd = .agents/ (runtimes/antigravity.json): resolver la raíz antes del guard.
-              // Comillas dobles: el comando corre con `sh -c` o `cmd /c`.
-              command: 'bash -c "exec bash \\"$(git rev-parse --show-toplevel)/.claude/hooks/guard.sh\\" --runtime antigravity"',
+              // cwd = .agents/ (runtimes/antigravity.json): ruta relativa a la raíz. node y no bash: con
+              // `cmd /c` el primer bash del PATH puede ser WSL (GOZS-513). Vale igual con `sh -c`.
+              command: "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity",
               timeout: 10,
             },
           ],
