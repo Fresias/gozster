@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -285,5 +286,72 @@ describe("GOZS-85: post.outside-scope y adapter supabase", () => {
     expect(ids("harness-kit/adapters/supabase/rules.json")).toEqual(["db.append-only", "db.migration-test-reminder"]);
     expect(ids("harness/rules.local.json")).not.toContain("db.append-only");
     expect(ids("harness/rules.local.json")).not.toContain("db.migration-test-reminder");
+  });
+});
+
+describe("GOZS-514: sin falsos positivos en lecturas del harness, GH007 y heredocs", () => {
+  const feature = mkdtempSync(path.join(tmpdir(), "guard-514-"));
+  const git = (...a: string[]) => execFileSync("git", a, { cwd: feature, stdio: "pipe" });
+  beforeAll(() => {
+    git("init");
+    git("checkout", "-b", "feature/9-feat");
+    git("-c", "user.name=T", "-c", "user.email=t@users.noreply.github.com", "commit", "--allow-empty", "-m", "x");
+  });
+  afterAll(() => rmSync(feature, { recursive: true, force: true }));
+  const shell = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot: feature });
+  const post = (command: string, output: string) =>
+    evaluateRules({ phase: "post", kind: "shell", command, output }, { repoRoot: feature });
+  const scripts = "harness-kit/core/scripts";
+
+  for (const command of [
+    `grep -n x ${scripts}/harness-compose.mjs`,
+    `sed -n 1,20p ${scripts}/harness-render.mjs`,
+    `ls ${scripts}/bootstrap.mjs`,
+    `node ${scripts}/harness-compose.mjs --task GOZS-1 --no-promote`,
+  ]) {
+    it(`GIVEN rama no-harness WHEN ${command} THEN permite`, () => {
+      expect(shell(command).allowed).toBe(true);
+    });
+  }
+
+  for (const command of [
+    `node ${scripts}/harness-render.mjs`,
+    `./${scripts}/harness-render.mjs`,
+    `npx node ${scripts}/harness-render.mjs`,
+    `bash -c "node ${scripts}/harness-render.mjs"`,
+    `echo x | xargs node ${scripts}/harness-render.mjs`,
+    `node ${scripts}/harness-compose.mjs --task X`,
+  ]) {
+    it(`GIVEN rama no-harness WHEN ${command} THEN harness.authorized-only`, () => {
+      expect(shell(command).ruleId).toBe("harness.authorized-only");
+    });
+  }
+
+  it("GIVEN cat de rules.json cuya salida contiene gh007 WHEN post-hook THEN no inyecta", () => {
+    expect(post("cat harness-kit/core/guard/rules.json", '{ "id": "git.gh007-noreply" }').inject).toBeFalsy();
+  });
+
+  it("GIVEN un comando que solo menciona GH007 WHEN post-hook THEN no inyecta", () => {
+    expect(post("grep -n GH007 harness-kit/core/guard/guard-core.mjs", "").inject).toBeFalsy();
+  });
+
+  it("GIVEN git push cuya salida contiene GH007 WHEN post-hook THEN inyecta el email noreply", () => {
+    const res = post(
+      "git add . && git -C repo push origin feature/9-feat",
+      "remote: error: GH007: Your push would publish a private email address.\nremote: use 1+u@users.noreply.github.com"
+    );
+    expect(res.ruleId).toBe("git.gh007-noreply");
+    expect(res.inject).toBe(true);
+    expect(res.context).toContain("1+u@users.noreply.github.com");
+  });
+
+  it("GIVEN heredoc que escribe un .md mencionando archivos de entorno WHEN guard THEN permite", () => {
+    const command = "cat > notes.md <<'EOF'\nNunca leer .env ni .env.local; cat .env está bloqueado.\nEOF";
+    expect(shell(command).allowed).toBe(true);
+  });
+
+  it("GIVEN cat sobre un archivo de entorno real WHEN guard THEN bloquea", () => {
+    expect(shell("cat .env.local").ruleId).toBe("shell.env-leak");
+    expect(shell("cat > out.md <<'EOF'\nx\nEOF\ncat .env").ruleId).toBe("shell.env-leak");
   });
 });

@@ -273,7 +273,31 @@ const SHELL_WRITE_VERB =
 // Same verbs minus copy-like ones (cp/install/ln/Copy-Item): those only write their LAST argument.
 const HARNESS_WRITE_VERB =
   /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
-const HARNESS_GENERATORS = /(harness-render\.mjs(?![^;&|]*--check)|harness-compose\.mjs(?![^;&|]*--no-promote)|bootstrap\.mjs)/i;
+const HARNESS_GENERATORS = /^(harness-render\.mjs|harness-compose\.mjs|bootstrap\.mjs)$/i;
+const SEGMENT_SPLIT = /;|&&|\|\||\||\n/;
+const COMMAND_WRAPPERS = /^(node|npx|bun|env|xargs|&)$/i;
+
+/** A generator runs only when its script is in command position, never when it is just an argument (grep, sed, ls). */
+function runsHarnessGenerator(cmd) {
+  return cmd.split(SEGMENT_SPLIT).some((seg) => {
+    const tokens = seg.trim().replace(/^\(+/, "").split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < tokens.length && (COMMAND_WRAPPERS.test(tokens[i]) || /^\w+=/.test(tokens[i]) || (i > 0 && tokens[i].startsWith("-")))) i++;
+    if (/^(bash|sh)$/i.test(tokens[i] || "") && tokens[i + 1] === "-c") {
+      return runsHarnessGenerator(tokens.slice(i + 2).join(" ").replace(/^["']|["']$/g, ""));
+    }
+    const script = (tokens[i] || "").replace(/["']/g, "").split(/[/\\]/).pop();
+    if (!HARNESS_GENERATORS.test(script)) return false;
+    if (/^harness-render/i.test(script)) return !/--check\b/.test(seg);
+    if (/^harness-compose/i.test(script)) return !/--no-promote\b/.test(seg);
+    return true;
+  });
+}
+
+/** Heredoc bodies are data written somewhere, not paths read by the command. */
+function stripHeredocBodies(cmd) {
+  return cmd.replace(/(<<-?\s*(["']?)([A-Za-z_]\w*)\2[^\n]*)\n[\s\S]*?\n[ \t]*\3[ \t]*(?=\n|$)/g, "$1");
+}
 const HARNESS_DIRS = "(harness|harness-kit|\\.github)[/\\\\](?!experience[/\\\\])";
 
 /**
@@ -418,7 +442,8 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Access to .env in shell
-  const stripped = cmd
+  const envCmd = stripHeredocBodies(cmd);
+  const stripped = envCmd
     .replace(/\.env\.(example|sample|template)/gi, "")
     // Code references to environment variables are not .env files.
     .replace(/(process|import\.meta)\.env\b/g, "")
@@ -426,7 +451,7 @@ function evaluateShell(call, repoRoot) {
   if (/\.env([^A-Za-z0-9]|$)/.test(stripped)) {
     if (
       /(^|[^a-zA-Z0-9_-])(cat|less|more|head|tail|bat|nl|tac|xxd|od|strings|source|cp|mv|scp|rsync|dd|ln|openssl|type|gc|Get-Content|Copy-Item|Move-Item|Select-String)(\s|$)/i.test(
-        cmd
+        envCmd
       ) ||
       />\s*[^|&;]*\.env([^A-Za-z0-9]|$)/.test(stripped) ||
       /<\s*[^|&;]*\.env([^A-Za-z0-9]|$)/.test(stripped)
@@ -605,7 +630,7 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Harness sources (harness/, harness-kit/, .github/) and generators only on an authorized harness branch
-  const touchesHarness = HARNESS_GENERATORS.test(cmd) || shellWritesHarness(cmd, repoRoot);
+  const touchesHarness = runsHarnessGenerator(cmd) || shellWritesHarness(cmd, repoRoot);
   if (touchesHarness && !harnessBranchAuthorized(currentBranch(repoRoot))) {
     return {
       allowed: false,
@@ -781,9 +806,12 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
 
   // 1. Shell GH007 check
   if (normalizedCall.kind === "shell") {
-    const combined = `${normalizedCall.command || ""}\n${normalizedCall.output || ""}`;
-    if (/GH007/i.test(combined)) {
-      const email = resolveNoreplyEmail(combined, repoRoot);
+    const output = normalizedCall.output || "";
+    const pushes = (normalizedCall.command || "")
+      .split(SEGMENT_SPLIT)
+      .some((seg) => /(^|[^\w-])git(\s+-C\s+\S+)?\s+push\b/i.test(seg));
+    if (pushes && /GH007/i.test(output)) {
+      const email = resolveNoreplyEmail(output, repoRoot);
       return {
         allowed: true,
         inject: true,
@@ -832,6 +860,8 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
   for (const rule of rules) {
     if (rule.phase !== "post" && rule.phase !== "result") continue;
     if (rule.target && rule.target !== normalizedCall.kind && rule.target !== "all") continue;
+    // Evaluated in code above (git push + output only); its declarative pattern would match any mention.
+    if (rule.id === "git.gh007-noreply") continue;
 
     if (rule.minOutputLength && String(normalizedCall.output || "").length > rule.minOutputLength) {
       return {
