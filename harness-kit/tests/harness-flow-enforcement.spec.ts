@@ -298,8 +298,10 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     const fn = core.slice(core.indexOf("function mergeCheck("), core.indexOf("function mergeCheck(") + 400);
     expect(fn).not.toContain("--post-status");
     // En el consumidor, el CI es quien publica el status (en el repo del kit no hay ci.yml).
+    const mergeCheckWorkflow = path.resolve(here, "..", "..", ".github", "workflows", "harness-merge-check.yml");
     const ciPath = path.resolve(here, "..", "..", ".github", "workflows", "ci.yml");
-    if (existsSync(ciPath)) expect(readFileSync(ciPath, "utf8")).toContain("harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status");
+    const targetPath = existsSync(mergeCheckWorkflow) ? mergeCheckWorkflow : ciPath;
+    if (existsSync(targetPath)) expect(readFileSync(targetPath, "utf8")).toContain("harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status");
   });
 
   it("GIVEN la memoria del agente (~/.claude/projects/<p>/memory/) THEN escribible; hooks y settings siguen protegidos", () => {

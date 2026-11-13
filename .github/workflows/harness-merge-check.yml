@@ -1,0 +1,34 @@
+name: Harness² Merge Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+concurrency:
+  group: harness-merge-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  merge-check:
+    name: Harness² merge check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Harness² merge check (seal == PR head, lesson, PPC)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node harness-kit/core/scripts/harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status

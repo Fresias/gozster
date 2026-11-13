@@ -13,6 +13,16 @@ const repoRoot = process.cwd();
 const overlayDir = path.join(repoRoot, "harness");
 const kitDir = path.join(repoRoot, "harness-kit");
 
+let debtMode = "error";
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i];
+  if (arg === "--debt-mode" && process.argv[i + 1]) {
+    debtMode = process.argv[++i];
+  } else if (arg.startsWith("--debt-mode=")) {
+    debtMode = arg.slice("--debt-mode=".length);
+  }
+}
+
 console.log("=== [QA HARNESS AUDIT] Iniciando auditoría integral de Harness² ===");
 
 let errors = [];
@@ -96,7 +106,20 @@ try {
   execSync("node harness-kit/core/scripts/harness-propose.mjs --check-debt --max-debt 5", { cwd: repoRoot, stdio: "pipe" });
   console.log("   -> OK: Deuda de arnés dentro del límite permitido (<=5).");
 } catch (e) {
-  errors.push("Deuda de lecciones de arnés excedida (>5 sin procesar por harness-propose).");
+  let unprocessed = "?";
+  let tasks = "";
+  const errOutput = (e.stderr?.toString() || "") + (e.stdout?.toString() || "") + (e.message || "");
+  const match = errOutput.match(/(\d+) lecciones sin procesar \(([^)]*)\)/);
+  if (match) {
+    unprocessed = match[1];
+    tasks = match[2];
+  }
+
+  if (debtMode === "warn") {
+    console.log(`::warning title=Harness debt::${unprocessed} lecciones sin procesar (${tasks})`);
+  } else {
+    errors.push("Deuda de lecciones de arnés excedida (>5 sin procesar por harness-propose).");
+  }
 }
 
 // Resumen final
