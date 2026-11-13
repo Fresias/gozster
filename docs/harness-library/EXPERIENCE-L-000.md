@@ -4,6 +4,7 @@
 - **Ventana consolidada (`window.before`):** `2026-10-20T17:38:21Z` → `2026-11-06T23:05:00Z` (17 días, 45 sesiones activas, 4.355 eventos).
 - **Fuente:** `.harness/telemetry/events.jsonl` (consolidado de worktrees del workspace).
 - **Agregador:** `harness-kit/core/scripts/harness-telemetry.mjs`
+- **Caveat:** Telemetría previa al aislamiento de git common dir y al filtrado de tests: las métricas combinan sesiones reales con ejecuciones automatizadas del harness anteriores a GOZS-515/GOZS-516. Se conservan intactas como referencia histórica.
 
 ## Hipótesis
 

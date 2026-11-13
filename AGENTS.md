@@ -67,8 +67,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ### Experience Library (Harness²)
 
-- [lesson 2026-11-06 | task: GOZS-389] Stage 5 (#385): Suite WCAG 2.1 AA verificando contraste >= 4.5:1, navegacion por teclado, aria-label y estados con texto.
-- [lesson 2026-11-06 | task: GOZS-399] Stage 4 (#390): Sheet lateral de clase (coach, barra cupos, Cupo lleno) y Dialog de cancelacion con forceMount SSR.
+- [lesson 2026-11-11 | task: GOZS-466] Candidate c1-tool-guidance-review on tool_guidance resolved task in 85290ms
+- [lesson 2026-11-11 | task: GOZS-489] Candidate c1-tool-guidance-review on tool_guidance resolved task in 535ms
+- [lesson 2026-11-12 | task: GOZS-507] Candidate c1-tool-guidance-dedupe on tool_guidance resolved task in 99279ms
 
 # Tool Guidance & Execution Rules
 

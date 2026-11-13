@@ -17,6 +17,7 @@
       "title": "Línea base del harness (guard telemetry)",
       "status": "completed",
       "hypothesis": "Antes de intervenir el harness necesitamos una línea base determinista de fricción: cuánto bloquea el guard por regla, cuánto tarda un agente en su primer edit (TTFE) y cuántas sesiones chocan repetidamente contra la misma regla.",
+      "caveat": "Telemetría previa al aislamiento de git common dir y al filtrado de tests: las métricas combinan sesiones reales con ejecuciones automatizadas del harness anteriores a GOZS-515/GOZS-516. Se conservan intactas como referencia histórica.",
       "experience": "EXPERIENCE-L-000.md",
       "window": {
         "durationDays": 17,
@@ -75,6 +76,95 @@
         }
       },
       "notes": "Cierre de línea base L-000 consolidado tras 17 días de operación real (2026-10-20 a 2026-11-06) cubriendo los 4 runtimes (Claude Code, Gemini CLI, Antigravity y OpenCode) y los 5 Stages del rediseño integral GOZS-368 (45 sesiones, 4.355 eventos). Mediana de TTFE: 1.687 ms (p90: 3.936 ms)."
+    },
+    {
+      "id": "L-001",
+      "title": "Evaluación post-hardening del guard políglota y reducción de fricción",
+      "status": "in_progress",
+      "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "experience": "EXPERIENCE-L-001.md",
+      "window": {
+        "durationDays": 14,
+        "before": {
+          "start": "2026-11-13T22:13:30Z",
+          "end": "2026-11-13T22:23:55Z"
+        },
+        "after": {
+          "start": "2026-11-14T00:00:00Z",
+          "end": "2026-11-28T00:00:00Z"
+        }
+      },
+      "metrics": {
+        "before": {
+          "totalEvents": 101,
+          "totalSessions": 1,
+          "byRuntime": {
+            "claude-code": {
+              "events": 4,
+              "sessions": 1,
+              "blocksByRule": {}
+            },
+            "antigravity": {
+              "events": 89,
+              "sessions": 1,
+              "blocksByRule": {
+                "harness.agents-render": 2,
+                "db.append-only": 1,
+                "shell.cat-lockfile": 1,
+                "fs.env-leak": 1,
+                "git.reset-hard": 1
+              }
+            },
+            "gemini-cli": {
+              "events": 3,
+              "sessions": 1,
+              "blocksByRule": {}
+            },
+            "opencode": {
+              "events": 5,
+              "sessions": 1,
+              "blocksByRule": {
+                "git.force-push": 1,
+                "fs.bloatware": 1
+              }
+            }
+          },
+          "actionsByKind": {
+            "shell": 50,
+            "read": 34,
+            "write": 7
+          },
+          "blocksByRule": {
+            "harness.agents-render": 2,
+            "db.append-only": 1,
+            "git.force-push": 1,
+            "fs.bloatware": 1,
+            "shell.cat-lockfile": 1,
+            "fs.env-leak": 1,
+            "git.reset-hard": 1
+          },
+          "injectionsByRule": {
+            "git.gh007-noreply": 4,
+            "db.migration-test-reminder": 3,
+            "remediate.cwd-lost": 2,
+            "remediate.oversize-output": 1
+          },
+          "timeToFirstEditMs": {
+            "median": 406715,
+            "p90": 406715
+          },
+          "repeatedBlockSessions": []
+        },
+        "after": {
+          "totalEvents": null,
+          "totalSessions": null,
+          "byRuntime": null,
+          "blocksByRule": null,
+          "timeToFirstEditMs": { "median": null, "p90": null },
+          "repeatedBlockSessions": null
+        }
+      },
+      "notes": "Línea base limpia capturada tras el despliegue del hardening (GOZS-513 a GOZS-518) usando el git common dir y aislamiento de telemetría de tests."
     }
   ]
 }
