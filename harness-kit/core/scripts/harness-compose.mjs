@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { evaluateCandidates } from "./harness-contrast.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..", "..");
@@ -144,7 +145,7 @@ export function deriveTags(candidate, task = "") {
   return Array.from(tags);
 }
 
-/** Evaluates probe traces and selects the winner */
+/** Evaluates probe traces and selects the winner using harness-contrast */
 export function evaluateProbes(probeResults, explicitDecision) {
   if (explicitDecision) {
     let dec = explicitDecision;
@@ -158,6 +159,8 @@ export function evaluateProbes(probeResults, explicitDecision) {
       promote: Boolean(dec.promote),
       rationale: dec.rationale || "Explicit decision applied",
       lesson: dec.lesson || "Harness optimized per composer decision",
+      contrast_matrix: [],
+      contrast: [],
     };
   }
 
@@ -167,34 +170,68 @@ export function evaluateProbes(probeResults, explicitDecision) {
       promote: false,
       rationale: "No probe results available to evaluate",
       lesson: "",
+      contrast_matrix: [],
+      contrast: [],
     };
   }
 
-  const passedProbes = probeResults.filter((p) => p.passed);
-  if (passedProbes.length === 0) {
+  const contrastResult = evaluateCandidates(probeResults);
+  const matrix = contrastResult.contrast_matrix || [];
+  const winner = contrastResult.winner;
+
+  if (!winner || !contrastResult.winner_id) {
     return {
       winner_id: null,
       promote: false,
-      rationale: "All candidate probes failed verification",
+      rationale: contrastResult.warning || "All candidate probes failed verification",
       lesson: "Current candidates did not resolve the task; retain existing harness baseline",
+      contrast_matrix: matrix,
+      contrast: matrix,
     };
   }
 
-  // Rank by operational cost (ascending) incorporating duration and telemetry
-  passedProbes.sort((a, b) => calculateOperationalCost(a) - calculateOperationalCost(b));
-  const winner = passedProbes[0];
+  const winnerEntry = matrix.find((m) => m.candidate_id === contrastResult.winner_id) || matrix[0];
+  const winnerProbe = probeResults.find((p) => p.candidate_id === contrastResult.winner_id) || {};
+  const durationMs = winnerEntry.duration_ms ?? winnerProbe.duration_ms ?? 0;
+  const telemetry = winnerProbe.telemetry || winnerEntry.telemetry || null;
 
-  const telemStr = winner.telemetry
-    ? ` (duration: ${winner.duration_ms}ms, tool_calls: ${winner.telemetry.tool_calls ?? 0}, blocks: ${winner.telemetry.blocks ?? 0})`
-    : ` (${winner.duration_ms}ms)`;
+  // Find baseline or runner-up for contrast delta citation
+  const other = matrix.find((m) => m.candidate_id !== contrastResult.winner_id);
+  let contrastDeltaStr = "";
+  if (other) {
+    const otherProbe = probeResults.find((p) => p.candidate_id === other.candidate_id) || {};
+    const blocksDelta = (telemetry?.blocks ?? 0) - (otherProbe.telemetry?.blocks ?? other.telemetry?.blocks ?? 0);
+    const durationDelta = durationMs - (other.duration_ms ?? otherProbe.duration_ms ?? 0);
+    const scoreDelta = (winnerEntry.score ?? 0) - (other.score ?? 0);
+    const comparisonTarget = other.candidate_id === "baseline" ? "baseline" : other.candidate_id;
+    if (blocksDelta !== 0) {
+      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: blocks ${blocksDelta > 0 ? "+" : ""}${blocksDelta}`;
+    } else if (durationDelta !== 0) {
+      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: duration_ms ${durationDelta > 0 ? "+" : ""}${durationDelta}`;
+    } else {
+      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: score +${scoreDelta}`;
+    }
+  }
+
+  const telemStr = telemetry
+    ? ` (duration: ${durationMs}ms, tool_calls: ${telemetry.tool_calls ?? 0}, blocks: ${telemetry.blocks ?? 0})`
+    : ` (${durationMs}ms)`;
+
+  const rationale = `Candidate ${contrastResult.winner_id} selected by contrast evaluation (score: ${contrastResult.winner_score})${telemStr}`;
+  const targetComp = winnerProbe.target_components?.join(", ") || "harness";
+  const lesson = contrastDeltaStr
+    ? `Candidate ${contrastResult.winner_id} on ${targetComp} (${contrastDeltaStr})`
+    : `Candidate ${contrastResult.winner_id} on ${targetComp} resolved task in ${durationMs}ms`;
 
   return {
-    winner_id: winner.candidate_id,
+    winner_id: contrastResult.winner_id,
     promote: true,
-    rationale: `Candidate ${winner.candidate_id} passed cleanly with optimal operational cost${telemStr}`,
-    lesson: `Candidate ${winner.candidate_id} on ${winner.target_components?.join(", ") || "harness"} resolved task in ${winner.duration_ms}ms`,
-    duration_ms: winner.duration_ms,
-    telemetry: winner.telemetry || null,
+    rationale,
+    lesson,
+    duration_ms: durationMs,
+    telemetry,
+    contrast_matrix: matrix,
+    contrast: matrix,
   };
 }
 
@@ -260,7 +297,10 @@ export function runCompose(opts) {
         probe_passed: Boolean(winnerProbe),
         probe_branch: winnerProbe?.probe_branch || null,
         candidates: probeResults.length,
-        duration_ms: winnerProbe?.duration_ms ?? null,
+        duration_ms: evaluation.duration_ms ?? winnerProbe?.duration_ms ?? null,
+        contrast: evaluation.contrast_matrix || null,
+        contrast_matrix: evaluation.contrast_matrix || null,
+        rationale: evaluation.rationale || null,
       },
     };
 

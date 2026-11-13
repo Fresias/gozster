@@ -87,7 +87,15 @@ export function loadReports(reportsInput) {
 
 export function evaluateCandidates(reports, options = {}) {
   if (!Array.isArray(reports) || reports.length === 0) {
-    fail("no reports provided for contrast");
+    return {
+      evaluated_at: new Date().toISOString(),
+      total_candidates: 0,
+      consensus_files: [],
+      winner_id: null,
+      winner_score: null,
+      winner: null,
+      contrast_matrix: [],
+    };
   }
 
   const strictScope = Boolean(options.strictScope);

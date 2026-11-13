@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+// @ts-expect-error - mjs module
+import { ensureBaseline } from "../core/scripts/harness-probe.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..");
@@ -66,6 +68,7 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       }),
     );
     writeFileSync(path.join(overlay, "tool_guidance.local.md"), "# Initial Guidance\n");
+    writeFileSync(path.join(tempRepo, ".gitignore"), ".harness/\n");
 
     execFileSync("git", ["add", "."], { cwd: tempRepo });
     execFileSync("git", ["commit", "-m", "chore: initial commit"], { cwd: tempRepo });
@@ -103,8 +106,11 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       { encoding: "utf8" },
     );
 
-    const report = JSON.parse(stdout);
-    expect(report.candidate_id).toBe("test-cand-1");
+    const reports = JSON.parse(stdout);
+    expect(Array.isArray(reports)).toBe(true);
+    expect(reports).toHaveLength(2);
+    expect(reports[0].candidate_id).toBe("baseline");
+    const report = reports.find((r: any) => r.candidate_id === "test-cand-1");
     expect(report.passed).toBe(true);
     expect(report.exit_code).toBe(0);
     expect(report.branch_kept).toBe(false);
@@ -151,7 +157,9 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       expect.unreachable("debería lanzar exit code 1");
     } catch (err: any) {
       expect(err.status).toBe(1);
-      const report = JSON.parse(err.stdout);
+      const reports = JSON.parse(err.stdout);
+      expect(Array.isArray(reports)).toBe(true);
+      const report = reports.find((r: any) => r.candidate_id === "test-failing-cand");
       expect(report.passed).toBe(false);
       expect(report.exit_code).toBe(1);
       expect(report.stderr_preview).toContain("intentional probe failure");
@@ -215,8 +223,10 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       { encoding: "utf8" },
     );
     const parsed = JSON.parse(out);
-    expect(parsed.passed).toBe(true);
-    expect(parsed.candidate_id).toBe("cand-syntax");
+    expect(Array.isArray(parsed)).toBe(true);
+    const cand = parsed.find((r: any) => r.candidate_id === "cand-syntax");
+    expect(cand.passed).toBe(true);
+    expect(cand.candidate_id).toBe("cand-syntax");
   });
 
   it("ejecuta múltiples candidatos en modo --batch y produce array de resultados", () => {
@@ -335,6 +345,26 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       expect(git(repo, "stash", "list")).toBe("");
       expect(git(repo, "status", "--porcelain", "--untracked-files=all")).toBe("");
       expect(git(repo, "rev-list", "--all").trim().split("\n")).toHaveLength(1);
+    });
+  });
+
+  describe("ensureBaseline", () => {
+    it("si recibe 1 candidato, antepone el baseline para permitir evaluación contrastiva", () => {
+      const candidates = [{ candidate_id: "cand-1", target_component: "tool_guidance", mutations: [] }];
+      const res = ensureBaseline(candidates);
+      expect(res).toHaveLength(2);
+      expect(res[0].candidate_id).toBe("baseline");
+      expect(res[1].candidate_id).toBe("cand-1");
+    });
+
+    it("si recibe múltiples candidatos o ya incluye baseline, no altera la lista", () => {
+      const candidates = [
+        { candidate_id: "baseline", target_component: "baseline", mutations: [] },
+        { candidate_id: "cand-1", target_component: "tool_guidance", mutations: [] },
+      ];
+      const res = ensureBaseline(candidates);
+      expect(res).toHaveLength(2);
+      expect(res[0].candidate_id).toBe("baseline");
     });
   });
 });
