@@ -155,15 +155,27 @@ export function runProbe(opts) {
   }
 
   const originalBranch = runGit(repoDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const originalHead = runGit(repoDir, ["rev-parse", "HEAD"]);
   const status = runGit(repoDir, ["status", "--porcelain"]);
-  let stashed = false;
+  // Local changes are saved as an unreferenced commit (never the shared stash list):
+  // indexTree keeps what was staged, wipSha keeps the full worktree incl. untracked files.
+  let indexTree = null;
+  let wipSha = null;
+  // Byte-exact save/restore: no autocrlf or .gitattributes eol conversion (empty tree as attr source, git >= 2.40).
+  const raw = ["-c", "core.autocrlf=false", "--attr-source=4b825dc642cb6eb9a060e54bf8d69288fbee4904"];
 
   if (status.length > 0) {
     try {
-      runGit(repoDir, ["stash", "push", "-u", "-m", `harness-probe-auto-${Date.now()}`]);
-      stashed = true;
+      indexTree = runGit(repoDir, ["write-tree"]);
+      runGit(repoDir, [...raw, "add", "-A"]);
+      const fullTree = runGit(repoDir, ["write-tree"]);
+      wipSha = runGit(repoDir, ["commit-tree", fullTree, "-p", originalHead, "-m", "harness-probe wip"]);
+      runGit(repoDir, [...raw, "checkout", "-q", "--detach", wipSha]);
     } catch (e) {
-      fail(`working directory has unstaged changes and could not be stashed: ${e.message}`);
+      if (indexTree) {
+        try { runGit(repoDir, ["read-tree", indexTree]); } catch {}
+      }
+      fail(`working directory has local changes and could not be saved: ${e.message}`);
     }
   }
 
@@ -194,7 +206,7 @@ export function runProbe(opts) {
 
   try {
     // 1. Create and checkout ephemeral branch
-    runGit(repoDir, ["checkout", "-b", probeBranch]);
+    runGit(repoDir, [...(wipSha ? raw : []), "checkout", "-b", probeBranch, originalHead]);
     branchCreated = true;
 
     // 2. Apply mutations (only allowed inside harness/)
@@ -380,15 +392,21 @@ export function runProbe(opts) {
   } finally {
     // 5. Restore original branch and cleanup
     try {
-      runGit(repoDir, ["checkout", originalBranch]);
+      if (wipSha) {
+        // Bring the saved files back, then repoint HEAD and the index without touching the worktree.
+        runGit(repoDir, [...raw, "checkout", "-q", "--detach", wipSha]);
+        if (originalBranch === "HEAD") runGit(repoDir, ["update-ref", "--no-deref", "HEAD", originalHead]);
+        else runGit(repoDir, ["symbolic-ref", "HEAD", `refs/heads/${originalBranch}`]);
+        runGit(repoDir, ["read-tree", indexTree]);
+      } else {
+        runGit(repoDir, ["checkout", originalBranch]);
+      }
       if (branchCreated && !opts.keepBranch) {
         runGit(repoDir, ["branch", "-D", probeBranch]);
       }
-      if (stashed) {
-        runGit(repoDir, ["stash", "pop"]);
-      }
     } catch (cleanupErr) {
-      process.stderr.write(`[harness-probe cleanup warning] ${cleanupErr.message}\n`);
+      const hint = wipSha ? ` (local changes saved in commit ${wipSha})` : "";
+      process.stderr.write(`[harness-probe cleanup warning] ${cleanupErr.message}${hint}\n`);
     }
   }
 

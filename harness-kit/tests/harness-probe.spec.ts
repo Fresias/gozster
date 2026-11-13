@@ -263,4 +263,78 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
     expect(parsed[0].passed).toBe(true);
     expect(parsed[1].passed).toBe(true);
   });
+
+  describe("sin la lista de git stash compartida", () => {
+    const git = (repo: string, ...args: string[]) =>
+      execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+    const candidate = JSON.stringify({
+      candidate_id: "stash-free",
+      mutations: [{ file: "harness/tool_guidance.local.md", action: "append", content: "- probe rule" }],
+    });
+
+    function runProbeIn(repo: string, probeCmd: string) {
+      const report = path.join(mkdtempSync(path.join(tmpdir(), "harness-probe-report-")), "r.json");
+      try {
+        execFileSync(
+          process.execPath,
+          [probeScript, "--workdir", repo, "--candidate", candidate, "--probe-cmd", probeCmd, "--report", report, "--json"],
+          { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+        );
+      } catch (err: any) {
+        expect(err.status).toBe(1);
+      } finally {
+        rmSync(path.dirname(report), { recursive: true, force: true });
+      }
+    }
+
+    function snapshot(repo: string) {
+      return {
+        head: git(repo, "rev-parse", "HEAD"),
+        branch: git(repo, "rev-parse", "--abbrev-ref", "HEAD"),
+        status: git(repo, "status", "--porcelain", "--untracked-files=all"),
+        staged: git(repo, "diff", "--cached"),
+        unstaged: git(repo, "diff"),
+        guidance: readFileSync(path.join(repo, "harness", "tool_guidance.local.md"), "utf8"),
+        untracked: readFileSync(path.join(repo, "notes.txt"), "utf8"),
+        stash: git(repo, "stash", "list", "--format=%H"),
+      };
+    }
+
+    function dirtyRepoWithForeignStash(): string {
+      const repo = setupTestRepo();
+      writeFileSync(path.join(repo, "harness", "tool_guidance.local.md"), "# Foreign agent WIP\n");
+      git(repo, "stash", "push", "-m", "foreign-agent");
+      writeFileSync(path.join(repo, "harness", "tool_guidance.local.md"), "# Initial Guidance\n- unstaged edit\n");
+      writeFileSync(path.join(repo, "harness", "staged.md"), "staged new file\n");
+      git(repo, "add", "harness/staged.md");
+      writeFileSync(path.join(repo, "notes.txt"), "untracked\n");
+      return repo;
+    }
+
+    it.each([
+      ["con éxito", "node -e 'process.exit(0)'"],
+      ["con error", "node -e 'process.exit(1)'"],
+    ])("deja intactos la lista de stash, el índice y el worktree (%s)", (_label, probeCmd) => {
+      const repo = dirtyRepoWithForeignStash();
+      const before = snapshot(repo);
+      expect(before.stash.trim().split("\n")).toHaveLength(1);
+
+      runProbeIn(repo, probeCmd);
+
+      expect(snapshot(repo)).toEqual(before);
+      expect(git(repo, "branch", "--list", "probe/*")).toBe("");
+    });
+
+    it("con worktree limpio no crea commits ni stash residuales", () => {
+      const repo = setupTestRepo();
+      const headBefore = git(repo, "rev-parse", "HEAD");
+
+      runProbeIn(repo, "node -e 'process.exit(0)'");
+
+      expect(git(repo, "rev-parse", "HEAD")).toBe(headBefore);
+      expect(git(repo, "stash", "list")).toBe("");
+      expect(git(repo, "status", "--porcelain", "--untracked-files=all")).toBe("");
+      expect(git(repo, "rev-list", "--all").trim().split("\n")).toHaveLength(1);
+    });
+  });
 });
