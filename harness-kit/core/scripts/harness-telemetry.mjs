@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 /**
- * Aggregates guard telemetry (.harness/telemetry/events.jsonl) into a summary:
+ * Aggregates guard telemetry (<git common dir>/harness/telemetry/events.jsonl) into a summary:
+ *   [RUNTIME]     events, sessions and blocks per rule for each runtime
  *   [ACTION]      tool calls per kind
  *   [OBSERVATION] blocks and injections per rule, median & p90 time-to-first-edit
  *   [ERROR]       sessions with more than 3 repeated blocks of the same rule
  *
  * Usage:
  *   node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl] [--json]
- * Defaults to .harness/telemetry/events.jsonl under the current directory.
+ * Defaults to the guard's telemetry dir for the current directory (see resolveTelemetryDir).
  */
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveTelemetryDir } from "../guard/telemetry.mjs";
 
 const REPEATED_BLOCK_THRESHOLD = 3;
 // Max entries per list in the text summary, keeping it within 40 lines.
@@ -58,6 +60,8 @@ export function summarize(events) {
   const actionsByKind = {};
   const blocksByRule = {};
   const injectionsByRule = {};
+  // Per-runtime events, distinct sessions and blocks by rule.
+  const runtimes = new Map();
   // Per-session bookkeeping for TTFE and repeated-block detection.
   const sessions = new Map();
 
@@ -77,6 +81,15 @@ export function summarize(events) {
       }
     }
 
+    const runtime = e.runtime || "unknown";
+    let r = runtimes.get(runtime);
+    if (!r) {
+      r = { events: 0, sessions: new Set(), blocksByRule: {} };
+      runtimes.set(runtime, r);
+    }
+    r.events++;
+    r.sessions.add(session);
+
     // Post-phase events are injections on an already-counted call, not new actions.
     if (e.phase !== "post") {
       const kind = e.kind || "other";
@@ -90,6 +103,7 @@ export function summarize(events) {
     if (e.decision === "block" && e.rule) {
       blocksByRule[e.rule] = (blocksByRule[e.rule] || 0) + 1;
       s.blocksByRule[e.rule] = (s.blocksByRule[e.rule] || 0) + 1;
+      r.blocksByRule[e.rule] = (r.blocksByRule[e.rule] || 0) + 1;
     }
   }
 
@@ -115,9 +129,19 @@ export function summarize(events) {
 
   const byCountDesc = (obj) => Object.fromEntries(Object.entries(obj).sort((a, b) => b[1] - a[1]));
 
+  const byRuntime = Object.fromEntries(
+    [...runtimes]
+      .sort((a, b) => b[1].events - a[1].events)
+      .map(([name, r]) => [
+        name,
+        { events: r.events, sessions: r.sessions.size, blocksByRule: byCountDesc(r.blocksByRule) },
+      ]),
+  );
+
   return {
     totalEvents: list.length,
     totalSessions: sessions.size,
+    byRuntime,
     actionsByKind: byCountDesc(actionsByKind),
     blocksByRule: byCountDesc(blocksByRule),
     injectionsByRule: byCountDesc(injectionsByRule),
@@ -185,6 +209,16 @@ export function formatSummary(summary) {
   lines.push(`  sessions: ${summary.totalSessions}`);
 
   lines.push("");
+  lines.push("[RUNTIME] Events, sessions and blocks by runtime:");
+  pushCounts(
+    lines,
+    Object.entries(summary.byRuntime || {}).map(([name, r]) => {
+      const blocks = Object.entries(r.blocksByRule).map(([rule, n]) => `${rule}=${n}`).join(" ");
+      return [`${name}  sessions ${r.sessions}  blocks ${blocks || "-"}`, r.events];
+    }),
+  );
+
+  lines.push("");
   lines.push("[ACTION] Tool calls by kind:");
   pushCounts(lines, Object.entries(summary.actionsByKind));
 
@@ -216,7 +250,7 @@ function main(argv) {
   const args = argv.slice(2);
   const asJson = args.includes("--json");
   const fileArg = args.find((a) => !a.startsWith("--"));
-  const file = fileArg || path.join(process.cwd(), ".harness", "telemetry", "events.jsonl");
+  const file = fileArg || path.join(resolveTelemetryDir(process.cwd()), "events.jsonl");
 
   let text = "";
   try {
