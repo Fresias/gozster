@@ -85,4 +85,15 @@ if (opts.domain) {
   );
 }
 
+if (opts.subagent) {
+  write(
+    `subagents/${opts.subagent}.md`,
+    render("subagent.md.tmpl", {
+      subagent_name: opts.subagent,
+      subagent_description: opts.description ?? "",
+      subagent_prompt: opts.prompt ?? `# Subagente: ${opts.subagent}\n\nResponsabilidades y directivas del subagente.\n`,
+    }),
+  );
+}
+
 process.stdout.write(`${written.join("\n")}\nnext: node harness-kit/core/scripts/harness-render.mjs\n`);
