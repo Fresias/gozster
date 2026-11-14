@@ -82,7 +82,10 @@ function loadProbeResults(repoDir, probesPath) {
       if (f.endsWith(".json")) {
         try {
           const content = readFileSync(path.join(target, f), "utf8");
-          results.push(JSON.parse(content));
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === "object" && parsed.candidate_id) {
+            results.push(parsed);
+          }
         } catch {}
       }
     }
