@@ -74,17 +74,33 @@ describe("harness-render: carga y validación de contratos", () => {
     expect(code).toBe(0);
   });
 
-  describe("Criterio B: Experience Library y política de pin", () => {
-    it("GIVEN 5 lecciones con evidencia y 2 sin evidencia WHEN corre el render THEN la Experience Library muestra las 3 más recientes con evidencia", () => {
+  describe("GOZS-525: Experience Library (Opción A: solo lecciones fijadas)", () => {
+    it("GIVEN lecciones sin fijar (con o sin evidencia) WHEN corre el render THEN no existe la sección Experience Library y se liberan caracteres (Opción A)", () => {
       const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
       const lessons = [
         { id: "l1", task: "T-1", lesson: "Lesson 1 with evidence", evidence: true, timestamp: "2026-11-01T10:00:00Z" },
         { id: "l2", task: "T-2", lesson: "Lesson 2 with metrics", metrics: { before: 10, after: 5 }, timestamp: "2026-11-02T10:00:00Z" },
         { id: "l3", task: "T-3", lesson: "Lesson 3 with delta", delta: -2, timestamp: "2026-11-03T10:00:00Z" },
-        { id: "l4", task: "T-4", lesson: "Lesson 4 with ppc", ppc: { winner_id: "c1" }, timestamp: "2026-11-04T10:00:00Z" },
+        { id: "l4", task: "T-4", lesson: "Candidate c1-review on tool resolved task in 85290ms", timestamp: "2026-11-04T10:00:00Z" },
         { id: "l5", task: "T-5", lesson: "Lesson 5 citing c1 vs baseline: score +18", timestamp: "2026-11-05T10:00:00Z" },
-        { id: "l6", task: "T-6", lesson: "Lesson 6 recent without evidence", timestamp: "2026-11-06T10:00:00Z" },
-        { id: "l7", task: "T-7", lesson: "Lesson 7 recent no evidence", timestamp: "2026-11-07T10:00:00Z" },
+      ];
+      writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
+
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
+      expect(agentsMd).not.toContain("### Experience Library (Harness²)");
+      expect(agentsMd).not.toContain("resolved task in");
+      expect(agentsMd).not.toContain("Lesson 1 with evidence");
+    });
+
+    it("GIVEN una lección con pinned: true WHEN corre el render THEN aparece en AGENTS.md y las no fijadas no aparecen", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      const lessons = [
+        { id: "l1", task: "T-1", lesson: "Pinned Critical Lesson 1", pinned: true, timestamp: "2026-11-01T10:00:00Z" },
+        { id: "l2", task: "T-2", lesson: "Recent Lesson 2", evidence: true, timestamp: "2026-11-02T10:00:00Z" },
+        { id: "l3", task: "T-3", lesson: "Recent Lesson 3", evidence: true, timestamp: "2026-11-03T10:00:00Z" },
       ];
       writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
 
@@ -93,23 +109,16 @@ describe("harness-render: carga y validación de contratos", () => {
 
       const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
       expect(agentsMd).toContain("### Experience Library (Harness²)");
-      expect(agentsMd).toContain("Lesson 3 with delta");
-      expect(agentsMd).toContain("Lesson 4 with ppc");
-      expect(agentsMd).toContain("Lesson 5 citing c1 vs baseline: score +18");
-      expect(agentsMd).not.toContain("Lesson 1 with evidence");
-      expect(agentsMd).not.toContain("Lesson 2 with metrics");
-      expect(agentsMd).not.toContain("Lesson 6 recent without evidence");
-      expect(agentsMd).not.toContain("Lesson 7 recent no evidence");
+      expect(agentsMd).toContain("Pinned Critical Lesson 1");
+      expect(agentsMd).not.toContain("Recent Lesson 2");
+      expect(agentsMd).not.toContain("Recent Lesson 3");
     });
 
-    it("GIVEN una lección con pinned: true WHEN corre el render THEN aparece aunque no esté entre las 3 más recientes", () => {
+    it("GIVEN una entrada automática como 'Candidate c1 on x (c1 vs baseline: duration_ms -112)' WHEN corre el render THEN no aparece en AGENTS.md", () => {
       const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
       const lessons = [
-        { id: "l1", task: "T-1", lesson: "Pinned Critical Lesson 1", pinned: true, timestamp: "2026-11-01T10:00:00Z" },
-        { id: "l2", task: "T-2", lesson: "Recent Lesson 2", evidence: true, timestamp: "2026-11-02T10:00:00Z" },
-        { id: "l3", task: "T-3", lesson: "Recent Lesson 3", evidence: true, timestamp: "2026-11-03T10:00:00Z" },
-        { id: "l4", task: "T-4", lesson: "Recent Lesson 4", evidence: true, timestamp: "2026-11-04T10:00:00Z" },
-        { id: "l5", task: "T-5", lesson: "Recent Lesson 5", evidence: true, timestamp: "2026-11-05T10:00:00Z" },
+        { id: "l1", task: "T-1", lesson: "Candidate c1 on x (c1 vs baseline: duration_ms -112)", ppc: { winner_id: "c1", probe_passed: true } },
+        { id: "l2", task: "T-2", lesson: "Candidate c2 on tool_guidance resolved task in 500ms", ppc: { winner_id: "c2" } },
       ];
       writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
 
@@ -117,11 +126,51 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(code).toBe(0);
 
       const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
-      expect(agentsMd).toContain("Pinned Critical Lesson 1");
-      expect(agentsMd).toContain("Recent Lesson 3");
-      expect(agentsMd).toContain("Recent Lesson 4");
-      expect(agentsMd).toContain("Recent Lesson 5");
-      expect(agentsMd).not.toContain("Recent Lesson 2");
+      expect(agentsMd).not.toContain("Candidate c1 on x");
+      expect(agentsMd).not.toContain("resolved task in");
+      expect(agentsMd).not.toContain("### Experience Library (Harness²)");
+    });
+
+    it("GIVEN un .harness/scope.json activo WHEN corre el render THEN tampoco aparecen lecciones automáticas", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      writeFileSync(path.join(dir, "scope.json"), JSON.stringify({ scope: ["database", "ui"] }));
+      const lessons = [
+        { id: "l1", task: "T-1", lesson: "Candidate c1 on database resolved task in 300ms", tags: ["database"], ppc: { winner_id: "c1" } },
+        { id: "l2", task: "T-2", lesson: "Candidate c2 on ui (c2 vs baseline: duration_ms -100)", tags: ["ui"] },
+      ];
+      writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
+
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
+      expect(agentsMd).not.toContain("resolved task in");
+      expect(agentsMd).not.toContain("Candidate c1");
+      expect(agentsMd).not.toContain("Candidate c2");
+      expect(agentsMd).not.toContain("### Experience Library (Harness²)");
+    });
+
+    it("GIVEN lecciones con pinned: true y un .harness/scope.json activo WHEN corre el render THEN aparecen siempre y el scope no las oculta", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      writeFileSync(path.join(dir, "scope.json"), JSON.stringify({ scope: ["database"] }));
+      const lessons = [
+        { id: "l1", task: "T-1", lesson: "Lección fijada global sobre QA", pinned: true, tags: ["qa"], timestamp: "2026-11-01T10:00:00Z" },
+        { id: "l2", task: "T-2", lesson: "Lección fijada sin tags coincidentes", pinned: true, timestamp: "2026-11-02T10:00:00Z" },
+      ];
+      writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
+
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
+      expect(agentsMd).toContain("### Experience Library (Harness²)");
+      expect(agentsMd).toContain("Lección fijada global sobre QA");
+      expect(agentsMd).toContain("Lección fijada sin tags coincidentes");
+    });
+
+    it("GIVEN la biblioteca real del repo WHEN corre harness-render.mjs THEN AGENTS.md no contiene ninguna línea con resolved task in", () => {
+      const repoAgentsMd = readFileSync(path.resolve(here, "..", "..", "AGENTS.md"), "utf8");
+      expect(repoAgentsMd).not.toContain("resolved task in");
     });
 
     it("GIVEN LEDGER.json WHEN se lee L-000 THEN tiene caveat y métricas originales intactas", () => {
