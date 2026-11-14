@@ -206,15 +206,44 @@ export function runProbe(opts) {
 
   try {
     // 1. Create and checkout ephemeral branch
-    runGit(repoDir, [...(wipSha ? raw : []), "checkout", "-b", probeBranch, originalHead]);
-    branchCreated = true;
+    let baseRef = null;
+    try {
+      runGit(repoDir, ["rev-parse", "--verify", "origin/main"]);
+      baseRef = "origin/main";
+    } catch {}
 
-    // 2. Baseline candidate: restore clean harness from origin/main if available
-    if (candidate.candidate_id === "baseline") {
+    const isBaseline = candidate.candidate_id === "baseline";
+    if (isBaseline && baseRef) {
+      runGit(repoDir, ["checkout", "-b", probeBranch, baseRef]);
+      branchCreated = true;
+
+      // Baseline con los tests del candidato: toma del commit del candidato solo los archivos de test cambiados o agregados
+      const candidateSha = wipSha || originalHead;
       try {
-        runGit(repoDir, ["rev-parse", "--verify", "origin/main"]);
-        runGit(repoDir, ["checkout", "origin/main", "--", "harness/"]);
+        const diffOut = runGit(repoDir, [
+          "diff",
+          "--name-only",
+          "--diff-filter=ACMR",
+          `${baseRef}...${candidateSha}`,
+        ]);
+        const changedFiles = diffOut.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
+        const testSpecs = changedFiles.filter((f) =>
+          /\.(spec|test)\.[cm]?[jt]sx?$/.test(f) || f.includes("/tests/") || f.includes("/__tests__/")
+        );
+        if (testSpecs.length > 0) {
+          runGit(repoDir, ["checkout", candidateSha, "--", ...testSpecs]);
+        }
       } catch {}
+    } else {
+      runGit(repoDir, [...(wipSha ? raw : []), "checkout", "-b", probeBranch, originalHead]);
+      branchCreated = true;
+
+      // 2. Baseline candidate: restore clean harness from origin/main if available
+      if (isBaseline && baseRef) {
+        try {
+          runGit(repoDir, ["checkout", baseRef, "--", "harness/"]);
+        } catch {}
+      }
     }
 
     // 2b. Apply mutations (only allowed inside harness/)
@@ -276,6 +305,7 @@ export function runProbe(opts) {
         passed: false,
         exit_code: 1,
         duration_ms: 0,
+        tests: {},
         target_components: candidate.mutations.map((m) => m.target_component || m.file || "harness"),
         timestamp: new Date().toISOString(),
         stdout_preview: "",
@@ -289,8 +319,18 @@ export function runProbe(opts) {
       };
     } else {
       // 4. Execute probe command
+      const tempJsonFile = path.join(repoDir, ".harness", "probes", `vitest-${candidateId}-${Date.now().toString(36)}.json`);
+      mkdirSync(path.dirname(tempJsonFile), { recursive: true });
+
+      let execCmd = probeCmd;
+      if (/\bvitest\b/.test(probeCmd)) {
+        execCmd = `${probeCmd} --reporter=default --reporter=json --outputFile="${tempJsonFile}"`;
+      } else if (/\bnpm\s+test\b/.test(probeCmd)) {
+        execCmd = `${probeCmd} -- --reporter=default --reporter=json --outputFile="${tempJsonFile}"`;
+      }
+
       const startTime = Date.now();
-      const probeExec = spawnSync(probeCmd, {
+      const probeExec = spawnSync(execCmd, {
         cwd: repoDir,
         // Keep probe telemetry isolated in the probe checkout (read back below), not the shared git common dir.
         env: { ...process.env, HARNESS_TELEMETRY_DIR: path.join(repoDir, ".harness", "telemetry") },
@@ -303,6 +343,29 @@ export function runProbe(opts) {
       const stdout = probeExec.stdout || "";
       const stderr = probeExec.stderr || "";
       const exitCode = probeExec.status ?? (probeExec.error ? 1 : 0);
+
+      // Collect tests from vitest json report if generated
+      let tests = {};
+      if (existsSync(tempJsonFile)) {
+        try {
+          const rawReport = JSON.parse(readFileSync(tempJsonFile, "utf8"));
+          if (Array.isArray(rawReport.testResults)) {
+            for (const suite of rawReport.testResults) {
+              const relSuite = path.relative(repoDir, suite.name).replace(/\\/g, "/");
+              if (Array.isArray(suite.assertionResults)) {
+                for (const assert of suite.assertionResults) {
+                  const testName = assert.fullName || assert.title;
+                  const status = assert.status === "passed" ? "passed" : assert.status === "failed" ? "failed" : "skipped";
+                  tests[`${relSuite}::${testName}`] = status;
+                }
+              }
+            }
+          }
+        } catch {}
+        try { rmSync(tempJsonFile, { force: true }); } catch {}
+      } else if (candidate.tests && typeof candidate.tests === "object") {
+        tests = candidate.tests;
+      }
 
       // Check for telemetry events during probe execution
       let telemetry = candidate.telemetry || null;
@@ -325,11 +388,22 @@ export function runProbe(opts) {
 
       // Compute files touched between original branch and ephemeral probe branch
       let filesTouched = [];
-      try {
-        const diffOut = runGit(repoDir, ["diff", "--name-only", `${originalBranch}...HEAD`]);
-        filesTouched = diffOut.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
-      } catch {
-        filesTouched = candidate.mutations.map((m) => m.file || "harness");
+      if (isBaseline) {
+        filesTouched = [];
+      } else if (baseRef) {
+        try {
+          const diffOut = runGit(repoDir, ["diff", "--name-only", `${baseRef}...HEAD`]);
+          filesTouched = diffOut.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
+        } catch {
+          filesTouched = candidate.mutations.map((m) => m.file || "harness");
+        }
+      } else {
+        try {
+          const diffOut = runGit(repoDir, ["diff", "--name-only", `${originalBranch}...HEAD`]);
+          filesTouched = diffOut.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
+        } catch {
+          filesTouched = candidate.mutations.map((m) => m.file || "harness");
+        }
       }
 
       // Check scope against .harness/scope.json or harness/scope.json
@@ -384,6 +458,7 @@ export function runProbe(opts) {
         passed,
         exit_code: exitCode,
         duration_ms: durationMs,
+        tests,
         target_components: candidate.mutations.map((m) => m.target_component || m.file || "harness"),
         timestamp: new Date().toISOString(),
         stdout_preview: stdout.slice(0, 1000),

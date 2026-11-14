@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const CONTRAST_VERSION = "1.0.0";
+export const CONTRAST_VERSION = "2.0.0";
 
 /** Canonical JSON representation: recursively sorted object keys. */
 export function canonicalJson(val) {
@@ -103,9 +103,10 @@ export function loadReports(reportsInput) {
   }
 }
 
-export function evaluateCandidates(reports, options = {}) {
+export function evaluateCandidatesV1(reports, options = {}) {
   if (!Array.isArray(reports) || reports.length === 0) {
     return {
+      contrast_version: "1.0.0",
       evaluated_at: new Date().toISOString(),
       total_candidates: 0,
       consensus_files: [],
@@ -150,21 +151,13 @@ export function evaluateCandidates(reports, options = {}) {
       reason = `strict scope violation: ${outOfScope.join(", ")}`;
     }
 
-    // Score calculation
+    // Score calculation (v1: duration penalty and consensus bonus)
     let score = passed ? 1000 : 0;
-
-    // Penalty for duration (faster probes preferred, -10 pts per 100ms)
     score -= Math.round(durationMs / 10);
-
-    // Penalty for out-of-scope files in flexible mode (-200 pts per foreign file)
     score -= outOfScope.length * 200;
-
-    // Penalty for blocks / friction in telemetry (-50 pts per block)
     if (r.telemetry && r.telemetry.blocks) {
       score -= r.telemetry.blocks * 50;
     }
-
-    // Consensus bonus (+50 pts for touching files confirmed by consensus)
     for (const f of touched) {
       if (consensusFiles.includes(f)) score += 50;
     }
@@ -185,11 +178,154 @@ export function evaluateCandidates(reports, options = {}) {
     };
   });
 
-  // Sort candidates
   matrix.sort((a, b) => {
     if (a.disqualified && !b.disqualified) return 1;
     if (!a.disqualified && b.disqualified) return -1;
     return b.score - a.score;
+  });
+
+  matrix.forEach((item, idx) => {
+    item.rank = idx + 1;
+  });
+
+  const qualified = matrix.filter((m) => !m.disqualified);
+  let winner = null;
+  let warning = "";
+
+  if (qualified.length > 0) {
+    winner = qualified[0];
+  } else if (!strictScope && matrix.some((m) => m.passed && m.out_of_scope_count > 0)) {
+    const bestPassed = matrix.filter((m) => m.passed).sort((a, b) => b.score - a.score)[0];
+    if (bestPassed) {
+      winner = bestPassed;
+      warning = "all candidates touched out-of-scope files; selected lowest friction candidate under flexible mode";
+    }
+  }
+
+  return {
+    contrast_version: "1.0.0",
+    evaluated_at: new Date().toISOString(),
+    total_candidates: matrix.length,
+    consensus_files: consensusFiles,
+    winner_id: winner ? winner.candidate_id : null,
+    winner_score: winner ? winner.score : null,
+    winner: winner ? winner.report_ref : null,
+    warning: warning || undefined,
+    strict_scope: strictScope,
+    contrast_matrix: matrix.map(({ report_ref, ...rest }) => rest),
+  };
+}
+
+export function evaluateCandidatesV2(reports, options = {}) {
+  if (!Array.isArray(reports) || reports.length === 0) {
+    return {
+      contrast_version: "2.0.0",
+      verdict: "tie",
+      evaluated_at: new Date().toISOString(),
+      total_candidates: 0,
+      consensus_files: [],
+      winner_id: null,
+      winner_score: null,
+      winner: null,
+      contrast_matrix: [],
+    };
+  }
+
+  const strictScope = Boolean(options.strictScope);
+  const baselineReport = reports.find((r) => r.candidate_id === "baseline");
+  const baselineTests = baselineReport?.tests || {};
+
+  const matrix = reports.map((r) => {
+    const candidateId = r.candidate_id || "unknown";
+    const passed = Boolean(r.passed);
+    const durationMs = Number(r.duration_ms) || 0;
+    const outOfScope = r.out_of_scope_files || [];
+    const inScope = r.in_scope_files || [];
+    const touched = r.files_touched || [];
+    const tests = r.tests || {};
+
+    let fixed = 0;
+    let regressed = 0;
+
+    if (candidateId !== "baseline") {
+      const allTestKeys = new Set([...Object.keys(tests), ...Object.keys(baselineTests)]);
+      for (const k of allTestKeys) {
+        const baseStatus = baselineTests[k];
+        const candStatus = tests[k];
+        if (baseStatus === "failed" && candStatus === "passed") fixed++;
+        if (baseStatus === "passed" && candStatus === "failed") regressed++;
+      }
+    }
+
+    let disqualified = false;
+    let reason = "";
+
+    if (!passed) {
+      disqualified = true;
+      reason = r.stderr_preview || "gate check failed";
+    } else if (regressed > 0) {
+      disqualified = true;
+      reason = "regressed";
+    } else if ((strictScope || r.strict_scope_violation) && outOfScope.length > 0) {
+      disqualified = true;
+      reason = `strict scope violation: ${outOfScope.join(", ")}`;
+    }
+
+    // Score calculation (v2: no duration penalty, no consensus bonus)
+    let score = passed && !disqualified ? 1000 : 0;
+    score += fixed * 1000;
+    score -= outOfScope.length * 200;
+    if (r.telemetry && r.telemetry.blocks) {
+      score -= r.telemetry.blocks * 50;
+    }
+
+    return {
+      candidate_id: candidateId,
+      passed,
+      disqualified,
+      reason,
+      score,
+      fixed,
+      regressed,
+      duration_ms: durationMs,
+      in_scope_count: inScope.length,
+      out_of_scope_count: outOfScope.length,
+      out_of_scope_files: outOfScope,
+      files_touched: touched,
+      telemetry: r.telemetry || null,
+      report_ref: r,
+    };
+  });
+
+  // Sort candidates
+  matrix.sort((a, b) => {
+    if (a.disqualified && !b.disqualified) return 1;
+    if (!a.disqualified && b.disqualified) return -1;
+    if (a.disqualified && b.disqualified) return b.score - a.score;
+
+    // 1. more fixed first
+    if (b.fixed !== a.fixed) return b.fixed - a.fixed;
+
+    // 2. fewer out_of_scope first
+    if (a.out_of_scope_count !== b.out_of_scope_count) return a.out_of_scope_count - b.out_of_scope_count;
+
+    // 3. fewer telemetry blocks first
+    const aBlocks = a.telemetry?.blocks || 0;
+    const bBlocks = b.telemetry?.blocks || 0;
+    if (aBlocks !== bBlocks) return aBlocks - bBlocks;
+
+    // 4. duration comparison if margin exceeded (max(1000 ms, 20 %))
+    const minDur = Math.min(a.duration_ms, b.duration_ms);
+    const diff = Math.abs(a.duration_ms - b.duration_ms);
+    const threshold = Math.max(1000, 0.20 * minDur);
+    if (diff > threshold) {
+      return a.duration_ms - b.duration_ms;
+    }
+
+    // 5. duration tie: proposed non-baseline candidate wins over baseline
+    if (a.candidate_id === "baseline" && b.candidate_id !== "baseline") return 1;
+    if (a.candidate_id !== "baseline" && b.candidate_id === "baseline") return -1;
+    return 0;
   });
 
   // Assign ranks
@@ -204,7 +340,6 @@ export function evaluateCandidates(reports, options = {}) {
   if (qualified.length > 0) {
     winner = qualified[0];
   } else if (!strictScope && matrix.some((m) => m.passed && m.out_of_scope_count > 0)) {
-    // If flexible mode and all passed candidates had out-of-scope files, select best passed with warning
     const bestPassed = matrix.filter((m) => m.passed).sort((a, b) => b.score - a.score)[0];
     if (bestPassed) {
       winner = bestPassed;
@@ -212,11 +347,35 @@ export function evaluateCandidates(reports, options = {}) {
     }
   }
 
-  const result = {
-    contrast_version: CONTRAST_VERSION,
+  // Verdict calculation
+  let verdict = "tie";
+  const other = matrix.find((m) => m.candidate_id !== winner?.candidate_id);
+  if (winner) {
+    if (winner.fixed > 0 || (baselineReport && !baselineReport.passed)) {
+      verdict = "behavioral";
+    } else if (other) {
+      const minDur = Math.min(winner.duration_ms, other.duration_ms);
+      const diff = Math.abs(winner.duration_ms - other.duration_ms);
+      const threshold = Math.max(1000, 0.20 * minDur);
+      if (diff > threshold && winner.duration_ms < other.duration_ms) {
+        verdict = "duration";
+        if (winner.score === other.score) {
+          winner.score += 100;
+        }
+      } else {
+        verdict = "tie";
+      }
+    } else {
+      verdict = "tie";
+    }
+  }
+
+  return {
+    contrast_version: "2.0.0",
+    verdict,
     evaluated_at: new Date().toISOString(),
     total_candidates: matrix.length,
-    consensus_files: consensusFiles,
+    consensus_files: [],
     winner_id: winner ? winner.candidate_id : null,
     winner_score: winner ? winner.score : null,
     winner: winner ? winner.report_ref : null,
@@ -224,8 +383,14 @@ export function evaluateCandidates(reports, options = {}) {
     strict_scope: strictScope,
     contrast_matrix: matrix.map(({ report_ref, ...rest }) => rest),
   };
+}
 
-  return result;
+export function evaluateCandidates(reports, options = {}) {
+  const version = options.version || CONTRAST_VERSION;
+  if (version === "1.0.0") {
+    return evaluateCandidatesV1(reports, options);
+  }
+  return evaluateCandidatesV2(reports, options);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

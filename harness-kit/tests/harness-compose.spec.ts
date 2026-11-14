@@ -40,9 +40,9 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
     expect(res.promote).toBe(false);
   });
 
-  it("selecciona el candidato con menor duración entre los que pasaron", () => {
+  it("selecciona el candidato con menor duración entre los que pasaron cuando la diferencia supera el margen", () => {
     const probes = [
-      { candidate_id: "cand-slow", passed: true, duration_ms: 1200 },
+      { candidate_id: "cand-slow", passed: true, duration_ms: 2200 },
       { candidate_id: "cand-fast", passed: true, duration_ms: 350 },
       { candidate_id: "cand-failed", passed: false, duration_ms: 100 },
     ];
@@ -70,6 +70,74 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
     const res = evaluateProbes(probes);
     expect(res.winner_id).toBe("cand-clean");
     expect(res.promote).toBe(true);
+  });
+
+  it("GIVEN un candidato que agrega un test que falla en origin/main y pasa con su cambio WHEN corre compose THEN la lección dice '1 tests fail→pass, 0 regresiones'", () => {
+    const probes = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3100,
+        tests: {
+          "tests/sample.spec.ts::nuevo": "failed",
+        },
+      },
+      {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 3050,
+        tests: {
+          "tests/sample.spec.ts::nuevo": "passed",
+        },
+      },
+    ];
+    const res = evaluateProbes(probes);
+    expect(res.winner_id).toBe("c1");
+    expect(res.lesson).toContain("1 tests fail→pass, 0 regresiones");
+    expect(res.lesson).not.toContain("resolved task in");
+  });
+
+  it("GIVEN dos sondas con los mismos resultados de tests y duraciones de 3042 ms y 3154 ms WHEN corre compose THEN lección dice 'sin diferencia de comportamiento medible' y no menciona milisegundos", () => {
+    const probes = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3154,
+        tests: { "tests/sample.spec.ts::ok": "passed" },
+      },
+      {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 3042,
+        tests: { "tests/sample.spec.ts::ok": "passed" },
+      },
+    ];
+    const res = evaluateProbes(probes);
+    expect(res.winner_id).toBe("c1");
+    expect(res.lesson).toContain("sin diferencia de comportamiento medible");
+    expect(res.lesson).not.toMatch(/\d+\s*ms/);
+    expect(res.lesson).not.toContain("resolved task in");
+  });
+
+  it("GIVEN los mismos resultados de tests y duraciones de 3000 ms y 9000 ms WHEN corre compose THEN lección indica duration_ms y supera el margen", () => {
+    const probes = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 9000,
+        tests: { "tests/sample.spec.ts::ok": "passed" },
+      },
+      {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 3000,
+        tests: { "tests/sample.spec.ts::ok": "passed" },
+      },
+    ];
+    const res = evaluateProbes(probes);
+    expect(res.winner_id).toBe("c1");
+    expect(res.lesson).toMatch(/duration_ms\s*[-−]6000\s*\(supera el margen\)/);
+    expect(res.lesson).not.toContain("resolved task in");
   });
 });
 

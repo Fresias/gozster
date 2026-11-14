@@ -128,13 +128,25 @@ export function evaluateMerge({ pr, project, lessonText, probeReports }) {
           }
         }
 
-        // Recalcular evaluateCandidates
-        const recalculated = evaluateCandidates(reports);
+        const contrastVersion = ppc.contrast_version || "1.0.0";
+        if (contrastVersion !== "2.0.0" && contrastVersion !== "1.0.0") {
+          errors.push(`ppc: contrast_version desconocido: ${contrastVersion}`);
+        }
+
+        // Los PRs nuevos tienen que usar 2.0.0. La implementación 1.0.0 se conserva solo para poder verificar registros existentes (como GOZS-522)
+        const issueNum = issue ? parseInt(issue.replace(/\D/g, ""), 10) : 0;
+        const isLegacyIssue = issue === "GOZS-522" || (issueNum > 0 && issueNum < 526);
+        if (!isLegacyIssue && contrastVersion !== "2.0.0") {
+          errors.push(`ppc: PRs nuevos deben usar contrast_version 2.0.0 (encontrado ${contrastVersion}).`);
+        }
+
+        // Recalcular evaluateCandidates con la versión correspondiente
+        const recalculated = evaluateCandidates(reports, { version: contrastVersion });
         if (recalculated.winner_id !== ppc.winner_id) {
           errors.push(`ppc: winner_id mismatch: expected ${recalculated.winner_id}, got ${ppc.winner_id}`);
         }
 
-        // Exigir que la matriz (candidate_id, score, passed) coincida exactamente con el registro
+        // Exigir que la matriz (candidate_id, score, passed, fixed) coincida exactamente con el registro
         if (Array.isArray(recordedMatrix)) {
           for (const item of recalculated.contrast_matrix) {
             const recorded = recordedMatrix.find((m) => m.candidate_id === item.candidate_id);
@@ -147,12 +159,17 @@ export function evaluateMerge({ pr, project, lessonText, probeReports }) {
               if (Boolean(recorded.passed) !== Boolean(item.passed)) {
                 errors.push(`ppc: contrast passed mismatch for ${item.candidate_id}: expected ${item.passed}, got ${recorded.passed}`);
               }
+              if (contrastVersion === "2.0.0" && item.fixed !== undefined) {
+                if (recorded.fixed !== item.fixed) {
+                  errors.push(`ppc: contrast fixed mismatch for ${item.candidate_id}: expected ${item.fixed}, got ${recorded.fixed}`);
+                }
+              }
             }
           }
         }
 
         // Exigir que la lesson del registro sea idéntica a la que produce evaluateProbes para esos reportes
-        const evaluatedProbes = evaluateProbes(reports);
+        const evaluatedProbes = evaluateProbes(reports, null, { version: contrastVersion });
         if (ppcEntry.lesson !== evaluatedProbes.lesson) {
           errors.push(`ppc: lesson mismatch: expected "${evaluatedProbes.lesson}", got "${ppcEntry.lesson}"`);
         }

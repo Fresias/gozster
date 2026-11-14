@@ -145,4 +145,109 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
     expect(parsed.winner_id).toBe("A");
     expect(parsed.total_candidates).toBe(2);
   });
+
+  // Criterios de Aceptación (Gherkin) Harness² v2
+  it("GIVEN dos sondas con los mismos resultados de tests y duraciones de 3042 ms y 3154 ms WHEN corre el contraste THEN verdict: 'tie' y la lección no menciona milisegundos", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3154,
+        tests: { "tests/sample.spec.ts::debe pasar": "passed" },
+      },
+      {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 3042,
+        tests: { "tests/sample.spec.ts::debe pasar": "passed" },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    expect(result.contrast_version).toBe("2.0.0");
+    expect(result.verdict).toBe("tie");
+    expect(result.winner_id).toBe("c1");
+  });
+
+  it("GIVEN los mismos resultados de tests y duraciones de 3000 ms y 9000 ms WHEN corre el contraste THEN verdict: 'duration'", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 9000,
+        tests: { "tests/sample.spec.ts::debe pasar": "passed" },
+      },
+      {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 3000,
+        tests: { "tests/sample.spec.ts::debe pasar": "passed" },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    expect(result.contrast_version).toBe("2.0.0");
+    expect(result.verdict).toBe("duration");
+    expect(result.winner_id).toBe("c1");
+  });
+
+  it("GIVEN un candidato que hace fallar un test que pasaba en la baseline WHEN corre el contraste THEN queda descalificado con motivo regressed", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3000,
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::test 2": "passed",
+        },
+      },
+      {
+        candidate_id: "c1-broken",
+        passed: true,
+        duration_ms: 2500,
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::test 2": "failed",
+        },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    expect(result.contrast_version).toBe("2.0.0");
+    const candidateEntry = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-broken")!;
+    expect(candidateEntry.disqualified).toBe(true);
+    expect(candidateEntry.reason).toContain("regressed");
+  });
+
+  it("GIVEN un candidato que agrega un test que falla en origin/main y pasa con su cambio WHEN corre el contraste THEN veredicto es behavioral con fixed: 1", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3100,
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::nuevo test": "failed",
+        },
+      },
+      {
+        candidate_id: "c1-fixed",
+        passed: true,
+        duration_ms: 3050,
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::nuevo test": "passed",
+        },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    expect(result.contrast_version).toBe("2.0.0");
+    expect(result.verdict).toBe("behavioral");
+    expect(result.winner_id).toBe("c1-fixed");
+    const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-fixed")!;
+    expect(c1.fixed).toBe(1);
+    expect(c1.regressed).toBe(0);
+  });
 });
