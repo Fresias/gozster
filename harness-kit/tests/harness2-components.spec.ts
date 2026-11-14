@@ -137,7 +137,7 @@ describe("Harness²: 8-Component Architecture", () => {
     }).toThrow();
   });
 
-  it("filtra experience_library.jsonl según .harness/scope.json", () => {
+  it("lecciones fijadas con pinned: true aparecen siempre sin ser ocultadas por .harness/scope.json", () => {
     const { workspace: ws, overlay } = createFullHarness2Workspace();
     const dotHarness = path.join(ws, ".harness");
     mkdirSync(dotHarness, { recursive: true });
@@ -168,6 +168,6 @@ describe("Harness²: 8-Component Architecture", () => {
 
     const agents = readFileSync(path.join(ws, "AGENTS.md"), "utf8");
     expect(agents).toContain("rpc requires default null in postgres");
-    expect(agents).not.toContain("modal state requires single lock");
+    expect(agents).toContain("modal state requires single lock");
   });
 });

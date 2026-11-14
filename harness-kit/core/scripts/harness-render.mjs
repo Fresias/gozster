@@ -241,31 +241,7 @@ if (existsSync(expLibPath)) {
     }
   }
   if (validLessons.length > 0) {
-    let activeScope = [];
-    const targetRoot = path.resolve(overlayDir, "..");
-    const scopePaths = [
-      path.join(targetRoot, ".harness", "scope.json"),
-      path.join(overlayDir, "scope.json"),
-      path.join(repoRoot(), ".harness", "scope.json"),
-    ];
-    for (const sp of scopePaths) {
-      if (existsSync(sp)) {
-        try {
-          const parsedScope = JSON.parse(readFileSafe(sp));
-          if (Array.isArray(parsedScope.scope)) activeScope = parsedScope.scope.map((s) => s.toLowerCase());
-          break;
-        } catch {}
-      }
-    }
-
-    let pinned = validLessons.filter((l) => l.pinned === true && !isAutomaticLesson(l));
-    if (activeScope.length > 0) {
-      pinned = pinned.filter((l) => {
-        const lTags = Array.isArray(l.tags) ? l.tags.map((t) => t.toLowerCase()) : [];
-        const taskText = `${l.task || ""} ${l.lesson || ""}`.toLowerCase();
-        return activeScope.some((s) => lTags.includes(s) || taskText.includes(s));
-      });
-    }
+    const pinned = validLessons.filter((l) => l.pinned === true && !isAutomaticLesson(l));
 
     if (pinned.length > 0) {
       const lines = pinned.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);

@@ -150,8 +150,26 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(agentsMd).not.toContain("### Experience Library (Harness²)");
     });
 
+    it("GIVEN lecciones con pinned: true y un .harness/scope.json activo WHEN corre el render THEN aparecen siempre y el scope no las oculta", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      writeFileSync(path.join(dir, "scope.json"), JSON.stringify({ scope: ["database"] }));
+      const lessons = [
+        { id: "l1", task: "T-1", lesson: "Lección fijada global sobre QA", pinned: true, tags: ["qa"], timestamp: "2026-11-01T10:00:00Z" },
+        { id: "l2", task: "T-2", lesson: "Lección fijada sin tags coincidentes", pinned: true, timestamp: "2026-11-02T10:00:00Z" },
+      ];
+      writeFileSync(path.join(dir, "experience_library.jsonl"), lessons.map((l) => JSON.stringify(l)).join("\n"));
+
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const agentsMd = readFileSync(path.join(dir, "AGENTS.md"), "utf8");
+      expect(agentsMd).toContain("### Experience Library (Harness²)");
+      expect(agentsMd).toContain("Lección fijada global sobre QA");
+      expect(agentsMd).toContain("Lección fijada sin tags coincidentes");
+    });
+
     it("GIVEN la biblioteca real del repo WHEN corre harness-render.mjs THEN AGENTS.md no contiene ninguna línea con resolved task in", () => {
-      const repoAgentsMd = readFileSync(path.resolve(here, "..", "..", "..", "AGENTS.md"), "utf8");
+      const repoAgentsMd = readFileSync(path.resolve(here, "..", "..", "AGENTS.md"), "utf8");
       expect(repoAgentsMd).not.toContain("resolved task in");
     });
 
