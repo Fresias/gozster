@@ -403,3 +403,107 @@ describe("GOZS-514: sin falsos positivos en lecturas del harness, GH007 y heredo
     expect(shell("cat > out.md <<'EOF'\nx\nEOF\ncat .env").ruleId).toBe("shell.env-leak");
   });
 });
+
+describe("GOZS-524: protección de .git, bloqueo de repo-rewire y lectura del guard instalado", () => {
+  const repoDir = mkdtempSync(path.join(tmpdir(), "guard-524-"));
+  const git = (...a: string[]) => execFileSync("git", a, { cwd: repoDir, stdio: "pipe" });
+
+  beforeAll(() => {
+    git("init");
+    git("checkout", "-b", "chore/524-harness-guard-git-protection");
+    git("-c", "user.name=T", "-c", "user.email=t@users.noreply.github.com", "commit", "--allow-empty", "-m", "init");
+  });
+
+  afterAll(() => rmSync(repoDir, { recursive: true, force: true }));
+
+  const shell = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot: repoDir });
+  const write = (targetPath: string) => evaluateRules({ kind: "write", targetPath }, { repoRoot: repoDir });
+  const read = (filePath: string, isBounded = true) => evaluateRules({ kind: "read", filePath, isBounded }, { repoRoot: repoDir });
+
+  it("GIVEN una herramienta de escritura con destino C:/x/workdir/.git (archivo) WHEN corre el guard THEN bloquea con fs.protected", () => {
+    const res = write("C:/x/workdir/.git");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("fs.protected");
+  });
+
+  it("GIVEN Set-Content -Path ..\\otra\\.git -Value 'gitdir: X' WHEN corre el guard THEN bloquea con fs.protected", () => {
+    const res = shell('Set-Content -Path ..\\otra\\.git -Value "gitdir: X"');
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("fs.protected");
+  });
+
+  it("GIVEN echo x > .git/config WHEN corre el guard THEN bloquea con fs.protected", () => {
+    const res = shell("echo x > .git/config");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("fs.protected");
+  });
+
+  it("GIVEN escrituras a .gitignore, .gitattributes, .github/workflows/ci.yml (en rama de harness) WHEN corre el guard THEN fs.protected no las bloquea", () => {
+    for (const p of [".gitignore", ".gitattributes", ".github/workflows/ci.yml"]) {
+      const res = write(p);
+      expect(res.ruleId).not.toBe("fs.protected");
+      expect(res.allowed).toBe(true);
+    }
+  });
+
+  it("GIVEN git commit -m x y git config --worktree user.email a@b WHEN corre el guard THEN permite", () => {
+    expect(shell("git commit -m x").allowed).toBe(true);
+    expect(shell("git config --worktree user.email a@b").allowed).toBe(true);
+  });
+
+  it("GIVEN git worktree add ../x, git branch -m nueva, git -C repo branch -M x, git config core.hooksPath /tmp/h WHEN corre el guard THEN bloquea con git.repo-rewire", () => {
+    for (const cmd of [
+      "git worktree add ../x",
+      "git branch -m nueva",
+      "git -C repo branch -M x",
+      "git config core.hooksPath /tmp/h",
+      "git -c core.hooksPath=/tmp/h commit",
+    ]) {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("git.repo-rewire");
+      expect(res.reason).toContain("Recablear el repo (worktrees, renombrar ramas, hooksPath) está prohibido para agentes");
+    }
+  });
+
+  it("GIVEN git checkout -b chore/1-harness-x origin/main y git branch -a WHEN corre el guard THEN permite", () => {
+    expect(shell("git checkout -b chore/1-harness-x origin/main").allowed).toBe(true);
+    expect(shell("git branch -a").allowed).toBe(true);
+  });
+
+  it("GIVEN una lectura de C:/Users/user/.claude/hooks/harness-kit/core/guard/guard-core.mjs (o ~/.claude/hooks/...) WHEN corre el guard THEN bloquea con read.guard-installed", () => {
+    for (const p of [
+      "C:/Users/user/.claude/hooks/harness-kit/core/guard/guard-core.mjs",
+      "~/.claude/hooks/guard.sh",
+      "C:\\Users\\user\\.gemini\\config\\hooks.json",
+      "~/.gemini/config/hooks.json",
+    ]) {
+      const res = read(p);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("read.guard-installed");
+      expect(res.reason).toContain("La copia instalada del guard no se lee ni se modifica");
+    }
+    for (const cmd of [
+      "cat ~/.claude/hooks/harness-kit/core/guard/guard-core.mjs",
+      "Get-Content ~/.gemini/config/hooks.json",
+      "type C:\\Users\\user\\.claude\\hooks\\guard.sh",
+      "[IO.File]::ReadAllText('C:/Users/user/.claude/hooks/guard.sh')",
+      "node -e \"fs.readFileSync('~/.claude/hooks/guard-core.mjs')\"",
+    ]) {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("read.guard-installed");
+    }
+  });
+
+  it("GIVEN una lectura de harness-kit/core/guard/guard-core.mjs del repo, con rango WHEN corre el guard THEN permite", () => {
+    const res = read("harness-kit/core/guard/guard-core.mjs", true);
+    expect(res.allowed).toBe(true);
+  });
+
+  it("GIVEN una lectura de ~/.claude/projects/<p>/memory/x.md WHEN corre el guard THEN permite (la memoria del agente sigue accesible)", () => {
+    const res = read("~/.claude/projects/gozster/memory/x.md", true);
+    expect(res.allowed).toBe(true);
+    expect(shell("cat ~/.claude/projects/gozster/memory/x.md").allowed).toBe(true);
+  });
+});

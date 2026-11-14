@@ -8,3 +8,4 @@
 - **Higiene de salida y tokens:**
   - Redirige la salida extensa de comandos pesados a un archivo en el workdir (ej. `npm test > test.log 2>&1`) y lee únicamente el resumen final (cola del log).
   - **Lectura quirúrgica:** Nunca leas más de una vez el mismo rango de un archivo en la misma sesión; acota siempre con `StartLine` y `EndLine` (≤ 200 líneas).
+- No termines (`manage_task kill`) tareas que no iniciaste en esta conversación.
