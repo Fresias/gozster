@@ -340,6 +340,7 @@ if (existsSync(expDir)) {
       } catch {
         fail(`invalid json in harness/experience/${f} (line ${i + 1})`);
       }
+      if (e.caveat) return;
       if (e.task !== issue || !e.lesson) fail(`invalid entry in harness/experience/${f} (line ${i + 1}): task must be ${issue} and lesson non-empty`);
     });
   }

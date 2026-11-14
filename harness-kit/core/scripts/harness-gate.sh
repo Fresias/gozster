@@ -196,6 +196,14 @@ if [ -n "$ISSUE_ID" ]; then
   fi
 fi
 
+# 2c. Harness PPC verification: if branch touches harness, verify probe reports and PPC record
+if [ -f "$SCRIPT_DIR/harness-merge-check.mjs" ]; then
+  if ! node "$SCRIPT_DIR/harness-merge-check.mjs" --local; then
+    echo "ERROR: Harness PPC check failed before sealing." >&2
+    exit 1
+  fi
+fi
+
 # 3. Read and execute gate commands configured in project.json
 if [ ! -f "$PROJECT_JSON" ]; then
   echo "ERROR: project.json not found at $PROJECT_JSON" >&2

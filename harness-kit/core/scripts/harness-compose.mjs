@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { evaluateCandidates } from "./harness-contrast.mjs";
+import { evaluateCandidates, CONTRAST_VERSION, hashReport } from "./harness-contrast.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..", "..");
@@ -282,6 +282,26 @@ export function runCompose(opts) {
     mkdirSync(path.dirname(expLibFile), { recursive: true });
     const winnerProbe = probeResults.find((p) => p.candidate_id === evaluation.winner_id && p.passed);
 
+    // Version probe reports used and compute canonical sha256 hashes
+    const reportsSha256 = {};
+    if (probeResults && probeResults.length > 0) {
+      if (opts.task) {
+        const probesDestDir = path.join(repoDir, "harness", "experience", "probes", opts.task);
+        mkdirSync(probesDestDir, { recursive: true });
+        for (const p of probeResults) {
+          const candId = p.candidate_id || "unknown";
+          const destFile = path.join(probesDestDir, `${candId}.json`);
+          writeFileSync(destFile, JSON.stringify(p, null, 2) + "\n", "utf8");
+          reportsSha256[candId] = hashReport(p);
+        }
+      } else {
+        for (const p of probeResults) {
+          const candId = p.candidate_id || "unknown";
+          reportsSha256[candId] = hashReport(p);
+        }
+      }
+    }
+
     experienceEntry = {
       id: `exp-${Date.now().toString(36)}`,
       timestamp: new Date().toISOString(),
@@ -301,6 +321,8 @@ export function runCompose(opts) {
         contrast: evaluation.contrast_matrix || null,
         contrast_matrix: evaluation.contrast_matrix || null,
         rationale: evaluation.rationale || null,
+        contrast_version: CONTRAST_VERSION,
+        reports_sha256: reportsSha256,
       },
     };
 
