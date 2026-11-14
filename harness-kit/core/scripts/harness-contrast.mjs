@@ -4,9 +4,27 @@
 // Usage:
 //   node core/scripts/harness-contrast.mjs --reports <file.json|dir> [--strict-scope] [--json]
 
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+export const CONTRAST_VERSION = "1.0.0";
+
+/** Canonical JSON representation: recursively sorted object keys. */
+export function canonicalJson(val) {
+  if (Array.isArray(val)) return `[${val.map(canonicalJson).join(",")}]`;
+  if (val !== null && typeof val === "object") {
+    const keys = Object.keys(val).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(val[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(val);
+}
+
+/** Computes SHA256 hex digest of the canonical JSON of a report. */
+export function hashReport(report) {
+  return createHash("sha256").update(canonicalJson(report), "utf8").digest("hex");
+}
 
 function fail(msg) {
   process.stderr.write(`[harness-contrast error] ${msg}\n`);
@@ -195,6 +213,7 @@ export function evaluateCandidates(reports, options = {}) {
   }
 
   const result = {
+    contrast_version: CONTRAST_VERSION,
     evaluated_at: new Date().toISOString(),
     total_candidates: matrix.length,
     consensus_files: consensusFiles,

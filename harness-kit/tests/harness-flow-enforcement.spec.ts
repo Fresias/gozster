@@ -10,6 +10,10 @@ import { evaluateRules } from "../core/guard/guard-core.mjs";
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
 import { evaluateMerge, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
+// @ts-expect-error - mjs module
+import { evaluateCandidates, hashReport } from "../core/scripts/harness-contrast.mjs";
+// @ts-expect-error - mjs module
+import { evaluateProbes } from "../core/scripts/harness-compose.mjs";
 
 // GOZS-428 — Harness² flow enforcement. Gherkin:
 //   GIVEN a PR branch <type>/<n>-slug WHEN the gate runs without harness/experience/<ISSUE>.jsonl THEN it fails.
@@ -161,119 +165,195 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     expect(all).toContain("ppc:");
   });
 
-  it("GIVEN rama harness + label + registro PPC con probe aprobado y contraste THEN mergeable", () => {
-    const ppcLesson =
-      JSON.stringify({
-        task: "PROJ-12",
-        lesson: "Candidate c1 vs baseline: blocks -3",
-        ppc: {
-          winner_id: "c1",
-          candidates: 2,
-          probe_passed: true,
-          contrast: [{ candidate_id: "c1", blocks: 1 }, { candidate_id: "baseline", blocks: 4 }],
-        },
-      }) + "\n";
+  it("GIVEN un PR de harness con el registro de GOZS-517 tal como está hoy (scores 25/5, sin reportes) WHEN corre harness-merge-check THEN falla indicando que faltan los reportes", () => {
+    const gozs517Raw = JSON.stringify({
+      task: "GOZS-517",
+      lesson: "Candidate c1-contrast-selection on harness (c1-contrast-selection vs baseline: score +20)",
+      ppc: {
+        winner_id: "c1-contrast-selection",
+        probe_passed: true,
+        candidates: 2,
+        contrast: [
+          { candidate_id: "c1-contrast-selection", score: 25, passed: true },
+          { candidate_id: "baseline", score: 5, passed: true },
+        ],
+        contrast_matrix: [
+          { candidate_id: "c1-contrast-selection", score: 25, passed: true },
+          { candidate_id: "baseline", score: 5, passed: true },
+        ],
+        duration_ms: 2450,
+      },
+    }) + "\n";
     const pr = {
       ...base,
-      headRefName: "chore/12-harness-fix",
-      files: [...base.files, { path: "harness-kit/core/guard/guard-core.mjs" }],
+      headRefName: "chore/517-harness-fix",
+      files: [{ path: "harness/experience/GOZS-517.jsonl" }, { path: "harness-kit/core/guard/guard-core.mjs" }],
       labels: [{ name: "harness-authorized" }],
     };
-    expect(evaluateMerge({ pr, project, lessonText: ppcLesson }).mergeable).toBe(true);
-  });
-
-  it("GIVEN lección con 'resolved task in' THEN falla por falta de contraste", () => {
-    const ppcLesson =
-      JSON.stringify({
-        task: "PROJ-12",
-        lesson: "Candidate cand-1 on harness/guardrails.md resolved task in 99279ms",
-        ppc: {
-          winner_id: "cand-1",
-          candidates: 2,
-          probe_passed: true,
-          contrast: [{ candidate_id: "cand-1", score: 10 }, { candidate_id: "baseline", score: 5 }],
-        },
-      }) + "\n";
-    const pr = {
-      ...base,
-      headRefName: "chore/12-harness-fix",
-      files: [...base.files, { path: "harness/guardrails.md" }],
-      labels: [{ name: "harness-authorized" }],
-    };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: gozs517Raw, probeReports: [] });
     expect(res.mergeable).toBe(false);
-    expect(res.errors.join()).toContain("must cite contrast evidence");
+    expect(res.errors.join(" ")).toMatch(/missing probe reports|reports_sha256/);
   });
 
-  it("GIVEN lección sin candidato, métrica o delta THEN falla por falta de evidencia", () => {
-    const ppcLesson =
-      JSON.stringify({
-        task: "PROJ-12",
-        lesson: "This is a very long lesson description but it does not cite any candidate or metric delta",
-        ppc: {
-          winner_id: "cand-1",
-          candidates: 2,
-          probe_passed: true,
-          contrast: [{ candidate_id: "cand-1", score: 10 }, { candidate_id: "baseline", score: 5 }],
-        },
-      }) + "\n";
+  it("GIVEN reportes versionados y un registro con score editado a mano WHEN corre harness-merge-check THEN falla indicando el campo y el valor esperado", () => {
+    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
+    const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
+    const probeReports = [probeC1, probeBaseline];
+    const contrastResult = evaluateCandidates(probeReports);
+    const evaluation = evaluateProbes(probeReports);
+    const shaC1 = hashReport(probeC1);
+    const shaBase = hashReport(probeBaseline);
+
+    // Score editado a mano
+    const tamperedMatrix = contrastResult.contrast_matrix.map((c: any) =>
+      c.candidate_id === "c1" ? { ...c, score: 25 } : c,
+    );
+    const tamperedLesson = JSON.stringify({
+      task: "PROJ-12",
+      lesson: evaluation.lesson,
+      ppc: {
+        winner_id: "c1",
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: tamperedMatrix,
+        contrast_matrix: tamperedMatrix,
+        contrast_version: "1.0.0",
+        reports_sha256: { c1: shaC1, baseline: shaBase },
+      },
+    }) + "\n";
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    const res = evaluateMerge({ pr, project, lessonText: tamperedLesson, probeReports });
     expect(res.mergeable).toBe(false);
-    expect(res.errors.join()).toContain("must cite contrast evidence");
+    expect(res.errors.join(" ")).toContain("contrast score mismatch for c1: expected 900, got 25");
   });
 
-  it("GIVEN PR con ppc.candidates = 1 THEN falla exigiendo al menos 2 candidatos", () => {
-    const ppcLesson =
-      JSON.stringify({
-        task: "PROJ-12",
-        lesson: "Candidate cand-1 vs baseline: score +5",
-        ppc: {
-          winner_id: "cand-1",
-          candidates: 1,
-          probe_passed: true,
-          contrast: [{ candidate_id: "cand-1", score: 10 }],
-        },
-      }) + "\n";
+  it("GIVEN un reporte modificado después de compose WHEN corre harness-merge-check THEN falla por hash distinto", () => {
+    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
+    const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
+    const shaC1 = hashReport(probeC1);
+    const shaBase = hashReport(probeBaseline);
+    const contrastResult = evaluateCandidates([probeC1, probeBaseline]);
+    const evaluation = evaluateProbes([probeC1, probeBaseline]);
+
+    const ppcLesson = JSON.stringify({
+      task: "PROJ-12",
+      lesson: evaluation.lesson,
+      ppc: {
+        winner_id: "c1",
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: contrastResult.contrast_matrix,
+        contrast_matrix: contrastResult.contrast_matrix,
+        contrast_version: "1.0.0",
+        reports_sha256: { c1: shaC1, baseline: shaBase },
+      },
+    }) + "\n";
+
+    // Reporte modificado después de compose
+    const modifiedProbeC1 = { ...probeC1, duration_ms: 2000 };
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [modifiedProbeC1, probeBaseline] });
     expect(res.mergeable).toBe(false);
-    expect(res.errors.join()).toContain("candidates count must be >= 2");
+    expect(res.errors.join(" ")).toContain("sha256 mismatch for report c1");
   });
 
-  it("GIVEN lección de compose que cita 'cand-1 vs baseline: blocks -3' con 2 candidatos THEN aprueba", () => {
-    const ppcLesson =
-      JSON.stringify({
-        task: "PROJ-12",
-        lesson: "Candidate cand-1 on harness/guardrails.md (cand-1 vs baseline: blocks -3)",
-        ppc: {
-          winner_id: "cand-1",
-          candidates: 2,
-          probe_passed: true,
-          contrast_matrix: [
-            { candidate_id: "cand-1", blocks: 0, score: 10 },
-            { candidate_id: "baseline", blocks: 3, score: 7 },
-          ],
-        },
-      }) + "\n";
+  it("GIVEN reportes y un registro generados por compose sin modificaciones WHEN corre harness-merge-check THEN pasa", () => {
+    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
+    const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
+    const shaC1 = hashReport(probeC1);
+    const shaBase = hashReport(probeBaseline);
+    const contrastResult = evaluateCandidates([probeC1, probeBaseline]);
+    const evaluation = evaluateProbes([probeC1, probeBaseline]);
+
+    const ppcLesson = JSON.stringify({
+      task: "PROJ-12",
+      lesson: evaluation.lesson,
+      ppc: {
+        winner_id: "c1",
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: contrastResult.contrast_matrix,
+        contrast_matrix: contrastResult.contrast_matrix,
+        contrast_version: "1.0.0",
+        reports_sha256: { c1: shaC1, baseline: shaBase },
+      },
+    }) + "\n";
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson });
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [probeC1, probeBaseline] });
     expect(res.mergeable).toBe(true);
+    expect(res.errors).toHaveLength(0);
+  });
+
+  it("GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican", () => {
+    const pr = {
+      ...base,
+      headRefName: "feat/12-user-avatar",
+      files: [...base.files, { path: "src/components/UserAvatar.tsx" }],
+      labels: [],
+    };
+    const simpleLesson = JSON.stringify({
+      task: "PROJ-12",
+      lesson: "UserAvatar renders user picture",
+    }) + "\n";
+    const res = evaluateMerge({ pr, project, lessonText: simpleLesson, probeReports: [] });
+    expect(res.mergeable).toBe(true);
+    expect(res.harness_files).toHaveLength(0);
+  });
+
+  it("GIVEN una rama de harness con un registro editado a mano WHEN corre harness-gate.sh THEN no sella y explica por qué", () => {
+    const ws = temp("gate-harness-tampered");
+    execFileSync("git", ["init", "-b", "main", ws], { stdio: "ignore" });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: ws });
+    execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: ws });
+    
+    mkdirSync(path.join(ws, "harness"), { recursive: true });
+    writeFileSync(path.join(ws, "harness", "project.json"), JSON.stringify({ issue_prefix: "PROJ", gate: "node -e \"process.exit(0)\"" }));
+    writeFileSync(path.join(ws, "harness", "guardrails.md"), "# Initial");
+    execFileSync("git", ["add", "."], { cwd: ws });
+    execFileSync("git", ["commit", "-m", "init"], { cwd: ws });
+
+    execFileSync("git", ["checkout", "-b", "chore/88-harness-tampered"], { cwd: ws });
+    writeFileSync(path.join(ws, "harness", "guardrails.md"), "# Modified by hand");
+    
+    mkdirSync(path.join(ws, "harness", "experience"), { recursive: true });
+    writeFileSync(path.join(ws, "harness", "experience", "PROJ-88.jsonl"), JSON.stringify({
+      task: "PROJ-88",
+      lesson: "tampered lesson",
+      ppc: { winner_id: "c1", candidates: 2, probe_passed: true, contrast: [{ candidate_id: "c1", score: 25 }] }
+    }) + "\n");
+    execFileSync("git", ["add", "."], { cwd: ws });
+    execFileSync("git", ["commit", "-m", "chore: tampered harness"], { cwd: ws });
+
+    let gateFailed = false;
+    let gateOutput = "";
+    try {
+      execFileSync(bashBin, [gateScript], { cwd: ws, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err: any) {
+      gateFailed = true;
+      gateOutput = (err.stdout || "") + (err.stderr || "");
+    }
+
+    expect(gateFailed).toBe(true);
+    expect(gateOutput).toMatch(/PPC|reports|probe/i);
+    expect(existsSync(path.join(ws, ".harness", "complete.json"))).toBe(false);
   });
 
   it("GIVEN un PPC sin probe aprobado (solo decisión explícita) THEN bloqueado", () => {

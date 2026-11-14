@@ -103,9 +103,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - **Hand-off, no start:** deliver state once to squad/leader; record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
 
-- **RPCs (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL, opcionales en TS.
-- **Modales (GOZS-321):** isSaving atómico + submit deshabilitado para evitar carreras.
-- Inspección acotada: StartLine/EndLine <= 300; sin cat no acotados.
+- **RPCs (GOZS-331):** Defaults ('DEFAULT NULL') en SQL, opcionales en TS.
+- **Modales (GOZS-321):** isSaving atómico + submit deshabilitado.
+- **PPC:** registro solo vía `harness-compose.mjs`; editarlo a mano hace fallar el merge.
 
 # Helper scripts (run via bash)
 

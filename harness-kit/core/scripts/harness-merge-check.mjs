@@ -8,9 +8,11 @@
 //
 // The guard runs this before `gh pr merge`. Exit 0 = mergeable, exit 1 = blocked.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { evaluateCandidates, hashReport } from "./harness-contrast.mjs";
+import { evaluateProbes } from "./harness-compose.mjs";
 
 /** Paths whose change is a harness mutation (needs PPC + authorization). */
 export function isHarnessPath(rel) {
@@ -49,27 +51,12 @@ function parseLessons(text) {
     });
 }
 
-export function hasContrastEvidence(lessonText, ppc = {}) {
-  const text = String(lessonText || "");
-  // Metric: duration/duration_ms, blocks, tool_calls, score, out_of_scope, friction
-  const hasMetric = /(duration(_ms)?|blocks|tool_calls|score|out_of_scope|friction)/i.test(text);
-  if (!hasMetric) return false;
-
-  // Candidate: winner_id, baseline, c1, cand-*, etc.
-  const winnerId = String(ppc.winner_id || "").toLowerCase();
-  const hasCandidate = (winnerId && text.toLowerCase().includes(winnerId)) || /(baseline|c[0-9]+|cand-[a-z0-9_-]+|candidate)/i.test(text);
-  if (!hasCandidate) return false;
-
-  // Delta: vs <target>, +<num>, -<num>, or delta:
-  const hasDelta = /(vs\s+[a-z0-9_-]+|[-+]\d+|delta)/i.test(text);
-  return Boolean(hasDelta);
-}
-
 /**
  * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}] }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
+ * probeReports: optional array of probe report objects.
  */
-export function evaluateMerge({ pr, project, lessonText }) {
+export function evaluateMerge({ pr, project, lessonText, probeReports }) {
   const errors = [];
   const files = (pr.files || []).map((f) => f.path);
   const labels = (pr.labels || []).map((l) => l.name);
@@ -107,13 +94,68 @@ export function evaluateMerge({ pr, project, lessonText }) {
       if (Number(ppc.candidates ?? 0) < 2) {
         errors.push(`ppc: candidates count must be >= 2 for contrast evaluation (found ${ppc.candidates ?? 1}).`);
       }
-      const contrast = ppc.contrast || ppc.contrast_matrix;
-      if (!contrast || (Array.isArray(contrast) && contrast.length === 0)) {
+      const recordedMatrix = ppc.contrast_matrix || ppc.contrast;
+      if (!recordedMatrix || (Array.isArray(recordedMatrix) && recordedMatrix.length === 0)) {
         errors.push("ppc: missing contrast matrix (must include contrast verification from harness-contrast).");
       }
-      const lessonText = String(ppcEntry.lesson || "");
-      if (lessonText.includes("resolved task in") || !hasContrastEvidence(lessonText, ppc)) {
-        errors.push('ppc: lesson must cite contrast evidence from contrast_matrix (candidate, metric, and delta, e.g. "c1 vs baseline: blocks -3").');
+
+      const reportsSha256 = ppc.reports_sha256;
+      if (!reportsSha256 || typeof reportsSha256 !== "object" || Object.keys(reportsSha256).length === 0) {
+        errors.push(`ppc: missing reports_sha256 in PPC record for ${issue}.`);
+      }
+
+      const reports = Array.isArray(probeReports) ? probeReports : [];
+      if (reports.length === 0) {
+        errors.push(`ppc: missing probe reports in harness/experience/probes/${issue}/ (found 0 reports).`);
+      } else {
+        if (reportsSha256 && typeof reportsSha256 === "object") {
+          for (const r of reports) {
+            const candId = r.candidate_id || "unknown";
+            const expectedHash = reportsSha256[candId];
+            if (!expectedHash) {
+              errors.push(`ppc: report ${candId} not found in reports_sha256.`);
+            } else {
+              const actualHash = hashReport(r);
+              if (actualHash !== expectedHash) {
+                errors.push(`ppc: sha256 mismatch for report ${candId}: expected ${expectedHash}, got ${actualHash}`);
+              }
+            }
+          }
+          for (const candId of Object.keys(reportsSha256)) {
+            if (!reports.some((r) => r.candidate_id === candId)) {
+              errors.push(`ppc: missing probe report for candidate ${candId} listed in reports_sha256.`);
+            }
+          }
+        }
+
+        // Recalcular evaluateCandidates
+        const recalculated = evaluateCandidates(reports);
+        if (recalculated.winner_id !== ppc.winner_id) {
+          errors.push(`ppc: winner_id mismatch: expected ${recalculated.winner_id}, got ${ppc.winner_id}`);
+        }
+
+        // Exigir que la matriz (candidate_id, score, passed) coincida exactamente con el registro
+        if (Array.isArray(recordedMatrix)) {
+          for (const item of recalculated.contrast_matrix) {
+            const recorded = recordedMatrix.find((m) => m.candidate_id === item.candidate_id);
+            if (!recorded) {
+              errors.push(`ppc: contrast_matrix missing candidate ${item.candidate_id}`);
+            } else {
+              if (recorded.score !== item.score) {
+                errors.push(`ppc: contrast score mismatch for ${item.candidate_id}: expected ${item.score}, got ${recorded.score}`);
+              }
+              if (Boolean(recorded.passed) !== Boolean(item.passed)) {
+                errors.push(`ppc: contrast passed mismatch for ${item.candidate_id}: expected ${item.passed}, got ${recorded.passed}`);
+              }
+            }
+          }
+        }
+
+        // Exigir que la lesson del registro sea idéntica a la que produce evaluateProbes para esos reportes
+        const evaluatedProbes = evaluateProbes(reports);
+        if (ppcEntry.lesson !== evaluatedProbes.lesson) {
+          errors.push(`ppc: lesson mismatch: expected "${evaluatedProbes.lesson}", got "${ppcEntry.lesson}"`);
+        }
       }
     }
   }
@@ -142,6 +184,73 @@ function main(argv) {
   }
   const project = JSON.parse(readFileSync(path.join(root, "harness", "project.json"), "utf8"));
 
+  if (argv.includes("--local")) {
+    let branch = "";
+    try {
+      branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    } catch {}
+    const issue = issueFromBranch(branch, project.issue_prefix);
+
+    let baseRef = "origin/main";
+    try {
+      execFileSync("git", ["rev-parse", "--verify", baseRef], { cwd: root, stdio: "ignore" });
+    } catch {
+      baseRef = "main";
+    }
+
+    let diffFiles = [];
+    try {
+      const diff1 = execFileSync("git", ["diff", "--name-only", `${baseRef}...HEAD`], { cwd: root, encoding: "utf8" });
+      const diff2 = execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: root, encoding: "utf8" });
+      diffFiles = [...new Set((diff1 + "\n" + diff2).split("\n").map((f) => f.trim()).filter(Boolean))];
+    } catch {
+      diffFiles = [];
+    }
+
+    const harnessFiles = diffFiles.filter(isHarnessPath);
+    if (harnessFiles.length === 0 || !issue) {
+      process.exit(0);
+    }
+
+    if (!/^[a-z]+\/\d+-harness-/.test(branch)) {
+      process.stderr.write(`[harness-gate error] ${harnessFiles.length} protected harness file(s) changed on a non-harness branch: ${branch}\n`);
+      process.exit(1);
+    }
+
+    const lessonPath = path.join(root, "harness", "experience", `${issue}.jsonl`);
+    if (!existsSync(lessonPath)) {
+      process.stderr.write(`[harness-gate error] Missing lesson file: ${lessonPath}\n`);
+      process.exit(1);
+    }
+    const localLessonText = readFileSync(lessonPath, "utf8");
+
+    const probesDir = path.join(root, "harness", "experience", "probes", issue);
+    let localProbeReports = [];
+    if (existsSync(probesDir)) {
+      localProbeReports = readdirSync(probesDir).filter((f) => f.endsWith(".json")).map((f) => {
+        try { return JSON.parse(readFileSync(path.join(probesDir, f), "utf8")); } catch { return null; }
+      }).filter(Boolean);
+    }
+
+    const mockPr = {
+      headRefName: branch,
+      headRefOid: "HEAD",
+      body: "<!-- harness-seal: {} -->",
+      files: diffFiles.map((p) => ({ path: p })),
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const evalResult = evaluateMerge({ pr: mockPr, project, lessonText: localLessonText, probeReports: localProbeReports });
+    const ppcErrors = evalResult.errors.filter((e) => !e.startsWith("seal:") && !e.startsWith("harness: missing label"));
+    if (ppcErrors.length > 0) {
+      process.stderr.write(`[harness-gate error] Harness PPC verification failed:\n- ${ppcErrors.join("\n- ")}\n`);
+      process.exit(1);
+    }
+
+    process.stdout.write(`[harness-gate] Harness PPC verified for ${issue} (${localProbeReports.length} probes recalculated).\n`);
+    process.exit(0);
+  }
+
   let pr;
   let lessonText = null;
   if (val("--pr-json")) {
@@ -164,7 +273,59 @@ function main(argv) {
     }
   }
 
-  const result = evaluateMerge({ pr, project, lessonText });
+  let probeReports = [];
+  if (val("--probes-dir")) {
+    const dir = path.resolve(val("--probes-dir"));
+    if (existsSync(dir)) {
+      probeReports = readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => {
+        try { return JSON.parse(readFileSync(path.join(dir, f), "utf8")); } catch { return null; }
+      }).filter(Boolean);
+    }
+  } else if (val("--probes-file")) {
+    const file = path.resolve(val("--probes-file"));
+    if (existsSync(file)) {
+      try {
+        const parsed = JSON.parse(readFileSync(file, "utf8"));
+        probeReports = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {}
+    }
+  } else {
+    const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
+    if (issue) {
+      const localProbesDir = path.join(root, "harness", "experience", "probes", issue);
+      if (existsSync(localProbesDir)) {
+        probeReports = readdirSync(localProbesDir).filter((f) => f.endsWith(".json")).map((f) => {
+          try { return JSON.parse(readFileSync(path.join(localProbesDir, f), "utf8")); } catch { return null; }
+        }).filter(Boolean);
+      }
+      if (probeReports.length === 0 && pr && pr.files) {
+        const probeFiles = (pr.files || []).filter((f) => {
+          const p = f.path.replace(/\\/g, "/");
+          return p.startsWith(`harness/experience/probes/${issue}/`) && p.endsWith(".json");
+        });
+        for (const pf of probeFiles) {
+          let content = null;
+          if (pr.headRefOid) {
+            try {
+              content = execFileSync("git", ["show", `${pr.headRefOid}:${pf.path}`], { cwd: root, encoding: "utf8" });
+            } catch {}
+          }
+          if (!content) {
+            try {
+              content = gh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/${pf.path}?ref=${pr.headRefOid}`]);
+            } catch {}
+          }
+          if (content) {
+            try {
+              probeReports.push(JSON.parse(content));
+            } catch {}
+          }
+        }
+      }
+    }
+  }
+
+  const result = evaluateMerge({ pr, project, lessonText, probeReports });
   // Commit status on the PR head: visible evidence, and a required check once branch protection exists.
   if (argv.includes("--post-status") && pr.headRefOid) {
     const state = result.mergeable ? "success" : "failure";

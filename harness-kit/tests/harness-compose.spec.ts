@@ -199,4 +199,66 @@ describe("Harness² Sintetizador: runCompose (promoción y persistencia de exper
       });
     }).toThrow(/security violation/);
   });
+
+  it("GIVEN dos reportes de sonda WHEN corre harness-compose.mjs --task X THEN existen harness/experience/probes/X/*.json y el registro tiene reports_sha256 y contrast_version", () => {
+    const ws = setupWorkspace();
+    const probesDir = path.join(ws, ".harness", "probes");
+    mkdirSync(probesDir, { recursive: true });
+
+    writeFileSync(
+      path.join(probesDir, "probe-c1.json"),
+      JSON.stringify({
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 1000,
+        files_touched: ["harness/tool_guidance.local.md"],
+      }),
+    );
+    writeFileSync(
+      path.join(probesDir, "probe-baseline.json"),
+      JSON.stringify({
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 1500,
+        files_touched: ["harness/tool_guidance.local.md"],
+      }),
+    );
+
+    const candidatesFile = path.join(ws, "candidates.json");
+    writeFileSync(
+      candidatesFile,
+      JSON.stringify([
+        {
+          candidate_id: "c1",
+          file: "harness/tool_guidance.local.md",
+          action: "append",
+          content: "# C1",
+        },
+      ]),
+    );
+
+    const res = runCompose({
+      workdir: ws,
+      probes: probesDir,
+      candidates: candidatesFile,
+      task: "GOZS-999",
+      promote: true,
+    });
+
+    expect(res.winner_id).toBe("c1");
+
+    // Verificar que los reportes se versionaron en harness/experience/probes/GOZS-999/
+    const probesDestDir = path.join(ws, "harness", "experience", "probes", "GOZS-999");
+    expect(existsSync(path.join(probesDestDir, "c1.json"))).toBe(true);
+    expect(existsSync(path.join(probesDestDir, "baseline.json"))).toBe(true);
+
+    // Verificar registro PPC
+    const expFile = path.join(ws, "harness", "experience", "GOZS-999.jsonl");
+    const exp = JSON.parse(readFileSync(expFile, "utf8"));
+    expect(exp.ppc).toBeDefined();
+    expect(exp.ppc.contrast_version).toBeDefined();
+    expect(exp.ppc.reports_sha256).toBeDefined();
+    expect(exp.ppc.reports_sha256["c1"]).toBeDefined();
+    expect(exp.ppc.reports_sha256["baseline"]).toBeDefined();
+  });
 });
