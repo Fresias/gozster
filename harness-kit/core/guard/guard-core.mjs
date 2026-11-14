@@ -462,7 +462,7 @@ function evaluateShell(call, repoRoot) {
   // Reading installed guard in shell
   if (
     /(\.claude[/\\]hooks([/\\]|$)|\.gemini[/\\]config[/\\]hooks\.json)/i.test(cmd) &&
-    (/(^|[^a-zA-Z0-9_-])(cat|type|Get-Content|gc|head|tail|less|more)(\s|$)/i.test(cmd) ||
+    (/(^|[^a-zA-Z0-9_-])(cat|type|Get-Content|gc|head|tail|less|more|grep|rg|Select-String|sls|findstr)(\s|$)/i.test(cmd) ||
       /\[IO\.File\]::ReadAll|readFileSync/i.test(cmd) ||
       /<\s*[^|&;]*(\.claude[/\\]hooks|\.gemini[/\\]config[/\\]hooks\.json)/i.test(cmd))
   ) {
@@ -571,11 +571,13 @@ function evaluateShell(call, repoRoot) {
   }
 
   // Repo rewiring (git worktree, branch rename, core.hooksPath)
-  if (
-    /(^|[^a-zA-Z0-9_])git\b.*?\bworktree\s+(add|move|remove|prune|repair)\b/i.test(cmd) ||
-    /(^|[^a-zA-Z0-9_])git\b.*?\bbranch\b.*?(\s|^)(-m|-M|--move)(\s|$)/i.test(cmd) ||
-    /(^|[^a-zA-Z0-9_])git\b.*?(\bconfig\b.*?\bcore\.hooksPath|(\s|^)-c\s*core\.hooksPath=)/i.test(cmd)
-  ) {
+  // Evaluated per command segment (split by ;, &&, ||, |) so chaining or piping does not falsely trigger across unrelated commands.
+  const rewireSegments = cmd.split(/;|&&|\|\||\|/);
+  const isRewire = (seg) =>
+    /(^|[^a-zA-Z0-9_])git\b.*?\bworktree\s+(add|move|remove|prune|repair)\b/i.test(seg) ||
+    /(^|[^a-zA-Z0-9_])git\b.*?\bbranch\b.*?(\s|^)(-m|-M|--move)(\s|$)/i.test(seg) ||
+    /(^|[^a-zA-Z0-9_])git\b.*?(\bconfig\b.*?\bcore\.hooksPath|(\s|^)-c\s*core\.hooksPath=)/i.test(seg);
+  if (rewireSegments.some(isRewire)) {
     return {
       allowed: false,
       ruleId: "git.repo-rewire",

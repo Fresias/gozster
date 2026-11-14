@@ -489,11 +489,20 @@ describe("GOZS-524: protección de .git, bloqueo de repo-rewire y lectura del gu
       "type C:\\Users\\user\\.claude\\hooks\\guard.sh",
       "[IO.File]::ReadAllText('C:/Users/user/.claude/hooks/guard.sh')",
       "node -e \"fs.readFileSync('~/.claude/hooks/guard-core.mjs')\"",
+      "grep -i token ~/.claude/hooks/guard.sh",
+      "rg -n export ~/.claude/hooks/",
+      "Select-String secret ~/.gemini/config/hooks.json",
+      "findstr foo C:\\Users\\user\\.claude\\hooks\\guard.sh",
     ]) {
       const res = shell(cmd);
       expect(res.allowed).toBe(false);
       expect(res.ruleId).toBe("read.guard-installed");
     }
+  });
+
+  it("GIVEN comandos encadenados o pipeados como 'git branch --show-current && git commit -m x' y 'git branch -vv | grep -m 1 main' WHEN corre el guard THEN permite (no falso positivo en git.repo-rewire)", () => {
+    expect(shell("git branch --show-current && git commit -m x").allowed).toBe(true);
+    expect(shell("git branch -vv | grep -m 1 main").allowed).toBe(true);
   });
 
   it("GIVEN una lectura de harness-kit/core/guard/guard-core.mjs del repo, con rango WHEN corre el guard THEN permite", () => {
