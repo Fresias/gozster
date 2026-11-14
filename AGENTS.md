@@ -9,8 +9,8 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ## Governance & Roles
 - Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas `feature/<issue-#>-slug` o `fix/<issue-#>-slug`. Commits convencionales.
-- Merge a main: solo @PM-GOZster tras CI en verde y APPROVED de @qa-eng.
-- Review: @qa-eng aplica el protocolo de 6 niveles (`review-selection.md`) en cada PR.
+- PR abierto por AgentsMultica → revisión @qa-eng en Multica (protocolo de 6 niveles: `review-selection.md`) → aprobación en GitHub de @Fresias → merge de @PM-GOZster con CI y harness-merge-check en verde.
+- Nunca configurar la identidad git de una persona; los agentes firman como AgentsMultica.
 
 # Core Guardrails (Invariants)
 
@@ -41,18 +41,18 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # GOZSter Local Guardrails
 
 ## Database & UI Contracts
-- supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS.
+- supabase/migrations/: strictly append-only, never edit/delete. Explicit RLS.
 - Zero references to "Mynter" (ADR-005).
-- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (`assertNoDemoLiteralsInLiveMode`).
+- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data.
 
 ## QA & Review Rounds
 - **QA CHANGES_REQUESTED r1/2:** set stage in_progress, comment blocker + round N/2 @mentioning assignee; QA issue `todo` until in_review.
-- **Round 2/2:** set `blocked` and @mention Gabriel with summary of rejections.
+- **Round 2/2:** set `blocked`, @mention Gabriel with summary.
 
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
 - Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
-- Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
+- Encoding: UTF-8, no BOM. PowerShell: no backticks/Set-Content; use Write/Edit.
 
 ## Skills
 
@@ -105,7 +105,6 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 - **RPCs (GOZS-331):** Defaults explícitos ('DEFAULT NULL') en SQL, opcionales en TS.
 - **Modales (GOZS-321):** isSaving atómico + submit deshabilitado para evitar carreras.
-- Inspección acotada: StartLine/EndLine <= 300; sin cat no acotados.
 
 # Helper scripts (run via bash)
 
