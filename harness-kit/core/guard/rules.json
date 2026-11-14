@@ -25,6 +25,12 @@
     "message": "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines)."
   },
   {
+    "id": "read.guard-installed",
+    "target": "all",
+    "description": "Reading installed guard files in <home>/.claude/hooks/ or <home>/.gemini/config/hooks.json is forbidden",
+    "message": "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo."
+  },
+  {
     "id": "shell.cat-lockfile",
     "target": "shell",
     "description": "Mass cat of package-lock.json is forbidden",
@@ -79,6 +85,12 @@
     "description": "git branch -D is forbidden",
     "pattern": "git\\s+branch\\s+(-[a-zA-Z]*\\s+)*-D",
     "message": "git branch -D is forbidden (force-deletes a branch)."
+  },
+  {
+    "id": "git.repo-rewire",
+    "target": "shell",
+    "description": "Repo rewiring (git worktree, branch rename, core.hooksPath) is forbidden",
+    "message": "Recablear el repo (worktrees, renombrar ramas, hooksPath) está prohibido para agentes. Si necesitas otra rama, créala con git checkout -b desde origin/main."
   },
   {
     "id": "shell.rm-rf",

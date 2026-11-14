@@ -154,6 +154,15 @@ function countLines(fullPath) {
 
 /** Evaluate read requests. */
 function evaluateRead(call, options, repoRoot) {
+  if (isInstalledGuardPath(call.filePath)) {
+    return {
+      allowed: false,
+      ruleId: "read.guard-installed",
+      reason:
+        "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo.",
+    };
+  }
+
   const sensitive = checkSensitivePath(call.filePath, repoRoot);
   if (sensitive) return sensitive;
 
@@ -182,6 +191,14 @@ function evaluateRead(call, options, repoRoot) {
 function evaluateReadMany(call, repoRoot) {
   if (Array.isArray(call.paths)) {
     for (const p of call.paths) {
+      if (isInstalledGuardPath(p)) {
+        return {
+          allowed: false,
+          ruleId: "read.guard-installed",
+          reason:
+            "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo.",
+        };
+      }
       const sensitive = checkSensitivePath(p, repoRoot);
       if (sensitive) return sensitive;
     }
@@ -254,6 +271,17 @@ export function isAgentMemoryPath(p) {
   if (/\.\.|%2e/i.test(raw)) return false;
   const norm = path.posix.normalize(raw);
   return /(^|\/)\.claude\/projects\/[^/]+\/memory(\/.*)?$/i.test(norm);
+}
+
+/** Installed guard files (~/.claude/hooks/... or ~/.gemini/config/hooks.json). */
+export function isInstalledGuardPath(p) {
+  if (!p) return false;
+  const raw = String(p || "").replace(/\\/g, "/");
+  const norm = path.posix.normalize(raw);
+  return (
+    /(^|\/)\.claude\/hooks(\/|$)/i.test(norm) ||
+    /(^|\/)\.gemini\/config\/hooks\.json$/i.test(norm)
+  );
 }
 
 /** Harness mutations are allowed only on an authorized harness branch: <type>/<issue-#>-harness-<slug>. */
@@ -431,6 +459,21 @@ function evaluateShell(call, repoRoot) {
     };
   }
 
+  // Reading installed guard in shell
+  if (
+    /(\.claude[/\\]hooks([/\\]|$)|\.gemini[/\\]config[/\\]hooks\.json)/i.test(cmd) &&
+    (/(^|[^a-zA-Z0-9_-])(cat|type|Get-Content|gc|head|tail|less|more|grep|rg|Select-String|sls|findstr)(\s|$)/i.test(cmd) ||
+      /\[IO\.File\]::ReadAll|readFileSync/i.test(cmd) ||
+      /<\s*[^|&;]*(\.claude[/\\]hooks|\.gemini[/\\]config[/\\]hooks\.json)/i.test(cmd))
+  ) {
+    return {
+      allowed: false,
+      ruleId: "read.guard-installed",
+      reason:
+        "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo.",
+    };
+  }
+
   // Mass cat package-lock
   if (/(^|[^a-zA-Z0-9_])cat(\s+.*)?package-lock\.json/i.test(cmd)) {
     return {
@@ -527,6 +570,22 @@ function evaluateShell(call, repoRoot) {
     };
   }
 
+  // Repo rewiring (git worktree, branch rename, core.hooksPath)
+  // Evaluated per command segment (split by ;, &&, ||, |) so chaining or piping does not falsely trigger across unrelated commands.
+  const rewireSegments = cmd.split(/;|&&|\|\||\|/);
+  const isRewire = (seg) =>
+    /(^|[^a-zA-Z0-9_])git\b.*?\bworktree\s+(add|move|remove|prune|repair)\b/i.test(seg) ||
+    /(^|[^a-zA-Z0-9_])git\b.*?\bbranch\b.*?(\s|^)(-m|-M|--move)(\s|$)/i.test(seg) ||
+    /(^|[^a-zA-Z0-9_])git\b.*?(\bconfig\b.*?\bcore\.hooksPath|(\s|^)-c\s*core\.hooksPath=)/i.test(seg);
+  if (rewireSegments.some(isRewire)) {
+    return {
+      allowed: false,
+      ruleId: "git.repo-rewire",
+      reason:
+        "Recablear el repo (worktrees, renombrar ramas, hooksPath) está prohibido para agentes. Si necesitas otra rama, créala con git checkout -b desde origin/main.",
+    };
+  }
+
   // rm -rf
   // Flags are separate tokens of the rm segment (file names like harness-flow.md are not flags).
   const rmSegments = cmd.split(/;|&&|\|\||\|/).filter((seg) => /(^|[^a-zA-Z0-9_-])rm(\s|$)/i.test(seg));
@@ -617,14 +676,19 @@ function evaluateShell(call, repoRoot) {
       return "";
     }
   );
-  if (/(\.git[/\\]hooks|\.claude[/\\]|\.agents[/\\]|\.gemini[/\\]|\.opencode[/\\])/i.test(cmdNoMemory)) {
+  if (
+    /(?:(?:^|[/\\"'`\s>])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory)
+  ) {
     // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
-    if (/>>?\s*["']?[^\s|&;]*(\.git[/\\]hooks|\.(claude|agents|gemini|opencode)[/\\])/i.test(cmdNoMemory) || SHELL_WRITE_VERB.test(cmdNoMemory)) {
+    if (
+      />>?\s*["']?[^\s|&;]*((?:^|[/\\"'`\s>])\.git([/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory) ||
+      SHELL_WRITE_VERB.test(cmdNoMemory)
+    ) {
       return {
         allowed: false,
         ruleId: "fs.protected",
         reason:
-          "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+          "Writing to .git, .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
       };
     }
   }
@@ -745,9 +809,15 @@ function evaluateWrite(call, repoRoot) {
       "Writing to .git/hooks or .claude/ is forbidden (would tamper with the sandbox). Same for .agents/, .gemini/ and .opencode/.",
   };
 
-  // Protect git hooks and Claude settings
+  // Protect .git, git hooks and Claude settings
   // The agent's memory (~/.claude/projects/<p>/memory/) is writable: it is the memory component, not the sandbox.
-  if (norm.includes(".git/hooks/") || (norm.includes(".claude/") && (!isAgentMemoryPath(norm) || !isAgentMemoryPath(target)))) return tamper;
+  if (
+    /(^|\/)\.git(\/|$)/.test(norm) ||
+    norm.includes(".git/hooks/") ||
+    (norm.includes(".claude/") && (!isAgentMemoryPath(norm) || !isAgentMemoryPath(target)))
+  ) {
+    return tamper;
+  }
 
   // Generated artifacts (single source: harness.lock written by the render)
   const resolved = path.isAbsolute(target) ? target : path.resolve(repoRoot, target);
