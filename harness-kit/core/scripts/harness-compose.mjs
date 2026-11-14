@@ -146,7 +146,7 @@ export function deriveTags(candidate, task = "") {
 }
 
 /** Evaluates probe traces and selects the winner using harness-contrast */
-export function evaluateProbes(probeResults, explicitDecision) {
+export function evaluateProbes(probeResults, explicitDecision, options = {}) {
   if (explicitDecision) {
     let dec = explicitDecision;
     if (typeof dec === "string") {
@@ -156,6 +156,7 @@ export function evaluateProbes(probeResults, explicitDecision) {
     }
     return {
       winner_id: dec.winner_id || null,
+      verdict: dec.verdict || "explicit",
       promote: Boolean(dec.promote),
       rationale: dec.rationale || "Explicit decision applied",
       lesson: dec.lesson || "Harness optimized per composer decision",
@@ -167,6 +168,7 @@ export function evaluateProbes(probeResults, explicitDecision) {
   if (!probeResults || probeResults.length === 0) {
     return {
       winner_id: null,
+      verdict: "tie",
       promote: false,
       rationale: "No probe results available to evaluate",
       lesson: "",
@@ -175,13 +177,15 @@ export function evaluateProbes(probeResults, explicitDecision) {
     };
   }
 
-  const contrastResult = evaluateCandidates(probeResults);
+  const version = options.version || options.contrast_version || CONTRAST_VERSION;
+  const contrastResult = evaluateCandidates(probeResults, { version });
   const matrix = contrastResult.contrast_matrix || [];
   const winner = contrastResult.winner;
 
   if (!winner || !contrastResult.winner_id) {
     return {
       winner_id: null,
+      verdict: "tie",
       promote: false,
       rationale: contrastResult.warning || "All candidate probes failed verification",
       lesson: "Current candidates did not resolve the task; retain existing harness baseline",
@@ -197,34 +201,57 @@ export function evaluateProbes(probeResults, explicitDecision) {
 
   // Find baseline or runner-up for contrast delta citation
   const other = matrix.find((m) => m.candidate_id !== contrastResult.winner_id);
-  let contrastDeltaStr = "";
-  if (other) {
-    const otherProbe = probeResults.find((p) => p.candidate_id === other.candidate_id) || {};
-    const blocksDelta = (telemetry?.blocks ?? 0) - (otherProbe.telemetry?.blocks ?? other.telemetry?.blocks ?? 0);
-    const durationDelta = durationMs - (other.duration_ms ?? otherProbe.duration_ms ?? 0);
-    const scoreDelta = (winnerEntry.score ?? 0) - (other.score ?? 0);
-    const comparisonTarget = other.candidate_id === "baseline" ? "baseline" : other.candidate_id;
-    if (blocksDelta !== 0) {
-      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: blocks ${blocksDelta > 0 ? "+" : ""}${blocksDelta}`;
-    } else if (durationDelta !== 0) {
-      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: duration_ms ${durationDelta > 0 ? "+" : ""}${durationDelta}`;
+  const comparisonTarget = other ? (other.candidate_id === "baseline" ? "baseline" : other.candidate_id) : "baseline";
+
+  let lesson = "";
+  if (version === "1.0.0") {
+    let contrastDeltaStr = "";
+    if (other) {
+      const otherProbe = probeResults.find((p) => p.candidate_id === other.candidate_id) || {};
+      const blocksDelta = (telemetry?.blocks ?? 0) - (otherProbe.telemetry?.blocks ?? other.telemetry?.blocks ?? 0);
+      const durationDelta = durationMs - (other.duration_ms ?? otherProbe.duration_ms ?? 0);
+      const scoreDelta = (winnerEntry.score ?? 0) - (other.score ?? 0);
+      if (blocksDelta !== 0) {
+        contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: blocks ${blocksDelta > 0 ? "+" : ""}${blocksDelta}`;
+      } else if (durationDelta !== 0) {
+        contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: duration_ms ${durationDelta > 0 ? "+" : ""}${durationDelta}`;
+      } else {
+        contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: score +${scoreDelta}`;
+      }
+    }
+
+    const telemStr = telemetry
+      ? ` (duration: ${durationMs}ms, tool_calls: ${telemetry.tool_calls ?? 0}, blocks: ${telemetry.blocks ?? 0})`
+      : ` (${durationMs}ms)`;
+
+    const targetComp = winnerProbe.target_components?.join(", ") || "harness";
+    lesson = contrastDeltaStr
+      ? `Candidate ${contrastResult.winner_id} on ${targetComp} (${contrastDeltaStr})`
+      : `Candidate ${contrastResult.winner_id} on ${targetComp} resolved task in ${durationMs}ms`;
+  } else {
+    // v2 lesson
+    if (contrastResult.verdict === "behavioral") {
+      const fixed = winnerEntry.fixed ?? 0;
+      const regressed = winnerEntry.regressed ?? 0;
+      lesson = `${contrastResult.winner_id} vs ${comparisonTarget}: ${fixed} tests fail→pass, ${regressed} regresiones`;
+    } else if (contrastResult.verdict === "duration") {
+      const otherDur = other?.duration_ms ?? 0;
+      const diff = Math.abs(durationMs - otherDur);
+      lesson = `${contrastResult.winner_id} vs ${comparisonTarget}: tests iguales; duration_ms -${diff} (supera el margen)`;
     } else {
-      contrastDeltaStr = `${contrastResult.winner_id} vs ${comparisonTarget}: score +${scoreDelta}`;
+      // tie
+      lesson = `${contrastResult.winner_id} vs ${comparisonTarget}: sin diferencia de comportamiento medible`;
     }
   }
 
   const telemStr = telemetry
     ? ` (duration: ${durationMs}ms, tool_calls: ${telemetry.tool_calls ?? 0}, blocks: ${telemetry.blocks ?? 0})`
     : ` (${durationMs}ms)`;
-
   const rationale = `Candidate ${contrastResult.winner_id} selected by contrast evaluation (score: ${contrastResult.winner_score})${telemStr}`;
-  const targetComp = winnerProbe.target_components?.join(", ") || "harness";
-  const lesson = contrastDeltaStr
-    ? `Candidate ${contrastResult.winner_id} on ${targetComp} (${contrastDeltaStr})`
-    : `Candidate ${contrastResult.winner_id} on ${targetComp} resolved task in ${durationMs}ms`;
 
   return {
     winner_id: contrastResult.winner_id,
+    verdict: contrastResult.verdict,
     promote: true,
     rationale,
     lesson,
@@ -314,6 +341,7 @@ export function runCompose(opts) {
       // Evidence for harness-merge-check: only a real passing probe counts (an explicit decision alone does not).
       ppc: {
         winner_id: evaluation.winner_id,
+        verdict: evaluation.verdict || "tie",
         probe_passed: Boolean(winnerProbe),
         probe_branch: winnerProbe?.probe_branch || null,
         candidates: probeResults.length,

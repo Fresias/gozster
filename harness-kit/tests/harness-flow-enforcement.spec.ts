@@ -11,7 +11,7 @@ import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
 import { evaluateMerge, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
 // @ts-expect-error - mjs module
-import { evaluateCandidates, hashReport } from "../core/scripts/harness-contrast.mjs";
+import { evaluateCandidates, hashReport, CONTRAST_VERSION } from "../core/scripts/harness-contrast.mjs";
 // @ts-expect-error - mjs module
 import { evaluateProbes } from "../core/scripts/harness-compose.mjs";
 
@@ -199,8 +199,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
     const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
     const probeReports = [probeC1, probeBaseline];
-    const contrastResult = evaluateCandidates(probeReports);
-    const evaluation = evaluateProbes(probeReports);
+    const contrastResult = evaluateCandidates(probeReports, { version: "1.0.0" });
+    const evaluation = evaluateProbes(probeReports, null, { version: "1.0.0" });
     const shaC1 = hashReport(probeC1);
     const shaBase = hashReport(probeBaseline);
 
@@ -251,7 +251,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
         duration_ms: 1000,
         contrast: contrastResult.contrast_matrix,
         contrast_matrix: contrastResult.contrast_matrix,
-        contrast_version: "1.0.0",
+        contrast_version: CONTRAST_VERSION,
         reports_sha256: { c1: shaC1, baseline: shaBase },
       },
     }) + "\n";
@@ -287,7 +287,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
         duration_ms: 1000,
         contrast: contrastResult.contrast_matrix,
         contrast_matrix: contrastResult.contrast_matrix,
-        contrast_version: "1.0.0",
+        contrast_version: CONTRAST_VERSION,
         reports_sha256: { c1: shaC1, baseline: shaBase },
       },
     }) + "\n";
@@ -300,6 +300,102 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [probeC1, probeBaseline] });
     expect(res.mergeable).toBe(true);
     expect(res.errors).toHaveLength(0);
+  });
+
+  it("GIVEN un registro 2.0.0 con fixed editado a mano WHEN corre harness-merge-check THEN falla", () => {
+    const probeC1 = {
+      candidate_id: "c1",
+      passed: true,
+      duration_ms: 1000,
+      files_touched: [],
+      tests: { "tests/sample.spec.ts::nuevo": "passed" },
+    };
+    const probeBaseline = {
+      candidate_id: "baseline",
+      passed: true,
+      duration_ms: 1500,
+      files_touched: [],
+      tests: { "tests/sample.spec.ts::nuevo": "failed" },
+    };
+    const shaC1 = hashReport(probeC1);
+    const shaBase = hashReport(probeBaseline);
+    const contrastResult = evaluateCandidates([probeC1, probeBaseline]);
+    const evaluation = evaluateProbes([probeC1, probeBaseline]);
+
+    // fixed editado a mano (expected 1, put 99)
+    const tamperedMatrix = contrastResult.contrast_matrix.map((c: any) =>
+      c.candidate_id === "c1" ? { ...c, fixed: 99 } : c,
+    );
+
+    const tamperedLesson = JSON.stringify({
+      task: "GOZS-526",
+      lesson: evaluation.lesson,
+      ppc: {
+        winner_id: "c1",
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: tamperedMatrix,
+        contrast_matrix: tamperedMatrix,
+        contrast_version: "2.0.0",
+        reports_sha256: { c1: shaC1, baseline: shaBase },
+      },
+    }) + "\n";
+
+    const pr = {
+      ...base,
+      headRefName: "chore/526-harness-contrast-behavioral",
+      files: [
+        ...base.files,
+        { path: "harness/guardrails.md" },
+        { path: "harness/experience/GOZS-526.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: tamperedLesson, probeReports: [probeC1, probeBaseline] });
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join(" ")).toContain("contrast fixed mismatch for c1: expected 1, got 99");
+  });
+
+  it("GIVEN el registro 1.0.0 existente de GOZS-522 WHEN se verifica con el merge-check THEN sigue validando", () => {
+    const baseDir = path.resolve(here, "..", "..");
+    const expFile = path.join(baseDir, "harness", "experience", "GOZS-522.jsonl");
+    const baselineReportFile = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "baseline.json");
+    const c1ReportFile = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "c1-guard-bot-noreply.json");
+
+    if (existsSync(expFile) && existsSync(baselineReportFile) && existsSync(c1ReportFile)) {
+      const lessonText = readFileSync(expFile, "utf8");
+      const probeReports = [
+        JSON.parse(readFileSync(baselineReportFile, "utf8")),
+        JSON.parse(readFileSync(c1ReportFile, "utf8")),
+      ];
+      const seal = {
+        head: "fakehead1234567",
+        worktree_clean: true,
+        gate: project.gate,
+      };
+      const pr = {
+        headRefName: "chore/522-harness-identity-governance-v2",
+        headRefOid: "fakehead1234567",
+        body: `<!-- harness-seal: ${JSON.stringify(seal)} -->`,
+        files: [
+          { path: "harness/project.json" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText,
+        probeReports,
+      });
+
+      expect(res.errors).toHaveLength(0);
+      expect(res.mergeable).toBe(true);
+    }
   });
 
   it("GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican", () => {
