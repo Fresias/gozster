@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -25,9 +26,14 @@ const bashEnv =
       }
     : process.env;
 
-function runGuardCli(payload: unknown, args: string[] = []): { code: number; stdout: string; stderr: string } {
+function runGuardCli(
+  payload: unknown,
+  args: string[] = [],
+  cwd: string = repoRoot,
+): { code: number; stdout: string; stderr: string } {
   try {
     const stdout = execFileSync(process.execPath, [guardCliPath, ...args], {
+      cwd,
       input: JSON.stringify(payload),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -131,6 +137,60 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
       const parsed = JSON.parse(res.stdout);
       expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
       expect(parsed.hookSpecificOutput.additionalContext).toContain("git config --worktree user.email");
+    });
+
+    it("GIVEN GH007 sin email en salida WHEN corre guard-cli THEN inyecta el email de project.json", () => {
+      const payload = {
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        tool_input: {
+          command: "git push origin main",
+        },
+        tool_response: {
+          stdout: "",
+          stderr: "remote: error: GH007: Your push would publish a private email address.",
+          exit_code: 1,
+        },
+      };
+
+      const res = runGuardCli(payload);
+      expect(res.code).toBe(0);
+
+      const parsed = JSON.parse(res.stdout);
+      expect(parsed).toHaveProperty("hookSpecificOutput");
+      expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+      expect(parsed.hookSpecificOutput.additionalContext).toContain("git config --worktree user.email 356475546+AgentsMultica@users.noreply.github.com");
+    });
+
+    it("GIVEN GH007 sin email y sin configuración WHEN corre guard-cli THEN el aviso no contiene Fresias y explica cómo configurar bot_noreply_email", () => {
+      const tempDir = mkdtempSync(path.join(tmpdir(), "guard-cli-empty-"));
+      try {
+        mkdirSync(path.join(tempDir, ".git"));
+        const payload = {
+          hook_event_name: "PostToolUse",
+          tool_name: "Bash",
+          tool_input: {
+            command: "git push origin main",
+          },
+          tool_response: {
+            stdout: "",
+            stderr: "remote: error: GH007: Your push would publish a private email address.",
+            exit_code: 1,
+          },
+        };
+
+        const res = runGuardCli(payload, [], tempDir);
+        expect(res.code).toBe(0);
+
+        const parsed = JSON.parse(res.stdout);
+        expect(parsed).toHaveProperty("hookSpecificOutput");
+        expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+        expect(parsed.hookSpecificOutput.additionalContext).not.toContain("6156087+Fresias");
+        expect(parsed.hookSpecificOutput.additionalContext).toContain("bot_noreply_email");
+        expect(parsed.hookSpecificOutput.additionalContext).toContain("harness/project.json");
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
     });
   });
 
