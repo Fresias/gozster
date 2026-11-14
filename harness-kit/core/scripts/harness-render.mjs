@@ -627,6 +627,26 @@ for (const sub of collectSubagents()) {
   }
 }
 
+// 3c. Reglas específicas por runtime si su contrato lo declara.
+// Fuente: core/runtimes/<runtime>.rules.md -> <rulesDir>/harness-<runtime>.md
+for (const runtime of runtimes) {
+  const contractPath = path.join(kitDir, "core", "runtimes", `${runtime}.json`);
+  if (!existsSync(contractPath)) continue;
+  const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+  const rulesDir =
+    contract.rules?.dir ??
+    (Array.isArray(contract.rules?.files)
+      ? contract.rules.files.find((f) => f.includes("/*"))?.replace(/\/\*\..*$/, "")
+      : undefined);
+  if (!rulesDir) continue;
+
+  const rulesSourcePath = path.join(kitDir, "core", "runtimes", `${runtime}.rules.md`);
+  if (!existsSync(rulesSourcePath)) continue;
+
+  const rulesContent = readFileSafe(rulesSourcePath);
+  generatedArtifacts.set(`${rulesDir}/harness-${runtime}.md`, rulesContent);
+}
+
 // 4. Generar harness.lock (idempotente: renderedAt es null)
 const lockArtifacts = {};
 const sortedKeys = Array.from(generatedArtifacts.keys()).sort();

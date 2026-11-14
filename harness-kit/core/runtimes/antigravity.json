@@ -42,7 +42,7 @@
     "frontmatter_optional": ["tools", "skills", "plugins", "rules", "agents", "hooks", "excludeDefaultComponents", "enable_mcp_tools"],
     "notes": "agent.json se ignora; nombres de agentes built-in reservados"
   },
-  "rules": { "files": ["AGENTS.md", "GEMINI.md", ".agents/rules/*.md"] },
+  "rules": { "dir": ".agents/rules", "files": ["AGENTS.md", "GEMINI.md", ".agents/rules/*.md"] },
   "sources": {
     "fixtures": "harness-kit/tests/fixtures/antigravity/*.json (live capture con agy 1.4.4)",
     "hooks": "agy 1.4.4 ~/.gemini/antigravity/builtin/skills/agy-customizations/docs/hooks.md",
