@@ -202,7 +202,8 @@ function main(argv) {
     try {
       const diff1 = execFileSync("git", ["diff", "--name-only", `${baseRef}...HEAD`], { cwd: root, encoding: "utf8" });
       const diff2 = execFileSync("git", ["diff", "--name-only", "HEAD"], { cwd: root, encoding: "utf8" });
-      diffFiles = [...new Set((diff1 + "\n" + diff2).split("\n").map((f) => f.trim()).filter(Boolean))];
+      const diff3 = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" });
+      diffFiles = [...new Set((diff1 + "\n" + diff2 + "\n" + diff3).split("\n").map((f) => f.trim()).filter(Boolean))];
     } catch {
       diffFiles = [];
     }
