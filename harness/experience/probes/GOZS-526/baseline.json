@@ -1,0 +1,30 @@
+{
+  "candidate_id": "baseline",
+  "probe_branch": "probe/baseline-mwgr5jbp",
+  "probe_cmd": "npx vitest run harness-kit/tests/harness-contrast.spec.ts",
+  "passed": false,
+  "exit_code": 1,
+  "duration_ms": 5071,
+  "tests": {
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) selecciona al candidato con menor duración cuando ambos son válidos y dentro de scope": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) aplica penalización severa por archivos fuera de scope en modo flexible": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) descalifica con hard reject cuando --strict-scope está activo y hay archivos fuera de scope": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) descalifica a cualquier candidato cuyo gate haya fallado (passed: false)": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) ejecuta el script vía CLI con --reports y flag --json": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN dos sondas con los mismos resultados de tests y duraciones de 3042 ms y 3154 ms WHEN corre el contraste THEN verdict: 'tie' y la lección no menciona milisegundos": "failed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN los mismos resultados de tests y duraciones de 3000 ms y 9000 ms WHEN corre el contraste THEN verdict: 'duration'": "failed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un candidato que hace fallar un test que pasaba en la baseline WHEN corre el contraste THEN queda descalificado con motivo regressed": "failed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un candidato que agrega un test que falla en origin/main y pasa con su cambio WHEN corre el contraste THEN veredicto es behavioral con fixed: 1": "failed"
+  },
+  "target_components": [],
+  "timestamp": "2026-11-14T18:41:58.442Z",
+  "stdout_preview": "\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.7 \u001b[39m\u001b[90mC:/Users/user/multica_workspaces_desktop-api.multica.ai/gozster-384912dcdd71/task-f75e87d4cb18/workdir/gozster\u001b[39m\n\n \u001b[31m❯\u001b[39m harness-kit/tests/harness-contrast.spec.ts \u001b[2m(\u001b[22m\u001b[2m9 tests\u001b[22m\u001b[2m | \u001b[22m\u001b[31m4 failed\u001b[39m\u001b[2m)\u001b[22m\u001b[32m 107\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m Harness²: harness-contrast (Validación Semántica Cruzada y Selección)\u001b[2m > \u001b[22mselecciona al candidato con menor duración cuando ambos son válidos y dentro de scope\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m Harness²: harness-contrast (Validación Semántica Cruzada y Selección)\u001b[2m > \u001b[22maplica penalización severa por archivos fuera de scope en modo flexible\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m Harness²: harness-contrast (Validación Semántica Cruzada y Selección)\u001b[2m > \u001b[22mdescalifica con hard reject cuando --strict-scope está activo y hay archivos fuera de scope\u001b[32m 1\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[32m✓\u001b[39m Harness²: harness-contrast (Validación Semántica Cruzada y Selecc",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-contrast.spec.ts --reporter=default --reporter=json --outputFile=C:\\Users\\user\\multica_workspaces_desktop-api.multica.ai\\gozster-384912dcdd71\\task-f75e87d4cb18\\workdir\\gozster\\.harness\\probes\\vitest-baseline-mwgr5kns.json\n\n\u001b[31m⎯⎯⎯⎯⎯⎯⎯\u001b[39m\u001b[1m\u001b[41m Failed Tests 4 \u001b[49m\u001b[22m\u001b[31m⎯⎯⎯⎯⎯⎯⎯\u001b[39m\n\n\u001b[41m\u001b[1m FAIL \u001b[22m\u001b[49m harness-kit/tests/harness-contrast.spec.ts\u001b[2m > \u001b[22mHarness²: harness-contrast (Validación Semántica Cruzada y Selección)\u001b[2m > \u001b[22mGIVEN dos sondas con los mismos resultados de tests y duraciones de 3042 ms y 3154 ms WHEN corre el contraste THEN verdict: 'tie' y la lección no menciona milisegundos\n\u001b[31m\u001b[1mAssertionError\u001b[22m: expected '1.0.0' to be '2.0.0' // Object.is equality\u001b[39m\n\nExpected: \u001b[32m\"\u001b[7m2\u001b[27m.0.0\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7m1\u001b[27m.0.0\"\u001b[39m\n\n\u001b[36m \u001b[2m❯\u001b[22m harness-kit/tests/harness-contrast.spec.ts:\u001b[2m167:37\u001b[22m\u001b[39m\n    \u001b[90m165| \u001b[39m\n    \u001b[90m166| \u001b[39m    \u001b[35",
+  "files_touched": [],
+  "in_scope_files": [],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
