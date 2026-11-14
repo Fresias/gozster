@@ -776,7 +776,7 @@ function evaluateWrite(call, repoRoot) {
 }
 
 /** Find noreply email for GH007 command injection. */
-function resolveNoreplyEmail(output, repoRoot) {
+export function resolveNoreplyEmail(output, repoRoot) {
   const emailRegex = /([0-9]+\+[\w.-]+@users\.noreply\.github\.com|[a-zA-Z0-9_.+-]+@users\.noreply\.github\.com)/;
   const match = String(output || "").match(emailRegex);
   if (match) return match[1];
@@ -785,6 +785,16 @@ function resolveNoreplyEmail(output, repoRoot) {
   if (envEmail) return envEmail;
 
   if (repoRoot) {
+    const projectPath = path.join(repoRoot, "harness", "project.json");
+    if (existsSync(projectPath)) {
+      try {
+        const proj = JSON.parse(readFileSync(projectPath, "utf8"));
+        if (proj && typeof proj.bot_noreply_email === "string" && proj.bot_noreply_email.trim()) {
+          return proj.bot_noreply_email.trim();
+        }
+      } catch {}
+    }
+
     const memoryPath = path.join(repoRoot, "harness", "LongTermMEMORY.md");
     if (existsSync(memoryPath)) {
       try {
@@ -795,7 +805,7 @@ function resolveNoreplyEmail(output, repoRoot) {
     }
   }
 
-  return "6156087+Fresias@users.noreply.github.com";
+  return null;
 }
 
 /**
@@ -812,11 +822,14 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
       .some((seg) => /(^|[^\w-])git(\s+-C\s+\S+)?\s+push\b/i.test(seg));
     if (pushes && /GH007/i.test(output)) {
       const email = resolveNoreplyEmail(output, repoRoot);
+      const instruction = email
+        ? `git config --worktree user.email ${email}`
+        : `set "bot_noreply_email" in harness/project.json or run: git config --worktree user.email <noreply-email>`;
       return {
         allowed: true,
         inject: true,
         ruleId: "git.gh007-noreply",
-        context: `GitHub Push Protection (GH007) violation detected. Configure your noreply email: git config --worktree user.email ${email}`,
+        context: `GitHub Push Protection (GH007) violation detected. Configure your noreply email: ${instruction}`,
       };
     }
   }

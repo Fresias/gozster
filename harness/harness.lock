@@ -27,7 +27,7 @@
     ".opencode/agents/schema-inspector.md": "sha256:e10eac7d8a59ad1221c4ba34d9dfa6b3a1254d7adf73b8f713ad614611414f3a",
     ".opencode/agents/trace-auditor.md": "sha256:43645e4579b0a24c8d2f33f0338a37f5425451158e5843b7f8ad17fcd64abe3f",
     ".opencode/plugins/harness-guard.ts": "sha256:67e51bc417743183b42513872eaa122094027d7d96e0fe256c1cdca5de8df182",
-    "AGENTS.md": "sha256:a68ddad4d7aaebc62853c3d739e220485e07fbb4ddc6fe90ec6a8baa48223688",
+    "AGENTS.md": "sha256:940992510e3848c0ac2ccbf875d65a328f40a2052ff1999a5cae4217efa3c92f",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }
 }

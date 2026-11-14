@@ -9,8 +9,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ## Governance & Roles
 - Squad: @backend-eng, @frontend-eng, @qa-eng. Ramas `feature/<issue-#>-slug` o `fix/<issue-#>-slug`. Commits convencionales.
-- Merge a main: solo @PM-GOZster tras CI en verde y APPROVED de @qa-eng.
-- Review: @qa-eng aplica el protocolo de 6 niveles (`review-selection.md`) en cada PR.
+- PR y commits como AgentsMultica (nunca como una persona) → review @qa-eng en Multica (`review-selection.md`) → approve @Fresias en GitHub → merge con checks verdes.
 
 # Core Guardrails (Invariants)
 

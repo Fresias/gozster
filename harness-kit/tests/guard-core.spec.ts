@@ -345,6 +345,54 @@ describe("GOZS-514: sin falsos positivos en lecturas del harness, GH007 y heredo
     expect(res.context).toContain("1+u@users.noreply.github.com");
   });
 
+  it("GIVEN GH007 sin email y bot_noreply_email en project.json WHEN post-hook THEN inyecta el email configurado", () => {
+    const customRepo = mkdtempSync(path.join(tmpdir(), "guard-proj-"));
+    try {
+      const harnessDir = path.join(customRepo, "harness");
+      mkdirSync(harnessDir, { recursive: true });
+      writeFileSync(
+        path.join(harnessDir, "project.json"),
+        JSON.stringify({ name: "demo", bot_noreply_email: "custom-bot@users.noreply.github.com" })
+      );
+      const res = evaluateRules(
+        {
+          phase: "post",
+          kind: "shell",
+          command: "git push origin main",
+          output: "remote: error: GH007: Your push would publish a private email address.",
+        },
+        { repoRoot: customRepo }
+      );
+      expect(res.ruleId).toBe("git.gh007-noreply");
+      expect(res.inject).toBe(true);
+      expect(res.context).toContain("custom-bot@users.noreply.github.com");
+    } finally {
+      rmSync(customRepo, { recursive: true, force: true });
+    }
+  });
+
+  it("GIVEN GH007 sin email y sin configuración WHEN post-hook THEN no contiene Fresias y explica cómo configurar bot_noreply_email", () => {
+    const emptyRepo = mkdtempSync(path.join(tmpdir(), "guard-empty-"));
+    try {
+      const res = evaluateRules(
+        {
+          phase: "post",
+          kind: "shell",
+          command: "git push origin main",
+          output: "remote: error: GH007: Your push would publish a private email address.",
+        },
+        { repoRoot: emptyRepo }
+      );
+      expect(res.ruleId).toBe("git.gh007-noreply");
+      expect(res.inject).toBe(true);
+      expect(res.context).not.toContain("6156087+Fresias");
+      expect(res.context).toContain("bot_noreply_email");
+      expect(res.context).toContain("harness/project.json");
+    } finally {
+      rmSync(emptyRepo, { recursive: true, force: true });
+    }
+  });
+
   it("GIVEN heredoc que escribe un .md mencionando archivos de entorno WHEN guard THEN permite", () => {
     const command = "cat > notes.md <<'EOF'\nNunca leer .env ni .env.local; cat .env está bloqueado.\nEOF";
     expect(shell(command).allowed).toBe(true);
