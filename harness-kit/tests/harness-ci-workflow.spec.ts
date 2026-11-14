@@ -95,6 +95,13 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(content).toMatch(/run:\s*npm\s+run\s+build/);
     });
 
+    it("GIVEN ci.yml THEN el job principal ejecuta qa-harness-audit con --debt-mode warn y existe un job separado de deuda para push a main", () => {
+      const content = readFileSync(ciWorkflowPath, "utf8");
+      expect(content).toMatch(/node scripts\/qa-harness-audit\.mjs --debt-mode warn/);
+      expect(content).toMatch(/name:\s*Harness² lesson debt/);
+      expect(content).toMatch(/node scripts\/qa-harness-audit\.mjs --debt-mode error/);
+    });
+
     it("GIVEN workflows de GitHub THEN ningún uses apunta a @v4 de checkout o setup-node", () => {
       const ciContent = readFileSync(ciWorkflowPath, "utf8");
       const mergeContent = readFileSync(mergeCheckWorkflowPath, "utf8");
