@@ -135,18 +135,22 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(l0.metrics.before.totalSessions).toBe(45);
     });
 
-    it("GIVEN LEDGER.json WHEN se lee L-001 THEN tiene metrics.before con byRuntime y window.after con fechas", () => {
+    it("GIVEN LEDGER.json WHEN se lee L-001 en etapa A THEN status = 'blocked', metrics.before = null, existen synthetic_before, caveat y start_condition", () => {
       const ledgerPath = path.resolve(here, "..", "..", "docs", "harness-library", "LEDGER.json");
       const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
       const l1 = ledger.entries.find((e: { id: string }) => e.id === "L-001");
       expect(l1).toBeDefined();
-      expect(l1.metrics.before.byRuntime).toBeDefined();
-      expect(l1.metrics.before.byRuntime["claude-code"]).toBeDefined();
-      expect(l1.metrics.before.byRuntime["antigravity"]).toBeDefined();
-      expect(typeof l1.window.after.start).toBe("string");
-      expect(typeof l1.window.after.end).toBe("string");
-      expect(l1.window.after.start).not.toBeNull();
-      expect(l1.window.after.end).not.toBeNull();
+      expect(l1.status).toBe("blocked");
+      expect(l1.metrics.before).toBeNull();
+      expect(l1.metrics.synthetic_before).toBeDefined();
+      expect(l1.metrics.synthetic_before.byRuntime["claude-code"]).toBeDefined();
+      expect(l1.metrics.synthetic_before.byRuntime["antigravity"]).toBeDefined();
+      expect(l1.window.before).toBeNull();
+      expect(l1.window.after).toBeNull();
+      expect(typeof l1.caveat).toBe("string");
+      expect(l1.caveat).toContain("línea base sintética");
+      expect(typeof l1.start_condition).toBe("string");
+      expect(l1.start_condition).toContain("7 días corridos de telemetría real");
     });
   });
 

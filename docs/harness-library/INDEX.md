@@ -66,4 +66,4 @@ node harness-kit/core/scripts/harness-telemetry.mjs ruta/al/events.jsonl --json
 
 - [`LEDGER.json`](./LEDGER.json) — el ledger versionado.
 - [`EXPERIENCE-L-000.md`](./EXPERIENCE-L-000.md) — línea base del harness (`completed`).
-- [`EXPERIENCE-L-001.md`](./EXPERIENCE-L-001.md) — evaluación post-hardening del guard políglota (`in_progress`).
+- [`EXPERIENCE-L-001.md`](./EXPERIENCE-L-001.md) — evaluación post-hardening del guard políglota (`blocked`).

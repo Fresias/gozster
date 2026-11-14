@@ -80,22 +80,18 @@
     {
       "id": "L-001",
       "title": "Evaluación post-hardening del guard políglota y reducción de fricción",
-      "status": "in_progress",
+      "status": "blocked",
       "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov",
+      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde 2026-11-13T22:12:41Z (13-nov-2026)",
       "experience": "EXPERIENCE-L-001.md",
       "window": {
         "durationDays": 14,
-        "before": {
-          "start": "2026-11-13T22:13:30Z",
-          "end": "2026-11-13T22:23:55Z"
-        },
-        "after": {
-          "start": "2026-11-14T00:00:00Z",
-          "end": "2026-11-28T00:00:00Z"
-        }
+        "before": null,
+        "after": null
       },
       "metrics": {
-        "before": {
+        "synthetic_before": {
           "totalEvents": 101,
           "totalSessions": 1,
           "byRuntime": {
@@ -155,6 +151,7 @@
           },
           "repeatedBlockSessions": []
         },
+        "before": null,
         "after": {
           "totalEvents": null,
           "totalSessions": null,
@@ -164,7 +161,7 @@
           "repeatedBlockSessions": null
         }
       },
-      "notes": "Línea base limpia capturada tras el despliegue del hardening (GOZS-513 a GOZS-518) usando el git common dir y aislamiento de telemetría de tests."
+      "notes": "Línea base sintética inicial anulada en auditoría técnica del 14-nov. Experimento bloqueado hasta acumular 7 días de telemetría real en DESKTOP-S4P202B (Etapa B)."
     }
   ]
 }
