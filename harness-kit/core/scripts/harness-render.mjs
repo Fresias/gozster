@@ -207,34 +207,21 @@ for (const line of memory?.split("\n") ?? []) {
   }
 }
 
-// Criterio B: valida si una lección cuenta con evidencia verificada (métricas, delta, PPC o contraste)
-export function hasLessonEvidence(entry) {
-  if (!entry || typeof entry !== "object") return false;
-  if (entry.evidence === true) return true;
-  if (entry.evidence && typeof entry.evidence === "object" && Object.keys(entry.evidence).length > 0) return true;
-  if (entry.metrics && entry.metrics.before !== undefined && entry.metrics.before !== null &&
-      entry.metrics.after !== undefined && entry.metrics.after !== null) {
-    return true;
-  }
-  if (entry.delta !== undefined && entry.delta !== null && entry.delta !== "") {
-    return true;
-  }
-  if (entry.delta_verified === true || entry.delta_verificado === true) {
-    return true;
-  }
-  if (entry.probe_result === "success") {
-    return true;
-  }
-  if (entry.ppc && (entry.ppc.winner_id || entry.ppc.probe_passed || entry.ppc.candidates > 1 || entry.ppc.delta !== undefined)) {
-    return true;
-  }
-  if (typeof entry.lesson === "string" && /(duration(_ms)?|blocks|tool_calls|score|out_of_scope|friction)/i.test(entry.lesson) && /(vs\s+[a-z0-9_-]+|[-+]\d+|delta)/i.test(entry.lesson)) {
-    return true;
-  }
+/**
+ * Detecta lecciones generadas automáticamente por harness-compose (sin valor formativo en AGENTS.md).
+ * Una lección automática empieza con "Candidate " o contiene "resolved task in \d+ms".
+ * Un registro PPC por sí solo no es evidencia del valor de una lección.
+ */
+export function isAutomaticLesson(entry) {
+  if (!entry || typeof entry !== "object") return true;
+  const lesson = typeof entry.lesson === "string" ? entry.lesson.trim() : "";
+  if (!lesson) return true;
+  if (/^Candidate\s+/i.test(lesson)) return true;
+  if (/resolved task in \d+ms/i.test(lesson)) return true;
   return false;
 }
 
-// C3b: Experience Library (Harness² JSONL con filtrado por scope)
+// C3b: Experience Library (Opción A: solo lecciones fijadas manualmente con pinned: true)
 const expLibPath = path.join(overlayDir, "experience_library.jsonl");
 let expLibSection = null;
 if (existsSync(expLibPath)) {
@@ -271,57 +258,17 @@ if (existsSync(expLibPath)) {
       }
     }
 
-    const pinned = validLessons.filter((l) => l.pinned === true);
-    let selectedRecent = [];
+    let pinned = validLessons.filter((l) => l.pinned === true && !isAutomaticLesson(l));
     if (activeScope.length > 0) {
-      const scored = validLessons.map((l) => {
+      pinned = pinned.filter((l) => {
         const lTags = Array.isArray(l.tags) ? l.tags.map((t) => t.toLowerCase()) : [];
         const taskText = `${l.task || ""} ${l.lesson || ""}`.toLowerCase();
-        let matches = 0;
-        for (const s of activeScope) {
-          if (lTags.includes(s) || taskText.includes(s)) matches++;
-        }
-        return { lesson: l, matches };
+        return activeScope.some((s) => lTags.includes(s) || taskText.includes(s));
       });
-      const matching = scored
-        .filter((s) => s.matches > 0)
-        .sort((a, b) => b.matches - a.matches)
-        .map((s) => s.lesson);
-      if (matching.length > 0) selectedRecent = matching.slice(-3);
     }
 
-    if (selectedRecent.length === 0) {
-      // Criterio B: N=3 lecciones más recientes con evidencia (metrics.before/after, delta, ppc o contrast)
-      const withEvidence = validLessons.filter((l) => hasLessonEvidence(l));
-      const sortedEvidence = withEvidence.slice().sort((a, b) => {
-        if (a.timestamp && b.timestamp) {
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-        }
-        return 0;
-      });
-      selectedRecent = sortedEvidence.slice(-3);
-    }
-
-    const combined = [];
-    const seen = new Set();
-    for (const p of pinned) {
-      const key = p.id || `${p.task}:${p.lesson}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        combined.push(p);
-      }
-    }
-    for (const r of selectedRecent) {
-      const key = r.id || `${r.task}:${r.lesson}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        combined.push(r);
-      }
-    }
-    const selected = combined;
-
-    if (selected.length > 0) {
-      const lines = selected.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
+    if (pinned.length > 0) {
+      const lines = pinned.map((e) => `- [lesson ${e.timestamp ? e.timestamp.slice(0, 10) : "verified"} | task: ${e.task}] ${e.lesson}`);
       expLibSection = `### Experience Library (Harness²)\n\n${lines.join("\n")}`;
     }
   }

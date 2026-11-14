@@ -64,12 +64,6 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 - [verified 2026-11-09 | src: PPC] Rutas de memoria son escribibles y rechazan .. y %2e.
 
-### Experience Library (Harness²)
-
-- [lesson 2026-11-11 | task: GOZS-466] Candidate c1-tool-guidance-review on tool_guidance resolved task in 85290ms
-- [lesson 2026-11-11 | task: GOZS-489] Candidate c1-tool-guidance-review on tool_guidance resolved task in 535ms
-- [lesson 2026-11-12 | task: GOZS-507] Candidate c1-tool-guidance-dedupe on tool_guidance resolved task in 99279ms
-
 # Tool Guidance & Execution Rules
 
 ## File Exploration & Editing
