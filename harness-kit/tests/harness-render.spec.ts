@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -147,6 +147,72 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(typeof l1.window.after.end).toBe("string");
       expect(l1.window.after.start).not.toBeNull();
       expect(l1.window.after.end).not.toBeNull();
+    });
+  });
+
+  describe("Criterio: Reglas específicas de runtime (antigravity.rules.md)", () => {
+    it("GIVEN antigravity en runtimes WHEN corre harness-render.mjs THEN existe .agents/rules/harness-antigravity.md con el contenido de core/runtimes/antigravity.rules.md y figura en harness.lock", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["antigravity"], gate: "npm test" });
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const generatedRulePath = path.join(dir, ".agents", "rules", "harness-antigravity.md");
+      expect(existsSync(generatedRulePath)).toBe(true);
+
+      const expectedContent = readFileSync(path.resolve(here, "..", "core", "runtimes", "antigravity.rules.md"), "utf8");
+      expect(readFileSync(generatedRulePath, "utf8")).toBe(expectedContent);
+
+      const lockPath = path.join(dir, "harness.lock");
+      const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+      expect(lock.artifacts[".agents/rules/harness-antigravity.md"]).toBeDefined();
+    });
+
+    it("GIVEN antigravity fuera de runtimes WHEN corre harness-render.mjs THEN ese archivo no se genera", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      const { code } = runRender(dir);
+      expect(code).toBe(0);
+
+      const generatedRulePath = path.join(dir, ".agents", "rules", "harness-antigravity.md");
+      expect(existsSync(generatedRulePath)).toBe(false);
+
+      const lockPath = path.join(dir, "harness.lock");
+      const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+      expect(lock.artifacts[".agents/rules/harness-antigravity.md"]).toBeUndefined();
+    });
+
+    it("GIVEN un cambio manual en .agents/rules/harness-antigravity.md WHEN corre harness-render.mjs --check THEN reporta drift", () => {
+      const dir = makeOverlay({ name: "demo", runtimes: ["antigravity"], gate: "npm test" });
+      const { code: renderCode } = runRender(dir);
+      expect(renderCode).toBe(0);
+
+      const generatedRulePath = path.join(dir, ".agents", "rules", "harness-antigravity.md");
+      writeFileSync(generatedRulePath, "cambio manual no autorizado\n");
+
+      try {
+        execFileSync(process.execPath, [renderPath, "--check", dir], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        expect.fail("debió fallar por drift");
+      } catch (err) {
+        const e = err as { status?: number; stderr?: string };
+        expect(e.status).toBe(1);
+        expect(e.stderr).toContain("drift detected");
+        expect(e.stderr).toContain(".agents/rules/harness-antigravity.md");
+      }
+    });
+
+    it("GIVEN el render WHEN se mide AGENTS.md THEN su contenido y tamaño no cambian con la adición de reglas de runtime", () => {
+      const dirWithout = makeOverlay({ name: "demo", runtimes: ["claude-code"], gate: "npm test" });
+      runRender(dirWithout);
+      const agentsWithout = readFileSync(path.join(dirWithout, "AGENTS.md"), "utf8");
+
+      const dirWith = makeOverlay({ name: "demo", runtimes: ["claude-code", "antigravity"], gate: "npm test" });
+      runRender(dirWith);
+      const agentsWith = readFileSync(path.join(dirWith, "AGENTS.md"), "utf8");
+
+      expect(agentsWith).toBe(agentsWithout);
+      expect(Buffer.byteLength(agentsWith, "utf8")).toBeLessThanOrEqual(8000);
     });
   });
 });
