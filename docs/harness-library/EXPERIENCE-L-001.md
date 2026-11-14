@@ -1,14 +1,29 @@
 # L-001 — Evaluación post-hardening del guard políglota y reducción de fricción
 
-- **Estado:** `in_progress`
-- **Ventana previa (`window.before`):** `2026-11-13T22:13:30Z` → `2026-11-13T22:23:55Z` (101 eventos limpios en git common dir).
-- **Ventana posterior (`window.after`):** `2026-11-14T00:00:00Z` → `2026-11-28T00:00:00Z` (14 días).
+- **Estado:** `blocked`
+- **Ventana previa (`window.before`):** `null` (anulada en auditoría técnica del 14-nov).
+- **Ventana posterior (`window.after`):** `null` (pendiente de cumplimiento de la condición de inicio).
+- **Condición de inicio (`start_condition`):** 7 días corridos de telemetría real en DESKTOP-S4P202B desde 2026-11-13T22:12:41Z (13-nov-2026).
 - **Fuente:** `<git common dir>/harness/telemetry/events.jsonl`
 - **Agregador:** `harness-kit/core/scripts/harness-telemetry.mjs`
 
 ## Hipótesis
 
 El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.
+
+## Línea Base Anulada (Auditoría del 14-nov)
+
+La línea base inicial registrada en GOZS-519 (#478) fue formalmente **anulada** tras la auditoría técnica por no cumplir la condición acordada de 7 días de uso real:
+- **Ventana sintética insuficiente:** `2026-11-13T22:13:30Z → 2026-11-13T22:23:55Z` (duración real de solo **10 minutos**).
+- **Sesiones no representativas:** 101 eventos en una única sesión sintética por runtime en entorno de prueba controlado. Se incluyeron runtimes como `opencode` y `gemini-cli`, que no corresponden al stack productivo en este proyecto (Gemini opera a través del runtime Antigravity).
+- **Trazabilidad histórica:** Las métricas sintéticas se trasladaron a `metrics.synthetic_before` en `LEDGER.json` para no perder la evidencia histórica, dejando `metrics.before` en `null`.
+
+## Condición de Inicio (Etapa B)
+
+Para desbloquear el experimento L-001 y ejecutar la Etapa B, deberán verificarse las siguientes condiciones en el entorno de desarrollo:
+1. **7 días corridos de telemetría real** en `DESKTOP-S4P202B` transcurridos desde `2026-11-13T22:12:41Z` (momento en que `install.mjs --check` reportó `installed` para `claude-code` y `antigravity`).
+2. Al menos 5 sesiones reales completas registradas en `metrics.before.byRuntime`.
+3. Runtimes justificados exclusivamente en uso productivo real (`antigravity` y `claude-code`). Cualquier sesión de otro runtime debe contar con justificación explícita de origen o ser excluida con criterio documentado.
 
 ## Método
 
@@ -20,9 +35,11 @@ El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivo
 6. **Selección por contraste y evidencia:** Evaluación de mutaciones por matriz de contraste con candidatos explícitos (GOZS-517).
 7. **Plantillas agnósticas de sub-issues y subagentes:** Estandarización de contratos operativos y reglas anti-token-waste (GOZS-518).
 
-## Resultados de Línea Base Limpia (`metrics.before`)
+## Métricas Sintéticas Previas (`metrics.synthetic_before`)
 
-### 1. Volumen y Distribución por Runtime (`[RUNTIME]`)
+Preservadas con fines de auditoría histórica:
+
+### 1. Volumen y Distribución por Runtime
 - **Total de eventos:** `101`
 - **Desglose por runtime:**
   - `antigravity`: `89` eventos (1 sesión, 6 bloqueos legítimos/seguridad)
@@ -30,12 +47,12 @@ El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivo
   - `opencode`: `5` eventos (1 sesión, 2 bloqueos)
   - `gemini-cli`: `3` eventos (1 sesión, 0 bloqueos)
 
-### 2. Tool Calls por Categoría (`[ACTION]`)
+### 2. Tool Calls por Categoría
 - `shell`: `50`
 - `read`: `34`
 - `write`: `7`
 
-### 3. Bloqueos e Inyecciones (`[OBSERVATION]`)
+### 3. Bloqueos e Inyecciones
 - **Bloqueos (`decision="block"`):**
   - `harness.agents-render`: `2`
   - `db.append-only`: `1`
@@ -51,10 +68,11 @@ El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivo
   - `remediate.oversize-output`: `1`
 
 ### 4. Time-To-First-Edit (`TTFE`)
-- **Mediana / p90:** `406.715 ms` (línea base inicial bajo entorno de test controlado)
+- **Mediana / p90:** `406.715 ms` (línea base sintética bajo entorno de test controlado)
 - **Sesiones con bloqueos repetidos:** `0`
 
-## Próximos Pasos
+## Próximos Pasos (Etapa B)
 
-- Monitoreo continuo a través de `node harness-kit/core/scripts/harness-telemetry.mjs`.
-- Cierre y consolidación de `metrics.after` al cumplirse la ventana `window.after` (`2026-11-28`).
+- Aguardar el cumplimiento de la condición de inicio (7 días de telemetría real acumulada desde el 13-nov-2026, cumpliéndose el 20-nov-2026).
+- Ejecutar `node harness-kit/core/scripts/harness-telemetry.mjs --json` sobre la telemetría del git common dir en `DESKTOP-S4P202B`.
+- Consolidar `metrics.before`, definir la ventana posterior de 7 a 14 días (`window.after`) y pasar el estado de L-001 a `in_progress`.
