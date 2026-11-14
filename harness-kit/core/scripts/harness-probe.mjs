@@ -9,6 +9,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { redactSecrets, sanitizePreview } from "../guard/telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..", "..");
@@ -301,7 +302,7 @@ export function runProbe(opts) {
       probeResult = {
         candidate_id: candidateId,
         probe_branch: probeBranch,
-        probe_cmd: probeCmd,
+        probe_cmd: redactSecrets(probeCmd),
         passed: false,
         exit_code: 1,
         duration_ms: 0,
@@ -309,7 +310,7 @@ export function runProbe(opts) {
         target_components: candidate.mutations.map((m) => m.target_component || m.file || "harness"),
         timestamp: new Date().toISOString(),
         stdout_preview: "",
-        stderr_preview: `harness-render failed: ${renderError}`,
+        stderr_preview: sanitizePreview(`harness-render failed: ${renderError}`, repoDir).slice(0, 1000),
         files_touched: [],
         in_scope_files: [],
         out_of_scope_files: [],
@@ -454,17 +455,17 @@ export function runProbe(opts) {
       probeResult = {
         candidate_id: candidateId,
         probe_branch: probeBranch,
-        probe_cmd: probeCmd,
+        probe_cmd: redactSecrets(probeCmd),
         passed,
         exit_code: exitCode,
         duration_ms: durationMs,
         tests,
         target_components: candidate.mutations.map((m) => m.target_component || m.file || "harness"),
         timestamp: new Date().toISOString(),
-        stdout_preview: stdout.slice(0, 1000),
+        stdout_preview: sanitizePreview(stdout, repoDir).slice(0, 1000),
         stderr_preview: strictViolation
           ? `[DISQUALIFIED] Strict scope violation: modified ${outOfScopeFiles.join(", ")}`
-          : stderr.slice(0, 1000),
+          : sanitizePreview(stderr, repoDir).slice(0, 1000),
         files_touched: filesTouched,
         in_scope_files: inScopeFiles,
         out_of_scope_files: outOfScopeFiles,

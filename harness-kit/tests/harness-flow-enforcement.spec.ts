@@ -398,6 +398,66 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     }
   });
 
+  it("GIVEN los registros PPC ya mergeados (GOZS-522 y GOZS-526) WHEN se evalúan con el merge-check THEN siguen pasando la validación sin errores", () => {
+    const baseDir = path.resolve(here, "..", "..");
+
+    // 1. Verificación GOZS-522 (contraste 1.0.0)
+    const expFile522 = path.join(baseDir, "harness", "experience", "GOZS-522.jsonl");
+    const baseline522 = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "baseline.json");
+    const c1522 = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "c1-guard-bot-noreply.json");
+    const lessonText522 = readFileSync(expFile522, "utf8");
+    const probeReports522 = [
+      JSON.parse(readFileSync(baseline522, "utf8")),
+      JSON.parse(readFileSync(c1522, "utf8")),
+    ];
+    const pr522 = {
+      headRefName: "chore/522-harness-identity-governance-v2",
+      headRefOid: "fakehead1234567",
+      body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead1234567", worktree_clean: true, gate: project.gate })} -->`,
+      files: [
+        { path: "harness/project.json" },
+        { path: "harness/experience/GOZS-522.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res522 = evaluateMerge({
+      pr: pr522,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: lessonText522,
+      probeReports: probeReports522,
+    });
+    expect(res522.errors).toHaveLength(0);
+    expect(res522.mergeable).toBe(true);
+
+    // 2. Verificación GOZS-526 (contraste 2.0.0)
+    const expFile526 = path.join(baseDir, "harness", "experience", "GOZS-526.jsonl");
+    const baseline526 = path.join(baseDir, "harness", "experience", "probes", "GOZS-526", "baseline.json");
+    const c1526 = path.join(baseDir, "harness", "experience", "probes", "GOZS-526", "c1-harness-contrast-v2.json");
+    const lessonText526 = readFileSync(expFile526, "utf8");
+    const probeReports526 = [
+      JSON.parse(readFileSync(baseline526, "utf8")),
+      JSON.parse(readFileSync(c1526, "utf8")),
+    ];
+    const pr526 = {
+      headRefName: "chore/526-harness-contrast-behavioral",
+      headRefOid: "fakehead7654321",
+      body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead7654321", worktree_clean: true, gate: project.gate })} -->`,
+      files: [
+        { path: "harness/guardrails.md" },
+        { path: "harness/experience/GOZS-526.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+    const res526 = evaluateMerge({
+      pr: pr526,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: lessonText526,
+      probeReports: probeReports526,
+    });
+    expect(res526.errors).toHaveLength(0);
+    expect(res526.mergeable).toBe(true);
+  });
+
   it("GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican", () => {
     const pr = {
       ...base,

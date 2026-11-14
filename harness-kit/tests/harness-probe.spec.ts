@@ -367,4 +367,79 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       expect(res[0].candidate_id).toBe("baseline");
     });
   });
+
+  describe("GOZS-530: sanitización y redacción de salidas en reportes de sonda", () => {
+    it("redacta tokens, credenciales y limpia ANSI y rutas locales en reportes generados en disco", () => {
+      const repo = setupTestRepo();
+
+      const fakePat = "github_pat_FAKE1122334455667788_abcdef1234567890";
+      const fakeGhp = "ghp_FAKECLASSICPAT12345678901234567890";
+      const fakeSecret = "secretPass123";
+      const fakeUrl = `https://user:${fakeSecret}@github.com/repo`;
+
+      const candidate = {
+        candidate_id: "cand-redact-test",
+        mutations: [
+          {
+            file: "harness/tool_guidance.local.md",
+            action: "append",
+            content: "- guideline for test.",
+          },
+        ],
+      };
+
+      // Probe cmd that emits ANSI color codes, fake tokens, URL credentials, and local paths, then fails
+      const probeCmd = `node -e "console.log('\\x1b[32m[PASS]\\x1b[39m ${fakePat} on ${repo.replace(/\\/g, "/")}'); console.error('\\x1b[31m[FAIL]\\x1b[39m AssertionError in ${repo.replace(/\\/g, "/")}/test.ts: ${fakeGhp} url ${fakeUrl}'); process.exit(1);"`;
+
+      const reportPath = path.join(repo, ".harness", "probes", "probe-cand-redact-test.json");
+
+      try {
+        execFileSync(
+          process.execPath,
+          [
+            probeScript,
+            "--workdir",
+            repo,
+            "--candidate",
+            JSON.stringify(candidate),
+            "--probe-cmd",
+            probeCmd,
+            "--report",
+            reportPath,
+            "--json",
+          ],
+          { encoding: "utf8" },
+        );
+      } catch {
+        // probe fails with exit code 1 as expected
+      }
+
+      // Verify the report was written to disk
+      expect(existsSync(reportPath)).toBe(true);
+      const reportRaw = readFileSync(reportPath, "utf8");
+      const reports = JSON.parse(reportRaw);
+      const targetReport = Array.isArray(reports)
+        ? reports.find((r: any) => r.candidate_id === "cand-redact-test")
+        : reports;
+
+      // Verify none of the raw tokens/credentials exist anywhere in the written file
+      expect(reportRaw).not.toContain(fakePat);
+      expect(reportRaw).not.toContain(fakeGhp);
+      expect(reportRaw).not.toContain(fakeSecret);
+      expect(reportRaw).not.toContain("user:secretPass123");
+
+      // Verify ANSI codes are removed
+      expect(reportRaw).not.toContain("\u001b[31m");
+      expect(reportRaw).not.toContain("\u001b[32m");
+      expect(reportRaw).not.toContain("\u001b[39m");
+
+      // Verify local path is masked with [repo]
+      expect(targetReport.stdout_preview).toContain("[repo]");
+      expect(targetReport.stderr_preview).toContain("[repo]");
+
+      // Verify diagnostic error and test info remain visible
+      expect(targetReport.stderr_preview).toContain("AssertionError");
+      expect(targetReport.stderr_preview).toContain("test.ts");
+    });
+  });
 });

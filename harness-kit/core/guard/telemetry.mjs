@@ -14,6 +14,73 @@ import path from "node:path";
 const CMD_MAX = 120;
 
 /**
+ * Strips ANSI escape sequences (colors, styles, cursor codes) from text.
+ * @param {string} raw
+ * @returns {string}
+ */
+export function stripAnsi(raw) {
+  return String(raw || "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "");
+}
+
+/**
+ * Redact secrets from text:
+ * - OpenAI-style keys: sk-...
+ * - JWT / Supabase keys: eyJ...
+ * - GitHub classic and fine-grained tokens: gh[pousr]_... and github_pat_...
+ * - URL credentials: ://user:secret@host -> ://[REDACTED]@host
+ * - Authorization headers: Authorization: (token|Bearer|Basic) <value> -> Authorization: <type> [REDACTED]
+ * @param {string} raw
+ * @returns {string}
+ */
+export function redactSecrets(raw) {
+  let s = String(raw || "");
+  // URL credentials: ://usuario:secreto@ -> ://[REDACTED]@
+  s = s.replace(/:\/\/[^/\s:@]+:[^/\s@]+@/g, "://[REDACTED]@");
+  // Authorization headers: Authorization: (token|Bearer|Basic) <valor> -> Authorization: <tipo> [REDACTED]
+  s = s.replace(/(Authorization:\s*(?:token|Bearer|Basic))\s+[^\s"'\\]+/gi, "$1 [REDACTED]");
+  // GitHub classic and fine-grained tokens
+  s = s.replace(/gh[pousr]_[A-Za-z0-9_]{20,}/g, "gh*_[REDACTED]");
+  s = s.replace(/github_pat_[A-Za-z0-9_]{20,}/g, "github_pat_[REDACTED]");
+  // OpenAI-style keys: sk-<16+ token chars>
+  s = s.replace(/sk-[A-Za-z0-9_-]{16,}/g, "sk-[REDACTED]");
+  // JWT / Supabase keys: eyJ<base64url header>.<...>
+  s = s.replace(/eyJ[A-Za-z0-9_\-.]{10,}/g, "eyJ[REDACTED]");
+  return s;
+}
+
+/**
+ * Sanitizes command outputs and probe previews:
+ * 1. Strips ANSI escape codes.
+ * 2. Redacts tokens, keys, credentials, and authorization headers.
+ * 3. Enmascara rutas absolutas locales preservando las rutas relativas al repo y el diagnóstico.
+ * @param {string} raw
+ * @param {string} [repoDir]
+ * @returns {string}
+ */
+export function sanitizePreview(raw, repoDir = "") {
+  let s = stripAnsi(raw);
+  s = redactSecrets(s);
+
+  if (repoDir) {
+    const normFwd = repoDir.replace(/\\/g, "/");
+    const normBack = repoDir.replace(/\//g, "\\");
+    const escape = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s.replace(new RegExp(escape(normFwd) + "[/\\\\]?", "gi"), "[repo]/");
+    s = s.replace(new RegExp(escape(normBack) + "[/\\\\]?", "gi"), "[repo]/");
+  }
+
+  // Mask common absolute home/user path prefixes while keeping repository/subpath and test info intact
+  s = s.replace(/(?:[A-Za-z]:)?[\/\\]Users[\/\\][^\/\s"':;<>]+[\/\\]/gi, "[USER_HOME]/");
+  s = s.replace(/\/home\/[^\/\s"':;<>]+[\/\\]/gi, "[USER_HOME]/");
+
+  // Clean up any redundant slashes introduced by replacement
+  s = s.replace(/\[repo\]\/[/\\\\]+/g, "[repo]/");
+  s = s.replace(/\[USER_HOME\]\/[/\\\\]+/g, "[USER_HOME]/");
+
+  return s;
+}
+
+/**
  * Redact secrets and bound the length of a command/path string.
  * Collapses whitespace first so each event stays a single JSONL line, then
  * redacts secrets, then truncates — so a secret near the tail is scrubbed
@@ -23,10 +90,7 @@ const CMD_MAX = 120;
  */
 export function redactCmd(raw) {
   let s = String(raw || "").replace(/\s+/g, " ").trim();
-  // OpenAI-style keys: sk-<20+ token chars>
-  s = s.replace(/sk-[A-Za-z0-9_-]{16,}/g, "sk-[REDACTED]");
-  // JWT / Supabase keys: eyJ<base64url header>.<...>
-  s = s.replace(/eyJ[A-Za-z0-9_\-.]{10,}/g, "eyJ[REDACTED]");
+  s = redactSecrets(s);
   if (s.length > CMD_MAX) s = s.slice(0, CMD_MAX);
   return s;
 }

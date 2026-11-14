@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { buildEvent, recordEvent, redactCmd, resolveTelemetryDir } from "../core/guard/telemetry.mjs";
+import { buildEvent, recordEvent, redactCmd, redactSecrets, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
 import { evaluatePpcTrigger, formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
@@ -161,6 +161,104 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
       { dir },
     );
     expect(() => readFileSync(path.join(dir, "events.jsonl"), "utf8")).toThrow();
+  });
+
+  describe("GOZS-530: redacción ampliada de secretos (tokens GitHub, URLs y Authorization)", () => {
+    it("GIVEN git remote set-url origin https://x:ghp_ABCDEFGHIJKLMNOPQRSTUVWX1234@github.com/a/b WHEN se redacta THEN no contiene ghp_ABCD ni x:ghp", () => {
+      const out = redactCmd("git remote set-url origin https://x:ghp_ABCDEFGHIJKLMNOPQRSTUVWX1234@github.com/a/b");
+      expect(out).not.toContain("ghp_ABCD");
+      expect(out).not.toContain("x:ghp");
+      expect(out).toContain("https://[REDACTED]@github.com/a/b");
+    });
+
+    it("GIVEN curl -H 'Authorization: token github_pat_11ABCDEFG0123456789_abcdef' WHEN se redacta THEN no contiene el token", () => {
+      const token = "github_pat_11ABCDEFG0123456789_abcdef";
+      const out = redactCmd(`curl -H "Authorization: token ${token}"`);
+      expect(out).not.toContain(token);
+      expect(out).toContain("Authorization: token [REDACTED]");
+    });
+
+    it("GIVEN un token ubicado después del carácter 120 WHEN se redacta y trunca THEN el resultado no contiene ningún fragmento del token", () => {
+      const prefix = "echo " + "z".repeat(125) + " ";
+      const token = "ghp_VERYLONGSECRETTOKEN12345678901234";
+      const out = redactCmd(prefix + token);
+      expect(out).not.toContain("VERYLONG");
+      expect(out).not.toContain("ghp_");
+      expect(out.length).toBeLessThanOrEqual(120);
+    });
+
+    it("GIVEN un comando sin secretos WHEN se redacta THEN queda igual (salvo espacios normalizados)", () => {
+      expect(redactCmd("git status --short")).toBe("git status --short");
+      expect(redactCmd("npm   run   test")).toBe("npm run test");
+    });
+
+    it("redacta tokens falsos de cada tipo en memoria y en events.jsonl escrito en disco", () => {
+      const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-tokens-"));
+      tempDirs.push(dir);
+
+      const fakeTokens: Record<string, string> = {
+        ghp: "ghp_FAKEPERSONALTOKEN12345678901234",
+        gho: "gho_FAKEOAUTHTOKEN1234567890123456",
+        ghu: "ghu_FAKEUSERTOSERVER123456789012",
+        ghs: "ghs_FAKESERVER2SERVER12345678901",
+        ghr: "ghr_FAKEREFRESHTOKEN12345678901234",
+        github_pat: "github_pat_FAKEFINEGRAINED1122334455667788_abcdef",
+        url_creds: "https://myuser:secretPassword123@github.com/myorg/myrepo",
+        auth_bearer: "Authorization: Bearer fakeBearerSecretTokenValue12345",
+        auth_basic: "Authorization: Basic ZmFrZXVzZXI6ZmFrZXBhc3M=",
+        sk: "sk-FAKESECRETKEY123456789012345",
+        jwt: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.fakeSignatureHere",
+      };
+
+      for (const [kind, tokenVal] of Object.entries(fakeTokens)) {
+        const cmd = `deploy --type ${kind} --value ${tokenVal}`;
+        const redacted = redactCmd(cmd);
+
+        // Verificación en memoria
+        expect(redacted).not.toContain(tokenVal);
+
+        // Escritura en events.jsonl
+        recordEvent(
+          {
+            runtime: "antigravity",
+            kind: "shell",
+            tool: "Bash",
+            phase: "pre",
+            command: cmd,
+            raw: { session_id: `sess-${kind}` },
+          },
+          { allowed: true },
+          { dir },
+        );
+      }
+
+      // Verificación directa en el archivo escrito en disco
+      const eventsFile = path.join(dir, "events.jsonl");
+      expect(existsSync(eventsFile)).toBe(true);
+      const content = readFileSync(eventsFile, "utf8");
+
+      for (const [kind, tokenVal] of Object.entries(fakeTokens)) {
+        if (kind === "url_creds") {
+          expect(content).not.toContain("secretPassword123");
+        } else if (kind.startsWith("auth_")) {
+          const secretPart = tokenVal.split(" ")[2];
+          expect(content).not.toContain(secretPart);
+        } else {
+          expect(content).not.toContain(tokenVal);
+        }
+      }
+    });
+
+    it("sanitizePreview limpia códigos ANSI, redacta secretos y enmascara rutas locales", () => {
+      const ansiRaw = "\u001b[31m[FAIL]\u001b[39m \u001b[1mError in test\u001b[22m";
+      expect(sanitizePreview(ansiRaw)).toBe("[FAIL] Error in test");
+
+      const repoPath = "C:/my/secret/repo/path";
+      const previewWithPaths = `Error at ${repoPath}/src/index.ts:10`;
+      const sanitized = sanitizePreview(previewWithPaths, repoPath);
+      expect(sanitized).not.toContain(repoPath);
+      expect(sanitized).toContain("[repo]/src/index.ts:10");
+    });
   });
 });
 
