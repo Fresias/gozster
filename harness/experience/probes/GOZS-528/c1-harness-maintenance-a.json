@@ -1,10 +1,10 @@
 {
   "candidate_id": "c1-harness-maintenance-a",
-  "probe_branch": "probe/c1-harness-maintenance-a-mwh6fow0",
+  "probe_branch": "probe/c1-harness-maintenance-a-mwh6py5t",
   "probe_cmd": "npx vitest run harness-kit/tests/harness-probe.spec.ts harness-kit/tests/harness-flow-enforcement.spec.ts",
   "passed": true,
   "exit_code": 0,
-  "duration_ms": 28484,
+  "duration_ms": 27688,
   "tests": {
     "harness-kit/tests/harness-flow-enforcement.spec.ts::Learner obligatorio: el gate no sella sin la lección del issue GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::Learner obligatorio: el gate no sella sin la lección del issue GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque": "passed",
@@ -112,9 +112,9 @@
     "harness-kit/tests/harness-probe.spec.ts::Harness² Runner: harness-probe (aislamiento en ramas efímeras) GOZS-530: sanitización y redacción de salidas en reportes de sonda elimina los reportes temporales vitest-*.json de .harness/probes/ tras la ejecución de la sonda": "passed"
   },
   "target_components": [],
-  "timestamp": "2026-11-15T01:50:08.945Z",
-  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-flow-enforcement.spec.ts (90 tests) 22117ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh  841ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque  2744ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la misma lección dos veces THEN se registra una sola vez (idempotente)  1672ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN harness-learn.sh sin --lesson THEN falla (el subject del commit no es una lección)  629ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN un sello sobre worktree sucio THEN --pr-block se niega  2895ms\n   ✓ harness-merge-check: sello == HEAD del PR, lección y PPC > GIVEN una rama de harness con un re",
-  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-probe.spec.ts harness-kit/tests/harness-flow-enforcement.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-maintenance-a-mwh6fphd.json\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/tool_guidance.local.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/tool_guidance.local.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/experience/PROJ-77.jsonl', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will",
+  "timestamp": "2026-11-15T01:58:06.707Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-flow-enforcement.spec.ts (90 tests) 20640ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh  811ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque  2582ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la misma lección dos veces THEN se registra una sola vez (idempotente)  1626ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN harness-learn.sh sin --lesson THEN falla (el subject del commit no es una lección)  586ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN un sello sobre worktree sucio THEN --pr-block se niega  2661ms\n   ✓ harness-merge-check: sello == HEAD del PR, lección y PPC > GIVEN una rama de harness con un re",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-probe.spec.ts harness-kit/tests/harness-flow-enforcement.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-maintenance-a-mwh6pyqo.json\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/tool_guidance.local.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/tool_guidance.local.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'harness/experience/PROJ-77.jsonl', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of '.gitignore', LF will",
   "files_touched": [
     ".github/CODEOWNERS",
     "docs/harness-library/QA-HARNESS.md",
@@ -123,6 +123,9 @@
     "harness-kit/tests/harness-flow-enforcement.spec.ts",
     "harness-kit/tests/harness-probe.spec.ts",
     "harness/experience/GOZS-523.jsonl",
+    "harness/experience/GOZS-528.jsonl",
+    "harness/experience/probes/GOZS-528/baseline.json",
+    "harness/experience/probes/GOZS-528/c1-harness-maintenance-a.json",
     "harness/experience_library.jsonl"
   ],
   "in_scope_files": [
@@ -133,6 +136,9 @@
     "harness-kit/tests/harness-flow-enforcement.spec.ts",
     "harness-kit/tests/harness-probe.spec.ts",
     "harness/experience/GOZS-523.jsonl",
+    "harness/experience/GOZS-528.jsonl",
+    "harness/experience/probes/GOZS-528/baseline.json",
+    "harness/experience/probes/GOZS-528/c1-harness-maintenance-a.json",
     "harness/experience_library.jsonl"
   ],
   "out_of_scope_files": [],
