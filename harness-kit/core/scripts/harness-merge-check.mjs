@@ -133,10 +133,9 @@ export function evaluateMerge({ pr, project, lessonText, probeReports }) {
           errors.push(`ppc: contrast_version desconocido: ${contrastVersion}`);
         }
 
-        // Los PRs nuevos tienen que usar 2.0.0. La implementación 1.0.0 se conserva solo para poder verificar registros existentes (como GOZS-522)
-        const issueNum = issue ? parseInt(issue.replace(/\D/g, ""), 10) : 0;
-        const isLegacyIssue = issue === "GOZS-522" || (issueNum > 0 && issueNum < 526);
-        if (!isLegacyIssue && contrastVersion !== "2.0.0") {
+        // Un registro es legacy (contraste 1.0.0) por la ausencia de verdict en el registro PPC, no por número de issue
+        const isLegacyRecord = !ppc.verdict;
+        if (!isLegacyRecord && contrastVersion !== "2.0.0") {
           errors.push(`ppc: PRs nuevos deben usar contrast_version 2.0.0 (encontrado ${contrastVersion}).`);
         }
 

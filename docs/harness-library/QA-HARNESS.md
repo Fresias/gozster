@@ -44,10 +44,10 @@ Que cada problema detectado en la auditoría del harness (13 y 14 de noviembre) 
 | R8 | P1 | Email del bot configurado | `harness/project.json` | `bot_noreply_email` = `356475546+AgentsMultica@users.noreply.github.com` |
 | R9 | P0 | Hook de proyecto de Antigravity | `.agents/hooks.json` | El matcher incluye `read_file`, `write_file` y `edit_file`; el comando usa `node`, no `bash` |
 | R10 | P1 | Reglas propias de Antigravity | `.agents/rules/harness-antigravity.md` | Existe, coincide con `core/runtimes/antigravity.rules.md` y menciona `WaitMsBeforeAsync` y la prohibición de `manage_task kill` |
-| R11 | P0 | El merge-check valida cada PR de harness mergeado desde #484 | `node harness-kit/core/scripts/harness-merge-check.mjs <PR> --json` para #484, #483, #482, #486 y los PRs de GOZS-524 a 527 | `mergeable: true` en todos |
+| R11 | P0 | El merge-check valida cada PR de harness mergeado desde #484 | `node harness-kit/core/scripts/harness-merge-check.mjs <PR> --json` para #484, #486, #489, #490, #491 y los PRs de GOZS-524 a 527 (excluye PRs anteriores a #484: #483 y la excepción documentada de #482) | `mergeable: true` en todos |
 | R12 | P1 | Contraste v2 en uso | `rg -n "CONTRAST_VERSION" harness-kit/core/scripts/harness-contrast.mjs` y los registros PPC de GOZS-526 en adelante | Versión `2.0.0` y `verdict` presente |
 | R13 | P1 | Reportes de sonda versionados | `harness/experience/probes/<ISSUE>/` para cada issue de harness desde GOZS-521 (filtrando JSONs temporales `vitest-*.json` según P1 de GOZS-528) | ≥ 2 reportes por issue (el hash lo cubre R11; `vitest-*.json` ignorados) |
-| R14 | P1 | Registros PPC escritos a mano marcados | `harness/experience/GOZS-517.jsonl`, `-518`, `-519` | Cada uno tiene una línea con `caveat` |
+| R14 | P1 | Registros PPC excepcionales marcados con caveat | `harness/experience/GOZS-517.jsonl`, `-518`, `-519`, `-523` y `harness/experience_library.jsonl` | Cada uno tiene `caveat` documentado (línea en `harness/experience/` y propiedad `caveat` en las copias de `experience_library.jsonl`) |
 | R15 | P2 | Sin ramas de sonda olvidadas en el remoto | `git ls-remote origin "refs/heads/probe/*"` | Vacío |
 | R16 | P1 | Telemetría redacta tokens de GitHub | Test de QA-0b en `harness-kit/tests/` | Existe y pasa |
 | R17 | P1 | Canarios en CI | `npx vitest run tests/qa-harness-canary.spec.ts` (de QA-1) | Pasa |

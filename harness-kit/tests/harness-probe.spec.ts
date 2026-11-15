@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -440,6 +440,65 @@ describe("Harness² Runner: harness-probe (aislamiento en ramas efímeras)", () 
       // Verify diagnostic error and test info remain visible
       expect(targetReport.stderr_preview).toContain("AssertionError");
       expect(targetReport.stderr_preview).toContain("test.ts");
+    });
+
+    it("elimina los reportes temporales vitest-*.json de .harness/probes/ tras la ejecución de la sonda", () => {
+      const repo = setupTestRepo();
+
+      const candidate = {
+        candidate_id: "cand-vitest-cleanup",
+        mutations: [],
+      };
+
+      const runnerScript = path.join(tmpdir(), `mock-vitest-${Date.now().toString(36)}.mjs`);
+      writeFileSync(
+        runnerScript,
+        [
+          "import fs from 'node:fs';",
+          "const outArg = process.argv.find(a => a.startsWith('--outputFile='));",
+          "if (outArg) {",
+          "  const outPath = outArg.slice('--outputFile='.length).replace(/^\"|\"$/g, '');",
+          "  fs.writeFileSync(outPath, JSON.stringify({ testResults: [] }), 'utf8');",
+          "}",
+          "process.exit(0);",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const probeCmd = `node "${runnerScript.replace(/\\/g, "/")}" vitest`;
+      const reportPath = path.join(repo, ".harness", "probes", "probe-cand-vitest-cleanup.json");
+
+      try {
+        execFileSync(
+          process.execPath,
+          [
+            probeScript,
+            "--workdir",
+            repo,
+            "--candidate",
+            JSON.stringify(candidate),
+            "--probe-cmd",
+            probeCmd,
+            "--report",
+            reportPath,
+            "--json",
+          ],
+          { encoding: "utf8" },
+        );
+      } finally {
+        if (existsSync(runnerScript)) {
+          rmSync(runnerScript, { force: true });
+        }
+      }
+
+      expect(existsSync(reportPath)).toBe(true);
+
+      const probeDir = path.join(repo, ".harness", "probes");
+      expect(existsSync(probeDir)).toBe(true);
+      const remainingVitestFiles = readdirSync(probeDir).filter(
+        (f) => f.startsWith("vitest-") && f.endsWith(".json"),
+      );
+      expect(remainingVitestFiles).toHaveLength(0);
     });
   });
 });

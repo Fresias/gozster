@@ -6,7 +6,7 @@
 //   node core/scripts/harness-probe.mjs --batch <candidates.json> [--strict-scope] [--json]
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { redactSecrets, sanitizePreview } from "../guard/telemetry.mjs";
