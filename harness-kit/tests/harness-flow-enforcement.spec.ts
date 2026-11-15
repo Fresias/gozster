@@ -364,37 +364,138 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const baselineReportFile = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "baseline.json");
     const c1ReportFile = path.join(baseDir, "harness", "experience", "probes", "GOZS-522", "c1-guard-bot-noreply.json");
 
-    if (existsSync(expFile) && existsSync(baselineReportFile) && existsSync(c1ReportFile)) {
-      const lessonText = readFileSync(expFile, "utf8");
-      const probeReports = [
-        JSON.parse(readFileSync(baselineReportFile, "utf8")),
-        JSON.parse(readFileSync(c1ReportFile, "utf8")),
-      ];
-      const seal = {
-        head: "fakehead1234567",
-        worktree_clean: true,
-        gate: project.gate,
-      };
-      const pr = {
-        headRefName: "chore/522-harness-identity-governance-v2",
-        headRefOid: "fakehead1234567",
-        body: `<!-- harness-seal: ${JSON.stringify(seal)} -->`,
-        files: [
-          { path: "harness/project.json" },
-          { path: "harness/experience/GOZS-522.jsonl" },
-        ],
-        labels: [{ name: "harness-authorized" }],
-      };
+    expect(existsSync(expFile)).toBe(true);
+    expect(existsSync(baselineReportFile)).toBe(true);
+    expect(existsSync(c1ReportFile)).toBe(true);
 
-      const res = evaluateMerge({
-        pr,
-        project: { ...project, issue_prefix: "GOZS" },
-        lessonText,
-        probeReports,
-      });
+    const lessonText = readFileSync(expFile, "utf8");
+    const probeReports = [
+      JSON.parse(readFileSync(baselineReportFile, "utf8")),
+      JSON.parse(readFileSync(c1ReportFile, "utf8")),
+    ];
+    const seal = {
+      head: "fakehead1234567",
+      worktree_clean: true,
+      gate: project.gate,
+    };
+    const pr = {
+      headRefName: "chore/522-harness-identity-governance-v2",
+      headRefOid: "fakehead1234567",
+      body: `<!-- harness-seal: ${JSON.stringify(seal)} -->`,
+      files: [
+        { path: "harness/project.json" },
+        { path: "harness/experience/GOZS-522.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
 
-      expect(res.errors).toHaveLength(0);
-      expect(res.mergeable).toBe(true);
+    const res = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText,
+      probeReports,
+    });
+
+    expect(res.errors).toHaveLength(0);
+    expect(res.mergeable).toBe(true);
+  });
+
+  it("GIVEN el registro legacy 1.0.0 de GOZS-529 (sin verdict) WHEN se valida con merge-check THEN mergeable es true", () => {
+    const baseDir = path.resolve(here, "..", "..");
+    const expFile529 = path.join(baseDir, "harness", "experience", "GOZS-529.jsonl");
+    const baseline529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "baseline.json");
+    const c1529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "c1-harness-ci-debt.json");
+
+    expect(existsSync(expFile529)).toBe(true);
+    expect(existsSync(baseline529)).toBe(true);
+    expect(existsSync(c1529)).toBe(true);
+
+    const lessonText = readFileSync(expFile529, "utf8");
+    const probeReports = [
+      JSON.parse(readFileSync(baseline529, "utf8")),
+      JSON.parse(readFileSync(c1529, "utf8")),
+    ];
+    const pr529 = {
+      headRefName: "chore/529-harness-ci-debt",
+      headRefOid: "fakehead529",
+      body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead529", worktree_clean: true, gate: project.gate })} -->`,
+      files: [
+        { path: ".github/workflows/ci.yml" },
+        { path: "harness/experience/GOZS-529.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const res = evaluateMerge({
+      pr: pr529,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText,
+      probeReports,
+    });
+
+    expect(res.errors).toHaveLength(0);
+    expect(res.mergeable).toBe(true);
+  });
+
+  it("GIVEN un registro nuevo con contraste 1.0.0 pero que incluye verdict WHEN se valida con merge-check THEN falla exigiendo versión 2.0.0", () => {
+    const baseDir = path.resolve(here, "..", "..");
+    const expFile529 = path.join(baseDir, "harness", "experience", "GOZS-529.jsonl");
+    const baseline529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "baseline.json");
+    const c1529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "c1-harness-ci-debt.json");
+
+    const record = JSON.parse(readFileSync(expFile529, "utf8").trim().split("\n")[0]);
+    record.task = "GOZS-999";
+    record.ppc.verdict = "behavioral";
+
+    const lessonText = JSON.stringify(record) + "\n";
+    const probeReports = [
+      JSON.parse(readFileSync(baseline529, "utf8")),
+      JSON.parse(readFileSync(c1529, "utf8")),
+    ];
+    const seal = { head: "fakehead999", worktree_clean: true, gate: project.gate };
+    const pr = {
+      headRefName: "chore/999-harness-new-feature",
+      headRefOid: "fakehead999",
+      body: `<!-- harness-seal: ${JSON.stringify(seal)} -->`,
+      files: [
+        { path: "harness/project.json" },
+        { path: "harness/experience/GOZS-999.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const res = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText,
+      probeReports,
+    });
+
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join(" ")).toContain("contrast_version 2.0.0 (encontrado 1.0.0)");
+  });
+
+  it("GIVEN los registros PPC excepcionales (517, 518, 519, 523) THEN contienen caveat tanto en harness/experience/ como en experience_library.jsonl", () => {
+    const baseDir = path.resolve(here, "..", "..");
+    const expIds = ["GOZS-517", "GOZS-518", "GOZS-519", "GOZS-523"];
+
+    for (const id of expIds) {
+      const p = path.join(baseDir, "harness", "experience", `${id}.jsonl`);
+      expect(existsSync(p)).toBe(true);
+      const raw = readFileSync(p, "utf8");
+      expect(raw, `${id} debe contener caveat en harness/experience/`).toContain("caveat");
+    }
+
+    const libPath = path.join(baseDir, "harness", "experience_library.jsonl");
+    expect(existsSync(libPath)).toBe(true);
+    const libRaw = readFileSync(libPath, "utf8");
+    const libEntries = libRaw.trim().split("\n").map(l => JSON.parse(l));
+
+    for (const id of expIds) {
+      const entry = libEntries.find(e => e.task === id && e.ppc);
+      expect(entry, `${id} debe existir como registro PPC en experience_library.jsonl`).toBeDefined();
+      expect(typeof entry.caveat, `${id} en experience_library.jsonl debe tener propiedad caveat`).toBe("string");
+      expect(entry.caveat.length).toBeGreaterThan(0);
     }
   });
 

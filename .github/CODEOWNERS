@@ -1,6 +1,6 @@
 # Code owners — Harness 2.0 (H-08)
 # El kit agnóstico, el overlay por proyecto y los workflows de CI quedan bajo
-# aprobación en GitHub de @Fresias (merge: @PM-GOZster tras @qa-eng en Multica).
+# aprobación y merge en GitHub de @Fresias.
 harness-kit/**          @Fresias
 harness/**              @Fresias
 .github/workflows/**    @Fresias
