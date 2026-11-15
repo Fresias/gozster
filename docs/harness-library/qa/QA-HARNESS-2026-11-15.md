@@ -30,7 +30,7 @@ Lo que sí queda demostrado en comportamiento real: el guard instalado bloquea l
 
 Notas sobre los insumos:
 
-- **El informe de QA-2 no estaba en la carpeta de GOZS-532** (`gozs-532-c8b4070fa6d1/` solo tiene `R1.log`). Se tomó el que se identifica como GOZS-532 en `task-555c9f3afc79/`, cuya copia del repo está en la rama de GOZS-537. Falta confirmar que coincide con el adjunto en Multica. Sus 26 archivos de `qa-evidence/` no se revisaron en QA-4.
+- **Origen del informe de QA-2: `task-555c9f3afc79/workdir/qa-harness-repo-2026-11-14.md`, ronda 2 (actualizada el 15-nov).** No estaba en la carpeta de GOZS-532 (`gozs-532-c8b4070fa6d1/` solo tiene `R1.log`); la carpeta donde apareció tiene su copia del repo en la rama de GOZS-537. **Hay que validarlo contra el adjunto de GOZS-532 en Multica antes de mergear este PR**: si difiere, las secciones 3.1 y 3.2 se rehacen con el adjunto. Sus 26 archivos de `qa-evidence/` no se revisaron en QA-4.
 - Las dos copias de `canary-antigravity.json` (`workdir/` y `workdir/qa-out/`) son idénticas byte a byte.
 - Búsqueda de secretos en los cinco archivos de entrada (solo conteos): 0 tokens de GitHub, 0 claves `sk-`, 0 JWT, 0 URLs con credenciales.
 - Los insumos no se commitean; quedan adjuntos a sus issues.
@@ -42,7 +42,7 @@ Notas sobre los insumos:
 | ID | Sev | QA-2 (`33bed5a`) | Consolidado | Nota |
 |---|---|---|---|---|
 | R1–R10 | P0/P1 | Pasa | **Pasa** | |
-| R11 | P0 | Falla aceptada (#482, #483, #489) | **Pasa** | Revalidado en `22941b2`: `mergeable: true` en #484, #486, #487, #488, #489, #490, #491, #492 y #493. #482 y #483 están excluidos por el plan; #485 se cerró sin merge. |
+| R11 | P0 | Falla aceptada (#482, #483, #489) | **Pasa** | Revalidado el 15-nov contra `main` @ `22941b28e18bd493559a3f8e4f6167bc483859fe`: `mergeable: true` en #484, #486, #487, #488, #489, #490, #491, #492 y #493. #482 y #483 están excluidos por el plan; #485 se cerró sin merge. |
 | R12 | P1 | Pasa | **Pasa** | |
 | R13 | P1 | Falla aceptada | **Falla aceptada** | GOZS-523 no tiene carpeta de sondas. El informe la declara aceptada por escrito por Gabriel; falta esa constancia en este veredicto. |
 | R14–R19 | P1/P2 | Pasa | **Pasa** | |
@@ -141,6 +141,7 @@ Total en el archivo: 32 y 19. Se clasifica como canario el bloqueo cuyo comando 
 | H-05 | P2 | Las reglas de shell coinciden con texto dentro de cualquier comando. Durante este QA el guard bloqueó 4 comandos que solo contenían cadenas de canario o `.env` como datos. Además `cmd` se trunca a 120 caracteres, lo que limita atribuir bloqueos a posteriori. | Bloqueos de `read.guard-installed`, `git.repo-rewire`, `fs.protected` y `shell.env-leak` en la sesión de QA-4. No se esquivó el guard. |
 | H-06 | P2 | El plugin de OpenCode evalúa reglas pero no llama a `recordEvent`. Coincide con la limitación conocida ("no se usan"), pero no está documentado. | `harness-kit/core/plugins/opencode/opencode-plugin.ts`. |
 | H-07 | P2 | De QA-3 (GOZS-535): el mensaje de bloqueo no trae el ID de la regla, y los repos git descartables no se pueden limpiar en Windows con el guard activo. `qa-canary-repo/` sigue en la carpeta de trabajo de GOZS-535. | Informe de GOZS-535, secciones Limpieza y Hallazgos. |
+| H-08 | P2 | Test inestable por tiempo en el gate: `harness-kit/tests/harness-flow-enforcement.spec.ts`, caso "GIVEN gh pr create/merge --repo de OTRO repositorio THEN no aplica el sello de este repo", superó su límite de 30 s (tardó 40,8 s) en la suite completa y tumbó el gate de este PR en el primer intento. | Primer gate: 1 falla en 3.690 tests más 2 errores `[vitest-worker]: Timeout calling "onTaskUpdate"`. El archivo aislado pasa 90/90 en 20 s y el segundo gate pasó completo. |
 
 Consecuencias medibles de H-01 en el agregador, hoy:
 
@@ -150,18 +151,25 @@ Consecuencias medibles de H-01 en el agregador, hoy:
 
 ## 6. Bloqueo de GOZS-527 / T5 e issue de arreglo propuesto
 
-Con H-01, las sesiones de Antigravity (93 % de los eventos) nunca cuentan. El criterio de L-001 de "al menos 5 sesiones reales" solo se podría alcanzar con sesiones de Claude Code, y la línea base seguiría sin TTFE ni bloqueos repetidos válidos para el runtime principal. Los eventos ya escritos no guardan el id, así que no se pueden reatribuir: **la ventana de 7 días tiene que reiniciarse después del arreglo.**
+Con H-01, las sesiones de Antigravity (93 % de los eventos) nunca cuentan. El criterio de L-001 de "al menos 5 sesiones reales" solo se podría alcanzar con sesiones de Claude Code, y la línea base seguiría sin TTFE ni bloqueos repetidos válidos para el runtime principal. Los eventos ya escritos no guardan el id, así que no se pueden reatribuir. Con H-02, aunque las sesiones se registraran bien, la ventana seguiría mezclando uso real con canarios y con la ráfaga sintética.
 
-Borrador del issue (lo crea el PM; rama `chore/<#>-harness-telemetria-sesiones`, PPC y label `harness-authorized`; no forma parte de este PR):
+**La ventana de 7 días de L-001 se reinicia recién cuando estén resueltos los dos P1:**
+
+1. **H-01:** el id de sesión de Antigravity (y OpenCode) llega a la telemetría.
+2. **H-02:** ni el script de canarios ni las corridas sintéticas escriben en la telemetría real.
+
+La nueva `start_condition` es la fecha del merge del **último** de los dos arreglos; arreglar solo uno no reinicia nada. Si los arreglos van en issues separados, **GOZS-527 depende de ambos** y no se desbloquea con uno solo.
+
+Borrador del issue (lo crea el PM; rama `chore/<#>-harness-telemetria-sesiones`, PPC y label `harness-authorized`; no forma parte de este PR). Está redactado como un solo issue; si se divide, los criterios 1 y 2 son los dos P1 y cada uno va a su issue:
 
 > **[CHORE]: Telemetría del guard con id de sesión por runtime y sin eventos de canarios (desbloquea GOZS-527)**
 >
 > Criterios de aceptación:
 > 1. `resolveSession()` lee `conversationId` (Antigravity) e `input.sessionID` (OpenCode). Un test por runtime, con los fixtures existentes, exige una sesión distinta de `unknown`.
-> 2. `scripts/qa-harness-canary.mjs` no escribe en la telemetría real, o lo hace con una sesión marcada que el agregador excluye.
+> 2. `scripts/qa-harness-canary.mjs` y cualquier corrida sintética del guard no escriben en la telemetría real, o lo hacen con una sesión marcada que el agregador excluye.
 > 3. Un único registro por llamada cuando coinciden el hook del proyecto y el dispatcher instalado.
 > 4. `harness-telemetry.mjs` implementa `--since` y `--until`, y falla ante argumentos desconocidos o un archivo explícito inexistente.
-> 5. L-001: nueva `start_condition` con fecha del merge de este arreglo, y exclusión documentada de los eventos anteriores (sintéticos y canarios).
+> 5. L-001: nueva `start_condition` con la fecha en que quedan mergeados los criterios 1 y 2 (la del último, si van separados), y exclusión documentada de los eventos anteriores (sintéticos y canarios). GOZS-527 queda dependiendo de ambos.
 > 6. Se agrega `original_hypothesis` a L-001 o se corrige T5 en el plan.
 
 ## 7. Seguimiento (fuera de este PR)
@@ -170,14 +178,15 @@ Borrador del issue (lo crea el PM; rama `chore/<#>-harness-telemetria-sesiones`,
 - **Doble despacho (P1 de proceso):** GOZS-537 tuvo dos carpetas de tarea (`task-555c9f3afc79` → #494, mergeado; `gozs-537-8f9e20a7ec2d` → #495, abierto y en conflicto con el mismo cambio). Es la causa del PR duplicado. También hay dos carpetas para GOZS-534 y GOZS-533, y cinco para GOZS-528.
 - **Carpetas de tarea reutilizadas:** `task-555c9f3afc79` contiene el informe de GOZS-532, la rama de GOZS-537 y corridas del script de canarios previas al merge de GOZS-531, lo que dificulta ubicar los entregables de cada issue.
 - **Telemetría vieja dispersa:** 29 archivos `task-*/workdir/gozster/.harness/telemetry/events.jsonl` anteriores a la centralización.
-- **H-03 a H-07** al backlog.
+- **Timeout en el gate (P2, H-08):** `harness-flow-enforcement.spec.ts` supera su límite de 30 s cuando corre dentro de la suite completa en esta máquina. Mientras no se corrija, un gate puede fallar sin que el cambio tenga la culpa.
+- **H-03 a H-08** al backlog.
 
 ## 8. Pendientes para el veredicto definitivo
 
 1. Gabriel: G3 (bypass), E8 (conteo en el transcript), constancia escrita de la excepción de R13, y coherencia de R20.
-2. Gabriel: confirmar que el informe de QA-2 usado aquí es el adjunto en GOZS-532.
+2. Gabriel, **antes de mergear este PR**: validar el informe de QA-2 usado aquí (`task-555c9f3afc79`, ronda 2) contra el adjunto de GOZS-532.
 3. Decisión sobre H-01 y H-02: issue de arreglo (sección 6) o aceptación por escrito.
-4. T5, después del arreglo y de una ventana nueva de 7 días.
+4. T4 y T5 sobre una ventana nueva de 7 días, que empieza cuando estén mergeados los **dos** arreglos P1. Se agregan como apéndice a este documento.
 
 ## Anexo — Comandos de telemetría
 
