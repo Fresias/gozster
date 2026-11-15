@@ -9,6 +9,15 @@ import {
   validarVigenciaFutura,
 } from "@/lib/planes";
 
+function getFechaRelativa(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 describe("FE Studio/cobros: creación y modificación de planes con vigencia futura (GOZS-255)", () => {
   beforeEach(() => {
     useCobrosStore.getState().resetDemoDataset();
@@ -24,7 +33,7 @@ describe("FE Studio/cobros: creación y modificación de planes con vigencia fut
     });
 
     it("GIVEN una fecha en el pasado THEN es rechazada", () => {
-      const pasado = "2026-01-01";
+      const pasado = getFechaRelativa(-30);
       const resultado = validarVigenciaFutura(pasado);
       expect(resultado.valida).toBe(false);
       expect(resultado.error).toContain("posterior a hoy");
@@ -108,7 +117,7 @@ describe("FE Studio/cobros: creación y modificación de planes con vigencia fut
 
     it("GIVEN el coach en /studio/cobros WHEN crea un plan trimestral de Boxeo THEN se persiste correctamente", async () => {
       const store = useCobrosStore.getState();
-      const fechaFutura = "2026-12-01";
+      const fechaFutura = getFechaRelativa(30);
 
       const nuevoPlan = await store.crearPlan({
         nombre: "Boxeo Trimestral 3x",
@@ -133,7 +142,7 @@ describe("FE Studio/cobros: creación y modificación de planes con vigencia fut
 
     it("GIVEN el coach en /studio/cobros WHEN crea un plan semestral de Funcional THEN se persiste correctamente", async () => {
       const store = useCobrosStore.getState();
-      const fechaFutura = "2026-11-15";
+      const fechaFutura = getFechaRelativa(60);
 
       const nuevoPlan = await store.crearPlan({
         nombre: "Funcional Semestral Pase Libre",
@@ -151,7 +160,7 @@ describe("FE Studio/cobros: creación y modificación de planes con vigencia fut
 
     it("GIVEN el coach en /studio/cobros WHEN crea un plan anual de Rutinas Online THEN se persiste correctamente", async () => {
       const store = useCobrosStore.getState();
-      const fechaFutura = "2027-01-01";
+      const fechaFutura = getFechaRelativa(400);
 
       const nuevoPlan = await store.crearPlan({
         nombre: "Rutinas & Asesoría Anual",
