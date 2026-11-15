@@ -443,7 +443,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const baseline529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "baseline.json");
     const c1529 = path.join(baseDir, "harness", "experience", "probes", "GOZS-529", "c1-harness-ci-debt.json");
 
-    const record = JSON.parse(readFileSync(expFile529, "utf8").trim().split("\n")[0]);
+    const record = JSON.parse(readFileSync(expFile529, "utf8").trim().split("\n")[0]!);
     record.task = "GOZS-999";
     record.ppc.verdict = "behavioral";
 
