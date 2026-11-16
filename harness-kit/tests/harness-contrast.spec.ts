@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { evaluateCandidates } from "../core/scripts/harness-contrast.mjs";
+// @ts-expect-error - mjs module
+import { deriveTags } from "../core/scripts/harness-compose.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const contrastScript = path.resolve(here, "..", "core", "scripts", "harness-contrast.mjs");
@@ -249,5 +251,141 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
     const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-fixed")!;
     expect(c1.fixed).toBe(1);
     expect(c1.regressed).toBe(0);
+  });
+
+  it("GIVEN un baseline con 14 tests (2 en falla) y un candidato c1 con 12 tests (0 en falla) y files_touched: [] WHEN evaluateCandidates evalúa la matriz THEN c1 es descalificado y no hay ganador behavioral (reproducción GOZS-540)", () => {
+    const baseTests: Record<string, string> = {};
+    const candTests: Record<string, string> = {};
+    for (let i = 1; i <= 12; i++) {
+      baseTests[`harness-kit/tests/guard-cli.contract.spec.ts::test ${i}`] = "passed";
+      candTests[`harness-kit/tests/guard-cli.contract.spec.ts::test ${i}`] = "passed";
+    }
+    baseTests["harness-kit/tests/guard-cli.contract.spec.ts::H-07 test 13"] = "failed";
+    baseTests["harness-kit/tests/guard-cli.contract.spec.ts::H-07 test 14"] = "failed";
+
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: false,
+        duration_ms: 3741,
+        files_touched: [],
+        tests: baseTests,
+      },
+      {
+        candidate_id: "c1-harness-p2-backlog",
+        passed: true,
+        duration_ms: 3585,
+        files_touched: [],
+        tests: candTests,
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-harness-p2-backlog")!;
+    expect(c1.disqualified).toBe(true);
+    expect(c1.fixed).toBe(0);
+    expect(result.winner_id).toBeNull();
+    expect(result.verdict).not.toBe("behavioral");
+  });
+
+  it("GIVEN un candidato que toca archivos pero ejecuta menos tests u omite un test de baseline WHEN evaluateCandidates evalúa THEN queda descalificado", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3000,
+        files_touched: [],
+        tests: {
+          "tests/a.spec.ts::t1": "passed",
+          "tests/a.spec.ts::t2": "passed",
+        },
+      },
+      {
+        candidate_id: "c1-partial",
+        passed: true,
+        duration_ms: 2800,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: {
+          "tests/a.spec.ts::t1": "passed",
+        },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-partial")!;
+    expect(c1.disqualified).toBe(true);
+    expect(c1.reason).toContain("baseline tests");
+  });
+
+  it("GIVEN un baseline con passed: false y un candidato con fixed: 0 WHEN evaluateCandidates calcula el veredicto THEN nunca emite verdict: 'behavioral'", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: false,
+        duration_ms: 3200,
+        files_touched: [],
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+        },
+      },
+      {
+        candidate_id: "c1-no-fixes",
+        passed: true,
+        duration_ms: 3100,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+        },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    expect(result.winner_id).toBe("c1-no-fixes");
+    expect(result.verdict).not.toBe("behavioral");
+    expect(result.verdict).toBe("tie");
+  });
+
+  it("GIVEN un cambio puramente documental donde baseline y el candidato corren los mismos tests (100% pass en ambos) y el candidato tiene files_touched.length > 0 WHEN evaluateCandidates evalúa THEN permite verdict: 'tie'", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 3100,
+        files_touched: [],
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::test 2": "passed",
+        },
+      },
+      {
+        candidate_id: "c1-docs",
+        passed: true,
+        duration_ms: 3050,
+        files_touched: ["harness/tool_guidance.local.md"],
+        tests: {
+          "tests/sample.spec.ts::test 1": "passed",
+          "tests/sample.spec.ts::test 2": "passed",
+        },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-docs")!;
+    expect(c1.disqualified).toBe(false);
+    expect(result.winner_id).toBe("c1-docs");
+    expect(result.verdict).toBe("tie");
+  });
+
+  it("deriveTags no asigna 'auth' por coincidencia de subcadena con harness-authorized o author", () => {
+    const tags = deriveTags(
+      {
+        candidate_id: "c1-harness-authorized",
+        target_component: "harness/guardrails.local.md",
+        rationale: "authored by PM on harness-authorized branch with anti-token-waste rules",
+      },
+      "GOZS-541",
+    );
+    expect(tags).not.toContain("auth");
+    expect(deriveTags({ candidate_id: "c1-login-rbac", rationale: "fix auth login" }, "GOZS-541")).toContain("auth");
   });
 });

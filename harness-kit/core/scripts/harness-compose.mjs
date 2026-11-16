@@ -139,12 +139,12 @@ export function calculateOperationalCost(p) {
 export function deriveTags(candidate, task = "") {
   const text = `${candidate?.candidate_id || ""} ${candidate?.target_component || ""} ${candidate?.rationale || ""} ${task}`.toLowerCase();
   const tags = new Set(Array.isArray(candidate?.tags) ? candidate.tags : []);
-  if (/rpc|db|database|sql|migration|supabase|postgres|schema/.test(text)) tags.add("db");
-  if (/ui|modal|component|react|frontend|css|view/.test(text)) tags.add("ui");
-  if (/time|date|utc|timezone|semana|fecha/.test(text)) tags.add("time");
-  if (/auth|session|token|login|rbac/.test(text)) tags.add("auth");
-  if (/test|vitest|spec|qa|assert/.test(text)) tags.add("qa");
-  if (/tool|guidance|cli|multica/.test(text)) tags.add("tools");
+  if (/\b(rpc|db|database|sql|migration|supabase|postgres|schema)\b/.test(text)) tags.add("db");
+  if (/\b(ui|modal|react|frontend|css|view)\b/.test(text)) tags.add("ui");
+  if (/\b(time|date|utc|timezone|semana|fecha)\b/.test(text)) tags.add("time");
+  if (/\b(auth|authentication|oauth|jwt|login|rbac)\b/.test(text)) tags.add("auth");
+  if (/\b(test|tests|vitest|spec|qa|assert)\b/.test(text)) tags.add("qa");
+  if (/\b(tool|tools|guidance|cli|multica)\b/.test(text)) tags.add("tools");
   return Array.from(tags);
 }
 
