@@ -101,12 +101,14 @@ export function redactCmd(raw) {
  * @param {object} raw
  * @returns {string}
  */
-function resolveSession(raw) {
+export function resolveSession(raw) {
   const candidate =
     raw?.session_id ??
     raw?.sessionId ??
+    raw?.conversationId ??
     raw?.session?.id ??
     raw?.input?.session_id ??
+    raw?.input?.sessionID ??
     process.env.HARNESS_SESSION_ID;
   return candidate ? String(candidate) : "unknown";
 }

@@ -82,8 +82,9 @@
       "title": "Evaluación post-hardening del guard políglota y reducción de fricción",
       "status": "blocked",
       "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
-      "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov",
-      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde 2026-11-13T22:12:41Z (13-nov-2026)",
+      "original_hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov. Limitación conocida H-04: cuando coinciden en una sesión abierta dentro del repo el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de origin/main con HARNESS_TELEMETRY=0; si una regla de origin/main bloquea algo que el guard de la rama permite, ese bloqueo no se escribe en events.jsonl.",
+      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde el timestamp ISO exacto de merged_at del PR #497 (GOZS-538, H-01 y H-02). Como los eventos sintéticos previos tienen session: 'unknown', se descartan pasando --since <ISO-timestamp-del-merge-de-GOZS-538>, cuyo valor exacto será estampado en start_condition y window.before.start por GOZS-527 al ejecutar la medición.",
       "experience": "EXPERIENCE-L-001.md",
       "window": {
         "durationDays": 14,

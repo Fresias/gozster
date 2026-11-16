@@ -200,6 +200,9 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(l1.caveat).toContain("línea base sintética");
       expect(typeof l1.start_condition).toBe("string");
       expect(l1.start_condition).toContain("7 días corridos de telemetría real");
+      expect(l1.start_condition).toContain("GOZS-538");
+      expect(typeof l1.original_hypothesis).toBe("string");
+      expect(l1.original_hypothesis.length).toBeGreaterThan(0);
     });
   });
 

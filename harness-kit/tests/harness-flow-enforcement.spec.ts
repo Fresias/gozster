@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
@@ -30,6 +30,11 @@ const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
 const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
 
 const temps: string[] = [];
+// Avoid real network round-trips from `gh pr view` inside mergeCheck() on synthetic acme/app repos,
+// and yield a macrotask tick between synchronous child_process tests so Vitest's worker MessagePort
+// processes onTaskUpdate acks without hitting birpc's 60s timeout under full-suite load (H-08).
+process.env.HTTPS_PROXY = "http://127.0.0.1:1";
+beforeEach(() => new Promise((r) => setTimeout(r, 0)));
 afterAll(() => {
   for (const d of temps) rmSync(d, { recursive: true, force: true });
 });
@@ -48,24 +53,28 @@ function run(cmd: string, args: string[], cwd: string): { code: number; out: str
   }
 }
 
+let baseTemplate = "";
 /** Temp repo with issue_prefix, on branch `branch`. */
 function repo(branch: string): string {
+  if (!baseTemplate) {
+    baseTemplate = temp("harness-flow-tpl-");
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: baseTemplate, stdio: "pipe" });
+    git("init", "-q", "-b", "main");
+    git("config", "user.name", "Tester");
+    git("config", "user.email", "tester@users.noreply.github.com");
+    writeFileSync(path.join(baseTemplate, ".gitignore"), ".harness/\n");
+    mkdirSync(path.join(baseTemplate, "harness"));
+    writeFileSync(
+      path.join(baseTemplate, "harness", "project.json"),
+      JSON.stringify({ name: "t", runtimes: [], issue_prefix: "PROJ", gate: ":" }),
+    );
+    git("add", ".");
+    git("commit", "-q", "-m", "init");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+  }
   const dir = temp("harness-flow-");
-  const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
-  git("init");
-  git("config", "user.name", "Tester");
-  git("config", "user.email", "tester@users.noreply.github.com");
-  writeFileSync(path.join(dir, ".gitignore"), ".harness/\n");
-  mkdirSync(path.join(dir, "harness"));
-  writeFileSync(
-    path.join(dir, "harness", "project.json"),
-    JSON.stringify({ name: "t", runtimes: [], issue_prefix: "PROJ", gate: "node -e 'process.exit(0)'" }),
-  );
-  git("add", ".");
-  git("commit", "-m", "init");
-  git("branch", "-M", "main");
-  git("update-ref", "refs/remotes/origin/main", "HEAD");
-  git("checkout", "-b", branch);
+  cpSync(baseTemplate, dir, { recursive: true });
+  execFileSync("git", ["checkout", "-q", "-b", branch], { cwd: dir, stdio: "pipe" });
   return dir;
 }
 
@@ -722,7 +731,7 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     }
     // QA GOZS-432 r2: un --repo ajeno ANTES del merge propio tampoco exime.
     expect(evaluateRules({ kind: "shell", command: "echo '--repo acme/kit'; gh pr merge 3" }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
-  });
+  }, 90000);
 
   it("GIVEN gh api …/pulls/N/merge THEN el repo sale de la ruta, no de --repo (gh api lo ignora)", () => {
     const dir = repo("chore/8-harness-x");
