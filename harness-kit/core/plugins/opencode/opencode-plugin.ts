@@ -2,6 +2,11 @@
  * opencode-plugin.ts
  * In-process OpenCode plugin consuming guard-core engine (D6).
  * Enforces identical verdicts to guard-cli for canonical inputs.
+ *
+ * Limitación conocida de telemetría (H-06): este plugin evalúa las reglas en
+ * memoria (`evaluateRules`) e inyecta contexto en `output.output`, pero no
+ * invoca `recordEvent` ni escribe en `events.jsonl` (OpenCode solo se ejercita
+ * en tests de contrato y no se usa en sesiones en vivo de Multica).
  */
 
 // @ts-expect-error - mjs module
