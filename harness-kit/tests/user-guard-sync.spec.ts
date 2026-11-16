@@ -185,6 +185,27 @@ describe("Sync del kit instalado desde origin/main (dispatcher de Claude Code)",
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0]!).session).toBe("sess-h04-1");
   });
+
+  it("GOZS-538 H-04: GIVEN dispatcher sin kit instalado, sin CLAUDE_PROJECT_DIR y payload.cwd === repo WHEN corre una tool call THEN sí evalúa las reglas y no sale en exit(0) prematuro", () => {
+    const { repo } = consumer();
+    mkdirSync(path.join(repo, ".claude"), { recursive: true });
+    writeFileSync(path.join(repo, ".claude", "settings.json"), JSON.stringify({ hooks: {} }));
+    const repoDispatch = path.join(repo, "harness-kit", "core", "plugins", "claude-code", "dispatch.mjs");
+    const envWithoutProjectDir = { ...process.env, HARNESS_TELEMETRY: "0", CLAUDE_PROJECT_DIR: "" };
+    let code = 0;
+    try {
+      execFileSync(process.execPath, [repoDispatch], {
+        cwd: repo,
+        input: JSON.stringify(bash(repo, "multica issue search foo")),
+        encoding: "utf8",
+        env: envWithoutProjectDir,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? 1;
+    }
+    expect(code).toBe(2);
+  });
 });
 
 describe("Antigravity: hook de proyecto regenerado", () => {

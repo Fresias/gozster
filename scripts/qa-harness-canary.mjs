@@ -37,8 +37,12 @@ export function filterProbeReports(files) {
  * @returns {string}
  */
 export function mapReasonToRule(reason) {
+  const m = String(reason || "").match(/^\[([a-z0-9._-]+)\]/i);
+  if (m) return m[1];
   let str = String(reason || "").trim();
   str = str.replace(/^Blocked by [^:]+:\s*/i, "");
+  const m2 = str.match(/^\[([a-z0-9._-]+)\]/i);
+  if (m2) return m2[1];
   if (/package-lock\.json/i.test(str)) return "fs.bloatware";
   if (/env files/i.test(str) || /\.env/i.test(str)) return "shell.env-leak";
   if (/copia instalada|installed guard|user hooks/i.test(str)) return "read.guard-installed";
