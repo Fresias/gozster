@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
 import { evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
@@ -30,6 +30,9 @@ const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
 const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
 
 const temps: string[] = [];
+// Yield a macrotask tick between synchronous child_process tests so Vitest's worker MessagePort
+// processes onTaskUpdate acks without hitting birpc's 60s timeout under full-suite load (H-08).
+beforeEach(() => new Promise((r) => setTimeout(r, 0)));
 afterAll(() => {
   for (const d of temps) rmSync(d, { recursive: true, force: true });
 });
