@@ -134,7 +134,6 @@ Limpieza al terminar (H-07 — Limpieza en Windows): borrar `qa-canary/`, `qa-ca
 ```bash
 node -e "const fs = require('node:fs'); for (const p of ['qa-canary', 'qa-canary-repo', 'qa-wt']) fs.rmSync(p, { recursive: true, force: true });"
 ```
-*(Nota operativa GOZS-540: la carpeta huérfana `gozs-535-d25ae92ba7f5/workdir/qa-canary-repo` fue eliminada con este procedimiento, junto con los 29 archivos obsoletos `task-*/workdir/gozster/.harness/telemetry/events.jsonl` mediante `fs.unlinkSync`).*
 
 ## 7. Capa 3 — Telemetría y L-001 (issue QA-4)
 
@@ -145,6 +144,8 @@ node -e "const fs = require('node:fs'); for (const p of ['qa-canary', 'qa-canary
 | T3 | P0 | Ningún token en la telemetría | Script que devuelve **solo el conteo** de coincidencias de `gh[pousr]_[A-Za-z0-9]{20,}` y `github_pat_` en `events.jsonl` | 0. Si es > 0: avisar a Gabriel para que rote el token; no mostrar las líneas |
 | T4 | P1 | Reglas nuevas sin falsos positivos masivos | Bloqueos por regla de los últimos 7 días | `git.repo-rewire` y `read.guard-installed` en niveles bajos y explicables |
 | T5 | P1 | L-001 registrado | `docs/harness-library/LEDGER.json` | `completed`, ventana de 7 días, ≥ 5 sesiones, `byRuntime`, `original_hypothesis` |
+
+Higiene de telemetría local: `resolveTelemetryDir()` centraliza los eventos en `<git-common-dir>/harness/telemetry/events.jsonl`. Si existen copias locales obsoletas en checkouts de tareas (`<task>/workdir/gozster/.harness/telemetry/events.jsonl`) anteriores a la centralización o dejadas por corridas aisladas, deben eliminarse mediante Node (`fs.unlinkSync`, nunca `rm -rf`), preservando intacto el archivo del `git common dir`.
 
 ## 8. Limitaciones conocidas (se documentan, no son fallas)
 
