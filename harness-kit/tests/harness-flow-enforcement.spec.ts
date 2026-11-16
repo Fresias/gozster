@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,24 +53,28 @@ function run(cmd: string, args: string[], cwd: string): { code: number; out: str
   }
 }
 
+let baseTemplate = "";
 /** Temp repo with issue_prefix, on branch `branch`. */
 function repo(branch: string): string {
+  if (!baseTemplate) {
+    baseTemplate = temp("harness-flow-tpl-");
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: baseTemplate, stdio: "pipe" });
+    git("init", "-q", "-b", "main");
+    git("config", "user.name", "Tester");
+    git("config", "user.email", "tester@users.noreply.github.com");
+    writeFileSync(path.join(baseTemplate, ".gitignore"), ".harness/\n");
+    mkdirSync(path.join(baseTemplate, "harness"));
+    writeFileSync(
+      path.join(baseTemplate, "harness", "project.json"),
+      JSON.stringify({ name: "t", runtimes: [], issue_prefix: "PROJ", gate: ":" }),
+    );
+    git("add", ".");
+    git("commit", "-q", "-m", "init");
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+  }
   const dir = temp("harness-flow-");
-  const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
-  git("init");
-  git("config", "user.name", "Tester");
-  git("config", "user.email", "tester@users.noreply.github.com");
-  writeFileSync(path.join(dir, ".gitignore"), ".harness/\n");
-  mkdirSync(path.join(dir, "harness"));
-  writeFileSync(
-    path.join(dir, "harness", "project.json"),
-    JSON.stringify({ name: "t", runtimes: [], issue_prefix: "PROJ", gate: "node -e 'process.exit(0)'" }),
-  );
-  git("add", ".");
-  git("commit", "-m", "init");
-  git("branch", "-M", "main");
-  git("update-ref", "refs/remotes/origin/main", "HEAD");
-  git("checkout", "-b", branch);
+  cpSync(baseTemplate, dir, { recursive: true });
+  execFileSync("git", ["checkout", "-q", "-b", branch], { cwd: dir, stdio: "pipe" });
   return dir;
 }
 
