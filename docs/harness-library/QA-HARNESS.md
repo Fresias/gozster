@@ -130,7 +130,10 @@ Preparación (en la carpeta de trabajo de la tarea, nunca dentro del repo real):
 
 Solo simulado (en vivo requiere un push real que falle): **S1**, salida de `git push` con `GH007` y sin email → la inyección sugiere el email del bot (Claude Code; Antigravity no admite post-hook).
 
-Limpieza al terminar: borrar `qa-canary/`, `qa-canary-repo/` y `qa-wt/` con el método que el guard permita. Si no lo permite, dejarlo anotado.
+Limpieza al terminar (H-07 — Limpieza en Windows): borrar `qa-canary/`, `qa-canary-repo/` y `qa-wt/` sin disparar `shell.rm-rf` ni `fs.protected`. En Windows, los objetos dentro de `.git/objects/pack` quedan con atributo de solo lectura y comandos como `rm -rf` o `Remove-Item -Recurse -Force` son bloqueados por `shell.rm-rf`. El procedimiento soportado es ejecutar Node con `fs.rmSync`:
+```bash
+node -e "const fs = require('node:fs'); for (const p of ['qa-canary', 'qa-canary-repo', 'qa-wt']) fs.rmSync(p, { recursive: true, force: true });"
+```
 
 ## 7. Capa 3 — Telemetría y L-001 (issue QA-4)
 
@@ -142,11 +145,15 @@ Limpieza al terminar: borrar `qa-canary/`, `qa-canary-repo/` y `qa-wt/` con el m
 | T4 | P1 | Reglas nuevas sin falsos positivos masivos | Bloqueos por regla de los últimos 7 días | `git.repo-rewire` y `read.guard-installed` en niveles bajos y explicables |
 | T5 | P1 | L-001 registrado | `docs/harness-library/LEDGER.json` | `completed`, ventana de 7 días, ≥ 5 sesiones, `byRuntime`, `original_hypothesis` |
 
+Higiene de telemetría local: `resolveTelemetryDir()` centraliza los eventos en `<git-common-dir>/harness/telemetry/events.jsonl`. Si existen copias locales obsoletas en checkouts de tareas (`<task>/workdir/gozster/.harness/telemetry/events.jsonl`) anteriores a la centralización o dejadas por corridas aisladas, deben eliminarse mediante Node (`fs.unlinkSync`, nunca `rm -rf`), preservando intacto el archivo del `git common dir`.
+
 ## 8. Limitaciones conocidas (se documentan, no son fallas)
 
 - Antigravity no admite post-hook: en agy no hay inyección de GH007, recordatorio de migraciones ni remediaciones.
 - Las sesiones cloud de Claude Code no persisten telemetría.
 - `gemini-cli` y `opencode` no se verifican en vivo porque no se usan. Quedan cubiertos solo por tests.
+- **H-06 (Plugin de OpenCode sin `recordEvent`):** `harness-kit/core/plugins/opencode/opencode-plugin.ts` evalúa las reglas en memoria (`evaluateRules`) e inyecta contexto en post-hooks, pero no invoca `recordEvent` ni persiste eventos en `events.jsonl` (coherente con que OpenCode no se usa en sesiones en vivo).
+- **H-05 (Alcance de reglas de shell sobre la cadena completa y truncado de `cmd`):** Las reglas de shell operan sobre la cadena completa del comando (`cmd`). Pasar literales de canario, rutas `.git`/`.claude` junto a verbos de escritura o nombres `.env` en línea como argumento (por ejemplo en `node -e "..."`) dispara legítimamente el guard (`read.guard-installed`, `git.repo-rewire`, `fs.protected`, `shell.env-leak`); esas entradas deben leerse desde archivo o ejecutarse desde un script. Además, en `events.jsonl` el campo `cmd` se trunca a 120 caracteres (`MAX_CMD_LENGTH = 120`), lo que acota la atribución a posteriori de comandos largos.
 - Los dispatchers dejan pasar la acción si el propio guard falla con un error interno.
 - En cambios de harness que solo tocan documentación, lo esperable es que el contraste dé `tie`.
 - Un agente todavía podría fabricar reportes de sonda coherentes; lo mitiga la revisión humana obligatoria.

@@ -1,0 +1,45 @@
+{
+  "candidate_id": "c1-harness-p2-backlog",
+  "probe_branch": "probe/c1-harness-p2-backlog-mwjdw4qs",
+  "probe_cmd": "npx vitest run harness-kit/tests/guard-cli.contract.spec.ts",
+  "passed": true,
+  "exit_code": 0,
+  "duration_ms": 3656,
+  "tests": {
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un fixture post de Bash con GH007 THEN Claude Code PostToolUse inyecta el comando git config con email noreply": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un fixture post de Bash con GH007 THEN Gemini CLI AfterTool inyecta el comando git config con email noreply": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un fixture post de Bash con GH007 THEN via guard.sh shim también inyecta el comando git config en Claude Code": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un fixture post de Bash con GH007 GIVEN GH007 sin email en salida WHEN corre guard-cli THEN inyecta el email de project.json": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un fixture post de Bash con GH007 GIVEN GH007 sin email y sin configuración WHEN corre guard-cli THEN el aviso no contiene Fresias y explica cómo configurar bot_noreply_email": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN Write sobre una migración nueva THEN Claude Code inyecta el recordatorio de npx vitest run tests/db/": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN Write sobre una migración nueva THEN Gemini CLI write_file inyecta el recordatorio de npx vitest run tests/db/": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN Write sobre una migración nueva THEN Write sobre un archivo ordinario no inyecta nada (retorna {})": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un post de shell con cd fallido o salida > 20.000 chars THEN Claude Code PostToolUse inyecta la remediación de cwd": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un post de shell con cd fallido o salida > 20.000 chars THEN Gemini CLI AfterTool inyecta la remediación de cwd": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un post de shell con cd fallido o salida > 20.000 chars THEN Claude Code PostToolUse inyecta la remediación de salida acotada": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts GIVEN un runtime unsupported (Antigravity) THEN guard-cli responde {} con exit 0 sin inventar workarounds": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts H-07: GIVEN un bloqueo del guard en fase pre THEN en Claude Code / CLI general incluye [<ruleId>] en el mensaje de bloqueo por stderr (exit 2)": "passed",
+    "harness-kit/tests/guard-cli.contract.spec.ts::H-06: Flecha result (PostToolUse / AfterTool) contracts H-07: GIVEN un bloqueo del guard en fase pre THEN en Antigravity incluye [<ruleId>] en el campo reason del JSON de rechazo": "passed"
+  },
+  "target_components": [],
+  "timestamp": "2026-11-16T14:54:00.914Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/guard-cli.contract.spec.ts (14 tests) 959ms\n\n Test Files  1 passed (1)\n      Tests  14 passed (14)\n   Start at  11:53:58\n   Duration  1.43s (transform 35ms, setup 0ms, collect 42ms, tests 959ms, environment 0ms, prepare 160ms)\n\nJSON report written to [repo]/.harness/probes/vitest-c1-harness-p2-backlog-mwjdw5ek.json\n",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/guard-cli.contract.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-p2-backlog-mwjdw5ek.json\n",
+  "files_touched": [
+    "docs/harness-library/QA-HARNESS.md",
+    "harness-kit/core/guard/guard-cli.mjs",
+    "harness-kit/core/plugins/opencode/opencode-plugin.ts",
+    "harness-kit/tests/guard-cli.contract.spec.ts"
+  ],
+  "in_scope_files": [
+    "docs/harness-library/QA-HARNESS.md",
+    "harness-kit/core/guard/guard-cli.mjs",
+    "harness-kit/core/plugins/opencode/opencode-plugin.ts",
+    "harness-kit/tests/guard-cli.contract.spec.ts"
+  ],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
