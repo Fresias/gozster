@@ -30,7 +30,7 @@ Lo que sí queda demostrado en comportamiento real: el guard instalado bloquea l
 
 Notas sobre los insumos:
 
-- **Origen del informe de QA-2: `task-555c9f3afc79/workdir/qa-harness-repo-2026-11-14.md`, ronda 2 (actualizada el 15-nov).** No estaba en la carpeta de GOZS-532 (`gozs-532-c8b4070fa6d1/` solo tiene `R1.log`); la carpeta donde apareció tiene su copia del repo en la rama de GOZS-537. **Hay que validarlo contra el adjunto de GOZS-532 en Multica antes de mergear este PR**: si difiere, las secciones 3.1 y 3.2 se rehacen con el adjunto. Sus 26 archivos de `qa-evidence/` no se revisaron en QA-4.
+- **Origen del informe de QA-2: `task-555c9f3afc79/workdir/qa-harness-repo-2026-11-14.md`, ronda 2 (actualizada el 15-nov).** No estaba en la carpeta de GOZS-532 (`gozs-532-c8b4070fa6d1/` solo tiene `R1.log`); la carpeta donde apareció tiene su copia del repo en la rama de GOZS-537. **Validado contra el adjunto de GOZS-532 en Multica (SHA-256 `3676229d33c92b40b6af11953eeb8f9f3c0174e414e0541154a3b31f57a85682`, coincide).** Sus 26 archivos de `qa-evidence/` no se revisaron en QA-4.
 - Las dos copias de `canary-antigravity.json` (`workdir/` y `workdir/qa-out/`) son idénticas byte a byte.
 - Búsqueda de secretos en los cinco archivos de entrada (solo conteos): 0 tokens de GitHub, 0 claves `sk-`, 0 JWT, 0 URLs con credenciales.
 - Los insumos no se commitean; quedan adjuntos a sus issues.
@@ -184,7 +184,7 @@ Borrador del issue (lo crea el PM; rama `chore/<#>-harness-telemetria-sesiones`,
 ## 8. Pendientes para el veredicto definitivo
 
 1. Gabriel: G3 (bypass), E8 (conteo en el transcript), constancia escrita de la excepción de R13, y coherencia de R20.
-2. Gabriel, **antes de mergear este PR**: validar el informe de QA-2 usado aquí (`task-555c9f3afc79`, ronda 2) contra el adjunto de GOZS-532.
+2. Informe de QA-2 (`task-555c9f3afc79`, ronda 2) validado contra el adjunto de GOZS-532 (SHA-256 `3676229d33c92b40b6af11953eeb8f9f3c0174e414e0541154a3b31f57a85682`, coincide).
 3. Decisión sobre H-01 y H-02: issue de arreglo (sección 6) o aceptación por escrito.
 4. T4 y T5 sobre una ventana nueva de 7 días, que empieza cuando estén mergeados los **dos** arreglos P1. Se agregan como apéndice a este documento.
 

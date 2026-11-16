@@ -82,8 +82,9 @@
       "title": "Evaluación post-hardening del guard políglota y reducción de fricción",
       "status": "blocked",
       "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "original_hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
       "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov",
-      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde 2026-11-13T22:12:41Z (13-nov-2026)",
+      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde el merge de GOZS-538 (H-01 y H-02), excluyendo eventos previos (sintéticos y canarios)",
       "experience": "EXPERIENCE-L-001.md",
       "window": {
         "durationDays": 14,

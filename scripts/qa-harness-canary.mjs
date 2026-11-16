@@ -501,6 +501,7 @@ export function runCanarySuite(options = {}) {
       cwd: execCwd,
       input: JSON.stringify(payload),
       encoding: "utf8",
+      env: { ...process.env, HARNESS_TELEMETRY: "0", HARNESS_SESSION_ID: "canary" },
     });
 
     let actualDecision = "error";

@@ -148,6 +148,43 @@ describe("Sync del kit instalado desde origin/main (dispatcher de Claude Code)",
     expect(existsSync(path.join(hooks, "harness-kit", kit.MARKER))).toBe(true);
     expect(readdirSync(hooks)).toEqual(["harness-kit"]);
   }, 60000);
+
+  it("GOZS-538 H-04: GIVEN una sesión abierta dentro del repo con el hook del proyecto y el dispatcher instalado WHEN ambos evalúan la misma llamada THEN se registra un único evento en telemetría", () => {
+    const { repo } = consumer();
+    mkdirSync(path.join(repo, ".claude"), { recursive: true });
+    writeFileSync(path.join(repo, ".claude", "settings.json"), JSON.stringify({ hooks: {} }));
+    const hooks = install(temp("gs-home-h04-"));
+    const telemetryDir = temp("gs-telemetry-h04-");
+    const payload = JSON.stringify({
+      session_id: "sess-h04-1",
+      cwd: repo,
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "git status" },
+    });
+    const env = { ...process.env, HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: telemetryDir, CLAUDE_PROJECT_DIR: repo };
+
+    // 1. Project hook runs guard-cli.mjs
+    execFileSync(process.execPath, [path.join(repo, "harness-kit", "core", "guard", "guard-cli.mjs"), "--runtime", "claude-code"], {
+      cwd: repo,
+      input: payload,
+      encoding: "utf8",
+      env,
+      stdio: "pipe",
+    });
+    // 2. Installed user dispatcher also runs on the same tool call
+    execFileSync(process.execPath, [path.join(hooks, "harness-dispatch.mjs")], {
+      cwd: repo,
+      input: payload,
+      encoding: "utf8",
+      env,
+      stdio: "pipe",
+    });
+
+    const lines = readFileSync(path.join(telemetryDir, "events.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!).session).toBe("sess-h04-1");
+  });
 });
 
 describe("Antigravity: hook de proyecto regenerado", () => {

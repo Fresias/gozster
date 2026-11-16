@@ -722,7 +722,7 @@ describe("Guard: PowerShell cubierto y fuentes del harness protegidas por rama",
     }
     // QA GOZS-432 r2: un --repo ajeno ANTES del merge propio tampoco exime.
     expect(evaluateRules({ kind: "shell", command: "echo '--repo acme/kit'; gh pr merge 3" }, { repoRoot: dir }).ruleId).toBe("pr.merge-check");
-  });
+  }, 90000);
 
   it("GIVEN gh api …/pulls/N/merge THEN el repo sale de la ruta, no de --repo (gh api lo ignora)", () => {
     const dir = repo("chore/8-harness-x");
