@@ -241,14 +241,23 @@ export function evaluateCandidatesV2(reports, options = {}) {
     const durationMs = Number(r.duration_ms) || 0;
     const outOfScope = r.out_of_scope_files || [];
     const inScope = r.in_scope_files || [];
-    const touched = r.files_touched || [];
+    const touched = Array.isArray(r.files_touched) ? r.files_touched : [];
     const tests = r.tests || {};
 
     let fixed = 0;
     let regressed = 0;
 
+    const baseTestKeys = Object.keys(baselineTests);
+    const candTestKeys = Object.keys(tests);
+    const missingBaselineTests =
+      candidateId !== "baseline" &&
+      (candTestKeys.length < baseTestKeys.length ||
+        baseTestKeys.some((k) => !Object.prototype.hasOwnProperty.call(tests, k)));
+
+    const emptyFilesTouched = candidateId !== "baseline" && touched.length === 0;
+
     if (candidateId !== "baseline") {
-      const allTestKeys = new Set([...Object.keys(tests), ...Object.keys(baselineTests)]);
+      const allTestKeys = new Set([...candTestKeys, ...baseTestKeys]);
       for (const k of allTestKeys) {
         const baseStatus = baselineTests[k];
         const candStatus = tests[k];
@@ -266,6 +275,12 @@ export function evaluateCandidatesV2(reports, options = {}) {
     } else if (regressed > 0) {
       disqualified = true;
       reason = "regressed";
+    } else if (emptyFilesTouched || missingBaselineTests) {
+      disqualified = true;
+      const reasons = [];
+      if (emptyFilesTouched) reasons.push("no files touched (files_touched is empty)");
+      if (missingBaselineTests) reasons.push(`fewer or missing baseline tests (${candTestKeys.length}/${baseTestKeys.length})`);
+      reason = reasons.join("; ");
     } else if ((strictScope || r.strict_scope_violation) && outOfScope.length > 0) {
       disqualified = true;
       reason = `strict scope violation: ${outOfScope.join(", ")}`;
@@ -351,7 +366,7 @@ export function evaluateCandidatesV2(reports, options = {}) {
   let verdict = "tie";
   const other = matrix.find((m) => m.candidate_id !== winner?.candidate_id);
   if (winner) {
-    if (winner.fixed > 0 || (baselineReport && !baselineReport.passed)) {
+    if (winner.fixed >= 1) {
       verdict = "behavioral";
     } else if (other) {
       const minDur = Math.min(winner.duration_ms, other.duration_ms);

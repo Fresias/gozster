@@ -42,9 +42,9 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
 
   it("selecciona el candidato con menor duración entre los que pasaron cuando la diferencia supera el margen", () => {
     const probes = [
-      { candidate_id: "cand-slow", passed: true, duration_ms: 2200 },
-      { candidate_id: "cand-fast", passed: true, duration_ms: 350 },
-      { candidate_id: "cand-failed", passed: false, duration_ms: 100 },
+      { candidate_id: "cand-slow", passed: true, duration_ms: 2200, files_touched: ["harness/guardrails.local.md"] },
+      { candidate_id: "cand-fast", passed: true, duration_ms: 350, files_touched: ["harness/guardrails.local.md"] },
+      { candidate_id: "cand-failed", passed: false, duration_ms: 100, files_touched: ["harness/guardrails.local.md"] },
     ];
     const res = evaluateProbes(probes);
     expect(res.winner_id).toBe("cand-fast");
@@ -58,12 +58,14 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
         candidate_id: "cand-friction",
         passed: true,
         duration_ms: 400,
+        files_touched: ["harness/guardrails.local.md"],
         telemetry: { tool_calls: 10, blocks: 3 },
       },
       {
         candidate_id: "cand-clean",
         passed: true,
         duration_ms: 600,
+        files_touched: ["harness/guardrails.local.md"],
         telemetry: { tool_calls: 3, blocks: 0 },
       },
     ];
@@ -86,6 +88,7 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
         candidate_id: "c1",
         passed: true,
         duration_ms: 3050,
+        files_touched: ["harness/guardrails.local.md"],
         tests: {
           "tests/sample.spec.ts::nuevo": "passed",
         },
@@ -109,6 +112,7 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
         candidate_id: "c1",
         passed: true,
         duration_ms: 3042,
+        files_touched: ["harness/guardrails.local.md"],
         tests: { "tests/sample.spec.ts::ok": "passed" },
       },
     ];
@@ -131,6 +135,7 @@ describe("Harness² Sintetizador: evaluateProbes", () => {
         candidate_id: "c1",
         passed: true,
         duration_ms: 3000,
+        files_touched: ["harness/guardrails.local.md"],
         tests: { "tests/sample.spec.ts::ok": "passed" },
       },
     ];
@@ -177,11 +182,11 @@ describe("Harness² Sintetizador: runCompose (promoción y persistencia de exper
     mkdirSync(probesDir, { recursive: true });
     writeFileSync(
       path.join(probesDir, "probe-cand-slow.json"),
-      JSON.stringify({ candidate_id: "cand-slow", passed: true, duration_ms: 1500 }),
+      JSON.stringify({ candidate_id: "cand-slow", passed: true, duration_ms: 1500, files_touched: ["harness/tool_guidance.local.md"] }),
     );
     writeFileSync(
       path.join(probesDir, "probe-cand-fast.json"),
-      JSON.stringify({ candidate_id: "cand-fast", passed: true, duration_ms: 400 }),
+      JSON.stringify({ candidate_id: "cand-fast", passed: true, duration_ms: 400, files_touched: ["harness/tool_guidance.local.md"] }),
     );
 
     // Guardar definición de candidatos
@@ -242,7 +247,7 @@ describe("Harness² Sintetizador: runCompose (promoción y persistencia de exper
     mkdirSync(probesDir, { recursive: true });
     writeFileSync(
       path.join(probesDir, "probe-malicious.json"),
-      JSON.stringify({ candidate_id: "malicious-1", passed: true, duration_ms: 100 }),
+      JSON.stringify({ candidate_id: "malicious-1", passed: true, duration_ms: 100, files_touched: ["core/guard/rules.json"] }),
     );
 
     const candidatesFile = path.join(ws, "candidates.json");
