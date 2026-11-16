@@ -101,12 +101,14 @@ process.stdin.on("end", () => {
     }
   }
 
+  const ruleTag = result.ruleId ? `[${result.ruleId}] ` : "";
+
   if (effectiveRuntime === "antigravity") {
     if (result.allowed) {
       process.stdout.write(JSON.stringify({ decision: "allow" }) + "\n");
       process.exit(0);
     } else {
-      const reason = `Blocked by .claude/hooks/guard.sh: ${result.reason}`;
+      const reason = `Blocked by .claude/hooks/guard.sh: ${ruleTag}${result.reason}`;
       process.stdout.write(JSON.stringify({ decision: "deny", reason }) + "\n");
       process.exit(0);
     }
@@ -115,7 +117,7 @@ process.stdin.on("end", () => {
       process.stdout.write("{}\n");
       process.exit(0);
     } else {
-      const reason = `Blocked by .claude/hooks/guard.sh: ${result.reason}`;
+      const reason = `Blocked by .claude/hooks/guard.sh: ${ruleTag}${result.reason}`;
       process.stderr.write(reason + "\n");
       process.exit(2);
     }
