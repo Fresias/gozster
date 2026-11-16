@@ -243,7 +243,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
   });
 
   it("GIVEN un reporte modificado después de compose WHEN corre harness-merge-check THEN falla por hash distinto", () => {
-    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
+    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: ["harness/guardrails.md"] };
     const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
     const shaC1 = hashReport(probeC1);
     const shaBase = hashReport(probeBaseline);
@@ -279,7 +279,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
   });
 
   it("GIVEN reportes y un registro generados por compose sin modificaciones WHEN corre harness-merge-check THEN pasa", () => {
-    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: [] };
+    const probeC1 = { candidate_id: "c1", passed: true, duration_ms: 1000, files_touched: ["harness/guardrails.md"] };
     const probeBaseline = { candidate_id: "baseline", passed: true, duration_ms: 1500, files_touched: [] };
     const shaC1 = hashReport(probeC1);
     const shaBase = hashReport(probeBaseline);
@@ -316,7 +316,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       candidate_id: "c1",
       passed: true,
       duration_ms: 1000,
-      files_touched: [],
+      files_touched: ["harness/guardrails.md"],
       tests: { "tests/sample.spec.ts::nuevo": "passed" },
     };
     const probeBaseline = {

@@ -134,8 +134,8 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
     writeFileSync(
       reportsFile,
       JSON.stringify([
-        { candidate_id: "A", passed: true, duration_ms: 1000, out_of_scope_files: [] },
-        { candidate_id: "B", passed: true, duration_ms: 2000, out_of_scope_files: ["other.ts"] },
+        { candidate_id: "A", passed: true, duration_ms: 1000, files_touched: ["harness/guardrails.md"], out_of_scope_files: [] },
+        { candidate_id: "B", passed: true, duration_ms: 2000, files_touched: ["harness/guardrails.md", "other.ts"], out_of_scope_files: ["other.ts"] },
       ]),
     );
 
@@ -161,6 +161,7 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
         candidate_id: "c1",
         passed: true,
         duration_ms: 3042,
+        files_touched: ["harness/guardrails.local.md"],
         tests: { "tests/sample.spec.ts::debe pasar": "passed" },
       },
     ];
@@ -183,6 +184,7 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
         candidate_id: "c1",
         passed: true,
         duration_ms: 3000,
+        files_touched: ["harness/guardrails.local.md"],
         tests: { "tests/sample.spec.ts::debe pasar": "passed" },
       },
     ];
@@ -208,6 +210,7 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
         candidate_id: "c1-broken",
         passed: true,
         duration_ms: 2500,
+        files_touched: ["harness/guardrails.local.md"],
         tests: {
           "tests/sample.spec.ts::test 1": "passed",
           "tests/sample.spec.ts::test 2": "failed",
@@ -237,6 +240,7 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
         candidate_id: "c1-fixed",
         passed: true,
         duration_ms: 3050,
+        files_touched: ["harness/guardrails.local.md"],
         tests: {
           "tests/sample.spec.ts::test 1": "passed",
           "tests/sample.spec.ts::nuevo test": "passed",
@@ -315,6 +319,30 @@ describe("Harness²: harness-contrast (Validación Semántica Cruzada y Selecci�
     const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-partial")!;
     expect(c1.disqualified).toBe(true);
     expect(c1.reason).toContain("baseline tests");
+  });
+
+  it("GIVEN un candidato sin campo files_touched WHEN evaluateCandidates evalúa en v2 THEN cuenta como vacío y queda descalificado", () => {
+    const reports = [
+      {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 1500,
+        tests: { "tests/a.spec.ts::t1": "passed" },
+      },
+      {
+        candidate_id: "c1-missing-field",
+        passed: true,
+        duration_ms: 1000,
+        tests: { "tests/a.spec.ts::t1": "passed" },
+      },
+    ];
+
+    const result = evaluateCandidates(reports);
+    const c1 = result.contrast_matrix.find((c: any) => c.candidate_id === "c1-missing-field")!;
+    expect(c1.disqualified).toBe(true);
+    expect(c1.reason).toContain("files_touched is empty");
+    expect(result.winner_id).toBe("baseline");
+    expect(result.verdict).toBe("tie");
   });
 
   it("GIVEN un baseline con passed: false y un candidato con fixed: 0 WHEN evaluateCandidates calcula el veredicto THEN nunca emite verdict: 'behavioral'", () => {

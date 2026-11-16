@@ -241,7 +241,7 @@ export function evaluateCandidatesV2(reports, options = {}) {
     const durationMs = Number(r.duration_ms) || 0;
     const outOfScope = r.out_of_scope_files || [];
     const inScope = r.in_scope_files || [];
-    const touched = r.files_touched || [];
+    const touched = Array.isArray(r.files_touched) ? r.files_touched : [];
     const tests = r.tests || {};
 
     let fixed = 0;
@@ -254,19 +254,7 @@ export function evaluateCandidatesV2(reports, options = {}) {
       (candTestKeys.length < baseTestKeys.length ||
         baseTestKeys.some((k) => !Object.prototype.hasOwnProperty.call(tests, k)));
 
-    const isLegacyV1Fixture =
-      r.tests === undefined &&
-      baselineReport?.tests === undefined &&
-      candidateId === "c1" &&
-      durationMs === 1000 &&
-      baselineReport?.duration_ms === 1500 &&
-      Object.keys(r).length === 4;
-
-    const emptyFilesTouched =
-      candidateId !== "baseline" &&
-      Array.isArray(r.files_touched) &&
-      r.files_touched.length === 0 &&
-      !isLegacyV1Fixture;
+    const emptyFilesTouched = candidateId !== "baseline" && touched.length === 0;
 
     if (candidateId !== "baseline") {
       const allTestKeys = new Set([...candTestKeys, ...baseTestKeys]);
