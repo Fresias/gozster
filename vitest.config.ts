@@ -12,6 +12,7 @@ export default defineConfig({
     globals: false,
     // Child processes inherit process.env, so the guard never writes real telemetry from tests.
     env: { HARNESS_TELEMETRY: "0" },
+    maxWorkers: 4,
     testTimeout: 30000,
     hookTimeout: 120000,
     teardownTimeout: 60000,
