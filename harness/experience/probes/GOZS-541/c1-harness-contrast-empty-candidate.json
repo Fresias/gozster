@@ -1,10 +1,10 @@
 {
   "candidate_id": "c1-harness-contrast-empty-candidate",
-  "probe_branch": "probe/c1-harness-contrast-empty-candidate-mwjej2ei",
+  "probe_branch": "probe/c1-harness-contrast-empty-candidate-mwjkon90",
   "probe_cmd": "npx vitest run harness-kit/tests/harness-contrast.spec.ts",
   "passed": true,
   "exit_code": 0,
-  "duration_ms": 2883,
+  "duration_ms": 2659,
   "tests": {
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) selecciona al candidato con menor duración cuando ambos son válidos y dentro de scope": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) aplica penalización severa por archivos fuera de scope en modo flexible": "passed",
@@ -17,23 +17,34 @@
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un candidato que agrega un test que falla en origin/main y pasa con su cambio WHEN corre el contraste THEN veredicto es behavioral con fixed: 1": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un baseline con 14 tests (2 en falla) y un candidato c1 con 12 tests (0 en falla) y files_touched: [] WHEN evaluateCandidates evalúa la matriz THEN c1 es descalificado y no hay ganador behavioral (reproducción GOZS-540)": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un candidato que toca archivos pero ejecuta menos tests u omite un test de baseline WHEN evaluateCandidates evalúa THEN queda descalificado": "passed",
+    "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un candidato sin campo files_touched WHEN evaluateCandidates evalúa en v2 THEN cuenta como vacío y queda descalificado": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un baseline con passed: false y un candidato con fixed: 0 WHEN evaluateCandidates calcula el veredicto THEN nunca emite verdict: 'behavioral'": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) GIVEN un cambio puramente documental donde baseline y el candidato corren los mismos tests (100% pass en ambos) y el candidato tiene files_touched.length > 0 WHEN evaluateCandidates evalúa THEN permite verdict: 'tie'": "passed",
     "harness-kit/tests/harness-contrast.spec.ts::Harness²: harness-contrast (Validación Semántica Cruzada y Selección) deriveTags no asigna 'auth' por coincidencia de subcadena con harness-authorized o author": "passed"
   },
   "target_components": [],
-  "timestamp": "2026-11-16T15:11:50.252Z",
-  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-contrast.spec.ts (14 tests) 68ms\n\n Test Files  1 passed (1)\n      Tests  14 passed (14)\n   Start at  12:11:48\n   Duration  574ms (transform 48ms, setup 0ms, collect 63ms, tests 68ms, environment 0ms, prepare 147ms)\n\nJSON report written to [repo]/.harness/probes/vitest-c1-harness-contrast-empty-candidate-mwjej33q.json\n",
-  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-contrast.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-contrast-empty-candidate-mwjej33q.json\n",
+  "timestamp": "2026-11-16T18:04:07.924Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-contrast.spec.ts (15 tests) 68ms\n\n Test Files  1 passed (1)\n      Tests  15 passed (15)\n   Start at  15:04:06\n   Duration  991ms (transform 46ms, setup 0ms, collect 61ms, tests 68ms, environment 0ms, prepare 153ms)\n\nJSON report written to [repo]/.harness/probes/vitest-c1-harness-contrast-empty-candidate-mwjkonvp.json\n",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-contrast.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-contrast-empty-candidate-mwjkonvp.json\n",
   "files_touched": [
     "harness-kit/core/scripts/harness-compose.mjs",
     "harness-kit/core/scripts/harness-contrast.mjs",
-    "harness-kit/tests/harness-contrast.spec.ts"
+    "harness-kit/tests/harness-compose.spec.ts",
+    "harness-kit/tests/harness-contrast.spec.ts",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts",
+    "harness/experience/GOZS-541.jsonl",
+    "harness/experience/probes/GOZS-541/baseline.json",
+    "harness/experience/probes/GOZS-541/c1-harness-contrast-empty-candidate.json"
   ],
   "in_scope_files": [
     "harness-kit/core/scripts/harness-compose.mjs",
     "harness-kit/core/scripts/harness-contrast.mjs",
-    "harness-kit/tests/harness-contrast.spec.ts"
+    "harness-kit/tests/harness-compose.spec.ts",
+    "harness-kit/tests/harness-contrast.spec.ts",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts",
+    "harness/experience/GOZS-541.jsonl",
+    "harness/experience/probes/GOZS-541/baseline.json",
+    "harness/experience/probes/GOZS-541/c1-harness-contrast-empty-candidate.json"
   ],
   "out_of_scope_files": [],
   "strict_scope": false,
