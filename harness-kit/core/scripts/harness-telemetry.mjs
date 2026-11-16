@@ -7,11 +7,11 @@
  *   [ERROR]       sessions with more than 3 repeated blocks of the same rule
  *
  * Usage:
- *   node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl] [--json]
+ *   node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl] [--since <ISO>] [--until <ISO>] [--json]
  * Defaults to the guard's telemetry dir for the current directory (see resolveTelemetryDir).
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveTelemetryDir } from "../guard/telemetry.mjs";
@@ -19,6 +19,35 @@ import { resolveTelemetryDir } from "../guard/telemetry.mjs";
 const REPEATED_BLOCK_THRESHOLD = 3;
 // Max entries per list in the text summary, keeping it within 40 lines.
 const LIST_MAX = 5;
+const SYNTHETIC_SESSION_RE = /^(?:canary|synthetic|qa-canary)(?:[-:_].*)?$/i;
+
+/** Returns true when an event comes from a canary or synthetic run and must be excluded. */
+export function isExcludedEvent(e) {
+  if (!e || typeof e !== "object") return true;
+  if (e.synthetic === true || e.canary === true) return true;
+  return SYNTHETIC_SESSION_RE.test(String(e.session || ""));
+}
+
+/**
+ * Filter events excluding canary/synthetic sessions and applying optional [since, until) bounds.
+ * @param {object[]} events
+ * @param {{ since?: string | null, until?: string | null }} [options]
+ */
+export function filterEvents(events, options = {}) {
+  const list = Array.isArray(events) ? events : [];
+  const sinceMs = options.since != null ? Date.parse(options.since) : null;
+  const untilMs = options.until != null ? Date.parse(options.until) : null;
+  return list.filter((e) => {
+    if (isExcludedEvent(e)) return false;
+    if (sinceMs !== null || untilMs !== null) {
+      const ts = Date.parse(e?.ts);
+      if (!Number.isFinite(ts)) return false;
+      if (sinceMs !== null && ts < sinceMs) return false;
+      if (untilMs !== null && ts >= untilMs) return false;
+    }
+    return true;
+  });
+}
 
 /** Parse JSONL text into event objects, skipping blank/invalid lines. */
 export function parseJsonl(text) {
@@ -53,9 +82,10 @@ export function percentile(sorted, p) {
 /**
  * Summarize telemetry events.
  * @param {object[]} events
+ * @param {{ since?: string | null, until?: string | null }} [options]
  */
-export function summarize(events) {
-  const list = Array.isArray(events) ? events : [];
+export function summarize(events, options = {}) {
+  const list = filterEvents(events, options);
 
   const actionsByKind = {};
   const blocksByRule = {};
@@ -160,7 +190,7 @@ export function summarize(events) {
  * Trigger criteria: >= threshold repeated blocks on the same rule in a session.
  */
 export function evaluatePpcTrigger(events, threshold = 2) {
-  const list = Array.isArray(events) ? events : [];
+  const list = filterEvents(events);
   const sessionRuleBlocks = new Map();
 
   for (const e of list) {
@@ -248,8 +278,56 @@ export function formatSummary(summary) {
 // --- CLI ---------------------------------------------------------------
 function main(argv) {
   const args = argv.slice(2);
-  const asJson = args.includes("--json");
-  const fileArg = args.find((a) => !a.startsWith("--"));
+  let asJson = false;
+  let since = null;
+  let until = null;
+  let fileArg = null;
+
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--json") {
+      asJson = true;
+    } else if (a === "--since") {
+      if (i + 1 >= args.length) {
+        process.stderr.write("Missing value for --since\n");
+        process.exit(1);
+      }
+      since = args[++i];
+    } else if (a.startsWith("--since=")) {
+      since = a.slice("--since=".length);
+    } else if (a === "--until") {
+      if (i + 1 >= args.length) {
+        process.stderr.write("Missing value for --until\n");
+        process.exit(1);
+      }
+      until = args[++i];
+    } else if (a.startsWith("--until=")) {
+      until = a.slice("--until=".length);
+    } else if (a.startsWith("-")) {
+      process.stderr.write(`Unknown option: ${a}\n`);
+      process.exit(1);
+    } else if (fileArg === null) {
+      fileArg = a;
+    } else {
+      process.stderr.write(`Unexpected argument: ${a}\n`);
+      process.exit(1);
+    }
+  }
+
+  if (since !== null && (!since || Number.isNaN(Date.parse(since)))) {
+    process.stderr.write(`Invalid ISO date for --since: ${since}\n`);
+    process.exit(1);
+  }
+  if (until !== null && (!until || Number.isNaN(Date.parse(until)))) {
+    process.stderr.write(`Invalid ISO date for --until: ${until}\n`);
+    process.exit(1);
+  }
+
+  if (fileArg !== null && !existsSync(fileArg)) {
+    process.stderr.write(`Telemetry file not found: ${fileArg}\n`);
+    process.exit(1);
+  }
+
   const file = fileArg || path.join(resolveTelemetryDir(process.cwd()), "events.jsonl");
 
   let text = "";
@@ -257,10 +335,10 @@ function main(argv) {
     text = readFileSync(file, "utf8");
   } catch {
     process.stderr.write(`No telemetry found at ${file}\n`);
-    process.exit(0);
+    process.exit(fileArg !== null ? 1 : 0);
   }
 
-  const summary = summarize(parseJsonl(text));
+  const summary = summarize(parseJsonl(text), { since, until });
   if (asJson) {
     process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
   } else {

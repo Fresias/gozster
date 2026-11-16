@@ -321,4 +321,38 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
       expect(JSON.parse(res.stdout)).toEqual({});
     });
   });
+
+  describe("H-07: GIVEN un bloqueo del guard en fase pre", () => {
+    it("THEN en Claude Code / CLI general incluye [<ruleId>] en el mensaje de bloqueo por stderr (exit 2)", () => {
+      const res = runGuardCli({
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: {
+          command: "git push --force origin main",
+        },
+      });
+      expect(res.code).toBe(2);
+      expect(res.stderr).toContain("Blocked by .claude/hooks/guard.sh: [git.force-push]");
+      expect(res.stderr).toContain("Force/destructive push is forbidden");
+    });
+
+    it("THEN en Antigravity incluye [<ruleId>] en el campo reason del JSON de rechazo", () => {
+      const res = runGuardCli(
+        {
+          toolCall: {
+            name: "read_file",
+            args: {
+              Path: "package-lock.json",
+            },
+          },
+        },
+        ["--runtime", "antigravity", "--phase", "pre"],
+      );
+      expect(res.code).toBe(0);
+      const parsed = JSON.parse(res.stdout);
+      expect(parsed.decision).toBe("deny");
+      expect(parsed.reason).toContain("Blocked by .claude/hooks/guard.sh: [fs.bloatware]");
+      expect(parsed.reason).toContain("Reading package-lock.json is forbidden");
+    });
+  });
 });

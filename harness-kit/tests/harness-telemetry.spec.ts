@@ -5,9 +5,9 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { buildEvent, recordEvent, redactCmd, redactSecrets, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
+import { buildEvent, recordEvent, redactCmd, redactSecrets, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
-import { evaluatePpcTrigger, formatSummary, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
+import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
 // H-12 — Telemetría determinista del guard + agregador harness-telemetry.mjs.
 // Criterios de aceptación (Gherkin):
@@ -483,5 +483,139 @@ describe("GOZS-516: byRuntime", () => {
     const text = execFileSync(process.execPath, [script, file], { encoding: "utf8" });
     expect(text).toContain("[RUNTIME]");
     expect(text).toContain("3  claude-code  sessions 2  blocks shell.rm-rf=1");
+  });
+});
+
+describe("GOZS-538 H-01: resolveSession por runtime con fixtures existentes", () => {
+  const fixturesDir = path.resolve(__dirname, "fixtures");
+  const cases: Array<{ runtime: string; expected: string }> = [
+    { runtime: "claude-code", expected: "25aca701-753d-47a0-abb6-afb4f08aabf5" },
+    { runtime: "gemini-cli", expected: "d7476bff-f30a-47c6-8c3d-304c3c69be1a" },
+    { runtime: "antigravity", expected: "eea1e483-2c3d-4983-9424-7f805610a7ee" },
+    { runtime: "opencode", expected: "ses_ea9fdb6a8ffecfyC8M0NtjpGH5" },
+  ];
+
+  for (const { runtime, expected } of cases) {
+    it(`GIVEN el fixture pre-shell de ${runtime} WHEN resolveSession() y buildEvent() lo evalúan THEN la sesión es distinta de "unknown"`, () => {
+      vi.stubEnv("HARNESS_SESSION_ID", "");
+      const raw = JSON.parse(readFileSync(path.join(fixturesDir, runtime, "pre-shell.json"), "utf8"));
+      const session = resolveSession(raw);
+      expect(session).not.toBe("unknown");
+      expect(session).toBe(expected);
+
+      const ev = buildEvent({ runtime, phase: "pre", kind: "shell", tool: "shell", command: "echo h00", raw }, { allowed: true });
+      expect(ev.session).toBe(expected);
+      expect(ev.session).not.toBe("unknown");
+    });
+  }
+});
+
+describe("GOZS-538 H-02: sin contaminación de canarios ni corridas sintéticas", () => {
+  it("GIVEN HARNESS_TELEMETRY=1 WHEN corre scripts/qa-harness-canary.mjs THEN no escribe eventos en la telemetría real", () => {
+    const dir = tempDir();
+    const canaryScript = path.resolve(__dirname, "../../scripts/qa-harness-canary.mjs");
+    for (const runtime of ["claude-code", "antigravity"]) {
+      execFileSync(process.execPath, [canaryScript, "--target", "repo", "--runtime", runtime, "--json"], {
+        encoding: "utf8",
+        env: { ...process.env, HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: dir },
+      });
+    }
+    expect(existsSync(path.join(dir, "events.jsonl"))).toBe(false);
+  });
+
+  it("GIVEN eventos con sesión marcada como canary/synthetic WHEN el agregador resume THEN quedan excluidos", () => {
+    const mixed = [
+      { ts: "2026-11-16T01:00:00.000Z", session: "real-sess-1", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow", rule: null },
+      { ts: "2026-11-16T01:00:01.000Z", session: "canary", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "git.force-push" },
+      { ts: "2026-11-16T01:00:02.000Z", session: "synthetic-run", runtime: "opencode", phase: "pre", kind: "shell", decision: "block", rule: "fs.bloatware" },
+      { ts: "2026-11-16T01:00:03.000Z", session: "qa-canary-1", runtime: "antigravity", phase: "pre", kind: "shell", decision: "block", rule: "git.repo-rewire" },
+      { ts: "2026-11-16T01:00:04.000Z", session: "other", synthetic: true, runtime: "gemini-cli", phase: "pre", kind: "shell", decision: "block", rule: "shell.rm-rf" },
+    ];
+    expect(isExcludedEvent(mixed[0])).toBe(false);
+    expect(isExcludedEvent(mixed[1])).toBe(true);
+    expect(isExcludedEvent(mixed[2])).toBe(true);
+    expect(isExcludedEvent(mixed[3])).toBe(true);
+    expect(isExcludedEvent(mixed[4])).toBe(true);
+
+    const s = summarize(mixed);
+    expect(s.totalEvents).toBe(1);
+    expect(s.totalSessions).toBe(1);
+    expect(s.blocksByRule).toEqual({});
+    expect(s.ppcTrigger.should_trigger).toBe(false);
+  });
+});
+
+describe("GOZS-538 H-03: --since / --until y validación de argumentos en harness-telemetry.mjs", () => {
+  const script = path.resolve(__dirname, "../core/scripts/harness-telemetry.mjs");
+  const sampleEvents = [
+    { ts: "2026-11-10T23:59:59.999Z", session: "s-before", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", rule: null },
+    { ts: "2026-11-11T00:00:00.000Z", session: "s-in-1", runtime: "antigravity", phase: "pre", kind: "shell", decision: "block", rule: "git.force-push" },
+    { ts: "2026-11-13T12:00:00.000Z", session: "s-in-2", runtime: "claude-code", phase: "pre", kind: "write", decision: "allow", rule: null },
+    { ts: "2026-11-15T00:00:00.000Z", session: "s-until-boundary", runtime: "antigravity", phase: "pre", kind: "shell", decision: "block", rule: "shell.rm-rf" },
+  ];
+
+  it("GIVEN eventos en distintas fechas WHEN se ejecuta con --since y --until (texto y --json) THEN filtra estrictamente por [since, until)", () => {
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, sampleEvents.map((e) => JSON.stringify(e)).join("\n"));
+
+    const jsonOut = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [script, file, "--since", "2026-11-11T00:00:00.000Z", "--until", "2026-11-15T00:00:00.000Z", "--json"],
+        { encoding: "utf8" },
+      ),
+    );
+    expect(jsonOut.totalEvents).toBe(2);
+    expect(jsonOut.totalSessions).toBe(2);
+    expect(jsonOut.blocksByRule).toEqual({ "git.force-push": 1 });
+
+    const textOut = execFileSync(
+      process.execPath,
+      [script, file, "--since=2026-11-11T00:00:00.000Z", "--until=2026-11-15T00:00:00.000Z"],
+      { encoding: "utf8" },
+    );
+    expect(textOut).toContain("events:   2");
+    expect(textOut).toContain("sessions: 2");
+    expect(textOut).toContain("1  git.force-push");
+    expect(textOut).not.toContain("shell.rm-rf");
+
+    expect(
+      filterEvents(sampleEvents, {
+        since: "2026-11-11T00:00:00.000Z",
+        until: "2026-11-15T00:00:00.000Z",
+      }).map((e: { session: string }) => e.session),
+    ).toEqual(["s-in-1", "s-in-2"]);
+  });
+
+  it("GIVEN un argumento desconocido o fecha inválida WHEN se ejecuta harness-telemetry.mjs THEN falla con código != 0", () => {
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, "");
+
+    for (const badArgs of [
+      [file, "--unknown-flag"],
+      [file, "--since"],
+      [file, "--since", "not-a-date"],
+      [file, "--until=not-a-date"],
+      [file, "extra-positional.jsonl"],
+    ]) {
+      let exitCode = 0;
+      try {
+        execFileSync(process.execPath, [script, ...badArgs], { stdio: "pipe" });
+      } catch (e) {
+        exitCode = (e as { status?: number }).status ?? 1;
+      }
+      expect(exitCode).not.toBe(0);
+    }
+  });
+
+  it("GIVEN un archivo explícito inexistente WHEN se ejecuta harness-telemetry.mjs THEN falla con código != 0", () => {
+    const missingFile = path.join(tempDir(), "does-not-exist.jsonl");
+    let exitCode = 0;
+    try {
+      execFileSync(process.execPath, [script, missingFile], { stdio: "pipe" });
+    } catch (e) {
+      exitCode = (e as { status?: number }).status ?? 1;
+    }
+    expect(exitCode).not.toBe(0);
   });
 });

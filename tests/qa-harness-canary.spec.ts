@@ -118,4 +118,11 @@ describe("QA-1: Script de canarios del guard (scripts/qa-harness-canary.mjs)", (
     expect(filtered).not.toContain("vitest-176315264871.json");
     expect(filtered).not.toContain("vitest-temp-output.json");
   });
+
+  it("GIVEN un mensaje de bloqueo con prefijo [rule.id] (H-07) WHEN mapReasonToRule lo evalúa THEN devuelve directamente rule.id", async () => {
+    // @ts-expect-error script .mjs lacks type declarations
+    const { mapReasonToRule } = await import("../scripts/qa-harness-canary.mjs");
+    expect(mapReasonToRule("[fs.bloatware] Do not read lockfiles")).toBe("fs.bloatware");
+    expect(mapReasonToRule("[custom.rule-id] Cualquier motivo")).toBe("custom.rule-id");
+  });
 });

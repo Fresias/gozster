@@ -44,14 +44,20 @@ process.stdin.on("end", () => {
   if (installedKit) syncKit(repo, here);
   const installed = installedKit ? path.join(here, GUARD) : "";
   const guard = installed && existsSync(installed) ? installed : path.join(repo, GUARD);
-  // Without an installed kit, the project hook already runs when the session was opened inside the repo.
+  // When the session was opened inside the repo, .claude/settings.json already runs the project hook.
+  // Without an installed kit, exit only when CLAUDE_PROJECT_DIR confirms the session started in repo;
+  // with an installed kit, enforce origin/main rules without double-recording telemetry.
   const projectDir = process.env.CLAUDE_PROJECT_DIR || "";
-  if (guard !== installed && projectDir && same(projectDir, repo) && existsSync(path.join(repo, ".claude", "settings.json"))) process.exit(0);
+  const hasProjectSettings = existsSync(path.join(repo, ".claude", "settings.json"));
+  if (guard !== installed && projectDir && same(projectDir, repo) && hasProjectSettings) process.exit(0);
+  const sessionDir = projectDir || payload?.cwd || "";
+  const suppressTelemetry = Boolean(guard === installed && sessionDir && same(sessionDir, repo) && hasProjectSettings);
 
   const res = spawnSync(process.execPath, [guard, "--runtime", "claude-code"], {
     cwd: repo,
     input: raw,
     encoding: "utf8",
+    env: suppressTelemetry ? { ...process.env, HARNESS_TELEMETRY: "0" } : process.env,
   });
   if (res.error || res.status === null) process.exit(0);
   if (res.stdout) process.stdout.write(res.stdout);

@@ -148,6 +148,64 @@ describe("Sync del kit instalado desde origin/main (dispatcher de Claude Code)",
     expect(existsSync(path.join(hooks, "harness-kit", kit.MARKER))).toBe(true);
     expect(readdirSync(hooks)).toEqual(["harness-kit"]);
   }, 60000);
+
+  it("GOZS-538 H-04: GIVEN una sesión abierta dentro del repo con el hook del proyecto y el dispatcher instalado WHEN ambos evalúan la misma llamada THEN se registra un único evento en telemetría", () => {
+    const { repo } = consumer();
+    mkdirSync(path.join(repo, ".claude"), { recursive: true });
+    writeFileSync(path.join(repo, ".claude", "settings.json"), JSON.stringify({ hooks: {} }));
+    const hooks = install(temp("gs-home-h04-"));
+    const telemetryDir = temp("gs-telemetry-h04-");
+    const payload = JSON.stringify({
+      session_id: "sess-h04-1",
+      cwd: repo,
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "git status" },
+    });
+    const env = { ...process.env, HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: telemetryDir, CLAUDE_PROJECT_DIR: repo };
+
+    // 1. Project hook runs guard-cli.mjs
+    execFileSync(process.execPath, [path.join(repo, "harness-kit", "core", "guard", "guard-cli.mjs"), "--runtime", "claude-code"], {
+      cwd: repo,
+      input: payload,
+      encoding: "utf8",
+      env,
+      stdio: "pipe",
+    });
+    // 2. Installed user dispatcher also runs on the same tool call
+    execFileSync(process.execPath, [path.join(hooks, "harness-dispatch.mjs")], {
+      cwd: repo,
+      input: payload,
+      encoding: "utf8",
+      env,
+      stdio: "pipe",
+    });
+
+    const lines = readFileSync(path.join(telemetryDir, "events.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0]!).session).toBe("sess-h04-1");
+  });
+
+  it("GOZS-538 H-04: GIVEN dispatcher sin kit instalado, sin CLAUDE_PROJECT_DIR y payload.cwd === repo WHEN corre una tool call THEN sí evalúa las reglas y no sale en exit(0) prematuro", () => {
+    const { repo } = consumer();
+    mkdirSync(path.join(repo, ".claude"), { recursive: true });
+    writeFileSync(path.join(repo, ".claude", "settings.json"), JSON.stringify({ hooks: {} }));
+    const repoDispatch = path.join(repo, "harness-kit", "core", "plugins", "claude-code", "dispatch.mjs");
+    const envWithoutProjectDir = { ...process.env, HARNESS_TELEMETRY: "0", CLAUDE_PROJECT_DIR: "" };
+    let code = 0;
+    try {
+      execFileSync(process.execPath, [repoDispatch], {
+        cwd: repo,
+        input: JSON.stringify(bash(repo, "multica issue search foo")),
+        encoding: "utf8",
+        env: envWithoutProjectDir,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (e) {
+      code = (e as { status?: number }).status ?? 1;
+    }
+    expect(code).toBe(2);
+  });
 });
 
 describe("Antigravity: hook de proyecto regenerado", () => {
