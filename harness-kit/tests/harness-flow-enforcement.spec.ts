@@ -30,8 +30,10 @@ const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
 const bashBin = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
 
 const temps: string[] = [];
-// Yield a macrotask tick between synchronous child_process tests so Vitest's worker MessagePort
+// Avoid real network round-trips from `gh pr view` inside mergeCheck() on synthetic acme/app repos,
+// and yield a macrotask tick between synchronous child_process tests so Vitest's worker MessagePort
 // processes onTaskUpdate acks without hitting birpc's 60s timeout under full-suite load (H-08).
+process.env.HTTPS_PROXY = "http://127.0.0.1:1";
 beforeEach(() => new Promise((r) => setTimeout(r, 0)));
 afterAll(() => {
   for (const d of temps) rmSync(d, { recursive: true, force: true });
