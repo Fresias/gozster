@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,28 +9,38 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..");
 const repoRoot = path.resolve(kitDir, "..");
 const auditScript = path.join(repoRoot, "scripts", "qa-harness-audit.mjs");
+const renderScript = path.join(kitDir, "core", "scripts", "harness-render.mjs");
 const ciWorkflowPath = path.join(repoRoot, ".github", "workflows", "ci.yml");
 const mergeCheckWorkflowPath = path.join(repoRoot, ".github", "workflows", "harness-merge-check.yml");
 
 describe("Harness² CI Workflows & Audit Debt Mode", () => {
-  const createdTempFiles: string[] = [];
+  const createdTempDirs: string[] = [];
 
   afterEach(() => {
-    for (const f of createdTempFiles) {
-      if (existsSync(f)) {
+    for (const d of createdTempDirs) {
+      if (existsSync(d)) {
         try {
-          unlinkSync(f);
+          rmSync(d, { recursive: true, force: true });
         } catch {}
       }
     }
-    createdTempFiles.length = 0;
+    createdTempDirs.length = 0;
   });
 
   describe("qa-harness-audit --debt-mode warn|error", () => {
-    it("GIVEN deuda de lecciones excedida WHEN --debt-mode warn THEN sale con 0 e imprime ::warning; con --debt-mode error sale con 1", () => {
-      // Crear 6 lecciones temporales válidas para superar el umbral de 5
+    it("GIVEN deuda de lecciones excedida en workdir aislado WHEN --debt-mode warn THEN sale con 0 e imprime ::warning; con --debt-mode error sale con 1 sin tocar harness/ real", () => {
+      const tmpWorkdir = mkdtempSync(path.join(tmpdir(), "qa-harness-audit-"));
+      createdTempDirs.push(tmpWorkdir);
+
+      cpSync(path.join(repoRoot, "harness"), path.join(tmpWorkdir, "harness"), { recursive: true });
+      execFileSync(process.execPath, [renderScript, path.join(tmpWorkdir, "harness")], {
+        cwd: tmpWorkdir,
+        stdio: "pipe",
+      });
+
+      // Crear 6 lecciones temporales válidas en el workdir temporal para superar el umbral de 5
       for (let i = 1; i <= 6; i++) {
-        const file = path.join(repoRoot, "harness", "experience", `GOZS-99${i}.jsonl`);
+        const file = path.join(tmpWorkdir, "harness", "experience", `GOZS-99${i}.jsonl`);
         writeFileSync(
           file,
           JSON.stringify({
@@ -40,15 +51,18 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
           }) + "\n",
           "utf8"
         );
-        createdTempFiles.push(file);
       }
 
       // 1. En modo warn: sale con 0 e imprime ::warning title=Harness debt::
-      const stdoutWarn = execFileSync(process.execPath, [auditScript, "--debt-mode", "warn"], {
-        cwd: repoRoot,
-        encoding: "utf8",
-        stdio: "pipe",
-      });
+      const stdoutWarn = execFileSync(
+        process.execPath,
+        [auditScript, "--workdir", tmpWorkdir, "--debt-mode", "warn"],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: "pipe",
+        }
+      );
       expect(stdoutWarn).toContain("::warning title=Harness debt::");
       expect(stdoutWarn).toContain("sin procesar");
 
@@ -56,7 +70,7 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       let errorStatus: number | null = null;
       let errorOut = "";
       try {
-        execFileSync(process.execPath, [auditScript, "--debt-mode", "error"], {
+        execFileSync(process.execPath, [auditScript, "--workdir", tmpWorkdir, "--debt-mode", "error"], {
           cwd: repoRoot,
           encoding: "utf8",
           stdio: "pipe",
@@ -72,22 +86,30 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
   });
 
   describe("Static workflow verification (.github/workflows)", () => {
-    it("GIVEN harness-merge-check.yml THEN incluye edited y labeled y no ejecuta npm ci", () => {
+    it("GIVEN harness-merge-check.yml THEN usa pull_request_target, no hace checkout del head ni npm ci, pasa --event-action y declara issues: write", () => {
       expect(existsSync(mergeCheckWorkflowPath)).toBe(true);
       const content = readFileSync(mergeCheckWorkflowPath, "utf8");
 
+      expect(content).toMatch(/pull_request_target/);
       expect(content).toMatch(/edited/);
       expect(content).toMatch(/labeled/);
       expect(content).not.toMatch(/npm\s+ci/);
+      expect(content).not.toContain("github.event.pull_request.head.sha");
+      expect(content).not.toMatch(/ref:\s*.*head\.ref/);
+      expect(content).toContain("--event-action");
+      expect(content).toMatch(/issues:\s*write/);
     });
 
-    it("GIVEN ci.yml THEN no menciona harness-merge-check.mjs, no incluye edited, y conserva job name Typecheck, Lint & Test", () => {
+    it("GIVEN ci.yml THEN no menciona harness-merge-check.mjs, incluye include-hidden-files: true, verify solo tiene contents: read y conserva job name Typecheck, Lint & Test", () => {
       expect(existsSync(ciWorkflowPath)).toBe(true);
       const content = readFileSync(ciWorkflowPath, "utf8");
 
       expect(content).not.toContain("harness-merge-check.mjs");
       expect(content).not.toMatch(/types:.*edited/);
       expect(content).toContain("name: Typecheck, Lint & Test");
+      expect(content).toContain("include-hidden-files: true");
+      const verifyBlock = content.slice(content.indexOf("verify:"), content.indexOf("harness-debt:"));
+      expect(verifyBlock).toMatch(/permissions:\s*\r?\n\s*contents:\s*read\r?\n\s*\r?\n\s*steps:/);
     });
 
     it("GIVEN ci.yml THEN contiene npm run build", () => {
