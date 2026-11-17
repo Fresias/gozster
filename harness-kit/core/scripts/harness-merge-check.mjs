@@ -4,7 +4,7 @@
 // Usage:
 //   node harness-kit/core/scripts/harness-merge-check.mjs <pr-number|url|branch> [--json] [--post-status]
 //   --post-status is for CI only: branch protection requires the status from the GitHub Actions app.
-//   node harness-kit/core/scripts/harness-merge-check.mjs --pr-json <file> [--lesson-file <file>] [--json]
+//   node harness-kit/core/scripts/harness-merge-check.mjs --pr-json <file> [--lesson-file <file>] [--base-lesson-file <file>] [--json]
 //
 // The guard runs this before `gh pr merge`. Exit 0 = mergeable, exit 1 = blocked.
 import { execFileSync } from "node:child_process";
@@ -256,10 +256,11 @@ function isLegacyR11Record(issue, ppcEntry, pr) {
 /**
  * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}], state?, mergedAt? }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
+ * baseLessonText: content of harness/experience/<ISSUE>.jsonl at the base branch (or null if absent).
  * probeReports: optional array of probe report objects.
  * events: optional sorted array of label events for `harness-authorized`.
  */
-export function evaluateMerge({ pr, project, lessonText, probeReports, events }) {
+export function evaluateMerge({ pr, project, lessonText, baseLessonText = null, probeReports, events }) {
   const errors = [];
   const files = (pr.files || []).map((f) => f.path);
   const labels = (pr.labels || []).map((l) => (typeof l === "string" ? l : l.name));
@@ -318,6 +319,28 @@ export function evaluateMerge({ pr, project, lessonText, probeReports, events })
       const reportsSha256 = ppc.reports_sha256;
       if (!reportsSha256 || typeof reportsSha256 !== "object" || Object.keys(reportsSha256).length === 0) {
         errors.push(`ppc: missing reports_sha256 in PPC record for ${issue}.`);
+      }
+
+      if (pr?.state !== "MERGED") {
+        const baseEntries = baseLessonText ? parseLessons(baseLessonText).filter(Boolean) : [];
+        const entryId = typeof ppcEntry.id === "string" ? ppcEntry.id.trim() : "";
+        if (!entryId) {
+          if (baseEntries.length > 0) {
+            errors.push("ppc: el registro PPC evaluado no tiene id nuevo respecto a la base; ejecuta harness-probe + harness-compose en este PR.");
+          }
+        } else if (baseEntries.some((e) => e && e.id === entryId)) {
+          errors.push(`ppc: el registro ${entryId} ya existe en la base; ejecuta harness-probe + harness-compose en este PR.`);
+        }
+
+        if (reportsSha256 && typeof reportsSha256 === "object") {
+          const changedFiles = new Set(files.map((f) => String(f || "").replace(/\\/g, "/")));
+          for (const candId of Object.keys(reportsSha256)) {
+            const expectedReportPath = `harness/experience/probes/${issue}/${candId}.json`;
+            if (!changedFiles.has(expectedReportPath)) {
+              errors.push(`ppc: el reporte ${candId} no se modificó en este PR (esperado ${expectedReportPath}).`);
+            }
+          }
+        }
       }
 
       const reports = Array.isArray(probeReports) ? probeReports : [];
@@ -432,7 +455,62 @@ function gh(args) {
   return execFileSync("gh", args, opts);
 }
 
-const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file"]);
+const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--base-lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file"]);
+
+function readBaseLessonFromGit(root, baseRef, issue) {
+  if (!issue) return null;
+  try {
+    const mergeBase = execFileSync("git", ["merge-base", baseRef, "HEAD"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    if (!mergeBase) return null;
+    return execFileSync("git", ["show", `${mergeBase}:harness/experience/${issue}.jsonl`], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+}
+
+function resolveBaseLessonForPr(root, pr, issue, baseLessonFile) {
+  if (baseLessonFile) {
+    return existsSync(baseLessonFile) ? readFileSync(baseLessonFile, "utf8") : null;
+  }
+  if (!issue || pr?.state === "MERGED") return null;
+  const baseName = pr?.baseRefName || "main";
+  for (const ref of [`origin/${baseName}`, baseName]) {
+    try {
+      const refOid = execFileSync("git", ["rev-parse", "--verify", ref], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      const headOid = execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (refOid && headOid && refOid !== headOid) {
+        try {
+          return execFileSync("git", ["show", `${ref}:harness/experience/${issue}.jsonl`], {
+            cwd: root,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+          });
+        } catch {
+          return null;
+        }
+      }
+      break;
+    } catch {}
+  }
+  const localBasePath = path.join(root, "harness", "experience", `${issue}.jsonl`);
+  return existsSync(localBasePath) ? readFileSync(localBasePath, "utf8") : null;
+}
 
 function findSelector(argv) {
   for (let i = 0; i < argv.length; i++) {
@@ -455,7 +533,7 @@ export function main(argv, deps = {}) {
   };
   let root;
   try {
-    root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+    root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     root = process.cwd();
   }
@@ -518,7 +596,8 @@ export function main(argv, deps = {}) {
       labels: [{ name: "harness-authorized" }],
     };
 
-    const evalResult = evaluateMerge({ pr: mockPr, project, lessonText: localLessonText, probeReports: localProbeReports });
+    const baseLessonText = readBaseLessonFromGit(root, baseRef, issue);
+    const evalResult = evaluateMerge({ pr: mockPr, project, lessonText: localLessonText, baseLessonText, probeReports: localProbeReports });
     const ppcErrors = evalResult.errors.filter(
       (e) => !e.startsWith("seal:") && !e.startsWith("harness: missing label") && !e.startsWith("authz:")
     );
@@ -533,12 +612,15 @@ export function main(argv, deps = {}) {
 
   let pr;
   let lessonText = null;
+  let baseLessonText = null;
   const selector = findSelector(argv);
   const prJsonPath = val("--pr-json");
+  const baseLessonFile = val("--base-lesson-file");
   if (prJsonPath) {
     // En modo --pr-json el estado de merge (state, mergedAt) sale del archivo; en CI la fuente de verdad es la API de GitHub.
     pr = JSON.parse(readFileSync(prJsonPath, "utf8"));
     if (val("--lesson-file") && existsSync(val("--lesson-file"))) lessonText = readFileSync(val("--lesson-file"), "utf8");
+    if (baseLessonFile && existsSync(baseLessonFile)) baseLessonText = readFileSync(baseLessonFile, "utf8");
   } else {
     if (!selector) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
@@ -552,6 +634,7 @@ export function main(argv, deps = {}) {
       } catch {
         lessonText = null;
       }
+      baseLessonText = resolveBaseLessonForPr(root, pr, issue, baseLessonFile);
     }
   }
 
@@ -649,7 +732,7 @@ export function main(argv, deps = {}) {
     }
   }
 
-  const result = evaluateMerge({ pr, project, lessonText, probeReports, events });
+  const result = evaluateMerge({ pr, project, lessonText, baseLessonText, probeReports, events });
   if (revokeError) {
     result.mergeable = false;
     result.authorized_by = null;
