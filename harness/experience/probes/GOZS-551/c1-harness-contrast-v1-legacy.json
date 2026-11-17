@@ -1,10 +1,10 @@
 {
   "candidate_id": "c1-harness-contrast-v1-legacy",
-  "probe_branch": "probe/c1-harness-contrast-v1-legacy-mwkpu0fi",
+  "probe_branch": "probe/c1-harness-contrast-v1-legacy-mwkr5qnt",
   "probe_cmd": "npx vitest run harness-kit/tests/harness-flow-enforcement.spec.ts",
   "passed": true,
   "exit_code": 0,
-  "duration_ms": 20441,
+  "duration_ms": 20834,
   "tests": {
     "harness-kit/tests/harness-flow-enforcement.spec.ts::Learner obligatorio: el gate no sella sin la lección del issue GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::Learner obligatorio: el gate no sella sin la lección del issue GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque": "passed",
@@ -35,6 +35,15 @@
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN el registro histórico R11 ya mergeado (GOZS-524) WHEN corre evaluateMerge THEN sigue validando con mergeable: true": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN el registro histórico R11 ya mergeado (GOZS-525) WHEN corre evaluateMerge THEN sigue validando con mergeable: true": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN el registro histórico R11 ya mergeado (GOZS-529) WHEN corre evaluateMerge THEN sigue validando con mergeable: true": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR abierto o sin estado de merge en rama de issue R11 (GOZS-521) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR abierto o sin estado de merge en rama de issue R11 (GOZS-522) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR abierto o sin estado de merge en rama de issue R11 (GOZS-524) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR abierto o sin estado de merge en rama de issue R11 (GOZS-525) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR abierto o sin estado de merge en rama de issue R11 (GOZS-529) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un registro R11 con state MERGED pero 'mergedAt null' WHEN corre evaluateMerge THEN mergeable es false": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un registro R11 con state MERGED pero 'mergedAt vacío' WHEN corre evaluateMerge THEN mergeable es false": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un registro R11 con state MERGED pero 'mergedAt espacios' WHEN corre evaluateMerge THEN mergeable es false": "passed",
+    "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un JSONL con varios registros PPC v2 (el primero con hashes viejos y el último con hashes actuales) WHEN corre evaluateMerge THEN valida el último con 0 errores ppc:; con solo el viejo da sha256 mismatch": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN los registros PPC excepcionales (517, 518, 519, 523) THEN contienen caveat tanto en harness/experience/ como en experience_library.jsonl": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN los registros PPC ya mergeados (GOZS-522 y GOZS-526) WHEN se evalúan con el merge-check THEN siguen pasando la validación sin errores": "passed",
     "harness-kit/tests/harness-flow-enforcement.spec.ts::harness-merge-check: sello == HEAD del PR, lección y PPC GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican": "passed",
@@ -122,16 +131,22 @@
     "harness-kit/tests/harness-flow-enforcement.spec.ts::fs.protected en shell: redirección hacia la ruta, no menciones en texto GIVEN un mensaje de commit que menciona .claude/ y contiene <slug> THEN permitido": "passed"
   },
   "target_components": [],
-  "timestamp": "2026-11-17T13:16:20.262Z",
-  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-flow-enforcement.spec.ts (114 tests) 17433ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh  558ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque  2322ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la misma lección dos veces THEN se registra una sola vez (idempotente)  1365ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN harness-learn.sh sin --lesson THEN falla (el subject del commit no es una lección)  335ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN un sello sobre worktree sucio THEN --pr-block se niega  2416ms\n   ✓ harness-merge-check: sello == HEAD del PR, lección y PPC > GIVEN una rama de harness con un r",
-  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-flow-enforcement.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-contrast-v1-legacy-mwkpu10i.json\nwarning: in the working copy of 'harness/experience/PROJ-77.jsonl', LF will be replaced by CRLF the next time Git touches it\nSwitched to a new branch 'chore/88-harness-tampered'\nwarning: in the working copy of 'harness/experience/PROJ-88.jsonl', LF will be replaced by CRLF the next time Git touches it\n",
+  "timestamp": "2026-11-17T13:53:27.525Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-flow-enforcement.spec.ts (123 tests) 17749ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN feature/77-x sin lección THEN el gate falla y pide harness-learn.sh  581ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la lección registrada (issue derivado de la rama) THEN el gate sella con issue y --pr-block imprime el bloque  2268ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN la misma lección dos veces THEN se registra una sola vez (idempotente)  1420ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN harness-learn.sh sin --lesson THEN falla (el subject del commit no es una lección)  353ms\n   ✓ Learner obligatorio: el gate no sella sin la lección del issue > GIVEN un sello sobre worktree sucio THEN --pr-block se niega  2356ms\n   ✓ harness-merge-check: sello == HEAD del PR, lección y PPC > GIVEN una rama de harness con un r",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-flow-enforcement.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-contrast-v1-legacy-mwkr5r9z.json\nwarning: in the working copy of 'harness/experience/PROJ-77.jsonl', LF will be replaced by CRLF the next time Git touches it\nSwitched to a new branch 'chore/88-harness-tampered'\nwarning: in the working copy of 'harness/experience/PROJ-88.jsonl', LF will be replaced by CRLF the next time Git touches it\n",
   "files_touched": [
     "harness-kit/core/scripts/harness-merge-check.mjs",
-    "harness-kit/tests/harness-flow-enforcement.spec.ts"
+    "harness-kit/tests/harness-flow-enforcement.spec.ts",
+    "harness/experience/GOZS-551.jsonl",
+    "harness/experience/probes/GOZS-551/baseline.json",
+    "harness/experience/probes/GOZS-551/c1-harness-contrast-v1-legacy.json"
   ],
   "in_scope_files": [
     "harness-kit/core/scripts/harness-merge-check.mjs",
-    "harness-kit/tests/harness-flow-enforcement.spec.ts"
+    "harness-kit/tests/harness-flow-enforcement.spec.ts",
+    "harness/experience/GOZS-551.jsonl",
+    "harness/experience/probes/GOZS-551/baseline.json",
+    "harness/experience/probes/GOZS-551/c1-harness-contrast-v1-legacy.json"
   ],
   "out_of_scope_files": [],
   "strict_scope": false,
