@@ -196,8 +196,65 @@ export function evaluateAuthorization({ events, labels, authorizers }) {
   };
 }
 
+const VALID_CONTRAST_V2_VERDICTS = new Set(["behavioral", "duration", "tie"]);
+
+// Corte histórico inmutable cubierto por R11 (PRs mergeados con contraste 1.0.0 antes de contrast_version 2.0.0).
+// No determinar legacy por ausencia de `verdict` ni confiando en `timestamp` auto-declarado en el JSONL.
+const LEGACY_R11_V1_RECORDS = Object.freeze({
+  "GOZS-521": Object.freeze({
+    id: "exp-mwfxvwtq",
+    reports_sha256: Object.freeze({
+      baseline: "283e94732d5c3b8e2ad438a06e36227d1f2d7da0a936f0783364fd1d689e691f",
+      "c1-ppc-verifiable": "87b1689b268cb4ac4ba270267e5363e893e8df86e113d6323dfc93d0984f528b",
+    }),
+  }),
+  "GOZS-522": Object.freeze({
+    id: "exp-mwg1b2o1",
+    reports_sha256: Object.freeze({
+      baseline: "d79aa4ad24cd312bc4b9c47183a14f977f83ae9cbd00c5159dd19d5c1419999e",
+      "c1-guard-bot-noreply": "3c66c7113afe011f9c140077b2fa5a1f41943ba6ce2adb88c14a80e536c5fb65",
+    }),
+  }),
+  "GOZS-524": Object.freeze({
+    id: "exp-mwgaqzey",
+    reports_sha256: Object.freeze({
+      baseline: "ebbbc91744994b51c4fd6af9a72e25e54a1d305093c25a375540de8b2fe7ed2e",
+      "c1-guard-git-protection": "4a447821d9f6158f75aedc1aeedf47ed8a6d35b0953e9eef4d0e1a213213b676",
+    }),
+  }),
+  "GOZS-525": Object.freeze({
+    id: "exp-mwgeg5od",
+    reports_sha256: Object.freeze({
+      baseline: "0499ff3ce0c2b0df0c2139a898c2c6b6b8743bf4946230566e1cf84093cb8e11",
+      "c1-exp-lib-filter": "878d83e9144900c4751de97600f5ed11803b52ebc652a3aaccb3ff24651a1404",
+    }),
+  }),
+  "GOZS-529": Object.freeze({
+    id: "exp-mwgnyg8x",
+    reports_sha256: Object.freeze({
+      baseline: "068208b47e043da61fc7a1fef03cf15b3b6374a99240f02949088c87cbc2080f",
+      "c1-harness-ci-debt": "83d7dea81643f0dfe35f42dfcdd112413a205b2a2b6611263a14399caf80e03a",
+    }),
+  }),
+});
+
+function isLegacyR11Record(issue, ppcEntry, pr) {
+  if (pr?.state !== "MERGED" || typeof pr?.mergedAt !== "string" || !pr.mergedAt.trim()) return false;
+  if (!issue || !Object.prototype.hasOwnProperty.call(LEGACY_R11_V1_RECORDS, issue)) return false;
+  const spec = LEGACY_R11_V1_RECORDS[issue];
+  const ppc = ppcEntry?.ppc;
+  if (!ppc || ppcEntry.id !== spec.id) return false;
+  if (ppc.contrast_version !== "1.0.0" || ppc.verdict) return false;
+  const hashes = ppc.reports_sha256;
+  if (!hashes || typeof hashes !== "object") return false;
+  const expectedKeys = Object.keys(spec.reports_sha256);
+  const actualKeys = Object.keys(hashes);
+  if (actualKeys.length !== expectedKeys.length) return false;
+  return expectedKeys.every((k) => hashes[k] === spec.reports_sha256[k]);
+}
+
 /**
- * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}] }.
+ * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}], state?, mergedAt? }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
  * probeReports: optional array of probe report objects.
  * events: optional sorted array of label events for `harness-authorized`.
@@ -287,21 +344,51 @@ export function evaluateMerge({ pr, project, lessonText, probeReports, events })
           }
         }
 
-        const contrastVersion = ppc.contrast_version || "1.0.0";
-        if (contrastVersion !== "2.0.0" && contrastVersion !== "1.0.0") {
-          errors.push(`ppc: contrast_version desconocido: ${contrastVersion}`);
+        const isLegacyRecord = isLegacyR11Record(issue, ppcEntry, pr);
+        const rawContrastVersion = ppc.contrast_version;
+        const contrastVersion =
+          rawContrastVersion === "1.0.0" || rawContrastVersion === "2.0.0"
+            ? rawContrastVersion
+            : "2.0.0";
+
+        if (rawContrastVersion && rawContrastVersion !== "2.0.0" && rawContrastVersion !== "1.0.0") {
+          errors.push(`ppc: contrast_version desconocido: ${rawContrastVersion}`);
         }
 
-        // Un registro es legacy (contraste 1.0.0) por la ausencia de verdict en el registro PPC, no por número de issue
-        const isLegacyRecord = !ppc.verdict;
-        if (!isLegacyRecord && contrastVersion !== "2.0.0") {
-          errors.push(`ppc: PRs nuevos deben usar contrast_version 2.0.0 (encontrado ${contrastVersion}).`);
+        if (!isLegacyRecord) {
+          if (!rawContrastVersion) {
+            errors.push("ppc: PRs nuevos deben usar contrast_version 2.0.0 (encontrado ausente).");
+          } else if (rawContrastVersion === "1.0.0") {
+            errors.push(`ppc: PRs nuevos deben usar contrast_version 2.0.0 (encontrado ${rawContrastVersion}).`);
+          }
+          const verdict = typeof ppc.verdict === "string" ? ppc.verdict.trim() : "";
+          if (!verdict) {
+            errors.push("ppc: PRs nuevos requieren verdict (contrast_version 2.0.0).");
+          } else if (!VALID_CONTRAST_V2_VERDICTS.has(verdict)) {
+            errors.push(`ppc: verdict inválido "${verdict}" (esperado behavioral, duration o tie).`);
+          }
         }
 
         // Recalcular evaluateCandidates con la versión correspondiente
         const recalculated = evaluateCandidates(reports, { version: contrastVersion });
         if (recalculated.winner_id !== ppc.winner_id) {
           errors.push(`ppc: winner_id mismatch: expected ${recalculated.winner_id}, got ${ppc.winner_id}`);
+        }
+        if (
+          !isLegacyRecord &&
+          contrastVersion === "2.0.0" &&
+          typeof ppc.verdict === "string" &&
+          ppc.verdict.trim() &&
+          recalculated.verdict &&
+          ppc.verdict.trim() !== recalculated.verdict
+        ) {
+          errors.push(`ppc: verdict mismatch: expected ${recalculated.verdict}, got ${ppc.verdict.trim()}`);
+        }
+        if (!isLegacyRecord && contrastVersion !== "2.0.0") {
+          const v2Check = evaluateCandidates(reports, { version: "2.0.0" });
+          if (v2Check.winner_id !== ppc.winner_id) {
+            errors.push(`ppc: bajo reglas v2 el ganador esperado es ${v2Check.winner_id}, pero se registró ${ppc.winner_id}`);
+          }
         }
 
         // Exigir que la matriz (candidate_id, score, passed, fixed) coincida exactamente con el registro
@@ -449,6 +536,7 @@ export function main(argv, deps = {}) {
   const selector = findSelector(argv);
   const prJsonPath = val("--pr-json");
   if (prJsonPath) {
+    // En modo --pr-json el estado de merge (state, mergedAt) sale del archivo; en CI la fuente de verdad es la API de GitHub.
     pr = JSON.parse(readFileSync(prJsonPath, "utf8"));
     if (val("--lesson-file") && existsSync(val("--lesson-file"))) lessonText = readFileSync(val("--lesson-file"), "utf8");
   } else {
@@ -456,7 +544,7 @@ export function main(argv, deps = {}) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
       process.exit(2);
     }
-    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels"]));
+    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels,state,mergedAt"]));
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
       try {
