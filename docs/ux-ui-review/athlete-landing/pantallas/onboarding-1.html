@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="es" class="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding · paso 1 · DESPUÉS (propuesta landing)</title>
+<!-- Tailwind v3 (misma línea que el proyecto: ^3.4.17), theme.extend copiado de tailwind.config.ts -->
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config = {"darkMode":["class"],"theme":{"extend":{"colors":{"border":"hsl(var(--border))","border-subtle":"hsl(var(--border-subtle))","input":"hsl(var(--input))","ring":"hsl(var(--ring))","background":"hsl(var(--background))","foreground":"hsl(var(--foreground))","subtle-foreground":"hsl(var(--subtle-foreground))","sidebar":"hsl(var(--sidebar))","popover":{"DEFAULT":"hsl(var(--popover))","foreground":"hsl(var(--popover-foreground))"},"primary":{"DEFAULT":"hsl(var(--primary))","foreground":"hsl(var(--primary-foreground))"},"secondary":{"DEFAULT":"hsl(var(--secondary))","foreground":"hsl(var(--secondary-foreground))"},"destructive":{"DEFAULT":"hsl(var(--destructive))","foreground":"hsl(var(--destructive-foreground))"},"muted":{"DEFAULT":"hsl(var(--muted))","foreground":"hsl(var(--muted-foreground))"},"accent":{"DEFAULT":"hsl(var(--accent))","foreground":"hsl(var(--accent-foreground))"},"card":{"DEFAULT":"hsl(var(--card))","foreground":"hsl(var(--card-foreground))"},"surface":{"DEFAULT":"hsl(var(--surface))","container":"hsl(var(--surface-container))","container-low":"hsl(var(--surface-container-low))","container-high":"hsl(var(--surface-container-high))","container-highest":"hsl(var(--surface-container-highest))"},"success":{"DEFAULT":"hsl(var(--success))","foreground":"hsl(var(--success-foreground))"},"warning":{"DEFAULT":"hsl(var(--warning))","foreground":"hsl(var(--warning-foreground))"},"success-soft":{"DEFAULT":"hsl(var(--success-soft))","foreground":"hsl(var(--success-soft-foreground))","border":"hsl(var(--success-soft-border))"},"warning-soft":{"DEFAULT":"hsl(var(--warning-soft))","foreground":"hsl(var(--warning-soft-foreground))","border":"hsl(var(--warning-soft-border))","strong":"hsl(var(--warning-soft-strong))"},"warning-soft-strong":"hsl(var(--warning-soft-strong))","danger-soft":{"DEFAULT":"hsl(var(--danger-soft))","foreground":"hsl(var(--danger-soft-foreground))","border":"hsl(var(--danger-soft-border))"},"neutral-soft":{"DEFAULT":"hsl(var(--neutral-soft))","foreground":"hsl(var(--neutral-soft-foreground))","border":"hsl(var(--neutral-soft-border))"},"destructive-soft":{"DEFAULT":"hsl(var(--danger-soft))","foreground":"hsl(var(--danger-soft-foreground))","border":"hsl(var(--danger-soft-border))"},"act-funcional":{"bg":"hsl(var(--act-funcional-bg) / <alpha-value>)","border":"hsl(var(--act-funcional-border) / <alpha-value>)","fg":"hsl(var(--act-funcional-fg) / <alpha-value>)","bar":"hsl(var(--act-funcional-bar) / <alpha-value>)"},"act-funcional-bg":"hsl(var(--act-funcional-bg))","act-funcional-border":"hsl(var(--act-funcional-border))","act-boxeo":{"bg":"hsl(var(--act-boxeo-bg) / <alpha-value>)","border":"hsl(var(--act-boxeo-border) / <alpha-value>)","fg":"hsl(var(--act-boxeo-fg) / <alpha-value>)","bar":"hsl(var(--act-boxeo-bar) / <alpha-value>)"},"act-boxeo-bg":"hsl(var(--act-boxeo-bg))","act-boxeo-border":"hsl(var(--act-boxeo-border))","rest-timer":{"DEFAULT":"hsl(var(--rest-timer-bg))","time":"hsl(var(--rest-timer-time-fg))","track":"hsl(var(--rest-timer-track-bg))","fill":"hsl(var(--rest-timer-fill-bg))","paused":"hsl(var(--rest-timer-fill-bg-paused))"}},"fontFamily":{"sans":["Geist","Inter","-apple-system","BlinkMacSystemFont","Segoe UI","sans-serif"],"mono":["Geist Mono","JetBrains Mono","Menlo","monospace"]},"borderRadius":{"sm":"calc(var(--radius) - 4px)","md":"calc(var(--radius) - 2px)","lg":"var(--radius)","xl":"calc(var(--radius) + 4px)","2xl":"calc(var(--radius) + 8px)","3xl":"calc(var(--radius) + 16px)"},"boxShadow":{"m3-1":"0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.35)","m3-2":"0 4px 8px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4)","m3-3":"0 12px 24px -4px rgb(0 0 0 / 0.5), 0 4px 8px -4px rgb(0 0 0 / 0.4)"},"spacing":{"target-sm":"var(--target-sm)","target":"var(--target)","target-lg":"var(--target-lg)","target-quick":"var(--target-quick)","landing-header":"var(--landing-header-h)","landing-chapter":"var(--landing-chapter-h)"}}},"plugins":[]};</script>
+<!-- src/app/globals.css sin cambios, salvo los bloques .theme-athlete de variables (van abajo) -->
+<style type="text/tailwindcss">
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+/* MODO DÍA (Light Mode · Paleta Zinc de shadcn/ui — 08 §2, P01, P13) */
+:root {
+  --background: 0 0% 100%;            /* #FFFFFF  página y cards: mismo blanco */
+  --foreground: 240 10% 3.9%;         /* #09090B */
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --surface: 0 0% 100%;
+  --surface-container-low: 240 4.8% 95.9%;
+  --surface-container: 240 5.9% 90%;
+  --surface-container-high: 240 5% 84%;
+  --surface-container-highest: 240 4.9% 78%;
+  --primary: 240 5.9% 10%;            /* #18181B  botón primario, chip activo, día de hoy */
+  --primary-foreground: 0 0% 98%;     /* #FAFAFA */
+  --secondary: 240 4.8% 95.9%;        /* #F4F4F5 */
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;            /* #F4F4F5  fondo de Segmented, ítem activo del menú, avatar */
+  --muted-foreground: 240 5.2% 33.9%; /* #52525B  texto secundario (pasa AA sobre #F4F4F5) */
+  --subtle-foreground: 240 3.8% 46.1%;/* #71717A  NUEVO: metadatos 12 px, solo sobre blanco */
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --border: 240 5.9% 90%;             /* #E4E4E7 */
+  --border-subtle: 240 4.8% 95.9%;    /* #F4F4F5  NUEVO: separadores entre filas */
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+  --radius: 0.5rem;
+  --sidebar: 0 0% 98%;                /* #FAFAFA */
+
+  /* 1 · PRIMITIVOS: escala de tamaño de control */
+  --size-32: 2rem;  --size-36: 2.25rem;  --size-40: 2.5rem;  --size-48: 3rem;  --size-56: 3.5rem;
+  --size-64: 4rem;
+  --scale-88: 0.88;
+
+  /* 2 · SEMÁNTICOS */
+  --target-sm: var(--size-32);     /* control compacto, con mouse */
+  --target: var(--size-36);        /* control estándar, con mouse */
+  --target-lg: var(--size-40);     /* control destacado, con mouse */
+  --target-quick: var(--size-56);  /* acción rápida de gimnasio: 56 px siempre */
+  --landing-header-h: var(--size-64);   /* hoy "4rem"/"h-16" repetido en varios lugares */
+  --landing-zoom-min: var(--scale-88);  /* piso de reducción en pantallas bajas */
+
+  /* 3 · COMPONENTE */
+  --button-h-sm: var(--target-sm);
+  --button-h: var(--target);
+  --button-h-lg: var(--target-lg);
+  --button-h-quick: var(--target-quick);
+  --landing-chapter-h: calc(100svh - var(--landing-header-h));
+
+  /* Semántica deportiva */
+  --success: 142 76% 36%;             /* #16A34A  puntos y barras */
+  --success-foreground: 0 0% 100%;
+  --warning: 32 95% 44%;              /* #D97706 */
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;           /* #DC2626 */
+  --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de estado suave para badges y alertas (contraste texto ≥ 4.5:1) */
+  --success-soft: 138 76% 97%;        /* #F0FDF4 */
+  --success-soft-foreground: 143 64% 24%; /* #166534 */
+  --success-soft-border: 141 79% 85%; /* #BBF7D0 */
+
+  --warning-soft: 48 100% 96%;        /* #FFFBEB */
+  --warning-soft-foreground: 26 90% 37%;  /* #92400E */
+  --warning-soft-border: 48 97% 77%;  /* #FDE68A */
+  --warning-soft-strong: 48 96% 89%;  /* #FEF3C7  ítem activo de un Segmented dentro de un Alert (P13) */
+
+  --danger-soft: 0 86% 97%;           /* #FEF2F2 */
+  --danger-soft-foreground: 0 74% 42%;/* #B91C1C */
+  --danger-soft-border: 0 93% 89%;    /* #FECACA (--danger-soft-border: 0 96% 89%;) */
+
+  --neutral-soft: 240 4.8% 95.9%;     /* #F4F4F5 */
+  --neutral-soft-foreground: 240 5.3% 26.1%; /* #3F3F46 */
+  --neutral-soft-border: 240 5.9% 90%;/* #E4E4E7 */
+
+  /* Tokens de actividad deportiva (Agenda de Clases, P13) */
+  --act-funcional-bg: 240 4.8% 95.9%; /* #F4F4F5 */
+  --act-funcional-border: 240 5.9% 90%; /* #E4E4E7 */
+  --act-funcional-fg: 204 80% 16%;
+  --act-funcional-bar: 199 89% 48%;
+  --act-boxeo-bg: 33 100% 96%;        /* #FFF7ED */
+  --act-boxeo-border: 32 98% 83%;     /* #FED7AA */
+  --act-boxeo-fg: 15 75% 15%;
+  --act-boxeo-bar: 25 95% 53%;
+}
+
+/* Con el dedo, ningún control baja de 48 px. Con mouse, el Studio conserva su densidad. */
+@media (pointer: coarse) {
+  :root { --target-sm: var(--size-48); --target: var(--size-48); --target-lg: var(--size-48); }
+}
+
+/* MODO NOCHE (Dark Mode Zinc — 08 §2, P13) */
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --surface: 240 10% 3.9%;
+  --surface-container-low: 240 5.9% 7%;
+  --surface-container: 240 3.7% 15.9%;
+  --surface-container-high: 240 4% 20%;
+  --surface-container-highest: 240 5% 26%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --subtle-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --border-subtle: 240 3.7% 12%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.5rem;
+  --sidebar: 240 5.9% 7%;
+
+  /* Semántica deportiva noche */
+  --success: 158 64% 52%;             /* #34D399 Menta */
+  --success-foreground: 240 10% 3.9%;
+  --warning: 45 93% 47%;              /* #FBBF24 Dorado */
+  --warning-foreground: 240 10% 3.9%;
+  --destructive: 0 72% 51%;           /* #EF4444 */
+  --destructive-foreground: 0 0% 100%;
+
+  /* Tokens de estado suave para badges y alertas en dark mode (contraste texto ≥ 4.5:1) */
+  --success-soft: 158 60% 10%;
+  --success-soft-foreground: 158 64% 75%;
+  --success-soft-border: 158 64% 25%;
+
+  --warning-soft: 38 60% 11%;
+  --warning-soft-foreground: 45 93% 75%;
+  --warning-soft-border: 38 60% 25%;
+  --warning-soft-strong: 26 85% 22%;
+
+  --danger-soft: 0 55% 12%;
+  --danger-soft-foreground: 0 85% 80%;
+  --danger-soft-border: 0 55% 25%;
+
+  --neutral-soft: 217 33% 17%;
+  --neutral-soft-foreground: 210 40% 96%;
+  --neutral-soft-border: 217 33% 25%;
+
+  /* Tokens de actividad deportiva noche (P13) */
+  --act-funcional-bg: 240 3.7% 15.9%;
+  --act-funcional-border: 240 5.3% 26%;
+  --act-funcional-fg: 204 94% 94%;
+  --act-funcional-bar: 199 89% 48%;
+  --act-boxeo-bg: 21 75% 12%;
+  --act-boxeo-border: 26 80% 30%;
+  --act-boxeo-fg: 34 100% 92%;
+  --act-boxeo-bar: 25 95% 53%;
+}
+
+
+/* Athlete App · pulido visual (GOZS-448). Solo estilo: sin cambios de DOM, estado ni flujo.
+   Selectores con :where() para que cualquier utilidad de Tailwind del componente siga ganando. */
+
+
+/* Cifras como instrumento: pesos, reps, series y timers alineados en columnas. */
+.theme-athlete :where(input, select, textarea, time, output, [inputmode="decimal"], [inputmode="numeric"]) {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Títulos con el tracking de Studio. */
+.theme-athlete :where(h1, h2, h3) { letter-spacing: -0.015em; }
+
+/* Foco de teclado visible en todo control que no declare el suyo. */
+.theme-athlete :where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Respuesta al toque: `scale` es independiente de `transform`, no pisa translate/rotate existentes. */
+.theme-athlete :where(button:not(:disabled), [role="button"]) {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale;
+  transition-duration: 150ms;
+}
+.theme-athlete :where(button:not(:disabled), [role="button"]):active { scale: 0.98; }
+
+/* Campos de texto y número con altura táctil cómoda. */
+.theme-athlete :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]), select) {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-athlete :where(button, [role="button"]) { transition: none; }
+  .theme-athlete :where(button, [role="button"]):active { scale: none; }
+}
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/25 selection:text-primary font-sans;
+    -webkit-tap-highlight-color: transparent;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Geist Mono exclusivamente para números tabulares (pesos, montos, horas) */
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Custom scrollbar for dark mode */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.25);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* Micro-Glitch Quirúrgico en CSS Puro (GOZS-441) */
+@keyframes micro-glitch {
+  0% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+  20% {
+    transform: translate(-1px, 1px);
+    text-shadow: 1px 0 hsl(var(--primary) / 0.8), -1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  40% {
+    transform: translate(-1px, -1px);
+    text-shadow: -1px 0 hsl(var(--primary) / 0.8), 1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  60% {
+    transform: translate(1px, 1px);
+    text-shadow: 1px 0 hsl(var(--primary) / 0.8), -1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  80% {
+    transform: translate(1px, -1px);
+    text-shadow: -1px 0 hsl(var(--primary) / 0.8), 1px 0 hsl(var(--muted-foreground) / 0.8);
+  }
+  100% {
+    transform: translate(0);
+    text-shadow: none;
+  }
+}
+
+.glitch-hover:hover {
+  animation: micro-glitch 0.22s ease-in-out infinite alternate;
+}
+
+/* Perspectiva 3D Hero Spectup */
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+/* Retícula técnica de fondo del hero (solo decorativa, sin animación) */
+.hero-grid {
+  background-image:
+    linear-gradient(hsl(var(--border) / 0.7) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.7) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 25% 0%, #000 15%, transparent 75%);
+  mask-image: radial-gradient(ellipse 90% 70% at 25% 0%, #000 15%, transparent 75%);
+}
+
+/* Inactivación absoluta ante prefers-reduced-motion: reduce */
+@media (prefers-reduced-motion: reduce) {
+  .glitch-hover,
+  .glitch-hover:hover {
+    animation: none !important;
+    transform: none !important;
+    text-shadow: none !important;
+  }
+  .hero-3d-card,
+  .hero-3d-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+
+/* Home storytelling: animaciones del relato (entrada del hero, tachado, marquesina, revelado y progreso) */
+@keyframes landing-rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.landing-rise {
+  animation: landing-rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes landing-strike {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.landing-strike {
+  position: relative;
+  display: inline-block;
+}
+.landing-strike::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56%;
+  height: 0.085em;
+  background: hsl(var(--foreground));
+  transform-origin: left center;
+  animation: landing-strike 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.9s both;
+}
+
+@keyframes landing-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.landing-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: landing-marquee 90s linear infinite;
+}
+.landing-marquee:hover .landing-marquee-track {
+  animation-play-state: paused;
+}
+
+[data-reveal] {
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms),
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+[data-reveal].reveal-pending {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+/* Anclaje por capítulo: scroll suave; el header fijo se descuenta una sola vez (acá) */
+html.landing-scroll {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--landing-header-h);
+}
+@media (min-width: 1024px) and (min-height: 760px) {
+  html.landing-scroll {
+    scroll-snap-type: y proximity;
+  }
+  html.landing-scroll .landing-section {
+    scroll-snap-align: start;
+  }
+}
+
+/* Pantallas bajas (notebooks): el contenido de cada capítulo se achica para entrar en un viewport.
+   El contenedor compensa el zoom para seguir alineado con el header. */
+.landing-section > * {
+  zoom: var(--landing-zoom, 1);
+}
+@media (min-width: 1024px) {
+  .landing-section .landing-container {
+    max-width: calc(80rem / var(--landing-zoom, 1));
+    padding-inline: calc(3rem / var(--landing-zoom, 1));
+  }
+  /* Fotos y capturas dependen del ancho: se achican en la misma proporción */
+  .landing-section .landing-media {
+    width: calc(100% * var(--landing-zoom, 1));
+  }
+}
+@media (min-width: 1024px) and (max-height: 890px) {
+  .landing-section { --landing-zoom: 0.94; }
+}
+@media (min-width: 1024px) and (max-height: 840px) {
+  .landing-section { --landing-zoom: var(--landing-zoom-min); }
+}
+
+@keyframes landing-nudge {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 3px; }
+}
+.landing-nudge {
+  animation: landing-nudge 1.8s ease-in-out infinite;
+}
+
+@keyframes landing-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.landing-progress {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@supports (animation-timeline: scroll()) {
+  .landing-progress {
+    animation: landing-progress linear both;
+    animation-timeline: scroll(root);
+  }
+}
+
+/* Landing: selección de texto legible sobre cualquier fondo (botones oscuros incluidos) */
+html .landing-root::selection,
+html .landing-root *::selection {
+  background: hsl(240 5% 52% / 0.4);
+  color: currentColor;
+}
+
+/* Landing: microinteracciones */
+.landing-btn > svg:last-child {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.landing-btn:hover > svg:last-child {
+  transform: translateX(4px);
+}
+.landing-shine {
+  position: relative;
+  overflow: hidden;
+}
+.landing-shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, hsl(var(--primary-foreground) / 0.28) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.landing-shine:hover::before {
+  transform: translateX(120%);
+  transition: transform 0.7s ease;
+}
+
+/* Punto de presencia: late en el color del texto, sin salir de la paleta */
+@keyframes landing-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.landing-dot {
+  position: relative;
+}
+.landing-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: landing-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Tachado que se dibuja al entrar en pantalla (funciona en varias líneas) */
+.landing-tachar {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 100% 0.09em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--reveal-delay, 0ms) + 350ms);
+}
+html.landing-motion [data-reveal]:not(.in-view) .landing-tachar,
+html.landing-motion .landing-tachar[data-reveal]:not(.in-view) {
+  background-size: 0% 0.09em;
+}
+
+/* Línea que se dibuja de izquierda a derecha (línea de tiempo, subrayados) */
+.landing-linea {
+  transform-origin: left center;
+  transition: transform 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s;
+}
+html.landing-motion [data-reveal]:not(.in-view) .landing-linea,
+html.landing-motion .landing-linea[data-reveal]:not(.in-view) {
+  transform: scaleX(0);
+}
+
+/* Entrada con rebote para sellos y avisos (récord, burbujas de chat) */
+@keyframes landing-pop {
+  0% { opacity: 0; transform: scale(0.8) translateY(8px); }
+  60% { opacity: 1; transform: scale(1.04) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+html.landing-motion .in-view .landing-pop {
+  animation: landing-pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) var(--pop-delay, 0ms) both;
+}
+html.landing-motion [data-reveal]:not(.in-view) .landing-pop {
+  opacity: 0;
+}
+
+/* Tarjetas: se elevan al pasar el mouse */
+.landing-card {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s, border-color 0.2s, background-color 0.2s, color 0.2s,
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms);
+}
+@media (hover: hover) {
+  .landing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px -18px hsl(240 10% 4% / 0.35);
+  }
+}
+
+/* Capturas del producto: acompañan al cursor en 3D */
+.landing-tilt {
+  transform: perspective(1400px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+@keyframes landing-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+.landing-float {
+  animation: landing-float 5s ease-in-out var(--float-delay, 0s) infinite;
+}
+
+/* Tipografía: palabra en contorno para contrastar con la palabra llena */
+.landing-outline {
+  color: transparent;
+  -webkit-text-stroke: 0.025em hsl(var(--muted-foreground));
+}
+
+/* Character Reveal secuencial de caracteres a 60 FPS */
+@keyframes landing-char-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(0.28em) scale(0.88);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-0.04em) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-char-item {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+html.landing-motion .landing-char-item {
+  opacity: 0;
+}
+
+html.landing-motion .landing-char-item.is-revealed,
+html.landing-motion .in-view .landing-char-item {
+  animation: landing-char-reveal 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Microinteracción en 'nosotros' */
+.landing-nosotros-line {
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.landing-scroll { scroll-behavior: auto; scroll-snap-type: none; }
+  .landing-nudge,
+  .landing-rise,
+  .landing-marquee-track,
+  .landing-progress,
+  .landing-dot::after,
+  .landing-float,
+  .landing-pop,
+  .landing-char-item,
+  .landing-strike::after {
+    animation: none !important;
+  }
+  .landing-tilt,
+  .landing-card,
+  .landing-card:hover,
+  .landing-btn > svg:last-child,
+  .landing-char-item,
+  .landing-nosotros-interaction,
+  .landing-nosotros-line,
+  .landing-shine::before {
+    transform: none !important;
+    transition: none !important;
+  }
+  #problema {
+    height: auto !important;
+  }
+  #problema-sticky-viewport {
+    position: static !important;
+    height: auto !important;
+  }
+  #story-track {
+    width: 100% !important;
+    flex-direction: column !important;
+    transform: none !important;
+  }
+  #story-track > div {
+    width: 100% !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+  }
+  .landing-char-item {
+    opacity: 1 !important;
+  }
+  .landing-nosotros-line {
+    transform: scaleX(1) !important;
+  }
+  .landing-strike::after { transform: scaleX(1); }
+  .landing-progress { transform: scaleX(0); }
+  [data-reveal],
+  [data-reveal].reveal-pending {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+</style>
+<!-- Bloque propuesto: reemplaza a ".theme-athlete (P01)" + "Capas de superficie (GOZS-448)" en globals.css -->
+<style id="propuesta">
+/* Athlete App con el lenguaje de la landing.
+   Sin overrides de --primary/--ring/--background/--card: rige la paleta zinc de :root y .dark
+   (primary #18181B en claro, #FAFAFA en oscuro; fondo y tarjetas #FFFFFF / #09090B). */
+.theme-athlete {
+  --rest-timer-bg: var(--card);
+  --rest-timer-time-fg: var(--foreground);
+  --rest-timer-track-bg: var(--muted);
+  --rest-timer-fill-bg: var(--primary);
+  --rest-timer-fill-bg-paused: var(--warning-soft-foreground);
+
+  /* Superserie y drop set: el violeta del constructor de rutinas como token semántico
+     (hoy son purple-* de Tailwind hardcodeados; valores = purple-600 / purple-800 / purple-500). */
+  --superset: 271 81% 56%;            /* #9333EA  ordinal y badge sólido (texto blanco 5.4:1) */
+  --superset-foreground: 0 0% 100%;
+  --superset-soft: 271 91% 65%;       /* #A855F7  fondos /10–/20 y bordes /30–/40 */
+  --superset-soft-foreground: 273 67% 39%; /* #6B21A8  texto sobre el tinte (purple-800) */
+}
+.dark .theme-athlete,
+.theme-athlete .dark {
+  --superset-soft-foreground: 269 100% 92%; /* #E9D5FF  purple-200 */
+  /* --neutral-soft de .dark es azul pizarra (217 33% 17%): en athlete pasa a zinc como el resto. */
+  --neutral-soft: 240 3.7% 15.9%;
+  --neutral-soft-foreground: 0 0% 98%;
+  --neutral-soft-border: 240 5.3% 26%;
+}
+/* Selección de texto de la landing (.landing-root ::selection): legible también sobre botones primary. */
+.theme-athlete ::selection { background: hsl(240 5% 52% / 0.4); color: currentColor; }
+</style>
+<style>
+#mockup-ui{position:fixed;right:8px;bottom:8px;z-index:2147483647;display:flex;gap:6px;font:600 12px/1 system-ui,sans-serif}
+#mockup-ui button{border-radius:9999px;border:1px solid #a1a1aa;background:#fff;color:#18181b;padding:8px 12px;cursor:pointer}
+html.captura #mockup-ui{display:none}
+</style>
+<script>
+(function(){var q=location.hash.slice(1).split(",");if(q.indexOf("dark")>=0)document.documentElement.classList.add("dark");if(q.indexOf("captura")>=0)document.documentElement.classList.add("captura");})();
+</script>
+</head>
+<body class="min-h-dvh bg-background text-foreground transition-colors duration-150">
+
+<div hidden=""><!--$--><!--/$--></div><div class="theme-athlete"><div role="dialog" aria-modal="true" aria-label="Bienvenida a GOZSter" class="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-background"><div class="flex min-h-dvh w-full max-w-md flex-col px-5 pb-6 pt-5"><div class="flex items-center justify-between"><div class="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground"><span>Paso 1 de 3</span></div><button type="button" class="flex min-h-11 items-center px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]">Saltar</button></div><div class="mt-4 flex-1"><div><p class="text-sm uppercase text-primary tracking-[0.18em] font-mono font-semibold">GOZSter</p><h1 class="mt-3 text-4xl leading-tight text-foreground font-black tracking-tighter">Hola, Fernando.<br>Tu plan ya está listo.</h1><p class="mt-4 text-base leading-relaxed text-muted-foreground">Tu coach te armó tu plan. Antes de empezar, elegí dos cosas para que la app se adapte a vos. Tarda 30 segundos.</p><div class="mt-6 divide-y divide-border rounded-2xl border border-border bg-card"><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span><div><p class="font-bold text-foreground">Cómo ver tus ejercicios</p><p class="text-sm text-muted-foreground">Simple o Técnica.</p></div></div><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg></span><div><p class="font-bold text-foreground">El descanso entre series</p><p class="text-sm text-muted-foreground">Si querés ver la cuenta regresiva o no.</p></div></div></div></div></div><div class="mt-6 flex justify-center gap-2" aria-hidden="true"><span class="h-1.5 rounded-full transition-all w-6 bg-primary"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span></div><div class="mt-4"><button type="button" class="inline-flex items-center justify-center font-medium transition-all duration-150 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer bg-primary text-primary-foreground hover:brightness-105 active:scale-[0.98] min-h-14 px-6 py-3.5 text-base font-bold tracking-wide h-14 w-full hover:bg-primary/90 rounded-full shadow-lg shadow-primary/20">Empezar</button></div></div></div><div class="theme-athlete min-h-dvh bg-background text-foreground lg:grid lg:grid-cols-[240px_minmax(0,1fr)]"><div class="contents lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-border lg:bg-card"><header class="sticky top-0 z-20 border-b border-border bg-card lg:static lg:border-b-0"><div class="flex items-center justify-between gap-2 px-4 py-2 lg:px-5 lg:py-4"><a aria-label="GOZS Athlete, ir al inicio" class="-m-2 flex min-h-12 items-center gap-2 p-2" href="/"><img src="../assets/brand/gozs-logo-negro.png" alt="" class="h-5 w-auto dark:hidden"><img src="../assets/brand/gozs-logo-blanco.png" alt="" class="hidden h-5 w-auto dark:block"><span class="hidden text-base font-bold tracking-tight text-primary sm:inline">Athlete</span></a><div class="flex items-center gap-2 lg:hidden"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Noche" title="Cambiar a Modo Noche (Carbón Suave)" data-testid="theme-toggle" data-theme="light" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 -rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div></header><nav aria-label="Secciones Athlete" class="grid grid-cols-4 gap-1.5 border-b border-border bg-card px-2 py-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1 lg:border-b-0 lg:px-3"><a aria-current="page" class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 bg-primary text-primary-foreground rounded-full" href="/athlete"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M14.4 14.4 9.6 9.6"></path><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"></path><path d="m21.5 21.5-1.4-1.4"></path><path d="M3.9 3.9 2.5 2.5"></path><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"></path></svg>Entrenar</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/historial"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>Historial</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/progreso"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg>Progreso</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/clases"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>Clases</a></nav><div class="hidden items-center justify-between gap-2 border-t border-border p-3 lg:flex"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Noche" title="Cambiar a Modo Noche (Carbón Suave)" data-testid="theme-toggle" data-theme="light" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 -rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div><main class="mx-auto w-full max-w-md space-y-4 p-4 lg:max-w-2xl lg:px-8 lg:py-8"><div class="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan"><div class="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs" role="status" data-testid="unread-coach-message-banner"><div class="flex items-center gap-2.5 min-w-0"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">!</div><div class="min-w-0"><div class="flex items-center gap-2"><span class="font-bold text-primary">Mensaje nuevo del Coach</span><span class="rounded-full bg-success-soft text-success border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">No leído</span></div><p class="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">Totalmente de acuerdo con Félix. Si sentís molestia en el lumbar avísanos antes de subir kilos.</p></div></div><button type="button" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8">Ver mensaje</button></div><div class="text-center space-y-2"><p class="text-sm font-medium text-muted-foreground">Hola</p><h1 class="font-outfit text-xl text-foreground font-black tracking-tighter">Todavía no tenés un plan asignado</h1><p class="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p></div></div><aside aria-label="Acceso a mensajería con el equipo GOZS" class="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 transition-all duration-300"><button type="button" aria-expanded="false" aria-controls="athlete-chat-drawer" aria-label="Abrir chat con el equipo GOZS" class="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 select-none touch-manipulation min-h-11 min-w-11"><svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><span data-testid="unread-chat-badge" class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground ring-2 ring-background animate-pulse" aria-label="1 mensajes no leídos del equipo GOZS">1</span></button></aside><!--$--><!--/$--></main></div></div>
+
+
+
+
+
+<div id="mockup-ui" aria-hidden="true">
+<button type="button" onclick="mockupModo()">Claro / Oscuro</button>
+<template id="markup-light">
+<div hidden=""><!--$--><!--/$--></div><div class="theme-athlete"><div role="dialog" aria-modal="true" aria-label="Bienvenida a GOZSter" class="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-background"><div class="flex min-h-dvh w-full max-w-md flex-col px-5 pb-6 pt-5"><div class="flex items-center justify-between"><div class="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground"><span>Paso 1 de 3</span></div><button type="button" class="flex min-h-11 items-center px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]">Saltar</button></div><div class="mt-4 flex-1"><div><p class="text-sm uppercase text-primary tracking-[0.18em] font-mono font-semibold">GOZSter</p><h1 class="mt-3 text-4xl leading-tight text-foreground font-black tracking-tighter">Hola, Fernando.<br>Tu plan ya está listo.</h1><p class="mt-4 text-base leading-relaxed text-muted-foreground">Tu coach te armó tu plan. Antes de empezar, elegí dos cosas para que la app se adapte a vos. Tarda 30 segundos.</p><div class="mt-6 divide-y divide-border rounded-2xl border border-border bg-card"><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span><div><p class="font-bold text-foreground">Cómo ver tus ejercicios</p><p class="text-sm text-muted-foreground">Simple o Técnica.</p></div></div><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg></span><div><p class="font-bold text-foreground">El descanso entre series</p><p class="text-sm text-muted-foreground">Si querés ver la cuenta regresiva o no.</p></div></div></div></div></div><div class="mt-6 flex justify-center gap-2" aria-hidden="true"><span class="h-1.5 rounded-full transition-all w-6 bg-primary"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span></div><div class="mt-4"><button type="button" class="inline-flex items-center justify-center font-medium transition-all duration-150 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer bg-primary text-primary-foreground hover:brightness-105 active:scale-[0.98] min-h-14 px-6 py-3.5 text-base font-bold tracking-wide h-14 w-full hover:bg-primary/90 rounded-full shadow-lg shadow-primary/20">Empezar</button></div></div></div><div class="theme-athlete min-h-dvh bg-background text-foreground lg:grid lg:grid-cols-[240px_minmax(0,1fr)]"><div class="contents lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-border lg:bg-card"><header class="sticky top-0 z-20 border-b border-border bg-card lg:static lg:border-b-0"><div class="flex items-center justify-between gap-2 px-4 py-2 lg:px-5 lg:py-4"><a aria-label="GOZS Athlete, ir al inicio" class="-m-2 flex min-h-12 items-center gap-2 p-2" href="/"><img src="../assets/brand/gozs-logo-negro.png" alt="" class="h-5 w-auto dark:hidden"><img src="../assets/brand/gozs-logo-blanco.png" alt="" class="hidden h-5 w-auto dark:block"><span class="hidden text-base font-bold tracking-tight text-primary sm:inline">Athlete</span></a><div class="flex items-center gap-2 lg:hidden"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Noche" title="Cambiar a Modo Noche (Carbón Suave)" data-testid="theme-toggle" data-theme="light" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 -rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div></header><nav aria-label="Secciones Athlete" class="grid grid-cols-4 gap-1.5 border-b border-border bg-card px-2 py-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1 lg:border-b-0 lg:px-3"><a aria-current="page" class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 bg-primary text-primary-foreground rounded-full" href="/athlete"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M14.4 14.4 9.6 9.6"></path><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"></path><path d="m21.5 21.5-1.4-1.4"></path><path d="M3.9 3.9 2.5 2.5"></path><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"></path></svg>Entrenar</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/historial"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>Historial</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/progreso"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg>Progreso</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/clases"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>Clases</a></nav><div class="hidden items-center justify-between gap-2 border-t border-border p-3 lg:flex"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Noche" title="Cambiar a Modo Noche (Carbón Suave)" data-testid="theme-toggle" data-theme="light" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 -rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div><main class="mx-auto w-full max-w-md space-y-4 p-4 lg:max-w-2xl lg:px-8 lg:py-8"><div class="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan"><div class="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs" role="status" data-testid="unread-coach-message-banner"><div class="flex items-center gap-2.5 min-w-0"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">!</div><div class="min-w-0"><div class="flex items-center gap-2"><span class="font-bold text-primary">Mensaje nuevo del Coach</span><span class="rounded-full bg-success-soft text-success border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">No leído</span></div><p class="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">Totalmente de acuerdo con Félix. Si sentís molestia en el lumbar avísanos antes de subir kilos.</p></div></div><button type="button" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8">Ver mensaje</button></div><div class="text-center space-y-2"><p class="text-sm font-medium text-muted-foreground">Hola</p><h1 class="font-outfit text-xl text-foreground font-black tracking-tighter">Todavía no tenés un plan asignado</h1><p class="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p></div></div><aside aria-label="Acceso a mensajería con el equipo GOZS" class="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 transition-all duration-300"><button type="button" aria-expanded="false" aria-controls="athlete-chat-drawer" aria-label="Abrir chat con el equipo GOZS" class="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 select-none touch-manipulation min-h-11 min-w-11"><svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><span data-testid="unread-chat-badge" class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground ring-2 ring-background animate-pulse" aria-label="1 mensajes no leídos del equipo GOZS">1</span></button></aside><!--$--><!--/$--></main></div></div>
+
+
+
+
+</template>
+<template id="markup-dark"><div hidden=""><!--$--><!--/$--></div><div class="theme-athlete"><div role="dialog" aria-modal="true" aria-label="Bienvenida a GOZSter" class="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-background"><div class="flex min-h-dvh w-full max-w-md flex-col px-5 pb-6 pt-5"><div class="flex items-center justify-between"><div class="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground"><span>Paso 1 de 3</span></div><button type="button" class="flex min-h-11 items-center px-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]">Saltar</button></div><div class="mt-4 flex-1"><div><p class="text-sm uppercase text-primary tracking-[0.18em] font-mono font-semibold">GOZSter</p><h1 class="mt-3 text-4xl leading-tight text-foreground font-black tracking-tighter">Hola, Fernando.<br>Tu plan ya está listo.</h1><p class="mt-4 text-base leading-relaxed text-muted-foreground">Tu coach te armó tu plan. Antes de empezar, elegí dos cosas para que la app se adapte a vos. Tarda 30 segundos.</p><div class="mt-6 divide-y divide-border rounded-2xl border border-border bg-card"><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span><div><p class="font-bold text-foreground">Cómo ver tus ejercicios</p><p class="text-sm text-muted-foreground">Simple o Técnica.</p></div></div><div class="flex items-center gap-4 p-4"><span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="2" x2="14" y2="2"></line><line x1="12" y1="14" x2="15" y2="11"></line><circle cx="12" cy="14" r="8"></circle></svg></span><div><p class="font-bold text-foreground">El descanso entre series</p><p class="text-sm text-muted-foreground">Si querés ver la cuenta regresiva o no.</p></div></div></div></div></div><div class="mt-6 flex justify-center gap-2" aria-hidden="true"><span class="h-1.5 rounded-full transition-all w-6 bg-primary"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span><span class="h-1.5 rounded-full transition-all w-1.5 bg-muted"></span></div><div class="mt-4"><button type="button" class="inline-flex items-center justify-center font-medium transition-all duration-150 select-none touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer bg-primary text-primary-foreground hover:brightness-105 active:scale-[0.98] min-h-14 px-6 py-3.5 text-base font-bold tracking-wide h-14 w-full hover:bg-primary/90 rounded-full shadow-lg shadow-primary/20">Empezar</button></div></div></div><div class="theme-athlete min-h-dvh bg-background text-foreground lg:grid lg:grid-cols-[240px_minmax(0,1fr)]"><div class="contents lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-border lg:bg-card"><header class="sticky top-0 z-20 border-b border-border bg-card lg:static lg:border-b-0"><div class="flex items-center justify-between gap-2 px-4 py-2 lg:px-5 lg:py-4"><a aria-label="GOZS Athlete, ir al inicio" class="-m-2 flex min-h-12 items-center gap-2 p-2" href="/"><img src="../assets/brand/gozs-logo-negro.png" alt="" class="h-5 w-auto dark:hidden"><img src="../assets/brand/gozs-logo-blanco.png" alt="" class="hidden h-5 w-auto dark:block"><span class="hidden text-base font-bold tracking-tight text-primary sm:inline">Athlete</span></a><div class="flex items-center gap-2 lg:hidden"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Día" title="Cambiar a Modo Día (Blanco Cálido)" data-testid="theme-toggle" data-theme="dark" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div></header><nav aria-label="Secciones Athlete" class="grid grid-cols-4 gap-1.5 border-b border-border bg-card px-2 py-2 lg:flex lg:flex-1 lg:flex-col lg:gap-1 lg:border-b-0 lg:px-3"><a aria-current="page" class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 bg-primary text-primary-foreground rounded-full" href="/athlete"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M14.4 14.4 9.6 9.6"></path><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"></path><path d="m21.5 21.5-1.4-1.4"></path><path d="M3.9 3.9 2.5 2.5"></path><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z"></path></svg>Entrenar</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/historial"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M12 7v5l4 2"></path></svg>Historial</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/progreso"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><path d="M16 7h6v6"></path><path d="m22 7-8.5 8.5-5-5L2 17"></path></svg>Progreso</a><a class="flex min-h-12 items-center justify-center gap-2.5 text-sm font-bold transition-colors lg:justify-start lg:px-3 text-muted-foreground hover:bg-secondary hover:text-foreground rounded-full" href="/athlete/clases"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="hidden size-5 lg:block"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>Clases</a></nav><div class="hidden items-center justify-between gap-2 border-t border-border p-3 lg:flex"><div role="status" aria-live="polite" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold border-success-soft-border bg-success-soft text-success-soft-foreground"><span aria-hidden="true" class="size-2 rounded-full bg-success landing-dot text-success"></span>Online</div><button type="button" aria-label="Cambiar a Modo Día" title="Cambiar a Modo Día (Blanco Cálido)" data-testid="theme-toggle" data-theme="dark" class="group relative inline-flex size-target items-center justify-center gap-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "><div class="relative flex h-4 w-4 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-90 scale-0 opacity-0 absolute" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-foreground transition-all duration-300 rotate-0 scale-100 opacity-100" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></div></button><button type="button" class="inline-flex size-target items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-soft-foreground" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" x2="9" y1="12" y2="12"></line></svg><span class="sr-only">Cerrar Sesión</span></button></div></div><main class="mx-auto w-full max-w-md space-y-4 p-4 lg:max-w-2xl lg:px-8 lg:py-8"><div class="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan"><div class="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs" role="status" data-testid="unread-coach-message-banner"><div class="flex items-center gap-2.5 min-w-0"><div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">!</div><div class="min-w-0"><div class="flex items-center gap-2"><span class="font-bold text-primary">Mensaje nuevo del Coach</span><span class="rounded-full bg-success-soft text-success border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">No leído</span></div><p class="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">Totalmente de acuerdo con Félix. Si sentís molestia en el lumbar avísanos antes de subir kilos.</p></div></div><button type="button" class="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8">Ver mensaje</button></div><div class="text-center space-y-2"><p class="text-sm font-medium text-muted-foreground">Hola</p><h1 class="font-outfit text-xl text-foreground font-black tracking-tighter">Todavía no tenés un plan asignado</h1><p class="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p></div></div><aside aria-label="Acceso a mensajería con el equipo GOZS" class="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 transition-all duration-300"><button type="button" aria-expanded="false" aria-controls="athlete-chat-drawer" aria-label="Abrir chat con el equipo GOZS" class="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 select-none touch-manipulation min-h-11 min-w-11"><svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><span data-testid="unread-chat-badge" class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground ring-2 ring-background animate-pulse" aria-label="1 mensajes no leídos del equipo GOZS">1</span></button></aside><!--$--><!--/$--></main></div></div>
+
+
+</template>
+</div>
+<script>
+// El markup de cada modo es el DOM real de ese modo (p. ej. el ícono del ThemeToggle cambia).
+function mockupAnidados(raiz){Array.prototype.forEach.call((raiz||document).querySelectorAll("button-anidado"),function(el){var b=document.createElement("button");Array.prototype.forEach.call(el.attributes,function(a){b.setAttribute(a.name,a.value)});while(el.firstChild)b.appendChild(el.firstChild);el.parentNode.replaceChild(b,el)})}
+function mockupPintar(modo){var ui=document.getElementById("mockup-ui");Array.prototype.slice.call(document.body.childNodes).forEach(function(n){if(n!==ui&&!(n.tagName==="SCRIPT"))document.body.removeChild(n)});document.body.insertBefore(document.getElementById("markup-"+modo).content.cloneNode(true),ui);mockupAnidados();document.documentElement.classList.toggle("dark",mododark(modo));mockupDialogos();}
+function mododark(m){return m==="dark"}
+// Un <dialog open> estático no es modal: se reabre con showModal() como en la app (capa superior + backdrop).
+function mockupDialogos(){Array.prototype.forEach.call(document.querySelectorAll("dialog[open]"),function(d){d.removeAttribute("open");try{d.showModal()}catch(e){d.setAttribute("open","")}})}
+function mockupModo(){var d=!document.documentElement.classList.contains("dark");mockupPintar(d?"dark":"light");var q=location.hash.slice(1).split(",").filter(function(x){return x&&x!=="dark"&&x!=="light"});q.push(d?"dark":"light");history.replaceState(null,"","#"+q.join(","));}
+if(document.documentElement.classList.contains("dark"))mockupPintar("dark");else{mockupAnidados();mockupDialogos();}
+</script>
+</body>
+</html>

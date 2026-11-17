@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athlete App con la estética de la landing · ANTES | DESPUÉS</title>
+<style>
+:root{--bg:#fff;--fg:#09090b;--muted:#52525b;--border:#e4e4e7;--soft:#f4f4f5}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Geist,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.top{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.92);backdrop-filter:blur(8px)}
+.top h1{margin:0;font-size:20px;font-weight:900;letter-spacing:-.04em}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9999px;padding:4px;background:var(--soft)}
+.seg button{border:0;background:transparent;border-radius:9999px;padding:8px 14px;font:700 13px system-ui;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--fg);color:#fff}
+main{max-width:1400px;margin:0 auto;padding:16px 24px 64px}
+h2{font:600 12px/1 "Geist Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.18em;color:var(--muted);margin:40px 0 12px;border-top:1px solid var(--border);padding-top:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(620px,1fr));gap:16px}
+.card{border:1px solid var(--border);border-radius:16px;padding:16px}
+.card header{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.card h3{margin:0;font-size:16px;font-weight:800;letter-spacing:-.02em}
+.tag{font:600 11px system-ui;border-radius:9999px;padding:3px 8px;white-space:nowrap;border:1px solid var(--border)}
+.tag.codigo{background:#fffbeb;color:#92400e;border-color:#fde68a}
+.meta,.links{font-size:12px;color:var(--muted);margin:6px 0}
+.pares .par{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body.oscuro .modo-light,body.claro .modo-dark{display:none}
+figure{margin:0}figcaption{font:600 11px "Geist Mono",Menlo,monospace;letter-spacing:.12em;color:var(--muted);margin-bottom:4px}
+figure img{width:100%;max-height:900px;object-fit:cover;object-position:top;border:1px solid var(--border);border-radius:12px;display:block}
+a{color:inherit}
+</style></head>
+<body class="claro">
+<div class="top"><h1>/athlete con la estética de la landing</h1>
+<div class="seg" role="group" aria-label="Modo"><button aria-pressed="true" onclick="modo('claro',this)">Claro</button><button aria-pressed="false" onclick="modo('oscuro',this)">Oscuro</button></div></div>
+<main>
+<p>Cada par muestra el ANTES (captura real de la app o, si el estado no se alcanza sin escribir datos, el render del mismo JSX con el CSS actual) y el DESPUÉS (mismo DOM, solo cambian tokens y clases de la propuesta). Clic en una imagen DESPUÉS abre el mockup HTML con su toggle claro/oscuro. Detalle en <a href="README.md">README.md</a>.</p>
+<h2>Shell</h2>
+<div class="grid">
+<article class="card" id="error">
+  <header><h3>error.tsx (límite de error de /athlete)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/error-movil-light.png"><img loading="lazy" src="png/antes/error-movil-light.png" alt="ANTES error.tsx (límite de error de /athlete)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/error.html"><img loading="lazy" src="png/despues/error-movil-light.png" alt="DESPUÉS error.tsx (límite de error de /athlete)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/error-movil-dark.png"><img loading="lazy" src="png/antes/error-movil-dark.png" alt="ANTES error.tsx (límite de error de /athlete)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/error.html#dark"><img loading="lazy" src="png/despues/error-movil-dark.png" alt="DESPUÉS error.tsx (límite de error de /athlete)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/error.html">mockup HTML (DESPUÉS)</a> · <a href="antes/error.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Inicio</h2>
+<div class="grid">
+<article class="card" id="inicio">
+  <header><h3>Inicio · Mis días (con datos)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>9→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-movil-light.png"><img loading="lazy" src="png/antes/inicio-movil-light.png" alt="ANTES Inicio · Mis días (con datos)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio.html"><img loading="lazy" src="png/despues/inicio-movil-light.png" alt="DESPUÉS Inicio · Mis días (con datos)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-movil-dark.png"><img loading="lazy" src="png/antes/inicio-movil-dark.png" alt="ANTES Inicio · Mis días (con datos)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio.html#dark"><img loading="lazy" src="png/despues/inicio-movil-dark.png" alt="DESPUÉS Inicio · Mis días (con datos)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="inicio-desktop">
+  <header><h3>Inicio · Mis días (con datos) · 1280 px</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>9→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-desktop-light.png"><img loading="lazy" src="png/antes/inicio-desktop-light.png" alt="ANTES Inicio · Mis días (con datos)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio-desktop.html"><img loading="lazy" src="png/despues/inicio-desktop-light.png" alt="DESPUÉS Inicio · Mis días (con datos)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-desktop-dark.png"><img loading="lazy" src="png/antes/inicio-desktop-dark.png" alt="ANTES Inicio · Mis días (con datos)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio-desktop.html#dark"><img loading="lazy" src="png/despues/inicio-desktop-dark.png" alt="DESPUÉS Inicio · Mis días (con datos)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio-desktop.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio-desktop.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="inicio-sheet-otro-dia">
+  <header><h3>Inicio · hoja «Hacer otro día»</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>9→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-sheet-otro-dia-movil-light.png"><img loading="lazy" src="png/antes/inicio-sheet-otro-dia-movil-light.png" alt="ANTES Inicio · hoja «Hacer otro día»"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio-sheet-otro-dia.html"><img loading="lazy" src="png/despues/inicio-sheet-otro-dia-movil-light.png" alt="DESPUÉS Inicio · hoja «Hacer otro día»"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-sheet-otro-dia-movil-dark.png"><img loading="lazy" src="png/antes/inicio-sheet-otro-dia-movil-dark.png" alt="ANTES Inicio · hoja «Hacer otro día»"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio-sheet-otro-dia.html#dark"><img loading="lazy" src="png/despues/inicio-sheet-otro-dia-movil-dark.png" alt="DESPUÉS Inicio · hoja «Hacer otro día»"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio-sheet-otro-dia.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio-sheet-otro-dia.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="inicio-sin-plan">
+  <header><h3>Inicio · sin plan (vacío)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-sin-plan-movil-light.png"><img loading="lazy" src="png/antes/inicio-sin-plan-movil-light.png" alt="ANTES Inicio · sin plan (vacío)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio-sin-plan.html"><img loading="lazy" src="png/despues/inicio-sin-plan-movil-light.png" alt="DESPUÉS Inicio · sin plan (vacío)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-sin-plan-movil-dark.png"><img loading="lazy" src="png/antes/inicio-sin-plan-movil-dark.png" alt="ANTES Inicio · sin plan (vacío)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio-sin-plan.html#dark"><img loading="lazy" src="png/despues/inicio-sin-plan-movil-dark.png" alt="DESPUÉS Inicio · sin plan (vacío)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio-sin-plan.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio-sin-plan.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="inicio-cargando">
+  <header><h3>Inicio · cargando (el plan no llega)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-cargando-movil-light.png"><img loading="lazy" src="png/antes/inicio-cargando-movil-light.png" alt="ANTES Inicio · cargando (el plan no llega)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio-cargando.html"><img loading="lazy" src="png/despues/inicio-cargando-movil-light.png" alt="DESPUÉS Inicio · cargando (el plan no llega)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-cargando-movil-dark.png"><img loading="lazy" src="png/antes/inicio-cargando-movil-dark.png" alt="ANTES Inicio · cargando (el plan no llega)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio-cargando.html#dark"><img loading="lazy" src="png/despues/inicio-cargando-movil-dark.png" alt="DESPUÉS Inicio · cargando (el plan no llega)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio-cargando.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio-cargando.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="inicio-offline">
+  <header><h3>Inicio · Modo Avión (offline)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>9→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/inicio-offline-movil-light.png"><img loading="lazy" src="png/antes/inicio-offline-movil-light.png" alt="ANTES Inicio · Modo Avión (offline)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/inicio-offline.html"><img loading="lazy" src="png/despues/inicio-offline-movil-light.png" alt="DESPUÉS Inicio · Modo Avión (offline)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/inicio-offline-movil-dark.png"><img loading="lazy" src="png/antes/inicio-offline-movil-dark.png" alt="ANTES Inicio · Modo Avión (offline)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/inicio-offline.html#dark"><img loading="lazy" src="png/despues/inicio-offline-movil-dark.png" alt="DESPUÉS Inicio · Modo Avión (offline)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/inicio-offline.html">mockup HTML (DESPUÉS)</a> · <a href="antes/inicio-offline.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Paywall</h2>
+<div class="grid">
+<article class="card" id="membresia-vencida">
+  <header><h3>Membresía vencida · diálogo al abrir la app</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>12→5</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/membresia-vencida-movil-light.png"><img loading="lazy" src="png/antes/membresia-vencida-movil-light.png" alt="ANTES Membresía vencida · diálogo al abrir la app"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/membresia-vencida.html"><img loading="lazy" src="png/despues/membresia-vencida-movil-light.png" alt="DESPUÉS Membresía vencida · diálogo al abrir la app"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/membresia-vencida-movil-dark.png"><img loading="lazy" src="png/antes/membresia-vencida-movil-dark.png" alt="ANTES Membresía vencida · diálogo al abrir la app"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/membresia-vencida.html#dark"><img loading="lazy" src="png/despues/membresia-vencida-movil-dark.png" alt="DESPUÉS Membresía vencida · diálogo al abrir la app"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/membresia-vencida.html">mockup HTML (DESPUÉS)</a> · <a href="antes/membresia-vencida.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="membresia-vencida-banner">
+  <header><h3>Membresía vencida · banner en Inicio (diálogo cerrado)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>11→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/membresia-vencida-banner-movil-light.png"><img loading="lazy" src="png/antes/membresia-vencida-banner-movil-light.png" alt="ANTES Membresía vencida · banner en Inicio (diálogo cerrado)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/membresia-vencida-banner.html"><img loading="lazy" src="png/despues/membresia-vencida-banner-movil-light.png" alt="DESPUÉS Membresía vencida · banner en Inicio (diálogo cerrado)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/membresia-vencida-banner-movil-dark.png"><img loading="lazy" src="png/antes/membresia-vencida-banner-movil-dark.png" alt="ANTES Membresía vencida · banner en Inicio (diálogo cerrado)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/membresia-vencida-banner.html#dark"><img loading="lazy" src="png/despues/membresia-vencida-banner-movil-dark.png" alt="DESPUÉS Membresía vencida · banner en Inicio (diálogo cerrado)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/membresia-vencida-banner.html">mockup HTML (DESPUÉS)</a> · <a href="antes/membresia-vencida-banner.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Entrenamiento en vivo</h2>
+<div class="grid">
+<article class="card" id="lw-aproximacion">
+  <header><h3>Live workout · ejercicio con aproximación</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>19 / 19</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-aproximacion-movil-light.png"><img loading="lazy" src="png/antes/lw-aproximacion-movil-light.png" alt="ANTES Live workout · ejercicio con aproximación"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-aproximacion.html"><img loading="lazy" src="png/despues/lw-aproximacion-movil-light.png" alt="DESPUÉS Live workout · ejercicio con aproximación"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-aproximacion-movil-dark.png"><img loading="lazy" src="png/antes/lw-aproximacion-movil-dark.png" alt="ANTES Live workout · ejercicio con aproximación"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-aproximacion.html#dark"><img loading="lazy" src="png/despues/lw-aproximacion-movil-dark.png" alt="DESPUÉS Live workout · ejercicio con aproximación"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-aproximacion.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-aproximacion.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-superserie">
+  <header><h3>Live workout · superserie</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-superserie-movil-light.png"><img loading="lazy" src="png/antes/lw-superserie-movil-light.png" alt="ANTES Live workout · superserie"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-superserie.html"><img loading="lazy" src="png/despues/lw-superserie-movil-light.png" alt="DESPUÉS Live workout · superserie"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-superserie-movil-dark.png"><img loading="lazy" src="png/antes/lw-superserie-movil-dark.png" alt="ANTES Live workout · superserie"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-superserie.html#dark"><img loading="lazy" src="png/despues/lw-superserie-movil-dark.png" alt="DESPUÉS Live workout · superserie"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-superserie.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-superserie.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-superserie-desktop">
+  <header><h3>Live workout · superserie · 1280 px</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-superserie-desktop-light.png"><img loading="lazy" src="png/antes/lw-superserie-desktop-light.png" alt="ANTES Live workout · superserie"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-superserie-desktop.html"><img loading="lazy" src="png/despues/lw-superserie-desktop-light.png" alt="DESPUÉS Live workout · superserie"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-superserie-desktop-dark.png"><img loading="lazy" src="png/antes/lw-superserie-desktop-dark.png" alt="ANTES Live workout · superserie"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-superserie-desktop.html#dark"><img loading="lazy" src="png/despues/lw-superserie-desktop-dark.png" alt="DESPUÉS Live workout · superserie"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-superserie-desktop.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-superserie-desktop.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-tiempo">
+  <header><h3>Live workout · ejercicio por tiempo</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>19 / 19</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-tiempo-movil-light.png"><img loading="lazy" src="png/antes/lw-tiempo-movil-light.png" alt="ANTES Live workout · ejercicio por tiempo"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-tiempo.html"><img loading="lazy" src="png/despues/lw-tiempo-movil-light.png" alt="DESPUÉS Live workout · ejercicio por tiempo"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-tiempo-movil-dark.png"><img loading="lazy" src="png/antes/lw-tiempo-movil-dark.png" alt="ANTES Live workout · ejercicio por tiempo"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-tiempo.html#dark"><img loading="lazy" src="png/despues/lw-tiempo-movil-dark.png" alt="DESPUÉS Live workout · ejercicio por tiempo"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-tiempo.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-tiempo.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-dropset">
+  <header><h3>Live workout · drop set</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>4 / 4</b> · fallas de contraste AA antes→después: claro <b>15→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-dropset-movil-light.png"><img loading="lazy" src="png/antes/lw-dropset-movil-light.png" alt="ANTES Live workout · drop set"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-dropset.html"><img loading="lazy" src="png/despues/lw-dropset-movil-light.png" alt="DESPUÉS Live workout · drop set"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-dropset-movil-dark.png"><img loading="lazy" src="png/antes/lw-dropset-movil-dark.png" alt="ANTES Live workout · drop set"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-dropset.html#dark"><img loading="lazy" src="png/despues/lw-dropset-movil-dark.png" alt="DESPUÉS Live workout · drop set"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-dropset.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-dropset.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-unilateral">
+  <header><h3>Live workout · unilateral</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>4 / 4</b> · fallas de contraste AA antes→después: claro <b>9→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-unilateral-movil-light.png"><img loading="lazy" src="png/antes/lw-unilateral-movil-light.png" alt="ANTES Live workout · unilateral"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-unilateral.html"><img loading="lazy" src="png/despues/lw-unilateral-movil-light.png" alt="DESPUÉS Live workout · unilateral"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-unilateral-movil-dark.png"><img loading="lazy" src="png/antes/lw-unilateral-movil-dark.png" alt="ANTES Live workout · unilateral"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-unilateral.html#dark"><img loading="lazy" src="png/despues/lw-unilateral-movil-dark.png" alt="DESPUÉS Live workout · unilateral"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-unilateral.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-unilateral.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-tecnica">
+  <header><h3>Live workout · vista Técnica</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-tecnica-movil-light.png"><img loading="lazy" src="png/antes/lw-tecnica-movil-light.png" alt="ANTES Live workout · vista Técnica"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-tecnica.html"><img loading="lazy" src="png/despues/lw-tecnica-movil-light.png" alt="DESPUÉS Live workout · vista Técnica"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-tecnica-movil-dark.png"><img loading="lazy" src="png/antes/lw-tecnica-movil-dark.png" alt="ANTES Live workout · vista Técnica"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-tecnica.html#dark"><img loading="lazy" src="png/despues/lw-tecnica-movil-dark.png" alt="DESPUÉS Live workout · vista Técnica"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-tecnica.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-tecnica.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-registro-dia">
+  <header><h3>Live workout · Registro del día (vacío)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>3→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-registro-dia-movil-light.png"><img loading="lazy" src="png/antes/lw-registro-dia-movil-light.png" alt="ANTES Live workout · Registro del día (vacío)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-registro-dia.html"><img loading="lazy" src="png/despues/lw-registro-dia-movil-light.png" alt="DESPUÉS Live workout · Registro del día (vacío)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-registro-dia-movil-dark.png"><img loading="lazy" src="png/antes/lw-registro-dia-movil-dark.png" alt="ANTES Live workout · Registro del día (vacío)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-registro-dia.html#dark"><img loading="lazy" src="png/despues/lw-registro-dia-movil-dark.png" alt="DESPUÉS Live workout · Registro del día (vacío)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-registro-dia.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-registro-dia.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-ajustes">
+  <header><h3>Live workout · ajustes de vista</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>37 / 37</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-ajustes-movil-light.png"><img loading="lazy" src="png/antes/lw-ajustes-movil-light.png" alt="ANTES Live workout · ajustes de vista"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-ajustes.html"><img loading="lazy" src="png/despues/lw-ajustes-movil-light.png" alt="DESPUÉS Live workout · ajustes de vista"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-ajustes-movil-dark.png"><img loading="lazy" src="png/antes/lw-ajustes-movil-dark.png" alt="ANTES Live workout · ajustes de vista"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-ajustes.html#dark"><img loading="lazy" src="png/despues/lw-ajustes-movil-dark.png" alt="DESPUÉS Live workout · ajustes de vista"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-ajustes.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-ajustes.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-offline">
+  <header><h3>Live workout · Modo Avión</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>19 / 19</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-offline-movil-light.png"><img loading="lazy" src="png/antes/lw-offline-movil-light.png" alt="ANTES Live workout · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-offline.html"><img loading="lazy" src="png/despues/lw-offline-movil-light.png" alt="DESPUÉS Live workout · Modo Avión"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-offline-movil-dark.png"><img loading="lazy" src="png/antes/lw-offline-movil-dark.png" alt="ANTES Live workout · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-offline.html#dark"><img loading="lazy" src="png/despues/lw-offline-movil-dark.png" alt="DESPUÉS Live workout · Modo Avión"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-offline.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-offline.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-popover-descanso">
+  <header><h3>Live workout · popover de descanso</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>19 / 19</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-popover-descanso-movil-light.png"><img loading="lazy" src="png/antes/lw-popover-descanso-movil-light.png" alt="ANTES Live workout · popover de descanso"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-popover-descanso.html"><img loading="lazy" src="png/despues/lw-popover-descanso-movil-light.png" alt="DESPUÉS Live workout · popover de descanso"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-popover-descanso-movil-dark.png"><img loading="lazy" src="png/antes/lw-popover-descanso-movil-dark.png" alt="ANTES Live workout · popover de descanso"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-popover-descanso.html#dark"><img loading="lazy" src="png/despues/lw-popover-descanso-movil-dark.png" alt="DESPUÉS Live workout · popover de descanso"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-popover-descanso.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-popover-descanso.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="aviso-record-tecnica">
+  <header><h3>Aviso de récord (Técnica, con 1RM)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/aviso-record-tecnica-movil-light.png"><img loading="lazy" src="png/antes/aviso-record-tecnica-movil-light.png" alt="ANTES Aviso de récord (Técnica, con 1RM)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/aviso-record-tecnica.html"><img loading="lazy" src="png/despues/aviso-record-tecnica-movil-light.png" alt="DESPUÉS Aviso de récord (Técnica, con 1RM)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/aviso-record-tecnica-movil-dark.png"><img loading="lazy" src="png/antes/aviso-record-tecnica-movil-dark.png" alt="ANTES Aviso de récord (Técnica, con 1RM)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/aviso-record-tecnica.html#dark"><img loading="lazy" src="png/despues/aviso-record-tecnica-movil-dark.png" alt="DESPUÉS Aviso de récord (Técnica, con 1RM)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/aviso-record-tecnica.html">mockup HTML (DESPUÉS)</a> · <a href="antes/aviso-record-tecnica.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="aviso-record">
+  <header><h3>Aviso de récord (Simple)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/aviso-record-movil-light.png"><img loading="lazy" src="png/antes/aviso-record-movil-light.png" alt="ANTES Aviso de récord (Simple)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/aviso-record.html"><img loading="lazy" src="png/despues/aviso-record-movil-light.png" alt="DESPUÉS Aviso de récord (Simple)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/aviso-record-movil-dark.png"><img loading="lazy" src="png/antes/aviso-record-movil-dark.png" alt="ANTES Aviso de récord (Simple)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/aviso-record.html#dark"><img loading="lazy" src="png/despues/aviso-record-movil-dark.png" alt="DESPUÉS Aviso de récord (Simple)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/aviso-record.html">mockup HTML (DESPUÉS)</a> · <a href="antes/aviso-record.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="pain-banner-alto">
+  <header><h3>Banner de molestia · alta (7-9)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>9→3</b>, oscuro <b>2→2</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/pain-banner-alto-movil-light.png"><img loading="lazy" src="png/antes/pain-banner-alto-movil-light.png" alt="ANTES Banner de molestia · alta (7-9)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/pain-banner-alto.html"><img loading="lazy" src="png/despues/pain-banner-alto-movil-light.png" alt="DESPUÉS Banner de molestia · alta (7-9)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/pain-banner-alto-movil-dark.png"><img loading="lazy" src="png/antes/pain-banner-alto-movil-dark.png" alt="ANTES Banner de molestia · alta (7-9)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/pain-banner-alto.html#dark"><img loading="lazy" src="png/despues/pain-banner-alto-movil-dark.png" alt="DESPUÉS Banner de molestia · alta (7-9)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/pain-banner-alto.html">mockup HTML (DESPUÉS)</a> · <a href="antes/pain-banner-alto.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="pain-banner-leve">
+  <header><h3>Banner de molestia · leve (1-3)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/pain-banner-leve-movil-light.png"><img loading="lazy" src="png/antes/pain-banner-leve-movil-light.png" alt="ANTES Banner de molestia · leve (1-3)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/pain-banner-leve.html"><img loading="lazy" src="png/despues/pain-banner-leve-movil-light.png" alt="DESPUÉS Banner de molestia · leve (1-3)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/pain-banner-leve-movil-dark.png"><img loading="lazy" src="png/antes/pain-banner-leve-movil-dark.png" alt="ANTES Banner de molestia · leve (1-3)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/pain-banner-leve.html#dark"><img loading="lazy" src="png/despues/pain-banner-leve-movil-dark.png" alt="DESPUÉS Banner de molestia · leve (1-3)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/pain-banner-leve.html">mockup HTML (DESPUÉS)</a> · <a href="antes/pain-banner-leve.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="pain-banner-moderado">
+  <header><h3>Banner de molestia · moderada (4-6)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>9→3</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/pain-banner-moderado-movil-light.png"><img loading="lazy" src="png/antes/pain-banner-moderado-movil-light.png" alt="ANTES Banner de molestia · moderada (4-6)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/pain-banner-moderado.html"><img loading="lazy" src="png/despues/pain-banner-moderado-movil-light.png" alt="DESPUÉS Banner de molestia · moderada (4-6)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/pain-banner-moderado-movil-dark.png"><img loading="lazy" src="png/antes/pain-banner-moderado-movil-dark.png" alt="ANTES Banner de molestia · moderada (4-6)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/pain-banner-moderado.html#dark"><img loading="lazy" src="png/despues/pain-banner-moderado-movil-dark.png" alt="DESPUÉS Banner de molestia · moderada (4-6)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/pain-banner-moderado.html">mockup HTML (DESPUÉS)</a> · <a href="antes/pain-banner-moderado.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="rest-timer-pausa">
+  <header><h3>Temporizador de descanso · en pausa</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/rest-timer-pausa-movil-light.png"><img loading="lazy" src="png/antes/rest-timer-pausa-movil-light.png" alt="ANTES Temporizador de descanso · en pausa"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/rest-timer-pausa.html"><img loading="lazy" src="png/despues/rest-timer-pausa-movil-light.png" alt="DESPUÉS Temporizador de descanso · en pausa"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/rest-timer-pausa-movil-dark.png"><img loading="lazy" src="png/antes/rest-timer-pausa-movil-dark.png" alt="ANTES Temporizador de descanso · en pausa"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/rest-timer-pausa.html#dark"><img loading="lazy" src="png/despues/rest-timer-pausa-movil-dark.png" alt="DESPUÉS Temporizador de descanso · en pausa"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/rest-timer-pausa.html">mockup HTML (DESPUÉS)</a> · <a href="antes/rest-timer-pausa.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="rest-timer">
+  <header><h3>Temporizador de descanso · activo</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/rest-timer-movil-light.png"><img loading="lazy" src="png/antes/rest-timer-movil-light.png" alt="ANTES Temporizador de descanso · activo"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/rest-timer.html"><img loading="lazy" src="png/despues/rest-timer-movil-light.png" alt="DESPUÉS Temporizador de descanso · activo"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/rest-timer-movil-dark.png"><img loading="lazy" src="png/antes/rest-timer-movil-dark.png" alt="ANTES Temporizador de descanso · activo"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/rest-timer.html#dark"><img loading="lazy" src="png/despues/rest-timer-movil-dark.png" alt="DESPUÉS Temporizador de descanso · activo"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/rest-timer.html">mockup HTML (DESPUÉS)</a> · <a href="antes/rest-timer.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Modales</h2>
+<div class="grid">
+<article class="card" id="modal-notas">
+  <header><h3>Modal · notas del ejercicio</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>19 / 19</b> · fallas de contraste AA antes→después: claro <b>8→1</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-notas-movil-light.png"><img loading="lazy" src="png/antes/modal-notas-movil-light.png" alt="ANTES Modal · notas del ejercicio"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-notas.html"><img loading="lazy" src="png/despues/modal-notas-movil-light.png" alt="DESPUÉS Modal · notas del ejercicio"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-notas-movil-dark.png"><img loading="lazy" src="png/antes/modal-notas-movil-dark.png" alt="ANTES Modal · notas del ejercicio"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-notas.html#dark"><img loading="lazy" src="png/despues/modal-notas-movil-dark.png" alt="DESPUÉS Modal · notas del ejercicio"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-notas.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-notas.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-video">
+  <header><h3>Modal · video del ejercicio</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>4 / 4</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-video-movil-light.png"><img loading="lazy" src="png/antes/modal-video-movil-light.png" alt="ANTES Modal · video del ejercicio"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-video.html"><img loading="lazy" src="png/despues/modal-video-movil-light.png" alt="DESPUÉS Modal · video del ejercicio"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-video-movil-dark.png"><img loading="lazy" src="png/antes/modal-video-movil-dark.png" alt="ANTES Modal · video del ejercicio"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-video.html#dark"><img loading="lazy" src="png/despues/modal-video-movil-dark.png" alt="DESPUÉS Modal · video del ejercicio"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-video.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-video.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-calentamiento">
+  <header><h3>Modal · calentamiento / aproximación (vista Técnica)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>41 / 41</b> · fallas de contraste AA antes→después: claro <b>24→16</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-calentamiento-movil-light.png"><img loading="lazy" src="png/antes/modal-calentamiento-movil-light.png" alt="ANTES Modal · calentamiento / aproximación (vista Técnica)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-calentamiento.html"><img loading="lazy" src="png/despues/modal-calentamiento-movil-light.png" alt="DESPUÉS Modal · calentamiento / aproximación (vista Técnica)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-calentamiento-movil-dark.png"><img loading="lazy" src="png/antes/modal-calentamiento-movil-dark.png" alt="ANTES Modal · calentamiento / aproximación (vista Técnica)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-calentamiento.html#dark"><img loading="lazy" src="png/despues/modal-calentamiento-movil-dark.png" alt="DESPUÉS Modal · calentamiento / aproximación (vista Técnica)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-calentamiento.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-calentamiento.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-molestia">
+  <header><h3>Modal · reportar molestia</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>33 / 33</b> · fallas de contraste AA antes→después: claro <b>13→6</b>, oscuro <b>3→2</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-molestia-movil-light.png"><img loading="lazy" src="png/antes/modal-molestia-movil-light.png" alt="ANTES Modal · reportar molestia"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-molestia.html"><img loading="lazy" src="png/despues/modal-molestia-movil-light.png" alt="DESPUÉS Modal · reportar molestia"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-molestia-movil-dark.png"><img loading="lazy" src="png/antes/modal-molestia-movil-dark.png" alt="ANTES Modal · reportar molestia"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-molestia.html#dark"><img loading="lazy" src="png/despues/modal-molestia-movil-dark.png" alt="DESPUÉS Modal · reportar molestia"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-molestia.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-molestia.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-calculadora-discos">
+  <header><h3>Modal · calculadora de discos</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>22 / 22</b> · fallas de contraste AA antes→después: claro <b>11→4</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-calculadora-discos-movil-light.png"><img loading="lazy" src="png/antes/modal-calculadora-discos-movil-light.png" alt="ANTES Modal · calculadora de discos"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-calculadora-discos.html"><img loading="lazy" src="png/despues/modal-calculadora-discos-movil-light.png" alt="DESPUÉS Modal · calculadora de discos"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-calculadora-discos-movil-dark.png"><img loading="lazy" src="png/antes/modal-calculadora-discos-movil-dark.png" alt="ANTES Modal · calculadora de discos"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-calculadora-discos.html#dark"><img loading="lazy" src="png/despues/modal-calculadora-discos-movil-dark.png" alt="DESPUÉS Modal · calculadora de discos"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-calculadora-discos.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-calculadora-discos.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-cierre-dia">
+  <header><h3>Modal · cierre de día</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>18 / 18</b> · fallas de contraste AA antes→después: claro <b>13→7</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-cierre-dia-movil-light.png"><img loading="lazy" src="png/antes/modal-cierre-dia-movil-light.png" alt="ANTES Modal · cierre de día"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-cierre-dia.html"><img loading="lazy" src="png/despues/modal-cierre-dia-movil-light.png" alt="DESPUÉS Modal · cierre de día"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-cierre-dia-movil-dark.png"><img loading="lazy" src="png/antes/modal-cierre-dia-movil-dark.png" alt="ANTES Modal · cierre de día"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-cierre-dia.html#dark"><img loading="lazy" src="png/despues/modal-cierre-dia-movil-dark.png" alt="DESPUÉS Modal · cierre de día"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-cierre-dia.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-cierre-dia.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="modal-subida-video">
+  <header><h3>Modal · subida de video</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>3 / 3</b> · fallas de contraste AA antes→después: claro <b>7→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/modal-subida-video-movil-light.png"><img loading="lazy" src="png/antes/modal-subida-video-movil-light.png" alt="ANTES Modal · subida de video"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/modal-subida-video.html"><img loading="lazy" src="png/despues/modal-subida-video-movil-light.png" alt="DESPUÉS Modal · subida de video"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/modal-subida-video-movil-dark.png"><img loading="lazy" src="png/antes/modal-subida-video-movil-dark.png" alt="ANTES Modal · subida de video"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/modal-subida-video.html#dark"><img loading="lazy" src="png/despues/modal-subida-video-movil-dark.png" alt="DESPUÉS Modal · subida de video"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/modal-subida-video.html">mockup HTML (DESPUÉS)</a> · <a href="antes/modal-subida-video.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Historial</h2>
+<div class="grid">
+<article class="card" id="historial">
+  <header><h3>Historial · con datos</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>9→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/historial-movil-light.png"><img loading="lazy" src="png/antes/historial-movil-light.png" alt="ANTES Historial · con datos"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/historial.html"><img loading="lazy" src="png/despues/historial-movil-light.png" alt="DESPUÉS Historial · con datos"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/historial-movil-dark.png"><img loading="lazy" src="png/antes/historial-movil-dark.png" alt="ANTES Historial · con datos"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/historial.html#dark"><img loading="lazy" src="png/despues/historial-movil-dark.png" alt="DESPUÉS Historial · con datos"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/historial.html">mockup HTML (DESPUÉS)</a> · <a href="antes/historial.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="historial-detalle">
+  <header><h3>Historial · sesión expandida</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/historial-detalle-movil-light.png"><img loading="lazy" src="png/antes/historial-detalle-movil-light.png" alt="ANTES Historial · sesión expandida"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/historial-detalle.html"><img loading="lazy" src="png/despues/historial-detalle-movil-light.png" alt="DESPUÉS Historial · sesión expandida"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/historial-detalle-movil-dark.png"><img loading="lazy" src="png/antes/historial-detalle-movil-dark.png" alt="ANTES Historial · sesión expandida"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/historial-detalle.html#dark"><img loading="lazy" src="png/despues/historial-detalle-movil-dark.png" alt="DESPUÉS Historial · sesión expandida"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/historial-detalle.html">mockup HTML (DESPUÉS)</a> · <a href="antes/historial-detalle.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="historial-dashboard">
+  <header><h3>Historial · progreso (mini-dash)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/historial-dashboard-movil-light.png"><img loading="lazy" src="png/antes/historial-dashboard-movil-light.png" alt="ANTES Historial · progreso (mini-dash)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/historial-dashboard.html"><img loading="lazy" src="png/despues/historial-dashboard-movil-light.png" alt="DESPUÉS Historial · progreso (mini-dash)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/historial-dashboard-movil-dark.png"><img loading="lazy" src="png/antes/historial-dashboard-movil-dark.png" alt="ANTES Historial · progreso (mini-dash)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/historial-dashboard.html#dark"><img loading="lazy" src="png/despues/historial-dashboard-movil-dark.png" alt="DESPUÉS Historial · progreso (mini-dash)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/historial-dashboard.html">mockup HTML (DESPUÉS)</a> · <a href="antes/historial-dashboard.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="historial-vacio">
+  <header><h3>Historial · vacío</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/historial-vacio-movil-light.png"><img loading="lazy" src="png/antes/historial-vacio-movil-light.png" alt="ANTES Historial · vacío"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/historial-vacio.html"><img loading="lazy" src="png/despues/historial-vacio-movil-light.png" alt="DESPUÉS Historial · vacío"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/historial-vacio-movil-dark.png"><img loading="lazy" src="png/antes/historial-vacio-movil-dark.png" alt="ANTES Historial · vacío"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/historial-vacio.html#dark"><img loading="lazy" src="png/despues/historial-vacio-movil-dark.png" alt="DESPUÉS Historial · vacío"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/historial-vacio.html">mockup HTML (DESPUÉS)</a> · <a href="antes/historial-vacio.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="historial-offline">
+  <header><h3>Historial · Modo Avión</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>10→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/historial-offline-movil-light.png"><img loading="lazy" src="png/antes/historial-offline-movil-light.png" alt="ANTES Historial · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/historial-offline.html"><img loading="lazy" src="png/despues/historial-offline-movil-light.png" alt="DESPUÉS Historial · Modo Avión"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/historial-offline-movil-dark.png"><img loading="lazy" src="png/antes/historial-offline-movil-dark.png" alt="ANTES Historial · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/historial-offline.html#dark"><img loading="lazy" src="png/despues/historial-offline-movil-dark.png" alt="DESPUÉS Historial · Modo Avión"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/historial-offline.html">mockup HTML (DESPUÉS)</a> · <a href="antes/historial-offline.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Progreso</h2>
+<div class="grid">
+<article class="card" id="progreso">
+  <header><h3>Mi progreso · con datos (Simple)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-movil-light.png"><img loading="lazy" src="png/antes/progreso-movil-light.png" alt="ANTES Mi progreso · con datos (Simple)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso.html"><img loading="lazy" src="png/despues/progreso-movil-light.png" alt="DESPUÉS Mi progreso · con datos (Simple)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-movil-dark.png"><img loading="lazy" src="png/antes/progreso-movil-dark.png" alt="ANTES Mi progreso · con datos (Simple)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso.html#dark"><img loading="lazy" src="png/despues/progreso-movil-dark.png" alt="DESPUÉS Mi progreso · con datos (Simple)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="progreso-tecnica">
+  <header><h3>Mi progreso · con datos (Técnica)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>10 / 10</b> · fallas de contraste AA antes→después: claro <b>4→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-tecnica-movil-light.png"><img loading="lazy" src="png/antes/progreso-tecnica-movil-light.png" alt="ANTES Mi progreso · con datos (Técnica)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso-tecnica.html"><img loading="lazy" src="png/despues/progreso-tecnica-movil-light.png" alt="DESPUÉS Mi progreso · con datos (Técnica)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-tecnica-movil-dark.png"><img loading="lazy" src="png/antes/progreso-tecnica-movil-dark.png" alt="ANTES Mi progreso · con datos (Técnica)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso-tecnica.html#dark"><img loading="lazy" src="png/despues/progreso-tecnica-movil-dark.png" alt="DESPUÉS Mi progreso · con datos (Técnica)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso-tecnica.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso-tecnica.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="progreso-vacio">
+  <header><h3>Mi progreso · vacío</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-vacio-movil-light.png"><img loading="lazy" src="png/antes/progreso-vacio-movil-light.png" alt="ANTES Mi progreso · vacío"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso-vacio.html"><img loading="lazy" src="png/despues/progreso-vacio-movil-light.png" alt="DESPUÉS Mi progreso · vacío"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-vacio-movil-dark.png"><img loading="lazy" src="png/antes/progreso-vacio-movil-dark.png" alt="ANTES Mi progreso · vacío"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso-vacio.html#dark"><img loading="lazy" src="png/despues/progreso-vacio-movil-dark.png" alt="DESPUÉS Mi progreso · vacío"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso-vacio.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso-vacio.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="progreso-cargando">
+  <header><h3>Mi progreso · cargando</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-cargando-movil-light.png"><img loading="lazy" src="png/antes/progreso-cargando-movil-light.png" alt="ANTES Mi progreso · cargando"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso-cargando.html"><img loading="lazy" src="png/despues/progreso-cargando-movil-light.png" alt="DESPUÉS Mi progreso · cargando"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-cargando-movil-dark.png"><img loading="lazy" src="png/antes/progreso-cargando-movil-dark.png" alt="ANTES Mi progreso · cargando"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso-cargando.html#dark"><img loading="lazy" src="png/despues/progreso-cargando-movil-dark.png" alt="DESPUÉS Mi progreso · cargando"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso-cargando.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso-cargando.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="progreso-offline">
+  <header><h3>Mi progreso · Modo Avión con datos guardados</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-offline-movil-light.png"><img loading="lazy" src="png/antes/progreso-offline-movil-light.png" alt="ANTES Mi progreso · Modo Avión con datos guardados"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso-offline.html"><img loading="lazy" src="png/despues/progreso-offline-movil-light.png" alt="DESPUÉS Mi progreso · Modo Avión con datos guardados"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-offline-movil-dark.png"><img loading="lazy" src="png/antes/progreso-offline-movil-dark.png" alt="ANTES Mi progreso · Modo Avión con datos guardados"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso-offline.html#dark"><img loading="lazy" src="png/despues/progreso-offline-movil-dark.png" alt="DESPUÉS Mi progreso · Modo Avión con datos guardados"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso-offline.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso-offline.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="progreso-offline-sin-datos">
+  <header><h3>Mi progreso · Modo Avión sin datos</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/progreso-offline-sin-datos-movil-light.png"><img loading="lazy" src="png/antes/progreso-offline-sin-datos-movil-light.png" alt="ANTES Mi progreso · Modo Avión sin datos"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/progreso-offline-sin-datos.html"><img loading="lazy" src="png/despues/progreso-offline-sin-datos-movil-light.png" alt="DESPUÉS Mi progreso · Modo Avión sin datos"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/progreso-offline-sin-datos-movil-dark.png"><img loading="lazy" src="png/antes/progreso-offline-sin-datos-movil-dark.png" alt="ANTES Mi progreso · Modo Avión sin datos"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/progreso-offline-sin-datos.html#dark"><img loading="lazy" src="png/despues/progreso-offline-sin-datos-movil-dark.png" alt="DESPUÉS Mi progreso · Modo Avión sin datos"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/progreso-offline-sin-datos.html">mockup HTML (DESPUÉS)</a> · <a href="antes/progreso-offline-sin-datos.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Clases</h2>
+<div class="grid">
+<article class="card" id="clases">
+  <header><h3>Clases · sin clases cargadas</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/clases-movil-light.png"><img loading="lazy" src="png/antes/clases-movil-light.png" alt="ANTES Clases · sin clases cargadas"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/clases.html"><img loading="lazy" src="png/despues/clases-movil-light.png" alt="DESPUÉS Clases · sin clases cargadas"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/clases-movil-dark.png"><img loading="lazy" src="png/antes/clases-movil-dark.png" alt="ANTES Clases · sin clases cargadas"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/clases.html#dark"><img loading="lazy" src="png/despues/clases-movil-dark.png" alt="DESPUÉS Clases · sin clases cargadas"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/clases.html">mockup HTML (DESPUÉS)</a> · <a href="antes/clases.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="clases-con-datos">
+  <header><h3>Clases · semana con clases (dataset demo)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/clases-con-datos-movil-light.png"><img loading="lazy" src="png/antes/clases-con-datos-movil-light.png" alt="ANTES Clases · semana con clases (dataset demo)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/clases-con-datos.html"><img loading="lazy" src="png/despues/clases-con-datos-movil-light.png" alt="DESPUÉS Clases · semana con clases (dataset demo)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/clases-con-datos-movil-dark.png"><img loading="lazy" src="png/antes/clases-con-datos-movil-dark.png" alt="ANTES Clases · semana con clases (dataset demo)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/clases-con-datos.html#dark"><img loading="lazy" src="png/despues/clases-con-datos-movil-dark.png" alt="DESPUÉS Clases · semana con clases (dataset demo)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/clases-con-datos.html">mockup HTML (DESPUÉS)</a> · <a href="antes/clases-con-datos.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="clases-offline">
+  <header><h3>Clases · Modo Avión</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>0→0</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/clases-offline-movil-light.png"><img loading="lazy" src="png/antes/clases-offline-movil-light.png" alt="ANTES Clases · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/clases-offline.html"><img loading="lazy" src="png/despues/clases-offline-movil-light.png" alt="DESPUÉS Clases · Modo Avión"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/clases-offline-movil-dark.png"><img loading="lazy" src="png/antes/clases-offline-movil-dark.png" alt="ANTES Clases · Modo Avión"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/clases-offline.html#dark"><img loading="lazy" src="png/despues/clases-offline-movil-dark.png" alt="DESPUÉS Clases · Modo Avión"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/clases-offline.html">mockup HTML (DESPUÉS)</a> · <a href="antes/clases-offline.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Chat</h2>
+<div class="grid">
+<article class="card" id="chat-abierto">
+  <header><h3>Chat GOZS abierto</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>11→0</b>, oscuro <b>1→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/chat-abierto-movil-light.png"><img loading="lazy" src="png/antes/chat-abierto-movil-light.png" alt="ANTES Chat GOZS abierto"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/chat-abierto.html"><img loading="lazy" src="png/despues/chat-abierto-movil-light.png" alt="DESPUÉS Chat GOZS abierto"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/chat-abierto-movil-dark.png"><img loading="lazy" src="png/antes/chat-abierto-movil-dark.png" alt="ANTES Chat GOZS abierto"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/chat-abierto.html#dark"><img loading="lazy" src="png/despues/chat-abierto-movil-dark.png" alt="DESPUÉS Chat GOZS abierto"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/chat-abierto.html">mockup HTML (DESPUÉS)</a> · <a href="antes/chat-abierto.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Onboarding</h2>
+<div class="grid">
+<article class="card" id="onboarding-1">
+  <header><h3>Onboarding · paso 1</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/onboarding-1-movil-light.png"><img loading="lazy" src="png/antes/onboarding-1-movil-light.png" alt="ANTES Onboarding · paso 1"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/onboarding-1.html"><img loading="lazy" src="png/despues/onboarding-1-movil-light.png" alt="DESPUÉS Onboarding · paso 1"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/onboarding-1-movil-dark.png"><img loading="lazy" src="png/antes/onboarding-1-movil-dark.png" alt="ANTES Onboarding · paso 1"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/onboarding-1.html#dark"><img loading="lazy" src="png/despues/onboarding-1-movil-dark.png" alt="DESPUÉS Onboarding · paso 1"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/onboarding-1.html">mockup HTML (DESPUÉS)</a> · <a href="antes/onboarding-1.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="onboarding-2">
+  <header><h3>Onboarding · paso 2 (vista)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>10→2</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/onboarding-2-movil-light.png"><img loading="lazy" src="png/antes/onboarding-2-movil-light.png" alt="ANTES Onboarding · paso 2 (vista)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/onboarding-2.html"><img loading="lazy" src="png/despues/onboarding-2-movil-light.png" alt="DESPUÉS Onboarding · paso 2 (vista)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/onboarding-2-movil-dark.png"><img loading="lazy" src="png/antes/onboarding-2-movil-dark.png" alt="ANTES Onboarding · paso 2 (vista)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/onboarding-2.html#dark"><img loading="lazy" src="png/despues/onboarding-2-movil-dark.png" alt="DESPUÉS Onboarding · paso 2 (vista)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/onboarding-2.html">mockup HTML (DESPUÉS)</a> · <a href="antes/onboarding-2.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="onboarding-3">
+  <header><h3>Onboarding · paso 3 (timer)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>1 / 1</b> · fallas de contraste AA antes→después: claro <b>11→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/onboarding-3-movil-light.png"><img loading="lazy" src="png/antes/onboarding-3-movil-light.png" alt="ANTES Onboarding · paso 3 (timer)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/onboarding-3.html"><img loading="lazy" src="png/despues/onboarding-3-movil-light.png" alt="DESPUÉS Onboarding · paso 3 (timer)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/onboarding-3-movil-dark.png"><img loading="lazy" src="png/antes/onboarding-3-movil-dark.png" alt="ANTES Onboarding · paso 3 (timer)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/onboarding-3.html#dark"><img loading="lazy" src="png/despues/onboarding-3-movil-dark.png" alt="DESPUÉS Onboarding · paso 3 (timer)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/onboarding-3.html">mockup HTML (DESPUÉS)</a> · <a href="antes/onboarding-3.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Cuestionario inicial</h2>
+<div class="grid">
+<article class="card" id="lw-cuestionario">
+  <header><h3>Cuestionario inicial (formulario)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>1→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-cuestionario-movil-light.png"><img loading="lazy" src="png/antes/lw-cuestionario-movil-light.png" alt="ANTES Cuestionario inicial (formulario)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-cuestionario.html"><img loading="lazy" src="png/despues/lw-cuestionario-movil-light.png" alt="DESPUÉS Cuestionario inicial (formulario)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-cuestionario-movil-dark.png"><img loading="lazy" src="png/antes/lw-cuestionario-movil-dark.png" alt="ANTES Cuestionario inicial (formulario)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-cuestionario.html#dark"><img loading="lazy" src="png/despues/lw-cuestionario-movil-dark.png" alt="DESPUÉS Cuestionario inicial (formulario)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-cuestionario.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-cuestionario.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+<article class="card" id="lw-cuestionario-completado">
+  <header><h3>Cuestionario inicial (resumen completado)</h3>
+  <span class="tag captura">captura real</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>1→1</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/lw-cuestionario-completado-movil-light.png"><img loading="lazy" src="png/antes/lw-cuestionario-completado-movil-light.png" alt="ANTES Cuestionario inicial (resumen completado)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/lw-cuestionario-completado.html"><img loading="lazy" src="png/despues/lw-cuestionario-completado-movil-light.png" alt="DESPUÉS Cuestionario inicial (resumen completado)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/lw-cuestionario-completado-movil-dark.png"><img loading="lazy" src="png/antes/lw-cuestionario-completado-movil-dark.png" alt="ANTES Cuestionario inicial (resumen completado)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/lw-cuestionario-completado.html#dark"><img loading="lazy" src="png/despues/lw-cuestionario-completado-movil-dark.png" alt="DESPUÉS Cuestionario inicial (resumen completado)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/lw-cuestionario-completado.html">mockup HTML (DESPUÉS)</a> · <a href="antes/lw-cuestionario-completado.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Hábitos</h2>
+<div class="grid">
+<article class="card" id="habitos">
+  <header><h3>Hábitos (habit-tracker)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>4→4</b>, oscuro <b>0→0</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/habitos-movil-light.png"><img loading="lazy" src="png/antes/habitos-movil-light.png" alt="ANTES Hábitos (habit-tracker)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/habitos.html"><img loading="lazy" src="png/despues/habitos-movil-light.png" alt="DESPUÉS Hábitos (habit-tracker)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/habitos-movil-dark.png"><img loading="lazy" src="png/antes/habitos-movil-dark.png" alt="ANTES Hábitos (habit-tracker)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/habitos.html#dark"><img loading="lazy" src="png/despues/habitos-movil-dark.png" alt="DESPUÉS Hábitos (habit-tracker)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/habitos.html">mockup HTML (DESPUÉS)</a> · <a href="antes/habitos.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+<h2>Nutrición</h2>
+<div class="grid">
+<article class="card" id="nutricion">
+  <header><h3>Nutrición (nutrition-tracker)</h3>
+  <span class="tag codigo">sin captura · render del código</span></header>
+  <p class="meta">Bloques fuera de ±2 px (claro / oscuro): <b>0 / 0</b> · fallas de contraste AA antes→después: claro <b>2→2</b>, oscuro <b>1→1</b></p>
+  <div class="pares">
+    <div class="par modo-light"><figure><figcaption>ANTES · claro</figcaption><a href="png/antes/nutricion-movil-light.png"><img loading="lazy" src="png/antes/nutricion-movil-light.png" alt="ANTES Nutrición (nutrition-tracker)"></a></figure>
+    <figure><figcaption>DESPUÉS · claro</figcaption><a href="pantallas/nutricion.html"><img loading="lazy" src="png/despues/nutricion-movil-light.png" alt="DESPUÉS Nutrición (nutrition-tracker)"></a></figure></div>
+    <div class="par modo-dark"><figure><figcaption>ANTES · oscuro</figcaption><a href="png/antes/nutricion-movil-dark.png"><img loading="lazy" src="png/antes/nutricion-movil-dark.png" alt="ANTES Nutrición (nutrition-tracker)"></a></figure>
+    <figure><figcaption>DESPUÉS · oscuro</figcaption><a href="pantallas/nutricion.html#dark"><img loading="lazy" src="png/despues/nutricion-movil-dark.png" alt="DESPUÉS Nutrición (nutrition-tracker)"></a></figure></div>
+  </div>
+  <p class="links"><a href="pantallas/nutricion.html">mockup HTML (DESPUÉS)</a> · <a href="antes/nutricion.html">HTML con CSS actual (ANTES)</a></p>
+</article>
+</div>
+</main>
+<script>function modo(m,b){document.body.className=m;document.querySelectorAll(".seg button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b))})}</script>
+</body></html>

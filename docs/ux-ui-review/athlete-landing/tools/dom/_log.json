@@ -1,0 +1,704 @@
+[
+ {
+  "id": "inicio",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio",
+  "vpName": "desktop",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio",
+  "vpName": "desktop",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-sin-plan",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-sin-plan",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-cargando",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-cargando",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-offline",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-offline",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "chat-abierto",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "chat-abierto",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-1",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-1",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-2",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-2",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-3",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "onboarding-3",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-aproximacion",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-aproximacion",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-tiempo",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-tiempo",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-dropset",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-dropset",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-unilateral",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-unilateral",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-tecnica",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-tecnica",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-registro-dia",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-registro-dia",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-ajustes",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-ajustes",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-cuestionario",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-cuestionario",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-cuestionario-completado",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-cuestionario-completado",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-molestia",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-molestia",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-detalle",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-detalle",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-dashboard",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-dashboard",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-vacio",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-vacio",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-offline",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "historial-offline",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-tecnica",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-tecnica",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-cargando",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-cargando",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-offline",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-offline",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-offline-sin-datos",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-offline-sin-datos",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases-con-datos",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases-con-datos",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases-offline",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "clases-offline",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-sheet-otro-dia",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "inicio-sheet-otro-dia",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "membresia-vencida-detalle",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": false,
+  "error": "page.click: Timeout 30000ms exceeded."
+ },
+ {
+  "id": "membresia-vencida-detalle",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": false,
+  "error": "page.click: Timeout 30000ms exceeded."
+ },
+ {
+  "id": "lw-superserie",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-superserie",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-superserie",
+  "vpName": "desktop",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-superserie",
+  "vpName": "desktop",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-offline",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-offline",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "membresia-vencida",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "membresia-vencida",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "membresia-vencida-banner",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "membresia-vencida-banner",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-popover-descanso",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "lw-popover-descanso",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-notas",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-notas",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-video",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-video",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-calentamiento",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "modal-calentamiento",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-vacio",
+  "vpName": "movil",
+  "modo": "light",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ },
+ {
+  "id": "progreso-vacio",
+  "vpName": "movil",
+  "modo": "dark",
+  "ok": true,
+  "bloqueadas": [],
+  "sinDatos": []
+ }
+]

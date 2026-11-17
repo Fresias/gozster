@@ -1,0 +1,918 @@
+{
+ "inicio-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-desktop-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-desktop-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-sheet-otro-dia-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-sheet-otro-dia-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1
+ },
+ "inicio-sin-plan-light": {
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "inicio-sin-plan-dark": {
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "inicio-cargando-light": {
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "inicio-cargando-dark": {
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "inicio-offline-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T12": 1
+ },
+ "inicio-offline-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T12": 1
+ },
+ "membresia-vencida-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 2,
+  "T7": 4,
+  "T8": 3,
+  "T9": 3,
+  "T10": 2,
+  "T12": 3
+ },
+ "membresia-vencida-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 2,
+  "T7": 4,
+  "T8": 3,
+  "T9": 3,
+  "T10": 2,
+  "T12": 3
+ },
+ "membresia-vencida-banner-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 3,
+  "T9": 3,
+  "T10": 2,
+  "T12": 2
+ },
+ "membresia-vencida-banner-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 3,
+  "T9": 3,
+  "T10": 2,
+  "T12": 2
+ },
+ "chat-abierto-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1,
+  "T13": 1
+ },
+ "chat-abierto-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 1,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 2,
+  "T10": 2,
+  "T12": 1,
+  "T13": 1
+ },
+ "onboarding-1-light": {
+  "T5": 1,
+  "T7": 4,
+  "T8": 1,
+  "T9": 2,
+  "T10": 2
+ },
+ "onboarding-1-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T8": 1,
+  "T9": 2,
+  "T10": 2
+ },
+ "onboarding-2-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 3,
+  "T10": 2,
+  "T12": 3
+ },
+ "onboarding-2-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 3,
+  "T10": 2,
+  "T12": 3
+ },
+ "onboarding-3-light": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 3,
+  "T10": 2,
+  "T12": 2
+ },
+ "onboarding-3-dark": {
+  "T3": 1,
+  "T4": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 4,
+  "T8": 2,
+  "T9": 3,
+  "T10": 2,
+  "T12": 2
+ },
+ "lw-aproximacion-light": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-aproximacion-dark": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-superserie-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-superserie-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-superserie-desktop-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 1
+ },
+ "lw-superserie-desktop-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 1
+ },
+ "lw-tiempo-light": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 1
+ },
+ "lw-tiempo-dark": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 1
+ },
+ "lw-dropset-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 9,
+  "T12": 2
+ },
+ "lw-dropset-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 9,
+  "T12": 2
+ },
+ "lw-unilateral-light": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-unilateral-dark": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-tecnica-light": {
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "lw-tecnica-dark": {
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "lw-registro-dia-light": {
+  "T7": 5,
+  "T9": 1,
+  "T10": 2
+ },
+ "lw-registro-dia-dark": {
+  "T7": 5,
+  "T9": 1,
+  "T10": 2
+ },
+ "lw-ajustes-light": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 6,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-ajustes-dark": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 6,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-cuestionario-light": {
+  "T5": 1,
+  "T7": 4,
+  "T10": 2,
+  "T12": 2
+ },
+ "lw-cuestionario-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T10": 2,
+  "T12": 2
+ },
+ "lw-cuestionario-completado-light": {
+  "T6": 1,
+  "T7": 4,
+  "T8": 6,
+  "T10": 2,
+  "T12": 2
+ },
+ "lw-cuestionario-completado-dark": {
+  "T6": 1,
+  "T7": 4,
+  "T8": 6,
+  "T10": 2,
+  "T12": 2
+ },
+ "lw-offline-light": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-offline-dark": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-popover-descanso-light": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "lw-popover-descanso-dark": {
+  "T2": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "modal-notas-light": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "modal-notas-dark": {
+  "T2": 1,
+  "T5": 2,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "modal-video-light": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "modal-video-dark": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "modal-calentamiento-light": {
+  "T2": 1,
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 6,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "modal-calentamiento-dark": {
+  "T2": 1,
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 6,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "modal-molestia-light": {
+  "T2": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "modal-molestia-dark": {
+  "T2": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "historial-light": {
+  "T7": 4,
+  "T8": 2,
+  "T10": 2,
+  "T12": 3
+ },
+ "historial-dark": {
+  "T7": 4,
+  "T8": 2,
+  "T10": 2,
+  "T12": 3
+ },
+ "historial-detalle-light": {
+  "T7": 4,
+  "T8": 2,
+  "T10": 2
+ },
+ "historial-detalle-dark": {
+  "T7": 4,
+  "T8": 2,
+  "T10": 2
+ },
+ "historial-dashboard-light": {
+  "T7": 4,
+  "T8": 4,
+  "T10": 2,
+  "T12": 1
+ },
+ "historial-dashboard-dark": {
+  "T7": 4,
+  "T8": 4,
+  "T10": 2,
+  "T12": 1
+ },
+ "historial-vacio-light": {
+  "T5": 1,
+  "T7": 4,
+  "T8": 2,
+  "T10": 2
+ },
+ "historial-vacio-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T8": 2,
+  "T10": 2
+ },
+ "historial-offline-light": {
+  "T7": 4,
+  "T8": 2,
+  "T12": 3
+ },
+ "historial-offline-dark": {
+  "T7": 4,
+  "T8": 2,
+  "T12": 3
+ },
+ "progreso-light": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-dark": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-tecnica-light": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-tecnica-dark": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-vacio-light": {
+  "T5": 1,
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-vacio-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-cargando-light": {
+  "T5": 1,
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "progreso-cargando-dark": {
+  "T7": 4,
+  "T10": 2
+ },
+ "progreso-offline-light": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1
+ },
+ "progreso-offline-dark": {
+  "T7": 4,
+  "T8": 1,
+  "T9": 1
+ },
+ "progreso-offline-sin-datos-light": {
+  "T7": 4
+ },
+ "progreso-offline-sin-datos-dark": {
+  "T7": 4
+ },
+ "clases-light": {
+  "T7": 5,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "clases-dark": {
+  "T7": 5,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "clases-con-datos-light": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "clases-con-datos-dark": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 1,
+  "T9": 1,
+  "T10": 2
+ },
+ "clases-offline-light": {
+  "T7": 5,
+  "T8": 1,
+  "T9": 1
+ },
+ "clases-offline-dark": {
+  "T7": 5,
+  "T8": 1,
+  "T9": 1
+ },
+ "aviso-record-tecnica-light": {
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "aviso-record-tecnica-dark": {
+  "T6": 1,
+  "T5": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "aviso-record-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "aviso-record-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 3
+ },
+ "error-light": {
+  "T5": 1,
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "error-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T9": 1,
+  "T10": 2
+ },
+ "habitos-light": {
+  "T5": 1,
+  "T7": 4,
+  "T10": 2,
+  "T12": 3
+ },
+ "habitos-dark": {
+  "T5": 1,
+  "T7": 4,
+  "T10": 2,
+  "T12": 3
+ },
+ "modal-calculadora-discos-light": {
+  "T2": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "modal-calculadora-discos-dark": {
+  "T2": 1,
+  "T5": 2,
+  "T6": 1,
+  "T7": 5,
+  "T8": 5,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 4
+ },
+ "modal-cierre-dia-light": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 5,
+  "T9": 3,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "modal-cierre-dia-dark": {
+  "T5": 2,
+  "T7": 5,
+  "T8": 5,
+  "T9": 3,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "modal-subida-video-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "modal-subida-video-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "nutricion-light": {
+  "T7": 4,
+  "T10": 2,
+  "T12": 1
+ },
+ "nutricion-dark": {
+  "T7": 4,
+  "T10": 2,
+  "T12": 1
+ },
+ "pain-banner-alto-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "pain-banner-alto-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "pain-banner-leve-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "pain-banner-leve-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "pain-banner-moderado-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "pain-banner-moderado-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 3,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "rest-timer-pausa-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "rest-timer-pausa-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "rest-timer-light": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ },
+ "rest-timer-dark": {
+  "T5": 1,
+  "T7": 5,
+  "T8": 4,
+  "T9": 2,
+  "T10": 2,
+  "T11": 2,
+  "T12": 2
+ }
+}

@@ -1,0 +1,13 @@
+[
+  { "patron": "^label (TIEMPO|PASO DE INCREMENTO)", "causa": "T8: la etiqueta en mono + tracking-[0.18em] pasa a 2 líneas (+12/+16 px de alto) y arrastra lo de abajo" },
+  { "patron": "^timer-ejercicio-tiempo", "causa": "T8: «TEMPORIZADOR DE EJERCICIO» en mono pasa a 2 líneas (+12 px)" },
+  { "patron": "^label ", "causa": "T8: micro-etiqueta en mono + tracking-[0.18em] (solo cambia el ancho del texto)" },
+  { "patron": "^hero-superserie-badge", "causa": "T8: «Te toca hoy» en mono es más ancho y corre el badge en la misma fila" },
+  { "patron": "^h2 Sentadilla con barra$", "causa": "T9: con font-black tracking-tighter el título entra en 1 línea en vez de 2 (−28 px); todo lo de abajo sube 27 px" },
+  { "patron": "^h[123] ", "causa": "T9: font-black tracking-tighter cambia el ancho del título (alto igual)" },
+  { "patron": "^(badge-tipo-tiempo|dropset-title-badge|badge-unilateral|descanso-chip|button \\d+s$)", "causa": "T9: badge o chip en la misma fila que el título; se corre con el nuevo ancho del título" },
+  { "patron": "^tooltip-1rm-trigger|^progreso-ejercicio|^section Mi progreso$|^main Mi progreso$", "causa": "T8: etiquetas en mono (en Windows Courier) dentro de cada tarjeta: otras métricas de fuente, +1 px por tarjeta que se acumula" },
+  { "patron": "^(cierre-dia-|hero-metric-|racha-)", "causa": "T8/T9 dentro de la tarjeta centrada de cierre: etiquetas mono y cifras font-black cambian el alto (+15 px) y el modal se recentra (−8 px)" },
+  { "patron": "Configuración de la app|Cerrar configuración|MODO DE VISUALIZACIÓN|athlete-view-mode|athlete-toggle-vista|athlete-vista-recomendada|button ±|Colapsar rutina|toggle-colapsar|PERFIL DEL ALUMNO|tab-cuestionario|button Cerrar$", "causa": "Arrastre: el panel centrado crece por la etiqueta de 2 líneas (T8) y se recentra (±8 px)" },
+  { "patron": ".", "causa": "Arrastre vertical: se mueve con el bloque de arriba que cambió de alto (T8/T9)" }
+]
