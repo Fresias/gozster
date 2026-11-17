@@ -1,0 +1,29 @@
+{
+  "candidate_id": "baseline",
+  "probe_branch": "probe/baseline-mwkvgmmn",
+  "probe_cmd": "npx vitest run harness-kit/tests/harness-propose.spec.ts",
+  "passed": false,
+  "exit_code": 1,
+  "duration_ms": 4305,
+  "tests": {
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones en harness/experience/*.jsonl WHEN se consolida THEN se sincronizan en experience_library.jsonl": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones sin procesar WHEN calculateDebt THEN reporta la deuda y deudaExcedida según umbral": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN deuda excedida WHEN se ejecuta CLI --check-debt THEN sale con código 1; con deuda <= umbral sale con 0": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN fixture con lecciones sin procesar WHEN --check-debt o --post-merge THEN pureza estricta sin escrituras en harness/": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones con patrones de fricción WHEN analyzeFrictionAndPropose THEN genera candidatos conformes al contrato": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN tareas procesadas WHEN markLessonsProcessed THEN actualiza processed_by_proposer: true": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN CLI con --generate y --json WHEN se ejecuta THEN escribe .harness/candidates.json y emite JSON válido": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN 1 lección normal y 1 línea caveat WHEN calculateDebt y consolidateLessons THEN devuelve unprocessed: 1 sin null y excluye caveat de experience_library.jsonl": "failed"
+  },
+  "target_components": [],
+  "timestamp": "2026-11-17T15:53:38.161Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ❯ harness-kit/tests/harness-propose.spec.ts (8 tests | 1 failed) 519ms\n   ✓ Harness² Proposer & Debt Controller (harness-propose) > GIVEN lecciones en harness/experience/*.jsonl WHEN se consolida THEN se sincronizan en experience_library.jsonl 14ms\n   ✓ Harness² Proposer & Debt Controller (harness-propose) > GIVEN lecciones sin procesar WHEN calculateDebt THEN reporta la deuda y deudaExcedida según umbral 20ms\n   ✓ Harness² Proposer & Debt Controller (harness-propose) > GIVEN deuda excedida WHEN se ejecuta CLI --check-debt THEN sale con código 1; con deuda <= umbral sale con 0 167ms\n   ✓ Harness² Proposer & Debt Controller (harness-propose) > GIVEN fixture con lecciones sin procesar WHEN --check-debt o --post-merge THEN pureza estricta sin escrituras en harness/ 224ms\n   ✓ Harness² Proposer & Debt Controller (harness-propose) > GIVEN lecciones con patrones de fricción WHEN analyzeFrictionAndPropose THEN genera candidatos conformes al contrato 10ms\n   ✓ Harness² ",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-propose.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-baseline-mwkvgntp.json\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  harness-kit/tests/harness-propose.spec.ts > Harness² Proposer & Debt Controller (harness-propose) > GIVEN 1 lección normal y 1 línea caveat WHEN calculateDebt y consolidateLessons THEN devuelve unprocessed: 1 sin null y excluye caveat de experience_library.jsonl\nAssertionError: expected 3 to be 1 // Object.is equality\n\n- Expected\n+ Received\n\n- 1\n+ 3\n\n ❯ harness-kit/tests/harness-propose.spec.ts:216:30\n    214| \n    215|     const debt = calculateDebt(tmpRepo, 5);\n    216|     expect(debt.unprocessed).toBe(1);\n       |                              ^\n    217|     expect(debt.unanalyzedTasks).toEqual([\"GOZS-901\"]);\n    218|     expect(debt.unanalyzedTasks).not.toContain(null);\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+  "files_touched": [],
+  "in_scope_files": [],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
