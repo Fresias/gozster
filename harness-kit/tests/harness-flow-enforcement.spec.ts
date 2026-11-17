@@ -237,7 +237,12 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
-      files: [...base.files, { path: "harness/guardrails.md" }],
+      files: [
+        ...base.files,
+        { path: "harness/guardrails.md" },
+        { path: "harness/experience/probes/PROJ-12/c1.json" },
+        { path: "harness/experience/probes/PROJ-12/baseline.json" },
+      ],
       labels: [{ name: "harness-authorized" }],
     };
     const res = evaluateMerge({ pr, project, lessonText: tamperedLesson, probeReports, events: ownerAuthEvents });
@@ -254,6 +259,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const evaluation = evaluateProbes([probeC1, probeBaseline]);
 
     const ppcLesson = JSON.stringify({
+      id: "exp-proj-12",
       task: "PROJ-12",
       lesson: evaluation.lesson,
       ppc: {
@@ -274,7 +280,12 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
-      files: [...base.files, { path: "harness/guardrails.md" }],
+      files: [
+        ...base.files,
+        { path: "harness/guardrails.md" },
+        { path: "harness/experience/probes/PROJ-12/c1.json" },
+        { path: "harness/experience/probes/PROJ-12/baseline.json" },
+      ],
       labels: [{ name: "harness-authorized" }],
     };
     const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [modifiedProbeC1, probeBaseline], events: ownerAuthEvents });
@@ -291,6 +302,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const evaluation = evaluateProbes([probeC1, probeBaseline]);
 
     const ppcLesson = JSON.stringify({
+      id: "exp-proj-12",
       task: "PROJ-12",
       lesson: evaluation.lesson,
       ppc: {
@@ -308,7 +320,12 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr = {
       ...base,
       headRefName: "chore/12-harness-fix",
-      files: [...base.files, { path: "harness/guardrails.md" }],
+      files: [
+        ...base.files,
+        { path: "harness/guardrails.md" },
+        { path: "harness/experience/probes/PROJ-12/c1.json" },
+        { path: "harness/experience/probes/PROJ-12/baseline.json" },
+      ],
       labels: [{ name: "harness-authorized" }],
     };
     const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [probeC1, probeBaseline], events: ownerAuthEvents });
@@ -921,6 +938,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       files: [
         { path: "harness/guardrails.local.md" },
         { path: "harness/experience/GOZS-995.jsonl" },
+        { path: "harness/experience/probes/GOZS-995/c1.json" },
+        { path: "harness/experience/probes/GOZS-995/baseline.json" },
       ],
       labels: [{ name: "harness-authorized" }],
     };
@@ -1016,6 +1035,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr526 = {
       headRefName: "chore/526-harness-contrast-behavioral",
       headRefOid: "fakehead7654321",
+      state: "MERGED",
+      mergedAt: "2026-11-15T00:00:00Z",
       body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead7654321", worktree_clean: true, gate: project.gate })} -->`,
       files: [
         { path: "harness/guardrails.md" },
@@ -1032,6 +1053,211 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     });
     expect(res526.errors).toHaveLength(0);
     expect(res526.mergeable).toBe(true);
+  });
+
+  describe("GOZS-563: exigir registro PPC y reportes nuevos en PRs no mergeados", () => {
+    const probeC1 = {
+      candidate_id: "c1-fresh",
+      passed: true,
+      duration_ms: 800,
+      files_touched: ["harness/guardrails.local.md"],
+      tests: { "t::fresh": "passed" },
+    };
+    const probeBase = {
+      candidate_id: "baseline",
+      passed: false,
+      duration_ms: 1200,
+      files_touched: [],
+      tests: { "t::fresh": "failed" },
+    };
+    const freshReports = [probeC1, probeBase];
+    const freshContrast = evaluateCandidates(freshReports);
+    const freshEval = evaluateProbes(freshReports);
+    const makePpcRecord = (id: string, task = "GOZS-522") =>
+      JSON.stringify({
+        id,
+        task,
+        lesson: freshEval.lesson,
+        ppc: {
+          winner_id: freshContrast.winner_id,
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 800,
+          contrast: freshContrast.contrast_matrix,
+          contrast_matrix: freshContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: freshContrast.verdict,
+          reports_sha256: {
+            "c1-fresh": hashReport(probeC1),
+            baseline: hashReport(probeBase),
+          },
+        },
+      });
+
+    it("GIVEN un PR abierto en una rama de issue antiguo con registro y reportes de la base WHEN corre evaluateMerge THEN da mergeable: false", () => {
+      const oldRecord = makePpcRecord("exp-old-522", "GOZS-522");
+      const pr = {
+        headRefName: "chore/522-harness-reused",
+        headRefOid: head,
+        state: "OPEN",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${oldRecord}\n`,
+        baseLessonText: `${oldRecord}\n`,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.mergeable).toBe(false);
+      const joined = res.errors.join("\n");
+      expect(joined).toContain("ppc: el registro exp-old-522 ya existe en la base");
+      expect(joined).toContain("ppc: el reporte c1-fresh no se modificó en este PR");
+      expect(joined).toContain("ppc: el reporte baseline no se modificó en este PR");
+    });
+
+    it("GIVEN registro con id nuevo pero reportes sin cambios en pr.files WHEN corre evaluateMerge THEN da mergeable: false", () => {
+      const oldRecord = makePpcRecord("exp-old-522", "GOZS-522");
+      const newRecord = makePpcRecord("exp-new-522", "GOZS-522");
+      const pr = {
+        headRefName: "chore/522-harness-no-probes",
+        headRefOid: head,
+        state: "OPEN",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+          { path: "harness/experience/probes/GOZS-522/c1-fresh.json" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${oldRecord}\n${newRecord}\n`,
+        baseLessonText: `${oldRecord}\n`,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.mergeable).toBe(false);
+      const joined = res.errors.join("\n");
+      expect(joined).not.toContain("ya existe en la base");
+      expect(joined).toContain("ppc: el reporte baseline no se modificó en este PR");
+    });
+
+    it("GIVEN un PR abierto con registro nuevo y reportes nuevos en pr.files WHEN corre evaluateMerge THEN pasa", () => {
+      const oldRecord = makePpcRecord("exp-old-522", "GOZS-522");
+      const newRecord = makePpcRecord("exp-new-522", "GOZS-522");
+      const pr = {
+        headRefName: "chore/522-harness-fresh",
+        headRefOid: head,
+        state: "OPEN",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+          { path: "harness/experience/probes/GOZS-522/c1-fresh.json" },
+          { path: "harness/experience/probes/GOZS-522/baseline.json" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${oldRecord}\n${newRecord}\n`,
+        baseLessonText: `${oldRecord}\n`,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.errors).toHaveLength(0);
+      expect(res.mergeable).toBe(true);
+    });
+
+    it("GIVEN un PR ya mergeado (state MERGED) aunque el id exista en la base y probes no estén en pr.files WHEN corre evaluateMerge THEN pasa", () => {
+      const oldRecord = makePpcRecord("exp-old-522", "GOZS-522");
+      const pr = {
+        headRefName: "chore/522-harness-merged",
+        headRefOid: head,
+        state: "MERGED",
+        mergedAt: "2026-11-16T00:00:00Z",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${oldRecord}\n`,
+        baseLessonText: `${oldRecord}\n`,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.errors).toHaveLength(0);
+      expect(res.mergeable).toBe(true);
+    });
+
+    it("GIVEN un registro PPC sin id en PR abierto aunque la base esté vacía WHEN corre evaluateMerge THEN es rechazado", () => {
+      const noIdRecord = JSON.stringify({
+        task: "GOZS-522",
+        lesson: freshEval.lesson,
+        ppc: {
+          winner_id: freshContrast.winner_id,
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 800,
+          contrast: freshContrast.contrast_matrix,
+          contrast_matrix: freshContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: freshContrast.verdict,
+          reports_sha256: {
+            "c1-fresh": hashReport(probeC1),
+            baseline: hashReport(probeBase),
+          },
+        },
+      });
+      const pr = {
+        headRefName: "chore/522-harness-no-id",
+        headRefOid: head,
+        state: "OPEN",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+          { path: "harness/experience/probes/GOZS-522/c1-fresh.json" },
+          { path: "harness/experience/probes/GOZS-522/baseline.json" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${noIdRecord}\n`,
+        baseLessonText: null,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.mergeable).toBe(false);
+      expect(res.errors.join("\n")).toContain("ppc: el registro PPC evaluado no tiene id");
+    });
   });
 
   it("GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican", () => {
@@ -1163,6 +1389,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       const evaluation = evaluateProbes(probeReports);
       const ppcLesson =
         JSON.stringify({
+          id: "exp-proj-511",
           task: "PROJ-511",
           lesson: evaluation.lesson,
           ppc: {
@@ -1189,14 +1416,29 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
         headRefName: "chore/511-harness-authz",
         headRefOid: head,
         body: `PR test\n\n${seal}`,
-        files: [{ path: "harness/guardrails.local.md" }, { path: "harness/experience/PROJ-511.jsonl" }],
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/PROJ-511.jsonl" },
+          { path: "harness/experience/probes/PROJ-511/c1.json" },
+          { path: "harness/experience/probes/PROJ-511/baseline.json" },
+        ],
         labels: [{ name: "harness-authorized" }],
       };
       writeFileSync(prFile, JSON.stringify(prObj));
       return { ws, prFile, lessonFile, prObj };
     }
 
-    function setupFakeGh(ws: string, behavior: { prJson?: unknown; deleteFails?: boolean; eventsFails?: boolean }) {
+    function setupFakeGh(
+      ws: string,
+      behavior: {
+        prJson?: unknown;
+        deleteFails?: boolean;
+        eventsFails?: boolean;
+        contentsLesson?: string;
+        probeContents?: Record<string, string>;
+        eventsJson?: unknown[];
+      }
+    ) {
       const binDir = path.join(ws, "fake-bin");
       mkdirSync(binDir, { recursive: true });
       const logFile = path.join(ws, "gh-calls.jsonl");
@@ -1206,8 +1448,22 @@ import { appendFileSync } from "node:fs";
 const args = process.argv.slice(2);
 appendFileSync(${JSON.stringify(logFile)}, JSON.stringify(args) + "\\n");
 const joined = args.join(" ");
+const probeMap = ${JSON.stringify(behavior.probeContents || {})};
 if (args[0] === "pr" && args[1] === "view") {
   process.stdout.write(${JSON.stringify(JSON.stringify(behavior.prJson || {}))});
+  process.exit(0);
+}
+if (joined.includes("/contents/harness/experience/probes/")) {
+  const matchedKey = Object.keys(probeMap).find((k) => joined.includes(k));
+  if (matchedKey) {
+    process.stdout.write(probeMap[matchedKey]);
+    process.exit(0);
+  }
+  process.stderr.write("404 probe not found");
+  process.exit(1);
+}
+if (joined.includes("/contents/harness/experience/")) {
+  process.stdout.write(${JSON.stringify(behavior.contentsLesson || "")});
   process.exit(0);
 }
 if (joined.includes("/labels/harness-authorized") && args.includes("DELETE")) {
@@ -1223,7 +1479,7 @@ if (joined.includes("/events")) {
     process.stderr.write("events API failed");
     process.exit(1);
   }
-  process.stdout.write("[]");
+  process.stdout.write(${JSON.stringify(JSON.stringify(behavior.eventsJson || []))});
   process.exit(0);
 }
 if (joined.includes("/statuses/")) {
@@ -1346,6 +1602,294 @@ process.stdout.write("");
       const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
       expect(calls.some((c) => c.join(" ").includes("/events"))).toBe(true);
       expect(calls.some((c) => c.join(" ").includes("/statuses/"))).toBe(false);
+    });
+
+    it("GIVEN --pr-json OPEN y --base-lesson-file con el mismo id WHEN corre CLI THEN bloquea con ya existe en la base; con id nuevo pasa", () => {
+      const { ws, prFile, lessonFile, prObj } = setupTempRepoWithPpc();
+      const ppcContent = readFileSync(lessonFile, "utf8");
+      const entry = JSON.parse(ppcContent.trim());
+      entry.id = "exp-base-511";
+      writeFileSync(lessonFile, JSON.stringify(entry) + "\n");
+
+      const baseLessonFile = path.join(ws, "base-lesson.jsonl");
+      writeFileSync(baseLessonFile, JSON.stringify(entry) + "\n");
+      writeFileSync(prFile, JSON.stringify({ ...prObj, state: "OPEN" }));
+
+      const eventsFile = path.join(ws, "events.ndjson");
+      writeFileSync(
+        eventsFile,
+        JSON.stringify({ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }) + "\n"
+      );
+
+      let status = 0;
+      let errOut = "";
+      try {
+        execFileSync(
+          process.execPath,
+          [mergeCheckScript, "--pr-json", prFile, "--lesson-file", lessonFile, "--base-lesson-file", baseLessonFile, "--events-file", eventsFile],
+          { cwd: ws, encoding: "utf8", stdio: "pipe" }
+        );
+      } catch (e: any) {
+        status = e.status;
+        errOut = (e.stderr || "") + (e.stdout || "");
+      }
+      expect(status).toBe(1);
+      expect(errOut).toContain("ya existe en la base");
+
+      const freshEntry = { ...entry, id: "exp-new-511" };
+      writeFileSync(lessonFile, JSON.stringify(entry) + "\n" + JSON.stringify(freshEntry) + "\n");
+      const okOut = execFileSync(
+        process.execPath,
+        [mergeCheckScript, "--pr-json", prFile, "--lesson-file", lessonFile, "--base-lesson-file", baseLessonFile, "--events-file", eventsFile, "--json"],
+        { cwd: ws, encoding: "utf8", stdio: "pipe" }
+      );
+      expect(JSON.parse(okOut).mergeable).toBe(true);
+    });
+
+    it("GIVEN modo --local en rama derivada de main que reutiliza registro PPC y reportes de main WHEN corre --local THEN falla; tras renovar registro y reportes pasa", () => {
+      const ws = temp("merge-check-local-fresh");
+      execFileSync("git", ["init", "-b", "main", ws], { stdio: "ignore" });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: ws });
+      execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: ws });
+
+      mkdirSync(path.join(ws, "harness", "experience", "probes", "PROJ-70"), { recursive: true });
+      writeFileSync(
+        path.join(ws, "harness", "project.json"),
+        JSON.stringify({ issue_prefix: "PROJ", gate: "npm test", authorizers: { owner: "Fresias", delegates: [] } })
+      );
+      writeFileSync(path.join(ws, "harness", "guardrails.local.md"), "# Initial\n");
+
+      const oldC1 = {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 900,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: { "t::a": "passed" },
+      };
+      const oldBase = {
+        candidate_id: "baseline",
+        passed: false,
+        duration_ms: 1400,
+        files_touched: [],
+        tests: { "t::a": "failed" },
+      };
+      const oldContrast = evaluateCandidates([oldC1, oldBase]);
+      const oldEval = evaluateProbes([oldC1, oldBase]);
+      const oldEntry = {
+        id: "exp-old-70",
+        task: "PROJ-70",
+        lesson: oldEval.lesson,
+        ppc: {
+          winner_id: "c1",
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 900,
+          contrast: oldContrast.contrast_matrix,
+          contrast_matrix: oldContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: oldContrast.verdict,
+          reports_sha256: { c1: hashReport(oldC1), baseline: hashReport(oldBase) },
+        },
+      };
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-70", "c1.json"), JSON.stringify(oldC1));
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-70", "baseline.json"), JSON.stringify(oldBase));
+      writeFileSync(path.join(ws, "harness", "experience", "PROJ-70.jsonl"), JSON.stringify(oldEntry) + "\n");
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "main with old PROJ-70 PPC"], { cwd: ws });
+
+      execFileSync("git", ["checkout", "-b", "chore/70-harness-reuse"], { cwd: ws });
+      writeFileSync(path.join(ws, "harness", "guardrails.local.md"), "# Modified\n");
+      writeFileSync(
+        path.join(ws, "harness", "experience", "PROJ-70.jsonl"),
+        JSON.stringify(oldEntry) + "\n" + JSON.stringify({ task: "PROJ-70", lesson: "non-ppc note" }) + "\n"
+      );
+      execFileSync("git", ["add", "."], { cwd: ws });
+      execFileSync("git", ["commit", "-m", "reuse old PPC without probe"], { cwd: ws });
+
+      let localStatus = 0;
+      let localErr = "";
+      try {
+        execFileSync(process.execPath, [mergeCheckScript, "--local"], { cwd: ws, encoding: "utf8", stdio: "pipe" });
+      } catch (e: any) {
+        localStatus = e.status;
+        localErr = (e.stderr || "") + (e.stdout || "");
+      }
+      expect(localStatus).toBe(1);
+      expect(localErr).toContain("ya existe en la base");
+      expect(localErr).toContain("no se modificó en este PR");
+
+      // Ahora renovar reportes y registro PPC
+      const newC1 = { ...oldC1, duration_ms: 850 };
+      const newBase = { ...oldBase, duration_ms: 1350 };
+      const newContrast = evaluateCandidates([newC1, newBase]);
+      const newEval = evaluateProbes([newC1, newBase]);
+      const newEntry = {
+        id: "exp-new-70",
+        task: "PROJ-70",
+        lesson: newEval.lesson,
+        ppc: {
+          winner_id: "c1",
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 850,
+          contrast: newContrast.contrast_matrix,
+          contrast_matrix: newContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: newContrast.verdict,
+          reports_sha256: { c1: hashReport(newC1), baseline: hashReport(newBase) },
+        },
+      };
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-70", "c1.json"), JSON.stringify(newC1));
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-70", "baseline.json"), JSON.stringify(newBase));
+      writeFileSync(
+        path.join(ws, "harness", "experience", "PROJ-70.jsonl"),
+        JSON.stringify(oldEntry) + "\n" + JSON.stringify(newEntry) + "\n"
+      );
+
+      const okLocal = execFileSync(process.execPath, [mergeCheckScript, "--local"], { cwd: ws, encoding: "utf8", stdio: "pipe" });
+      expect(okLocal).toContain("Harness PPC verified for PROJ-70");
+    });
+
+    it("GIVEN modo CI (<pr>) con checkout base en disco que contiene el mismo id WHEN PR está OPEN THEN falla por registro existente en la base; con id nuevo pasa", () => {
+      const { ws, lessonFile, prObj } = setupTempRepoWithPpc();
+      const entry = JSON.parse(readFileSync(lessonFile, "utf8").trim());
+      entry.id = "exp-ci-base-511";
+      const baseText = JSON.stringify(entry) + "\n";
+      writeFileSync(lessonFile, baseText);
+      const baseProbeContents = {
+        "harness/experience/probes/PROJ-511/c1.json": readFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "c1.json"), "utf8"),
+        "harness/experience/probes/PROJ-511/baseline.json": readFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "baseline.json"), "utf8"),
+      };
+
+      const fakeFail = setupFakeGh(ws, {
+        prJson: { ...prObj, state: "OPEN", baseRefName: "main" },
+        contentsLesson: baseText,
+        probeContents: baseProbeContents,
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      let status = 0;
+      let jsonOut = "";
+      try {
+        execFileSync(process.execPath, [mergeCheckScript, "511", "--json"], { cwd: ws, env: fakeFail.env, encoding: "utf8", stdio: "pipe" });
+      } catch (e: any) {
+        status = e.status;
+        jsonOut = e.stdout || "";
+      }
+      expect(status).toBe(1);
+      expect(JSON.parse(jsonOut).errors.join("\n")).toContain("ppc: el registro exp-ci-base-511 ya existe en la base");
+
+      const prViewCalls = readFileSync(fakeFail.logFile, "utf8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l) as string[])
+        .filter((c) => c[0] === "pr" && c[1] === "view");
+      expect(prViewCalls[0]?.join(" ")).toContain("baseRefName");
+
+      const freshEntry = { ...entry, id: "exp-ci-new-511" };
+      const fakeOk = setupFakeGh(ws, {
+        prJson: { ...prObj, state: "OPEN", baseRefName: "main" },
+        contentsLesson: baseText + JSON.stringify(freshEntry) + "\n",
+        probeContents: baseProbeContents,
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      const okOut = execFileSync(process.execPath, [mergeCheckScript, "511", "--json"], { cwd: ws, env: fakeOk.env, encoding: "utf8", stdio: "pipe" });
+      expect(JSON.parse(okOut).mergeable).toBe(true);
+    });
+
+    it("GIVEN PR de seguimiento en modo CI (<pr>) sobre issue con reportes previos en localProbesDir (base) WHEN trae registro nuevo y reportes regenerados en pr.files vía gh api THEN pasa; sin regenerar reportes en pr.files THEN falla", () => {
+      const { ws, lessonFile, prObj } = setupTempRepoWithPpc();
+      const baseEntry = JSON.parse(readFileSync(lessonFile, "utf8").trim());
+      baseEntry.id = "exp-base-followup-511";
+      const baseText = JSON.stringify(baseEntry) + "\n";
+      writeFileSync(lessonFile, baseText);
+
+      // Reportes NUEVOS regenerados en el head del PR (distintos de los viejos en localProbesDir de la base)
+      const headC1 = {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 650,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: { "t::a": "passed" },
+      };
+      const headBase = {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 1150,
+        files_touched: [],
+        tests: { "t::a": "failed" },
+      };
+      const headReports = [headC1, headBase];
+      const headContrast = evaluateCandidates(headReports);
+      const headEval = evaluateProbes(headReports);
+      const headEntry = {
+        id: "exp-head-followup-511",
+        task: "PROJ-511",
+        lesson: headEval.lesson,
+        ppc: {
+          winner_id: "c1",
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 650,
+          contrast: headContrast.contrast_matrix,
+          contrast_matrix: headContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: headContrast.verdict,
+          reports_sha256: { c1: hashReport(headC1), baseline: hashReport(headBase) },
+        },
+      };
+
+      // 1. Con registro nuevo y reportes regenerados en pr.files (leídos vía gh api, saltando localProbesDir viejo): PASA
+      const fakePass = setupFakeGh(ws, {
+        prJson: { ...prObj, number: 512, state: "OPEN", baseRefName: "main" },
+        contentsLesson: baseText + JSON.stringify(headEntry) + "\n",
+        probeContents: {
+          "harness/experience/probes/PROJ-511/c1.json": JSON.stringify(headC1),
+          "harness/experience/probes/PROJ-511/baseline.json": JSON.stringify(headBase),
+        },
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      const passOut = execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
+        cwd: ws,
+        env: { ...process.env, PATH: fakePass.env.PATH },
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+      expect(JSON.parse(passOut).mergeable).toBe(true);
+
+      // 2. Sin regenerar reportes en pr.files (aunque localProbesDir exista en base): FALLA y no carga los reportes viejos de base
+      const prWithoutProbes = {
+        ...prObj,
+        number: 512,
+        state: "OPEN",
+        baseRefName: "main",
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/PROJ-511.jsonl" },
+        ],
+      };
+      const fakeFail = setupFakeGh(ws, {
+        prJson: prWithoutProbes,
+        contentsLesson: baseText + JSON.stringify(headEntry) + "\n",
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      let failStatus = 0;
+      let failJson = "";
+      try {
+        execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
+          cwd: ws,
+          env: { ...process.env, PATH: fakeFail.env.PATH },
+          encoding: "utf8",
+          stdio: "pipe",
+        });
+      } catch (e: any) {
+        failStatus = e.status;
+        failJson = e.stdout || "";
+      }
+      expect(failStatus).toBe(1);
+      const failErrors = (JSON.parse(failJson).errors as string[]).join("\n");
+      expect(failErrors).toContain("ppc: el reporte c1 no se modificó en este PR");
+      expect(failErrors).toContain("ppc: el reporte baseline no se modificó en este PR");
+      expect(failErrors).toContain("ppc: missing probe reports");
     });
   });
 
