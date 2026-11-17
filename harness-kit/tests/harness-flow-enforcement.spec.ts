@@ -932,7 +932,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       probeReports: newReports,
       events: ownerAuthEvents,
     });
-    expect(resLatest.errors.filter((e) => e.startsWith("ppc:"))).toHaveLength(0);
+    expect(resLatest.errors.filter((e: string) => e.startsWith("ppc:"))).toHaveLength(0);
     expect(resLatest.mergeable).toBe(true);
 
     const resOnlyOld = evaluateMerge({
