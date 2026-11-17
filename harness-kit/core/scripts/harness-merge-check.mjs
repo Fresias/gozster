@@ -325,9 +325,7 @@ export function evaluateMerge({ pr, project, lessonText, baseLessonText = null, 
         const baseEntries = baseLessonText ? parseLessons(baseLessonText).filter(Boolean) : [];
         const entryId = typeof ppcEntry.id === "string" ? ppcEntry.id.trim() : "";
         if (!entryId) {
-          if (baseEntries.length > 0) {
-            errors.push("ppc: el registro PPC evaluado no tiene id nuevo respecto a la base; ejecuta harness-probe + harness-compose en este PR.");
-          }
+          errors.push("ppc: el registro PPC evaluado no tiene id; ejecuta harness-probe + harness-compose en este PR.");
         } else if (baseEntries.some((e) => e && e.id === entryId)) {
           errors.push(`ppc: el registro ${entryId} ya existe en la base; ejecuta harness-probe + harness-compose en este PR.`);
         }
@@ -626,7 +624,7 @@ export function main(argv, deps = {}) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
       process.exit(2);
     }
-    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels,state,mergedAt"]));
+    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,baseRefName,body,files,labels,state,mergedAt"]));
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
       try {
@@ -657,27 +655,36 @@ export function main(argv, deps = {}) {
   } else {
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
-      const localProbesDir = path.join(root, "harness", "experience", "probes", issue);
-      if (existsSync(localProbesDir)) {
-        probeReports = readdirSync(localProbesDir).filter((f) => f.endsWith(".json")).map((f) => {
-          try { return JSON.parse(readFileSync(path.join(localProbesDir, f), "utf8")); } catch { return null; }
-        }).filter(Boolean);
+      // En PRs no mergeados evaluados vía <pr>/CI, el checkout local es la base: leer probes solo del head del PR.
+      const readFromLocalProbesDir = pr?.state === "MERGED" || Boolean(prJsonPath);
+      if (readFromLocalProbesDir) {
+        const localProbesDir = path.join(root, "harness", "experience", "probes", issue);
+        if (existsSync(localProbesDir)) {
+          probeReports = readdirSync(localProbesDir).filter((f) => f.endsWith(".json")).map((f) => {
+            try { return JSON.parse(readFileSync(path.join(localProbesDir, f), "utf8")); } catch { return null; }
+          }).filter(Boolean);
+        }
       }
       if (probeReports.length === 0 && pr && pr.files) {
         const probeFiles = (pr.files || []).filter((f) => {
-          const p = f.path.replace(/\\/g, "/");
+          const p = String(f.path || "").replace(/\\/g, "/");
           return p.startsWith(`harness/experience/probes/${issue}/`) && p.endsWith(".json");
         });
         for (const pf of probeFiles) {
+          const relPath = String(pf.path || "").replace(/\\/g, "/");
           let content = null;
           if (pr.headRefOid) {
             try {
-              content = execFileSync("git", ["show", `${pr.headRefOid}:${pf.path}`], { cwd: root, encoding: "utf8" });
+              content = execFileSync("git", ["show", `${pr.headRefOid}:${relPath}`], {
+                cwd: root,
+                encoding: "utf8",
+                stdio: ["ignore", "pipe", "ignore"],
+              });
             } catch {}
           }
-          if (!content) {
+          if (!content && pr.headRefOid) {
             try {
-              content = runGh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/${pf.path}?ref=${pr.headRefOid}`]);
+              content = runGh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/${relPath}?ref=${pr.headRefOid}`]);
             } catch {}
           }
           if (content) {

@@ -259,6 +259,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const evaluation = evaluateProbes([probeC1, probeBaseline]);
 
     const ppcLesson = JSON.stringify({
+      id: "exp-proj-12",
       task: "PROJ-12",
       lesson: evaluation.lesson,
       ppc: {
@@ -301,6 +302,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const evaluation = evaluateProbes([probeC1, probeBaseline]);
 
     const ppcLesson = JSON.stringify({
+      id: "exp-proj-12",
       task: "PROJ-12",
       lesson: evaluation.lesson,
       ppc: {
@@ -1210,6 +1212,52 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       expect(res.errors).toHaveLength(0);
       expect(res.mergeable).toBe(true);
     });
+
+    it("GIVEN un registro PPC sin id en PR abierto aunque la base esté vacía WHEN corre evaluateMerge THEN es rechazado", () => {
+      const noIdRecord = JSON.stringify({
+        task: "GOZS-522",
+        lesson: freshEval.lesson,
+        ppc: {
+          winner_id: freshContrast.winner_id,
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 800,
+          contrast: freshContrast.contrast_matrix,
+          contrast_matrix: freshContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: freshContrast.verdict,
+          reports_sha256: {
+            "c1-fresh": hashReport(probeC1),
+            baseline: hashReport(probeBase),
+          },
+        },
+      });
+      const pr = {
+        headRefName: "chore/522-harness-no-id",
+        headRefOid: head,
+        state: "OPEN",
+        body: `<!-- harness-seal: ${JSON.stringify({ head, worktree_clean: true, gate: project.gate })} -->`,
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/GOZS-522.jsonl" },
+          { path: "harness/experience/probes/GOZS-522/c1-fresh.json" },
+          { path: "harness/experience/probes/GOZS-522/baseline.json" },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      const res = evaluateMerge({
+        pr,
+        project: { ...project, issue_prefix: "GOZS" },
+        lessonText: `${noIdRecord}\n`,
+        baseLessonText: null,
+        probeReports: freshReports,
+        events: ownerAuthEvents,
+      });
+
+      expect(res.mergeable).toBe(false);
+      expect(res.errors.join("\n")).toContain("ppc: el registro PPC evaluado no tiene id");
+    });
   });
 
   it("GIVEN un PR que no toca el harness WHEN corre harness-merge-check THEN las reglas PPC no aplican", () => {
@@ -1341,6 +1389,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       const evaluation = evaluateProbes(probeReports);
       const ppcLesson =
         JSON.stringify({
+          id: "exp-proj-511",
           task: "PROJ-511",
           lesson: evaluation.lesson,
           ppc: {
@@ -1379,7 +1428,17 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       return { ws, prFile, lessonFile, prObj };
     }
 
-    function setupFakeGh(ws: string, behavior: { prJson?: unknown; deleteFails?: boolean; eventsFails?: boolean; contentsLesson?: string; eventsJson?: unknown[] }) {
+    function setupFakeGh(
+      ws: string,
+      behavior: {
+        prJson?: unknown;
+        deleteFails?: boolean;
+        eventsFails?: boolean;
+        contentsLesson?: string;
+        probeContents?: Record<string, string>;
+        eventsJson?: unknown[];
+      }
+    ) {
       const binDir = path.join(ws, "fake-bin");
       mkdirSync(binDir, { recursive: true });
       const logFile = path.join(ws, "gh-calls.jsonl");
@@ -1389,9 +1448,19 @@ import { appendFileSync } from "node:fs";
 const args = process.argv.slice(2);
 appendFileSync(${JSON.stringify(logFile)}, JSON.stringify(args) + "\\n");
 const joined = args.join(" ");
+const probeMap = ${JSON.stringify(behavior.probeContents || {})};
 if (args[0] === "pr" && args[1] === "view") {
   process.stdout.write(${JSON.stringify(JSON.stringify(behavior.prJson || {}))});
   process.exit(0);
+}
+if (joined.includes("/contents/harness/experience/probes/")) {
+  const matchedKey = Object.keys(probeMap).find((k) => joined.includes(k));
+  if (matchedKey) {
+    process.stdout.write(probeMap[matchedKey]);
+    process.exit(0);
+  }
+  process.stderr.write("404 probe not found");
+  process.exit(1);
 }
 if (joined.includes("/contents/harness/experience/")) {
   process.stdout.write(${JSON.stringify(behavior.contentsLesson || "")});
@@ -1687,10 +1756,15 @@ process.stdout.write("");
       entry.id = "exp-ci-base-511";
       const baseText = JSON.stringify(entry) + "\n";
       writeFileSync(lessonFile, baseText);
+      const baseProbeContents = {
+        "harness/experience/probes/PROJ-511/c1.json": readFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "c1.json"), "utf8"),
+        "harness/experience/probes/PROJ-511/baseline.json": readFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "baseline.json"), "utf8"),
+      };
 
       const fakeFail = setupFakeGh(ws, {
-        prJson: { ...prObj, state: "OPEN" },
+        prJson: { ...prObj, state: "OPEN", baseRefName: "main" },
         contentsLesson: baseText,
+        probeContents: baseProbeContents,
         eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
       });
       let status = 0;
@@ -1704,14 +1778,118 @@ process.stdout.write("");
       expect(status).toBe(1);
       expect(JSON.parse(jsonOut).errors.join("\n")).toContain("ppc: el registro exp-ci-base-511 ya existe en la base");
 
+      const prViewCalls = readFileSync(fakeFail.logFile, "utf8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l) as string[])
+        .filter((c) => c[0] === "pr" && c[1] === "view");
+      expect(prViewCalls[0]?.join(" ")).toContain("baseRefName");
+
       const freshEntry = { ...entry, id: "exp-ci-new-511" };
       const fakeOk = setupFakeGh(ws, {
-        prJson: { ...prObj, state: "OPEN" },
+        prJson: { ...prObj, state: "OPEN", baseRefName: "main" },
         contentsLesson: baseText + JSON.stringify(freshEntry) + "\n",
+        probeContents: baseProbeContents,
         eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
       });
       const okOut = execFileSync(process.execPath, [mergeCheckScript, "511", "--json"], { cwd: ws, env: fakeOk.env, encoding: "utf8", stdio: "pipe" });
       expect(JSON.parse(okOut).mergeable).toBe(true);
+    });
+
+    it("GIVEN PR de seguimiento en modo CI (<pr>) sobre issue con reportes previos en localProbesDir (base) WHEN trae registro nuevo y reportes regenerados en pr.files vía gh api THEN pasa; sin regenerar reportes en pr.files THEN falla", () => {
+      const { ws, lessonFile, prObj } = setupTempRepoWithPpc();
+      const baseEntry = JSON.parse(readFileSync(lessonFile, "utf8").trim());
+      baseEntry.id = "exp-base-followup-511";
+      const baseText = JSON.stringify(baseEntry) + "\n";
+      writeFileSync(lessonFile, baseText);
+
+      // Reportes NUEVOS regenerados en el head del PR (distintos de los viejos en localProbesDir de la base)
+      const headC1 = {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 650,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: { "t::a": "passed" },
+      };
+      const headBase = {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 1150,
+        files_touched: [],
+        tests: { "t::a": "failed" },
+      };
+      const headReports = [headC1, headBase];
+      const headContrast = evaluateCandidates(headReports);
+      const headEval = evaluateProbes(headReports);
+      const headEntry = {
+        id: "exp-head-followup-511",
+        task: "PROJ-511",
+        lesson: headEval.lesson,
+        ppc: {
+          winner_id: "c1",
+          candidates: 2,
+          probe_passed: true,
+          duration_ms: 650,
+          contrast: headContrast.contrast_matrix,
+          contrast_matrix: headContrast.contrast_matrix,
+          contrast_version: CONTRAST_VERSION,
+          verdict: headContrast.verdict,
+          reports_sha256: { c1: hashReport(headC1), baseline: hashReport(headBase) },
+        },
+      };
+
+      // 1. Con registro nuevo y reportes regenerados en pr.files (leídos vía gh api, saltando localProbesDir viejo): PASA
+      const fakePass = setupFakeGh(ws, {
+        prJson: { ...prObj, number: 512, state: "OPEN", baseRefName: "main" },
+        contentsLesson: baseText + JSON.stringify(headEntry) + "\n",
+        probeContents: {
+          "harness/experience/probes/PROJ-511/c1.json": JSON.stringify(headC1),
+          "harness/experience/probes/PROJ-511/baseline.json": JSON.stringify(headBase),
+        },
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      const passOut = execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
+        cwd: ws,
+        env: fakePass.env,
+        encoding: "utf8",
+        stdio: "pipe",
+      });
+      expect(JSON.parse(passOut).mergeable).toBe(true);
+
+      // 2. Sin regenerar reportes en pr.files (aunque localProbesDir exista en base): FALLA y no carga los reportes viejos de base
+      const prWithoutProbes = {
+        ...prObj,
+        number: 512,
+        state: "OPEN",
+        baseRefName: "main",
+        files: [
+          { path: "harness/guardrails.local.md" },
+          { path: "harness/experience/PROJ-511.jsonl" },
+        ],
+      };
+      const fakeFail = setupFakeGh(ws, {
+        prJson: prWithoutProbes,
+        contentsLesson: baseText + JSON.stringify(headEntry) + "\n",
+        eventsJson: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+      });
+      let failStatus = 0;
+      let failJson = "";
+      try {
+        execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
+          cwd: ws,
+          env: fakeFail.env,
+          encoding: "utf8",
+          stdio: "pipe",
+        });
+      } catch (e: any) {
+        failStatus = e.status;
+        failJson = e.stdout || "";
+      }
+      expect(failStatus).toBe(1);
+      const failErrors = (JSON.parse(failJson).errors as string[]).join("\n");
+      expect(failErrors).toContain("ppc: el reporte c1 no se modificó en este PR");
+      expect(failErrors).toContain("ppc: el reporte baseline no se modificó en este PR");
+      expect(failErrors).toContain("ppc: missing probe reports");
     });
   });
 
