@@ -395,6 +395,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr = {
       headRefName: "chore/522-harness-identity-governance-v2",
       headRefOid: "fakehead1234567",
+      state: "MERGED",
+      mergedAt: "2026-11-14T06:45:00Z",
       body: `<!-- harness-seal: ${JSON.stringify(seal)} -->`,
       files: [
         { path: "harness/project.json" },
@@ -433,6 +435,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr529 = {
       headRefName: "chore/529-harness-ci-debt",
       headRefOid: "fakehead529",
+      state: "MERGED",
+      mergedAt: "2026-11-14T17:20:00Z",
       body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead529", worktree_clean: true, gate: project.gate })} -->`,
       files: [
         { path: ".github/workflows/ci.yml" },
@@ -732,6 +736,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       const pr = {
         headRefName: `chore/${num}-harness-legacy`,
         headRefOid: `fakehead${num}`,
+        state: "MERGED",
+        mergedAt: "2026-11-14T12:00:00Z",
         body: `<!-- harness-seal: ${JSON.stringify(sealObj)} -->`,
         files: [
           { path: "harness/project.json" },
@@ -752,6 +758,193 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       expect(res.mergeable).toBe(true);
     },
   );
+
+  it.each(["GOZS-521", "GOZS-522", "GOZS-524", "GOZS-525", "GOZS-529"])(
+    "GIVEN un PR abierto o sin estado de merge en rama de issue R11 (%s) con el registro histórico v1 WHEN corre evaluateMerge THEN mergeable es false exigiendo contrast_version 2.0.0 y verdict",
+    (issueId) => {
+      const baseDir = path.resolve(here, "..", "..");
+      const num = issueId.split("-")[1];
+      const expFile = path.join(baseDir, "harness", "experience", `${issueId}.jsonl`);
+      const probesDir = path.join(baseDir, "harness", "experience", "probes", issueId);
+
+      const lessonText = readFileSync(expFile, "utf8");
+      const probeReports = readdirSync(probesDir)
+        .filter((f) => f.endsWith(".json"))
+        .map((f) => JSON.parse(readFileSync(path.join(probesDir, f), "utf8")));
+
+      const sealObj = { head: `fakehead${num}`, worktree_clean: true, gate: project.gate };
+      const basePr = {
+        headRefName: `chore/${num}-harness-reopen`,
+        headRefOid: `fakehead${num}`,
+        body: `<!-- harness-seal: ${JSON.stringify(sealObj)} -->`,
+        files: [
+          { path: "harness/project.json" },
+          { path: `harness/experience/${issueId}.jsonl` },
+        ],
+        labels: [{ name: "harness-authorized" }],
+      };
+
+      for (const variant of [
+        { ...basePr, state: "OPEN", mergedAt: null },
+        basePr,
+      ]) {
+        const res = evaluateMerge({
+          pr: variant,
+          project: { ...project, issue_prefix: "GOZS" },
+          lessonText,
+          probeReports,
+          events: ownerAuthEvents,
+        });
+        expect(res.mergeable).toBe(false);
+        const joined = res.errors.join(" ");
+        expect(joined).toContain("ppc:");
+        expect(joined).toContain("contrast_version 2.0.0");
+        expect(joined).toContain("verdict");
+      }
+    },
+  );
+
+  it.each([
+    { label: "mergedAt null", mergedAt: null },
+    { label: "mergedAt vacío", mergedAt: "" },
+    { label: "mergedAt espacios", mergedAt: "   " },
+  ])("GIVEN un registro R11 con state MERGED pero $label WHEN corre evaluateMerge THEN mergeable es false", ({ mergedAt }) => {
+    const baseDir = path.resolve(here, "..", "..");
+    const expFile = path.join(baseDir, "harness", "experience", "GOZS-522.jsonl");
+    const probesDir = path.join(baseDir, "harness", "experience", "probes", "GOZS-522");
+
+    const lessonText = readFileSync(expFile, "utf8");
+    const probeReports = readdirSync(probesDir)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(path.join(probesDir, f), "utf8")));
+
+    const sealObj = { head: "fakehead522", worktree_clean: true, gate: project.gate };
+    const pr = {
+      headRefName: "chore/522-harness-invalid-merged-at",
+      headRefOid: "fakehead522",
+      state: "MERGED",
+      mergedAt,
+      body: `<!-- harness-seal: ${JSON.stringify(sealObj)} -->`,
+      files: [
+        { path: "harness/project.json" },
+        { path: "harness/experience/GOZS-522.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const res = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText,
+      probeReports,
+      events: ownerAuthEvents,
+    });
+
+    expect(res.mergeable).toBe(false);
+    expect(res.errors.join(" ")).toContain("contrast_version 2.0.0");
+    expect(res.errors.join(" ")).toContain("verdict");
+  });
+
+  it("GIVEN un JSONL con varios registros PPC v2 (el primero con hashes viejos y el último con hashes actuales) WHEN corre evaluateMerge THEN valida el último con 0 errores ppc:; con solo el viejo da sha256 mismatch", () => {
+    const oldC1 = {
+      candidate_id: "c1",
+      passed: true,
+      duration_ms: 1000,
+      files_touched: ["harness/guardrails.local.md"],
+      tests: { "t::a": "passed" },
+    };
+    const oldBase = {
+      candidate_id: "baseline",
+      passed: true,
+      duration_ms: 1500,
+      files_touched: [],
+      tests: { "t::a": "failed" },
+    };
+    const oldReports = [oldC1, oldBase];
+    const oldContrast = evaluateCandidates(oldReports);
+    const oldEval = evaluateProbes(oldReports);
+    const oldRecord = JSON.stringify({
+      id: "exp-gozs-995-1",
+      task: "GOZS-995",
+      lesson: oldEval.lesson,
+      ppc: {
+        winner_id: oldContrast.winner_id,
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: oldContrast.contrast_matrix,
+        contrast_matrix: oldContrast.contrast_matrix,
+        contrast_version: CONTRAST_VERSION,
+        verdict: oldContrast.verdict,
+        reports_sha256: { c1: hashReport(oldC1), baseline: hashReport(oldBase) },
+      },
+    });
+
+    const newC1 = {
+      candidate_id: "c1",
+      passed: true,
+      duration_ms: 850,
+      files_touched: ["harness/guardrails.local.md", "harness-kit/core/scripts/harness-merge-check.mjs"],
+      tests: { "t::a": "passed", "t::b": "passed" },
+    };
+    const newBase = {
+      candidate_id: "baseline",
+      passed: false,
+      duration_ms: 1450,
+      files_touched: [],
+      tests: { "t::a": "failed", "t::b": "failed" },
+    };
+    const newReports = [newC1, newBase];
+    const newContrast = evaluateCandidates(newReports);
+    const newEval = evaluateProbes(newReports);
+    const newRecord = JSON.stringify({
+      id: "exp-gozs-995-2",
+      task: "GOZS-995",
+      lesson: newEval.lesson,
+      ppc: {
+        winner_id: newContrast.winner_id,
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 850,
+        contrast: newContrast.contrast_matrix,
+        contrast_matrix: newContrast.contrast_matrix,
+        contrast_version: CONTRAST_VERSION,
+        verdict: newContrast.verdict,
+        reports_sha256: { c1: hashReport(newC1), baseline: hashReport(newBase) },
+      },
+    });
+
+    const pr = {
+      headRefName: "chore/995-harness-multi-ppc",
+      headRefOid: head,
+      body: `<!-- harness-seal: ${JSON.stringify({ head, fingerprint: "0123456789abcdef", gate: project.gate, worktree_clean: true })} -->`,
+      files: [
+        { path: "harness/guardrails.local.md" },
+        { path: "harness/experience/GOZS-995.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const resLatest = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: `${oldRecord}\n${newRecord}\n`,
+      probeReports: newReports,
+      events: ownerAuthEvents,
+    });
+    expect(resLatest.errors.filter((e) => e.startsWith("ppc:"))).toHaveLength(0);
+    expect(resLatest.mergeable).toBe(true);
+
+    const resOnlyOld = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: `${oldRecord}\n`,
+      probeReports: newReports,
+      events: ownerAuthEvents,
+    });
+    expect(resOnlyOld.mergeable).toBe(false);
+    expect(resOnlyOld.errors.join(" ")).toContain("sha256 mismatch");
+  });
 
   it("GIVEN los registros PPC excepcionales (517, 518, 519, 523) THEN contienen caveat tanto en harness/experience/ como en experience_library.jsonl", () => {
     const baseDir = path.resolve(here, "..", "..");
@@ -792,6 +985,8 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const pr522 = {
       headRefName: "chore/522-harness-identity-governance-v2",
       headRefOid: "fakehead1234567",
+      state: "MERGED",
+      mergedAt: "2026-11-14T06:45:00Z",
       body: `<!-- harness-seal: ${JSON.stringify({ head: "fakehead1234567", worktree_clean: true, gate: project.gate })} -->`,
       files: [
         { path: "harness/project.json" },

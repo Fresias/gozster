@@ -238,7 +238,8 @@ const LEGACY_R11_V1_RECORDS = Object.freeze({
   }),
 });
 
-function isLegacyR11Record(issue, ppcEntry) {
+function isLegacyR11Record(issue, ppcEntry, pr) {
+  if (pr?.state !== "MERGED" || typeof pr?.mergedAt !== "string" || !pr.mergedAt.trim()) return false;
   if (!issue || !Object.prototype.hasOwnProperty.call(LEGACY_R11_V1_RECORDS, issue)) return false;
   const spec = LEGACY_R11_V1_RECORDS[issue];
   const ppc = ppcEntry?.ppc;
@@ -253,7 +254,7 @@ function isLegacyR11Record(issue, ppcEntry) {
 }
 
 /**
- * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}] }.
+ * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}], state?, mergedAt? }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
  * probeReports: optional array of probe report objects.
  * events: optional sorted array of label events for `harness-authorized`.
@@ -300,7 +301,8 @@ export function evaluateMerge({ pr, project, lessonText, probeReports, events })
       authorized_by = authz.by;
       delegated_by = authz.delegated_by;
     }
-    const ppcEntry = lessons.find((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
+    // harness-compose.mjs añade entradas nuevas al final; el registro PPC vigente es el último.
+    const ppcEntry = lessons.findLast((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
     if (!ppcEntry) {
       errors.push("ppc: no Propose-Probe-Compose record (harness-compose.mjs --task <ISSUE> after harness-probe.mjs).");
     } else {
@@ -342,14 +344,12 @@ export function evaluateMerge({ pr, project, lessonText, probeReports, events })
           }
         }
 
-        const isLegacyRecord = isLegacyR11Record(issue, ppcEntry);
+        const isLegacyRecord = isLegacyR11Record(issue, ppcEntry, pr);
         const rawContrastVersion = ppc.contrast_version;
         const contrastVersion =
           rawContrastVersion === "1.0.0" || rawContrastVersion === "2.0.0"
             ? rawContrastVersion
-            : isLegacyRecord
-              ? "1.0.0"
-              : "2.0.0";
+            : "2.0.0";
 
         if (rawContrastVersion && rawContrastVersion !== "2.0.0" && rawContrastVersion !== "1.0.0") {
           errors.push(`ppc: contrast_version desconocido: ${rawContrastVersion}`);
@@ -536,6 +536,7 @@ export function main(argv, deps = {}) {
   const selector = findSelector(argv);
   const prJsonPath = val("--pr-json");
   if (prJsonPath) {
+    // En modo --pr-json el estado de merge (state, mergedAt) sale del archivo; en CI la fuente de verdad es la API de GitHub.
     pr = JSON.parse(readFileSync(prJsonPath, "utf8"));
     if (val("--lesson-file") && existsSync(val("--lesson-file"))) lessonText = readFileSync(val("--lesson-file"), "utf8");
   } else {
@@ -543,7 +544,7 @@ export function main(argv, deps = {}) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
       process.exit(2);
     }
-    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels"]));
+    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels,state,mergedAt"]));
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
       try {
