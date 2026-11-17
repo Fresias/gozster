@@ -77,13 +77,18 @@ export function readJsonLines(filePath) {
     .filter(Boolean);
 }
 
+/** Returns true only for entries with a non-empty string lesson */
+export function isValidLesson(item) {
+  return typeof item?.lesson === "string" && item.lesson.trim().length > 0;
+}
+
 /** Consolidates individual task lessons from harness/experience/*.jsonl into harness/experience_library.jsonl */
 export function consolidateLessons(workdir, { write = true } = {}) {
   const expDir = path.join(workdir, "harness", "experience");
   const libFile = path.join(workdir, "harness", "experience_library.jsonl");
 
   const existingLib = readJsonLines(libFile);
-  const seenIds = new Set(existingLib.map((e) => e.id || `${e.task}:${e.lesson}`));
+  const seenIds = new Set(existingLib.filter(isValidLesson).map((e) => e.id || `${e.task}:${e.lesson}`));
 
   let modified = false;
   for (const item of existingLib) {
@@ -101,6 +106,7 @@ export function consolidateLessons(workdir, { write = true } = {}) {
     for (const file of files) {
       const items = readJsonLines(path.join(expDir, file));
       for (const item of items) {
+        if (!isValidLesson(item)) continue;
         const key = item.id || `${item.task}:${item.lesson}`;
         if (!seenIds.has(key)) {
           seenIds.add(key);
@@ -126,7 +132,7 @@ export function consolidateLessons(workdir, { write = true } = {}) {
 /** Calculates lesson debt: count of lessons not yet processed by the proposer */
 export function calculateDebt(workdir, maxDebt = 5) {
   const { lessons } = consolidateLessons(workdir, { write: false });
-  const unanalyzed = lessons.filter((l) => !l.processed_by_proposer && !l.ppc);
+  const unanalyzed = lessons.filter((l) => isValidLesson(l) && !l.processed_by_proposer && !l.ppc);
 
   return {
     total: lessons.length,
@@ -140,7 +146,7 @@ export function calculateDebt(workdir, maxDebt = 5) {
 /** Analyzes friction patterns across lessons and proposes candidates */
 export function analyzeFrictionAndPropose(workdir, maxCandidates = 3, { write = false } = {}) {
   const { lessons } = consolidateLessons(workdir, { write });
-  const unanalyzed = lessons.filter((l) => !l.processed_by_proposer && !l.ppc);
+  const unanalyzed = lessons.filter((l) => isValidLesson(l) && !l.processed_by_proposer && !l.ppc);
   const targetLessons = unanalyzed.length > 0 ? unanalyzed : lessons.slice(-10);
 
   const patterns = [
