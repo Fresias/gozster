@@ -1850,7 +1850,7 @@ process.stdout.write("");
       });
       const passOut = execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
         cwd: ws,
-        env: fakePass.env,
+        env: { ...process.env, PATH: fakePass.env.PATH },
         encoding: "utf8",
         stdio: "pipe",
       });
@@ -1877,7 +1877,7 @@ process.stdout.write("");
       try {
         execFileSync(process.execPath, [mergeCheckScript, "512", "--json"], {
           cwd: ws,
-          env: fakeFail.env,
+          env: { ...process.env, PATH: fakeFail.env.PATH },
           encoding: "utf8",
           stdio: "pipe",
         });
