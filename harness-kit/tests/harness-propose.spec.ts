@@ -200,4 +200,30 @@ describe("Harness² Proposer & Debt Controller (harness-propose)", () => {
     expect(parsed.candidates.length).toBeGreaterThan(0);
     expect(existsSync(parsed.candidatesFile)).toBe(true);
   });
+
+  it("GIVEN archivo con lección normal y entrada caveat sin lesson WHEN consolidateLessons y calculateDebt THEN excluye caveat, da unprocessed: 1 y sin null en unanalyzedTasks", () => {
+    const normalLesson = { id: "exp-cav-1", task: "GOZS-901", lesson: "Lección válida de prueba" };
+    const caveatNote = { caveat: "registro PPC escrito a mano; no proviene de harness-compose (auditoría 14-nov)" };
+    const emptyLesson = { id: "exp-cav-2", task: "GOZS-902", lesson: "   " };
+
+    writeFileSync(
+      path.join(tmpRepo, "harness", "experience", "GOZS-901.jsonl"),
+      [normalLesson, caveatNote, emptyLesson].map((e) => JSON.stringify(e)).join("\n") + "\n",
+      "utf8"
+    );
+
+    const debt = calculateDebt(tmpRepo, 5);
+    expect(debt.unprocessed).toBe(1);
+    expect(debt.total).toBe(2);
+    expect(debt.unanalyzedTasks).toEqual(["GOZS-901"]);
+    expect(debt.unanalyzedTasks).not.toContain(null);
+    expect(debt.unanalyzedTasks).not.toContain(undefined);
+
+    const consolidated = consolidateLessons(tmpRepo);
+    expect(consolidated.added).toBe(1);
+    expect(consolidated.total).toBe(2);
+
+    const lib = readJsonLines(path.join(tmpRepo, "harness", "experience_library.jsonl"));
+    expect(lib.every((e: any) => typeof e.lesson === "string" && e.lesson.trim().length > 0)).toBe(true);
+  });
 });
