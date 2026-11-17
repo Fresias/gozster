@@ -54,6 +54,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - `harness-authorized` solo es válida si la pone `Fresias`; nunca `AgentsMultica` ni otro agente por API u otro camino.
 - Cada push revoca `harness-authorized`; tras verificar el sello en el head nuevo, pedir autorización a `Fresias`.
 - Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
+<!-- authz-smoke GOZS-552 -->
 
 ## Skills
 
