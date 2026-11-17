@@ -1,6 +1,13 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const FECHA_FIJA_COBROS = vi.hoisted(() => {
+  const fecha = new Date("2026-11-15T12:00:00-03:00");
+  vi.useFakeTimers();
+  vi.setSystemTime(fecha);
+  return fecha;
+});
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -10,7 +17,13 @@ import type { KpisNegocio } from "@/lib/kpis-negocio";
 
 describe("GOZS-384: Coach Studio - Vista de Cobros (KPIs Superiores y DataTable 15 Filas)", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FECHA_FIJA_COBROS);
     useCobrosStore.getState().resetDemoDataset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("Criterio 1: DataTable paginada con 15 contratos por página y vencidos en primer orden", () => {

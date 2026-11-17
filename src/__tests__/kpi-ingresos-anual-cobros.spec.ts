@@ -1,6 +1,14 @@
 import * as React from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const FECHA_FIJA_COBROS = vi.hoisted(() => {
+  const fecha = new Date("2026-11-15T12:00:00-03:00");
+  vi.useFakeTimers();
+  vi.setSystemTime(fecha);
+  return fecha;
+});
+
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { CobrosPanel, type CobrosPanelProps } from "@/components/coach/cobros-panel";
@@ -15,7 +23,13 @@ import {
 
 describe("FE Studio/cobros: KPI ingresos de enero a diciembre y desagregado por actividad (GOZS-259)", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FECHA_FIJA_COBROS);
     useCobrosStore.getState().resetDemoDataset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("1. Criterios de Aceptación (Gherkin): Pagos de varios meses, apertura de KPI anual y filtro de actividad", () => {
