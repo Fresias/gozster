@@ -51,6 +51,8 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
 - Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
+- `harness-authorized` solo es válida si la pone `Fresias`; nunca `AgentsMultica` ni otro agente por API u otro camino.
+- Cada push revoca `harness-authorized`; tras verificar el sello en el head nuevo, pedir autorización a `Fresias`.
 - Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
 
 ## Skills

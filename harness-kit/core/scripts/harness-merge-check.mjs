@@ -51,16 +51,164 @@ function parseLessons(text) {
     });
 }
 
+function parseJsonArrays(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    // gh api --paginate concatenates JSON arrays across pages: [...][...]
+    const items = [];
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let start = -1;
+    for (let i = 0; i < trimmed.length; i++) {
+      const ch = trimmed[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === "\"") inString = false;
+        continue;
+      }
+      if (ch === "\"") {
+        inString = true;
+      } else if (ch === "[") {
+        if (depth === 0) start = i;
+        depth++;
+      } else if (ch === "]") {
+        depth--;
+        if (depth === 0 && start >= 0) {
+          const chunk = JSON.parse(trimmed.slice(start, i + 1));
+          if (Array.isArray(chunk)) items.push(...chunk);
+          start = -1;
+        }
+      }
+    }
+    if (depth !== 0 || start >= 0) throw new SyntaxError("Malformed paginated JSON array");
+    return items;
+  }
+}
+
+/** Parse NDJSON or GitHub issue events JSON into sorted { event, label, actor, created_at } entries. */
+export function parseEventsText(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return [];
+  const rawEvents = trimmed.startsWith("[")
+    ? parseJsonArrays(trimmed)
+    : trimmed
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+
+  return rawEvents
+    .map((e) => ({
+      event: e?.event || "",
+      label: typeof e?.label === "string" ? e.label : e?.label?.name || "",
+      actor: typeof e?.actor === "string" ? e.actor : e?.actor?.login || "",
+      created_at: e?.created_at || "",
+    }))
+    .filter((e) => (e.event === "labeled" || e.event === "unlabeled") && e.label === "harness-authorized")
+    .sort((a, b) => {
+      const ta = Date.parse(a.created_at);
+      const tb = Date.parse(b.created_at);
+      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb;
+      return String(a.created_at).localeCompare(String(b.created_at));
+    });
+}
+
+/**
+ * Verify that `harness-authorized` was applied by `authorizers.owner` (fail-closed).
+ * Only the owner may authorize; agent accounts (e.g. AgentsMultica) are rejected.
+ */
+export function evaluateAuthorization({ events, labels, authorizers }) {
+  const warnings = [];
+  const owner = authorizers && typeof authorizers.owner === "string" ? authorizers.owner.trim() : "";
+  if (!owner) {
+    return {
+      authorized: false,
+      by: null,
+      delegated_by: null,
+      error: "authz: project.json has no authorizers.owner",
+      warnings,
+    };
+  }
+
+  const normalizedLabels = (labels || [])
+    .map((l) => (typeof l === "string" ? l : l?.name))
+    .filter(Boolean);
+  if (!normalizedLabels.includes("harness-authorized")) {
+    return {
+      authorized: false,
+      by: null,
+      delegated_by: null,
+      error: `authz: missing label harness-authorized (only @${owner} can authorize)`,
+      warnings,
+    };
+  }
+
+  const relevant = [...(events || [])]
+    .filter((e) => e && e.label === "harness-authorized" && (e.event === "labeled" || e.event === "unlabeled"))
+    .sort((a, b) => {
+      const ta = Date.parse(a.created_at);
+      const tb = Date.parse(b.created_at);
+      if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return ta - tb;
+      return String(a.created_at || "").localeCompare(String(b.created_at || ""));
+    });
+
+  let activeActor = null;
+  for (const ev of relevant) {
+    if (ev.event === "labeled") {
+      activeActor = ev.actor ? String(ev.actor).trim() : null;
+    } else if (ev.event === "unlabeled") {
+      activeActor = null;
+    }
+  }
+
+  if (!activeActor) {
+    return {
+      authorized: false,
+      by: null,
+      delegated_by: null,
+      error: "authz: no labeled event found",
+      warnings,
+    };
+  }
+
+  if (activeActor.toLowerCase() === owner.toLowerCase()) {
+    return {
+      authorized: true,
+      by: activeActor,
+      delegated_by: null,
+      error: null,
+      warnings,
+    };
+  }
+
+  return {
+    authorized: false,
+    by: null,
+    delegated_by: null,
+    error: `authz: harness-authorized added by @${activeActor}, not an authorizer`,
+    warnings,
+  };
+}
+
 /**
  * Pure evaluation. pr: { headRefName, headRefOid, body, files:[{path}], labels:[{name}] }.
  * lessonText: content of harness/experience/<ISSUE>.jsonl at the PR head (or null).
  * probeReports: optional array of probe report objects.
+ * events: optional sorted array of label events for `harness-authorized`.
  */
-export function evaluateMerge({ pr, project, lessonText, probeReports }) {
+export function evaluateMerge({ pr, project, lessonText, probeReports, events }) {
   const errors = [];
   const files = (pr.files || []).map((f) => f.path);
-  const labels = (pr.labels || []).map((l) => l.name);
+  const labels = (pr.labels || []).map((l) => (typeof l === "string" ? l : l.name));
   const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
+  let authorized_by = null;
+  let delegated_by = null;
 
   // 1. Seal: produced by harness-gate.sh on exactly the PR head commit.
   const seal = parseSealBlock(pr.body);
@@ -85,7 +233,17 @@ export function evaluateMerge({ pr, project, lessonText, probeReports }) {
   const harnessFiles = files.filter(isHarnessPath);
   if (harnessFiles.length > 0) {
     if (!/^[a-z]+\/\d+-harness-/.test(pr.headRefName || "")) errors.push(`harness: ${harnessFiles.length} protected file(s) changed on a non-harness branch (${harnessFiles.slice(0, 3).join(", ")}).`);
-    if (!labels.includes("harness-authorized")) errors.push("harness: missing label `harness-authorized` (PM/Gabriel authorization).");
+    const authz = evaluateAuthorization({
+      events: events || [],
+      labels,
+      authorizers: project?.authorizers,
+    });
+    if (!authz.authorized) {
+      errors.push(authz.error);
+    } else {
+      authorized_by = authz.by;
+      delegated_by = authz.delegated_by;
+    }
     const ppcEntry = lessons.find((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
     if (!ppcEntry) {
       errors.push("ppc: no Propose-Probe-Compose record (harness-compose.mjs --task <ISSUE> after harness-probe.mjs).");
@@ -176,7 +334,7 @@ export function evaluateMerge({ pr, project, lessonText, probeReports }) {
     }
   }
 
-  return { mergeable: errors.length === 0, issue, harness_files: harnessFiles, errors };
+  return { mergeable: errors.length === 0, issue, harness_files: harnessFiles, authorized_by, delegated_by, errors };
 }
 
 function gh(args) {
@@ -186,7 +344,22 @@ function gh(args) {
   return execFileSync("gh", args, opts);
 }
 
-function main(argv) {
+const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file"]);
+
+function findSelector(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (VALUE_FLAGS.has(a)) {
+      i++;
+      continue;
+    }
+    if (!a.startsWith("--")) return a;
+  }
+  return undefined;
+}
+
+export function main(argv, deps = {}) {
+  const runGh = deps.runGh || gh;
   const json = argv.includes("--json");
   const val = (flag) => {
     const i = argv.indexOf(flag);
@@ -258,7 +431,9 @@ function main(argv) {
     };
 
     const evalResult = evaluateMerge({ pr: mockPr, project, lessonText: localLessonText, probeReports: localProbeReports });
-    const ppcErrors = evalResult.errors.filter((e) => !e.startsWith("seal:") && !e.startsWith("harness: missing label"));
+    const ppcErrors = evalResult.errors.filter(
+      (e) => !e.startsWith("seal:") && !e.startsWith("harness: missing label") && !e.startsWith("authz:")
+    );
     if (ppcErrors.length > 0) {
       process.stderr.write(`[harness-gate error] Harness PPC verification failed:\n- ${ppcErrors.join("\n- ")}\n`);
       process.exit(1);
@@ -270,20 +445,21 @@ function main(argv) {
 
   let pr;
   let lessonText = null;
-  if (val("--pr-json")) {
-    pr = JSON.parse(readFileSync(val("--pr-json"), "utf8"));
+  const selector = findSelector(argv);
+  const prJsonPath = val("--pr-json");
+  if (prJsonPath) {
+    pr = JSON.parse(readFileSync(prJsonPath, "utf8"));
     if (val("--lesson-file") && existsSync(val("--lesson-file"))) lessonText = readFileSync(val("--lesson-file"), "utf8");
   } else {
-    const selector = argv.find((a) => !a.startsWith("--"));
     if (!selector) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
       process.exit(2);
     }
-    pr = JSON.parse(gh(["pr", "view", selector, "--json", "headRefName,headRefOid,body,files,labels"]));
+    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,body,files,labels"]));
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
       try {
-        lessonText = gh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/harness/experience/${issue}.jsonl?ref=${pr.headRefOid}`]);
+        lessonText = runGh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/harness/experience/${issue}.jsonl?ref=${pr.headRefOid}`]);
       } catch {
         lessonText = null;
       }
@@ -329,7 +505,7 @@ function main(argv) {
           }
           if (!content) {
             try {
-              content = gh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/${pf.path}?ref=${pr.headRefOid}`]);
+              content = runGh(["api", "-H", "Accept: application/vnd.github.raw", `repos/{owner}/{repo}/contents/${pf.path}?ref=${pr.headRefOid}`]);
             } catch {}
           }
           if (content) {
@@ -342,19 +518,71 @@ function main(argv) {
     }
   }
 
-  const result = evaluateMerge({ pr, project, lessonText, probeReports });
+  const harnessFiles = (pr.files || []).map((f) => f.path).filter(isHarnessPath);
+  const hasAuthorizedLabel = (pr.labels || []).some((l) => (typeof l === "string" ? l : l?.name) === "harness-authorized");
+  const eventAction = val("--event-action");
+  const prNumber = pr.number || (/^\d+$/.test(String(selector || "")) ? Number(selector) : null);
+
+  let revokeError = null;
+  let revokedOnSync = false;
+  if (eventAction === "synchronize" && harnessFiles.length > 0 && hasAuthorizedLabel) {
+    try {
+      if (!prNumber) throw new Error("missing PR number");
+      runGh(["api", "-X", "DELETE", `repos/{owner}/{repo}/issues/${prNumber}/labels/harness-authorized`]);
+      process.stdout.write("[harness-merge-check] harness-authorized revoked: new commits require re-authorization\n");
+      pr = {
+        ...pr,
+        labels: (pr.labels || []).filter((l) => (typeof l === "string" ? l : l?.name) !== "harness-authorized"),
+      };
+      revokedOnSync = true;
+    } catch {
+      revokeError = "authz: could not revoke stale authorization";
+    }
+  }
+
+  let events = [];
+  const eventsFile = val("--events-file");
+  if (eventsFile) {
+    try {
+      events = parseEventsText(readFileSync(eventsFile, "utf8"));
+    } catch (err) {
+      process.stderr.write(`[harness-merge-check] could not read events file: ${String(err.message || err).split("\n")[0]}\n`);
+      process.exit(1);
+    }
+  } else if (!prJsonPath && harnessFiles.length > 0 && !revokeError && !revokedOnSync) {
+    try {
+      if (!prNumber) throw new Error("missing PR number");
+      const rawEvents = runGh(["api", "--paginate", `repos/{owner}/{repo}/issues/${prNumber}/events?per_page=100`]);
+      events = parseEventsText(rawEvents);
+    } catch (err) {
+      process.stderr.write(`[harness-merge-check] could not fetch PR events: ${String(err.message || err).split("\n")[0]}\n`);
+      process.exit(1);
+    }
+  }
+
+  const result = evaluateMerge({ pr, project, lessonText, probeReports, events });
+  if (revokeError) {
+    result.mergeable = false;
+    result.authorized_by = null;
+    result.delegated_by = null;
+    result.errors = [revokeError, ...result.errors.filter((e) => !e.startsWith("authz:"))];
+  }
+
   // Commit status on the PR head: visible evidence, and a required check once branch protection exists.
   if (argv.includes("--post-status") && pr.headRefOid) {
     const state = result.mergeable ? "success" : "failure";
-    const description = (result.mergeable ? "seal, lesson and PPC verified" : result.errors[0] || "blocked").slice(0, 140);
+    const okMsg = result.authorized_by
+      ? `seal, lesson, PPC verified; authorized by @${result.authorized_by}`
+      : "seal, lesson and PPC verified";
+    const description = (result.mergeable ? okMsg : result.errors[0] || "blocked").slice(0, 140);
     try {
-      gh(["api", "-X", "POST", `repos/{owner}/{repo}/statuses/${pr.headRefOid}`, "-f", `state=${state}`, "-f", "context=harness/merge-check", "-f", `description=${description}`]);
+      runGh(["api", "-X", "POST", `repos/{owner}/{repo}/statuses/${pr.headRefOid}`, "-f", `state=${state}`, "-f", "context=harness/merge-check", "-f", `description=${description}`]);
     } catch (err) {
       process.stderr.write(`[harness-merge-check] could not post status: ${String(err.message || err).split("\n")[0]}\n`);
     }
   }
   if (json) process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-  else if (result.mergeable) process.stdout.write(`[harness-merge-check OK] ${result.issue}: seal, lesson${result.harness_files.length ? ", PPC and authorization" : ""} verified.\n`);
+  else if (result.mergeable) process.stdout.write(`[harness-merge-check OK] ${result.issue}: seal, lesson${result.harness_files.length ? `, PPC and authorization (authorized by @${result.authorized_by})` : ""} verified.\n`);
   else process.stderr.write(`[harness-merge-check BLOCKED]\n- ${result.errors.join("\n- ")}\n`);
   process.exit(result.mergeable ? 0 : 1);
 }

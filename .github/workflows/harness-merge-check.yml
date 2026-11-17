@@ -1,7 +1,10 @@
 name: Harness² Merge Check
 
+# Usa pull_request_target sobre la base (main) para que ningún PR pueda alterar
+# el script, el workflow o harness/project.json y aprobarse solo.
+# PROHIBIDO hacer checkout del head del PR o ejecutar código del PR.
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
@@ -16,11 +19,12 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
+      issues: write
       statuses: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout base repository
         uses: actions/checkout@v7
 
       - name: Setup Node.js
@@ -28,7 +32,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Harness² merge check (seal == PR head, lesson, PPC)
+      - name: Harness² merge check (seal == PR head, lesson, PPC, authz)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node harness-kit/core/scripts/harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status
+        run: node harness-kit/core/scripts/harness-merge-check.mjs ${{ github.event.pull_request.number }} --post-status --event-action ${{ github.event.action }}

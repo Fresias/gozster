@@ -5,23 +5,34 @@
  * Valida los 8 componentes, la biblioteca de experiencia, el presupuesto y las migraciones.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = process.cwd();
-const overlayDir = path.join(repoRoot, "harness");
-const kitDir = path.join(repoRoot, "harness-kit");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const defaultRepoRoot = path.resolve(scriptDir, "..");
 
 let debtMode = "error";
+let workdirArg = "";
 for (let i = 2; i < process.argv.length; i++) {
   const arg = process.argv[i];
   if (arg === "--debt-mode" && process.argv[i + 1]) {
     debtMode = process.argv[++i];
   } else if (arg.startsWith("--debt-mode=")) {
     debtMode = arg.slice("--debt-mode=".length);
+  } else if (arg === "--workdir" && process.argv[i + 1]) {
+    workdirArg = process.argv[++i];
+  } else if (arg.startsWith("--workdir=")) {
+    workdirArg = arg.slice("--workdir=".length);
   }
 }
+
+const repoRoot = path.resolve(workdirArg || process.cwd());
+const overlayDir = path.join(repoRoot, "harness");
+const kitDir = existsSync(path.join(repoRoot, "harness-kit"))
+  ? path.join(repoRoot, "harness-kit")
+  : path.join(defaultRepoRoot, "harness-kit");
 
 console.log("=== [QA HARNESS AUDIT] Iniciando auditoría integral de Harness² ===");
 
@@ -94,7 +105,11 @@ if (existsSync(agentsPath)) {
 // 4. Verificar drift de renderizado
 console.log("4. Verificando drift con harness-render.mjs --check...");
 try {
-  execSync("node harness-kit/core/scripts/harness-render.mjs --check", { cwd: repoRoot, stdio: "pipe" });
+  execFileSync(
+    process.execPath,
+    [path.join(kitDir, "core", "scripts", "harness-render.mjs"), "--check", overlayDir],
+    { cwd: repoRoot, stdio: "pipe" }
+  );
   console.log("   -> OK: No drift detectado en runtime targets.");
 } catch (e) {
   errors.push("harness-render.mjs --check reportó drift o fallo de compilación.");
@@ -103,7 +118,11 @@ try {
 // 5. Auditando deuda de lecciones del arnés (Candado 2)
 console.log("5. Auditando deuda de lecciones del arnés...");
 try {
-  execSync("node harness-kit/core/scripts/harness-propose.mjs --check-debt --max-debt 5", { cwd: repoRoot, stdio: "pipe" });
+  execFileSync(
+    process.execPath,
+    [path.join(kitDir, "core", "scripts", "harness-propose.mjs"), "--workdir", repoRoot, "--check-debt", "--max-debt", "5"],
+    { cwd: repoRoot, stdio: "pipe" }
+  );
   console.log("   -> OK: Deuda de arnés dentro del límite permitido (<=5).");
 } catch (e) {
   let unprocessed = "?";

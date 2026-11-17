@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ import { evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import { evaluateMerge, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
+import { evaluateAuthorization, evaluateMerge, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
 // @ts-expect-error - mjs module
 import { evaluateCandidates, hashReport, CONTRAST_VERSION } from "../core/scripts/harness-contrast.mjs";
 // @ts-expect-error - mjs module
@@ -131,7 +131,10 @@ describe("Learner obligatorio: el gate no sella sin la lección del issue", () =
 });
 
 describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
-  const project = { issue_prefix: "PROJ", gate: "npm test" };
+  const project = { issue_prefix: "PROJ", gate: "npm test", authorizers: { owner: "Fresias", delegates: [] } };
+  const ownerAuthEvents = [
+    { event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T00:00:00Z" },
+  ];
   const head = "a".repeat(40);
   const seal = `<!-- harness-seal: ${JSON.stringify({ head, fingerprint: "0123456789abcdef", gate: "npm test", worktree_clean: true })} -->`;
   const lesson = JSON.stringify({ task: "PROJ-12", lesson: "x" }) + "\n";
@@ -199,7 +202,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       files: [{ path: "harness/experience/GOZS-517.jsonl" }, { path: "harness-kit/core/guard/guard-core.mjs" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: gozs517Raw, probeReports: [] });
+    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: gozs517Raw, probeReports: [], events: ownerAuthEvents });
     expect(res.mergeable).toBe(false);
     expect(res.errors.join(" ")).toMatch(/missing probe reports|reports_sha256/);
   });
@@ -237,7 +240,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: tamperedLesson, probeReports });
+    const res = evaluateMerge({ pr, project, lessonText: tamperedLesson, probeReports, events: ownerAuthEvents });
     expect(res.mergeable).toBe(false);
     expect(res.errors.join(" ")).toContain("contrast score mismatch for c1: expected 900, got 25");
   });
@@ -273,7 +276,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [modifiedProbeC1, probeBaseline] });
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [modifiedProbeC1, probeBaseline], events: ownerAuthEvents });
     expect(res.mergeable).toBe(false);
     expect(res.errors.join(" ")).toContain("sha256 mismatch for report c1");
   });
@@ -306,7 +309,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       files: [...base.files, { path: "harness/guardrails.md" }],
       labels: [{ name: "harness-authorized" }],
     };
-    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [probeC1, probeBaseline] });
+    const res = evaluateMerge({ pr, project, lessonText: ppcLesson, probeReports: [probeC1, probeBaseline], events: ownerAuthEvents });
     expect(res.mergeable).toBe(true);
     expect(res.errors).toHaveLength(0);
   });
@@ -362,7 +365,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       labels: [{ name: "harness-authorized" }],
     };
 
-    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: tamperedLesson, probeReports: [probeC1, probeBaseline] });
+    const res = evaluateMerge({ pr, project: { ...project, issue_prefix: "GOZS" }, lessonText: tamperedLesson, probeReports: [probeC1, probeBaseline], events: ownerAuthEvents });
     expect(res.mergeable).toBe(false);
     expect(res.errors.join(" ")).toContain("contrast fixed mismatch for c1: expected 1, got 99");
   });
@@ -403,6 +406,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       project: { ...project, issue_prefix: "GOZS" },
       lessonText,
       probeReports,
+      events: ownerAuthEvents,
     });
 
     expect(res.errors).toHaveLength(0);
@@ -440,6 +444,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       project: { ...project, issue_prefix: "GOZS" },
       lessonText,
       probeReports,
+      events: ownerAuthEvents,
     });
 
     expect(res.errors).toHaveLength(0);
@@ -478,6 +483,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       project: { ...project, issue_prefix: "GOZS" },
       lessonText,
       probeReports,
+      events: ownerAuthEvents,
     });
 
     expect(res.mergeable).toBe(false);
@@ -535,6 +541,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       project: { ...project, issue_prefix: "GOZS" },
       lessonText: lessonText522,
       probeReports: probeReports522,
+      events: ownerAuthEvents,
     });
     expect(res522.errors).toHaveLength(0);
     expect(res522.mergeable).toBe(true);
@@ -563,6 +570,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
       project: { ...project, issue_prefix: "GOZS" },
       lessonText: lessonText526,
       probeReports: probeReports526,
+      events: ownerAuthEvents,
     });
     expect(res526.errors).toHaveLength(0);
     expect(res526.mergeable).toBe(true);
@@ -582,6 +590,305 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     const res = evaluateMerge({ pr, project, lessonText: simpleLesson, probeReports: [] });
     expect(res.mergeable).toBe(true);
     expect(res.harness_files).toHaveLength(0);
+  });
+
+  describe("evaluateAuthorization (GOZS-511, sin delegación)", () => {
+    const authorizers = { owner: "Fresias", delegates: [] };
+    const labels = [{ name: "harness-authorized" }];
+
+    it("1. Puesta por Fresias: autorizado, by=Fresias", () => {
+      const events = [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }];
+      expect(evaluateAuthorization({ events, labels, authorizers })).toMatchObject({
+        authorized: true,
+        by: "Fresias",
+        delegated_by: null,
+        error: null,
+      });
+    });
+
+    it("2. Puesta por fresias en minúsculas: autorizado", () => {
+      const events = [{ event: "labeled", label: "harness-authorized", actor: "fresias", created_at: "2026-11-16T01:00:00Z" }];
+      expect(evaluateAuthorization({ events, labels, authorizers }).authorized).toBe(true);
+    });
+
+    it.each(["github-actions[bot]", "AgentsMultica"])(
+      "3. Puesta por %s: rechazado con el actor en el mensaje",
+      (actor) => {
+        const events = [{ event: "labeled", label: "harness-authorized", actor, created_at: "2026-11-16T01:00:00Z" }];
+        const res = evaluateAuthorization({ events, labels, authorizers });
+        expect(res.authorized).toBe(false);
+        expect(res.error).toContain(`authz: harness-authorized added by @${actor}, not an authorizer`);
+      }
+    );
+
+    it("4. Puesta por Fresias, quitada y vuelta a poner por AgentsMultica: rechazado", () => {
+      const events = [
+        { event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" },
+        { event: "unlabeled", label: "harness-authorized", actor: "github-actions[bot]", created_at: "2026-11-16T02:00:00Z" },
+        { event: "labeled", label: "harness-authorized", actor: "AgentsMultica", created_at: "2026-11-16T03:00:00Z" },
+      ];
+      const res = evaluateAuthorization({ events, labels, authorizers });
+      expect(res.authorized).toBe(false);
+      expect(res.error).toContain("@AgentsMultica");
+    });
+
+    it("5. Puesta por AgentsMultica, quitada y vuelta a poner por Fresias: autorizado", () => {
+      const events = [
+        { event: "labeled", label: "harness-authorized", actor: "AgentsMultica", created_at: "2026-11-16T01:00:00Z" },
+        { event: "unlabeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T02:00:00Z" },
+        { event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T03:00:00Z" },
+      ];
+      const res = evaluateAuthorization({ events, labels, authorizers });
+      expect(res.authorized).toBe(true);
+      expect(res.by).toBe("Fresias");
+    });
+
+    it("6. Etiqueta presente sin eventos: rechazado (falla cerrado)", () => {
+      const res = evaluateAuthorization({ events: [], labels, authorizers });
+      expect(res.authorized).toBe(false);
+      expect(res.error).toBe("authz: no labeled event found");
+    });
+
+    it("7. Sin authorizers.owner y con archivos de harness: rechazado", () => {
+      const res = evaluateAuthorization({
+        events: [{ event: "labeled", label: "harness-authorized", actor: "Fresias", created_at: "2026-11-16T01:00:00Z" }],
+        labels,
+        authorizers: {},
+      });
+      expect(res.authorized).toBe(false);
+      expect(res.error).toBe("authz: project.json has no authorizers.owner");
+
+      const pr = {
+        ...base,
+        headRefName: "chore/511-harness-x",
+        files: [...base.files, { path: "harness/project.json" }],
+        labels,
+      };
+      const mergeRes = evaluateMerge({ pr, project: { issue_prefix: "PROJ", gate: "npm test" }, lessonText: lesson, probeReports: [] });
+      expect(mergeRes.mergeable).toBe(false);
+      expect(mergeRes.errors).toContain("authz: project.json has no authorizers.owner");
+    });
+
+    it("8. Sin archivos de harness: no se exige etiqueta", () => {
+      const res = evaluateMerge({ pr: base, project, lessonText: lesson });
+      expect(res.mergeable).toBe(true);
+    });
+  });
+
+  describe("harness-merge-check CLI integración authz + synchronize (GOZS-511)", () => {
+    const mergeCheckScript = path.join(scripts, "harness-merge-check.mjs");
+
+    function setupTempRepoWithPpc() {
+      const ws = temp("merge-check-authz");
+      mkdirSync(path.join(ws, "harness", "experience", "probes", "PROJ-511"), { recursive: true });
+      writeFileSync(
+        path.join(ws, "harness", "project.json"),
+        JSON.stringify({ issue_prefix: "PROJ", gate: "npm test", authorizers: { owner: "Fresias", delegates: [] } })
+      );
+
+      const probeC1 = {
+        candidate_id: "c1",
+        passed: true,
+        duration_ms: 900,
+        files_touched: ["harness/guardrails.local.md"],
+        tests: { "t::a": "passed" },
+      };
+      const probeBase = {
+        candidate_id: "baseline",
+        passed: true,
+        duration_ms: 1400,
+        files_touched: [],
+        tests: { "t::a": "failed" },
+      };
+      const probeReports = [probeC1, probeBase];
+      const contrastResult = evaluateCandidates(probeReports);
+      const evaluation = evaluateProbes(probeReports);
+      const ppcLesson =
+        JSON.stringify({
+          task: "PROJ-511",
+          lesson: evaluation.lesson,
+          ppc: {
+            winner_id: "c1",
+            candidates: 2,
+            probe_passed: true,
+            duration_ms: 900,
+            contrast: contrastResult.contrast_matrix,
+            contrast_matrix: contrastResult.contrast_matrix,
+            contrast_version: CONTRAST_VERSION,
+            verdict: contrastResult.verdict,
+            reports_sha256: { c1: hashReport(probeC1), baseline: hashReport(probeBase) },
+          },
+        }) + "\n";
+
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "c1.json"), JSON.stringify(probeC1));
+      writeFileSync(path.join(ws, "harness", "experience", "probes", "PROJ-511", "baseline.json"), JSON.stringify(probeBase));
+      const lessonFile = path.join(ws, "harness", "experience", "PROJ-511.jsonl");
+      writeFileSync(lessonFile, ppcLesson);
+
+      const prFile = path.join(ws, "pr.json");
+      const prObj = {
+        number: 511,
+        headRefName: "chore/511-harness-authz",
+        headRefOid: head,
+        body: `PR test\n\n${seal}`,
+        files: [{ path: "harness/guardrails.local.md" }, { path: "harness/experience/PROJ-511.jsonl" }],
+        labels: [{ name: "harness-authorized" }],
+      };
+      writeFileSync(prFile, JSON.stringify(prObj));
+      return { ws, prFile, lessonFile, prObj };
+    }
+
+    function setupFakeGh(ws: string, behavior: { prJson?: unknown; deleteFails?: boolean; eventsFails?: boolean }) {
+      const binDir = path.join(ws, "fake-bin");
+      mkdirSync(binDir, { recursive: true });
+      const logFile = path.join(ws, "gh-calls.jsonl");
+      const jsFile = path.join(binDir, "fake-gh.mjs");
+      const stubCode = `
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logFile)}, JSON.stringify(args) + "\\n");
+const joined = args.join(" ");
+if (args[0] === "pr" && args[1] === "view") {
+  process.stdout.write(${JSON.stringify(JSON.stringify(behavior.prJson || {}))});
+  process.exit(0);
+}
+if (joined.includes("/labels/harness-authorized") && args.includes("DELETE")) {
+  if (${JSON.stringify(Boolean(behavior.deleteFails))}) {
+    process.stderr.write("DELETE failed");
+    process.exit(1);
+  }
+  process.stdout.write("{}");
+  process.exit(0);
+}
+if (joined.includes("/events")) {
+  if (${JSON.stringify(Boolean(behavior.eventsFails))}) {
+    process.stderr.write("events API failed");
+    process.exit(1);
+  }
+  process.stdout.write("[]");
+  process.exit(0);
+}
+if (joined.includes("/statuses/")) {
+  process.stdout.write("{}");
+  process.exit(0);
+}
+process.stdout.write("");
+`;
+      writeFileSync(jsFile, stubCode);
+      if (process.platform === "win32") {
+        writeFileSync(path.join(binDir, "gh.cmd"), `@echo off\r\n"${process.execPath}" "%~dp0\\fake-gh.mjs" %*\r\n`);
+      } else {
+        const shPath = path.join(binDir, "gh");
+        writeFileSync(shPath, `#!/usr/bin/env sh\nexec "${process.execPath}" "${jsFile}" "$@"\n`);
+        chmodSync(shPath, 0o755);
+      }
+      return {
+        binDir,
+        logFile,
+        env: { ...process.env, PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}` },
+      };
+    }
+
+    it("GIVEN --pr-json y --events-file con etiqueta puesta por AgentsMultica WHEN corre CLI THEN sale con código 1 y error authz:", () => {
+      const { ws, prFile, lessonFile } = setupTempRepoWithPpc();
+      const eventsFile = path.join(ws, "events.ndjson");
+      writeFileSync(
+        eventsFile,
+        JSON.stringify({ event: "labeled", label: "harness-authorized", actor: "AgentsMultica", created_at: "2026-11-16T01:00:00Z" }) + "\n"
+      );
+
+      let status = 0;
+      let errOut = "";
+      try {
+        execFileSync(
+          process.execPath,
+          [mergeCheckScript, "--pr-json", prFile, "--lesson-file", lessonFile, "--events-file", eventsFile],
+          { cwd: ws, encoding: "utf8", stdio: "pipe" }
+        );
+      } catch (e: any) {
+        status = e.status;
+        errOut = (e.stderr || "") + (e.stdout || "");
+      }
+      expect(status).toBe(1);
+      expect(errOut).toContain("authz:");
+      expect(errOut).toContain("AgentsMultica");
+    });
+
+    it("GIVEN --event-action synchronize con gh simulado WHEN borra etiqueta THEN llama DELETE solo a harness-authorized y publica failure", () => {
+      const { ws, prFile, lessonFile } = setupTempRepoWithPpc();
+      const fake = setupFakeGh(ws, {});
+
+      let status = 0;
+      let stdout = "";
+      try {
+        execFileSync(
+          process.execPath,
+          [mergeCheckScript, "--pr-json", prFile, "--lesson-file", lessonFile, "--event-action", "synchronize", "--post-status"],
+          { cwd: ws, env: fake.env, encoding: "utf8", stdio: "pipe" }
+        );
+      } catch (e: any) {
+        status = e.status;
+        stdout = e.stdout || "";
+      }
+      expect(status).toBe(1);
+      expect(stdout).toContain("[harness-merge-check] harness-authorized revoked: new commits require re-authorization");
+
+      const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
+      const deleteCalls = calls.filter((c) => c.includes("DELETE"));
+      expect(deleteCalls).toHaveLength(1);
+      expect(deleteCalls[0]!.join(" ")).toContain("/labels/harness-authorized");
+      expect(deleteCalls[0]!.join(" ")).not.toContain("harness-delegate");
+
+      const statusCalls = calls.filter((c) => c.join(" ").includes("/statuses/"));
+      expect(statusCalls).toHaveLength(1);
+      expect(statusCalls[0]!.join(" ")).toContain("state=failure");
+    });
+
+    it("GIVEN --event-action synchronize cuando DELETE falla THEN también publica failure con authz: could not revoke stale authorization", () => {
+      const { ws, prFile, lessonFile } = setupTempRepoWithPpc();
+      const fake = setupFakeGh(ws, { deleteFails: true });
+
+      let status = 0;
+      let errOut = "";
+      try {
+        execFileSync(
+          process.execPath,
+          [mergeCheckScript, "--pr-json", prFile, "--lesson-file", lessonFile, "--event-action", "synchronize", "--post-status"],
+          { cwd: ws, env: fake.env, encoding: "utf8", stdio: "pipe" }
+        );
+      } catch (e: any) {
+        status = e.status;
+        errOut = (e.stderr || "") + (e.stdout || "");
+      }
+      expect(status).toBe(1);
+      expect(errOut).toContain("authz: could not revoke stale authorization");
+
+      const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
+      const statusCalls = calls.filter((c) => c.join(" ").includes("/statuses/"));
+      expect(statusCalls).toHaveLength(1);
+      expect(statusCalls[0]!.join(" ")).toContain("state=failure");
+    });
+
+    it("GIVEN falla de gh al obtener los eventos THEN sale con código distinto de 0 y no llama a statuses", () => {
+      const { ws, prObj } = setupTempRepoWithPpc();
+      const fake = setupFakeGh(ws, { prJson: prObj, eventsFails: true });
+
+      let status = 0;
+      try {
+        execFileSync(
+          process.execPath,
+          [mergeCheckScript, "511", "--post-status"],
+          { cwd: ws, env: fake.env, encoding: "utf8", stdio: "pipe" }
+        );
+      } catch (e: any) {
+        status = e.status;
+      }
+      expect(status).not.toBe(0);
+
+      const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
+      expect(calls.some((c) => c.join(" ").includes("/events"))).toBe(true);
+      expect(calls.some((c) => c.join(" ").includes("/statuses/"))).toBe(false);
+    });
   });
 
   it("GIVEN una rama de harness con un registro editado a mano WHEN corre harness-gate.sh THEN no sella y explica por qué", () => {
