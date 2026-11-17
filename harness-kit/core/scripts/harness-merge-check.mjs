@@ -244,7 +244,8 @@ export function evaluateMerge({ pr, project, lessonText, probeReports, events })
       authorized_by = authz.by;
       delegated_by = authz.delegated_by;
     }
-    const ppcEntry = lessons.find((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
+    // harness-compose.mjs añade entradas nuevas al final; el registro PPC vigente es el último.
+    const ppcEntry = lessons.findLast((e) => e.ppc && e.ppc.winner_id && e.ppc.probe_passed === true);
     if (!ppcEntry) {
       errors.push("ppc: no Propose-Probe-Compose record (harness-compose.mjs --task <ISSUE> after harness-probe.mjs).");
     } else {

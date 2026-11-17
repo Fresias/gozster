@@ -490,6 +490,107 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
     expect(res.errors.join(" ")).toContain("contrast_version 2.0.0 (encontrado 1.0.0)");
   });
 
+  it("GIVEN un JSONL con varios registros PPC v2 (el primero con hashes viejos y el último con hashes actuales) WHEN corre evaluateMerge THEN valida el último con 0 errores ppc:; con solo el viejo da sha256 mismatch", () => {
+    const oldC1 = {
+      candidate_id: "c1",
+      passed: true,
+      duration_ms: 1000,
+      files_touched: ["harness/guardrails.local.md"],
+      tests: { "t::a": "passed" },
+    };
+    const oldBase = {
+      candidate_id: "baseline",
+      passed: true,
+      duration_ms: 1500,
+      files_touched: [],
+      tests: { "t::a": "failed" },
+    };
+    const oldReports = [oldC1, oldBase];
+    const oldContrast = evaluateCandidates(oldReports);
+    const oldEval = evaluateProbes(oldReports);
+    const oldRecord = JSON.stringify({
+      id: "exp-gozs-995-1",
+      task: "GOZS-995",
+      lesson: oldEval.lesson,
+      ppc: {
+        winner_id: oldContrast.winner_id,
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 1000,
+        contrast: oldContrast.contrast_matrix,
+        contrast_matrix: oldContrast.contrast_matrix,
+        contrast_version: CONTRAST_VERSION,
+        verdict: oldContrast.verdict,
+        reports_sha256: { c1: hashReport(oldC1), baseline: hashReport(oldBase) },
+      },
+    });
+
+    const newC1 = {
+      candidate_id: "c1",
+      passed: true,
+      duration_ms: 850,
+      files_touched: ["harness/guardrails.local.md", "harness-kit/core/scripts/harness-merge-check.mjs"],
+      tests: { "t::a": "passed", "t::b": "passed" },
+    };
+    const newBase = {
+      candidate_id: "baseline",
+      passed: false,
+      duration_ms: 1450,
+      files_touched: [],
+      tests: { "t::a": "failed", "t::b": "failed" },
+    };
+    const newReports = [newC1, newBase];
+    const newContrast = evaluateCandidates(newReports);
+    const newEval = evaluateProbes(newReports);
+    const newRecord = JSON.stringify({
+      id: "exp-gozs-995-2",
+      task: "GOZS-995",
+      lesson: newEval.lesson,
+      ppc: {
+        winner_id: newContrast.winner_id,
+        candidates: 2,
+        probe_passed: true,
+        duration_ms: 850,
+        contrast: newContrast.contrast_matrix,
+        contrast_matrix: newContrast.contrast_matrix,
+        contrast_version: CONTRAST_VERSION,
+        verdict: newContrast.verdict,
+        reports_sha256: { c1: hashReport(newC1), baseline: hashReport(newBase) },
+      },
+    });
+
+    const pr = {
+      headRefName: "chore/995-harness-multi-ppc",
+      headRefOid: head,
+      body: `<!-- harness-seal: ${JSON.stringify({ head, fingerprint: "0123456789abcdef", gate: project.gate, worktree_clean: true })} -->`,
+      files: [
+        { path: "harness/guardrails.local.md" },
+        { path: "harness/experience/GOZS-995.jsonl" },
+      ],
+      labels: [{ name: "harness-authorized" }],
+    };
+
+    const resLatest = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: `${oldRecord}\n${newRecord}\n`,
+      probeReports: newReports,
+      events: ownerAuthEvents,
+    });
+    expect(resLatest.errors.filter((e: string) => e.startsWith("ppc:"))).toHaveLength(0);
+    expect(resLatest.mergeable).toBe(true);
+
+    const resOnlyOld = evaluateMerge({
+      pr,
+      project: { ...project, issue_prefix: "GOZS" },
+      lessonText: `${oldRecord}\n`,
+      probeReports: newReports,
+      events: ownerAuthEvents,
+    });
+    expect(resOnlyOld.mergeable).toBe(false);
+    expect(resOnlyOld.errors.join(" ")).toContain("sha256 mismatch");
+  });
+
   it("GIVEN los registros PPC excepcionales (517, 518, 519, 523) THEN contienen caveat tanto en harness/experience/ como en experience_library.jsonl", () => {
     const baseDir = path.resolve(here, "..", "..");
     const expIds = ["GOZS-517", "GOZS-518", "GOZS-519", "GOZS-523"];
