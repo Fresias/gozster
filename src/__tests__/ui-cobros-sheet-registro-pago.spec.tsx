@@ -1,6 +1,13 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const FECHA_FIJA_COBROS = vi.hoisted(() => {
+  const fecha = new Date("2026-11-15T12:00:00-03:00");
+  vi.useFakeTimers();
+  vi.setSystemTime(fecha);
+  return fecha;
+});
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -9,7 +16,13 @@ import { useCobrosStore } from "@/store/use-cobros-store";
 
 describe("GOZS-398: Coach Studio - Sheet Lateral de Registro de Pago y Actualización Reactiva", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FECHA_FIJA_COBROS);
     useCobrosStore.getState().resetDemoDataset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("Criterio Gherkin 1: Despliegue de Sheet lateral accesible al registrar pago", () => {
