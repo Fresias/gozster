@@ -52,7 +52,7 @@ Notas sobre los insumos:
 
 | ID | Sev | Consolidado | Nota |
 |---|---|---|---|
-| G1 | P0 | **Pasa** | Verificado por el revisor con la API el 15-nov (el bot no ve `bypass_actors`). |
+| G1 | P0 | **Pasa** | Verificado por el revisor con la API el 15-nov (el bot no ve `bypass_actors`). Actualizado el 17-nov (`GOZS-550` / `#505`, confirmado por `@Fresias`): protección de `main` consolidada exclusivamente en el ruleset `Proteger` (ID `27250457`), branch protection rule clásica eliminada, lista de bypass vacía y checks obligatorios `harness/merge-check` y `Typecheck, Lint & Test` (GitHub Actions, `integration_id: 15368`, ramas al día). |
 | G2 | P0 | **Pasa** | PRs #482 a #492. |
 | G3 | P0 | **Pendiente Gabriel** | Settings → Rules → Insights, filtro "Bypassed", ruleset `Proteger`. |
 | G4 | P1 | **Pasa** | |
