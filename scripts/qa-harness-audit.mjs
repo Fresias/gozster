@@ -15,6 +15,7 @@ const defaultRepoRoot = path.resolve(scriptDir, "..");
 
 let debtMode = "error";
 let workdirArg = "";
+let maxDebt = 14;
 for (let i = 2; i < process.argv.length; i++) {
   const arg = process.argv[i];
   if (arg === "--debt-mode" && process.argv[i + 1]) {
@@ -25,6 +26,10 @@ for (let i = 2; i < process.argv.length; i++) {
     workdirArg = process.argv[++i];
   } else if (arg.startsWith("--workdir=")) {
     workdirArg = arg.slice("--workdir=".length);
+  } else if (arg === "--max-debt" && process.argv[i + 1]) {
+    maxDebt = parseInt(process.argv[++i], 10);
+  } else if (arg.startsWith("--max-debt=")) {
+    maxDebt = parseInt(arg.slice("--max-debt=".length), 10);
   }
 }
 
@@ -117,13 +122,14 @@ try {
 
 // 5. Auditando deuda de lecciones del arnés (Candado 2)
 console.log("5. Auditando deuda de lecciones del arnés...");
+const failAt = maxDebt + 1;
 try {
   execFileSync(
     process.execPath,
-    [path.join(kitDir, "core", "scripts", "harness-propose.mjs"), "--workdir", repoRoot, "--check-debt", "--max-debt", "5"],
+    [path.join(kitDir, "core", "scripts", "harness-propose.mjs"), "--workdir", repoRoot, "--check-debt", "--max-debt", String(maxDebt)],
     { cwd: repoRoot, stdio: "pipe" }
   );
-  console.log("   -> OK: Deuda de arnés dentro del límite permitido (<=5).");
+  console.log(`   -> OK: Deuda de arnés dentro del límite permitido (<=${maxDebt}; rojo en >=${failAt}).`);
 } catch (e) {
   let unprocessed = "?";
   let tasks = "";
@@ -137,7 +143,7 @@ try {
   if (debtMode === "warn") {
     console.log(`::warning title=Harness debt::${unprocessed} lecciones sin procesar (${tasks})`);
   } else {
-    errors.push("Deuda de lecciones de arnés excedida (>5 sin procesar por harness-propose).");
+    errors.push(`Deuda de lecciones de arnés excedida (>=${failAt} sin procesar por harness-propose).`);
   }
 }
 

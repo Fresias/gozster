@@ -4,6 +4,8 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// @ts-expect-error - mjs module
+import { calculateDebt } from "../core/scripts/harness-propose.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..");
@@ -28,7 +30,7 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
   });
 
   describe("qa-harness-audit --debt-mode warn|error", () => {
-    it("GIVEN deuda de lecciones excedida en workdir aislado WHEN --debt-mode warn THEN sale con 0 e imprime ::warning; con --debt-mode error sale con 1 sin tocar harness/ real", () => {
+    it("GIVEN 14 lecciones sin procesar WHEN --debt-mode error THEN sale con 0; con 15 lecciones WHEN --debt-mode warn THEN sale con 0 e imprime ::warning y con --debt-mode error sale con 1 sin tocar harness/ real", () => {
       const tmpWorkdir = mkdtempSync(path.join(tmpdir(), "qa-harness-audit-"));
       createdTempDirs.push(tmpWorkdir);
 
@@ -38,8 +40,10 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
         stdio: "pipe",
       });
 
-      // Crear 6 lecciones temporales válidas en el workdir temporal para superar el umbral de 5
-      for (let i = 1; i <= 6; i++) {
+      // 1. Llevar deuda temporal exactamente a 14 sin procesar: no debe fallar (< 15)
+      const initialDebt = calculateDebt(tmpWorkdir).unprocessed;
+      const toReach14 = Math.max(0, 14 - initialDebt);
+      for (let i = 1; i <= toReach14; i++) {
         const file = path.join(tmpWorkdir, "harness", "experience", `GOZS-99${i}.jsonl`);
         writeFileSync(
           file,
@@ -52,8 +56,33 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
           "utf8"
         );
       }
+      expect(calculateDebt(tmpWorkdir).unprocessed).toBe(14);
 
-      // 1. En modo warn: sale con 0 e imprime ::warning title=Harness debt::
+      const stdoutAt14 = execFileSync(
+        process.execPath,
+        [auditScript, "--workdir", tmpWorkdir, "--debt-mode", "error"],
+        {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: "pipe",
+        }
+      );
+      expect(stdoutAt14).toContain("OK: Deuda de arnés dentro del límite permitido");
+
+      // 2. Agregar una lección más para llegar exactamente a 15: supera umbral rojo (>= 15)
+      writeFileSync(
+        path.join(tmpWorkdir, "harness", "experience", "GOZS-9999.jsonl"),
+        JSON.stringify({
+          id: "exp-temp-audit-15",
+          task: "GOZS-9999",
+          lesson: "Lección temporal de deuda para prueba de auditoría 15",
+          verified: true,
+        }) + "\n",
+        "utf8"
+      );
+      expect(calculateDebt(tmpWorkdir).unprocessed).toBe(15);
+
+      // 3. En modo warn: sale con 0 e imprime ::warning title=Harness debt::
       const stdoutWarn = execFileSync(
         process.execPath,
         [auditScript, "--workdir", tmpWorkdir, "--debt-mode", "warn"],
@@ -66,7 +95,7 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(stdoutWarn).toContain("::warning title=Harness debt::");
       expect(stdoutWarn).toContain("sin procesar");
 
-      // 2. En modo error (o default): sale con código 1
+      // 4. En modo error (o default): sale con código 1
       let errorStatus: number | null = null;
       let errorOut = "";
       try {
@@ -117,11 +146,17 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(content).toMatch(/run:\s*npm\s+run\s+build/);
     });
 
-    it("GIVEN ci.yml THEN el job principal ejecuta qa-harness-audit con --debt-mode warn y existe un job separado de deuda para push a main", () => {
+    it("GIVEN ci.yml THEN el job principal ejecuta qa-harness-audit con --debt-mode warn y el job harness-debt usa fetch-depth: 2, notifica vía harness-debt-notify y audita con --debt-mode error", () => {
       const content = readFileSync(ciWorkflowPath, "utf8");
       expect(content).toMatch(/node scripts\/qa-harness-audit\.mjs --debt-mode warn/);
       expect(content).toMatch(/name:\s*Harness² lesson debt/);
       expect(content).toMatch(/node scripts\/qa-harness-audit\.mjs --debt-mode error/);
+
+      const debtBlock = content.slice(content.indexOf("harness-debt:"));
+      expect(debtBlock).toMatch(/fetch-depth:\s*2/);
+      expect(debtBlock).toContain("MULTICA_LESSON_DEBT_WEBHOOK_URL: ${{ secrets.MULTICA_LESSON_DEBT_WEBHOOK_URL }}");
+      expect(debtBlock).toContain("node harness-kit/core/scripts/harness-debt-notify.mjs");
+      expect(debtBlock).not.toMatch(/set\s+-x|curl\s+-v|echo\s+.*MULTICA_LESSON_DEBT_WEBHOOK_URL/);
     });
 
     it("GIVEN workflows de GitHub THEN ningún uses apunta a @v4 de checkout o setup-node", () => {
