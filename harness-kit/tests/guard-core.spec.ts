@@ -516,3 +516,92 @@ describe("GOZS-524: protección de .git, bloqueo de repo-rewire y lectura del gu
     expect(shell("cat ~/.claude/projects/gozster/memory/x.md").allowed).toBe(true);
   });
 });
+
+describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas protegidas", () => {
+  const feature = mkdtempSync(path.join(tmpdir(), "guard-562-feature-"));
+  const harnessBranch = mkdtempSync(path.join(tmpdir(), "guard-562-harness-"));
+  const git = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, stdio: "pipe" });
+
+  beforeAll(() => {
+    const repos: Array<[string, string]> = [
+      [feature, "feature/562-non-harness"],
+      [harnessBranch, "chore/562-harness-guard-shell-inline"],
+    ];
+    for (const [dir, branch] of repos) {
+      git(dir, "init");
+      git(dir, "checkout", "-b", branch);
+      git(dir, "-c", "user.name=T", "-c", "user.email=t@users.noreply.github.com", "commit", "--allow-empty", "-m", "init");
+    }
+  });
+
+  afterAll(() => {
+    rmSync(feature, { recursive: true, force: true });
+    rmSync(harnessBranch, { recursive: true, force: true });
+  });
+
+  const shellFeature = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot: feature });
+  const shellHarness = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot: harnessBranch });
+  const target = "harness-kit/core/scripts/harness-merge-check.mjs";
+
+  const tableCases = [
+    `sed -i 's/a/b/' ${target}`,
+    `sed -i 's/a && b/c/' ${target}`,
+    `sed -i 's/a\\|b/c/' ${target}`,
+    `echo x > ${target}`,
+    `python3 -c "open('${target}','w').write('x')"`,
+    `node -e "require('fs').writeFileSync('${target}','x')"`,
+  ];
+
+  for (const command of tableCases) {
+    it(`GIVEN rama no-harness WHEN ${command} THEN bloquea con harness.authorized-only`, () => {
+      const res = shellFeature(command);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("harness.authorized-only");
+    });
+
+    it(`GIVEN rama autorizada chore/562-harness-guard-shell-inline WHEN ${command} THEN permite`, () => {
+      expect(shellHarness(command).allowed).toBe(true);
+    });
+  }
+
+  for (const command of [
+    `python -c "from pathlib import Path; Path('harness/project.json').write_text('x')"`,
+    `node -e "require('fs').appendFileSync('.github/workflows/ci.yml','x')"`,
+    `node --eval="require('fs').renameSync('a','harness/b')"`,
+    `node -p "require('fs').unlinkSync('${target}')"`,
+    `perl -e "open(my $f, '>', 'harness/a.txt'); print $f 'x'"`,
+    `ruby -e "File.write('harness/a.txt', 'x')"`,
+    `bash -c "sed -i 's/a && b/c/' ${target}"`,
+    `sh -c "python3 -c \\"open('${target}','w').write('x')\\""`,
+    `sed -i s/a\\|b/c/ ${target}`,
+    `cp /tmp/x.mjs "harness-kit/core/scripts/my file.mjs"`,
+  ]) {
+    it(`GIVEN rama no-harness WHEN variante inline/shell ${command} THEN bloquea con harness.authorized-only`, () => {
+      const res = shellFeature(command);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("harness.authorized-only");
+    });
+  }
+
+  for (const command of [
+    `rg -n "rm -f" harness-kit/core/guard/guard-core.mjs`,
+    `grep -n "Set-Content" harness/project.json`,
+    `rg -n "x > harness/" src/`,
+    `rg -n "a;node harness-render.mjs" harness/`,
+    `sed -n 's/a && b/c/p' ${target}`,
+    `python3 -c "print(open('harness/project.json').read())"`,
+    `python3 -c "print(open('harness/project.json','r').read())"`,
+    `node -e "process.stdout.write(require('fs').readFileSync('harness/project.json','utf8'))"`,
+    `ruby -e "puts File.read('harness/project.json')"`,
+    `echo x > /tmp/scratch.txt`,
+    `cat > /tmp/notes.md <<'EOF'\n> ${target}\nopen('harness/x','w').write('x')\nEOF`,
+    `echo x >> harness/experience/GOZS-562.jsonl`,
+    `python3 -c "open('harness/experience/GOZS-562.jsonl','a').write('x\\n')"`,
+    `node harness-kit/core/scripts/harness-render.mjs --check`,
+    `node harness-kit/core/scripts/harness-compose.mjs --task GOZS-562 --no-promote`,
+  ]) {
+    it(`GIVEN rama no-harness WHEN comando permitido/lectura ${command.split("\n")[0]} THEN permite`, () => {
+      expect(shellFeature(command).allowed).toBe(true);
+    });
+  }
+});

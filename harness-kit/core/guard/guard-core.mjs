@@ -300,21 +300,302 @@ const SHELL_WRITE_VERB =
   /((^|[\s;&|(])(cp|mv|install|dd|truncate|chmod|tee|rm|touch|ln|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
 // Same verbs minus copy-like ones (cp/install/ln/Copy-Item): those only write their LAST argument.
 const HARNESS_WRITE_VERB =
-  /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
+  /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+(?:-[a-zA-Z0-9]+\s+)*(?:-[a-zA-Z]*i|--in-place)\b|perl\s+(?:-[a-zA-Z0-9]+\s+)*-[a-zA-Z]*i\b|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
 const HARNESS_GENERATORS = /^(harness-render\.mjs|harness-compose\.mjs|bootstrap\.mjs)$/i;
 const SEGMENT_SPLIT = /;|&&|\|\||\||\n/;
-const COMMAND_WRAPPERS = /^(node|npx|bun|env|xargs|&)$/i;
+const COMMAND_WRAPPERS = /^(node|npx|bun|env|xargs|command|&)$/i;
+
+const PYTHON_WRITE_API = new RegExp(
+  [
+    "\\bopen\\s*\\((?:[^;)]|\\([^)]*\\))*?(?:,\\s*(?:mode\\s*=\\s*)?|\\bmode\\s*=\\s*)[\"'][waxr+bt]*[wax+][waxr+bt]*[\"']",
+    "\\.(?:write_text|write_bytes|writelines|unlink|rename|replace|mkdir|rmdir|touch|symlink_to|hardlink_to|chmod)\\s*\\(",
+    "\\b(?:os\\.(?:remove|unlink|rename|replace|rmdir|makedirs|mkdir|write|chmod|symlink|link|truncate|open)|shutil\\.(?:copy|copy2|copyfile|copytree|move|rmtree))\\s*\\(",
+  ].join("|")
+);
+const NODE_WRITE_API = new RegExp(
+  [
+    "\\b(?:writeFileSync|writeFile|appendFileSync|appendFile|writeSync|createWriteStream|renameSync|rename|unlinkSync|unlink|rmSync|rmdirSync|rmdir|copyFileSync|copyFile|cpSync|mkdirSync|mkdir|truncateSync|truncate|chmodSync|chmod|symlinkSync|symlink|linkSync|link)\\s*\\(",
+    "(?:\\bfs(?:Promises)?|\\bpromises|\\bfsp|require\\s*\\(\\s*[\"'](?:node:)?fs(?:\\/promises)?[\"']\\s*\\))\\.(?:write|rm|cp)\\s*\\(",
+    "(?:^|[^\\w.])rm\\s*\\(",
+    "\\b(?:openSync|fs\\.open|promises\\.open)\\s*\\((?:[^;)]|\\([^)]*\\))*?,\\s*[\"'][wax+]",
+  ].join("|")
+);
+const PERL_WRITE_API =
+  /\bopen\s*\((?:[^;)]|\([^)]*\))*?(?:,\s*["']\s*(?:>>?|\+>|\+<)|["']\s*>>?)|\b(?:unlink|rename|chmod|symlink|link|truncate|mkdir|rmdir|syswrite|spew)\b(?:\s*\(|\s+["'$@%a-zA-Z])/;
+const RUBY_WRITE_API =
+  /\b(?:File|IO)\.(?:write|binwrite|delete|unlink|rename|truncate|chmod)\b|\b(?:File|IO)\.open\s*\((?:[^;)]|\([^)]*\))*?,\s*["'][wax+]|\bFileUtils\.(?:rm|rm_f|rm_rf|mv|cp|cp_r|mkdir|mkdir_p|rmdir|touch|chmod|ln|ln_s|install)\b|\bDir\.(?:mkdir|rmdir|delete|unlink)\b/;
+
+/** Split a shell command into segments by `;`, `&&`, `||`, `|`, `|&`, `&`, `\n`, respecting quotes and escapes. */
+function splitShellSegments(cmd) {
+  const segments = [];
+  let cur = "";
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      cur += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < cmd.length) {
+        cur += ch + cmd[++i];
+        continue;
+      }
+      if (ch === '"') quote = null;
+      cur += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < cmd.length) {
+      cur += ch + cmd[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === ";" || ch === "\n") {
+      if (cur.trim()) segments.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "|") {
+      if (cur.trim()) segments.push(cur);
+      cur = "";
+      if (cmd[i + 1] === "|" || cmd[i + 1] === "&") i++;
+      continue;
+    }
+    if (ch === "&") {
+      const prev = cmd[i - 1] || "";
+      const next = cmd[i + 1] || "";
+      if (prev === ">" || prev === "<" || next === ">") {
+        cur += ch;
+        continue;
+      }
+      if (cur.trim()) segments.push(cur);
+      cur = "";
+      if (next === "&") i++;
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) segments.push(cur);
+  return segments;
+}
+
+/** Tokenize a single shell segment respecting quotes and escapes (preserves unquoted Windows backslashes). */
+function tokenizeShellSegment(seg) {
+  const tokens = [];
+  let cur = "";
+  let inToken = false;
+  let quote = null;
+  const s = String(seg || "").trim().replace(/^\(+/, "");
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < s.length && (s[i + 1] === '"' || s[i + 1] === "\\" || s[i + 1] === "$" || s[i + 1] === "`")) {
+        cur += s[++i];
+        continue;
+      }
+      if (ch === '"') quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      inToken = true;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < s.length && /[\s"'\\;|&<>()$`]/.test(s[i + 1])) {
+      cur += s[++i];
+      inToken = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      if (inToken) {
+        tokens.push(cur);
+        cur = "";
+        inToken = false;
+      }
+      continue;
+    }
+    cur += ch;
+    inToken = true;
+  }
+  if (inToken) tokens.push(cur);
+  return tokens;
+}
+
+/** Replace quoted literal contents with empty quotes so verb checks do not match search patterns. */
+function stripQuotedLiterals(seg) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < seg.length; i++) {
+    const ch = seg[i];
+    if (quote === "'") {
+      if (ch === "'") {
+        quote = null;
+        out += "''";
+      }
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < seg.length) {
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        quote = null;
+        out += '""';
+      }
+      continue;
+    }
+    if (ch === "\\" && i + 1 < seg.length) {
+      out += ch + seg[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/** Extract inline interpreter invocation `{ kind, code }` from a segment, or null. */
+const INLINE_WRAPPERS = /^(npx|env|xargs|command|&)$/i;
+
+function extractInlineInterpreter(seg) {
+  const tokens = tokenizeShellSegment(seg);
+  let i = 0;
+  while (
+    i < tokens.length &&
+    (INLINE_WRAPPERS.test(tokens[i]) || /^\w+=/.test(tokens[i]) || (i > 0 && tokens[i].startsWith("-")))
+  ) {
+    i++;
+  }
+  if (i >= tokens.length) return null;
+  const bin = tokens[i].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
+
+  let kind = null;
+  if (/^(ba|z|da)?sh$/.test(bin)) kind = "shell";
+  else if (/^python(\d+(\.\d+)*)?$/.test(bin)) kind = "python";
+  else if (/^(node(js)?|bun)$/.test(bin)) kind = "node";
+  else if (bin === "perl") kind = "perl";
+  else if (bin === "ruby") kind = "ruby";
+  else if (bin === "pwsh" || bin === "powershell") kind = "pwsh";
+  if (!kind) return null;
+
+  for (let j = i + 1; j < tokens.length; j++) {
+    const t = tokens[j];
+    if (t === "--") break;
+    if (kind === "shell") {
+      if (/^-[a-zA-Z]*c$/.test(t)) return tokens[j + 1] ? { kind, code: tokens[j + 1] } : null;
+      continue;
+    }
+    if (kind === "pwsh") {
+      if (/^-(?:c|command)$/i.test(t)) return tokens[j + 1] ? { kind, code: tokens.slice(j + 1).join(" ") } : null;
+      continue;
+    }
+    if (kind === "python") {
+      if (/^-[a-zA-Z]*c$/.test(t)) return tokens[j + 1] ? { kind, code: tokens[j + 1] } : null;
+      if (/^-c.+/.test(t)) return { kind, code: t.slice(2) };
+      continue;
+    }
+    if (kind === "node") {
+      if (/^-(?:e|p|pe|ep)$/.test(t) || t === "--eval" || t === "--print") {
+        return tokens[j + 1] ? { kind, code: tokens[j + 1] } : null;
+      }
+      if (t.startsWith("--eval=") || t.startsWith("--print=")) {
+        return { kind, code: t.slice(t.indexOf("=") + 1) };
+      }
+      if (/^-[ep].+/.test(t) && !/^-[a-zA-Z]+$/.test(t)) return { kind, code: t.slice(2) };
+      continue;
+    }
+    if (kind === "perl") {
+      if (/^-[a-zA-Z]*[eE]$/.test(t)) return tokens[j + 1] ? { kind, code: tokens[j + 1] } : null;
+      if (/^-[eE].+/.test(t)) return { kind, code: t.slice(2) };
+      continue;
+    }
+    if (kind === "ruby") {
+      if (/^-[a-zA-Z]*e$/.test(t)) return tokens[j + 1] ? { kind, code: tokens[j + 1] } : null;
+      if (/^-e.+/.test(t)) return { kind, code: t.slice(2) };
+      continue;
+    }
+  }
+  return null;
+}
+
+/** True when a segment redirects output (`>`, `>>`, `&>`, `&>>`) outside quotes into a protected harness path. */
+function hasUnquotedHarnessRedirect(seg, ref) {
+  let quote = null;
+  for (let i = 0; i < seg.length; i++) {
+    const ch = seg[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < seg.length) {
+        i++;
+        continue;
+      }
+      if (ch === '"') quote = null;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < seg.length) {
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === ">") {
+      if (seg[i + 1] === ">") i++;
+      let j = i + 1;
+      while (j < seg.length && /\s/.test(seg[j])) j++;
+      let target = "";
+      let tq = null;
+      while (j < seg.length) {
+        const c = seg[j];
+        if (tq) {
+          if (tq === '"' && c === "\\" && j + 1 < seg.length) target += seg[++j];
+          else if (c === tq) tq = null;
+          else target += c;
+        } else if (c === "'" || c === '"') {
+          tq = c;
+        } else if (/[\s;|&<>]/.test(c)) {
+          break;
+        } else {
+          target += c;
+        }
+        j++;
+      }
+      if (target && ref.test(` ${target}`)) return true;
+    }
+  }
+  return false;
+}
 
 /** A generator runs only when its script is in command position, never when it is just an argument (grep, sed, ls). */
 function runsHarnessGenerator(cmd) {
-  return cmd.split(SEGMENT_SPLIT).some((seg) => {
-    const tokens = seg.trim().replace(/^\(+/, "").split(/\s+/).filter(Boolean);
+  return splitShellSegments(cmd).some((seg) => {
+    const tokens = tokenizeShellSegment(seg);
     let i = 0;
     while (i < tokens.length && (COMMAND_WRAPPERS.test(tokens[i]) || /^\w+=/.test(tokens[i]) || (i > 0 && tokens[i].startsWith("-")))) i++;
-    if (/^(bash|sh)$/i.test(tokens[i] || "") && tokens[i + 1] === "-c") {
-      return runsHarnessGenerator(tokens.slice(i + 2).join(" ").replace(/^["']|["']$/g, ""));
+    if (/^(bash|sh)$/i.test(tokens[i] || "") && /^-[a-zA-Z]*c$/.test(tokens[i + 1] || "")) {
+      const inner = tokens.length === i + 3 ? tokens[i + 2] : tokens.slice(i + 2).join(" ");
+      return runsHarnessGenerator(inner);
     }
-    const script = (tokens[i] || "").replace(/["']/g, "").split(/[/\\]/).pop();
+    const script = (tokens[i] || "").split(/[/\\]/).pop();
     if (!HARNESS_GENERATORS.test(script)) return false;
     if (/^harness-render/i.test(script)) return !/--check\b/.test(seg);
     if (/^harness-compose/i.test(script)) return !/--no-promote\b/.test(seg);
@@ -324,7 +605,7 @@ function runsHarnessGenerator(cmd) {
 
 /** Heredoc bodies are data written somewhere, not paths read by the command. */
 function stripHeredocBodies(cmd) {
-  return cmd.replace(/(<<-?\s*(["']?)([A-Za-z_]\w*)\2[^\n]*)\n[\s\S]*?\n[ \t]*\3[ \t]*(?=\n|$)/g, "$1");
+  return cmd.replace(/(<<-?\s*(["']?)([A-Za-z_]\w*)\2[^\r\n]*)\r?\n[\s\S]*?\r?\n[ \t]*\3[ \t]*(?=\r?\n|$)/g, "$1");
 }
 const HARNESS_DIRS = "(harness|harness-kit|\\.github)[/\\\\](?!experience[/\\\\])";
 
@@ -337,22 +618,39 @@ function harnessPathPattern(repoRoot) {
   const fwd = path.resolve(repoRoot).replace(/\\/g, "/");
   const roots = new Set([fwd, fwd.replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`)]);
   const abs = [...roots].map((r) => esc(r).replace(/\//g, "[/\\\\]")).join("|");
-  return `(?:(?:^|[\\s"'=(])(?:\\.[/\\\\])?|(?:${abs})[/\\\\])${HARNESS_DIRS}`;
+  return `(?:(?:^|[\\s"'=(\`])(?:\\.[/\\\\])?|(?:${abs})[/\\\\])${HARNESS_DIRS}`;
 }
 
 /** True if the shell command writes a protected harness source of repoRoot. */
-function shellWritesHarness(cmd, repoRoot) {
+function shellWritesHarness(cmd, repoRoot, depth = 0) {
+  if (depth > 5) return false;
+  const cleaned = stripHeredocBodies(cmd);
   const target = harnessPathPattern(repoRoot);
   const ref = new RegExp(target, "i");
-  if (!ref.test(cmd)) return false;
-  if (new RegExp(`>>?\\s*["']?${target.replace("(?:^|[\\s\"'=(])", "")}`, "i").test(cmd)) return true;
-  for (const seg of cmd.split(/[;&|]+/)) {
+  if (!ref.test(cleaned)) return false;
+  for (const seg of splitShellSegments(cleaned)) {
     if (!ref.test(seg)) continue;
-    if (HARNESS_WRITE_VERB.test(seg)) return true;
+    if (hasUnquotedHarnessRedirect(seg, ref)) return true;
+    const inline = extractInlineInterpreter(seg);
+    if (inline) {
+      if (inline.kind === "shell" || inline.kind === "pwsh") {
+        if (shellWritesHarness(inline.code, repoRoot, depth + 1)) return true;
+      } else {
+        const targetsHarness = ref.test(inline.code) || (/\bargv\b/i.test(inline.code) && ref.test(seg));
+        if (targetsHarness) {
+          if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
+        }
+      }
+    }
+    const unquoted = stripQuotedLiterals(seg);
+    if (HARNESS_WRITE_VERB.test(unquoted)) return true;
     // cp/install/ln/Copy-Item: only the destination (last argument) matters.
-    if (/(^|\s)(cp|install|ln|Copy-Item)\s/i.test(seg)) {
-      const last = seg.trim().split(/\s+/).filter((a) => !a.startsWith("-")).pop() || "";
-      if (ref.test(` ${last.replace(/^["']|["']$/g, "")}`)) return true;
+    if (/(^|\s)(cp|install|ln|Copy-Item)\s/i.test(unquoted)) {
+      const last = tokenizeShellSegment(seg).filter((a) => !a.startsWith("-")).pop() || "";
+      if (ref.test(` ${last}`)) return true;
     }
   }
   return false;
