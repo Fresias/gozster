@@ -1,10 +1,10 @@
 {
   "candidate_id": "c1-harness-debt-notify",
-  "probe_branch": "probe/c1-harness-debt-notify-mwlmjog1",
+  "probe_branch": "probe/c1-harness-debt-notify-mwlmnw7o",
   "probe_cmd": "npx vitest run harness-kit/tests/harness-debt-notify.spec.ts harness-kit/tests/harness-ci-workflow.spec.ts harness-kit/tests/render.spec.ts",
   "passed": true,
   "exit_code": 0,
-  "duration_ms": 9625,
+  "duration_ms": 9502,
   "tests": {
     "harness-kit/tests/harness-ci-workflow.spec.ts::Harness² CI Workflows & Audit Debt Mode qa-harness-audit --debt-mode warn|error GIVEN 14 lecciones sin procesar WHEN --debt-mode error THEN sale con 0; con 15 lecciones WHEN --debt-mode warn THEN sale con 0 e imprime ::warning y con --debt-mode error sale con 1 sin tocar harness/ real": "passed",
     "harness-kit/tests/harness-ci-workflow.spec.ts::Harness² CI Workflows & Audit Debt Mode Static workflow verification (.github/workflows) GIVEN harness-merge-check.yml THEN usa pull_request_target, no hace checkout del head ni npm ci, pasa --event-action y declara issues: write": "passed",
@@ -38,9 +38,9 @@
     "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) un hecho de LongTermMEMORY.md sin [verified … | src: …] hace fallar el render con exit 1": "passed"
   },
   "target_components": [],
-  "timestamp": "2026-11-18T04:31:54.739Z",
-  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-debt-notify.spec.ts (7 tests) 798ms\n   ✓ Harness² Lesson Debt Threshold Notifier (harness-debt-notify) > GIVEN repo git con HEAD^ en 7 y HEAD en 8 WHEN extrae HEAD^ vía git archive THEN detecta el cruce sin git worktree  611ms\n ✓ harness-kit/tests/harness-ci-workflow.spec.ts (6 tests) 3201ms\n   ✓ Harness² CI Workflows & Audit Debt Mode > qa-harness-audit --debt-mode warn|error > GIVEN 14 lecciones sin procesar WHEN --debt-mode error THEN sale con 0; con 15 lecciones WHEN --debt-mode warn THEN sale con 0 e imprime ::warning y con --debt-mode error sale con 1 sin tocar harness/ real  3194ms\n ✓ harness-kit/tests/render.spec.ts (17 tests) 7229ms\n   ✓ harness-render: compilación de artefactos y presupuesto > el repo pasa la verificación de drift sin modificaciones  643ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > dos renders sucesivos son 100% idempotentes byte a byte  1127ms\n   ✓ harness-render: idempotencia y dete",
-  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-debt-notify.spec.ts harness-kit/tests/harness-ci-workflow.spec.ts harness-kit/tests/render.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-debt-notify-mwlmjp2m.json\n",
+  "timestamp": "2026-11-18T04:35:11.314Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-debt-notify.spec.ts (7 tests) 798ms\n   ✓ Harness² Lesson Debt Threshold Notifier (harness-debt-notify) > GIVEN repo git con HEAD^ en 7 y HEAD en 8 WHEN extrae HEAD^ vía git archive THEN detecta el cruce sin git worktree  610ms\n ✓ harness-kit/tests/harness-ci-workflow.spec.ts (6 tests) 3227ms\n   ✓ Harness² CI Workflows & Audit Debt Mode > qa-harness-audit --debt-mode warn|error > GIVEN 14 lecciones sin procesar WHEN --debt-mode error THEN sale con 0; con 15 lecciones WHEN --debt-mode warn THEN sale con 0 e imprime ::warning y con --debt-mode error sale con 1 sin tocar harness/ real  3221ms\n ✓ harness-kit/tests/render.spec.ts (17 tests) 7138ms\n   ✓ harness-render: compilación de artefactos y presupuesto > el repo pasa la verificación de drift sin modificaciones  678ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > dos renders sucesivos son 100% idempotentes byte a byte  1100ms\n   ✓ harness-render: idempotencia y dete",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-debt-notify.spec.ts harness-kit/tests/harness-ci-workflow.spec.ts harness-kit/tests/render.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-debt-notify-mwlmnwuh.json\n",
   "files_touched": [
     ".github/workflows/ci.yml",
     "AGENTS.md",
@@ -49,6 +49,8 @@
     "harness-kit/tests/harness-debt-notify.spec.ts",
     "harness-kit/tests/render.spec.ts",
     "harness/experience/GOZS-561.jsonl",
+    "harness/experience/probes/GOZS-561/baseline.json",
+    "harness/experience/probes/GOZS-561/c1-harness-debt-notify.json",
     "harness/harness.lock",
     "scripts/qa-harness-audit.mjs"
   ],
@@ -60,6 +62,8 @@
     "harness-kit/tests/harness-debt-notify.spec.ts",
     "harness-kit/tests/render.spec.ts",
     "harness/experience/GOZS-561.jsonl",
+    "harness/experience/probes/GOZS-561/baseline.json",
+    "harness/experience/probes/GOZS-561/c1-harness-debt-notify.json",
     "harness/harness.lock",
     "scripts/qa-harness-audit.mjs"
   ],
