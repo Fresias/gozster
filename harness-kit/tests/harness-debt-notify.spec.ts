@@ -76,14 +76,15 @@ describe("Harness² Lesson Debt Threshold Notifier (harness-debt-notify)", () =>
     expect(res.currentCount).toBe(8);
     expect(res.deliveryStatus).toBe("accepted");
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(fakeSecretUrl);
-    expect(calls[0].init.method).toBe("POST");
+    const firstCall = calls[0]!;
+    expect(firstCall.url).toBe(fakeSecretUrl);
+    expect(firstCall.init.method).toBe("POST");
 
-    const headers = calls[0].init.headers as Record<string, string>;
+    const headers = firstCall.init.headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
     expect(headers["Idempotency-Key"]).toBe("lesson-debt-8-abc123def");
 
-    const body = JSON.parse(calls[0].init.body as string);
+    const body = JSON.parse(firstCall.init.body as string);
     expect(body).toEqual({
       event: "harness.lesson_debt.threshold",
       threshold: 8,
@@ -164,7 +165,7 @@ describe("Harness² Lesson Debt Threshold Notifier (harness-debt-notify)", () =>
     expect(step2.notified).toBe(true);
     expect(step2.crossed).toBe(true);
     expect(calls).toHaveLength(1);
-    expect(JSON.parse(calls[0]).commit).toBe("sha-7-to-8");
+    expect(JSON.parse(calls[0]!).commit).toBe("sha-7-to-8");
   });
 
   it("GIVEN secreto ausente en cruce 7→8 WHEN evaluateAndNotifyDebt THEN emite ::warning y continúa sin fallo", async () => {
