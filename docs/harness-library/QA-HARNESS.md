@@ -59,7 +59,7 @@ Que cada problema detectado en la auditoría del harness (13 y 14 de noviembre) 
 
 | ID | Sev | Verificación | Cómo | Pasa si |
 |---|---|---|---|---|
-| G1 | P0 | Ruleset de `main` | `gh api repos/Fresias/gozster/rulesets`, después `.../rulesets/<id>`. Si da 403, Gabriel exporta el JSON desde la web | Activo; PR obligatorio; 1 aprobación; code owners; dismiss stale; checks `Typecheck, Lint & Test` y `harness/merge-check`; bloqueo de force push y borrado; bypass solo para Repository admin |
+| G1 | P0 | Ruleset de `main` | `gh api repos/Fresias/gozster/rulesets`, después `.../rulesets/<id>`. Si da 403, Gabriel exporta el JSON desde la web | Consolidado exclusivamente en el ruleset `Proteger` (ID `27250457`, `~DEFAULT_BRANCH`, sin branch protection rule clásica); activo; PR obligatorio; 1 aprobación; code owners; dismiss stale; checks obligatorios `harness/merge-check` y `Typecheck, Lint & Test` (fuente GitHub Actions, `integration_id: 15368`, con ramas al día); bloqueo de force push y borrado; lista de bypass vacía |
 | G2 | P0 | Cada PR mergeado desde #482 tuvo aprobación válida | `gh pr view <n> --json author,reviews,headRefOid,mergedBy,statusCheckRollup` | Autor AgentsMultica; review `APPROVED` de Fresias cuyo `commit_id` es el head mergeado; checks en verde |
 | G3 | P0 | Ningún merge con bypass | **Gabriel:** Settings → Rules → Insights, filtro "Bypassed" | Ninguno, o cada uno justificado |
 | G4 | P1 | Commits de agentes firmados como AgentsMultica | `gh pr view <n> --json commits` para los PRs desde #481 | Ningún autor `Gabriel`/`Fresias` en commits hechos por agentes |
