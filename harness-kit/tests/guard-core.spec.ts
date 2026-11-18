@@ -523,10 +523,11 @@ describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas 
   const git = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, stdio: "pipe" });
 
   beforeAll(() => {
-    for (const [dir, branch] of [
+    const repos: Array<[string, string]> = [
       [feature, "feature/562-non-harness"],
       [harnessBranch, "chore/562-harness-guard-shell-inline"],
-    ]) {
+    ];
+    for (const [dir, branch] of repos) {
       git(dir, "init");
       git(dir, "checkout", "-b", branch);
       git(dir, "-c", "user.name=T", "-c", "user.email=t@users.noreply.github.com", "commit", "--allow-empty", "-m", "init");
