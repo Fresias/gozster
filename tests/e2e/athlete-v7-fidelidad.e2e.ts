@@ -152,10 +152,6 @@ type RecetaRunner = (page: Page, tema: TemaContraste) => Promise<void>;
 export const SIN_RECETA: Record<string, string> = {
   // Sesión
   "rutina-molestia": "sin receta (falta FE-08)",
-  // Ejercicio
-  "ex-videos": "sin receta (falta FE-07)",
-  "ex-video-estados": "sin receta (falta FE-07)",
-  setvideo: "sin receta (falta FE-07)",
   // Molestias
   "mol-hereda": "sin receta (falta FE-08)",
   "mol-lumbar": "sin receta (falta FE-08)",
@@ -631,6 +627,90 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByTestId(`demo-technique-btn-${EJ_BP}`).click();
     await expect(page.getByTestId("exercise-video-modal")).toBeVisible();
   },
+  "ex-videos": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir1 = page.getByRole("button", { name: "Omitir" });
+    if (await omitir1.isVisible().catch(() => false)) await omitir1.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir2 = page.getByRole("button", { name: "Omitir" });
+    if (await omitir2.isVisible().catch(() => false)) await omitir2.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId("serie-video-btn-1").click();
+    await expect(page.getByTestId("video-upload-modal")).toBeVisible();
+    await page.getByTestId("video-link-toggle-btn").click();
+    await page.getByTestId("video-link-input").fill("https://youtu.be/ejemplo");
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-listo-1")).toBeVisible();
+    await page.getByTestId("registradas").scrollIntoViewIfNeeded();
+  },
+  setvideo: async (page, tema) => {
+    await RECETAS_EJERCICIO["ex-videos"]!(page, tema);
+    await page.getByTestId("serie-video-btn-2").click();
+    await expect(page.getByTestId("video-upload-modal")).toBeVisible();
+  },
+  "ex-video-estados": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    for (let i = 0; i < 4; i++) {
+      await page.getByTestId("registrar-serie-btn").click();
+      const omitir = page.getByRole("button", { name: "Omitir" });
+      if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    }
+    const backBtn = page.getByTestId("volver-a-rutina-btn");
+    if (await backBtn.isVisible().catch(() => false)) {
+      await backBtn.click();
+      await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    }
+    const videoFile = {
+      name: "serie.mp4",
+      mimeType: "video/mp4",
+      buffer: Buffer.from("00000018667479706d703432", "hex"),
+    };
+
+    // Serie 1 -> listo (enlace)
+    await page.getByTestId("serie-video-btn-1").click();
+    await page.getByTestId("video-link-toggle-btn").click();
+    await page.getByTestId("video-link-input").fill("https://youtu.be/ejemplo");
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-listo-1")).toBeVisible();
+
+    // Serie 4 -> error (HTTP 413)
+    await page.route("**/storage/v1/object/videos-series/**", async (route) => {
+      await route.fulfill({
+        status: 413,
+        contentType: "application/json",
+        body: JSON.stringify({ statusCode: "413", error: "Payload too large" }),
+      });
+    });
+    await page.getByTestId("serie-video-btn-4").click();
+    await page.getByTestId("video-gallery-input").setInputFiles(videoFile);
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-reintentar-4")).toBeVisible({ timeout: 10_000 });
+    await page.unroute("**/storage/v1/object/videos-series/**");
+
+    // Serie 2 -> subiendo (request pendiente mientras capturamos)
+    await page.route("**/storage/v1/object/videos-series/**", async () => {
+      // Mantener la subida en curso
+    });
+    await page.getByTestId("serie-video-btn-2").click();
+    await page.getByTestId("video-gallery-input").setInputFiles(videoFile);
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-subiendo-2")).toBeVisible({ timeout: 10_000 });
+
+    // Serie 3 -> telefono (sin señal)
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId("serie-video-btn-3").click();
+    await page.getByTestId("video-gallery-input").setInputFiles(videoFile);
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-telefono-3")).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId("registradas").scrollIntoViewIfNeeded();
+  },
 };
 
 export const RECETAS_MOLESTIAS: Record<string, RecetaRunner> = {
@@ -865,6 +945,7 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
           await run(page, tema);
           await verificarEstiloPantalla(page, clave, tema);
           await capturarAppYContraste(browser, page, clave, tema, filasGeneradas);
+          await page.unrouteAll({ behavior: "ignoreErrors" });
         });
       }
     }

@@ -28,11 +28,13 @@ import {
   Equal,
   Info,
   Smartphone,
+  ArrowUp,
 } from "@/components/athlete/icons";
 import { isWarmup, isDropset } from "@/lib/serie-tipo";
 import { calcularSeriesAproximacion, esEjercicioAislamiento } from "@/lib/aproximacion-pr";
 import { formatearCarga, formatearFechaCorta, serieDeReferencia } from "@/lib/historial-ejercicio";
 import { motivoSugerencia, partesTitulo } from "@/lib/sugerencia-carga";
+import { useAthleteStore } from "@/store/use-athlete-store";
 import {
   useLiveWorkout,
   etiquetaGrupoSuperserie,
@@ -167,6 +169,10 @@ export function EjercicioActivo() {
     setToastSesion,
     nombrePreferido,
   } = useLiveWorkout();
+
+  const adjuntarVideoASerie = useAthleteStore((s) => s.adjuntarVideoASerie);
+  const quitarVideoDeSerie = useAthleteStore((s) => s.quitarVideoDeSerie);
+  const reintentarVideoDeSerie = useAthleteStore((s) => s.reintentarVideoDeSerie);
 
   const [descansoInfo, setDescansoInfo] = React.useState(false);
   const [rpeAyuda, setRpeAyuda] = React.useState(false);
@@ -320,7 +326,7 @@ export function EjercicioActivo() {
               <ClipboardList width={20} height={20} className="a-i" />
             </button>
           )}
-          {ej.url_video && (
+          {Boolean(ej.url_video?.trim()) && (
             <button
               type="button"
               className="a-tool"
@@ -1067,6 +1073,79 @@ export function EjercicioActivo() {
                       <Trophy width={11} height={11} className="a-i" /> PR
                     </span>
                   )}
+                  {(() => {
+                    const videoEstado = s.videoEstado ?? (s.video_url ? "listo" : "ninguno");
+                    if (videoEstado === "subiendo") {
+                      return (
+                        <span
+                          className="a-chip a-line a-t-label"
+                          role="status"
+                          data-testid={`serie-video-subiendo-${s.numero_serie}`}
+                        >
+                          <ArrowUp width={11} height={11} className="a-i" /> Subiendo…
+                        </span>
+                      );
+                    }
+                    if (videoEstado === "telefono") {
+                      return (
+                        <span
+                          className="a-chip a-ap a-t-label"
+                          data-testid={`serie-video-telefono-${s.numero_serie}`}
+                        >
+                          <Smartphone width={11} height={11} className="a-i" /> Video en el teléfono
+                        </span>
+                      );
+                    }
+                    if (videoEstado === "error") {
+                      return (
+                        <button
+                          type="button"
+                          className="a-vbtn"
+                          onClick={() => void reintentarVideoDeSerie(ej.id, s.numero_serie)}
+                          aria-label={`Reintentar el video de la serie ${s.numero_serie}`}
+                          data-testid={`serie-video-reintentar-${s.numero_serie}`}
+                        >
+                          <TriangleAlert width={14} height={14} className="a-i" /> Reintentar video
+                        </button>
+                      );
+                    }
+                    if (videoEstado === "listo") {
+                      return (
+                        <button
+                          type="button"
+                          className="a-chip a-line a-t-label"
+                          onClick={() =>
+                            setVideoUploadModalData({
+                              exerciseId: ej.id,
+                              exerciseName: ej.nombre,
+                              setNumber: s.numero_serie,
+                            })
+                          }
+                          aria-label={`Video adjunto en la serie ${s.numero_serie}`}
+                          data-testid={`serie-video-listo-${s.numero_serie}`}
+                        >
+                          <Video width={11} height={11} className="a-i" /> Video
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        type="button"
+                        className="a-vbtn"
+                        onClick={() =>
+                          setVideoUploadModalData({
+                            exerciseId: ej.id,
+                            exerciseName: ej.nombre,
+                            setNumber: s.numero_serie,
+                          })
+                        }
+                        aria-label={`Agregar video a la serie ${s.numero_serie}`}
+                        data-testid={`serie-video-btn-${s.numero_serie}`}
+                      >
+                        <Video width={14} height={14} className="a-i" /> Video
+                      </button>
+                    );
+                  })()}
                   <span className="a-stt a-t-sec" data-testid={pendiente ? "serie-en-telefono" : "serie-guardada"}>
                     {pendiente ? (
                       <>
@@ -1124,6 +1203,41 @@ export function EjercicioActivo() {
           onClose={() => setVideoUploadModalData(null)}
           exerciseName={videoUploadModalData.exerciseName}
           setNumber={videoUploadModalData.setNumber}
+          currentVideoUrl={
+            currentSession.ejercicios
+              .find((e) => e.id === videoUploadModalData.exerciseId)
+              ?.series.find((s) => s.numero_serie === videoUploadModalData.setNumber)?.video_url ??
+            null
+          }
+          onAttachVideo={async (origen) => {
+            if (origen.tipo === "archivo") {
+              const offlineAhora = typeof navigator !== "undefined" && navigator.onLine === false;
+              const setNum = videoUploadModalData.setNumber;
+              void adjuntarVideoASerie(videoUploadModalData.exerciseId, setNum, origen);
+              setToastSesion({
+                mensaje: offlineAhora
+                  ? "Sin señal: el video se envía cuando vuelva la conexión."
+                  : `Video adjunto a la serie ${setNum}`,
+                tipo: "ok",
+              });
+              return "ok";
+            }
+            const res = await adjuntarVideoASerie(
+              videoUploadModalData.exerciseId,
+              videoUploadModalData.setNumber,
+              origen,
+            );
+            if (res === "ok") {
+              setToastSesion({
+                mensaje: `Video adjunto a la serie ${videoUploadModalData.setNumber}`,
+                tipo: "ok",
+              });
+            }
+            return res;
+          }}
+          onRemoveVideo={() => {
+            quitarVideoDeSerie(videoUploadModalData.exerciseId, videoUploadModalData.setNumber);
+          }}
           onSaveVideoUrl={(url) =>
             attachVideoForSet(videoUploadModalData.exerciseId, videoUploadModalData.setNumber, url)
           }

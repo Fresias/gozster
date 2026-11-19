@@ -399,6 +399,21 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
     });
   }
 
+  if (clave === "notes" || clave === "video" || clave === "setvideo") {
+    const testId =
+      clave === "notes"
+        ? "exercise-notes-modal"
+        : clave === "video"
+          ? "exercise-video-modal"
+          : "video-upload-modal";
+    checks.push({
+      descripcion: "Hoja modal (elevación nivel 3)",
+      selector: testId,
+      esTestId: true,
+      reglas: { boxShadowContains: dark ? "0px 8px 18px 6px" : "0px 6px 14px 4px" },
+    });
+  }
+
   return checks;
 }
 
