@@ -169,6 +169,13 @@ export const SIN_RECETA: Record<string, string> = {
   "ex-videos": "sin receta (falta FE-07)",
   "ex-video-estados": "sin receta (falta FE-07)",
   setvideo: "sin receta (falta FE-07)",
+  // Molestias
+  "mol-hereda": "sin receta (falta FE-08)",
+  "mol-lumbar": "sin receta (falta FE-08)",
+  "mol-no-hereda": "sin receta (falta FE-08)",
+  "mol-otro": "sin receta (falta FE-08)",
+  // Clases
+  "cls-mes": "sin receta (falta FE-10)",
 };
 
 export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
@@ -488,10 +495,179 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
   },
 };
 
+export const RECETAS_MOLESTIAS: Record<string, RecetaRunner> = {
+  "mol-modal": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId(`exercise-pain-report-btn-${EJ_BP}`).click();
+    await expect(page.getByTestId("pain-report-modal")).toBeVisible();
+    await page.getByTestId("zona-btn-hombro").click();
+    await page.getByTestId("intensity-chip-5").click();
+    await expect(page.getByTestId("pain-modal-cartel-4-6")).toBeVisible();
+  },
+  "mol-modal-alta": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-modal"]!(page, tema);
+    await page.getByTestId("intensity-chip-8").click();
+    await expect(page.getByTestId("pain-modal-cartel-7-9")).toBeVisible();
+  },
+  "mol-modal-alarma": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-modal"]!(page, tema);
+    await page.getByTestId("red-flag-label-Dolor punzante/súbito").click();
+    await expect(page.getByTestId("protocolo-freno-alert")).toBeVisible();
+  },
+  "mol-leve": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId(`exercise-pain-report-btn-${EJ_BP}`).click();
+    await page.getByTestId("zona-btn-hombro").click();
+    await page.getByTestId("intensity-chip-2").click();
+    await page.getByTestId("submit-pain-report-btn").click();
+    await expect(page.getByTestId("pain-banner-range-1-3")).toBeVisible();
+  },
+  "mol-mod": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-modal"]!(page, tema);
+    await page.getByTestId("submit-pain-report-btn").click();
+    await expect(page.getByTestId("pain-banner-range-4-6")).toBeVisible();
+  },
+  "mol-alta": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-modal-alta"]!(page, tema);
+    await page.getByTestId("submit-pain-report-btn").click();
+    await expect(page.getByTestId("pain-banner-range-7-9")).toBeVisible();
+  },
+  "mol-alarma": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-modal-alarma"]!(page, tema);
+    await page.getByTestId("submit-pain-report-btn").click();
+    await expect(page.getByTestId("live-workout-stop-protocol-banner")).toBeVisible();
+  },
+};
+
+const SESION_HIST_RECIENTE = FIXTURE_BASE.registro_sesiones[0].id as string;
+const SERIE_HIST_EDITABLE = FIXTURE_BASE.registro_series[1].id as string;
+
+async function irAHistorial(page: Page, tema: TemaContraste, opts?: Omit<PrepararOpciones, "tema">) {
+  await prepararEntorno(page, { tema, ...opts });
+  await page.goto("/athlete");
+  await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
+  await page.getByRole("link", { name: "Historial" }).first().click();
+  await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 25_000 });
+}
+
+export const RECETAS_HISTORIAL_PROGRESO: Record<string, RecetaRunner> = {
+  hist: async (page, tema) => {
+    await irAHistorial(page, tema);
+    await expect(page.getByTestId(`sesion-card-${SESION_HIST_RECIENTE}`)).toBeVisible({ timeout: 25_000 });
+    await page.getByTestId(`btn-expand-sesion-${SESION_HIST_RECIENTE}`).click();
+    await expect(page.getByTestId(`detalle-sesion-${SESION_HIST_RECIENTE}`)).toBeHidden();
+  },
+  "hist-open": async (page, tema) => {
+    await irAHistorial(page, tema);
+    await expect(page.getByTestId(`detalle-sesion-${SESION_HIST_RECIENTE}`)).toBeVisible({ timeout: 25_000 });
+  },
+  "hist-open-tec": async (page, tema) => {
+    await irAHistorial(page, tema, {
+      athleteStore: { nivelVistaAlumno: "TECNICA", vistaElegidaPorAlumno: "TECNICA" },
+    });
+    await expect(page.getByTestId(`detalle-sesion-${SESION_HIST_RECIENTE}`)).toBeVisible({ timeout: 25_000 });
+  },
+  "hist-fix": async (page, tema) => {
+    await RECETAS_HISTORIAL_PROGRESO["hist-open"]!(page, tema);
+    await page.getByTestId(`btn-editar-serie-${SERIE_HIST_EDITABLE}`).click();
+    await expect(page.getByTestId(`form-editar-serie-${SERIE_HIST_EDITABLE}`)).toBeVisible();
+  },
+  "hist-dash": async (page, tema) => {
+    await irAHistorial(page, tema);
+    await expect(page.getByTestId(`sesion-card-${SESION_HIST_RECIENTE}`)).toBeVisible({ timeout: 25_000 });
+    await page.getByTestId("tab-dashboard").click();
+    await expect(page.getByTestId("mini-dashboard-container")).toBeVisible();
+  },
+  "hist-vacio": async (page, tema) => {
+    const fixtureVacio = structuredClone(FIXTURE_BASE);
+    fixtureVacio.registro_sesiones = [];
+    fixtureVacio.registro_series = [];
+    await prepararEntorno(page, { tema, fixture: fixtureVacio });
+    await page.goto("/athlete/historial");
+    await expect(page.getByText("No hay sesiones completadas aún")).toBeVisible({ timeout: 25_000 });
+  },
+  "hist-off": async (page, tema) => {
+    await RECETAS_HISTORIAL_PROGRESO["hist-open"]!(page, tema);
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByText("Offline (Modo Avión)")).toBeVisible();
+  },
+  prog: async (page, tema) => {
+    await prepararEntorno(page, { tema });
+    await page.goto("/athlete/progreso");
+    await expect(page.getByTestId("progreso-ejercicio").first()).toBeVisible({ timeout: 25_000 });
+  },
+  "prog-tec": async (page, tema) => {
+    await prepararEntorno(page, {
+      tema,
+      athleteStore: { nivelVistaAlumno: "TECNICA", vistaElegidaPorAlumno: "TECNICA" },
+    });
+    await page.goto("/athlete/progreso");
+    await expect(page.getByText(/1RM estimado/i).first()).toBeVisible({ timeout: 25_000 });
+  },
+  "prog-vacio": async (page, tema) => {
+    const fixtureVacio = structuredClone(FIXTURE_BASE);
+    fixtureVacio.registro_sesiones = [];
+    fixtureVacio.registro_series = [];
+    await prepararEntorno(page, { tema, fixture: fixtureVacio });
+    await page.goto("/athlete/progreso");
+    await expect(page.getByText("Todavía no hay entrenamientos")).toBeVisible({ timeout: 25_000 });
+  },
+  "prog-off": async (page, tema) => {
+    await RECETAS_HISTORIAL_PROGRESO.prog!(page, tema);
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByText(/Sin conexión · datos del/i)).toBeVisible();
+  },
+};
+
+async function irAClases(page: Page, tema: TemaContraste) {
+  await prepararEntorno(page, { tema });
+  await page.goto("/athlete");
+  await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
+  await page.getByRole("link", { name: "Clases" }).first().click();
+  await expect(page.getByTestId("athlete-classes")).toBeVisible({ timeout: 25_000 });
+}
+
+export const RECETAS_CLASES: Record<string, RecetaRunner> = {
+  cls: async (page, tema) => {
+    await irAClases(page, tema);
+    await expect(page.getByTestId("class-booking-card").first()).toBeVisible();
+  },
+  "cls-reservada": async (page, tema) => {
+    await RECETAS_CLASES.cls!(page, tema);
+    await page.getByTestId("book-class-btn").first().click();
+    await expect(page.getByTestId("cancel-booking-btn").first()).toBeVisible();
+  },
+  "cls-cupo": async (page, tema) => {
+    await RECETAS_CLASES.cls!(page, tema);
+    await page.getByTestId("book-class-btn").first().click();
+    await page.getByTestId("book-class-btn").first().click();
+    await page.getByTestId("days-strip").getByRole("tab", { name: /Mié/i }).click();
+    await expect(page.getByTestId("attempt-limit-class-btn").first()).toBeVisible();
+  },
+  "cls-dia-vacio": async (page, tema) => {
+    await RECETAS_CLASES.cls!(page, tema);
+    await page.getByTestId("days-strip").getByRole("tab", { name: /Dom/i }).click();
+    await expect(page.getByText("No hay clases este día.")).toBeVisible();
+  },
+  "cls-off": async (page, tema) => {
+    await RECETAS_CLASES.cls!(page, tema);
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByText("Sin conexión · datos guardados")).toBeVisible();
+  },
+};
+
 const ALL_RECETAS: Record<string, RecetaRunner> = {
   ...RECETAS_ACCESO_ENTRENAR,
   ...RECETAS_SESION,
   ...RECETAS_EJERCICIO,
+  ...RECETAS_MOLESTIAS,
+  ...RECETAS_HISTORIAL_PROGRESO,
+  ...RECETAS_CLASES,
 };
 
 const GRUPOS_RECETAS: Array<[string, Record<string, RecetaRunner>]> = [
@@ -504,6 +680,9 @@ const GRUPOS_RECETAS: Array<[string, Record<string, RecetaRunner>]> = [
   ],
   ["Sesión", RECETAS_SESION],
   ["Ejercicio", RECETAS_EJERCICIO],
+  ["Molestias", RECETAS_MOLESTIAS],
+  ["Historial y progreso", RECETAS_HISTORIAL_PROGRESO],
+  ["Clases", RECETAS_CLASES],
 ];
 
 const TEMAS: TemaContraste[] = ["light", "dark"];
@@ -537,9 +716,10 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
     }
   }
 
-  test("[Cobertura] Claves sin receta documentadas para Acceso, Entrenar, Sesión y Ejercicio", async () => {
+  test("[Cobertura] Todas las 82 claves de PANTALLAS tienen receta o motivo sin receta", async () => {
     const cubiertas = new Set([...Object.keys(ALL_RECETAS), ...Object.keys(SIN_RECETA)]);
-    for (const k of PANTALLAS.slice(0, 54)) {
+    expect(PANTALLAS).toHaveLength(82);
+    for (const k of PANTALLAS) {
       expect(cubiertas.has(k), `Falta definir receta o sinReceta para ${k}`).toBe(true);
     }
   });
