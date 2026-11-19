@@ -29,6 +29,22 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
+import { getStorageUser } from "@/lib/user-storage";
+import {
+  extensionDeArchivoVideo,
+  normalizarEnlaceVideo,
+  validarArchivoVideo,
+} from "@/lib/athlete/video-serie";
+import {
+  eliminarVideoPendiente,
+  encolarVideo,
+  reintentarVideoPendiente,
+  subirPendientes,
+  type SetVideoSnapshot,
+  type SubirPendientesOpciones,
+  type VideoPendiente,
+} from "@/lib/athlete/video-subida";
+
 import {
   NOMBRE_PREFERIDO_MAX_LEN,
   normalizarNombrePreferido,
@@ -36,6 +52,7 @@ import {
 import { esUuid, nuevoUuid } from "@/lib/athlete/uuid";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
+export type VideoEstadoSerie = "ninguno" | "telefono" | "subiendo" | "listo" | "error";
 
 export interface LiveWorkoutSet {
   numero_serie: number;
@@ -48,7 +65,8 @@ export interface LiveWorkoutSet {
   set_type?: "W" | "N" | "F" | "D" | "WARMUP" | "NORMAL" | "FAILURE" | "DROPSET";
   pain_reported?: boolean;
   pain_notes?: string;
-  video_url?: string;
+  video_url?: string | null;
+  videoEstado?: VideoEstadoSerie;
   last_session_weight_kg?: number;
   last_session_reps?: number;
   atipica?: boolean;
@@ -208,6 +226,14 @@ interface AthleteStoreState {
     notes: string,
   ) => void;
   reportPainEvent: (report: PainReportData) => Promise<void>;
+  adjuntarVideoASerie: (
+    ejercicioEnRutinaId: string,
+    numeroSerie: number,
+    origen: { tipo: "enlace"; url: string } | { tipo: "archivo"; file: File },
+  ) => Promise<"ok" | "invalido" | "muy-pesado" | "muy-largo" | "formato">;
+  quitarVideoDeSerie: (ejercicioEnRutinaId: string, numeroSerie: number) => void;
+  reintentarVideoDeSerie: (ejercicioEnRutinaId: string, numeroSerie: number) => Promise<void>;
+  sincronizarVideosPendientes: (alumnoId?: string) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
     setNumber: number,
@@ -481,6 +507,117 @@ async function enviarNombrePreferidoRpc(
     );
     return { ok: false };
   }
+}
+
+function reencolarSerieCompletadaConVideo(
+  ses: LiveWorkoutSession,
+  ej: LiveWorkoutExercise,
+  s: LiveWorkoutSet,
+  videoUrl: string | null,
+  fallbackAlumnoId?: string,
+): void {
+  useOfflineQueueStore.getState().enqueueEvent({
+    id: `set-video-${ej.id}-${s.numero_serie}-${Date.now()}`,
+    action: "WORKOUT_SET_COMPLETED",
+    payload: {
+      sessionId: ses.id,
+      alumnoId: ses.studentId ?? fallbackAlumnoId,
+      diaId: ses.dia_id,
+      ejercicioId: ej.ejercicio_id ?? ej.id,
+      exerciseId: ej.id,
+      exerciseName: ej.nombre,
+      setNumber: s.numero_serie,
+      pesoKg: s.peso_kg,
+      reps: s.reps_hechas,
+      rpe: s.rpe_real,
+      setType: s.set_type || "N",
+      painReported: s.pain_reported || false,
+      painNotes: s.pain_notes || null,
+      videoUrl,
+      estimated1RM: s.estimated1RM ?? calculateEpley1RM(s.peso_kg, s.reps_hechas),
+      completedAt: s.completedAt ?? new Date().toISOString(),
+      atipica: Boolean(s.atipica),
+    },
+  });
+}
+
+function construirOpcionesSubidaVideo(
+  setState: (fn: (prev: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+  getState: () => AthleteStoreState,
+): SubirPendientesOpciones {
+  return {
+    estaOnline: () =>
+      useOfflineQueueStore.getState().isOnline &&
+      (typeof navigator === "undefined" ||
+        typeof navigator.onLine !== "boolean" ||
+        navigator.onLine),
+    onEstadoSerie: (item, estado, videoUrl) => {
+      if (getState().currentSession.id !== item.sesionId) return;
+      setState((prev) => ({
+        currentSession: {
+          ...prev.currentSession,
+          ejercicios: prev.currentSession.ejercicios.map((ej) => {
+            const coincide =
+              ej.id === (item.ejercicioEnRutinaId ?? item.ejercicioId) ||
+              (ej.ejercicio_id ?? ej.id) === item.ejercicioId;
+            if (!coincide) return ej;
+            return {
+              ...ej,
+              series: ej.series.map((s) =>
+                s.numero_serie === item.numeroSerie
+                  ? {
+                      ...s,
+                      videoEstado: estado,
+                      ...(videoUrl !== undefined ? { video_url: videoUrl } : {}),
+                    }
+                  : s,
+              ),
+            };
+          }),
+        },
+      }));
+    },
+    onSubidaExitosa: (item: VideoPendiente, videoUrl: string) => {
+      const actual = getState().currentSession;
+      if (actual.id === item.sesionId) {
+        const ejActual = actual.ejercicios.find(
+          (ej) =>
+            ej.id === (item.ejercicioEnRutinaId ?? item.ejercicioId) ||
+            (ej.ejercicio_id ?? ej.id) === item.ejercicioId,
+        );
+        const serieActual = ejActual?.series.find((s) => s.numero_serie === item.numeroSerie);
+        if (ejActual && serieActual && serieActual.completada) {
+          reencolarSerieCompletadaConVideo(actual, ejActual, serieActual, videoUrl, item.alumnoId);
+          return;
+        }
+      }
+      if (item.setSnapshot) {
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `set-video-${item.ejercicioEnRutinaId ?? item.ejercicioId}-${item.numeroSerie}-${Date.now()}`,
+          action: "WORKOUT_SET_COMPLETED",
+          payload: {
+            sessionId: item.sesionId,
+            alumnoId: item.alumnoId,
+            diaId: item.setSnapshot.diaId,
+            ejercicioId: item.ejercicioId,
+            exerciseId: item.setSnapshot.exerciseId ?? item.ejercicioEnRutinaId ?? item.ejercicioId,
+            exerciseName: item.setSnapshot.exerciseName,
+            setNumber: item.numeroSerie,
+            pesoKg: item.setSnapshot.pesoKg,
+            reps: item.setSnapshot.reps,
+            rpe: item.setSnapshot.rpe,
+            setType: item.setSnapshot.setType,
+            painReported: item.setSnapshot.painReported,
+            painNotes: item.setSnapshot.painNotes,
+            videoUrl,
+            estimated1RM: item.setSnapshot.estimated1RM,
+            completedAt: item.setSnapshot.completedAt ?? new Date().toISOString(),
+            atipica: Boolean(item.setSnapshot.atipica),
+          },
+        });
+      }
+    },
+  };
 }
 
 export const useAthleteStore = create<AthleteStoreState>()(
@@ -983,21 +1120,158 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
-      attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
-        set((state) => ({
+      adjuntarVideoASerie: async (ejercicioEnRutinaId, numeroSerie, origen) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return "invalido";
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        if (origen.tipo === "enlace") {
+          const urlNormalizada = normalizarEnlaceVideo(origen.url);
+          if (!urlNormalizada) return "invalido";
+          set((prev) => ({
+            currentSession: {
+              ...prev.currentSession,
+              ejercicios: prev.currentSession.ejercicios.map((ej) => {
+                if (ej.id !== ejercicioEnRutinaId) return ej;
+                return {
+                  ...ej,
+                  series: ej.series.map((s) =>
+                    s.numero_serie === numeroSerie
+                      ? { ...s, video_url: urlNormalizada, videoEstado: "listo" }
+                      : s,
+                  ),
+                };
+              }),
+            },
+          }));
+          if (targetSet.completada) {
+            reencolarSerieCompletadaConVideo(
+              session,
+              targetExercise,
+              targetSet,
+              urlNormalizada,
+              alumnoId,
+            );
+          }
+          await eliminarVideoPendiente({
+            alumnoId,
+            sesionId: session.id,
+            ejercicioId,
+            numeroSerie,
+          });
+          return "ok";
+        }
+
+        const validacion = await validarArchivoVideo(origen.file);
+        if (validacion !== "ok") return validacion;
+
+        const ext = extensionDeArchivoVideo(origen.file);
+        const setSnapshot: SetVideoSnapshot | undefined = targetSet.completada
+          ? {
+              diaId: session.dia_id,
+              exerciseId: targetExercise.id,
+              exerciseName: targetExercise.nombre,
+              pesoKg: targetSet.peso_kg,
+              reps: targetSet.reps_hechas,
+              rpe: targetSet.rpe_real,
+              setType: targetSet.set_type || "N",
+              painReported: targetSet.pain_reported || false,
+              painNotes: targetSet.pain_notes || null,
+              estimated1RM:
+                targetSet.estimated1RM ?? calculateEpley1RM(targetSet.peso_kg, targetSet.reps_hechas),
+              completedAt: targetSet.completedAt ?? new Date().toISOString(),
+              atipica: Boolean(targetSet.atipica),
+            }
+          : undefined;
+
+        await encolarVideo(
+          {
+            alumnoId,
+            sesionId: session.id,
+            ejercicioId,
+            ejercicioEnRutinaId,
+            numeroSerie,
+            blob: origen.file,
+            ext,
+            setSnapshot,
+          },
+          construirOpcionesSubidaVideo(set, get),
+        );
+
+        return "ok";
+      },
+
+      quitarVideoDeSerie: (ejercicioEnRutinaId, numeroSerie) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return;
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        set((prev) => ({
           currentSession: {
-            ...state.currentSession,
-            ejercicios: state.currentSession.ejercicios.map((ej) => {
-              if (ej.id !== exerciseId) return ej;
+            ...prev.currentSession,
+            ejercicios: prev.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== ejercicioEnRutinaId) return ej;
               return {
                 ...ej,
                 series: ej.series.map((s) =>
-                  s.numero_serie === setNumber ? { ...s, video_url: videoUrl } : s
+                  s.numero_serie === numeroSerie
+                    ? { ...s, video_url: null, videoEstado: "ninguno" }
+                    : s,
                 ),
               };
             }),
           },
         }));
+
+        void eliminarVideoPendiente({
+          alumnoId,
+          sesionId: session.id,
+          ejercicioId,
+          numeroSerie,
+        });
+
+        if (targetSet.completada) {
+          reencolarSerieCompletadaConVideo(session, targetExercise, targetSet, null, alumnoId);
+        }
+      },
+
+      reintentarVideoDeSerie: async (ejercicioEnRutinaId, numeroSerie) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return;
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        await reintentarVideoPendiente(
+          { alumnoId, sesionId: session.id, ejercicioId, numeroSerie },
+          construirOpcionesSubidaVideo(set, get),
+        );
+      },
+
+      sincronizarVideosPendientes: async (alumnoIdArg) => {
+        const alumnoId = alumnoIdArg ?? getStorageUser() ?? get().currentSession.studentId;
+        if (!alumnoId) return;
+        await subirPendientes(alumnoId, construirOpcionesSubidaVideo(set, get));
+      },
+
+      attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
+        void get().adjuntarVideoASerie(exerciseId, setNumber, {
+          tipo: "enlace",
+          url: videoUrl,
+        });
       },
 
       applyWarmupSetsToExercise: (exerciseId, warmupSets) => {

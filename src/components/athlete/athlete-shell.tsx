@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
+import { getStorageUser } from "@/lib/user-storage";
 import { createClient } from "@/lib/supabase/browser";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
@@ -53,6 +54,43 @@ function ControlesSesion({ isOnline }: { isOnline: boolean }) {
   );
 }
 
+export async function activarYSincronizarAlAbrir(alActivar?: () => void): Promise<void> {
+  try {
+    const { data } = await createClient().auth.getUser();
+    if (data.user) {
+      await activarUsuarioStorage(data.user.id);
+    }
+    alActivar?.();
+    if (typeof navigator === "undefined" || navigator.onLine !== false) {
+      await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      if (data.user) {
+        await useAthleteStore.getState().sincronizarVideosPendientes(data.user.id);
+      }
+    }
+  } catch {
+    // Silencioso en modo offline o sin sesión
+    alActivar?.();
+  }
+}
+
+export async function manejarReconexionOnline(flushQueue: () => Promise<void>): Promise<void> {
+  void flushQueue();
+  void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+  const userId = getStorageUser();
+  if (userId) {
+    await useAthleteStore.getState().sincronizarVideosPendientes(userId);
+    return;
+  }
+  try {
+    const { data } = await createClient().auth.getUser();
+    if (data.user) {
+      await useAthleteStore.getState().sincronizarVideosPendientes(data.user.id);
+    }
+  } catch {
+    // Silencioso si no hay sesión activa
+  }
+}
+
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
@@ -65,20 +103,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       reparadoRef.current = true;
       repararSesionesNoUuid();
     };
-    void createClient()
-      .auth.getUser()
-      .then(async ({ data }) => {
-        if (data.user) {
-          await activarUsuarioStorage(data.user.id);
-        }
-        repararUnaVez();
-        if (navigator.onLine) {
-          await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
-        }
-      })
-      .catch(() => {
-        repararUnaVez();
-      });
+    void activarYSincronizarAlAbrir(repararUnaVez);
   }, []);
 
   React.useEffect(() => {
@@ -91,8 +116,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
       // nunca ve "pendientes", para él sus datos ya estaban guardados.
-      void flushQueue();
-      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      void manejarReconexionOnline(flushQueue);
     };
     const handleOffline = () => setOnlineStatus(false);
 
