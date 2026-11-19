@@ -154,7 +154,6 @@ export const SIN_RECETA: Record<string, string> = {
   "inicio-instalar": "sin receta (falta FE-03)",
   "inicio-instalar-android": "sin receta (falta FE-03)",
   // Sesión
-  "rutina-terminar": "sin receta (falta FE-04)",
   "rutina-molestia": "sin receta (falta FE-08)",
   // Ejercicio
   "ex-tec-rpe": "sin receta (falta FE-05)",
@@ -263,12 +262,14 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
     await entrarADia1(page, tema);
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     for (let i = 0; i < 3; i++) {
       await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
       await page.getByTestId("registrar-serie-btn").click();
       const omitir = page.getByRole("button", { name: "Omitir" });
       if (await omitir.isVisible().catch(() => false)) await omitir.click();
     }
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId("volver-a-mis-dias-btn").click();
     await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("chip-red")).toContainText("Sin señal · 3 series");
@@ -324,14 +325,26 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
   },
   "rutina-curso": async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    for (let i = 0; i < 4; i++) {
+      await page.getByTestId("registrar-serie-btn").click();
+      const omitir = page.getByRole("button", { name: "Omitir" });
+      if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    }
     await page.getByTestId("registrar-serie-btn").click();
-    const omitir = page.getByRole("button", { name: "Omitir" });
-    if (await omitir.isVisible().catch(() => false)) await omitir.click();
-    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    const omitirBp = page.getByRole("button", { name: "Omitir" });
+    if (await omitirBp.isVisible().catch(() => false)) await omitirBp.click();
     await page.getByTestId("registrar-serie-btn").click();
-    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    if (await omitirBp.isVisible().catch(() => false)) await omitirBp.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(page.getByTestId("exercise-selector-column")).toBeVisible();
+  },
+  "rutina-terminar": async (page, tema) => {
+    await RECETAS_SESION["rutina-curso"]!(page, tema);
+    await page.getByTestId("terminar-entrenamiento-btn-entrenar").click();
+    await expect(page.getByTestId("confirmar-terminar-card")).toBeVisible();
+    await page.getByTestId("confirmar-terminar-card").scrollIntoViewIfNeeded();
   },
   registro: async (page, tema) => {
     await entrarADia1(page, tema);
@@ -340,9 +353,22 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
   },
   "registro-datos": async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    for (let i = 0; i < 4; i++) {
+      await page.getByTestId("registrar-serie-btn").click();
+      const omitir = page.getByRole("button", { name: "Omitir" });
+      if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    }
     await page.getByTestId("registrar-serie-btn").click();
-    const omitir = page.getByRole("button", { name: "Omitir" });
-    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    const omitir1 = page.getByRole("button", { name: "Omitir" });
+    if (await omitir1.isVisible().catch(() => false)) await omitir1.click();
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir2 = page.getByRole("button", { name: "Omitir" });
+    if (await omitir2.isVisible().catch(() => false)) await omitir2.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId("tab-registro-dia").click();
     await expect(page.getByTestId("registro-dia-container")).toBeVisible();
     await expect(page.getByTestId(`log-row-${EJ_SQ}-1`)).toBeVisible();
@@ -350,7 +376,7 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
   config: async (page, tema) => {
     await entrarADia1(page, tema);
     await page.getByTestId("athlete-settings-btn").click();
-    await expect(page.getByText("Configuración de la app")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Configuración" })).toBeVisible();
   },
   cuest: async (page, tema) => {
     await RECETAS_SESION.config!(page, tema);
@@ -380,15 +406,22 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
   },
   cierre: async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     await page.getByTestId("registrar-serie-btn").click();
     const omitir = page.getByRole("button", { name: "Omitir" });
     if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId("tab-registro-dia").click();
     await page.getByTestId("terminar-entrenamiento-btn").click();
     await expect(page.getByTestId("cierre-dia-modal")).toBeVisible({ timeout: 15_000 });
   },
   "cierre-off": async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir = page.getByRole("button", { name: "Omitir" });
+    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
     for (let i = 0; i < 3; i++) {
@@ -413,6 +446,7 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
 export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
   "ex-aprox": async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId(`single-exercise-container-${EJ_SQ}`)).toBeVisible();
   },
@@ -455,6 +489,7 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
   },
   "ex-rest": async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
     await page.getByTestId("registrar-serie-btn").click();
     await expect(page.getByTestId("rest-timer-banner")).toBeVisible();
@@ -511,6 +546,7 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
   },
   notes: async (page, tema) => {
     await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     await page.getByTestId(`exercise-notes-btn-${EJ_SQ}`).click();
     await expect(page.getByTestId("exercise-notes-modal")).toBeVisible();
   },

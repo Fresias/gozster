@@ -6,7 +6,9 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 describe("Athlete App: Auto-finalización en última serie (26/26) y ocultamiento de controles (GOZS-173 / Issue #179)", () => {
   const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
   const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
 
   beforeEach(() => {
     useOfflineQueueStore.setState({
@@ -92,8 +94,8 @@ describe("Athlete App: Auto-finalización en última serie (26/26) y ocultamient
     });
 
     it("en handleRegistrarSerie se verifica isLastSetOfWorkout para disparar handleTerminarEntrenamiento", () => {
-      expect(liveWorkoutCode).toContain("completedSetsCount + 1 === totalSets");
-      expect(liveWorkoutCode).toContain("void handleTerminarEntrenamiento()");
+      expect(useLiveWorkoutCode).toContain("completedSetsCount + 1 === totalSets");
+      expect(useLiveWorkoutCode).toContain("void handleTerminarEntrenamiento()");
     });
   });
 
