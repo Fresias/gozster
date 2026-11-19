@@ -8,17 +8,18 @@
 - **Decisiones:** D3 cerrada → A (`00-PM.md §4`). No quedan decisiones abiertas.
 - **Conteo en producción (2026-11-18):** `registro_series` últimos 30 días = **0**. No es concluyente: solo hay 2 usuarios de prueba y nadie entrenó en ese período. BE-00 sigue como P0 por el análisis de código.
 - **Issues:** creados los 20 (GOZS-574 a GOZS-593), en `backlog`, con stage = ola + 1.
-- **Bloqueo actual:** los issues pasan a `todo` cuando el paquete llegue a `main` (PR #515).
+- **Paquete en `main`:** PR #515 mergeado el 2026-11-19 (`e12a719`), con CI verde.
+- **En marcha:** ola 0 (GOZS-574 a GOZS-580) en `todo` desde el 2026-11-19. Las olas 1 a 3 siguen en `backlog` y se promueven a medida que se cumplen sus dependencias.
 
 | ID | Owner | Issue | Rama | Estado | Último CP | PR | Notas |
 |---|---|---|---|---|---|---|---|
-| BE-00 | backend | GOZS-574 | `fix/574-athlete-sesion-uuid` | backlog | CP1 (conteo = 0, no concluyente) | — | P0 |
-| BE-01 | backend | GOZS-575 | `feature/575-athlete-v7-nombre-preferido` | backlog | — | — | |
-| BE-02 | backend | GOZS-576 | `feature/576-athlete-v7-molestias` | backlog | — | — | Depende de BE-00 |
-| BE-03 | backend | GOZS-577 | `feature/577-athlete-v7-video-serie` | backlog | — | — | Depende de BE-00 |
-| BE-04 | backend | GOZS-578 | `feature/578-athlete-v7-indicaciones` | backlog | — | — | |
-| FE-01 | frontend | GOZS-579 | `feature/579-athlete-v7-base` | backlog | — | — | |
-| QA-01 | qa | GOZS-580 | `feature/580-athlete-v7-fidelidad` | backlog | — | — | |
+| BE-00 | backend | GOZS-574 | `fix/574-athlete-sesion-uuid` | todo | CP1 (conteo = 0, no concluyente) | — | P0 |
+| BE-01 | backend | GOZS-575 | `feature/575-athlete-v7-nombre-preferido` | todo | — | — | |
+| BE-02 | backend | GOZS-576 | `feature/576-athlete-v7-molestias` | todo | — | — | Depende de BE-00 |
+| BE-03 | backend | GOZS-577 | `feature/577-athlete-v7-video-serie` | todo | — | — | Depende de BE-00 |
+| BE-04 | backend | GOZS-578 | `feature/578-athlete-v7-indicaciones` | todo | — | — | |
+| FE-01 | frontend | GOZS-579 | `feature/579-athlete-v7-base` | todo | — | — | |
+| QA-01 | qa | GOZS-580 | `feature/580-athlete-v7-fidelidad` | todo | — | — | |
 | FE-02 | frontend | GOZS-581 | `feature/581-athlete-v7-shell` | backlog | — | — | |
 | FE-03 | frontend | GOZS-582 | `feature/582-athlete-v7-inicio` | backlog | — | — | |
 | FE-04 | frontend | GOZS-583 | `feature/583-athlete-v7-rutina` | backlog | — | — | |
