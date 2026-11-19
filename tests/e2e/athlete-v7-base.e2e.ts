@@ -151,7 +151,7 @@ test.describe("@mobile Athlete v7 · FE-01 Base visual", () => {
         fontStretch: "125%",
       });
       await esperarEstilo(page, "probe-label", {
-        fontFamilyContains: "Geist Mono",
+        fontFamilyContains: ["geistMono", "Geist Mono"],
         fontSizePx: 12,
         fontWeight: "600",
         textTransform: "uppercase",

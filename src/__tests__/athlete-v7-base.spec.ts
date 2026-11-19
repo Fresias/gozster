@@ -15,16 +15,31 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
     devDependencies?: Record<string, string>;
   };
 
-  it("layout.tsx carga Archivo, Geist y Geist_Mono desde next/font/google con sus variables CSS", () => {
-    expect(layoutSrc).toContain('from "next/font/google"');
-    expect(layoutSrc).toContain("Archivo");
-    expect(layoutSrc).toContain("Geist");
-    expect(layoutSrc).toContain("Geist_Mono");
+  it("layout.tsx carga Archivo, Geist y Geist Mono con next/font/local (sin next/font/google) y sus variables CSS", () => {
+    expect(layoutSrc).toContain('from "next/font/local"');
+    expect(layoutSrc).not.toContain("next/font/google");
+    expect(layoutSrc).toContain("./fonts/archivo-latin.woff2");
+    expect(layoutSrc).toContain("./fonts/geist-latin.woff2");
+    expect(layoutSrc).toContain("./fonts/geist-mono-latin.woff2");
     expect(layoutSrc).toContain('variable: "--a-f-display"');
     expect(layoutSrc).toContain('variable: "--a-f-sans"');
     expect(layoutSrc).toContain('variable: "--a-f-mono"');
-    expect(layoutSrc).toContain('axes: ["wdth"]');
+    expect(layoutSrc).toContain('display: "swap"');
+    expect(layoutSrc).toContain('weight: "800 900"');
+    expect(layoutSrc).toContain('weight: "400 700"');
+    expect(layoutSrc).toContain('weight: "600 700"');
+    expect(layoutSrc).toContain("62% 125%");
     expect(layoutSrc).toContain('import "./athlete-v7.css"');
+
+    for (const file of [
+      "src/app/(athlete)/athlete/fonts/archivo-latin.woff2",
+      "src/app/(athlete)/athlete/fonts/geist-latin.woff2",
+      "src/app/(athlete)/athlete/fonts/geist-mono-latin.woff2",
+    ]) {
+      const buf = readFileSync(resolve(ROOT, file));
+      expect(buf.subarray(0, 4).toString("ascii"), `${file} debe ser WOFF2 válido`).toBe("wOF2");
+    }
+    expect(read("src/app/(athlete)/athlete/fonts/OFL.txt")).toContain("SIL OPEN FONT LICENSE");
   });
 
   it("layout.tsx envuelve la app del alumno en .theme-athlete con data-v7 y las 3 variables de fuente", () => {
