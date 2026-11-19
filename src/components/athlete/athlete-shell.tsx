@@ -13,7 +13,7 @@ import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useChatStore } from "@/store/use-chat-store";
 import { cn } from "@/lib/utils";
-import { LogOut, MessageSquare } from "@/components/athlete/icons";
+import { Check, LogOut, MessageSquare } from "@/components/athlete/icons";
 
 const SERIES_SET_ACTIONS = new Set(["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"]);
 
@@ -166,6 +166,8 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   const ejercicioAbiertoId = useAthleteStore((s) => s.ejercicioAbiertoId);
   const cierreAbierto = useAthleteStore((s) => s.cierreAbierto);
   const cuestionarioAbierto = useAthleteStore((s) => s.cuestionarioAbierto);
+  const toastSesion = useAthleteStore((s) => s.toastSesion);
+  const setToastSesion = useAthleteStore((s) => s.setToastSesion);
   const { getUnreadStaffCount, isAthleteChatOpen, setAthleteChatOpen } = useChatStore();
   const unreadChatCount = getUnreadStaffCount();
   const reparadoRef = React.useRef(false);
@@ -194,6 +196,14 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
     };
     void activarYSincronizarAlAbrir(repararUnaVez);
   }, []);
+
+  React.useEffect(() => {
+    if (!toastSesion) return;
+    const timer = window.setTimeout(() => {
+      setToastSesion(null);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [toastSesion, setToastSesion]);
 
   React.useEffect(() => {
     const flushConIndicador = async () => {
@@ -299,6 +309,24 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
             </b>
           )}
         </button>
+      )}
+      {toastSesion && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="toast-sesion"
+          className={cn(
+            "a-toast a-t-sec a-show",
+            toastSesion.tipo === "ok" && "a-ok",
+          )}
+        >
+          {toastSesion.tipo === "ok" && (
+            <span className="a-tic">
+              <Check width={16} height={16} className="a-i" />
+            </span>
+          )}
+          <span>{toastSesion.mensaje}</span>
+        </div>
       )}
     </div>
   );

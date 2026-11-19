@@ -201,6 +201,9 @@ export function LiveWorkout() {
     planAlumno,
     marcas,
     registrarSerieEnMarcas,
+    nombrePreferido,
+    setCierreAbierto,
+    setToastSesion,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -304,6 +307,13 @@ export function LiveWorkout() {
   const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
   const [sessionPRs, setSessionPRs] = React.useState<RecordSesionItem[]>([]);
   const sessionStartTimeRef = React.useRef<number>(Date.now());
+
+  React.useEffect(() => {
+    setCierreAbierto(showCelebrationModal);
+    return () => {
+      setCierreAbierto(false);
+    };
+  }, [showCelebrationModal, setCierreAbierto]);
 
   // Modales
   const [videoExercise, setVideoExercise] = React.useState<LiveWorkoutExercise | null>(null);
@@ -2821,13 +2831,30 @@ export function LiveWorkout() {
         />
       )}
 
-      {/* Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180) */}
+      {/* Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180 · Athlete v7 FE-11) */}
       <CierreDiaModal
         isOpen={showCelebrationModal}
-        onClose={() => setShowCelebrationModal(false)}
+        onClose={() => {
+          setShowCelebrationModal(false);
+          setCierreAbierto(false);
+        }}
         onVolverInicio={() => {
           setShowCelebrationModal(false);
+          setCierreAbierto(false);
           volverAlInicio();
+          if (completedSetsCount > 0) {
+            setToastSesion({
+              mensaje: "Sesión guardada en tu historial",
+              tipo: "ok",
+              irAHistorial: true,
+            });
+          } else {
+            setToastSesion({
+              mensaje: "Sesión cerrada sin series",
+              tipo: "neutral",
+              irAHistorial: false,
+            });
+          }
         }}
         tonelajeKg={totalVolumeKg}
         seriesCompletadas={completedSetsCount}
@@ -2841,8 +2868,9 @@ export function LiveWorkout() {
           Math.max(1, (sesionesCompletadas?.length || 0) + 1)
         )}
         recordsObtenidos={sessionPRs}
-        studentName={currentSession.studentName || "Fernando Rosales"}
-        diaNombre={cleanDiaTitle || "Día 1"}
+        studentName={currentSession.studentName}
+        nombrePreferido={nombrePreferido}
+        diaNombre={cleanDiaTitle || "DÍA 1"}
       />
 
       {/* Diálogo HTML5 nativo para confirmación de serie atípica (GOZS-200) */}

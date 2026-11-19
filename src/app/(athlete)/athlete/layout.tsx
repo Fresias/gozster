@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Archivo, Geist, Geist_Mono } from "next/font/google";
 import { AthleteShell } from "@/components/athlete/athlete-shell";
+import { AthleteSessionNavigator } from "@/components/athlete/athlete-session-navigator";
 import { OnboardingAlumno } from "@/components/athlete/onboarding-alumno";
 import "./athlete-v7.css";
 
@@ -37,6 +38,7 @@ export default function AthleteAppLayout({
       {/* Onboarding de primera vez (GOZS-145): se monta en el layout, no en page.tsx,
           para no chocar con el sub-issue del Inicio. Se auto-oculta si ya se completó. */}
       <OnboardingAlumno />
+      <AthleteSessionNavigator />
       <AthleteShell>{children}</AthleteShell>
     </div>
   );
