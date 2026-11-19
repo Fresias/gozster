@@ -16,11 +16,6 @@ import type {
   RegistroSesion,
 } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
-import {
-  getPainBannerConfig,
-  type PainBannerData,
-} from "@/components/athlete/pain-banner";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -142,7 +137,6 @@ interface AthleteStoreState {
   rpeValidationError: string | null;
   rpeReminderNotification: string | null;
   stopProtocolActive: boolean;
-  activePainBanner: PainBannerData | null;
   molestiasPendientesFueraDeSesion: MolestiaSesion[];
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
@@ -206,8 +200,6 @@ interface AthleteStoreState {
   setColapsarRutina: (colapsar: boolean) => void;
   deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
-  setActivePainBanner: (banner: PainBannerData | null) => void;
-  clearActivePainBanner: () => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
   setOnboardingCompletado: (completado: boolean) => void;
@@ -241,7 +233,6 @@ interface AthleteStoreState {
   reportarMolestia: (datos: ReportarMolestiaInput) => Promise<MolestiaSesion>;
   flushMolestiasPendientes: () => Promise<void>;
   cargarMolestiasDeSesion: (sesionId?: string) => Promise<void>;
-  reportPainEvent: (report: PainReportData) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
     setNumber: number,
@@ -553,7 +544,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
       rpeValidationError: null,
       rpeReminderNotification: null,
       stopProtocolActive: false,
-      activePainBanner: null,
       molestiasPendientesFueraDeSesion: [],
       restTimer: {
         isActive: false,
@@ -720,8 +710,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
           return res;
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
-      setActivePainBanner: (banner) => set({ activePainBanner: banner }),
-      clearActivePainBanner: () => set({ activePainBanner: null }),
       setNivelVistaAlumno: (nivel) =>
         set({
           vistaElegidaPorAlumno: nivel,
@@ -1092,92 +1080,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
           });
         } catch {
           // Silencioso en modo offline
-        }
-      },
-
-      reportPainEvent: async (report) => {
-        const state = get();
-        const {
-          exerciseId,
-          setNumber,
-          zonaArticular,
-          severidad,
-          sintomasAlarma,
-          esSintomaAlarma,
-          notasAlumno,
-          momentoAparicion,
-        } = report;
-
-        // 1. Si está asociado a un ejercicio y serie, marcarlo
-        if (exerciseId && setNumber) {
-          const notesText = `[Dolor: ${severidad}] ${zonaArticular}${
-            sintomasAlarma.length > 0 ? ` (Síntomas: ${sintomasAlarma.join(", ")})` : ""
-          }${notasAlumno ? ` - ${notasAlumno}` : ""}`;
-
-          set((s) => ({
-            currentSession: {
-              ...s.currentSession,
-              ejercicios: s.currentSession.ejercicios.map((ej) => {
-                if (ej.id !== exerciseId) return ej;
-                return {
-                  ...ej,
-                  series: ej.series.map((serie) =>
-                    serie.numero_serie === setNumber
-                      ? { ...serie, pain_reported: true, pain_notes: notesText }
-                      : serie
-                  ),
-                };
-              }),
-            },
-          }));
-        }
-
-        // 2. Generar cartel del reporte de dolor por rango (GOZS-278)
-        const painBanner = getPainBannerConfig(report.intensidadNumerica, {
-          exerciseName: report.exerciseName,
-          sintomasAlarma: report.sintomasAlarma,
-        });
-        set({ activePainBanner: painBanner });
-
-        // 3. Activar protocolo de freno si hay Red Flags o dolor agudo
-        if (esSintomaAlarma || severidad === "AGUDO") {
-          set({ stopProtocolActive: true });
-        }
-
-        // 3. Encolar evento offline en Zustand
-        useOfflineQueueStore.getState().enqueueEvent({
-          id: `pain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          action: "PAIN_REPORT_SUBMITTED",
-          payload: {
-            sessionId: state.currentSession.id,
-            studentId:
-              state.currentSession.studentId || DEFAULT_ATHLETE_ID,
-            ...report,
-          },
-        });
-
-        // 4. Guardar en Supabase si está disponible
-        try {
-          const studentId =
-            state.currentSession.studentId || DEFAULT_ATHLETE_ID;
-          const resolvedExerciseId =
-            exerciseId && exerciseId.length === 36
-              ? exerciseId
-              : "30000000-0000-0000-0000-000000000001";
-
-          await supabase.from("alumno_historial_dolor").insert({
-            alumno_id: studentId,
-            ejercicio_id: resolvedExerciseId,
-            zona_articular: zonaArticular,
-            severidad,
-            momento_aparicion: momentoAparicion,
-            es_sintoma_alarma: esSintomaAlarma,
-            sintomas_alarma: sintomasAlarma,
-            notas_alumno: notasAlumno || null,
-            estado: "PENDIENTE",
-          });
-        } catch {
-          // Silencioso en modo offline o test
         }
       },
 
@@ -2140,7 +2042,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
-          activePainBanner: null,
           diaActivoId: null,
           diaElegidoHoyId: null,
           diaSugeridoId: null,
