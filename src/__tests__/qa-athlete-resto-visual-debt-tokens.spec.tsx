@@ -114,9 +114,9 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(historial).toContain("text-success-soft-foreground");
     expect(historial).toContain("border-warning-soft-border");
 
-    expect(paywall).toContain("bg-warning-soft");
-    expect(paywall).toContain("text-warning-soft-foreground");
-    expect(paywall).toContain("bg-success");
+    expect(paywall).toContain("a-banner");
+    expect(paywall).toContain("a-sheet-wrap a-center");
+    expect(paywall).not.toContain("bg-success");
 
     expect(habits).toContain("bg-success-soft");
     expect(habits).toContain("bg-warning-soft");

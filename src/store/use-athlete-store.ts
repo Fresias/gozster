@@ -299,6 +299,7 @@ interface AthleteStoreState {
   // Session & Routine Loaders
   planAlumno: LiveSupabaseDataset | null;
   cargandoPlan: boolean;
+  errorPlan: boolean;
   cargarPlanAlumno: () => Promise<void>;
   setSession: (session: LiveWorkoutSession) => void;
   loadStudentSession: (
@@ -746,6 +747,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       sesionesCompletadas: [],
       planAlumno: null,
       cargandoPlan: false,
+      errorPlan: false,
       ultimaVez: {},
       cargandoUltimaVez: false,
       marcas: {},
@@ -2336,10 +2338,15 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
 
       cargarPlanAlumno: async () => {
-        set({ cargandoPlan: true });
+        set({ cargandoPlan: true, errorPlan: false });
         try {
           const plan = await fetchPlanAlumno();
-          if (!plan) return;
+          if (!plan) {
+            if (!get().planAlumno) {
+              set({ errorPlan: true });
+            }
+            return;
+          }
           const pendiente = get().nombrePreferidoPendiente;
           if (pendiente !== undefined) {
             set({ planAlumno: aplicarNombrePreferidoEnPlan(plan, pendiente) });
@@ -2365,6 +2372,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
           }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
+          if (!get().planAlumno) {
+            set({ errorPlan: true });
+          }
         } finally {
           set({ cargandoPlan: false });
         }

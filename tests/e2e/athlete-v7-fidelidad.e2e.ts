@@ -149,10 +149,6 @@ async function capturarAppYContraste(
 type RecetaRunner = (page: Page, tema: TemaContraste) => Promise<void>;
 
 export const SIN_RECETA: Record<string, string> = {
-  // Entrenar
-  "inicio-error": "sin receta (falta FE-03)",
-  "inicio-instalar": "sin receta (falta FE-03)",
-  "inicio-instalar-android": "sin receta (falta FE-03)",
   // Sesión
   "rutina-molestia": "sin receta (falta FE-08)",
   // Ejercicio
@@ -238,7 +234,33 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
     await prepararEntorno(page, { tema, fixture: fixtureSinPlan });
     await page.goto("/athlete");
     await expect(page.getByTestId("inicio-sin-plan")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByText(/Todavía no tenés un plan asignado/i)).toBeVisible();
+    await expect(page.getByText(/Todavía no tenés un plan/i)).toBeVisible();
+  },
+  "inicio-error": async (page, tema) => {
+    await prepararEntorno(page, { tema });
+    await page.goto("/athlete/historial");
+    await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 25_000 });
+    await page.route("**/rest/v1/planes_entrenamiento*", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Internal Server Error" }),
+      });
+    });
+    await page.getByRole("link", { name: "Entrenar", exact: true }).click({ position: { x: 64, y: 16 } });
+    await expect(page.getByTestId("inicio-error")).toBeVisible({ timeout: 15_000 });
+  },
+  "inicio-instalar": async (page, tema) => {
+    await RECETAS_ACCESO_ENTRENAR.inicio!(page, tema);
+    await page.getByTestId("instalar-app-btn").click();
+    await expect(page.getByTestId("instalar-app-sheet")).toBeVisible();
+    await page.getByTestId("instalar-os-ios").click();
+  },
+  "inicio-instalar-android": async (page, tema) => {
+    await RECETAS_ACCESO_ENTRENAR.inicio!(page, tema);
+    await page.getByTestId("instalar-app-btn").click();
+    await expect(page.getByTestId("instalar-app-sheet")).toBeVisible();
+    await page.getByTestId("instalar-os-android").click();
   },
   "inicio-cargando": async (page, tema) => {
     await prepararEntorno(page, { tema });

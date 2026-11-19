@@ -202,6 +202,18 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
     );
   }
 
+  if (clave === "inicio-vencida") {
+    checks.push({
+      descripcion: "Banner suscripción vencida (tinta y advertencia v7)",
+      selector: "athlete-expired-banner",
+      esTestId: true,
+      reglas: {
+        backgroundColor: dark ? "rgb(24, 24, 27)" : "rgb(255, 255, 255)",
+        borderColor: dark ? PAPER : INK,
+      },
+    });
+  }
+
   if (clave === "rutina" || clave === "rutina-curso") {
     checks.push({
       descripcion: "Título DÍA 1 (Archivo 32px 800 stretch 112%)",

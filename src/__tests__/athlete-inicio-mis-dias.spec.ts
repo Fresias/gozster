@@ -32,17 +32,17 @@ describe("Athlete App: Inicio Mis días + hacer otro día (GOZS-147)", () => {
 
     it("el componente InicioMisDias lista N días según el plan y muestra el Hero con el día actual", () => {
       expect(inicioCode).toContain('data-testid="inicio-mis-dias-container"');
+      expect(inicioCode).toContain('data-testid="heroe-te-toca-hoy"');
       expect(inicioCode).toContain('data-testid="hero-dia-hoy"');
       expect(inicioCode).toContain('data-testid="empezar-dia-btn"');
       expect(inicioCode).toContain('data-testid="hacer-otro-dia-btn"');
     });
 
-    it("respeta las reglas de diseño: toques >= 48px, botón principal h-14, Lucide y sin emojis", () => {
-      expect(inicioCode).toContain("h-14");
-      expect(inicioCode).toContain("rounded-[14px]");
-      expect(inicioCode).toContain("bg-[#38BDF8]");
-      expect(inicioCode).toContain("text-[#0F172A]");
-      expect(inicioCode).toContain("bg-[#0F172A]");
+    it("respeta las reglas de diseño v7: clases a-hero / a-btn a-hbtn a-gym y sin emojis (02-pantallas.md §1)", () => {
+      expect(inicioCode).toContain("a-hero");
+      expect(inicioCode).toContain("a-btn a-hbtn a-gym");
+      expect(inicioCode).toContain("a-btn a-hero-ghost");
+      expect(inicioCode).toContain("a-card a-days");
       // Sin emojis directos
       expect(inicioCode).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u);
     });
@@ -91,7 +91,7 @@ describe("Athlete App: Inicio Mis días + hacer otro día (GOZS-147)", () => {
     });
 
     it("el toast permite deshacer el cambio dentro de la ventana de 5 segundos", () => {
-      expect(inicioCode).toContain('data-testid="toast-cambio-dia"');
+      expect(inicioCode).toContain("toast-cambio-dia");
       expect(inicioCode).toContain('data-testid="deshacer-cambio-dia-btn"');
       expect(inicioCode).toContain("Deshacer");
     });
