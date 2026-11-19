@@ -29,8 +29,7 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { esUuid, nuevoUuid } from "@/lib/athlete/uuid";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -520,7 +519,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set((state) => {
           const session = state.currentSession;
           const studentId = session?.studentId || DEFAULT_ATHLETE_ID;
-          const sessionId = session?.id || ("sesion-" + Date.now());
+          const sessionId = session?.id || nuevoUuid();
           const fechaIso = new Date().toISOString();
 
           const nuevasSesiones = [
@@ -1213,12 +1212,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
       // Sin red no consulta: queda lo persistido. Nunca bloquea el registro de una serie.
       cargarUltimaVez: async () => {
         const session = get().currentSession;
-        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => UUID_RE.test(id));
+        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => esUuid(id));
         if (ids.length === 0 || !useOfflineQueueStore.getState().isOnline) return;
 
         // Solo sesiones anteriores al día de la sesión en curso (hora de Buenos Aires).
         const antesDe = `${session.fecha}T00:00:00-03:00`;
-        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+        const alumnoId = session.studentId && esUuid(session.studentId) ? session.studentId : null;
         set({ cargandoUltimaVez: true });
         try {
           const filas = await Promise.all(
@@ -1267,7 +1266,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 1. Intentar resolver usuario autenticado de la sesión Supabase
         try {
           const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id && UUID_RE.test(authData.user.id)) {
+          if (authData?.user?.id && esUuid(authData.user.id)) {
             alumnoId = authData.user.id;
           }
         } catch (err) {
@@ -1277,7 +1276,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 2. Si no hay auth, resolver desde el perfil de plan persistido
         if (!alumnoId) {
           const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
-          if (planStudentId && UUID_RE.test(planStudentId)) {
+          if (planStudentId && esUuid(planStudentId)) {
             alumnoId = planStudentId;
           }
         }
@@ -1285,13 +1284,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
         if (!alumnoId) {
           const session = get().currentSession;
-          if (session?.studentId && UUID_RE.test(session.studentId)) {
+          if (session?.studentId && esUuid(session.studentId)) {
             alumnoId = session.studentId;
           }
         }
 
         // 4. Fallback al atleta por defecto para entornos demo y testing
-        if (!alumnoId && DEFAULT_ATHLETE_ID && UUID_RE.test(DEFAULT_ATHLETE_ID)) {
+        if (!alumnoId && DEFAULT_ATHLETE_ID && esUuid(DEFAULT_ATHLETE_ID)) {
           alumnoId = DEFAULT_ATHLETE_ID;
         }
 
@@ -1361,7 +1360,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!useOfflineQueueStore.getState().isOnline) return;
         const session = get().currentSession;
         const studentId = session.studentId || DEFAULT_ATHLETE_ID;
-        if (!UUID_RE.test(studentId)) return;
+        if (!esUuid(studentId)) return;
 
         set({ cargandoHistorial: true });
         try {
@@ -1481,7 +1480,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Sincronizar en Supabase si estamos online
         if (useOfflineQueueStore.getState().isOnline) {
           try {
-            if (UUID_RE.test(serieId)) {
+            if (esUuid(serieId)) {
               await supabase
                 .from("registro_series")
                 .update({
@@ -1685,7 +1684,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
           const plan = await fetchPlanAlumno();
           if (!plan) return;
           set({ planAlumno: plan });
-          get().loadStudentSession(plan.alumnos[0]?.id);
+          const prev = get().currentSession;
+          const studentId = plan.alumnos[0]?.id;
+          const diaEnCurso =
+            studentId &&
+            prev.studentId === studentId &&
+            esUuid(prev.id) &&
+            !get().sesionesCompletadas.some((s) => s.id === prev.id) &&
+            plan.dias.some((d) => d.id === prev.dia_id)
+              ? prev.dia_id
+              : undefined;
+          get().loadStudentSession(studentId, diaEnCurso);
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
         } finally {
@@ -1764,16 +1773,30 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         const sortedExercises = sortExercisesWithWarmupFirst(mappedExercises);
 
+        const prev = get().currentSession;
+        const sesionYaCerrada = get().sesionesCompletadas.some((s) => s.id === prev.id);
+        const esMismaSesionEnCurso =
+          prev.studentId === student.id &&
+          prev.dia_id === selectedDia.id &&
+          esUuid(prev.id) &&
+          !sesionYaCerrada;
+
+        const hasCompletedSets =
+          esMismaSesionEnCurso &&
+          prev.ejercicios.some((ej) => ej.series.some((s) => s.completada));
+
         const newSession: LiveWorkoutSession = {
-          id: `session-${student.id}-${selectedDia.id}`,
+          id: esMismaSesionEnCurso ? prev.id : nuevoUuid(),
           nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
           fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-          ejercicios: sortedExercises,
+          ejercicios: hasCompletedSets ? prev.ejercicios : sortedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
           dia_id: selectedDia.id,
-          dia_sugerido_id: diaSugeridoId ?? null,
-          motivo_cambio_dia: motivo ?? null,
+          dia_sugerido_id:
+            diaSugeridoId ?? (hasCompletedSets ? (prev.dia_sugerido_id ?? null) : null),
+          motivo_cambio_dia:
+            motivo ?? (hasCompletedSets ? (prev.motivo_cambio_dia ?? null) : null),
         };
 
         const coachRecomendada =
