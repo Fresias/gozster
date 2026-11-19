@@ -317,7 +317,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
                 </div>
                 <div className="a-hbody">
                   <div className="a-ht">
-                    <b className="a-t-bs">{sesion.encabezado}</b>
+                    <b className="a-t-bs">{sesion.diaNombre}</b>
                     {prs > 0 && (
                       <span className="a-chip a-pr a-t-label" data-testid="chip-pr">
                         <Trophy width={12} height={12} aria-hidden="true" /> {prs} PR

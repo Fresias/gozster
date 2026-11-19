@@ -672,13 +672,13 @@ export const RECETAS_HISTORIAL_PROGRESO: Record<string, RecetaRunner> = {
     fixtureVacio.registro_series = [];
     await prepararEntorno(page, { tema, fixture: fixtureVacio });
     await page.goto("/athlete/historial");
-    await expect(page.getByText("No hay sesiones completadas aún")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText("Todavía no hay sesiones")).toBeVisible({ timeout: 25_000 });
   },
   "hist-off": async (page, tema) => {
     await RECETAS_HISTORIAL_PROGRESO["hist-open"]!(page, tema);
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-    await expect(page.getByText("Offline (Modo Avión)")).toBeVisible();
+    await expect(page.getByTestId("historial-sin-conexion")).toBeVisible();
   },
   prog: async (page, tema) => {
     await prepararEntorno(page, { tema });
