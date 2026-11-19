@@ -3,8 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { repararSesionesNoUuid } from "@/store/use-athlete-store";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { createClient } from "@/lib/supabase/browser";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -72,6 +72,9 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
           await activarUsuarioStorage(data.user.id);
         }
         repararUnaVez();
+        if (navigator.onLine) {
+          await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+        }
       })
       .catch(() => {
         repararUnaVez();
@@ -79,12 +82,17 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    setOnlineStatus(navigator.onLine);
+    const online = navigator.onLine;
+    setOnlineStatus(online);
+    if (online) {
+      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+    }
     const handleOnline = () => {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
       // nunca ve "pendientes", para él sus datos ya estaban guardados.
       void flushQueue();
+      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
     };
     const handleOffline = () => setOnlineStatus(false);
 
