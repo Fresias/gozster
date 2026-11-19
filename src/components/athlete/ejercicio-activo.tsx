@@ -51,6 +51,12 @@ const BARRAS = [
 ];
 const DISCOS = [25, 20, 15, 10, 5, 2.5, 1.25];
 
+/** Parsea un peso ingresado manualmente aceptando punto o coma como separador decimal. */
+export function parsearPesoDecimal(raw: string): number {
+  const v = parseFloat(raw.trim().replace(",", "."));
+  return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+
 /** Discos por lado para una carga total y el peso de la barra (D-21). */
 export function discosPorLado(totalKg: number, barraKg: number): { perSide: number; discos: number[]; resto: number } {
   const perSide = (totalKg - barraKg) / 2;
@@ -168,8 +174,14 @@ export function EjercicioActivo() {
   const [aproxHechasPorEj, setAproxHechasPorEj] = React.useState<Record<string, boolean[]>>({});
   const [barra, setBarra] = React.useState("olimpica");
   const [barraKg, setBarraKg] = React.useState(20);
+  const [pesoDraft, setPesoDraft] = React.useState<string | null>(null);
+  const [barraDraft, setBarraDraft] = React.useState<string | null>(null);
   const [wakeActivo, setWakeActivo] = React.useState(false);
   const [segundos, setSegundos] = React.useState(0);
+
+  React.useEffect(() => {
+    setPesoDraft(null);
+  }, [currentExercise?.id, serie?.numero_serie]);
 
   React.useEffect(() => {
     setCierreAbierto(showCelebrationModal);
@@ -577,6 +589,7 @@ export function EjercicioActivo() {
               data-testid="sugerencia-carga"
               data-tipo={sugerencia.tipo}
               onClick={() => {
+                setPesoDraft(null);
                 updateSetField(ej.id, serie.numero_serie, "peso_kg", sugerencia.pesoSugerido);
                 updateSetField(ej.id, serie.numero_serie, "reps_hechas", sugerencia.repsSugeridas);
               }}
@@ -603,6 +616,7 @@ export function EjercicioActivo() {
               className="a-repeat"
               data-testid="igual-que-anterior-btn"
               onClick={() => {
+                setPesoDraft(null);
                 updateSetField(ej.id, serie.numero_serie, "peso_kg", serieAnterior.peso_kg);
                 updateSetField(ej.id, serie.numero_serie, "reps_hechas", serieAnterior.reps_hechas);
               }}
@@ -711,7 +725,10 @@ export function EjercicioActivo() {
                 <button
                   type="button"
                   disabled={serie.peso_kg <= 0}
-                  onClick={() => handleAdjustPeso(-pasoPeso)}
+                  onClick={() => {
+                    setPesoDraft(null);
+                    handleAdjustPeso(-pasoPeso);
+                  }}
                   aria-label={`Restar ${fmtAr.format(pasoPeso)} kg`}
                   data-testid="peso-decrement-btn"
                 >
@@ -721,7 +738,7 @@ export function EjercicioActivo() {
                   <input
                     id={`peso-${ej.id}-${serie.numero_serie}`}
                     className="a-t-mi"
-                    style={{ ["--n" as string]: String(fmtAr.format(serie.peso_kg).length) }}
+                    style={{ ["--n" as string]: String(Math.max(1, (pesoDraft ?? fmtAr.format(serie.peso_kg)).length)) }}
                     type="text"
                     inputMode="decimal"
                     min="0"
@@ -729,18 +746,23 @@ export function EjercicioActivo() {
                     autoComplete="off"
                     aria-label="Peso en kilogramos"
                     aria-invalid={pesoWarn || undefined}
-                    value={fmtAr.format(serie.peso_kg)}
+                    value={pesoDraft ?? fmtAr.format(serie.peso_kg)}
+                    onFocus={() => setPesoDraft(fmtAr.format(serie.peso_kg))}
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/\./g, "").replace(",", ".");
-                      const v = parseFloat(raw);
-                      handleDirectUpdatePeso(Number.isNaN(v) ? 0 : v);
+                      const next = e.target.value;
+                      setPesoDraft(next);
+                      handleDirectUpdatePeso(parsearPesoDecimal(next));
                     }}
+                    onBlur={() => setPesoDraft(null)}
                   />
                   <span className="a-t-sec">kg</span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleAdjustPeso(pasoPeso)}
+                  onClick={() => {
+                    setPesoDraft(null);
+                    handleAdjustPeso(pasoPeso);
+                  }}
                   aria-label={`Sumar ${fmtAr.format(pasoPeso)} kg`}
                   data-testid="peso-increment-btn"
                 >
@@ -898,6 +920,7 @@ export function EjercicioActivo() {
                     aria-pressed={barra === b.id}
                     onClick={() => {
                       setBarra(b.id);
+                      setBarraDraft(null);
                       if (b.kg != null) setBarraKg(b.kg);
                     }}
                   >
@@ -912,11 +935,14 @@ export function EjercicioActivo() {
                   <input
                     id="barIn"
                     inputMode="decimal"
-                    value={fmtAr.format(barraKg)}
+                    value={barraDraft ?? fmtAr.format(barraKg)}
+                    onFocus={() => setBarraDraft(fmtAr.format(barraKg))}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value.replace(",", "."));
-                      setBarraKg(Number.isNaN(v) ? 0 : v);
+                      const next = e.target.value;
+                      setBarraDraft(next);
+                      setBarraKg(parsearPesoDecimal(next));
                     }}
+                    onBlur={() => setBarraDraft(null)}
                   />{" "}
                   kg
                 </label>

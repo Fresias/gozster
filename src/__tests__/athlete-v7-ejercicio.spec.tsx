@@ -1,7 +1,5 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as soundModule from "@/lib/sound";
 
@@ -34,8 +32,9 @@ vi.mock("@/store/use-offline-queue", async (importOriginal) => {
   return { ...mod, useOfflineQueueStore: hook };
 });
 
-import { EjercicioActivo, discosPorLado } from "@/components/athlete/ejercicio-activo";
+import { EjercicioActivo, discosPorLado, parsearPesoDecimal } from "@/components/athlete/ejercicio-activo";
 import { RestTimer } from "@/components/athlete/rest-timer";
+import { resolverPasoUnilateral, useLiveWorkout } from "@/components/athlete/use-live-workout";
 import { useAthleteStore, type LiveWorkoutSession } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
@@ -136,20 +135,98 @@ describe("Athlete v7 · FE-05 Pantalla del ejercicio", () => {
     expect(html).toContain("Registrar derecha");
   });
 
+  it("CP2: ingreso manual decimal acepta punto y coma ('62,5' y '62.5' -> 62.5, nunca 625) y actualiza el store", () => {
+    expect(parsearPesoDecimal("62,5")).toBe(62.5);
+    expect(parsearPesoDecimal("62.5")).toBe(62.5);
+    expect(parsearPesoDecimal("12.5")).toBe(12.5);
+    expect(parsearPesoDecimal("62.")).toBe(62);
+    expect(parsearPesoDecimal("62,")).toBe(62);
+    expect(parsearPesoDecimal("")).toBe(0);
+    expect(parsearPesoDecimal("-10")).toBe(0);
+
+    let hookApi!: ReturnType<typeof useLiveWorkout>;
+    function HookProbe() {
+      hookApi = useLiveWorkout();
+      return null;
+    }
+
+    renderToStaticMarkup(<HookProbe />);
+    hookApi.handleDirectUpdatePeso(parsearPesoDecimal("12.5"));
+    expect(useAthleteStore.getState().currentSession.ejercicios[0]?.series[0]?.peso_kg).toBe(12.5);
+
+    hookApi.handleDirectUpdatePeso(parsearPesoDecimal("62.5"));
+    expect(useAthleteStore.getState().currentSession.ejercicios[0]?.series[0]?.peso_kg).toBe(62.5);
+
+    hookApi.handleDirectUpdatePeso(parsearPesoDecimal("62,5"));
+    expect(useAthleteStore.getState().currentSession.ejercicios[0]?.series[0]?.peso_kg).toBe(62.5);
+
+    const html = renderToStaticMarkup(<EjercicioActivo />);
+    expect(html).toContain('value="62,5"');
+  });
+
   it("CP4: flujo unilateral D/I guarda el primer lado sin enviar serie al store, cambia a I con toast y al completar ambos envía 1 sola serie con D", () => {
-    const hookSrc = fs.readFileSync(
-      path.resolve(__dirname, "../components/athlete/use-live-workout.ts"),
-      "utf-8",
-    );
-    const exSrc = fs.readFileSync(
-      path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx"),
-      "utf-8",
-    );
-    expect(hookSrc).toContain("Derecha registrada. Ahora izquierda.");
-    expect(hookSrc).toContain("Izquierda registrada. Ahora derecha.");
-    expect(hookSrc).toContain("pesoKg: nextPend.D!.kg");
-    expect(hookSrc).toContain("reps: nextPend.D!.reps");
-    expect(exSrc).toContain("D ${fmtAr.format(uniPar.D.kg)}×${uniPar.D.reps} · I ${fmtAr.format(uniPar.I.kg)}×${uniPar.I.reps}");
+    useAthleteStore.setState({ ejercicioAbiertoId: "ej-zb" });
+
+    let hookApi!: ReturnType<typeof useLiveWorkout>;
+    function HookProbe() {
+      hookApi = useLiveWorkout();
+      return null;
+    }
+
+    renderToStaticMarkup(<HookProbe />);
+    expect(hookApi.uniSide).toBe("D");
+    expect(hookApi.uniPend).toEqual({ D: null, I: null });
+
+    // Primer toque: registra D sin completar ninguna serie en el store ni encolar offline
+    hookApi.handleRegistrarUnilateral(false);
+    const ejTrasD = useAthleteStore.getState().currentSession.ejercicios.find((e) => e.id === "ej-zb");
+    expect(ejTrasD?.series[0]?.completada).toBe(false);
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
+    expect(useAthleteStore.getState().toastSesion).toEqual({
+      mensaje: "Derecha registrada. Ahora izquierda.",
+      tipo: "ok",
+    });
+
+    // Transición completa D -> I -> 1 serie enviada con payload de D y orden inverso I -> D
+    const paso1 = resolverPasoUnilateral("D", { D: null, I: null }, { kg: 14.5, reps: 10 });
+    expect(paso1).toEqual({
+      completed: false,
+      nextPend: { D: { kg: 14.5, reps: 10 }, I: null },
+      nextSide: "I",
+      toastMensaje: "Derecha registrada. Ahora izquierda.",
+    });
+    if (paso1.completed) throw new Error("Se esperaba paso intermedio");
+
+    const paso2 = resolverPasoUnilateral(paso1.nextSide, paso1.nextPend, { kg: 12, reps: 8 });
+    expect(paso2).toEqual({
+      completed: true,
+      nextPend: { D: null, I: null },
+      nextSide: "D",
+      pair: { D: { kg: 14.5, reps: 10 }, I: { kg: 12, reps: 8 } },
+      payload: { pesoKg: 14.5, reps: 10 },
+    });
+    if (!paso2.completed) throw new Error("Se esperaba confirmación del par unilateral");
+
+    const inverso = resolverPasoUnilateral("I", { D: null, I: null }, { kg: 14.5, reps: 10 });
+    expect(inverso).toEqual({
+      completed: false,
+      nextPend: { D: null, I: { kg: 14.5, reps: 10 } },
+      nextSide: "D",
+      toastMensaje: "Izquierda registrada. Ahora derecha.",
+    });
+
+    // Al completar ambos lados se registra 1 sola serie en el store con el payload de D
+    hookApi.handleRegistrarSerie(false, paso2.payload);
+    const ejTrasAmbos = useAthleteStore.getState().currentSession.ejercicios.find((e) => e.id === "ej-zb");
+    expect(ejTrasAmbos?.series[0]?.completada).toBe(true);
+    expect(ejTrasAmbos?.series[0]?.peso_kg).toBe(14.5);
+    expect(ejTrasAmbos?.series[0]?.reps_hechas).toBe(10);
+    expect(ejTrasAmbos?.series[1]?.completada).toBe(false);
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(1);
+
+    const html = renderToStaticMarkup(<EjercicioActivo />);
+    expect(html).toContain('data-testid="registradas"');
+    expect(html).toContain("D 14,5×10 · I 14,5×10");
   });
 
   it("CP6: Registradas muestra 'En el teléfono' o 'Guardada' según pendingEvents (D3-A) y barra de error", () => {
