@@ -143,6 +143,7 @@ interface AthleteStoreState {
   rpeReminderNotification: string | null;
   stopProtocolActive: boolean;
   activePainBanner: PainBannerData | null;
+  molestiasPendientesFueraDeSesion: MolestiaSesion[];
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
@@ -238,6 +239,7 @@ interface AthleteStoreState {
     notes: string,
   ) => void;
   reportarMolestia: (datos: ReportarMolestiaInput) => Promise<MolestiaSesion>;
+  flushMolestiasPendientes: () => Promise<void>;
   reportPainEvent: (report: PainReportData) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
@@ -506,6 +508,7 @@ async function enviarMolestiaRpc(
 }
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+let activeFlushMolestiasPromise: Promise<void> | null = null;
 
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
@@ -539,6 +542,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       rpeReminderNotification: null,
       stopProtocolActive: false,
       activePainBanner: null,
+      molestiasPendientesFueraDeSesion: [],
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -939,33 +943,69 @@ export const useAthleteStore = create<AthleteStoreState>()(
           };
         });
 
+        await get().flushMolestiasPendientes();
+
+        return (
+          (get().currentSession.molestias ?? []).find((m) => m.id === molestia.id) ??
+          molestia
+        );
+      },
+
+      flushMolestiasPendientes: async () => {
+        if (activeFlushMolestiasPromise) {
+          await activeFlushMolestiasPromise;
+        }
+
         const haySenal =
           useOfflineQueueStore.getState().isOnline &&
           (typeof navigator === "undefined" || navigator.onLine !== false);
+        if (!haySenal || !supabase) return;
 
-        if (!haySenal || !supabase) {
-          return molestia;
-        }
+        const run = async () => {
+          const snapshot = get();
+          const pendientesFuera = snapshot.molestiasPendientesFueraDeSesion.filter(
+            (m) => m.envio === "pendiente",
+          );
+          const pendientesEnSesion = (snapshot.currentSession.molestias ?? []).filter(
+            (m) => m.envio === "pendiente",
+          );
+          const cola = [...pendientesFuera, ...pendientesEnSesion];
+          if (cola.length === 0) return;
 
-        const envio = await enviarMolestiaRpc(
-          molestia,
-          state.currentSession.dia_id ?? null,
-          state.currentSession.studentId ?? null,
-        );
+          for (const m of cola) {
+            const actual = get();
+            const diaId =
+              m.sesionId === actual.currentSession.id
+                ? (actual.currentSession.dia_id ?? null)
+                : (actual.sesionesCompletadas.find((s) => s.id === m.sesionId)?.dia_id ??
+                  null);
 
-        if (envio !== "pendiente") {
-          set((prev) => ({
-            currentSession: {
-              ...prev.currentSession,
-              molestias: (prev.currentSession.molestias ?? []).map((m) =>
-                m.id === molestia.id ? { ...m, envio } : m,
-              ),
-            },
-          }));
-          return { ...molestia, envio };
-        }
+            const envio = await enviarMolestiaRpc(
+              m,
+              diaId,
+              actual.currentSession.studentId ?? null,
+            );
+            if (envio === "pendiente") {
+              break;
+            }
 
-        return molestia;
+            set((prev) => ({
+              molestiasPendientesFueraDeSesion:
+                prev.molestiasPendientesFueraDeSesion.filter((item) => item.id !== m.id),
+              currentSession: {
+                ...prev.currentSession,
+                molestias: (prev.currentSession.molestias ?? []).map((item) =>
+                  item.id === m.id ? { ...item, envio } : item,
+                ),
+              },
+            }));
+          }
+        };
+
+        activeFlushMolestiasPromise = run().finally(() => {
+          activeFlushMolestiasPromise = null;
+        });
+        await activeFlushMolestiasPromise;
       },
 
       reportPainEvent: async (report) => {
@@ -2060,6 +2100,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: state.historialSesiones,
+        molestiasPendientesFueraDeSesion: state.molestiasPendientesFueraDeSesion,
       }),
     },
   ),
