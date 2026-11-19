@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { createClient } from "@/lib/supabase/browser";
@@ -56,18 +56,29 @@ function ControlesSesion({ isOnline }: { isOnline: boolean }) {
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
+  const reparadoRef = React.useRef(false);
 
   // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
   React.useEffect(() => {
+    const repararUnaVez = () => {
+      if (reparadoRef.current) return;
+      reparadoRef.current = true;
+      repararSesionesNoUuid();
+    };
     void createClient()
       .auth.getUser()
-      .then(({ data }) => (data.user ? activarUsuarioStorage(data.user.id) : undefined))
-      .then(() => {
+      .then(async ({ data }) => {
+        if (data.user) {
+          await activarUsuarioStorage(data.user.id);
+        }
+        repararUnaVez();
         if (navigator.onLine) {
-          return useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+          await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        repararUnaVez();
+      });
   }, []);
 
   React.useEffect(() => {
