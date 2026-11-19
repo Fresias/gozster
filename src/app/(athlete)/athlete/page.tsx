@@ -4,12 +4,13 @@ import * as React from "react";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { MembershipExpiredNotice } from "@/components/athlete/membership-paywall";
 import { LiveWorkout } from "@/components/athlete/live-workout";
+import { RutinaDelDia } from "@/components/athlete/rutina-del-dia";
 import { RestTimer } from "@/components/athlete/rest-timer";
 import { AthleteChat } from "@/components/athlete/athlete-chat";
 import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
 
 export default function AthleteAppPage() {
-  const { membershipStatus, diaActivoId } = useAthleteStore();
+  const { membershipStatus, diaActivoId, ejercicioAbiertoId } = useAthleteStore();
 
   // ADR-001: una suscripción vencida NO bloquea la app. El alumno mantiene
   // acceso completo (entrenamiento, historial y chat) y sólo recibe un aviso
@@ -20,7 +21,11 @@ export default function AthleteAppPage() {
     <>
       {isExpired && <MembershipExpiredNotice />}
       {diaActivoId ? (
-        <LiveWorkout />
+        ejercicioAbiertoId ? (
+          <LiveWorkout />
+        ) : (
+          <RutinaDelDia />
+        )
       ) : (
         <InicioMisDias />
       )}

@@ -69,6 +69,7 @@ describe("SugerenciaCarga (spec historial-progreso §2.6 / §2.7)", () => {
 
 describe("live-workout: sugerencia bajo «La última vez» (§2.2 / §2.5)", () => {
   const src = readFileSync(join(process.cwd(), "src/components/athlete/live-workout.tsx"), "utf8");
+  const hookSrc = readFileSync(join(process.cwd(), "src/components/athlete/use-live-workout.ts"), "utf8");
 
   it("se renderiza entre «La última vez» y el stepper de Peso", () => {
     const iUltima = src.indexOf("<UltimaVez");
@@ -80,9 +81,9 @@ describe("live-workout: sugerencia bajo «La última vez» (§2.2 / §2.5)", () 
   });
 
   it("los steppers marcan la serie como tocada para no pisar el valor del alumno", () => {
-    const tocadas = src.match(/seriesTocadas\.current\.add\(/g) ?? [];
+    const tocadas = hookSrc.match(/seriesTocadas\.current\.add\(/g) ?? [];
     // precarga + ajuste de peso + ajuste de reps
     expect(tocadas.length).toBeGreaterThanOrEqual(3);
-    expect(src).toContain("if (seriesTocadas.current.has(claveSerie)) return;");
+    expect(hookSrc).toContain("if (seriesTocadas.current.has(claveSerie)) return;");
   });
 });
