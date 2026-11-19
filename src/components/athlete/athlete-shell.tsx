@@ -65,7 +65,10 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
         if (data.user) {
           activarUsuarioStorage(data.user.id);
           if (navigator.onLine) {
-            void useAthleteStore.getState().flushMolestiasPendientes();
+            void useAthleteStore
+              .getState()
+              .flushMolestiasPendientes()
+              .then(() => useAthleteStore.getState().cargarMolestiasDeSesion());
           }
         }
       })
@@ -75,7 +78,10 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
     if (navigator.onLine) {
-      void useAthleteStore.getState().flushMolestiasPendientes();
+      void useAthleteStore
+        .getState()
+        .flushMolestiasPendientes()
+        .then(() => useAthleteStore.getState().cargarMolestiasDeSesion());
     }
     const handleOnline = () => {
       setOnlineStatus(true);

@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { PGlite, type Transaction } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { useAthleteStore } from "@/store/use-athlete-store";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { supabase } from "@/lib/supabase/client";
+import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261119011000_molestias_sesion.sql";
@@ -298,5 +302,273 @@ describe("BE-02 CP1 · Migración y RPC registrar_molestia (PGlite)", () => {
       `SELECT id FROM public.alumno_historial_dolor WHERE sesion_id = '22222222-2222-4222-8222-222222222225'`,
     );
     expect(lecturaAjena.rows).toHaveLength(0);
+  });
+});
+
+describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () => {
+  const SESION_UUID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const EJ_RUTINA_UUID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const EJ_CATALOGO_UUID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const DIA_UUID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+  function prepararSesionUuid() {
+    useAthleteStore.setState({ molestiasPendientesFueraDeSesion: [] });
+    useAthleteStore.getState().resetSessionToDefaults();
+    useAthleteStore.setState((prev) => ({
+      molestiasPendientesFueraDeSesion: [],
+      currentSession: {
+        ...prev.currentSession,
+        id: SESION_UUID,
+        studentId: ALUMNO_A,
+        dia_id: DIA_UUID,
+        molestias: [],
+        ejercicios: [
+          {
+            id: EJ_RUTINA_UUID,
+            ejercicio_id: EJ_CATALOGO_UUID,
+            nombre: "Press Plano con Barra",
+            musculos_principales: ["Pecho"],
+            descanso_segundos: 90,
+            rpe_objetivo: 8,
+            repeticiones_objetivo: "8-10",
+            series: [
+              { numero_serie: 1, peso_kg: 80, reps_hechas: 8, rpe_real: 8, completada: false, estimated1RM: 101 },
+            ],
+          },
+        ],
+      },
+    }));
+  }
+
+  beforeEach(() => {
+    useOfflineQueueStore.setState({ isOnline: true, pendingEvents: [] });
+    prepararSesionUuid();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sin señal deja aviso visible y envio pendiente; al volver la señal llama una vez registrar_molestia con mismo p_id y nunca usa 30000000-...", async () => {
+    useOfflineQueueStore.setState({ isOnline: false });
+    const rpcSpy = vi.spyOn(supabase, "rpc").mockResolvedValue({ data: null, error: null } as any);
+
+    const creada = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      numeroSerie: 1,
+      zona: "HOMBRO",
+      eva: 5,
+      momento: "EN_SERIE",
+      notas: "Molestia leve al bajar",
+    });
+
+    expect(creada.envio).toBe("pendiente");
+    expect(rpcSpy).not.toHaveBeenCalled();
+
+    const enSesion = useAthleteStore.getState().currentSession.molestias ?? [];
+    expect(enSesion).toHaveLength(1);
+    expect(enSesion[0]?.id).toBe(creada.id);
+    expect(
+      avisoMolestiaPara({ id: EJ_RUTINA_UUID, musculos_principales: ["Pecho"] }, enSesion),
+    ).toMatchObject({ tipo: "propio", molestia: { id: creada.id, envio: "pendiente" } });
+
+    // Vuelve la señal
+    useOfflineQueueStore.setState({ isOnline: true });
+    await useAthleteStore.getState().flushMolestiasPendientes();
+
+    expect(rpcSpy).toHaveBeenCalledTimes(1);
+    const [fnName, params] = rpcSpy.mock.calls[0]!;
+    expect(fnName).toBe("registrar_molestia");
+    expect(params).toMatchObject({
+      p_id: creada.id,
+      p_sesion_id: SESION_UUID,
+      p_ejercicio_id: EJ_CATALOGO_UUID,
+      p_ejercicio_en_rutina_id: EJ_RUTINA_UUID,
+      p_dia_id: DIA_UUID,
+      p_numero_serie: 1,
+      p_zona: "HOMBRO",
+      p_eva: 5,
+    });
+    expect(JSON.stringify(params)).not.toContain("30000000-");
+
+    const postFlush = useAthleteStore.getState().currentSession.molestias ?? [];
+    expect(postFlush[0]?.envio).toBe("enviada");
+
+    // Reintento no vuelve a llamar si ya está enviada
+    await useAthleteStore.getState().flushMolestiasPendientes();
+    expect(rpcSpy).toHaveBeenCalledTimes(1);
+
+    // No usa la cola de series
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
+  });
+
+  it("error 42501/23514 marca envio error y registra en errores_app; error de red o 5xx deja pendiente", async () => {
+    const erroresInsertSpy = vi.fn().mockResolvedValue({ data: null, error: null });
+    vi.spyOn(supabase.auth, "getUser").mockResolvedValue({
+      data: { user: { id: ALUMNO_A } as any },
+      error: null,
+    });
+    const fromSpy = vi.spyOn(supabase, "from").mockImplementation((table: string) => {
+      if (table === "errores_app") {
+        return { insert: erroresInsertSpy } as any;
+      }
+      return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
+    });
+
+    const rpcSpy = vi
+      .spyOn(supabase, "rpc")
+      .mockResolvedValueOnce({ data: null, error: { message: "503 Service Unavailable", status: 503 } } as any)
+      .mockResolvedValueOnce({ data: null, error: { code: "42501", message: "Sesión ajena" } } as any);
+
+    const red5xx = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "HOMBRO",
+      eva: 4,
+    });
+    expect(red5xx.envio).toBe("pendiente");
+
+    const rechazada = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "HOMBRO",
+      eva: 4,
+    });
+    expect(rechazada.envio).toBe("error");
+    expect(rpcSpy).toHaveBeenCalledTimes(2);
+    expect(fromSpy).toHaveBeenCalledWith("errores_app");
+    expect(erroresInsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usuario_id: ALUMNO_A,
+        contexto: "molestia",
+      }),
+    );
+  });
+
+  it("EVA 8 bloquea solo el ejercicio (sin stopProtocolActive); síntoma de alarma activa stopProtocolActive", async () => {
+    vi.spyOn(supabase, "rpc").mockResolvedValue({ data: null, error: null } as any);
+
+    const alta = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "HOMBRO",
+      eva: 8,
+    });
+    expect(alta.nivel).toBe("alta");
+    expect(useAthleteStore.getState().stopProtocolActive).toBe(false);
+    expect(
+      ejercicioBloqueado(EJ_RUTINA_UUID, useAthleteStore.getState().currentSession.molestias ?? []),
+    ).toBe(true);
+
+    const alarma = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "HOMBRO",
+      eva: 5,
+      sintomas: ["Dolor punzante/súbito"],
+    });
+    expect(alarma.nivel).toBe("alarma");
+    expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
+  });
+
+  it("recargar sesión con señal recupera avisos con cargarMolestiasDeSesion y gana la local si está pendiente", async () => {
+    useOfflineQueueStore.setState({ isOnline: false });
+    const pendienteLocal = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "CODO",
+      eva: 6,
+      notas: "Local pendiente",
+    });
+
+    const idRemotoNuevo = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const eqMock = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: pendienteLocal.id,
+          sesion_id: SESION_UUID,
+          ejercicio_en_rutina_id: EJ_RUTINA_UUID,
+          ejercicio_id: EJ_CATALOGO_UUID,
+          numero_serie: null,
+          zona_articular: "CODO",
+          eva: 2,
+          sintomas_alarma: [],
+          momento_aparicion: "EN_SERIE",
+          notas_alumno: "Remota vieja",
+          created_at: "2026-11-18T12:00:00.000Z",
+        },
+        {
+          id: idRemotoNuevo,
+          sesion_id: SESION_UUID,
+          ejercicio_en_rutina_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          ejercicio_id: EJ_CATALOGO_UUID,
+          numero_serie: 2,
+          zona_articular: "RODILLA",
+          eva: 4,
+          sintomas_alarma: [],
+          momento_aparicion: "POST_EJERCICIO",
+          notas_alumno: "Desde otro dispositivo",
+          created_at: "2026-11-18T12:05:00.000Z",
+        },
+      ],
+      error: null,
+    });
+    vi.spyOn(supabase, "from").mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: eqMock }),
+    } as any);
+
+    useOfflineQueueStore.setState({ isOnline: true });
+    await useAthleteStore.getState().cargarMolestiasDeSesion(SESION_UUID);
+
+    const recuperadas = useAthleteStore.getState().currentSession.molestias ?? [];
+    expect(recuperadas).toHaveLength(2);
+    const localMantenida = recuperadas.find((m) => m.id === pendienteLocal.id);
+    expect(localMantenida?.envio).toBe("pendiente");
+    expect(localMantenida?.eva).toBe(6);
+
+    const remota = recuperadas.find((m) => m.id === idRemotoNuevo);
+    expect(remota?.envio).toBe("enviada");
+    expect(remota?.zona).toBe("RODILLA");
+    expect(remota?.numeroSerie).toBe(2);
+  });
+
+  it("cerrar la sesión con una pendiente la mueve a molestiasPendientesFueraDeSesion, limpia currentSession.molestias y la envía después", async () => {
+    useOfflineQueueStore.setState({ isOnline: false });
+    const pendiente = await useAthleteStore.getState().reportarMolestia({
+      ejercicioEnRutinaId: EJ_RUTINA_UUID,
+      ejercicioId: EJ_CATALOGO_UUID,
+      zona: "LUMBAR",
+      eva: 4,
+    });
+
+    // Cerrar la sesión completando el día
+    useAthleteStore.getState().marcarDiaCompletado(DIA_UUID);
+
+    expect(useAthleteStore.getState().currentSession.molestias).toEqual([]);
+    expect(useAthleteStore.getState().molestiasPendientesFueraDeSesion).toHaveLength(1);
+    expect(useAthleteStore.getState().molestiasPendientesFueraDeSesion[0]?.id).toBe(pendiente.id);
+
+    // Vuelve la señal y se envía desde fuera de sesión
+    const rpcSpy = vi.spyOn(supabase, "rpc").mockResolvedValue({ data: null, error: null } as any);
+    useOfflineQueueStore.setState({ isOnline: true });
+    await useAthleteStore.getState().flushMolestiasPendientes();
+
+    expect(rpcSpy).toHaveBeenCalledTimes(1);
+    expect(rpcSpy.mock.calls[0]?.[1]).toMatchObject({ p_id: pendiente.id, p_sesion_id: SESION_UUID });
+    expect(useAthleteStore.getState().molestiasPendientesFueraDeSesion).toEqual([]);
+  });
+
+  it("el partialize de Zustand persiste molestiasPendientesFueraDeSesion y athlete-shell dispara flush con online", () => {
+    const persistOpts = (useAthleteStore as any).persist.getOptions();
+    const partialized = persistOpts.partialize(useAthleteStore.getState());
+    expect("molestiasPendientesFueraDeSesion" in partialized).toBe(true);
+
+    const shellCode = fs.readFileSync(
+      path.resolve(__dirname, "../components/athlete/athlete-shell.tsx"),
+      "utf-8",
+    );
+    expect(shellCode).toContain("flushMolestiasPendientes");
+    expect(shellCode).toContain("cargarMolestiasDeSesion");
   });
 });
