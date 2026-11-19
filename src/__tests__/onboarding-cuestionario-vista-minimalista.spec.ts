@@ -507,21 +507,21 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
     });
 
     it("CuestionarioInicial ofrece experiencia opcional, accesible y táctil (>= 44-48px)", () => {
-      expect(cuestionarioCode).toContain("Cuestionario Inicial (Opcional)");
+      expect(cuestionarioCode).toContain("Cuestionario inicial");
       expect(cuestionarioCode).toContain('data-testid="cuestionario-inicial-container"');
       expect(cuestionarioCode).toContain('data-testid="cuestionario-opcional-badge"');
       expect(cuestionarioCode).toContain("No bloquea tu entrenamiento");
-
-      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-objetivo"');
-      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-experiencia"');
-      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-dias"');
-      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-equipamiento"');
-      expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-molestias"');
+      // La v7 genera los testids del resumen desde una lista: cuestionario-resumen-<clave>
+      expect(cuestionarioCode).toContain("data-testid={`cuestionario-resumen-${clave}`}");
+      for (const clave of ["objetivo", "experiencia", "dias", "equipamiento", "molestias"]) {
+        expect(cuestionarioCode).toContain(`"${clave}"]`);
+      }
       expect(cuestionarioCode).toContain('data-testid="input-molestias"');
       expect(cuestionarioCode).toContain('data-testid="input-comentarios"');
 
       expect(cuestionarioCode).toContain('data-testid="submit-cuestionario-btn"');
-      expect(cuestionarioCode).toMatch(/min-h-\[48px\]|min-h-12/);
+      // La v7 (02-pantallas §9) usa .a-btn (52 px) en lugar de min-h-[48px]
+      expect(cuestionarioCode).toContain("a-btn a-gym");
 
       expect(cuestionarioCode).toContain('data-testid="cuestionario-resumen-card"');
       expect(cuestionarioCode).toContain('data-testid="btn-editar-cuestionario"');

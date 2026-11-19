@@ -123,8 +123,10 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(habits).toContain("bg-success-soft");
     expect(habits).toContain("bg-warning-soft");
 
-    expect(classes).toContain("bg-success-soft");
-    expect(classes).toContain("bg-danger-soft");
-    expect(classes).toContain("bg-warning-soft");
+    // Clases v7 (FE-10): clases .a-* de athlete-v7.css, sin colores sueltos de Tailwind.
+    expect(classes).toContain("a-ccl");
+    expect(classes).toContain("a-quota");
+    expect(classes).toContain("a-btn a-danger");
+    expect(classes).not.toContain("bg-success");
   });
 });
