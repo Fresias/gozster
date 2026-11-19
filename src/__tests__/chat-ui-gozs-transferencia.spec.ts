@@ -16,6 +16,7 @@ import {
 } from "@/services/coach-mock-data";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
 import { supabase } from "@/lib/supabase/client";
+import { handleAthleteChatKeyDown } from "@/components/athlete/athlete-chat";
 
 describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, autoría interna en Studio y transferencia (#66)", () => {
   beforeEach(() => {
@@ -269,6 +270,125 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
       expect(pendingEvents[0]?.payload.contenido).toBe(
         "Mensaje en modo avión sin conexión a internet.",
       );
+    });
+  });
+
+  describe("6. Accesibilidad y focus trap en #athlete-chat-drawer (04-frontend.md §5)", () => {
+    const athleteChatPath = path.resolve(
+      process.cwd(),
+      "src/components/athlete/athlete-chat.tsx",
+    );
+    const athleteChatSource = fs.readFileSync(athleteChatPath, "utf-8");
+
+    it("la hoja #athlete-chat-drawer conecta drawerRef, foco inicial al título, trampa Tab/Shift+Tab, Escape y retorno al disparador", () => {
+      expect(athleteChatSource).toContain('id="athlete-chat-drawer"');
+      expect(athleteChatSource).toContain("ref={drawerRef}");
+      expect(athleteChatSource).toContain('role="dialog"');
+      expect(athleteChatSource).toContain('aria-modal="true"');
+      expect(athleteChatSource).toContain('aria-labelledby="athlete-chat-title"');
+      expect(athleteChatSource).toContain("titleRef.current?.focus()");
+      expect(athleteChatSource).toContain("triggerRef.current?.focus()");
+      expect(athleteChatSource).toContain("handleAthleteChatKeyDown");
+    });
+
+    it("cicla Tab y Shift+Tab dentro de #athlete-chat-drawer sin escapar del diálogo y cierra con Escape", () => {
+      const titleEl = { focus: vi.fn() } as unknown as HTMLElement;
+      const closeBtn = { focus: vi.fn() } as unknown as HTMLElement;
+      const chatInput = { focus: vi.fn() } as unknown as HTMLElement;
+      const sendBtn = { focus: vi.fn() } as unknown as HTMLElement;
+      const outsideEl = { focus: vi.fn() } as unknown as HTMLElement;
+
+      const focusableInside = [closeBtn, chatInput, sendBtn];
+      const insideSet = new Set<unknown>([titleEl, ...focusableInside]);
+      const drawerEl = {
+        querySelectorAll: () => focusableInside,
+        contains: (el: Element | null) => insideSet.has(el),
+      } as unknown as Pick<HTMLElement, "querySelectorAll" | "contains">;
+
+      const onClose = vi.fn();
+
+      // 1. Shift+Tab desde #athlete-chat-title (foco inicial) envuelve hacia Enviar (último)
+      const prevShiftFromTitle = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: true, preventDefault: prevShiftFromTitle },
+        drawerEl,
+        titleEl,
+        onClose,
+        titleEl,
+      );
+      expect(prevShiftFromTitle).toHaveBeenCalledTimes(1);
+      expect(sendBtn.focus).toHaveBeenCalledTimes(1);
+
+      // 2. Tab desde #athlete-chat-title mueve al primer elemento enfocable (Cerrar chat)
+      const prevTabFromTitle = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: false, preventDefault: prevTabFromTitle },
+        drawerEl,
+        titleEl,
+        onClose,
+        titleEl,
+      );
+      expect(prevTabFromTitle).toHaveBeenCalledTimes(1);
+      expect(closeBtn.focus).toHaveBeenCalledTimes(1);
+
+      // 3. Shift+Tab desde el primero envuelve al último (Enviar)
+      const prevShiftFromFirst = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: true, preventDefault: prevShiftFromFirst },
+        drawerEl,
+        closeBtn,
+        onClose,
+        titleEl,
+      );
+      expect(prevShiftFromFirst).toHaveBeenCalledTimes(1);
+      expect(sendBtn.focus).toHaveBeenCalledTimes(2);
+
+      // 4. Tab desde un elemento intermedio deja avanzar naturalmente dentro del drawer
+      const prevTabMiddle = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: false, preventDefault: prevTabMiddle },
+        drawerEl,
+        chatInput,
+        onClose,
+        titleEl,
+      );
+      expect(prevTabMiddle).not.toHaveBeenCalled();
+
+      // 5. Tab desde el último (Enviar) envuelve al primero (Cerrar chat)
+      const prevTabFromLast = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: false, preventDefault: prevTabFromLast },
+        drawerEl,
+        sendBtn,
+        onClose,
+        titleEl,
+      );
+      expect(prevTabFromLast).toHaveBeenCalledTimes(1);
+      expect(closeBtn.focus).toHaveBeenCalledTimes(2);
+
+      // 6. Si el foco estuviera fuera del drawer, Tab/Shift+Tab lo devuelven adentro
+      const prevOutside = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Tab", shiftKey: false, preventDefault: prevOutside },
+        drawerEl,
+        outsideEl,
+        onClose,
+        titleEl,
+      );
+      expect(prevOutside).toHaveBeenCalledTimes(1);
+      expect(closeBtn.focus).toHaveBeenCalledTimes(3);
+
+      // 7. Escape previene propagación por defecto y cierra la hoja
+      const prevEscape = vi.fn();
+      handleAthleteChatKeyDown(
+        { key: "Escape", shiftKey: false, preventDefault: prevEscape },
+        drawerEl,
+        sendBtn,
+        onClose,
+        titleEl,
+      );
+      expect(prevEscape).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 });

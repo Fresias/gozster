@@ -24,6 +24,46 @@ const QUICK_GYM_REPLIES = [
   "Me molesta la rodilla",
 ];
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function handleAthleteChatKeyDown(
+  e: Pick<KeyboardEvent, "key" | "shiftKey" | "preventDefault">,
+  drawerEl: Pick<HTMLElement, "querySelectorAll" | "contains"> | null,
+  activeElement: Element | null,
+  onClose: () => void,
+  fallbackFocusEl?: Pick<HTMLElement, "focus"> | null,
+) {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    onClose();
+    return;
+  }
+  if (e.key !== "Tab" || !drawerEl) return;
+
+  const focusable = Array.from(drawerEl.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  if (focusable.length === 0) {
+    e.preventDefault();
+    fallbackFocusEl?.focus();
+    return;
+  }
+
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
+  const isOutsideDrawer = !activeElement || !drawerEl.contains(activeElement);
+  const isOnTitle = fallbackFocusEl != null && activeElement === (fallbackFocusEl as unknown as Element);
+
+  if (e.shiftKey) {
+    if (activeElement === first || isOutsideDrawer || isOnTitle) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else if (activeElement === last || isOutsideDrawer || isOnTitle) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 export function AthleteChat({
   athleteId = DEFAULT_ATHLETE_SENDER.id,
   athleteName = DEFAULT_ATHLETE_SENDER.nombre,
@@ -81,7 +121,8 @@ export function AthleteChat({
     }
   };
 
-  // Foco al título al abrir, Escape cierra y el foco vuelve al disparador (a11y de hojas).
+  // Foco al título al abrir, Tab/Shift+Tab atrapados en la hoja, Escape cierra y vuelve al disparador (04-frontend.md §5).
+  const drawerRef = React.useRef<HTMLDivElement>(null);
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const triggerRef = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => {
@@ -89,7 +130,13 @@ export function AthleteChat({
     triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     titleRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAthleteChatOpen(false);
+      handleAthleteChatKeyDown(
+        e,
+        drawerRef.current,
+        document.activeElement,
+        () => setAthleteChatOpen(false),
+        titleRef.current,
+      );
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -140,6 +187,7 @@ export function AthleteChat({
     >
       <div
         id="athlete-chat-drawer"
+        ref={drawerRef}
         className="a-sheet max-w-[28rem]"
         role="dialog"
         aria-modal="true"
