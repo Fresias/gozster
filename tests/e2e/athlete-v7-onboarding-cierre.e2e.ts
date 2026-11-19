@@ -8,6 +8,7 @@ const FIXTURE_BASE = JSON.parse(
   readFileSync(join(process.cwd(), "tests", "e2e", "fixtures", "athlete-v7.json"), "utf8"),
 );
 const LUCIA_ID: string = FIXTURE_BASE.user.id;
+const EJ_SQ = FIXTURE_BASE.ejercicios_en_rutina[0].id as string;
 const b64url = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
 function buildSessionCookie() {
@@ -156,10 +157,12 @@ test.describe("@mobile Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () =
     await page.goto("/athlete");
     await expect(page.getByTestId("empezar-dia-btn")).toBeVisible({ timeout: 25_000 });
     await page.getByTestId("empezar-dia-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     await expect(page.getByTestId("registrar-serie-btn")).toBeVisible({ timeout: 15_000 });
     await page.getByTestId("registrar-serie-btn").click();
     const omitir = page.getByRole("button", { name: "Omitir" });
     if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
 
     await page.getByTestId("tab-registro-dia").click();
     await page.getByTestId("terminar-entrenamiento-btn").click();
