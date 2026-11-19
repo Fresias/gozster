@@ -85,40 +85,36 @@ describe("GOZS-351: Pulido App, Limpieza Taxonomía W/N/F/D, Toggle Cascada, Alt
 
       const html = renderToStaticMarkup(<LiveWorkout />);
 
-      // Distinctivo tonal para Drop Set
-      expect(html).toContain("data-testid=\"fixed-dropset-badge\"");
-      expect(html).toContain("Drop Set");
-      expect(html).toContain("bg-purple-600");
+      // Distinctivo tonal para Drop Set en v7 (02-pantallas.md §3 / C2: sin bg-purple-600)
+      expect(html).toContain('data-testid="fixed-dropset-badge"');
+      expect(html).toContain("Drop set");
+      expect(html).not.toContain("bg-purple-600");
     });
   });
 
   // --------------------------------------------------------------------------
-  // CRITERIO 2: Toggle Cascada en Modal de Configuración (⚙️)
+  // CRITERIO 2: Separación Rutina ↔ Ejercicio (v7 C4 reemplaza el toggle de cascada)
   // --------------------------------------------------------------------------
-  describe("2. Modal de Configuración de la sesión (live-workout.tsx)", () => {
-    const liveWorkoutCode = read("../components/athlete/live-workout.tsx");
+  describe("2. Separación de pantallas Rutina ↔ Ejercicio (C4 / 02-pantallas.md §2-3)", () => {
+    const rutinaCode = read("../components/athlete/rutina-del-dia.tsx");
+    const ejercicioCode = read("../components/athlete/ejercicio-activo.tsx");
 
-    it("GIVEN live-workout.tsx THEN contiene el toggle accesible de 'Colapsar rutina en cascada'", () => {
-      expect(liveWorkoutCode).toContain('data-testid="toggle-colapsar-rutina"');
-      expect(liveWorkoutCode).toContain('Colapsar rutina en cascada');
-      expect(liveWorkoutCode).toContain('role="switch"');
-      expect(liveWorkoutCode).toContain('setColapsarRutina');
+    it("GIVEN useLiveWorkout y rutina-del-dia.tsx / ejercicio-activo.tsx THEN conserva el estado colapsarRutina y separa rutina del ejercicio activo", () => {
+      expect(rutinaCode).toContain("setEjercicioAbiertoId");
+      expect(ejercicioCode).toContain("setEjercicioAbiertoId");
+      expect(useAthleteStore.getState().colapsarRutina).toBe(false);
+      useAthleteStore.getState().setColapsarRutina(true);
+      expect(useAthleteStore.getState().colapsarRutina).toBe(true);
     });
 
-    it("GIVEN useAthleteStore WHEN colapsarRutina cambia THEN minimiza los ejercicios mostrando solo el activo", () => {
-      // Por defecto colapsarRutina es false
-      expect(useAthleteStore.getState().colapsarRutina).toBe(false);
-
-      // Activar colapsar rutina en cascada
+    it("GIVEN useAthleteStore WHEN colapsarRutina cambia THEN EjercicioActivo renderiza la tarjeta única de la serie activa sin errores", () => {
       useAthleteStore.getState().setColapsarRutina(true);
       expect(useAthleteStore.getState().colapsarRutina).toBe(true);
 
       const html = renderToStaticMarkup(<LiveWorkout />);
 
-      // El contenedor indica rutina colapsada
-      expect(html).toContain('data-rutina-colapsada="true"');
-      expect(html).toContain('data-testid="badge-rutina-colapsada"');
-      expect(html).toContain('colapsada');
+      expect(html).toContain('data-testid="live-workout-container"');
+      expect(html).toContain('data-testid="registrar-serie-btn"');
     });
   });
 

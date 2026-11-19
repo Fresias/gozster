@@ -214,22 +214,22 @@ describe("Cálculo de series de aproximación según último PR (GOZS-236, GOZS-
     });
   });
 
-  describe("4. Criterios de Aceptación Gherkin en WarmupModal y LiveWorkout", () => {
+  describe("4. Criterios de Aceptación Gherkin en WarmupModal y EjercicioActivo (FE-05 D-20)", () => {
     const warmupModalPath = path.resolve(__dirname, "../components/athlete/warmup-modal.tsx");
-    const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+    const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
     const warmupModalCode = fs.readFileSync(warmupModalPath, "utf-8");
-    const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+    const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
 
-    it("el botón en LiveWorkout se titula 'Aproximación' y mantiene data-testid para backward compatibility", () => {
-      expect(liveWorkoutCode).toContain("Aproximación");
-      expect(liveWorkoutCode).toContain('data-testid={`warmup-btn-${currentExercise.id}`}');
-      expect(liveWorkoutCode).toContain('data-testid={`aproximacion-btn-${currentExercise.id}`}');
+    it("la aproximación en línea en EjercicioActivo se titula 'Aproximación' y mantiene data-testid para backward compatibility", () => {
+      expect(ejercicioActivoCode).toContain("Aproximación");
+      expect(ejercicioActivoCode).toContain("data-testid={`warmup-btn-${ej.id}`}");
+      expect(ejercicioActivoCode).toContain("data-testid={`aproximacion-btn-${ej.id}`}");
     });
 
-    it("WarmupModal recibe marcas, rpeObjetivo y repsObjetivo desde el ejercicio activo", () => {
-      expect(liveWorkoutCode).toContain("marcas[warmupModalExercise.ejercicio_id || warmupModalExercise.id]");
-      expect(liveWorkoutCode).toContain("rpeObjetivo={warmupModalExercise.rpe_objetivo}");
-      expect(liveWorkoutCode).toContain("repsObjetivo={warmupModalExercise.repeticiones_objetivo}");
+    it("EjercicioActivo calcula series de aproximación desde el peso de trabajo con rpeObjetivo y repsObjetivo (D-20)", () => {
+      expect(ejercicioActivoCode).toContain("calcularSeriesAproximacion(pesoTrabajo");
+      expect(ejercicioActivoCode).toContain("rpeObjetivo:");
+      expect(ejercicioActivoCode).toContain("repeticionesObjetivo: ej.repeticiones_objetivo");
     });
 
     it("GIVEN alumno con PR previo THEN WarmupModal expone badge de cálculo PR y tabla de series sugeridas", () => {

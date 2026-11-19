@@ -57,9 +57,11 @@ describe("GOZS-361: Athlete App - Temporizador por Tiempo, Circuito SS Round-Rob
 
       const html = renderToStaticMarkup(<LiveWorkout />);
 
-      // Badge visible con tiempo objetivo en segundos
+      // Badge visible con tiempo objetivo en segundos (02-pantallas.md §3)
       expect(html).toContain('data-testid="badge-tipo-tiempo"');
-      expect(html).toContain("45s");
+      expect(html).toContain("Tiempo");
+      expect(html).toContain("OBJ. 45 S");
+      expect(html).toContain("00:45");
 
       // Temporizador interactivo con botón Iniciar y display regresivo
       expect(html).toContain('data-testid="timer-ejercicio-tiempo"');
@@ -67,12 +69,12 @@ describe("GOZS-361: Athlete App - Temporizador por Tiempo, Circuito SS Round-Rob
       expect(html).toContain('data-testid="timer-tiempo-iniciar-btn"');
       expect(html).toContain("Iniciar");
 
-      // Stepper adaptado a tiempo en segundos
-      expect(html).toContain("Tiempo (segundos)");
+      // Stepper adaptado a tiempo en segundos (02-pantallas.md §3)
+      expect(html).toContain("Segundos");
       expect(html).toContain('data-testid="reps-decrement-btn"');
-      expect(html).toContain("−5s");
+      expect(html).toContain("−5");
       expect(html).toContain('data-testid="reps-increment-btn"');
-      expect(html).toContain("+5s");
+      expect(html).toContain("+5");
     });
 
     it("GIVEN un ejercicio por tiempo de 45s, WHEN finaliza la cuenta regresiva en 0s, THEN dispara alerta sonora y háptica", () => {
@@ -115,12 +117,11 @@ describe("GOZS-361: Athlete App - Temporizador por Tiempo, Circuito SS Round-Rob
 
       const html = renderToStaticMarkup(<LiveWorkout />);
 
-      // Badge en el encabezado
+      // Badge en el encabezado y selector Derecha | Izquierda (02-pantallas.md §3)
       expect(html).toContain('data-testid="badge-unilateral"');
-      expect(html).toContain("c/lado");
-
-      // Badge en el botón del selector lateral
-      expect(html).toContain('data-testid="badge-unilateral-ej-remo-unilateral"');
+      expect(html).toContain("Por lado");
+      expect(html).toContain("Derecha");
+      expect(html).toContain("Izquierda");
 
       // Indicadores en los steppers
       expect(html).toContain('data-testid="badge-peso-unilateral"');

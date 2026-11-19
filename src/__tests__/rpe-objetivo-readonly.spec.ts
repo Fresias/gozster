@@ -3,45 +3,48 @@ import * as fs from "fs";
 import * as path from "path";
 
 describe("Athlete App: RPE objetivo fijo y de solo lectura prescrito por el entrenador (GH #185, GOZS-179)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
   const iconsPath = path.resolve(__dirname, "../components/athlete/icons.tsx");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
   const iconsCode = fs.readFileSync(iconsPath, "utf-8");
 
   describe("Criterio Gherkin 1: RPE como valor inmutable prescrito por el entrenador", () => {
-    it("presenta el badge con el formato 'RPE Objetivo: <valor> · Prescrito por entrenador'", () => {
-      expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
-      expect(liveWorkoutCode).toContain('data-testid="rpe-prescribed-badge"');
-      expect(liveWorkoutCode).toContain("RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador");
+    it("presenta el badge de RPE objetivo prescrito por el coach en solo lectura (02-pantallas.md §3)", () => {
+      expect(ejercicioActivoCode).toContain('data-testid="input-rpe"');
+      expect(ejercicioActivoCode).toContain('data-testid="rpe-prescribed-badge"');
+      expect(ejercicioActivoCode).toContain("{ej.rpe_objetivo ?? serie.rpe_real}");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
 
-    it("incluye el ícono de bloqueo (Lock) para reforzar visualmente el estado inmutable", () => {
+    it("conserva el ícono de bloqueo (Lock) en icons.tsx y sin dependencias externas", () => {
       expect(iconsCode).toContain("export function Lock");
-      expect(liveWorkoutCode).toContain("<Lock");
+      expect(ejercicioActivoCode).toContain('from "@/components/athlete/icons"');
     });
 
-    it("muestra la descripción informativa de que es un valor de solo lectura fijado por el coach", () => {
-      expect(liveWorkoutCode).toContain("Intensidad fija del ejercicio fundamental. Solo lectura para el atleta.");
+    it("muestra el bloque informativo de RPE objetivo fijado por el coach", () => {
+      expect(ejercicioActivoCode).toContain("RPE objetivo");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
   });
 
   describe("Criterio Gherkin 2: Eliminación total de steppers interactivos de modificación (−0.5 / +0.5)", () => {
     it("elimina los botones de incremento y decremento de RPE (-0.5 y +0.5)", () => {
-      expect(liveWorkoutCode).not.toContain("−0.5");
-      expect(liveWorkoutCode).not.toContain("+0.5");
-      expect(liveWorkoutCode).not.toContain("handleAdjustRpe");
+      expect(ejercicioActivoCode).not.toContain("−0.5");
+      expect(ejercicioActivoCode).not.toContain("+0.5");
+      expect(ejercicioActivoCode).not.toContain("handleAdjustRpe");
     });
   });
 
   describe("Criterio Gherkin 3: Conservación de métricas avanzadas y jerarquía de vistas", () => {
     it("mantiene visible el cálculo de 1RM estimado junto al RPE objetivo", () => {
-      expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
-      expect(liveWorkoutCode).toContain("RPE Objetivo");
+      expect(ejercicioActivoCode).toContain("Math.round(serie.estimated1RM)");
+      expect(ejercicioActivoCode).toContain("1RM estimado");
+      expect(ejercicioActivoCode).toContain("RPE objetivo");
     });
 
     it("se ubica dentro de la sección técnica exclusiva y permanece oculta en Vista Simple", () => {
-      expect(liveWorkoutCode).toContain("!isSimpleView && (");
+      expect(ejercicioActivoCode).toContain("!isSimpleView && !esTiempo && (");
     });
   });
 });

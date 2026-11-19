@@ -5,9 +5,9 @@ import { useAthleteStore, type LiveWorkoutSession } from "@/store/use-athlete-st
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 describe("Athlete App: Auto-finalización en última serie (26/26) y ocultamiento de controles (GOZS-173 / Issue #179)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
   const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
   const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
 
   beforeEach(() => {
@@ -78,19 +78,18 @@ describe("Athlete App: Auto-finalización en última serie (26/26) y ocultamient
   });
 
   describe("Criterio Gherkin 2: Ocultamiento automático de controles interactivos de registro", () => {
-    it("el código de LiveWorkout oculta single-set-card cuando el ejercicio o el entrenamiento están completados", () => {
-      // Verifica que no se renderiza incondicionalmente {serie ? (
-      expect(liveWorkoutCode).not.toMatch(/\{\s*serie\s*\?\s*\(\s*<Card[^>]*data-testid=\{`single-set-card/);
+    it("el código de EjercicioActivo oculta single-set-card cuando el ejercicio o el entrenamiento están completados (FE-05)", () => {
+      // Verifica que no se renderiza incondicionalmente la tarjeta de serie
+      expect(ejercicioActivoCode).not.toMatch(/\{\s*serie\s*\?\s*\(\s*<Card[^>]*data-testid=\{`single-set-card/);
 
       // Verifica que se condiciona con la completitud de series o del entrenamiento
-      expect(liveWorkoutCode).toContain("!currentExercise.series.every((s) => s.completada)");
-      expect(liveWorkoutCode).toContain("!isAllWorkoutCompleted");
-      expect(liveWorkoutCode).toContain("!workoutFinished");
+      expect(ejercicioActivoCode).toContain("ej.series.every((s) => s.completada)");
+      expect(ejercicioActivoCode).toContain("!completas && !isAllWorkoutCompleted");
 
-      // Verifica que se ocultan los controles y se muestra el banner de finalización
-      expect(liveWorkoutCode).toContain('data-testid="terminar-entrenamiento-btn-entrenar"');
-      expect(liveWorkoutCode).toContain("¡Entrenamiento completado!");
-      expect(liveWorkoutCode).toContain("¡Entrenamiento finalizado!");
+      // Verifica que se ocultan los controles y se muestra la tarjeta de ejercicio completo / terminar sesión (02-pantallas.md §3)
+      expect(ejercicioActivoCode).toContain('data-testid="terminar-entrenamiento-btn-entrenar"');
+      expect(ejercicioActivoCode).toContain("Ejercicio completo");
+      expect(ejercicioActivoCode).toContain("Terminar sesión");
     });
 
     it("en handleRegistrarSerie se verifica isLastSetOfWorkout para disparar handleTerminarEntrenamiento", () => {

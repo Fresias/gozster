@@ -205,16 +205,16 @@ describe("FE App: Carteles del reporte de dolor por rango (1-3, 4-6, 7-9, 10) (G
   });
 
   describe("3. Código Fuente y Ergonomía Visual en Componentes UI", () => {
-    const liveWorkoutCode = readSource("../components/athlete/live-workout.tsx");
+    const ejercicioActivoCode = readSource("../components/athlete/ejercicio-activo.tsx");
     const painModalCode = readSource("../components/athlete/pain-report-modal.tsx");
     const painBannerCode = readSource("../components/athlete/pain-banner.tsx");
 
-    it("LiveWorkout renderiza PainReportBanner desde currentSession.molestias y vincula reportarMolestia", () => {
-      expect(liveWorkoutCode).toContain("PainReportBanner");
-      expect(liveWorkoutCode).toContain("derivedPainBanner");
-      expect(liveWorkoutCode).toContain("setDismissedMolestiaId");
-      expect(liveWorkoutCode).toContain("reportarMolestia");
-      expect(liveWorkoutCode).toContain("<PainReportBanner");
+    it("EjercicioActivo renderiza PainReportBanner desde currentSession.molestias y vincula reportarMolestia", () => {
+      expect(ejercicioActivoCode).toContain("PainReportBanner");
+      expect(ejercicioActivoCode).toContain("derivedPainBanner");
+      expect(ejercicioActivoCode).toContain("setDismissedMolestiaId");
+      expect(ejercicioActivoCode).toContain("reportarMolestia");
+      expect(ejercicioActivoCode).toContain("<PainReportBanner");
     });
 
     it("PainReportModal muestra los carteles informativos por rango (1-3, 4-6, 7-9, 10)", () => {

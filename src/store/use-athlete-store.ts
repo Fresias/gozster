@@ -2278,7 +2278,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!restTimer.isActive || restTimer.isPaused) return;
 
         if (restTimer.secondsRemaining <= 1) {
-          // Timer terminado: reproducir sonido y vibrar
+          // Timer terminado: reproducir sonido, vibrar y avisar con toast v7
           playRestTimerAlert();
           triggerHapticVibration([300, 150, 300]);
           set({
@@ -2286,6 +2286,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
               ...restTimer,
               isActive: false,
               secondsRemaining: 0,
+            },
+            toastSesion: {
+              mensaje: "Terminó el descanso. A la serie.",
+              tipo: "ok",
             },
           });
         } else {

@@ -472,38 +472,37 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
   });
 
   describe("5. Ergonomía Táctil, PWA Offline y Componentes de UI", () => {
-    const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+    const rutinaDelDiaPath = path.resolve(__dirname, "../components/athlete/rutina-del-dia.tsx");
+    const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
     const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
     const cuestionarioPath = path.resolve(__dirname, "../components/athlete/cuestionario-inicial.tsx");
     const studentDetailPath = path.resolve(__dirname, "../components/coach/student-detail.tsx");
     const coachStudioViewPath = path.resolve(__dirname, "../components/coach/coach-studio-view.tsx");
 
-    const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+    const rutinaDelDiaCode = fs.readFileSync(rutinaDelDiaPath, "utf-8");
+    const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
     const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
     const cuestionarioCode = fs.readFileSync(cuestionarioPath, "utf-8");
     const studentDetailCode = fs.readFileSync(studentDetailPath, "utf-8");
     const coachStudioViewCode = fs.readFileSync(coachStudioViewPath, "utf-8");
 
-    it("Athlete App (LiveWorkout) contiene la solapa 'Cuestionario Inicial' sin bloquear el entrenamiento", () => {
-      expect(liveWorkoutCode).toContain('data-testid="tab-cuestionario"');
-      expect(liveWorkoutCode).toContain('data-testid="tab-workout"');
-      // GOZS-144 PR1: las solapas Hábitos y Nutrición dejaron de montarse en la
-      // app del alumno; sólo quedan Entrenamiento y Cuestionario.
+    it("Athlete App (RutinaDelDia) contiene el acceso al Cuestionario Inicial sin bloquear el entrenamiento", () => {
+      expect(rutinaDelDiaCode).toContain('data-testid="tab-cuestionario"');
       expect(useLiveWorkoutCode).toContain('useState<"workout" | "cuestionario">("workout")');
-      expect(liveWorkoutCode).not.toContain('data-testid="tab-habits"');
-      expect(liveWorkoutCode).not.toContain('data-testid="tab-nutrition"');
-      expect(liveWorkoutCode).toContain("<CuestionarioInicial");
+      expect(rutinaDelDiaCode).not.toContain('data-testid="tab-habits"');
+      expect(rutinaDelDiaCode).not.toContain('data-testid="tab-nutrition"');
+      expect(rutinaDelDiaCode).toContain("<CuestionarioInicial");
     });
 
-    it("LiveWorkout provee conmutador de vista y oculta métricas complejas en modo SIMPLE", () => {
-      expect(liveWorkoutCode).toContain('data-testid="athlete-view-mode-container"');
-      expect(liveWorkoutCode).toContain('data-testid="athlete-toggle-vista-simple"');
-      expect(liveWorkoutCode).toContain('data-testid="athlete-toggle-vista-tecnica"');
+    it("RutinaDelDia y EjercicioActivo proveen conmutador de vista y ocultan métricas complejas en modo SIMPLE", () => {
+      expect(rutinaDelDiaCode).toContain('data-testid="athlete-view-mode-container"');
+      expect(rutinaDelDiaCode).toContain('data-testid="athlete-toggle-vista-simple"');
+      expect(rutinaDelDiaCode).toContain('data-testid="athlete-toggle-vista-tecnica"');
 
-      expect(liveWorkoutCode).toContain("isSimpleView");
-      expect(liveWorkoutCode).toContain("!isSimpleView && (");
-      expect(liveWorkoutCode).toContain("setWarmupModalExercise");
-      expect(liveWorkoutCode).not.toContain("setPlateModalWeight"); // GOZS-279: calculadora de discos eliminada
+      expect(ejercicioActivoCode).toContain("isSimpleView");
+      expect(ejercicioActivoCode).toContain("!isSimpleView && !esTiempo && (");
+      expect(ejercicioActivoCode).toContain("aproximacion-btn-");
+      expect(ejercicioActivoCode).not.toContain("PlateCalculatorModal");
     });
 
     it("CuestionarioInicial ofrece experiencia opcional, accesible y táctil (>= 44-48px)", () => {
@@ -590,16 +589,18 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(tonelajeTotal).toBe(8600);
     });
 
-    it("en modo SIMPLE, LiveWorkout oculta estrictamente RPE, estimación 1RM y calculadoras avanzadas", () => {
-      const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
-      const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+    it("en modo SIMPLE, EjercicioActivo y RutinaDelDia ocultan estrictamente RPE, estimación 1RM y métricas avanzadas", () => {
+      const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+      const rutinaDelDiaPath = path.resolve(__dirname, "../components/athlete/rutina-del-dia.tsx");
+      const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
+      const rutinaDelDiaCode = fs.readFileSync(rutinaDelDiaPath, "utf-8");
 
-      expect(liveWorkoutCode).toContain("!isSimpleView && (");
-      expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
-      expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
-      expect(liveWorkoutCode).toContain("setWarmupModalExercise");
-      expect(liveWorkoutCode).not.toContain("setPlateModalWeight");
-      expect(liveWorkoutCode).toContain("Vol. Efectivo (Hevy)");
+      expect(ejercicioActivoCode).toContain("!isSimpleView && !esTiempo && (");
+      expect(ejercicioActivoCode).toContain('data-testid="input-rpe"');
+      expect(ejercicioActivoCode).toContain("Math.round(serie.estimated1RM)");
+      expect(ejercicioActivoCode).toContain("discosPorLado");
+      expect(ejercicioActivoCode).not.toContain("PlateCalculatorModal");
+      expect(rutinaDelDiaCode).toContain("Volumen efectivo:");
     });
 
     it("alumno nuevo inicia con cuestionarioInicial nulo y entrena de inmediato sin bloqueos de onboarding", () => {

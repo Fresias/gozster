@@ -8,11 +8,13 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
 
 describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (GOZS-174 / GH #180)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+  const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
   const cierreDiaModalPath = path.resolve(__dirname, "../components/athlete/cierre-dia-modal.tsx");
   const athleteV7CssPath = path.resolve(__dirname, "../app/(athlete)/athlete/athlete-v7.css");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
+  const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
   const cierreDiaModalCode = fs.readFileSync(cierreDiaModalPath, "utf-8");
   const athleteV7CssCode = fs.readFileSync(athleteV7CssPath, "utf-8");
 
@@ -74,11 +76,11 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       expect(cierreDiaModalCode).not.toContain("🏆");
     });
 
-    it("GIVEN LiveWorkout, THEN integra CierreDiaModal y dispara la apertura al concluir el guardado", () => {
-      expect(liveWorkoutCode).toContain('import { CierreDiaModal');
-      expect(liveWorkoutCode).toContain('<CierreDiaModal');
-      expect(liveWorkoutCode).toContain('setShowCelebrationModal(true)');
-      expect(liveWorkoutCode).toContain('showCelebrationModal');
+    it("GIVEN EjercicioActivo + useLiveWorkout, THEN integra CierreDiaModal y dispara la apertura al concluir el guardado", () => {
+      expect(ejercicioActivoCode).toContain("import { CierreDiaModal");
+      expect(ejercicioActivoCode).toContain("<CierreDiaModal");
+      expect(useLiveWorkoutCode).toContain("setShowCelebrationModal(true)");
+      expect(ejercicioActivoCode).toContain("showCelebrationModal");
     });
   });
 

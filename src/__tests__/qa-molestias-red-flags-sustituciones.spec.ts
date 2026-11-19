@@ -169,7 +169,7 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
   // 1. AUDITORÍA DE SEGURIDAD Y RED FLAGS (ATHLETE APP & PROTOCOLO DE FRENO)
   // =========================================================================
   describe("1. Auditoría de Seguridad Clínica y Protocolo de Freno en Athlete App", () => {
-    const liveWorkoutCode = readSourceFile("../components/athlete/live-workout.tsx");
+    const ejercicioActivoCode = readSourceFile("../components/athlete/ejercicio-activo.tsx");
     const painModalCode = readSourceFile("../components/athlete/pain-report-modal.tsx");
 
     it("el modal del alumno NO contiene selectores ni opciones de ejercicio sustituto (ADR-002 / Ponytail)", () => {
@@ -178,7 +178,7 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
       expect(painModalCode).not.toContain("quick_swap_ejercicio");
       expect(painModalCode).not.toContain("ejercicio_sustituto");
       expect(painModalCode).not.toContain("select-alternativa");
-      expect(liveWorkoutCode).not.toContain("quick_swap_ejercicio");
+      expect(ejercicioActivoCode).not.toContain("quick_swap_ejercicio");
     });
 
     it("incluye los 4 checks explícitos de Síntomas de Alarma (Red Flags)", () => {
@@ -263,12 +263,12 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
     });
 
     it("renderiza el banner visual de protocolo de freno con indicación de parar por hoy y avisar al coach", () => {
-      expect(liveWorkoutCode).toContain('data-testid="live-workout-stop-protocol-banner"');
-      expect(liveWorkoutCode).toContain("PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO");
-      expect(liveWorkoutCode).toContain(
+      expect(ejercicioActivoCode).toContain('data-testid="live-workout-stop-protocol-banner"');
+      expect(ejercicioActivoCode).toContain("PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO");
+      expect(ejercicioActivoCode).toContain(
         "Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.",
       );
-      expect(liveWorkoutCode).toContain("alerta CRÍTICA a tu entrenador");
+      expect(ejercicioActivoCode).toContain("alerta CRÍTICA a tu entrenador");
     });
   });
 

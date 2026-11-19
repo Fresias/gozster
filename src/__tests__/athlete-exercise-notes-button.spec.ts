@@ -22,40 +22,38 @@ describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", (
   });
 
   describe("Criterio 1: Presencia del botón cuando el ejercicio tiene notas y ausencia cuando no tiene", () => {
-    const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
-    const liveWorkoutContent = fs.readFileSync(liveWorkoutPath, "utf-8");
+    const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+    const ejercicioActivoContent = fs.readFileSync(ejercicioActivoPath, "utf-8");
 
-    it("live-workout.tsx debe importar ExerciseNotesModal", () => {
-      expect(liveWorkoutContent).toContain('import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal"');
+    it("ejercicio-activo.tsx debe importar ExerciseNotesModal (FE-05)", () => {
+      expect(ejercicioActivoContent).toContain('import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal"');
     });
 
-    it("el botón de notas debe ubicarse en la fila de botones junto a técnica y reporte", () => {
-      expect(liveWorkoutContent).toContain("exercise-notes-btn-${currentExercise.id}");
-      expect(liveWorkoutContent).toContain('title="Ver notas del ejercicio"');
-      expect(liveWorkoutContent).toContain('aria-label="Ver notas del ejercicio"');
+    it("el botón de indicaciones se ubica en la barra de herramientas junto a video y el reporte de molestia en el ejercicio (02-pantallas.md §3)", () => {
+      expect(ejercicioActivoContent).toContain("exercise-notes-btn-${ej.id}");
+      expect(ejercicioActivoContent).toContain('aria-label="Indicaciones del ejercicio"');
 
-      // Verificar que está en el mismo contenedor flex de botones de acción
-      const buttonContainerIdx = liveWorkoutContent.indexOf("demo-technique-btn-${currentExercise.id}");
-      const notesButtonIdx = liveWorkoutContent.indexOf("exercise-notes-btn-${currentExercise.id}");
-      const painReportIdx = liveWorkoutContent.indexOf("exercise-pain-report-btn");
+      const notesButtonIdx = ejercicioActivoContent.indexOf("exercise-notes-btn-${ej.id}");
+      const videoButtonIdx = ejercicioActivoContent.indexOf("demo-technique-btn-${ej.id}");
+      const painReportIdx = ejercicioActivoContent.indexOf("exercise-pain-report-btn-${ej.id}");
 
-      expect(buttonContainerIdx).toBeGreaterThan(0);
-      expect(notesButtonIdx).toBeGreaterThan(buttonContainerIdx);
-      expect(painReportIdx).toBeGreaterThan(notesButtonIdx);
+      expect(notesButtonIdx).toBeGreaterThan(0);
+      expect(videoButtonIdx).toBeGreaterThan(notesButtonIdx);
+      expect(painReportIdx).toBeGreaterThan(videoButtonIdx);
     });
 
     it("el botón de notas solo se renderiza con condición booleana si existen notas o comentario", () => {
       // GIVEN un ejercicio con notas THEN aparece el botón; sin notas no aparece
-      expect(liveWorkoutContent).toContain(
-        "Boolean(currentExercise.notas?.trim() || currentExercise.comentario?.trim())"
+      expect(ejercicioActivoContent).toContain(
+        "Boolean(ej.notas?.trim() || ej.comentario?.trim())"
       );
     });
 
-    it("live-workout.tsx debe incluir el modal ExerciseNotesModal renderizado condicionalmente", () => {
-      expect(liveWorkoutContent).toContain("<ExerciseNotesModal");
-      expect(liveWorkoutContent).toContain("exercise={notesExercise}");
-      expect(liveWorkoutContent).toContain("isOpen={Boolean(notesExercise)}");
-      expect(liveWorkoutContent).toContain("onClose={() => setNotesExercise(null)}");
+    it("ejercicio-activo.tsx debe incluir el modal ExerciseNotesModal renderizado condicionalmente", () => {
+      expect(ejercicioActivoContent).toContain("<ExerciseNotesModal");
+      expect(ejercicioActivoContent).toContain("exercise={notesExercise}");
+      expect(ejercicioActivoContent).toContain("isOpen");
+      expect(ejercicioActivoContent).toContain("onClose={() => setNotesExercise(null)}");
     });
   });
 

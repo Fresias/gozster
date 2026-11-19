@@ -13,9 +13,9 @@ describe("GOZS-506: Auditoría QA Integral de Deuda Visual (GOZS-502 Stage 4)", 
     /#[0-9a-fA-F]{6}\b|rgba?\(|\b(bg|text|border|ring|fill|stroke|from|to|via)-(red|blue|green|emerald|amber|yellow|orange|sky|cyan|slate|zinc|gray|neutral|rose|indigo|violet|purple|teal|lime|pink)-\d{2,3}/g;
 
   describe("Nivel 1 & 2: Conformance y Ausencia de Microtextos (< 12px)", () => {
-    it("GIVEN live-workout.tsx (Stage 1) THEN contiene 0 microtextos menores a 12px", () => {
-      const liveWorkoutPath = path.join(athleteDir, "live-workout.tsx");
-      const content = fs.readFileSync(liveWorkoutPath, "utf-8");
+    it("GIVEN ejercicio-activo.tsx (FE-05) THEN contiene 0 microtextos menores a 12px", () => {
+      const ejercicioActivoPath = path.join(athleteDir, "ejercicio-activo.tsx");
+      const content = fs.readFileSync(ejercicioActivoPath, "utf-8");
       const matches = content.match(smallTextRegex);
       expect(matches).toBeNull();
     });
@@ -97,27 +97,14 @@ describe("GOZS-506: Auditoría QA Integral de Deuda Visual (GOZS-502 Stage 4)", 
       expect(violations).toHaveLength(0);
     });
 
-    it("GIVEN live-workout.tsx THEN solo contiene excepciones autorizadas (claim-check y taxonomía)", () => {
-      const liveWorkoutPath = path.join(athleteDir, "live-workout.tsx");
-      const content = fs.readFileSync(liveWorkoutPath, "utf-8");
+    it("GIVEN ejercicio-activo.tsx (FE-05) THEN contiene 0 colores hardcodeados", () => {
+      const ejercicioActivoPath = path.join(athleteDir, "ejercicio-activo.tsx");
+      const content = fs.readFileSync(ejercicioActivoPath, "utf-8");
       const violations: { line: number; match: string }[] = [];
 
       content.split("\n").forEach((line, idx) => {
         const match = line.match(hardcodedColorRegex);
         if (!match) return;
-
-        // Excepción 1: Banner optimista (#A7F3D0, #ECFDF5, #047857)
-        if (line.includes("#A7F3D0") || line.includes("#ECFDF5") || line.includes("#047857")) return;
-
-        // Excepción 2: Warmup badge (border-amber-500)
-        if (line.includes("border-amber-500")) return;
-
-        // Excepción 3: Selector de taxonomía W/F/D (bg-amber-500, bg-rose-600, bg-purple-600)
-        if (line.includes("bg-amber-500") || line.includes("bg-rose-600") || line.includes("bg-purple-600")) return;
-
-        // Excepción 4: Dropset / Superserie (purple-*)
-        if (line.includes("purple-")) return;
-
         violations.push({ line: idx + 1, match: line.trim() });
       });
 
@@ -175,12 +162,12 @@ describe("GOZS-506: Auditoría QA Integral de Deuda Visual (GOZS-502 Stage 4)", 
 
   describe("Nivel 4 & 5: Integridad de Contratos DOM y Tokens Accesibles", () => {
     it("GIVEN componentes modificados THEN mantienen intactos los data-testid existentes", () => {
-      const liveWorkout = fs.readFileSync(path.join(athleteDir, "live-workout.tsx"), "utf-8");
+      const ejercicioActivo = fs.readFileSync(path.join(athleteDir, "ejercicio-activo.tsx"), "utf-8");
       const studentDetail = fs.readFileSync(path.join(coachDir, "student-detail.tsx"), "utf-8");
       const athleteClasses = fs.readFileSync(path.join(athleteDir, "athlete-classes.tsx"), "utf-8");
 
-      expect(liveWorkout).toContain('data-testid="timer-tiempo-completado-badge"');
-      expect(liveWorkout).toContain('data-testid="badge-peso-unilateral"');
+      expect(ejercicioActivo).toContain('data-testid="timer-tiempo-completado-badge"');
+      expect(ejercicioActivo).toContain('data-testid={esUni ? "badge-peso-unilateral" : undefined}');
       expect(studentDetail).toContain('data-testid="ficha-actividad-detalle"');
       expect(studentDetail).toContain('data-testid="plan-membresia-detalle"');
       expect(studentDetail).toContain('data-testid="plan-membresia-notas"');

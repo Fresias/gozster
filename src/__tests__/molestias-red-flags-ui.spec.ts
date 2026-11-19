@@ -30,20 +30,19 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
   });
 
   describe("1. Athlete App: Botón 'Tengo una molestia' y Ergonomía Táctil", () => {
-    const liveWorkoutContent = readSource("../components/athlete/live-workout.tsx");
+    const rutinaContent = readSource("../components/athlete/rutina-del-dia.tsx");
+    const ejercicioContent = readSource("../components/athlete/ejercicio-activo.tsx");
     const painModalContent = readSource("../components/athlete/pain-report-modal.tsx");
 
-    it("incluye el botón 'Tengo una molestia' visible en el header con objetivo táctil >= 44px", () => {
-      expect(liveWorkoutContent).toContain('data-testid="header-pain-report-btn"');
-      expect(liveWorkoutContent).toContain("Tengo una molestia");
-      expect(liveWorkoutContent).toContain("min-h-11");
+    it("incluye el botón 'Tengo una molestia' visible en RutinaDelDia con objetivo táctil >= 44px", () => {
+      expect(rutinaContent).toContain('data-testid="header-pain-report-btn"');
+      expect(rutinaContent).toContain("Tengo una molestia");
+      expect(rutinaContent).toContain("a-molbtn");
     });
 
-    it("incluye el botón 'Tengo una molestia' en cada tarjeta de ejercicio", () => {
-      expect(liveWorkoutContent).toContain(
-        'data-testid={`exercise-pain-report-btn-${ejercicio.id}`}',
-      );
-      expect(liveWorkoutContent).toContain("Reportar molestia");
+    it("incluye el botón 'Tengo una molestia' en EjercicioActivo", () => {
+      expect(ejercicioContent).toContain("data-testid={`exercise-pain-report-btn-${ej.id}`}");
+      expect(ejercicioContent).toContain("Tengo una molestia");
     });
 
     it("dispone de modal de reporte con 8 zonas anatómicas normalizadas", () => {
@@ -107,7 +106,7 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
 
   describe("2. Regla Ponytail & ADR-002: Alumno SIN visualización de alternativas y Protocolo de Freno", () => {
     const painModalContent = readSource("../components/athlete/pain-report-modal.tsx");
-    const liveWorkoutContent = readSource("../components/athlete/live-workout.tsx");
+    const ejercicioContent = readSource("../components/athlete/ejercicio-activo.tsx");
 
     it("el modal del alumno NO contiene selectores ni dropdowns de ejercicios alternativos", () => {
       // Prohibido que el atleta elija o vea alternativas automáticas
@@ -128,14 +127,14 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
       );
     });
 
-    it("muestra banner persistente de freno en live-workout si el protocolo de freno está activo", () => {
-      expect(liveWorkoutContent).toContain(
+    it("muestra banner persistente de freno en ejercicio-activo si el protocolo de freno está activo", () => {
+      expect(ejercicioContent).toContain(
         'data-testid="live-workout-stop-protocol-banner"',
       );
-      expect(liveWorkoutContent).toContain(
+      expect(ejercicioContent).toContain(
         "PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO",
       );
-      expect(liveWorkoutContent).toContain(
+      expect(ejercicioContent).toContain(
         "Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.",
       );
     });

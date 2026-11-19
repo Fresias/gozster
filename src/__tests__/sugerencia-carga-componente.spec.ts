@@ -67,14 +67,14 @@ describe("SugerenciaCarga (spec historial-progreso §2.6 / §2.7)", () => {
   });
 });
 
-describe("live-workout: sugerencia bajo «La última vez» (§2.2 / §2.5)", () => {
-  const src = readFileSync(join(process.cwd(), "src/components/athlete/live-workout.tsx"), "utf8");
+describe("ejercicio-activo: sugerencia bajo «La última vez» (§2.2 / §2.5 / FE-05)", () => {
+  const src = readFileSync(join(process.cwd(), "src/components/athlete/ejercicio-activo.tsx"), "utf8");
   const hookSrc = readFileSync(join(process.cwd(), "src/components/athlete/use-live-workout.ts"), "utf8");
 
-  it("se renderiza entre «La última vez» y el stepper de Peso", () => {
-    const iUltima = src.indexOf("<UltimaVez");
-    const iSugerencia = src.indexOf("<SugerenciaCarga");
-    const iPeso = src.indexOf("Stepper Peso");
+  it("se renderiza entre «Última vez» y el stepper de Peso", () => {
+    const iUltima = src.indexOf('data-testid="ultima-vez"');
+    const iSugerencia = src.indexOf('data-testid="sugerencia-carga"');
+    const iPeso = src.indexOf('data-testid="peso-increment-btn"');
     expect(iUltima).toBeGreaterThan(-1);
     expect(iSugerencia).toBeGreaterThan(iUltima);
     expect(iPeso).toBeGreaterThan(iSugerencia);

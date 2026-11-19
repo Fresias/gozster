@@ -23,51 +23,49 @@ import {
  */
 
 describe("QA Verification: RPE Objetivo Fijo y de Solo Lectura Prescrito por el Entrenador (GOZS-179 / GH #185)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
   const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
   const iconsPath = path.resolve(__dirname, "../components/athlete/icons.tsx");
   const packageJsonPath = path.resolve(__dirname, "../../package.json");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
   const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
   const iconsCode = fs.readFileSync(iconsPath, "utf-8");
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
 
   describe("1. Auditoría de Inmutabilidad y Presentación Visual (Criterio Gherkin)", () => {
     it("presenta el badge inmutable con data-testid='rpe-prescribed-badge' dentro de data-testid='input-rpe'", () => {
-      expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
-      expect(liveWorkoutCode).toContain('data-testid="rpe-prescribed-badge"');
-      expect(liveWorkoutCode).toContain(
-        "RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador"
-      );
+      expect(ejercicioActivoCode).toContain('data-testid="input-rpe"');
+      expect(ejercicioActivoCode).toContain('data-testid="rpe-prescribed-badge"');
+      expect(ejercicioActivoCode).toContain("{ej.rpe_objetivo ?? serie.rpe_real}");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
 
-    it("utiliza el ícono Lock nativo exportado en icons.tsx sin librerías externas (Ponytail)", () => {
+    it("utiliza íconos nativos exportados en icons.tsx sin librerías externas (Ponytail)", () => {
       expect(iconsCode).toContain("export function Lock");
-      expect(liveWorkoutCode).toContain("<Lock");
+      expect(ejercicioActivoCode).toContain('from "@/components/athlete/icons"');
       // Verifica que no se importó ninguna librería de iconos de terceros (lucide-react, etc.)
       expect(packageJson.dependencies["lucide-react"]).toBeUndefined();
     });
 
-    it("muestra la descripción clara de que es una intensidad fija prescrita por el coach", () => {
-      expect(liveWorkoutCode).toContain(
-        "Intensidad fija del ejercicio fundamental. Solo lectura para el atleta."
-      );
+    it("muestra la leyenda v7 de que es un valor prescrito por el coach en solo lectura (02-pantallas.md §3)", () => {
+      expect(ejercicioActivoCode).toContain("RPE objetivo");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
 
-    it("garantiza la eliminación absoluta de interactores y steppers de ajuste de RPE", () => {
-      expect(liveWorkoutCode).not.toContain("−0.5");
-      expect(liveWorkoutCode).not.toContain("+0.5");
-      expect(liveWorkoutCode).not.toContain("handleAdjustRpe");
-      // Ningún botón para modificar RPE
-      expect(liveWorkoutCode).not.toMatch(/handleAdjustRpe\(/);
+    it("garantiza la eliminación absoluta de interactores y steppers de ajuste de RPE objetivo", () => {
+      expect(ejercicioActivoCode).not.toContain("−0.5");
+      expect(ejercicioActivoCode).not.toContain("+0.5");
+      expect(ejercicioActivoCode).not.toContain("handleAdjustRpe");
+      expect(ejercicioActivoCode).not.toMatch(/handleAdjustRpe\(/);
     });
   });
 
   describe("2. Verificación Matemática Estricta de Métricas de Fuerza (Epley, Brzycki y 1RM)", () => {
     it("mantiene intacta la visualización del cálculo de 1RM estimado en vivo en la sección técnica", () => {
-      expect(liveWorkoutCode).toContain("{serie.estimated1RM.toFixed(1)} kg 1RM");
-      expect(liveWorkoutCode).toContain("RPE Objetivo");
+      expect(ejercicioActivoCode).toContain("Math.round(serie.estimated1RM)");
+      expect(ejercicioActivoCode).toContain("1RM estimado");
+      expect(ejercicioActivoCode).toContain("RPE objetivo");
     });
 
     it("calcula con exactitud el 1RM con fórmula de Epley: 1RM = Peso * (1 + Reps / 30)", () => {
@@ -119,11 +117,11 @@ describe("QA Verification: RPE Objetivo Fijo y de Solo Lectura Prescrito por el 
   });
 
   describe("3. Auditoría de Jerarquía de Vistas (Vista Simple vs Vista Técnica)", () => {
-    it("garantiza que la sección técnica de RPE Objetivo y 1RM permanece estrictamente oculta en Vista Simple", () => {
+    it("garantiza que la sección técnica de RPE objetivo y 1RM permanece estrictamente oculta en Vista Simple", () => {
       // La condición de renderizado técnico debe evaluar !isSimpleView
-      expect(liveWorkoutCode).toContain("!isSimpleView && (");
-      // Verifica que no se exponga el stepper ni el badge fuera del bloque técnico condicional
-      const technicalBlockMatch = liveWorkoutCode.match(/\{!isSimpleView\s*&&\s*\([\s\S]*?RPE Objetivo[\s\S]*?\)\}/);
+      expect(ejercicioActivoCode).toContain("!isSimpleView && !esTiempo && (");
+      // Verifica que no se exponga el badge fuera del bloque técnico condicional
+      const technicalBlockMatch = ejercicioActivoCode.match(/\{!isSimpleView\s*&&\s*!esTiempo\s*&&\s*\([\s\S]*?RPE objetivo[\s\S]*?\)\}/);
       expect(technicalBlockMatch).not.toBeNull();
     });
   });
@@ -138,8 +136,7 @@ describe("QA Verification: RPE Objetivo Fijo y de Solo Lectura Prescrito por el 
     });
 
     it("cumple la regla Karpathy: modificación concisa y quirúrgica", () => {
-      // live-workout.tsx conserva su estructura sin reescrituras masivas
-      expect(liveWorkoutCode).toContain("export function LiveWorkout");
+      expect(ejercicioActivoCode).toContain("export function EjercicioActivo");
       expect(useLiveWorkoutCode).toContain("useAthleteStore");
       expect(useLiveWorkoutCode).toContain("useOfflineQueueStore");
     });

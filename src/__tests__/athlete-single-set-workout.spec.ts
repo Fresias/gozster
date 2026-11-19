@@ -5,11 +5,13 @@ import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
 describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GOZS-148)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+  const rutinaDelDiaPath = path.resolve(__dirname, "../components/athlete/rutina-del-dia.tsx");
   const popoverPath = path.resolve(__dirname, "../components/ui/popover.tsx");
   const tabsPath = path.resolve(__dirname, "../components/ui/tabs.tsx");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
+  const rutinaDelDiaCode = fs.readFileSync(rutinaDelDiaPath, "utf-8");
   const ultimaVezCode = fs.readFileSync(path.resolve(__dirname, "../components/athlete/ultima-vez.tsx"), "utf-8");
 
   beforeEach(() => {
@@ -54,33 +56,31 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
       expect(set2?.reps_hechas).toBe(10);
     });
 
-    it("el componente live-workout muestra una sola tarjeta visible para la serie actual", () => {
-      expect(liveWorkoutCode).toContain('data-testid={`single-set-card-${currentExercise.id}-${serie.numero_serie}`}');
-      expect(liveWorkoutCode).toContain('data-testid="registrar-serie-btn"');
-      expect(liveWorkoutCode).toContain('{serie.numero_serie}');
-      expect(liveWorkoutCode).toContain('{currentExercise.series.length}');
-      // "La última vez" vive en su componente (GOZS-159) y la tarjeta lo usa.
-      expect(liveWorkoutCode).toContain("<UltimaVez");
+    it("el componente ejercicio-activo muestra una sola tarjeta visible para la serie actual (FE-05)", () => {
+      expect(ejercicioActivoCode).toContain('data-testid={`single-set-card-${ej.id}-${serie.numero_serie}`}');
+      expect(ejercicioActivoCode).toContain('data-testid="registrar-serie-btn"');
+      expect(ejercicioActivoCode).toContain("{serie.numero_serie}");
+      expect(ejercicioActivoCode).toContain("{ej.series.length}");
+      expect(ejercicioActivoCode).toContain('data-testid="ultima-vez"');
+      expect(ejercicioActivoCode).toContain("Última vez:");
       expect(ultimaVezCode).toContain("Última vez:");
-      expect(liveWorkoutCode).not.toContain("last_session_weight_kg || serie.peso_kg");
+      expect(ejercicioActivoCode).not.toContain("last_session_weight_kg || serie.peso_kg");
     });
 
-    it("la confirmación optimista de serie guardada usa los colores y formato de spec", () => {
-      expect(liveWorkoutCode).toContain('data-testid="optimistic-saved-banner"');
-      expect(liveWorkoutCode).toContain("bg-[#ECFDF5]");
-      expect(liveWorkoutCode).toContain("text-[#047857]");
-      expect(liveWorkoutCode).toContain("border-[#A7F3D0]");
-      expect(liveWorkoutCode).toContain("guardada ·");
+    it("la lista de registradas muestra Guardada / En el teléfono según D3-A", () => {
+      expect(ejercicioActivoCode).toContain('data-testid="registradas"');
+      expect(ejercicioActivoCode).toContain("En el teléfono");
+      expect(ejercicioActivoCode).toContain("Guardada");
     });
   });
 
-  describe("2. Chip de descanso con Popover explicativo", () => {
-    it("el chip de descanso está conectado al popover con la explicación del coach", () => {
-      expect(liveWorkoutCode).toContain('data-testid={`descanso-chip-${currentExercise.id}`}');
-      expect(liveWorkoutCode).toContain('data-testid="descanso-popover-content"');
-      expect(liveWorkoutCode).toContain("Descanso: {currentExercise.descanso_segundos} segundos");
-      expect(liveWorkoutCode).toContain(
-        "Es el tiempo que tu coach recomienda esperar entre una serie y la siguiente para recuperarte."
+  describe("2. Chip de descanso con ayuda explicativa en línea (02-pantallas.md §3)", () => {
+    it("el chip de descanso despliega la explicación del coach", () => {
+      expect(ejercicioActivoCode).toContain('data-testid={`descanso-chip-${ej.id}`}');
+      expect(ejercicioActivoCode).toContain('data-testid="descanso-popover-content"');
+      expect(ejercicioActivoCode).toContain("Descanso: {ej.descanso_segundos} s.");
+      expect(ejercicioActivoCode).toContain(
+        "Es lo que tu coach recomienda entre una serie y la siguiente."
       );
     });
 
@@ -94,12 +94,11 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
     });
   });
 
-  describe("3. Pestañas Entrenar | Registro del día y edición en línea de series", () => {
-    it("live-workout expone pestañas con contador para Registro del día", () => {
-      expect(liveWorkoutCode).toContain('data-testid="tab-entrenar"');
-      expect(liveWorkoutCode).toContain('data-testid="tab-registro-dia"');
-      expect(liveWorkoutCode).toContain('data-testid="registro-dia-counter"');
-      expect(liveWorkoutCode).toContain('data-testid="registro-dia-container"');
+  describe("3. Pestañas Entrenar | Registro de la sesión y edición en línea de series (FE-04)", () => {
+    it("rutina-del-dia expone pestañas para Registro de la sesión", () => {
+      expect(rutinaDelDiaCode).toContain('data-testid="tab-entrenar"');
+      expect(rutinaDelDiaCode).toContain('data-testid="tab-registro-dia"');
+      expect(rutinaDelDiaCode).toContain('data-testid="registro-dia-container"');
     });
 
     it("permite editar una serie ya completada y persiste en el store y cola offline", () => {
@@ -141,13 +140,14 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
       });
     });
 
-    it("expone el lápiz de 48x48, steppers, Guardar cambio, Cancelar y Todo guardado", () => {
-      expect(liveWorkoutCode).toContain('data-testid={`edit-set-btn-${ej.id}-${s.numero_serie}`}');
-      expect(liveWorkoutCode).toContain('data-testid="cancel-edit-set-btn"');
-      expect(liveWorkoutCode).toContain('data-testid="save-edit-set-btn"');
-      expect(liveWorkoutCode).toContain("Todo guardado");
-      expect(liveWorkoutCode).toContain("Terminar entrenamiento");
-      expect(liveWorkoutCode).toContain('data-testid="terminar-entrenamiento-btn"');
+    it("expone filas de registro (log-row), estado D3-A y Terminar sesión en rutina-del-dia.tsx y handleSaveEdit en use-live-workout.ts", () => {
+      const hookCode = fs.readFileSync(path.resolve(__dirname, "../components/athlete/use-live-workout.ts"), "utf-8");
+      expect(rutinaDelDiaCode).toContain('data-testid={`log-row-${ej.id}-${s.numero_serie}`}');
+      expect(rutinaDelDiaCode).toContain("Guardada");
+      expect(rutinaDelDiaCode).toContain("En el teléfono");
+      expect(rutinaDelDiaCode).toContain("Terminar sesión");
+      expect(rutinaDelDiaCode).toContain('data-testid="terminar-entrenamiento-btn"');
+      expect(hookCode).toContain("editCompletedSet(");
     });
   });
 
@@ -177,16 +177,15 @@ describe("Athlete App: Ejercicio de a una serie + Registro del día editable (GO
     });
   });
 
-  describe("5. Vista Técnica conserva extras dentro de la tarjeta única", () => {
-    it("conserva RPE, taxonomía de series y calentamiento en Vista Técnica (sin calculadora de discos)", () => {
-      expect(liveWorkoutCode).toContain("!isSimpleView && (");
-      expect(liveWorkoutCode).toContain('data-testid="input-rpe"');
-      expect(liveWorkoutCode).toContain("Tipo de Serie");
-      expect(liveWorkoutCode).toContain('data-testid={`warmup-btn-${currentExercise.id}`}');
-      expect(liveWorkoutCode).not.toContain("setPlateModalWeight");
-      expect(liveWorkoutCode).not.toContain("PlateCalculatorModal");
-      expect(liveWorkoutCode).not.toContain("<span>Discos</span>");
-      expect(liveWorkoutCode).toContain("serie.estimated1RM.toFixed(1)} kg 1RM");
+  describe("5. Vista Técnica conserva extras dentro de la tarjeta única (D-20, D-21)", () => {
+    it("conserva RPE, 1RM, discos por lado en Técnica y aproximación en línea", () => {
+      expect(ejercicioActivoCode).toContain("!isSimpleView && !esTiempo && (");
+      expect(ejercicioActivoCode).toContain('data-testid="input-rpe"');
+      expect(ejercicioActivoCode).toContain("Tipo de serie");
+      expect(ejercicioActivoCode).toContain('data-testid={`warmup-btn-${ej.id}`}');
+      expect(ejercicioActivoCode).toContain("discosPorLado");
+      expect(ejercicioActivoCode).not.toContain("PlateCalculatorModal");
+      expect(ejercicioActivoCode).toContain("Math.round(serie.estimated1RM)");
     });
   });
 });
