@@ -347,10 +347,30 @@ export function MessageSquare(props: IconProps) {
   );
 }
 
+export function Download(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </Icon>
+  );
+}
+
 export function ChevronLeft(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="m15 18-6-6 6-6" />
+    </Icon>
+  );
+}
+
+export function Info(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
     </Icon>
   );
 }
@@ -360,6 +380,26 @@ export function ArrowRight(props: IconProps) {
     <Icon {...props}>
       <path d="M5 12h14" />
       <path d="m13 5 7 7-7 7" />
+    </Icon>
+  );
+}
+
+export function Hourglass(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 2h12" />
+      <path d="M6 22h12" />
+      <path d="M7 2v4l5 6-5 6v4" />
+      <path d="M17 2v4l-5 6 5 6v4" />
+    </Icon>
+  );
+}
+
+export function Copy(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
     </Icon>
   );
 }

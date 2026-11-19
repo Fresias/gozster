@@ -130,13 +130,24 @@ describe("GOZS-350: In-App Chat en Fila de Alumno, Notificación al Loguear en A
       expect(latest).toBeDefined();
       expect(latest?.contenido).toBe("Lucas, acordate de hidratar bien antes de la serie pesada.");
 
-      // En la pantalla inicial de la Athlete App se renderiza el banner prominente
+      // Sembramos plan para que InicioMisDias renderice la vista con plan (en v7 la tarjeta del coach no aparece durante carga inicial)
+      useAthleteStore.setState({
+        planAlumno: {
+          alumnos: [{ id: alumnoId, nombre_completo: "Lucas Gómez", rol: "ALUMNO" } as any],
+          planes: [{ id: "p-chat", alumno_id: alumnoId, nombre: "PLAN TEST", estado: "ACTIVO", fecha_inicio: "2026-11-01", fecha_fin: null } as any],
+          dias: [{ id: "d-chat-1", plan_id: "p-chat", orden: 1, nombre: "DÍA 1" } as any],
+          ejerciciosEnRutina: [],
+          ejercicios: [],
+        },
+      });
+
+      // En la pantalla inicial de la Athlete App se renderiza la tarjeta del coach v7 (02-pantallas.md §1)
       const html = renderToStaticMarkup(<InicioMisDias />);
       expect(html).toContain('data-testid="unread-coach-message-banner"');
-      expect(html).toContain("Mensaje nuevo del Coach");
-      expect(html).toContain("No leído");
+      expect(html).toContain("a-coachmsg");
+      expect(html).toContain("Mensaje del coach");
+      expect(html).toContain("Nuevo");
       expect(html).toContain("Lucas, acordate de hidratar bien antes de la serie pesada.");
-      expect(html).toContain("Ver mensaje");
     });
 
     it("THEN el botón flotante de chat del shell muestra la insignia con el conteo de no leídos", () => {
