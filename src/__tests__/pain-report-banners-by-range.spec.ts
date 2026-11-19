@@ -3,7 +3,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { getPainBannerConfig } from "@/components/athlete/pain-banner";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
 
 const readSource = (relPath: string) =>
   fs.readFileSync(path.resolve(__dirname, relPath), "utf-8");
@@ -84,120 +83,124 @@ describe("FE App: Carteles del reporte de dolor por rango (1-3, 4-6, 7-9, 10) (G
   });
 
   describe("2. Integración con useAthleteStore y Flujo de Envío (WHEN el alumno lo envía)", () => {
-    it("WHEN envía reporte de dolor 1-3 THEN activa el cartel neutro en activePainBanner", async () => {
-      const reportLeve: PainReportData = {
-        exerciseId: "ej-1",
+    it("WHEN envía reporte de dolor 1-3 THEN guarda molestia leve en currentSession.molestias y genera el cartel neutro", async () => {
+      const molestia = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-1",
+        ejercicioId: "ej-curl-biceps",
+        numeroSerie: 1,
+        zona: "CODO",
+        eva: 2,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Ligera tensión en tendón",
+      });
+
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias).toHaveLength(1);
+      expect(molestias[0]?.id).toBe(molestia.id);
+      expect(molestias[0]?.nivel).toBe("leve");
+
+      const banner = getPainBannerConfig(molestia.eva, {
         exerciseName: "Curl de Bíceps",
-        setNumber: 1,
-        zonaArticular: "CODO",
-        severidad: "LEVE",
-        intensidadNumerica: 2,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "Ligera tensión en tendón",
-      };
-
-      await useAthleteStore.getState().reportPainEvent(reportLeve);
-
-      const banner = useAthleteStore.getState().activePainBanner;
-      expect(banner).not.toBeNull();
-      expect(banner?.range).toBe("1-3");
-      expect(banner?.variant).toBe("neutral");
-      expect(banner?.testId).toBe("pain-banner-range-1-3");
-      expect(banner?.message).toContain("sin colores de alerta");
+        sintomasAlarma: molestia.sintomas,
+      });
+      expect(banner.range).toBe("1-3");
+      expect(banner.variant).toBe("neutral");
+      expect(banner.testId).toBe("pain-banner-range-1-3");
+      expect(banner.message).toContain("sin colores de alerta");
     });
 
-    it("WHEN envía reporte de dolor 4-6 THEN activa el cartel amarillo en activePainBanner", async () => {
-      const reportModerado: PainReportData = {
-        exerciseId: "ej-2",
+    it("WHEN envía reporte de dolor 4-6 THEN guarda molestia moderada y genera el cartel amarillo", async () => {
+      const molestia = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-2",
+        ejercicioId: "ej-press-militar",
+        numeroSerie: 2,
+        zona: "HOMBRO",
+        eva: 5,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Molestia en el deltoides al empujar",
+      });
+
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias[0]?.nivel).toBe("moderada");
+
+      const banner = getPainBannerConfig(molestia.eva, {
         exerciseName: "Press Militar con Mancuernas",
-        setNumber: 2,
-        zonaArticular: "HOMBRO",
-        severidad: "MODERADO",
-        intensidadNumerica: 5,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "Molestia en el deltoides al empujar",
-      };
-
-      await useAthleteStore.getState().reportPainEvent(reportModerado);
-
-      const banner = useAthleteStore.getState().activePainBanner;
-      expect(banner).not.toBeNull();
-      expect(banner?.range).toBe("4-6");
-      expect(banner?.variant).toBe("warning");
-      expect(banner?.testId).toBe("pain-banner-range-4-6");
-      expect(banner?.message).toContain("recomienda reducir peso si continúa");
+        sintomasAlarma: molestia.sintomas,
+      });
+      expect(banner.range).toBe("4-6");
+      expect(banner.variant).toBe("warning");
+      expect(banner.testId).toBe("pain-banner-range-4-6");
+      expect(banner.message).toContain("recomienda reducir peso si continúa");
     });
 
-    it("WHEN envía reporte de dolor 7-9 THEN activa el cartel rojo a prueba de errores", async () => {
-      const reportAgudo: PainReportData = {
-        exerciseId: "ej-3",
+    it("WHEN envía reporte de dolor 7-9 THEN guarda molestia alta y genera el cartel rojo a prueba de errores", async () => {
+      const molestia = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-3",
+        ejercicioId: "ej-sentadilla-bulgara",
+        numeroSerie: 3,
+        zona: "RODILLA",
+        eva: 8,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor punzante en rótula",
+      });
+
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias[0]?.nivel).toBe("alta");
+
+      const banner = getPainBannerConfig(molestia.eva, {
         exerciseName: "Sentadilla Búlgara",
-        setNumber: 3,
-        zonaArticular: "RODILLA",
-        severidad: "AGUDO",
-        intensidadNumerica: 8,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "Dolor punzante en rótula",
-      };
-
-      await useAthleteStore.getState().reportPainEvent(reportAgudo);
-
-      const banner = useAthleteStore.getState().activePainBanner;
-      expect(banner).not.toBeNull();
-      expect(banner?.range).toBe("7-9");
-      expect(banner?.variant).toBe("destructive");
-      expect(banner?.testId).toBe("pain-banner-range-7-9");
-      expect(banner?.message).toContain("suspender ese ejercicio");
-      expect(banner?.message).toContain("no debe invitar a seguir");
+        sintomasAlarma: molestia.sintomas,
+      });
+      expect(banner.range).toBe("7-9");
+      expect(banner.variant).toBe("destructive");
+      expect(banner.testId).toBe("pain-banner-range-7-9");
+      expect(banner.message).toContain("suspender ese ejercicio");
+      expect(banner.message).toContain("no debe invitar a seguir");
     });
 
-    it("WHEN envía reporte de dolor 10 THEN activa el cartel rojo de parada total", async () => {
-      const reportExtremo: PainReportData = {
-        exerciseId: "ej-4",
+    it("WHEN envía reporte de dolor 10 THEN guarda molestia de alarma y genera el cartel rojo de parada total", async () => {
+      const molestia = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-4",
+        ejercicioId: "ej-peso-muerto-rumano",
+        numeroSerie: 1,
+        zona: "LUMBAR",
+        eva: 10,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor agudo insoportable",
+      });
+
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias[0]?.nivel).toBe("alarma");
+      expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
+
+      const banner = getPainBannerConfig(molestia.eva, {
         exerciseName: "Peso Muerto Rumano",
-        setNumber: 1,
-        zonaArticular: "LUMBAR",
-        severidad: "AGUDO",
-        intensidadNumerica: 10,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: true,
-        notasAlumno: "Dolor agudo insoportable",
-      };
-
-      await useAthleteStore.getState().reportPainEvent(reportExtremo);
-
-      const banner = useAthleteStore.getState().activePainBanner;
-      expect(banner).not.toBeNull();
-      expect(banner?.range).toBe("10");
-      expect(banner?.variant).toBe("destructive");
-      expect(banner?.testId).toBe("pain-banner-range-10");
-      expect(banner?.message).toContain("cesar el entrenamiento y contactar al entrenador");
+        sintomasAlarma: molestia.sintomas,
+      });
+      expect(banner.range).toBe("10");
+      expect(banner.variant).toBe("destructive");
+      expect(banner.testId).toBe("pain-banner-range-10");
+      expect(banner.message).toContain("cesar el entrenamiento y contactar al entrenador");
     });
 
-    it("permite descartar el banner con clearActivePainBanner", async () => {
-      const report: PainReportData = {
-        exerciseId: "ej-5",
-        zonaArticular: "CADERA",
-        severidad: "LEVE",
-        intensidadNumerica: 3,
-        momentoAparicion: "CALENTAMIENTO",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "",
-      };
+    it("limpia currentSession.molestias al reiniciar la sesión con resetSessionToDefaults", async () => {
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-5",
+        ejercicioId: "ej-cadera",
+        zona: "CADERA",
+        eva: 3,
+        momento: "CALENTAMIENTO",
+        sintomas: [],
+        notas: "",
+      });
+      expect(useAthleteStore.getState().currentSession.molestias).toHaveLength(1);
 
-      await useAthleteStore.getState().reportPainEvent(report);
-      expect(useAthleteStore.getState().activePainBanner).not.toBeNull();
-
-      useAthleteStore.getState().clearActivePainBanner();
-      expect(useAthleteStore.getState().activePainBanner).toBeNull();
+      useAthleteStore.getState().resetSessionToDefaults();
+      expect(useAthleteStore.getState().currentSession.molestias).toEqual([]);
     });
   });
 
@@ -206,10 +209,11 @@ describe("FE App: Carteles del reporte de dolor por rango (1-3, 4-6, 7-9, 10) (G
     const painModalCode = readSource("../components/athlete/pain-report-modal.tsx");
     const painBannerCode = readSource("../components/athlete/pain-banner.tsx");
 
-    it("LiveWorkout renderiza PainReportBanner y vincula activePainBanner y clearActivePainBanner", () => {
+    it("LiveWorkout renderiza PainReportBanner desde currentSession.molestias y vincula reportarMolestia", () => {
       expect(liveWorkoutCode).toContain("PainReportBanner");
-      expect(liveWorkoutCode).toContain("activePainBanner");
-      expect(liveWorkoutCode).toContain("clearActivePainBanner");
+      expect(liveWorkoutCode).toContain("derivedPainBanner");
+      expect(liveWorkoutCode).toContain("setDismissedMolestiaId");
+      expect(liveWorkoutCode).toContain("reportarMolestia");
       expect(liveWorkoutCode).toContain("<PainReportBanner");
     });
 
