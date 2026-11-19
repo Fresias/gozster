@@ -148,6 +148,7 @@ interface AthleteStoreState {
   mostrarTimerDescanso: boolean;
   // Estado del Inicio Mis días (GOZS-147 + GOZS-149) y shell v7 (FE-02)
   diaActivoId: string | null;
+  sessionStartedAt: number | null;
   ejercicioAbiertoId: string | null;
   cierreAbierto: boolean;
   cuestionarioAbierto: boolean;
@@ -726,6 +727,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       onboardingCompletado: false,
       mostrarTimerDescanso: true,
       diaActivoId: null,
+      sessionStartedAt: null,
       ejercicioAbiertoId: null,
       cierreAbierto: false,
       cuestionarioAbierto: false,
@@ -819,8 +821,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const diaSugeridoId = state.diaSugeridoId;
 
         get().loadStudentSession(studentId, diaId, motivo, diaSugeridoId);
+        const tieneSeriesCompletadas = get().currentSession.ejercicios.some((ej) =>
+          ej.series.some((s) => s.completada),
+        );
         set({
           diaActivoId: diaId,
+          sessionStartedAt: tieneSeriesCompletadas ? (get().sessionStartedAt ?? Date.now()) : null,
           ejercicioAbiertoId: null,
           cierreAbierto: false,
           cuestionarioAbierto: false,
@@ -968,6 +974,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
+            sessionStartedAt: null,
           };
           // Invalidar y recargar automáticamente miProgreso tras finalizar o marcar día
           setTimeout(() => {
@@ -1659,6 +1666,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         // 1. Marcar serie como completada
         set((prevState) => ({
+          sessionStartedAt: prevState.sessionStartedAt ?? Date.now(),
           currentSession: {
             ...prevState.currentSession,
             ejercicios: prevState.currentSession.ejercicios.map((ej) => {
@@ -2491,6 +2499,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
           diaActivoId: null,
+          sessionStartedAt: null,
+          ejercicioAbiertoId: null,
           diaElegidoHoyId: null,
           diaSugeridoId: null,
           motivoCambioDia: null,

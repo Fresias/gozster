@@ -197,4 +197,45 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(html).not.toContain("Simular Pago Confirmado");
     expect(html).not.toMatch(/[\u{1F300}-\u{1F9FF}]/u);
   });
+
+  it("el clic en la tarjeta del coach abre el chat del alumno", () => {
+    const alumnoId = DEFAULT_ATHLETE_SENDER.id;
+    useChatStore.getState().markAsRead(alumnoId);
+    useChatStore.getState().sendMessage({ alumnoId, remitente: STAFF_COACH_PRINCIPAL, contenido: "Hola, revisá tu plan." });
+    useAthleteStore.setState({
+      planAlumno: {
+        alumnos: [{ id: alumnoId, nombre_completo: "Lucía Fernández", rol: "ALUMNO" } as any],
+        planes: [{ id: "p-x", alumno_id: alumnoId, nombre: "PLAN", estado: "ACTIVO", fecha_inicio: "2026-11-01", fecha_fin: null } as any],
+        dias: [{ id: "d-x", plan_id: "p-x", orden: 1, nombre: "DÍA 1" } as any],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      },
+    });
+    useChatStore.getState().setAthleteChatOpen(false);
+
+    // Render sin DOM: se evalúa el componente con hooks stub y se busca el botón en el árbol de elementos.
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const prevDispatcher = internals.H;
+    internals.H = {
+      useState: (init: unknown) => [typeof init === "function" ? (init as () => unknown)() : init, () => undefined],
+      useEffect: () => undefined,
+      useMemo: (fn: () => unknown) => fn(),
+      useCallback: (fn: unknown) => fn,
+      useRef: (v: unknown) => ({ current: v }),
+    };
+    try {
+      const find = (node: any): any => {
+        if (!node || typeof node !== "object") return null;
+        if (Array.isArray(node)) return node.map(find).find(Boolean) ?? null;
+        if (node.props?.["data-testid"] === "unread-coach-message-banner") return node;
+        return find(node.props?.children);
+      };
+      const banner = find((InicioMisDias as () => unknown)());
+      expect(banner).not.toBeNull();
+      banner.props.onClick();
+    } finally {
+      internals.H = prevDispatcher;
+    }
+    expect(useChatStore.getState().isAthleteChatOpen).toBe(true);
+  });
 });
