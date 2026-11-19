@@ -1441,6 +1441,12 @@ body:has(.theme-athlete[data-v7]) {
   line-height: 1.05;
 }
 
+/* Valores de 5+ caracteres ("147,5"): tope 2rem y nunca más de 32 px (05-qa §3.1), aun con letra grande. */
+.theme-athlete[data-v7] .a-val .a-t-mi.long,
+.theme-athlete[data-v7] .a-val .a-t-mi.a-long {
+  font-size: min(2rem, 32px, calc(100cqi / (var(--n, 5) * 0.64 + 0.25)));
+}
+
 .theme-athlete[data-v7] .a-stepper.a-sm .a-val {
   min-height: 68px;
 }

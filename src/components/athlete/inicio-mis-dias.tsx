@@ -38,6 +38,7 @@ import {
   ClipboardList,
 } from "@/components/athlete/icons";
 import { InstalarAppCard } from "@/components/athlete/instalar-app-card";
+import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 
 export function InicioMisDias() {
   const {
@@ -74,6 +75,7 @@ export function InicioMisDias() {
   } | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const daySheetTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const daySheetRef = React.useRef<HTMLDivElement>(null);
   const daySheetTriggerRef = React.useRef<HTMLElement | null>(null);
 
   // Lógica de Recordatorio Mensual de Peso Corporal (GOZS-345)
@@ -196,22 +198,15 @@ export function InicioMisDias() {
 
   const closeDaySheet = React.useCallback(() => {
     setIsSheetOpen(false);
-    const trigger = daySheetTriggerRef.current;
-    requestAnimationFrame(() => trigger?.focus());
+    daySheetTriggerRef.current?.focus();
   }, []);
+
+  useAtraparFocoEnHoja(isSheetOpen, daySheetRef, daySheetTitleRef, closeDaySheet);
 
   React.useEffect(() => {
     if (!isSheetOpen) return;
     daySheetTitleRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeDaySheet();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isSheetOpen, closeDaySheet]);
+  }, [isSheetOpen]);
 
   // Sincronizar selección inicial del Sheet al abrir
   const handleOpenSheet = (preselectedId?: string) => {
@@ -626,6 +621,7 @@ export function InicioMisDias() {
           data-testid="sheet-backdrop"
         >
           <div
+            ref={daySheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sheet-title"

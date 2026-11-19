@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useChatStore } from "@/store/use-chat-store";
 import { Copy, Hourglass, TriangleAlert } from "@/components/athlete/icons";
+import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 
 /**
  * Aviso de suscripción vencida — NO bloquea la app (ADR-001, Athlete v7 · FE-03 / 02-pantallas.md §1).
@@ -20,6 +21,7 @@ export function MembershipExpiredNotice() {
 
   const detailsBtnRef = React.useRef<HTMLButtonElement>(null);
   const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
 
   const transferAlias = "GOZSTER.FIT";
   const whatsappNumber = "+5491155550199";
@@ -29,21 +31,15 @@ export function MembershipExpiredNotice() {
 
   const closeDialog = React.useCallback(() => {
     setSheetOpen(false);
-    requestAnimationFrame(() => detailsBtnRef.current?.focus());
+    detailsBtnRef.current?.focus();
   }, []);
+
+  useAtraparFocoEnHoja(sheetOpen, sheetRef, titleRef, closeDialog);
 
   React.useEffect(() => {
     if (!sheetOpen) return;
     titleRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeDialog();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [sheetOpen, closeDialog]);
+  }, [sheetOpen]);
 
   const openGozsChat = () => {
     setSheetOpen(false);
@@ -107,6 +103,7 @@ export function MembershipExpiredNotice() {
           data-testid="athlete-expired-dialog-backdrop"
         >
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="expired-dialog-title"

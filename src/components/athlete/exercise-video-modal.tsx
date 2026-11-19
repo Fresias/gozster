@@ -43,6 +43,7 @@ export function ExerciseVideoModal({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             loading="lazy"
+            tabIndex={-1}
             data-testid="youtube-iframe"
           />
         </div>
