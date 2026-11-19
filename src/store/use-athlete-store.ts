@@ -2208,6 +2208,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
               );
             }
 
+            // Vaciar la cola offline confirmada por el servidor si hay conexión
+            if (useOfflineQueueStore.getState().isOnline) {
+              await useOfflineQueueStore.getState().flushQueue();
+            }
+
             // Invalidar y recargar automáticamente miProgreso tras guardar sesión
             void get().cargarMiProgreso();
 
