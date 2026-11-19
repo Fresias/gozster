@@ -2,8 +2,9 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+let mockPathname = "/athlete";
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/athlete",
+  usePathname: () => mockPathname,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
@@ -37,14 +38,28 @@ vi.mock("@/store/use-offline-queue", async (importOriginal) => {
   return { ...mod, useOfflineQueueStore: hook };
 });
 
+vi.mock("@/store/use-chat-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-chat-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useChatStore.getState()) : mod.useChatStore.getState()),
+    mod.useChatStore,
+  );
+  return { ...mod, useChatStore: hook };
+});
+
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
 import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
+import { AthleteChat } from "@/components/athlete/athlete-chat";
 import { AthleteShell, debeOcultarNavegacion, estadoChipRed } from "@/components/athlete/athlete-shell";
 import { useAthleteStore } from "@/store/use-athlete-store";
+import { DEFAULT_ATHLETE_SENDER, STAFF_COACH_PRINCIPAL, useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
-describe("Athlete v7 · FE-02 Shell (CP1–CP2)", () => {
+describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
   beforeEach(() => {
+    mockPathname = "/athlete";
+    useChatStore.getState().resetToDefaults();
+    useChatStore.getState().markAsRead(DEFAULT_ATHLETE_SENDER.id);
     useAthleteStore.setState({
       onboardingCompletado: true,
       diaActivoId: null,
@@ -190,5 +205,41 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP2)", () => {
     );
     expect(html).toContain("a-no-nav");
     expect(html).not.toContain('data-testid="nav-inferior"');
+    expect(html).not.toContain('data-testid="athlete-chat-fab"');
+  });
+
+  it("AthleteShell renderiza botón flotante de chat .a-fab solo en Entrenar con insignia de no leídos", () => {
+    useChatStore.getState().sendMessage({
+      alumnoId: DEFAULT_ATHLETE_SENDER.id,
+      remitente: STAFF_COACH_PRINCIPAL,
+      contenido: "Mensaje nuevo del coach",
+    });
+
+    const htmlInicio = renderToStaticMarkup(
+      <AthleteShell>
+        <div>Inicio</div>
+      </AthleteShell>,
+    );
+    expect(htmlInicio).toContain('data-testid="athlete-chat-fab"');
+    expect(htmlInicio).toContain("a-fab");
+    expect(htmlInicio).toContain('aria-label="Chat con el coach, 1 mensaje nuevo"');
+    expect(htmlInicio).toContain('data-testid="unread-chat-badge"');
+
+    mockPathname = "/athlete/historial";
+    const htmlHist = renderToStaticMarkup(
+      <AthleteShell>
+        <div>Historial</div>
+      </AthleteShell>,
+    );
+    expect(htmlHist).not.toContain('data-testid="athlete-chat-fab"');
+    expect(htmlHist).toContain('data-testid="nav-inferior"');
+  });
+
+  it("AthleteChat ya no renderiza disparador propio cuando está cerrado y muestra hoja al abrirse", () => {
+    expect(renderToStaticMarkup(<AthleteChat />)).toBe("");
+
+    useChatStore.getState().setAthleteChatOpen(true);
+    const htmlOpen = renderToStaticMarkup(<AthleteChat />);
+    expect(htmlOpen).toContain('id="athlete-chat-drawer"');
   });
 });

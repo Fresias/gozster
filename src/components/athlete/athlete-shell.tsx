@@ -11,8 +11,9 @@ import { createClient } from "@/lib/supabase/browser";
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
 import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
+import { useChatStore } from "@/store/use-chat-store";
 import { cn } from "@/lib/utils";
-import { LogOut } from "@/components/athlete/icons";
+import { LogOut, MessageSquare } from "@/components/athlete/icons";
 
 const SERIES_SET_ACTIONS = new Set(["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"]);
 
@@ -165,6 +166,8 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   const ejercicioAbiertoId = useAthleteStore((s) => s.ejercicioAbiertoId);
   const cierreAbierto = useAthleteStore((s) => s.cierreAbierto);
   const cuestionarioAbierto = useAthleteStore((s) => s.cuestionarioAbierto);
+  const { getUnreadStaffCount, isAthleteChatOpen, setAthleteChatOpen } = useChatStore();
+  const unreadChatCount = getUnreadStaffCount();
   const reparadoRef = React.useRef(false);
   const [syncingSeriesCount, setSyncingSeriesCount] = React.useState(0);
 
@@ -270,6 +273,33 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {!ocultarNav && <AthleteBottomNav />}
+      {!ocultarNav && pathname === "/athlete" && (
+        <button
+          type="button"
+          onClick={() => setAthleteChatOpen(!isAthleteChatOpen)}
+          aria-expanded={isAthleteChatOpen}
+          aria-controls="athlete-chat-drawer"
+          aria-label={
+            unreadChatCount === 0
+              ? "Chat con el coach"
+              : unreadChatCount === 1
+                ? "Chat con el coach, 1 mensaje nuevo"
+                : `Chat con el coach, ${unreadChatCount} mensajes nuevos`
+          }
+          className="a-fab"
+          data-testid="athlete-chat-fab"
+        >
+          <MessageSquare width={24} height={24} className="a-i" />
+          {unreadChatCount > 0 && (
+            <b
+              data-testid="unread-chat-badge"
+              aria-label={`${unreadChatCount} mensajes no leídos del equipo GOZS`}
+            >
+              {unreadChatCount}
+            </b>
+          )}
+        </button>
+      )}
     </div>
   );
 }
