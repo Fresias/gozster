@@ -67,8 +67,14 @@ export function InicioMisDias() {
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [sheetSelectedDiaId, setSheetSelectedDiaId] = React.useState<string | null>(null);
   const [sheetMotivo, setSheetMotivo] = React.useState<MotivoCambioDia | null>(null);
-  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [toastState, setToastState] = React.useState<{
+    message: string;
+    variant: "ok" | "warn";
+    canUndo?: boolean;
+  } | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const daySheetTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const daySheetTriggerRef = React.useRef<HTMLElement | null>(null);
 
   // Lógica de Recordatorio Mensual de Peso Corporal (GOZS-345)
   const [recordatorioDescartado, setRecordatorioDescartado] = React.useState(false);
@@ -110,10 +116,18 @@ export function InicioMisDias() {
 
   const debeRecordarPeso = !recordatorioDescartado && diasSinActualizarPeso >= 30;
 
+  const showToast = (message: string, variant: "ok" | "warn" = "ok", canUndo = false) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastState({ message, variant, canUndo });
+    toastTimerRef.current = setTimeout(() => {
+      setToastState(null);
+    }, canUndo ? 5000 : 4500);
+  };
+
   const handleGuardarPeso = async () => {
     const pesoNum = parseFloat(nuevoPesoKg);
     if (isNaN(pesoNum) || pesoNum <= 0 || pesoNum > 500) {
-      setToastMessage("Por favor ingresá un peso válido en kg (ej: 75.5)");
+      showToast("Por favor ingresá un peso válido en kg (ej: 75.5)", "warn");
       return;
     }
     setGuardandoPeso(true);
@@ -180,8 +194,31 @@ export function InicioMisDias() {
     });
   }, [diasItems, sesionesCompletadas, diaElegidoHoyId]);
 
+  const closeDaySheet = React.useCallback(() => {
+    setIsSheetOpen(false);
+    const trigger = daySheetTriggerRef.current;
+    requestAnimationFrame(() => trigger?.focus());
+  }, []);
+
+  React.useEffect(() => {
+    if (!isSheetOpen) return;
+    daySheetTitleRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeDaySheet();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isSheetOpen, closeDaySheet]);
+
   // Sincronizar selección inicial del Sheet al abrir
   const handleOpenSheet = (preselectedId?: string) => {
+    daySheetTriggerRef.current =
+      typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const targetId = preselectedId || diaActivoHoy?.id || diaTeTocaHoy?.id || null;
     setSheetSelectedDiaId(targetId);
     setSheetMotivo(targetId !== diaTeTocaHoy?.id ? motivoCambioDia : null);
@@ -200,19 +237,14 @@ export function InicioMisDias() {
     elegirOtroDia(sheetSelectedDiaId, motivo, diaSugerido);
     setIsSheetOpen(false);
 
-    // Mostrar toast con acción Deshacer por 5 segundos
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastMessage(`Hoy hacés el Día ${seleccionado.orden}`);
-    toastTimerRef.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 5000);
+    showToast(`Hoy hacés el Día ${seleccionado.orden}`, "ok", true);
   };
 
   const handleUndo = () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     deshacerCambioDia();
     setSheetMotivo(null);
-    setToastMessage(null);
+    setToastState(null);
   };
 
   React.useEffect(() => {
@@ -244,17 +276,9 @@ export function InicioMisDias() {
   });
   const saludoTexto = saludoNombre ? `Hola, ${saludoNombre}` : "Hola";
 
-  const showToast = (msg: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastMessage(msg);
-    toastTimerRef.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 4500);
-  };
-
   const handleOpenOtherDay = (preselectedId?: string) => {
     if (sesionIniciada) {
-      showToast("Terminá la sesión actual antes de cambiar de día.");
+      showToast("Terminá la sesión actual antes de cambiar de día.", "warn");
       return;
     }
     handleOpenSheet(preselectedId);
@@ -594,46 +618,46 @@ export function InicioMisDias() {
 
       {/* Sheet Inferior: ¿Qué día querés hacer hoy? */}
       {isSheetOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-background/80 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsSheetOpen(false)}
-            data-testid="sheet-backdrop"
-          />
-
-          {/* Panel inferior */}
+        <div
+          className="a-sheet-wrap"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeDaySheet();
+          }}
+          data-testid="sheet-backdrop"
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="sheet-title"
-            className="relative z-50 w-full max-w-md mx-auto rounded-t-[24px] bg-card p-5 pb-8 shadow-2xl border-t border-border animate-in slide-in-from-bottom duration-200"
+            className="a-sheet"
             data-testid="sheet-cambiar-dia"
           >
-            {/* Grab handle */}
-            <div className="mx-auto h-1.5 w-10 rounded-full bg-muted-foreground/30 mb-3" />
-
-            <div className="flex items-start justify-between gap-2">
+            <div className="a-sh-h">
               <div>
-                <h3 id="sheet-title" className="font-outfit text-2xl font-extrabold tracking-tight text-foreground">
+                <h2
+                  id="sheet-title"
+                  ref={daySheetTitleRef}
+                  className="a-t-h"
+                  tabIndex={-1}
+                >
                   ¿Qué día querés hacer hoy?
-                </h3>
-                <p className="text-sm text-muted-foreground mt-0.5">
+                </h2>
+                <p className="a-t-sec a-muted mt-1">
                   El Día {diaTeTocaHoy?.orden ?? 1} no se pierde: queda como el próximo.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsSheetOpen(false)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary/60"
+                onClick={closeDaySheet}
+                className="a-icon-btn"
                 aria-label="Cerrar selector de día"
               >
-                <X className="h-5 w-5" />
+                <X width={20} height={20} className="a-i" />
               </button>
             </div>
 
             {/* Opciones de días */}
-            <div className="mt-4 space-y-2.5 max-h-[50vh] overflow-y-auto">
+            <div className="a-qgroup" role="group" aria-label="Día">
               {diasConEstado.map((dia: DiaConEstado) => {
                 const isDone = dia.estado === "DONE";
                 const isSelected = sheetSelectedDiaId === dia.id;
@@ -643,91 +667,53 @@ export function InicioMisDias() {
                   return (
                     <div
                       key={dia.id}
-                      className="flex min-h-[64px] items-center gap-3.5 rounded-2xl bg-secondary/40 border border-secondary px-4 py-3 opacity-80 cursor-not-allowed"
+                      className="a-opt opacity-60 cursor-not-allowed"
                     >
-                      <div className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-card text-success">
-                        <Check className="h-5 w-5 stroke-[2.5]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <b className="block text-base font-bold text-muted-foreground truncate">
-                          {etiquetaDia(dia)}
-                        </b>
-                        <span className="block text-xs text-muted-foreground">
-                          Ya lo hiciste esta semana
-                        </span>
-                      </div>
+                      <span className="a-ck">
+                        <Check width={20} height={20} className="a-i" />
+                      </span>
+                      <b className="a-t-bs">{etiquetaDia(dia)}</b>
+                      <small className="a-t-sec">Ya lo hiciste esta semana</small>
                     </div>
                   );
                 }
 
                 return (
-                  <div
+                  <button
                     key={dia.id}
-                    role="button"
-                    tabIndex={0}
+                    type="button"
+                    aria-pressed={isSelected}
                     onClick={() => {
                       setSheetSelectedDiaId(dia.id);
                       if (dia.id === diaTeTocaHoy?.id) {
                         setSheetMotivo(null);
                       }
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setSheetSelectedDiaId(dia.id);
-                      }
-                    }}
-                    className={`flex min-h-[68px] items-center gap-3.5 rounded-2xl border-2 px-4 py-3 cursor-pointer transition-all ${
-                      isSelected
-                        ? "border-primary bg-primary/5 shadow-xs"
-                        : "border-border bg-card hover:border-primary/40"
-                    }`}
+                    className="a-opt"
                     data-testid={`sheet-option-dia-${dia.id}`}
                   >
-                    <div
-                      className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl font-mono text-base font-extrabold ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-foreground"
-                      }`}
-                    >
-                      {dia.orden}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <b className="block text-base font-bold text-foreground truncate">
-                        {etiquetaDia(dia)}
-                      </b>
-                      <span className="block text-xs text-muted-foreground">
-                        {isNaturalNext
-                          ? "El que te tocaba"
-                          : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`}
-                      </span>
-                    </div>
-
-                    {/* Radio indicator */}
-                    <div
-                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 transition-all ${
-                        isSelected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-muted-foreground/40 bg-transparent"
-                      }`}
-                    >
-                      {isSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                    </div>
-                  </div>
+                    <span className="a-ck">
+                      {isSelected ? <Check width={20} height={20} className="a-i" /> : null}
+                    </span>
+                    <b className="a-t-bs">{etiquetaDia(dia)}</b>
+                    <small className="a-t-sec">
+                      {isNaturalNext
+                        ? "El que te tocaba"
+                        : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`}
+                    </small>
+                  </button>
                 );
               })}
             </div>
 
             {/* Sección ¿Por qué cambiás? (opcional) - visible cuando se cambia de día */}
             {Boolean(sheetSelectedDiaId && sheetSelectedDiaId !== diaTeTocaHoy?.id) && (
-              <div className="mt-4 pt-1" data-testid="seccion-motivo-cambio-dia">
-                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              <div className="space-y-2 pt-1" data-testid="seccion-motivo-cambio-dia">
+                <label className="a-t-label a-muted block">
                   ¿Por qué cambiás? (opcional)
                 </label>
                 <div
-                  className="flex flex-wrap gap-2"
+                  className="a-chips"
                   role="group"
                   aria-label="Motivo del cambio de día"
                 >
@@ -741,11 +727,7 @@ export function InicioMisDias() {
                         onClick={() =>
                           setSheetMotivo((prev) => (prev === chip.id ? null : chip.id))
                         }
-                        className={`flex h-11 items-center justify-center rounded-full px-3.5 text-sm font-semibold transition-all active:scale-[0.97] border ${
-                          isSelected
-                            ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
-                            : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-secondary/40"
-                        }`}
+                        className="h-11 rounded-full"
                         data-testid={`chip-motivo-${chip.id.toLowerCase()}`}
                       >
                         {chip.label}
@@ -761,7 +743,7 @@ export function InicioMisDias() {
               type="button"
               onClick={handleConfirmChange}
               disabled={!sheetSelectedDiaId}
-              className="mt-5 flex h-14 w-full items-center justify-center rounded-[14px] bg-primary text-primary-foreground text-base font-bold shadow-md hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all"
+              className="a-btn a-gym"
               data-testid="confirmar-cambio-dia-btn"
             >
               Hacer Día {diasConEstado.find((d) => d.id === sheetSelectedDiaId)?.orden ?? 1} hoy
@@ -770,26 +752,34 @@ export function InicioMisDias() {
         </div>
       )}
 
-      {/* Toast con Deshacer (~5 s) */}
-      {toastMessage && (
+      {/* Toast */}
+      {toastState && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-[14px] bg-[#0F172A] px-4 py-3 text-white shadow-2xl flex items-center justify-between border border-border animate-in fade-in slide-in-from-bottom duration-150"
-          data-testid="toast-cambio-dia"
+          className={`a-toast ${toastState.variant === "warn" ? "a-warn" : "a-ok"} a-show justify-between pointer-events-auto max-w-[26rem] mx-auto`}
+          data-testid={toastState.canUndo ? "toast-cambio-dia" : "toast-inicio"}
         >
-          <div className="flex items-center gap-2.5 text-sm font-medium">
-            <Check className="h-5 w-5 text-success stroke-[2.5]" />
-            <span>{toastMessage}</span>
+          <div className="flex items-center gap-2.5 a-t-sec">
+            <span className="a-tic">
+              {toastState.variant === "warn" ? (
+                <TriangleAlert width={16} height={16} className="a-i" />
+              ) : (
+                <Check width={16} height={16} className="a-i" />
+              )}
+            </span>
+            <span>{toastState.message}</span>
           </div>
-          <button
-            type="button"
-            onClick={handleUndo}
-            className="flex min-h-11 items-center px-2 text-sm font-bold text-[#38BDF8] hover:underline"
-            data-testid="deshacer-cambio-dia-btn"
-          >
-            Deshacer
-          </button>
+          {toastState.canUndo && (
+            <button
+              type="button"
+              onClick={handleUndo}
+              className="a-link min-h-[44px] px-2"
+              data-testid="deshacer-cambio-dia-btn"
+            >
+              Deshacer
+            </button>
+          )}
         </div>
       )}
     </div>
