@@ -455,8 +455,12 @@ describe("QA Verification Suite — Historial y Progreso (GOZS-158 / F1–F6)", 
       expect(v7CssCode).toContain("grid-template-columns: repeat(4, 1fr);");
       expect(v7CssCode).toContain("min-height: 58px;");
 
-      // Aviso récord: botón de cerrar 48x48 px (h-12 w-12) y aria-live
-      expect(avisoRecordCode).toContain("h-12 w-12");
+      // Aviso récord v7 (01 §8): tarjeta .a-record, copa sin círculo .a-medal, botón cerrar .a-q.a-x (32px en CSS) y aria-live
+      expect(avisoRecordCode).toContain("a-record");
+      expect(avisoRecordCode).toContain("a-medal");
+      expect(avisoRecordCode).toContain("a-q a-x");
+      expect(v7CssCode).toContain(".theme-athlete[data-v7] .a-q");
+      expect(v7CssCode).toContain("width: 32px;");
       expect(avisoRecordCode).toContain('aria-live="polite"');
       expect(avisoRecordCode).toContain('role="status"');
 

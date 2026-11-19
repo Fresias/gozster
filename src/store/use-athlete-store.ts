@@ -154,7 +154,7 @@ interface AthleteStoreState {
   cuestionarioAbierto: boolean;
   toastSesion: {
     mensaje: string;
-    tipo: "ok" | "neutral";
+    tipo: "ok" | "neutral" | "rec";
     irAHistorial?: boolean;
   } | null;
   diaElegidoHoyId: string | null;
@@ -208,7 +208,7 @@ interface AthleteStoreState {
   setCierreAbierto: (abierto: boolean) => void;
   setCuestionarioAbierto: (abierto: boolean) => void;
   setToastSesion: (
-    toast: { mensaje: string; tipo: "ok" | "neutral"; irAHistorial?: boolean } | null,
+    toast: { mensaje: string; tipo: "ok" | "neutral" | "rec"; irAHistorial?: boolean } | null,
   ) => void;
   consumirNavegacionHistorialToast: () => void;
   elegirOtroDia: (

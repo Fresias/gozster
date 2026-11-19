@@ -690,7 +690,12 @@ export function useLiveWorkout() {
         ? currentSession.ejercicios.find((e) => e.id === nextExerciseId)
         : undefined;
       const timerActiveNow = useAthleteStore.getState().restTimer.isActive;
-      if (
+      if (resultado.esRecord && !esAtipica) {
+        setToastSesion({
+          mensaje: `Nuevo récord en ${currentExercise.nombre}`,
+          tipo: "rec",
+        });
+      } else if (
         currentExercise.es_superserie &&
         nextExObj &&
         nextExObj.id !== currentExercise.id &&
