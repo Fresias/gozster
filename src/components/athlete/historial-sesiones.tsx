@@ -12,21 +12,7 @@ import type {
   SesionHistoricaDetalle,
   SerieHistoricaDetalle,
 } from "@/lib/historial-sesiones";
-import {
-  History,
-  Dumbbell,
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Pencil,
-  Check,
-  X,
-  Flame,
-  TrendingUp,
-  Trophy,
-  CloudOff,
-  TriangleAlert,
-} from "@/components/athlete/icons";
+import { CloudOff, History, Info, Pencil, Trophy, TriangleAlert, X } from "@/components/athlete/icons";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { evaluarPlausibilidadSerie } from "@/lib/plausibilidad-series";
 
@@ -35,15 +21,66 @@ export interface HistorialSesionesProps {
   initialTab?: "sesiones" | "dashboard";
 }
 
+const ZONA = "America/Argentina/Buenos_Aires";
+const numero = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
+const esAproximacion = (t: string) => t === "WARMUP" || t === "W";
+
+function tipoDeSerie(setType: string): string | null {
+  if (esAproximacion(setType)) return "Aproximación";
+  if (setType === "FAILURE" || setType === "F") return "Fallo";
+  if (setType === "DROPSET" || setType === "D") return "Drop";
+  return null;
+}
+
+function diaYMes(fecha: string): { dia: string; mes: string } {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return { dia: "–", mes: "" };
+  return {
+    dia: d.toLocaleDateString("es-AR", { timeZone: ZONA, day: "numeric" }),
+    mes: d.toLocaleDateString("es-AR", { timeZone: ZONA, month: "short" }).replace(".", "").toUpperCase(),
+  };
+}
+
+/** Récords por sesión: ejercicios cuyo peso máximo (sin aproximaciones) supera a todo lo anterior. */
+function contarRecordsPorSesion(sesiones: SesionHistoricaDetalle[]): Record<string, number> {
+  const cronologicas = [...sesiones].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+  const maxPrevio = new Map<string, number>();
+  const resultado: Record<string, number> = {};
+  for (const sesion of cronologicas) {
+    let n = 0;
+    for (const ej of sesion.ejercicios) {
+      const pesos = ej.series.filter((s) => !esAproximacion(s.setType)).map((s) => s.pesoKg);
+      if (pesos.length === 0) continue;
+      const mejor = Math.max(...pesos);
+      const previo = maxPrevio.get(ej.ejercicioId);
+      if (previo !== undefined && mejor > previo) n += 1;
+      maxPrevio.set(ej.ejercicioId, Math.max(previo ?? 0, mejor));
+    }
+    resultado[sesion.id] = n;
+  }
+  return resultado;
+}
+
+interface SerieEnEdicion {
+  sesionId: string;
+  serieId: string;
+  ejercicioNombre: string;
+  numeroSerie: number;
+  fechaLegible: string;
+  peso: number;
+  reps: number;
+}
+
 export function HistorialSesiones({ offline, initialTab = "sesiones" }: HistorialSesionesProps = {}) {
   const historialSesiones = useAthleteStore((s) => s.historialSesiones);
-  const cargandoHistorial = useAthleteStore((s) => s.cargandoHistorial);
   const cargarHistorialSesiones = useAthleteStore((s) => s.cargarHistorialSesiones);
   const actualizarSerieHistorial = useAthleteStore((s) => s.actualizarSerieHistorial);
   const currentSession = useAthleteStore((s) => s.currentSession);
   const planDias = useAthleteStore((s) => s.planAlumno?.dias);
+  const vista = useAthleteStore((s) => s.nivelVistaAlumno);
   const storeIsOnline = useOfflineQueueStore((s) => s.isOnline);
   const isOnline = offline !== undefined ? !offline : storeIsOnline;
+  const esTecnica = vista === "TECNICA";
 
   // Sincronizar desde Supabase al montar si estamos online
   React.useEffect(() => {
@@ -57,15 +94,16 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     return normalizarSesionesDetalladas(historialSesiones, planDias ?? []);
   }, [historialSesiones, planDias]);
 
-  // Contrato estructurado para mini-dashboard de progresión
+  const recordsPorSesion = React.useMemo(() => contarRecordsPorSesion(sesiones), [sesiones]);
+
+  // Contrato estructurado para el análisis por ejercicio
   const contratoDashboard = React.useMemo(() => {
     return generarContratoMiniDashboard(historialSesiones, currentSession.studentId, planDias ?? []);
   }, [historialSesiones, currentSession.studentId, planDias]);
 
-  // Estado de vista: listado de sesiones o mini-dashboard por ejercicio
   const [tabActiva, setTabActiva] = React.useState<"sesiones" | "dashboard">(initialTab);
 
-  // Estado de acordeón: primer elemento expandido por defecto
+  // Acordeón: la sesión más reciente arranca abierta.
   const [expandedIds, setExpandedIds] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
@@ -75,20 +113,13 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
   }, [sesiones, expandedIds]);
 
   const toggleExpand = (sesionId: string) => {
-    setExpandedIds((prev) => ({
-      ...prev,
-      [sesionId]: !prev[sesionId],
-    }));
+    setExpandedIds((prev) => ({ ...prev, [sesionId]: !prev[sesionId] }));
   };
 
-  // Estado para la edición en línea de una serie
-  const [editingSerie, setEditingSerie] = React.useState<{
-    sesionId: string;
-    serieId: string;
-    peso: number;
-    reps: number;
-  } | null>(null);
-
+  // Hoja "Corregir serie"
+  const [editingSerie, setEditingSerie] = React.useState<SerieEnEdicion | null>(null);
+  // Series corregidas en esta sesión de la app. Deuda (02 §5): no hay columna para el valor original en registro_series.
+  const [corregidas, setCorregidas] = React.useState<Set<string>>(() => new Set());
   const [guardadoExitoso, setGuardadoExitoso] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [atypicalPrompt, setAtypicalPrompt] = React.useState<{
@@ -97,6 +128,8 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     reps: number;
   } | null>(null);
   const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
+  const tituloHojaRef = React.useRef<HTMLHeadingElement>(null);
+  const disparadorRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
     if (atypicalPrompt) {
@@ -106,19 +139,35 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     }
   }, [atypicalPrompt]);
 
-  const handleStartEdit = (sesionId: string, s: SerieHistoricaDetalle) => {
+  const hojaAbierta = editingSerie !== null;
+  React.useEffect(() => {
+    if (hojaAbierta) tituloHojaRef.current?.focus();
+  }, [hojaAbierta]);
+
+  const handleStartEdit = (sesion: SesionHistoricaDetalle, ejercicioNombre: string, s: SerieHistoricaDetalle) => {
     setErrorMessage(null);
+    disparadorRef.current = document.activeElement as HTMLElement | null;
     setEditingSerie({
-      sesionId,
+      sesionId: sesion.id,
       serieId: s.id,
+      ejercicioNombre,
+      numeroSerie: s.numeroSerie,
+      fechaLegible: sesion.fechaLegible,
       peso: s.pesoKg,
       reps: s.repsHechas,
     });
   };
 
-  const handleCancelEdit = () => {
+  const cerrarHoja = () => {
     setEditingSerie(null);
     setErrorMessage(null);
+    disparadorRef.current?.focus();
+  };
+
+  const ajustar = (campo: "peso" | "reps", delta: number) => {
+    setEditingSerie((prev) =>
+      prev ? { ...prev, [campo]: Math.max(0, Number((prev[campo] + delta).toFixed(2))) } : null,
+    );
   };
 
   const handleSaveEdit = async (confirmarAtipica = false) => {
@@ -142,34 +191,28 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         }
       }
 
-      const evalRes = evaluarPlausibilidadSerie({
-        peso,
-        reps,
-        historialPesos,
-      });
+      const evalRes = evaluarPlausibilidadSerie({ peso, reps, historialPesos });
 
       if (evalRes.estado === "bloqueado") {
         setErrorMessage(evalRes.error);
         return;
       }
       if (evalRes.estado === "requiere_confirmacion") {
-        setAtypicalPrompt({
-          mensaje: evalRes.mensaje,
-          peso: evalRes.peso,
-          reps: evalRes.reps,
-        });
+        setAtypicalPrompt({ mensaje: evalRes.mensaje, peso: evalRes.peso, reps: evalRes.reps });
         return;
       }
     }
 
     await actualizarSerieHistorial(sesionId, serieId, peso, reps, Boolean(confirmarAtipica));
+    setCorregidas((prev) => new Set(prev).add(serieId));
     setGuardadoExitoso(`Serie guardada (${peso} kg × ${reps} reps)`);
     setEditingSerie(null);
     setAtypicalPrompt(null);
+    disparadorRef.current?.focus();
     setTimeout(() => setGuardadoExitoso(null), 3000);
   };
 
-  // Filtro de ejercicio para el mini-dashboard (inicializa con el primer ejercicio disponible)
+  // Filtro de ejercicio para la vista por ejercicio
   const primerEjercicioId = contratoDashboard.listaEjercicios[0]?.ejercicioId || "";
   const [selectedEjercicioId, setSelectedEjercicioId] = React.useState<string>(primerEjercicioId);
 
@@ -183,505 +226,364 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     ? contratoDashboard.ejercicios[selectedEjercicioId]
     : null;
 
+  const totalSeries = sesiones.reduce((acc, s) => acc + s.totalSeries, 0);
+  const fechaDatos = sesiones[0] ? new Date(sesiones[0].fecha) : null;
+  const fechaDatosTexto =
+    fechaDatos && !Number.isNaN(fechaDatos.getTime())
+      ? fechaDatos.toLocaleDateString("es-AR", { timeZone: ZONA, day: "2-digit", month: "2-digit" })
+      : null;
+
   return (
-    <div className="space-y-4 pb-20" data-testid="historial-sesiones-container">
-      {/* Encabezado y selector de pestañas táctil */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <History className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tight text-foreground">
-                Historial de Sesiones
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Revisa tus entrenamientos y corrige registros en línea
-              </p>
-            </div>
+    <div className="grid gap-4 pb-20" data-testid="historial-sesiones-container">
+      {/* Cabecera invertida de noche */}
+      <section className="a-hhero">
+        <h1 className="a-t-d">Historial</h1>
+        {sesiones.length > 0 && (
+          <small className="a-t-sec">Tus sesiones y series. Si cargaste algo mal, lo podés corregir.</small>
+        )}
+        <div className="a-stats">
+          <div>
+            <div className="a-t-mm">{sesiones.length}</div>
+            <small className="a-t-label">Sesiones</small>
           </div>
-
-          {!isOnline && (
-            <div
-              className="inline-flex items-center gap-1.5 rounded-full border border-warning-soft-border bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning"
-              title="Modo Avión: las correcciones se guardan localmente y se sincronizan al volver la conexión"
-            >
-              <CloudOff className="h-3.5 w-3.5" />
-              <span>Offline (Modo Avión)</span>
-            </div>
-          )}
-        </div>
-
-        {/* Resumen numérico rápido (Poda de Volumen Total según GOZS-359) */}
-        <div className="grid grid-cols-2 gap-2 pt-1 text-center">
-          <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Sesiones Realizadas
-            </span>
-            <div className="font-mono text-xl font-black text-foreground">
-              {sesiones.length}
-            </div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/60 p-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Series Totales
-            </span>
-            <div className="font-mono text-xl font-black text-primary">
-              {sesiones.reduce((acc, s) => acc + s.totalSeries, 0)}
-            </div>
+          <div>
+            <div className="a-t-mm">{totalSeries}</div>
+            <small className="a-t-label">Series</small>
           </div>
         </div>
+      </section>
 
-        {/* Selector de modo: Lista de Sesiones vs Mini-Dashboard */}
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/60 p-1 text-xs font-bold">
+      {!isOnline && (
+        <p className="a-eb a-t-label a-offnote" data-testid="historial-sin-conexion" style={{ justifySelf: "start" }}>
+          <CloudOff width={12} height={12} aria-hidden="true" />
+          Sin conexión{fechaDatosTexto ? ` · datos del ${fechaDatosTexto}` : ""}
+        </p>
+      )}
+
+      {sesiones.length > 0 && (
+        <div className="a-seg" role="group" aria-label="Agrupar historial">
           <button
             type="button"
             onClick={() => setTabActiva("sesiones")}
-            className={`flex min-h-11 items-center justify-center rounded-lg transition-colors ${
-              tabActiva === "sesiones"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            aria-pressed={tabActiva === "sesiones"}
             data-testid="tab-sesiones"
           >
-            <Calendar className="mr-1.5 h-4 w-4" />
-            Por Sesión
+            Por sesión
           </button>
           <button
             type="button"
             onClick={() => setTabActiva("dashboard")}
-            className={`flex min-h-11 items-center justify-center rounded-lg transition-colors ${
-              tabActiva === "dashboard"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            aria-pressed={tabActiva === "dashboard"}
             data-testid="tab-dashboard"
           >
-            <TrendingUp className="mr-1.5 h-4 w-4" />
-            Progreso (Mini-Dash)
+            Por ejercicio
           </button>
-        </div>
-      </div>
-
-      {/* Feedback Toast de guardado */}
-      {guardadoExitoso && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-center gap-2 rounded-xl border border-success-soft-border bg-success-soft p-3 text-sm font-semibold text-success-soft-foreground animate-in fade-in slide-in-from-top-1"
-          data-testid="toast-guardado-exitoso"
-        >
-          <Check className="h-4 w-4 shrink-0" />
-          <span>{guardadoExitoso}</span>
         </div>
       )}
 
-      {/* VISTA 1: LISTADO CRONOLÓGICO DE SESIONES */}
-      {tabActiva === "sesiones" && (
-        <div className="space-y-3">
-          {sesiones.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card/60 p-8 text-center">
-              <Dumbbell className="h-10 w-10 text-muted-foreground/60 mb-2" />
-              <h2 className="text-base font-bold text-foreground">
-                No hay sesiones completadas aún
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                Cuando finalices tus entrenamientos en vivo aparecerán aquí con su detalle de series y cargas.
-              </p>
-              <Link
-                href="/athlete"
-                className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90"
-              >
-                Comenzar a entrenar
-              </Link>
-            </div>
-          ) : (
-            sesiones.map((sesion) => {
-              const isExpanded =
-                expandedIds[sesion.id] !== undefined
-                  ? !!expandedIds[sesion.id]
-                  : sesion.id === sesiones[0]?.id;
-              return (
-                <div
-                  key={sesion.id}
-                  className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all"
-                  data-testid={`sesion-card-${sesion.id}`}
-                >
-                  {/* Encabezado colapsable táctil min-h-12 */}
-                  <button
-                    type="button"
-                    onClick={() => toggleExpand(sesion.id)}
-                    aria-expanded={isExpanded}
-                    className="flex w-full min-h-12 items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    data-testid={`btn-expand-sesion-${sesion.id}`}
-                  >
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-black text-foreground">
-                          {sesion.encabezado}
-                        </span>
-                        {sesion.motivoCambioDia && (
-                          <span
-                            className="inline-flex items-center rounded-full border border-warning-soft-border bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-soft-foreground"
-                            data-testid="badge-cambio-dia"
-                          >
-                            Cambio de día
-                          </span>
-                        )}
-                      </div>
+      {guardadoExitoso && (
+        <p role="status" aria-live="polite" className="a-info a-t-sec" data-testid="toast-guardado-exitoso">
+          <Info width={18} height={18} aria-hidden="true" />
+          <span>{guardadoExitoso}</span>
+        </p>
+      )}
 
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-                        <span>{sesion.totalEjercicios} ejercicios</span>
-                        <span>·</span>
-                        <span>{sesion.totalSeries} series</span>
-                      </div>
-                    </div>
+      {/* VISTA 1: sesiones */}
+      {(tabActiva === "sesiones" || sesiones.length === 0) &&
+        (sesiones.length === 0 ? (
+          <section className="a-card a-state" data-testid="historial-vacio">
+            <span className="a-ic">
+              <History width={24} height={24} aria-hidden="true" />
+            </span>
+            <h2 className="a-t-title">Todavía no hay sesiones</h2>
+            <p className="a-t-sec">Cuando termines un entrenamiento, aparece acá con sus series y cargas.</p>
+            <Link href="/athlete" className="a-btn">
+              Empezar a entrenar
+            </Link>
+          </section>
+        ) : (
+          sesiones.map((sesion, i) => {
+            const isExpanded =
+              expandedIds[sesion.id] !== undefined ? !!expandedIds[sesion.id] : sesion.id === sesiones[0]?.id;
+            const { dia, mes } = diaYMes(sesion.fecha);
+            const prs = recordsPorSesion[sesion.id] ?? 0;
+            return (
+              <article className="a-hcard" key={sesion.id} data-testid={`sesion-card-${sesion.id}`}>
+                <div className={`a-date${i === 0 ? " a-cur" : ""}`}>
+                  <span className="a-t-mm" style={{ fontSize: "1.5rem" }}>
+                    {dia}
+                  </span>
+                  <small className="a-t-label">{mes}</small>
+                </div>
+                <div className="a-hbody">
+                  <div className="a-ht">
+                    <b className="a-t-bs">{sesion.encabezado}</b>
+                    {prs > 0 && (
+                      <span className="a-chip a-pr a-t-label" data-testid="chip-pr">
+                        <Trophy width={12} height={12} aria-hidden="true" /> {prs} PR
+                      </span>
+                    )}
+                    {sesion.motivoCambioDia && (
+                      <span className="a-chip a-line a-t-label" data-testid="badge-cambio-dia">
+                        Cambio de día
+                      </span>
+                    )}
+                  </div>
+                  <small className="a-t-sec a-muted">
+                    {sesion.totalEjercicios} ejercicios · {sesion.totalSeries} series
+                  </small>
 
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      {isExpanded ? (
-                        <ChevronUp className="h-5 w-5" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Detalle de ejercicios y series al expandir */}
                   {isExpanded && (
-                    <div
-                      className="border-t border-border/70 bg-background/50 p-4 space-y-4"
-                      data-testid={`detalle-sesion-${sesion.id}`}
-                    >
+                    <div data-testid={`detalle-sesion-${sesion.id}`}>
                       {sesion.ejercicios.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic">
-                          Sin series registradas en esta sesión.
-                        </p>
+                        <p className="a-t-sec a-muted">Sin series registradas en esta sesión.</p>
                       ) : (
                         sesion.ejercicios.map((ej) => (
-                          <div
-                            key={ej.ejercicioId}
-                            className="space-y-2 rounded-xl border border-border/60 bg-card p-3"
-                          >
-                            <div className="flex items-center justify-between">
-                              <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <Dumbbell className="h-3.5 w-3.5 text-primary shrink-0" />
-                                <span>{ej.ejercicioNombre}</span>
-                              </h3>
-                              <span className="text-xs font-mono font-semibold text-muted-foreground">
-                                Máx: {ej.maxPesoKg} kg
-                              </span>
-                            </div>
-
-                            {/* Lista de series del ejercicio */}
-                            <div className="space-y-1.5">
+                          <React.Fragment key={ej.ejercicioId}>
+                            <p className="a-exn">
+                              <b className="a-t-bs">{ej.ejercicioNombre}</b>
+                              <span className="a-t-label a-muted">Máx {numero.format(ej.maxPesoKg)} kg</span>
+                            </p>
+                            <div style={{ display: "grid", gap: 6 }}>
                               {ej.series.map((s) => {
-                                const isEditingThis =
-                                  editingSerie?.sesionId === sesion.id &&
-                                  editingSerie?.serieId === s.id;
-
+                                const tipo = tipoDeSerie(s.setType);
                                 return (
-                                  <div
-                                    key={s.id}
-                                    className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-colors ${
-                                      isEditingThis
-                                        ? "border-primary bg-primary/5"
-                                        : "border-border/50 bg-background/70"
-                                    }`}
-                                    data-testid={`serie-item-${s.id}`}
-                                  >
-                                    {isEditingThis ? (
-                                      /* FORMULARIO DE EDICIÓN EN LÍNEA */
-                                      <div
-                                        className="flex w-full items-center justify-between gap-2 flex-wrap"
-                                        data-testid={`form-editar-serie-${s.id}`}
-                                      >
-                                        <div className="flex items-center gap-1 font-bold text-xs">
-                                          <span className="text-muted-foreground font-mono">
-                                            #{s.numeroSerie}
-                                          </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <div className="flex items-center gap-1">
-                                            <input
-                                              type="number"
-                                              step="0.5"
-                                              min="0"
-                                              value={editingSerie.peso}
-                                              onChange={(e) =>
-                                                setEditingSerie((prev) =>
-                                                  prev
-                                                    ? {
-                                                        ...prev,
-                                                        peso: Number(e.target.value) || 0,
-                                                      }
-                                                    : null,
-                                                )
-                                              }
-                                              aria-label="Peso en kilogramos"
-                                              className="h-11 w-20 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
-                                              data-testid={`input-peso-${s.id}`}
-                                            />
-                                            <span className="text-xs text-muted-foreground">
-                                              kg
-                                            </span>
-                                          </div>
-
-                                          <div className="flex items-center gap-1">
-                                            <input
-                                              type="number"
-                                              step="1"
-                                              min="0"
-                                              max="100"
-                                              inputMode="numeric"
-                                              value={editingSerie.reps}
-                                              onChange={(e) => {
-                                                const val = parseInt(e.target.value, 10);
-                                                setEditingSerie((prev) =>
-                                                  prev
-                                                    ? {
-                                                        ...prev,
-                                                        reps: isNaN(val) ? 0 : val,
-                                                      }
-                                                    : null,
-                                                );
-                                              }}
-                                              aria-label="Repeticiones realizadas"
-                                              className="h-11 w-16 min-h-[44px] rounded-lg border border-input bg-background px-2 text-center font-mono text-sm font-bold text-foreground focus:border-primary focus:outline-none"
-                                              data-testid={`input-reps-${s.id}`}
-                                            />
-                                            <span className="text-xs text-muted-foreground">
-                                              reps
-                                            </span>
-                                          </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-1">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleSaveEdit(false)}
-                                            aria-label="Guardar corrección"
-                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-success px-3 text-xs font-bold text-success-foreground shadow-sm hover:bg-success/90 active:scale-95 transition-transform"
-                                            data-testid={`btn-guardar-serie-${s.id}`}
-                                          >
-                                            <Check className="h-4 w-4 mr-1" />
-                                            Guardar
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={handleCancelEdit}
-                                            aria-label="Cancelar edición"
-                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-muted px-2.5 text-xs font-bold text-muted-foreground hover:bg-muted/80"
-                                            data-testid={`btn-cancelar-serie-${s.id}`}
-                                          >
-                                            <X className="h-4 w-4" />
-                                          </button>
-                                        </div>
-                                        {errorMessage && (
-                                          <div
-                                            role="alert"
-                                            className="w-full text-xs text-destructive font-semibold flex items-center gap-1.5 pt-1"
-                                            data-testid="historial-edit-error"
-                                          >
-                                            <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-                                            <span>{errorMessage}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      /* VISTA NORMAL DE SERIE */
-                                      <>
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-mono font-bold text-muted-foreground">
-                                            {s.numeroSerie}
-                                          </span>
-
-                                          {/* Badge tipo de serie */}
-                                          <span
-                                            className={`rounded px-1.5 py-0.5 text-xs font-bold uppercase ${
-                                              s.setType === "WARMUP" || s.setType === "W"
-                                                ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
-                                                : s.setType === "FAILURE" || s.setType === "F"
-                                                ? "bg-destructive/15 text-destructive font-black"
-                                                : s.setType === "DROPSET" || s.setType === "D"
-                                                ? "bg-neutral-soft text-neutral-soft-foreground border border-neutral-soft-border"
-                                                : "bg-primary/10 text-primary"
-                                            }`}
-                                          >
-                                            {s.setType === "WARMUP" || s.setType === "W"
-                                              ? "W"
-                                              : s.setType === "FAILURE" || s.setType === "F"
-                                              ? "Fallo"
-                                              : s.setType === "DROPSET" || s.setType === "D"
-                                              ? "Drop"
-                                              : "Normal"}
-                                          </span>
-
-                                          <div className="flex items-baseline gap-1.5">
-                                            <span className="font-mono font-bold text-foreground">
-                                              {s.pesoKg} kg
-                                            </span>
-                                            <span className="text-muted-foreground">×</span>
-                                            <span className="font-mono font-bold text-foreground">
-                                              {s.repsHechas} reps
-                                            </span>
-                                            {s.rpeReal && (
-                                              <span className="text-xs text-muted-foreground">
-                                                @ RPE {s.rpeReal}
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
-                                            <span>1RM: {Math.round(s.estimated1RM)} kg</span>
-                                            <Tooltip1RM size="sm" />
-                                          </span>
-
-                                          <button
-                                            type="button"
-                                            onClick={() => handleStartEdit(sesion.id, s)}
-                                            aria-label={`Editar serie ${s.numeroSerie} de ${ej.ejercicioNombre}`}
-                                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                            data-testid={`btn-editar-serie-${s.id}`}
-                                          >
-                                            <Pencil className="h-4 w-4" />
-                                          </button>
-                                        </div>
-                                      </>
+                                  <div className="a-srow a-t-sec" key={s.id} data-testid={`serie-item-${s.id}`}>
+                                    <span className="a-sn">{s.numeroSerie}</span>
+                                    <b>
+                                      {numero.format(s.pesoKg)} kg × {s.repsHechas}
+                                    </b>
+                                    {esTecnica && s.rpeReal ? (
+                                      <span className="a-muted">RPE {numero.format(s.rpeReal)}</span>
+                                    ) : null}
+                                    {tipo && <span className="a-chip a-t-label">{tipo}</span>}
+                                    {corregidas.has(s.id) && (
+                                      <span className="a-chip a-line a-t-label">Corregida</span>
                                     )}
+                                    <button
+                                      type="button"
+                                      className="a-ed"
+                                      onClick={() => handleStartEdit(sesion, ej.ejercicioNombre, s)}
+                                      aria-label={`Corregir serie ${s.numeroSerie} de ${ej.ejercicioNombre}`}
+                                      data-testid={`btn-editar-serie-${s.id}`}
+                                    >
+                                      <Pencil width={15} height={15} aria-hidden="true" />
+                                    </button>
                                   </div>
                                 );
                               })}
                             </div>
-                          </div>
+                          </React.Fragment>
                         ))
                       )}
                     </div>
                   )}
+
+                  <button
+                    type="button"
+                    className="a-link"
+                    style={{ justifySelf: "start", paddingLeft: 0 }}
+                    onClick={() => toggleExpand(sesion.id)}
+                    aria-expanded={isExpanded}
+                    data-testid={`btn-expand-sesion-${sesion.id}`}
+                  >
+                    {isExpanded ? "Ver menos" : "Ver series y corregir"}
+                  </button>
                 </div>
-              );
-            })
+              </article>
+            );
+          })
+        ))}
+
+      {/* VISTA 2: por ejercicio */}
+      {tabActiva === "dashboard" && sesiones.length > 0 && (
+        <div className="grid gap-3" data-testid="mini-dashboard-container">
+          <label className="a-t-label a-muted" htmlFor="select-ejercicio-dashboard">
+            Ejercicio para analizar
+          </label>
+          <select
+            id="select-ejercicio-dashboard"
+            className="a-sel-native"
+            value={selectedEjercicioId}
+            onChange={(e) => setSelectedEjercicioId(e.target.value)}
+            data-testid="select-ejercicio-dashboard"
+          >
+            {contratoDashboard.listaEjercicios.map((ej) => (
+              <option key={ej.ejercicioId} value={ej.ejercicioId}>
+                {ej.ejercicioNombre} ({ej.totalSesiones} {ej.totalSesiones === 1 ? "sesión" : "sesiones"})
+              </option>
+            ))}
+          </select>
+
+          {resumenEjercicioActual ? (
+            <div className="grid gap-3" data-testid="metricas-ejercicio-dashboard">
+              <div className="a-tiles">
+                <div className="a-card a-tile">
+                  <span className="a-t-label a-muted">Récord de carga</span>
+                  <span className="a-t-mm">
+                    {numero.format(resumenEjercicioActual.recordPesoKg)}
+                    <span className="a-t-sec a-muted"> kg</span>
+                  </span>
+                </div>
+                <div className="a-card a-tile">
+                  <span className="a-t-label a-muted">Máx. repeticiones</span>
+                  <span className="a-t-mm">
+                    {resumenEjercicioActual.recordReps}
+                    <span className="a-t-sec a-muted"> reps</span>
+                  </span>
+                </div>
+                {esTecnica && (
+                  <div className="a-card a-tile" style={{ gridColumn: "1 / 3" }}>
+                    <span className="a-t-label a-muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      Mejor 1RM estimado (Epley)
+                      <Tooltip1RM size="sm" />
+                    </span>
+                    <span className="a-t-mm">
+                      {Math.round(resumenEjercicioActual.record1RM)}
+                      <span className="a-t-sec a-muted"> kg</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="a-eb a-t-label">
+                Evolución · {resumenEjercicioActual.puntos.length}{" "}
+                {resumenEjercicioActual.puntos.length === 1 ? "sesión" : "sesiones"}
+              </p>
+              {resumenEjercicioActual.puntos.map((punto, idx) => (
+                <div className="a-card a-row" key={`${punto.sesionId}-${idx}`} data-testid={`punto-progresion-${idx}`}>
+                  <span className="a-rt">
+                    <b className="a-t-bs">{punto.fechaLegible}</b>
+                    <small className="a-t-sec">
+                      {punto.diaNombre} · {punto.seriesCount} {punto.seriesCount === 1 ? "serie" : "series"}
+                      {esTecnica ? ` · 1RM ${Math.round(punto.bestEstimated1RM)} kg` : ""}
+                    </small>
+                  </span>
+                  <span className="a-t-bs">{numero.format(punto.maxPesoKg)} kg</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="a-t-sec a-muted">Elegí un ejercicio para ver su evolución y sus récords.</p>
           )}
         </div>
       )}
 
-      {/* VISTA 2: MINI-DASHBOARD ANALÍTICO DE PROGRESIÓN POR EJERCICIO */}
-      {tabActiva === "dashboard" && (
-        <div className="space-y-4" data-testid="mini-dashboard-container">
-          <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="select-ejercicio-dashboard"
-                className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+      {/* Hoja "Corregir serie" */}
+      {editingSerie && (
+        <div
+          className="a-sheet-wrap"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) cerrarHoja();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") cerrarHoja();
+          }}
+        >
+          <div
+            className="a-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hist-fix-titulo"
+            data-testid={`form-editar-serie-${editingSerie.serieId}`}
+          >
+            <div className="a-sh-h">
+              <div>
+                <h2 id="hist-fix-titulo" ref={tituloHojaRef} className="a-t-h" tabIndex={-1}>
+                  Corregir serie
+                </h2>
+                <span className="a-t-sec a-muted">
+                  {editingSerie.ejercicioNombre} · serie {editingSerie.numeroSerie} · {editingSerie.fechaLegible}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="a-icon-btn"
+                onClick={cerrarHoja}
+                aria-label="Cerrar"
+                data-testid={`btn-cancelar-serie-${editingSerie.serieId}`}
               >
-                Ejercicio para Analizar
-              </label>
-              <span className="text-xs font-mono text-muted-foreground">
-                {contratoDashboard.listaEjercicios.length} ejercicios registrados
-              </span>
+                <X width={18} height={18} aria-hidden="true" />
+              </button>
             </div>
 
-            {/* Selector nativo ergonómico */}
-            <select
-              id="select-ejercicio-dashboard"
-              value={selectedEjercicioId}
-              onChange={(e) => setSelectedEjercicioId(e.target.value)}
-              className="w-full h-12 rounded-xl border border-input bg-background px-3 text-sm font-bold text-foreground focus:border-primary focus:outline-none"
-              data-testid="select-ejercicio-dashboard"
+            <span className="a-t-label a-muted">Peso</span>
+            <div className="a-stepper">
+              <button type="button" onClick={() => ajustar("peso", -2.5)} aria-label="Restar 2,5 kg">
+                −2,5
+              </button>
+              <div className="a-val">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  className="a-t-mi"
+                  style={{ ["--n" as string]: String(numero.format(editingSerie.peso).length) }}
+                  value={editingSerie.peso}
+                  onChange={(e) =>
+                    setEditingSerie((prev) => (prev ? { ...prev, peso: Number(e.target.value) || 0 } : null))
+                  }
+                  aria-label="Peso en kilogramos"
+                  data-testid={`input-peso-${editingSerie.serieId}`}
+                />
+                <span className="a-t-sec">kg</span>
+              </div>
+              <button type="button" onClick={() => ajustar("peso", 2.5)} aria-label="Sumar 2,5 kg">
+                +2,5
+              </button>
+            </div>
+
+            <span className="a-t-label a-muted">Repeticiones</span>
+            <div className="a-stepper a-sm">
+              <button type="button" onClick={() => ajustar("reps", -1)} aria-label="Restar una repetición">
+                −1
+              </button>
+              <div className="a-val">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  className="a-t-mi"
+                  style={{ ["--n" as string]: String(editingSerie.reps).length }}
+                  value={editingSerie.reps}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setEditingSerie((prev) => (prev ? { ...prev, reps: Number.isNaN(val) ? 0 : val } : null));
+                  }}
+                  aria-label="Repeticiones realizadas"
+                  data-testid={`input-reps-${editingSerie.serieId}`}
+                />
+                <span className="a-t-sec">reps</span>
+              </div>
+              <button type="button" onClick={() => ajustar("reps", 1)} aria-label="Sumar una repetición">
+                +1
+              </button>
+            </div>
+
+            {errorMessage && (
+              <p role="alert" className="a-info a-t-sec" data-testid="historial-edit-error">
+                <TriangleAlert width={18} height={18} aria-hidden="true" />
+                <span>{errorMessage}</span>
+              </p>
+            )}
+            <p className="a-info a-t-sec">
+              <Info width={18} height={18} aria-hidden="true" />
+              <span>La serie queda marcada como corregida y tu coach ve el valor original.</span>
+            </p>
+            <button
+              type="button"
+              className="a-btn a-gym"
+              onClick={() => handleSaveEdit(false)}
+              data-testid={`btn-guardar-serie-${editingSerie.serieId}`}
             >
-              {contratoDashboard.listaEjercicios.map((ej) => (
-                <option key={ej.ejercicioId} value={ej.ejercicioId}>
-                  {ej.ejercicioNombre} ({ej.totalSesiones} {ej.totalSesiones === 1 ? "sesión" : "sesiones"})
-                </option>
-              ))}
-            </select>
+              Guardar corrección
+            </button>
           </div>
-
-          {resumenEjercicioActual ? (
-            <div className="space-y-3" data-testid="metricas-ejercicio-dashboard">
-              {/* Tarjetas de Récords y Métricas (Poda de Volumen Total en UI según GOZS-359) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="rounded-xl border border-border/80 bg-card p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <Trophy className="h-4 w-4 text-warning" />
-                    <span>Récord de Carga</span>
-                  </div>
-                  <div className="mt-1 font-mono text-2xl font-black text-foreground">
-                    {resumenEjercicioActual.recordPesoKg}{" "}
-                    <span className="text-xs font-bold text-muted-foreground">kg</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border/80 bg-card p-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
-                    <div className="flex items-center gap-1.5">
-                      <Flame className="h-4 w-4 text-destructive" />
-                      <span>Mejor 1RM (Epley)</span>
-                    </div>
-                    <Tooltip1RM size="sm" />
-                  </div>
-                  <div className="mt-1 font-mono text-2xl font-black text-foreground">
-                    {Math.round(resumenEjercicioActual.record1RM)}{" "}
-                    <span className="text-xs font-bold text-muted-foreground">kg</span>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border/80 bg-card p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <span>Máx. Repeticiones</span>
-                  </div>
-                  <div className="mt-1 font-mono text-2xl font-black text-foreground">
-                    {resumenEjercicioActual.recordReps}{" "}
-                    <span className="text-xs font-bold text-muted-foreground">reps</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Historial cronológico de progresión por fecha */}
-              <div className="rounded-2xl border border-border/80 bg-card p-4 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Evolución en el tiempo ({resumenEjercicioActual.puntos.length} puntos)
-                </h4>
-
-                <div className="space-y-2">
-                  {resumenEjercicioActual.puntos.map((punto, idx) => (
-                    <div
-                      key={`${punto.sesionId}-${idx}`}
-                      className="flex items-center justify-between rounded-xl border border-border/60 bg-background/70 px-3 py-2.5 text-xs"
-                      data-testid={`punto-progresion-${idx}`}
-                    >
-                      <div className="space-y-0.5">
-                        <div className="font-bold text-foreground">
-                          {punto.fechaLegible}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {punto.diaNombre} · {punto.seriesCount} {punto.seriesCount === 1 ? "serie" : "series"}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="font-mono text-sm font-black text-primary">
-                          {punto.maxPesoKg} kg
-                        </div>
-                        <div className="text-xs font-mono text-muted-foreground inline-flex items-center gap-1 justify-end">
-                          <span>1RM: {Math.round(punto.bestEstimated1RM)} kg</span>
-                          <Tooltip1RM size="sm" />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border/80 bg-card/60 p-8 text-center text-xs text-muted-foreground">
-              Selecciona un ejercicio para ver su curva de progresión y métricas clave.
-            </div>
-          )}
         </div>
       )}
 
@@ -693,15 +595,13 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
         onClose={() => setAtypicalPrompt(null)}
       >
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-warning font-bold text-base">
+          <div className="flex items-center gap-2 font-bold text-base">
             <TriangleAlert className="h-5 w-5" />
             <span>Carga atípica</span>
           </div>
-          <p className="text-sm font-semibold text-foreground">
-            {atypicalPrompt?.mensaje}
-          </p>
+          <p className="text-sm font-semibold text-foreground">{atypicalPrompt?.mensaje}</p>
           <p className="text-xs text-muted-foreground">
-            Ingresaste {atypicalPrompt?.peso} kg ({atypicalPrompt?.reps} reps). ¿Deseas confirmarlo como serie atípica o corregir el valor?
+            Ingresaste {atypicalPrompt?.peso} kg ({atypicalPrompt?.reps} reps). ¿Querés confirmarlo como serie atípica o corregir el valor?
           </p>
         </div>
         <div className="flex items-center justify-end gap-2 pt-2">

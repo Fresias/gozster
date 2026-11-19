@@ -33,16 +33,22 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
     it("GIVEN un atleta con entrenamientos completados WHEN ingresa a la sección THEN visualiza el contenedor y el título de Historial", () => {
       const html = renderComponent();
       expect(html).toContain('data-testid="historial-sesiones-container"');
-      expect(html).toContain("Historial de Sesiones");
-      expect(html).toContain("Revisa tus entrenamientos y corrige registros en línea");
+      // v7 (02-pantallas §5): cabecera invertida "Historial" con su bajada
+      expect(html).toContain("a-hhero");
+      expect(html).toContain(">Historial<");
+      expect(html).toContain("Tus sesiones y series. Si cargaste algo mal, lo podés corregir.");
     });
 
     it("THEN visualiza la lista cronológica con fecha, nombre del día y métricas (Poda de Volumen Total según GOZS-359)", () => {
       const html = renderComponent();
       expect(html).toContain('data-testid="tab-sesiones"');
       expect(html).toContain('data-testid="tab-dashboard"');
-      expect(html).toContain("Sesiones Realizadas");
-      expect(html).toContain("Series Totales");
+      expect(html).toContain("Por sesión");
+      expect(html).toContain("Por ejercicio");
+      expect(html).toContain("Sesiones</small>");
+      expect(html).toContain("Series</small>");
+      expect(html).toContain("a-hcard");
+      expect(html).toContain("Ver series y corregir");
       expect(html).not.toContain("Volumen Total");
     });
 
@@ -119,21 +125,24 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
       expect(store.historialSesiones.length).toBeGreaterThan(0);
 
       const html = renderComponent();
-      expect(html).toContain("Progreso (Mini-Dash)");
+      // v7: el segmentado se llama "Por ejercicio" (02-pantallas §5)
+      expect(html).toContain("Por ejercicio");
     });
   });
 
   describe("4. Soporte Offline-First y Ergonomía Ponytail", () => {
     it("muestra indicador de modo avión cuando no hay conexión", () => {
       const html = renderToStaticMarkup(<HistorialSesiones offline={true} />);
-      expect(html).toContain("Offline");
-      expect(html).toContain("Modo Avión");
+      // v7: "Modo Avión" pasa a "Sin conexión · datos del …" (02-pantallas §5, brecha)
+      expect(html).toContain("Sin conexión");
+      expect(html).toContain("datos del");
+      expect(html).not.toContain("Modo Avión");
     });
 
-    it("cumple con clases táctiles min-h-12 y min-h-11 (>= 44px/48px) para botones interactivos", () => {
+    it("usa los controles v7 con botón de corrección de 36 px y etiqueta accesible (a-ed)", () => {
       const html = renderComponent();
-      expect(html).toContain("min-h-12");
-      expect(html).toContain("min-h-11");
+      expect(html).toContain('class="a-ed"');
+      expect(html).toMatch(/aria-label="Corregir serie \d+ de /);
     });
   });
 });
