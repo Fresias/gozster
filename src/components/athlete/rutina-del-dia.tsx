@@ -115,6 +115,7 @@ export function RutinaDelDia() {
     latestUnreadStaffMessage,
     setAthleteChatOpen,
     handleTerminarEntrenamiento,
+    stopTimer,
     cleanDiaTitle,
     isAllWorkoutCompleted,
   } = useLiveWorkout();
@@ -335,7 +336,7 @@ export function RutinaDelDia() {
             <Check width={12} height={12} className="a-i" /> Hecho
           </span>
         ) : hasMolestia ? (
-          <span className="a-chip a-bad a-t-label">
+          <span className="a-chip a-bad a-t-label" data-testid={`molestia-chip-${ej.id}`}>
             <TriangleAlert width={12} height={12} className="a-i" /> Molestia
           </span>
         ) : (
@@ -723,20 +724,24 @@ export function RutinaDelDia() {
           exerciseId={painModalData.exerciseId}
           ejercicioId={painModalData.ejercicioId}
           setNumber={painModalData.setNumber}
+          ejercicios={currentSession.ejercicios}
           onSavePainReport={(report) => {
             if (typeof report === "string") {
               reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
             } else {
+              const targetExerciseId = report.exerciseId || painModalData.exerciseId;
               void reportarMolestia({
-                ejercicioEnRutinaId: painModalData.exerciseId,
+                ejercicioEnRutinaId: targetExerciseId,
                 ejercicioId:
-                  report.ejercicioId || painModalData.ejercicioId || painModalData.exerciseId,
+                  report.ejercicioId || painModalData.ejercicioId || targetExerciseId,
                 numeroSerie: report.setNumber ?? painModalData.setNumber,
                 zona: report.zonaArticular,
                 eva: report.intensidadNumerica,
                 sintomas: report.sintomasAlarma,
                 momento: report.momentoAparicion,
                 notas: report.notasAlumno,
+              }).then((mol) => {
+                if (mol.nivel === "alta" || mol.nivel === "alarma") stopTimer();
               });
             }
             setPainModalData(null);

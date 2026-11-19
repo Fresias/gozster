@@ -149,15 +149,7 @@ async function capturarAppYContraste(
 
 type RecetaRunner = (page: Page, tema: TemaContraste) => Promise<void>;
 
-export const SIN_RECETA: Record<string, string> = {
-  // Sesión
-  "rutina-molestia": "sin receta (falta FE-08)",
-  // Molestias
-  "mol-hereda": "sin receta (falta FE-08)",
-  "mol-lumbar": "sin receta (falta FE-08)",
-  "mol-no-hereda": "sin receta (falta FE-08)",
-  "mol-otro": "sin receta (falta FE-08)",
-};
+export const SIN_RECETA: Record<string, string> = {};
 
 export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
   // ── Acceso ──
@@ -356,6 +348,12 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
     await page.getByTestId("terminar-entrenamiento-btn-entrenar").click();
     await expect(page.getByTestId("confirmar-terminar-card")).toBeVisible();
     await page.getByTestId("confirmar-terminar-card").scrollIntoViewIfNeeded();
+  },
+  "rutina-molestia": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-mod"]!(page, tema);
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.getByTestId(`molestia-chip-${EJ_BP}`)).toBeVisible();
   },
   registro: async (page, tema) => {
     await entrarADia1(page, tema);
@@ -757,6 +755,42 @@ export const RECETAS_MOLESTIAS: Record<string, RecetaRunner> = {
     await page.getByTestId("submit-pain-report-btn").click();
     await expect(page.getByTestId("live-workout-stop-protocol-banner")).toBeVisible();
   },
+  "mol-hereda": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-mod"]!(page, tema);
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_RM}`).click();
+    await expect(page.getByTestId("molestia-heredada")).toBeVisible();
+  },
+  "mol-lumbar": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId(`exercise-pain-report-btn-${EJ_SQ}`).click();
+    await page.getByTestId("zona-btn-lumbar").click();
+    await page.getByTestId("intensity-chip-3").click();
+    await page.getByTestId("submit-pain-report-btn").click();
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_PL}`).click();
+    await expect(page.getByTestId("molestia-heredada")).toBeVisible();
+  },
+  "mol-no-hereda": async (page, tema) => {
+    await RECETAS_MOLESTIAS["mol-mod"]!(page, tema);
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await expect(page.getByTestId("molestia-heredada")).toBeHidden();
+    await expect(page.getByTestId("pain-banner-range-4-6")).toBeHidden();
+  },
+  "mol-otro": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId(`exercise-pain-report-btn-${EJ_BP}`).click();
+    await page.getByTestId("zona-btn-otro").click();
+    await page.getByTestId("intensity-chip-5").click();
+    await page.getByTestId("submit-pain-report-btn").click();
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_RM}`).click();
+    await expect(page.getByTestId("molestia-heredada")).toBeHidden();
+    await expect(page.getByTestId("pain-banner-range-4-6")).toBeHidden();
+  },
 };
 
 const SESION_HIST_RECIENTE = FIXTURE_BASE.registro_sesiones[0].id as string;
@@ -1012,5 +1046,39 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
     for (const k of PANTALLAS) {
       expect(cubiertas.has(k), `Falta definir receta o sinReceta para ${k}`).toBe(true);
     }
+  });
+
+  test("[Molestias] hoja Tengo una molestia atrapa foco, cierra con Escape y devuelve foco al disparador", async ({
+    page,
+  }) => {
+    await entrarADia1(page, "light");
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+
+    const trigger = page.getByTestId(`exercise-pain-report-btn-${EJ_BP}`);
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const modal = page.getByTestId("pain-report-modal");
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#pain-report-title")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.focus();
+    await trigger.click();
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#pain-report-title")).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByTestId("submit-pain-report-btn")).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(modal.getByRole("button", { name: "Cerrar" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 });

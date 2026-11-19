@@ -4,14 +4,13 @@ import * as React from "react";
 import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
-import { PainReportBanner } from "@/components/athlete/pain-banner";
+import { AvisoMolestia } from "@/components/athlete/aviso-molestia";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
 import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import {
   TriangleAlert,
-  OctagonAlert,
   X,
   Timer,
   Lightbulb,
@@ -107,8 +106,6 @@ export function EjercicioActivo() {
     seriesRecord,
     optimisticBanner,
     setOptimisticBanner,
-    stopProtocolActive,
-    setStopProtocolActive,
     uniSide,
     setUniSide,
     uniPend,
@@ -131,9 +128,9 @@ export function EjercicioActivo() {
     setNotesExercise,
     painModalData,
     setPainModalData,
-    setDismissedMolestiaId,
-    latestMolestia,
-    derivedPainBanner,
+    avisoMolestia,
+    ejercicioEstaBloqueado,
+    stopTimer,
     videoUploadModalData,
     setVideoUploadModalData,
     tiempoCountdown,
@@ -438,39 +435,11 @@ export function EjercicioActivo() {
         </div>
       )}
 
-      {stopProtocolActive && (
-        <div
-          role="alert"
-          className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 space-y-2"
-          data-testid="live-workout-stop-protocol-banner"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-destructive font-black text-sm">
-              <OctagonAlert className="h-6 w-6 shrink-0" />
-              <span>PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStopProtocolActive(false)}
-              className="text-muted-foreground hover:text-foreground px-2 py-1 rounded"
-              title="Ocultar aviso"
-              aria-label="Ocultar aviso"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <p className="text-sm font-bold text-foreground leading-relaxed">
-            Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Se ha emitido una alerta CRÍTICA a tu entrenador. Tu salud articular es prioritaria; no continúes levantando carga ante síntomas de alarma o dolor agudo.
-          </p>
-        </div>
-      )}
-
-      {derivedPainBanner && latestMolestia && (
-        <PainReportBanner banner={derivedPainBanner} onDismiss={() => setDismissedMolestiaId(latestMolestia.id)} />
-      )}
+      <AvisoMolestia
+        aviso={avisoMolestia}
+        onTerminarSesion={() => void handleTerminarEntrenamiento()}
+        isFinishing={isFinishing}
+      />
 
       {filasAprox.length > 0 && (
         <section className="a-card a-appr" aria-label="Aproximación" data-testid="warmup-sets-section">
@@ -650,6 +619,7 @@ export function EjercicioActivo() {
                 <button
                   type="button"
                   className="a-btn a-gym"
+                  disabled={ejercicioEstaBloqueado}
                   data-testid="timer-tiempo-iniciar-btn"
                   onClick={() => {
                     if (displayTiempo === 0 || timerTiempoCompletado) setTiempoCountdown(tiempoObjetivo);
@@ -980,6 +950,7 @@ export function EjercicioActivo() {
           <button
             type="button"
             className="a-btn a-gym"
+            disabled={ejercicioEstaBloqueado}
             onClick={() => (esUni ? handleRegistrarUnilateral(false) : handleRegistrarSerie(false))}
             data-testid="registrar-serie-btn"
           >
@@ -1032,21 +1003,23 @@ export function EjercicioActivo() {
         </section>
       )}
 
-      <button
-        type="button"
-        className="a-molbtn"
-        data-testid={`exercise-pain-report-btn-${ej.id}`}
-        onClick={() =>
-          setPainModalData({
-            exerciseId: ej.id,
-            ejercicioId: ej.ejercicio_id || "",
-            exerciseName: ej.nombre,
-            setNumber: serie?.numero_serie || 1,
-          })
-        }
-      >
-        <TriangleAlert width={18} height={18} className="a-i" /> Tengo una molestia
-      </button>
+      {!ejercicioEstaBloqueado && (
+        <button
+          type="button"
+          className="a-molbtn"
+          data-testid={`exercise-pain-report-btn-${ej.id}`}
+          onClick={() =>
+            setPainModalData({
+              exerciseId: ej.id,
+              ejercicioId: ej.ejercicio_id || "",
+              exerciseName: ej.nombre,
+              setNumber: serie?.numero_serie || 1,
+            })
+          }
+        >
+          <TriangleAlert width={18} height={18} className="a-i" /> Tengo una molestia
+        </button>
+      )}
 
       {hechas.length > 0 && (
         <>
@@ -1178,19 +1151,23 @@ export function EjercicioActivo() {
           exerciseId={painModalData.exerciseId}
           ejercicioId={painModalData.ejercicioId}
           setNumber={painModalData.setNumber}
+          ejercicios={currentSession.ejercicios}
           onSavePainReport={(report) => {
             if (typeof report === "string") {
               reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
             } else {
+              const targetExerciseId = report.exerciseId || painModalData.exerciseId;
               void reportarMolestia({
-                ejercicioEnRutinaId: painModalData.exerciseId,
-                ejercicioId: report.ejercicioId || painModalData.ejercicioId || painModalData.exerciseId,
+                ejercicioEnRutinaId: targetExerciseId,
+                ejercicioId: report.ejercicioId || painModalData.ejercicioId || targetExerciseId,
                 numeroSerie: report.setNumber ?? painModalData.setNumber,
                 zona: report.zonaArticular,
                 eva: report.intensidadNumerica,
                 sintomas: report.sintomasAlarma,
                 momento: report.momentoAparicion,
                 notas: report.notasAlumno,
+              }).then((mol) => {
+                if (mol.nivel === "alta" || mol.nivel === "alarma") stopTimer();
               });
             }
             setPainModalData(null);

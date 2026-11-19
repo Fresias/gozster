@@ -194,8 +194,9 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
     });
 
     it("muestra advertencia médica obligatoria al detectar síntomas de alarma o dolor agudo", () => {
-      expect(painModalCode).toContain("PROTOCOLO DE FRENO POR SEGURIDAD MÉDICA");
-      expect(painModalCode).toContain("Te recomendamos frenar el entrenamiento por hoy");
+      expect(painModalCode).toContain('"protocolo-freno-alert"');
+      expect(painModalCode).toContain("Síntoma de alarma: frená por hoy y avisá en el gimnasio.");
+      expect(painModalCode).toContain("Alta: vas a suspender este ejercicio.");
     });
 
     it("activa stopProtocolActive de inmediato en useAthleteStore al reportar con Red Flags", async () => {
@@ -263,12 +264,14 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
     });
 
     it("renderiza el banner visual de protocolo de freno con indicación de parar por hoy y avisar al coach", () => {
-      expect(ejercicioActivoCode).toContain('data-testid="live-workout-stop-protocol-banner"');
-      expect(ejercicioActivoCode).toContain("PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO");
-      expect(ejercicioActivoCode).toContain(
-        "Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.",
+      const avisoMolestiaCode = readSourceFile("../components/athlete/aviso-molestia.tsx");
+      expect(ejercicioActivoCode).toContain("<AvisoMolestia");
+      expect(avisoMolestiaCode).toContain('data-testid="live-workout-stop-protocol-banner"');
+      expect(avisoMolestiaCode).toContain("Frená por hoy");
+      expect(avisoMolestiaCode).toContain(
+        "Avisá en el gimnasio o a tu entrenador cercano. Tu coach ya recibió una alerta.",
       );
-      expect(ejercicioActivoCode).toContain("alerta CRÍTICA a tu entrenador");
+      expect(avisoMolestiaCode).toContain("Terminar sesión");
     });
   });
 
