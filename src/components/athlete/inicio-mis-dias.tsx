@@ -37,6 +37,7 @@ import {
   TrendingUp,
   ClipboardList,
 } from "@/components/athlete/icons";
+import { InstalarAppCard } from "@/components/athlete/instalar-app-card";
 
 export function InicioMisDias() {
   const {
@@ -463,6 +464,9 @@ export function InicioMisDias() {
 
       {/* Aviso prominente de mensaje no leído del Coach */}
       {bannerMensajeNoLeido}
+
+      {/* Tarjeta de instalación PWA (iPhone / Android) */}
+      <InstalarAppCard />
 
       {/* Recordatorio Mensual de Peso Corporal (kg puro) (GOZS-345) */}
       {tarjetaRecordatorioPeso}

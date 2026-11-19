@@ -2708,6 +2708,8 @@ body:has(.theme-athlete[data-v7]) {
 
 .theme-athlete[data-v7] .a-sheet {
   width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
   background: var(--a-surface-l3);
   color: var(--a-fg);
   border-radius: 28px 28px 0 0;
