@@ -110,9 +110,11 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(onboarding).toContain("a-muted");
     expect(onboarding).toContain("a-card");
 
-    expect(historial).toContain("bg-success-soft");
-    expect(historial).toContain("text-success-soft-foreground");
-    expect(historial).toContain("border-warning-soft-border");
+    // Historial migrado a clases .a-* v7 (FE-09, 02-pantallas §5): cabecera invertida, tarjetas, chip PR y sin conexión
+    expect(historial).toContain("a-hhero");
+    expect(historial).toContain("a-hcard");
+    expect(historial).toContain("a-chip a-pr");
+    expect(historial).toContain("a-offnote");
 
     expect(paywall).toContain("a-banner");
     expect(paywall).toContain("a-sheet-wrap a-center");
