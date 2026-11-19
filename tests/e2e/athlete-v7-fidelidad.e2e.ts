@@ -8,6 +8,7 @@ import {
   type SinRecetaEntry,
   type TemaContraste,
 } from "./helpers/contraste";
+import { checksEstiloParaPantalla, esperarEstilo, verificarEstiloPantalla } from "./helpers/estilo-v7";
 
 function leerPantallasReferencia(): string[] {
   const src = readFileSync(
@@ -710,11 +711,67 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
       for (const tema of TEMAS) {
         test(`[${grupo}] ${clave} (${tema})`, async ({ page, browser }) => {
           await run(page, tema);
+          await verificarEstiloPantalla(page, clave, tema);
           await capturarAppYContraste(browser, page, clave, tema, filasGeneradas);
         });
       }
     }
   }
+
+  test("[Estilo] helper esperarEstilo valida tabla 05 §3 (tipografía, color y elevación)", async ({ page }) => {
+    await page.setContent(`<!doctype html>
+<html>
+<head>
+  <style>
+    .t-title { font-family: "Archivo", sans-serif; font-size: 32px; font-weight: 800; font-stretch: 112%; }
+    .t-eb { font-family: "Geist Mono", monospace; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.44px; }
+    .hero { background-color: rgb(9, 9, 11); color: rgb(250, 250, 250); box-shadow: rgba(9, 9, 11, 0.08) 0px 3px 8px 2px; }
+    .rec { background-color: rgb(255, 246, 218); border: 1.5px solid rgb(168, 123, 11); box-shadow: rgba(9, 9, 11, 0.08) 0px 3px 8px 2px; }
+    .peso-largo { font-family: "Archivo", sans-serif; font-size: 28px; font-weight: 800; width: 120px; border: 1px solid rgb(113, 113, 122); }
+  </style>
+</head>
+<body style="background-color: rgb(250, 250, 250)">
+  <h1 class="t-title" data-testid="v7-title">PLAN GENERAL</h1>
+  <span class="t-eb" data-testid="v7-eb">RUTINA</span>
+  <div class="hero" data-testid="heroe-te-toca-hoy">Día 1</div>
+  <div class="rec" data-testid="nuevo-record-banner">¡Nuevo récord!</div>
+  <input class="peso-largo" data-testid="peso-largo" value="147,5" />
+</body>
+</html>`);
+
+    await esperarEstilo(page, "v7-title", {
+      fontFamilyContains: "Archivo",
+      fontSizePx: 32,
+      fontWeight: "800",
+      fontStretch: "112%",
+    });
+    await esperarEstilo(page, "v7-eb", {
+      fontFamilyContains: "Geist Mono",
+      fontSizePx: 12,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacingPx: 1.44,
+    });
+    await esperarEstilo(page, "heroe-te-toca-hoy", {
+      backgroundColor: "rgb(9, 9, 11)",
+      color: "rgb(250, 250, 250)",
+      boxShadowContains: "0px 3px 8px 2px",
+    });
+    await esperarEstilo(page, "nuevo-record-banner", {
+      backgroundColor: "rgb(255, 246, 218)",
+      borderColor: "rgb(168, 123, 11)",
+      boxShadowContains: "0px 3px 8px 2px",
+    });
+    await esperarEstilo(page, "peso-largo", {
+      fontFamilyContains: "Archivo",
+      fontSizePx: { max: 32 },
+      fontWeight: "800",
+      borderColor: "rgb(113, 113, 122)",
+      scrollWidthFitsClientWidth: true,
+    });
+
+    expect(checksEstiloParaPantalla("inicio", "dark").length).toBeGreaterThanOrEqual(3);
+  });
 
   test("[Cobertura] Todas las 82 claves de PANTALLAS tienen receta o motivo sin receta", async () => {
     const cubiertas = new Set([...Object.keys(ALL_RECETAS), ...Object.keys(SIN_RECETA)]);
