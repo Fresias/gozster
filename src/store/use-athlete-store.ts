@@ -29,6 +29,7 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
+import type { MolestiaSesion } from "@/lib/athlete/molestias";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -84,6 +85,7 @@ export interface LiveWorkoutSession {
   dia_id?: string;
   dia_sugerido_id?: string | null;
   motivo_cambio_dia?: MotivoCambioDia | null;
+  molestias?: MolestiaSesion[];
 }
 
 export interface RestTimerState {
@@ -254,6 +256,7 @@ const defaultSession: LiveWorkoutSession = {
   studentName: "Fernando Rosales",
   studentId: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
   dia_id: "6a669097-5bd8-4547-87f7-a43700000001",
+  molestias: [],
   ejercicios: [
     {
       id: "ej-sentadilla-1",
