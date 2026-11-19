@@ -191,7 +191,10 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
         descripcion: "Héroe Te toca hoy (invertido de noche + elevación nivel 2)",
         selector: "heroe-te-toca-hoy",
         esTestId: true,
-        reglas: { backgroundColor: dark ? PAPER : INK, boxShadowContains: "0px 3px 8px 2px" },
+        reglas: {
+          backgroundColor: dark ? PAPER : INK,
+          boxShadowContains: dark ? "0px 4px 10px 3px" : "0px 3px 8px 2px",
+        },
       },
       {
         descripcion: "Ítem activo de navegación inferior",
