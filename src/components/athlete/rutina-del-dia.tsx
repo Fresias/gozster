@@ -3,6 +3,11 @@
 import * as React from "react";
 import { type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { ejercicioBloqueado } from "@/lib/athlete/molestias";
+import {
+  NOMBRE_PREFERIDO_MAX_LEN,
+  nombreParaSaludo,
+  normalizarNombrePreferido,
+} from "@/lib/athlete/nombre";
 import { isWarmup } from "@/lib/serie-tipo";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
@@ -19,6 +24,7 @@ import {
   Timer,
   TriangleAlert,
   Trophy,
+  X,
 } from "@/components/athlete/icons";
 import {
   useLiveWorkout,
@@ -66,13 +72,25 @@ export function RutinaDelDia() {
     setSelectedExerciseId,
     setCierreAbierto,
     setCuestionarioAbierto,
+    setNivelVistaAlumno,
+    usarVistaRecomendada,
+    setPasoIncrementoPeso,
+    mostrarTimerDescanso,
+    setMostrarTimerDescanso,
+    cuestionarioInicial,
+    nombrePreferido,
+    guardarNombrePreferido,
     sesionesCompletadas,
     planAlumno,
     isSimpleView,
+    recomendadaTexto,
+    tieneVistaDistinta,
+    pasoPeso,
     activeTab,
     setActiveTab,
     workoutTab,
     setWorkoutTab,
+    isSettingsOpen,
     setIsSettingsOpen,
     seriesRecord,
     isFinishing,
@@ -101,6 +119,68 @@ export function RutinaDelDia() {
   } = useLiveWorkout();
 
   const [confirmingFinish, setConfirmingFinish] = React.useState(false);
+  const settingsBtnRef = React.useRef<HTMLButtonElement>(null);
+  const settingsTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const fullNameForGreeting =
+    currentSession.studentName || planAlumno?.alumnos[0]?.nombre_completo || "";
+  const [draftName, setDraftName] = React.useState<string>("");
+  const initialDraftNameRef = React.useRef<string>("");
+  const [nameToast, setNameToast] = React.useState<string | null>(null);
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeSettings = React.useCallback(() => {
+    setIsSettingsOpen(false);
+    requestAnimationFrame(() => {
+      settingsBtnRef.current?.focus();
+    });
+  }, [setIsSettingsOpen]);
+
+  React.useEffect(() => {
+    if (!isSettingsOpen) return;
+    const greeting = nombreParaSaludo({
+      nombre_preferido: nombrePreferido,
+      nombre_completo: fullNameForGreeting,
+    });
+    setDraftName(greeting);
+    initialDraftNameRef.current = greeting;
+    requestAnimationFrame(() => {
+      settingsTitleRef.current?.focus();
+    });
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeSettings();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSettingsOpen, nombrePreferido, fullNameForGreeting, closeSettings]);
+
+  React.useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const handleSaveNameOnBlur = async () => {
+    const trimmed = draftName.trim();
+    if (trimmed === initialDraftNameRef.current.trim()) return;
+    const normalized = normalizarNombrePreferido(trimmed);
+    initialDraftNameRef.current =
+      normalized ??
+      nombreParaSaludo({
+        nombre_preferido: null,
+        nombre_completo: fullNameForGreeting,
+      });
+    await guardarNombrePreferido(normalized);
+    const msg = normalized
+      ? `Listo, te llamamos ${normalized}`
+      : "Listo, usamos tu nombre completo";
+    setNameToast(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setNameToast(null), 3200);
+  };
 
   const [elapsedSec, setElapsedSec] = React.useState<number>(() =>
     sessionStartedAt ? Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000)) : 0,
@@ -329,6 +409,7 @@ export function RutinaDelDia() {
         </button>
         <div className="a-tools">
           <button
+            ref={settingsBtnRef}
             type="button"
             className="a-tool"
             onClick={() => setIsSettingsOpen(true)}
@@ -691,6 +772,177 @@ export function RutinaDelDia() {
         studentName={currentSession.studentName || ""}
         diaNombre={cleanDiaTitle || "Día 1"}
       />
+
+      {isSettingsOpen && (
+        <div
+          className="a-sheet-wrap justify-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeSettings();
+          }}
+        >
+          <div
+            className="a-sheet max-w-[28rem]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
+            <div className="a-sh-h">
+              <div>
+                <h2
+                  id="settings-dialog-title"
+                  ref={settingsTitleRef}
+                  className="a-t-h"
+                  tabIndex={-1}
+                >
+                  Configuración
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="a-icon-btn"
+                onClick={closeSettings}
+                aria-label="Cerrar configuración"
+              >
+                <X width={18} height={18} className="a-i" />
+              </button>
+            </div>
+
+            <label className="a-t-label a-muted" htmlFor="cfgName">
+              Cómo te llamamos
+            </label>
+            <input
+              id="cfgName"
+              className="a-fin a-t-body"
+              autoComplete="nickname"
+              maxLength={NOMBRE_PREFERIDO_MAX_LEN}
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={() => void handleSaveNameOnBlur()}
+              data-testid="config-nombre-input"
+            />
+
+            <span className="a-t-label a-muted">Modo de visualización</span>
+            <div
+              className="a-seg"
+              role="group"
+              aria-label="Modo de visualización"
+              data-testid="athlete-view-mode-container"
+            >
+              <button
+                type="button"
+                aria-pressed={isSimpleView}
+                onClick={() => setNivelVistaAlumno("SIMPLE")}
+                data-testid="athlete-toggle-vista-simple"
+              >
+                Simple
+              </button>
+              <button
+                type="button"
+                aria-pressed={!isSimpleView}
+                onClick={() => setNivelVistaAlumno("TECNICA")}
+                data-testid="athlete-toggle-vista-tecnica"
+              >
+                Técnica
+              </button>
+            </div>
+            <div
+              className="flex items-center justify-between gap-2"
+              data-testid="athlete-vista-recomendada-info"
+            >
+              <span
+                className="a-t-sec a-muted"
+                data-testid="athlete-vista-recomendada-texto"
+              >
+                Tu coach te recomienda: {recomendadaTexto}
+              </span>
+              {tieneVistaDistinta && (
+                <button
+                  type="button"
+                  className="a-link"
+                  onClick={usarVistaRecomendada}
+                  data-testid="athlete-usar-vista-recomendada-btn"
+                >
+                  Usar la recomendada
+                </button>
+              )}
+            </div>
+
+            <span className="a-t-label a-muted mt-1.5">
+              Cuánto suman los botones de peso
+            </span>
+            <div className="a-chips" role="group" aria-label="Paso de incremento">
+              {[1.25, 2.5, 5, 10].map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  aria-pressed={pasoPeso === step}
+                  onClick={() => setPasoIncrementoPeso(step)}
+                >
+                  ±{formatAr.format(step)} kg
+                </button>
+              ))}
+            </div>
+
+            <div className="a-toggle">
+              <span className="a-rt">
+                <b className="a-t-bs">Mostrar el descanso</b>
+                <small className="a-t-sec a-muted">Reloj después de cada serie</small>
+              </span>
+              <button
+                type="button"
+                className="a-sw2"
+                role="switch"
+                aria-checked={mostrarTimerDescanso}
+                aria-label="Mostrar el descanso"
+                onClick={() => setMostrarTimerDescanso(!mostrarTimerDescanso)}
+                data-testid="toggle-mostrar-descanso"
+              />
+            </div>
+
+            <button
+              type="button"
+              className="a-card a-row"
+              onClick={() => {
+                setIsSettingsOpen(false);
+                setCuestionarioAbierto(true);
+                setActiveTab("cuestionario");
+              }}
+              data-testid="tab-cuestionario"
+            >
+              <span className="a-rt">
+                <b className="a-t-bs">Cuestionario inicial</b>
+                <small className="a-t-sec">
+                  {cuestionarioInicial?.completado_at ? "Completado" : "Opcional"}
+                </small>
+              </span>
+              <ChevronRight width={18} height={18} className="a-i" />
+            </button>
+
+            <button
+              type="button"
+              className="a-btn a-soft"
+              onClick={closeSettings}
+              data-testid="config-cerrar-btn"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {nameToast && (
+        <div
+          className="a-toast a-ok a-show"
+          role="status"
+          aria-live="polite"
+          data-testid="config-nombre-toast"
+        >
+          <span className="a-tic">
+            <Check width={16} height={16} className="a-i" />
+          </span>
+          <span className="a-t-bs">{nameToast}</span>
+        </div>
+      )}
     </div>
   );
 }
