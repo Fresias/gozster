@@ -30,30 +30,28 @@ import {
   type MomentoMolestia,
   type ZonaArticular,
 } from "@/lib/athlete/molestias";
+import { getStorageUser } from "@/lib/user-storage";
+import {
+  extensionDeArchivoVideo,
+  normalizarEnlaceVideo,
+  validarArchivoVideo,
+} from "@/lib/athlete/video-serie";
+import {
+  eliminarVideoPendiente,
+  encolarVideo,
+  reintentarVideoPendiente,
+  subirPendientes,
+  type SetVideoSnapshot,
+  type SubirPendientesOpciones,
+  type VideoPendiente,
+} from "@/lib/athlete/video-subida";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  NOMBRE_PREFERIDO_MAX_LEN,
+  normalizarNombrePreferido,
+} from "@/lib/athlete/nombre";
+import { esUuid, nuevoUuid } from "@/lib/athlete/uuid";
 
-function esUuid(valor?: string | null): valor is string {
-  return typeof valor === "string" && UUID_RE.test(valor);
-}
-
-function generarUuidMolestia(): string {
-  if (typeof globalThis.crypto !== "undefined") {
-    if (typeof globalThis.crypto.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
-    }
-    if (typeof globalThis.crypto.getRandomValues === "function") {
-      const bytes = new Uint8Array(16);
-      globalThis.crypto.getRandomValues(bytes);
-      bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-      bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-    }
-  }
-  const rnd = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
-  return `${rnd()}${rnd()}-${rnd()}-4${rnd().slice(1)}-8${rnd().slice(1)}-${rnd()}${rnd()}${rnd()}`;
-}
 
 export interface ReportarMolestiaInput {
   ejercicioEnRutinaId: string;
@@ -67,6 +65,7 @@ export interface ReportarMolestiaInput {
 }
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
+export type VideoEstadoSerie = "ninguno" | "telefono" | "subiendo" | "listo" | "error";
 
 export interface LiveWorkoutSet {
   numero_serie: number;
@@ -79,7 +78,8 @@ export interface LiveWorkoutSet {
   set_type?: "W" | "N" | "F" | "D" | "WARMUP" | "NORMAL" | "FAILURE" | "DROPSET";
   pain_reported?: boolean;
   pain_notes?: string;
-  video_url?: string;
+  video_url?: string | null;
+  videoEstado?: VideoEstadoSerie;
   last_session_weight_kg?: number;
   last_session_reps?: number;
   atipica?: boolean;
@@ -171,8 +171,15 @@ interface AthleteStoreState {
   colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
+  // Nombre preferido (BE-01 / D-53). nombrePreferidoPendiente === undefined => sin pendiente.
+  nombrePreferido: string | null;
+  nombrePreferidoPendiente: string | null | undefined;
 
   // Actions
+  guardarNombrePreferido: (
+    nombre: string | null,
+  ) => Promise<{ success: boolean; offline?: boolean; error?: string }>;
+  sincronizarNombrePreferidoPendiente: () => Promise<boolean>;
   cargarUltimaVez: () => Promise<void>;
   // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
   cargarMiProgreso: () => Promise<void>;
@@ -233,6 +240,14 @@ interface AthleteStoreState {
   reportarMolestia: (datos: ReportarMolestiaInput) => Promise<MolestiaSesion>;
   flushMolestiasPendientes: () => Promise<void>;
   cargarMolestiasDeSesion: (sesionId?: string) => Promise<void>;
+  adjuntarVideoASerie: (
+    ejercicioEnRutinaId: string,
+    numeroSerie: number,
+    origen: { tipo: "enlace"; url: string } | { tipo: "archivo"; file: File },
+  ) => Promise<"ok" | "invalido" | "muy-pesado" | "muy-largo" | "formato">;
+  quitarVideoDeSerie: (ejercicioEnRutinaId: string, numeroSerie: number) => void;
+  reintentarVideoDeSerie: (ejercicioEnRutinaId: string, numeroSerie: number) => Promise<void>;
+  sincronizarVideosPendientes: (alumnoId?: string) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
     setNumber: number,
@@ -277,6 +292,7 @@ interface AthleteStoreState {
     diaSugeridoId?: string | null,
   ) => boolean;
   resetSessionToDefaults: () => void;
+  repararSesionesNoUuid: () => void;
 }
 
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
@@ -512,6 +528,184 @@ async function enviarMolestiaRpc(
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
 let activeFlushMolestiasPromise: Promise<void> | null = null;
+let activeSyncNombrePromise: Promise<boolean> | null = null;
+
+const PERMANENT_NOMBRE_RPC_CODES = new Set(["22001", "42501", "23514"]);
+
+type PerfilConNombrePreferido = LiveSupabaseDataset["alumnos"][number] & {
+  nombre_preferido?: string | null;
+};
+
+function aplicarNombrePreferidoEnPlan(
+  plan: LiveSupabaseDataset | null,
+  nombre: string | null,
+): LiveSupabaseDataset | null {
+  if (!plan || plan.alumnos.length === 0) return plan;
+  const [primero, ...resto] = plan.alumnos;
+  if (!primero) return plan;
+  const actualizado: PerfilConNombrePreferido = {
+    ...primero,
+    nombre_preferido: nombre,
+  };
+  return { ...plan, alumnos: [actualizado, ...resto] };
+}
+
+async function enviarNombrePreferidoRpc(
+  valor: string | null,
+  set: (fn: (state: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+): Promise<{ ok: boolean; permanentError?: string }> {
+  try {
+    const client = supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: { p_nombre: string | null },
+      ) => Promise<{ data: string | null; error: { message: string; code?: string } | null }>;
+    };
+    const { data, error } = await client.rpc("actualizar_nombre_preferido", { p_nombre: valor });
+    if (error) {
+      if (error.code && PERMANENT_NOMBRE_RPC_CODES.has(error.code)) {
+        set((state) =>
+          state.nombrePreferidoPendiente === valor
+            ? { nombrePreferidoPendiente: undefined }
+            : {},
+        );
+        return { ok: false, permanentError: error.message };
+      }
+      console.warn("Aviso guardando nombre_preferido en Supabase (queda pendiente):", error.message);
+      return { ok: false };
+    }
+
+    const confirmado = data ?? null;
+    set((state) => {
+      if (state.nombrePreferidoPendiente !== valor) {
+        return {};
+      }
+      return {
+        nombrePreferido: confirmado,
+        nombrePreferidoPendiente: undefined,
+        planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, confirmado),
+      };
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.warn(
+      "Excepción guardando nombre_preferido (queda pendiente offline):",
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: false };
+  }
+}
+
+function reencolarSerieCompletadaConVideo(
+  ses: LiveWorkoutSession,
+  ej: LiveWorkoutExercise,
+  s: LiveWorkoutSet,
+  videoUrl: string | null,
+  fallbackAlumnoId?: string,
+): void {
+  useOfflineQueueStore.getState().enqueueEvent({
+    id: `set-video-${ej.id}-${s.numero_serie}-${Date.now()}`,
+    action: "WORKOUT_SET_COMPLETED",
+    payload: {
+      sessionId: ses.id,
+      alumnoId: ses.studentId ?? fallbackAlumnoId,
+      diaId: ses.dia_id,
+      ejercicioId: ej.ejercicio_id ?? ej.id,
+      exerciseId: ej.id,
+      exerciseName: ej.nombre,
+      setNumber: s.numero_serie,
+      pesoKg: s.peso_kg,
+      reps: s.reps_hechas,
+      rpe: s.rpe_real,
+      setType: s.set_type || "N",
+      painReported: s.pain_reported || false,
+      painNotes: s.pain_notes || null,
+      videoUrl,
+      estimated1RM: s.estimated1RM ?? calculateEpley1RM(s.peso_kg, s.reps_hechas),
+      completedAt: s.completedAt ?? new Date().toISOString(),
+      atipica: Boolean(s.atipica),
+    },
+  });
+}
+
+function construirOpcionesSubidaVideo(
+  setState: (fn: (prev: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+  getState: () => AthleteStoreState,
+): SubirPendientesOpciones {
+  return {
+    estaOnline: () =>
+      useOfflineQueueStore.getState().isOnline &&
+      (typeof navigator === "undefined" ||
+        typeof navigator.onLine !== "boolean" ||
+        navigator.onLine),
+    onEstadoSerie: (item, estado, videoUrl) => {
+      if (getState().currentSession.id !== item.sesionId) return;
+      setState((prev) => ({
+        currentSession: {
+          ...prev.currentSession,
+          ejercicios: prev.currentSession.ejercicios.map((ej) => {
+            const coincide =
+              ej.id === (item.ejercicioEnRutinaId ?? item.ejercicioId) ||
+              (ej.ejercicio_id ?? ej.id) === item.ejercicioId;
+            if (!coincide) return ej;
+            return {
+              ...ej,
+              series: ej.series.map((s) =>
+                s.numero_serie === item.numeroSerie
+                  ? {
+                      ...s,
+                      videoEstado: estado,
+                      ...(videoUrl !== undefined ? { video_url: videoUrl } : {}),
+                    }
+                  : s,
+              ),
+            };
+          }),
+        },
+      }));
+    },
+    onSubidaExitosa: (item: VideoPendiente, videoUrl: string) => {
+      const actual = getState().currentSession;
+      if (actual.id === item.sesionId) {
+        const ejActual = actual.ejercicios.find(
+          (ej) =>
+            ej.id === (item.ejercicioEnRutinaId ?? item.ejercicioId) ||
+            (ej.ejercicio_id ?? ej.id) === item.ejercicioId,
+        );
+        const serieActual = ejActual?.series.find((s) => s.numero_serie === item.numeroSerie);
+        if (ejActual && serieActual && serieActual.completada) {
+          reencolarSerieCompletadaConVideo(actual, ejActual, serieActual, videoUrl, item.alumnoId);
+          return;
+        }
+      }
+      if (item.setSnapshot) {
+        useOfflineQueueStore.getState().enqueueEvent({
+          id: `set-video-${item.ejercicioEnRutinaId ?? item.ejercicioId}-${item.numeroSerie}-${Date.now()}`,
+          action: "WORKOUT_SET_COMPLETED",
+          payload: {
+            sessionId: item.sesionId,
+            alumnoId: item.alumnoId,
+            diaId: item.setSnapshot.diaId,
+            ejercicioId: item.ejercicioId,
+            exerciseId: item.setSnapshot.exerciseId ?? item.ejercicioEnRutinaId ?? item.ejercicioId,
+            exerciseName: item.setSnapshot.exerciseName,
+            setNumber: item.numeroSerie,
+            pesoKg: item.setSnapshot.pesoKg,
+            reps: item.setSnapshot.reps,
+            rpe: item.setSnapshot.rpe,
+            setType: item.setSnapshot.setType,
+            painReported: item.setSnapshot.painReported,
+            painNotes: item.setSnapshot.painNotes,
+            videoUrl,
+            estimated1RM: item.setSnapshot.estimated1RM,
+            completedAt: item.setSnapshot.completedAt ?? new Date().toISOString(),
+            atipica: Boolean(item.setSnapshot.atipica),
+          },
+        });
+      }
+    },
+  };
+}
 
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
@@ -541,6 +735,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
+      nombrePreferido: null,
+      nombrePreferidoPendiente: undefined,
       rpeValidationError: null,
       rpeReminderNotification: null,
       stopProtocolActive: false,
@@ -557,6 +753,51 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
       setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
+      guardarNombrePreferido: async (nombre) => {
+        const normalizado = normalizarNombrePreferido(nombre);
+        if (normalizado && Array.from(normalizado).length > NOMBRE_PREFERIDO_MAX_LEN) {
+          return {
+            success: false,
+            error: `El nombre no puede superar los ${NOMBRE_PREFERIDO_MAX_LEN} caracteres`,
+          };
+        }
+
+        set((state) => ({
+          nombrePreferido: normalizado,
+          nombrePreferidoPendiente: normalizado,
+          planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, normalizado),
+        }));
+
+        if (!useOfflineQueueStore.getState().isOnline) {
+          return { success: true, offline: true };
+        }
+
+        const res = await enviarNombrePreferidoRpc(normalizado, set);
+        if (res.permanentError) {
+          return { success: false, error: res.permanentError };
+        }
+        return res.ok ? { success: true } : { success: true, offline: true };
+      },
+      sincronizarNombrePreferidoPendiente: async () => {
+        if (activeSyncNombrePromise) return activeSyncNombrePromise;
+        const pendiente = get().nombrePreferidoPendiente;
+        if (pendiente === undefined || !useOfflineQueueStore.getState().isOnline) {
+          return false;
+        }
+
+        activeSyncNombrePromise = (async () => {
+          const valor = get().nombrePreferidoPendiente;
+          if (valor === undefined || !useOfflineQueueStore.getState().isOnline) {
+            return false;
+          }
+          const res = await enviarNombrePreferidoRpc(valor, set);
+          return res.ok;
+        })().finally(() => {
+          activeSyncNombrePromise = null;
+        });
+
+        return activeSyncNombrePromise;
+      },
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -628,7 +869,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set((state) => {
           const session = state.currentSession;
           const studentId = session?.studentId || DEFAULT_ATHLETE_ID;
-          const sessionId = session?.id || ("sesion-" + Date.now());
+          const sessionId = session?.id || nuevoUuid();
           const fechaIso = new Date().toISOString();
 
           const nuevasSesiones = [
@@ -897,7 +1138,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             : null;
 
         const molestia: MolestiaSesion = {
-          id: generarUuidMolestia(),
+          id: nuevoUuid(),
           sesionId: state.currentSession.id,
           ejercicioEnRutinaId: datos.ejercicioEnRutinaId,
           ejercicioId: datos.ejercicioId,
@@ -1083,21 +1324,158 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }
       },
 
-      attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
-        set((state) => ({
+      adjuntarVideoASerie: async (ejercicioEnRutinaId, numeroSerie, origen) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return "invalido";
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        if (origen.tipo === "enlace") {
+          const urlNormalizada = normalizarEnlaceVideo(origen.url);
+          if (!urlNormalizada) return "invalido";
+          set((prev) => ({
+            currentSession: {
+              ...prev.currentSession,
+              ejercicios: prev.currentSession.ejercicios.map((ej) => {
+                if (ej.id !== ejercicioEnRutinaId) return ej;
+                return {
+                  ...ej,
+                  series: ej.series.map((s) =>
+                    s.numero_serie === numeroSerie
+                      ? { ...s, video_url: urlNormalizada, videoEstado: "listo" }
+                      : s,
+                  ),
+                };
+              }),
+            },
+          }));
+          if (targetSet.completada) {
+            reencolarSerieCompletadaConVideo(
+              session,
+              targetExercise,
+              targetSet,
+              urlNormalizada,
+              alumnoId,
+            );
+          }
+          await eliminarVideoPendiente({
+            alumnoId,
+            sesionId: session.id,
+            ejercicioId,
+            numeroSerie,
+          });
+          return "ok";
+        }
+
+        const validacion = await validarArchivoVideo(origen.file);
+        if (validacion !== "ok") return validacion;
+
+        const ext = extensionDeArchivoVideo(origen.file);
+        const setSnapshot: SetVideoSnapshot | undefined = targetSet.completada
+          ? {
+              diaId: session.dia_id,
+              exerciseId: targetExercise.id,
+              exerciseName: targetExercise.nombre,
+              pesoKg: targetSet.peso_kg,
+              reps: targetSet.reps_hechas,
+              rpe: targetSet.rpe_real,
+              setType: targetSet.set_type || "N",
+              painReported: targetSet.pain_reported || false,
+              painNotes: targetSet.pain_notes || null,
+              estimated1RM:
+                targetSet.estimated1RM ?? calculateEpley1RM(targetSet.peso_kg, targetSet.reps_hechas),
+              completedAt: targetSet.completedAt ?? new Date().toISOString(),
+              atipica: Boolean(targetSet.atipica),
+            }
+          : undefined;
+
+        await encolarVideo(
+          {
+            alumnoId,
+            sesionId: session.id,
+            ejercicioId,
+            ejercicioEnRutinaId,
+            numeroSerie,
+            blob: origen.file,
+            ext,
+            setSnapshot,
+          },
+          construirOpcionesSubidaVideo(set, get),
+        );
+
+        return "ok";
+      },
+
+      quitarVideoDeSerie: (ejercicioEnRutinaId, numeroSerie) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return;
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        set((prev) => ({
           currentSession: {
-            ...state.currentSession,
-            ejercicios: state.currentSession.ejercicios.map((ej) => {
-              if (ej.id !== exerciseId) return ej;
+            ...prev.currentSession,
+            ejercicios: prev.currentSession.ejercicios.map((ej) => {
+              if (ej.id !== ejercicioEnRutinaId) return ej;
               return {
                 ...ej,
                 series: ej.series.map((s) =>
-                  s.numero_serie === setNumber ? { ...s, video_url: videoUrl } : s
+                  s.numero_serie === numeroSerie
+                    ? { ...s, video_url: null, videoEstado: "ninguno" }
+                    : s,
                 ),
               };
             }),
           },
         }));
+
+        void eliminarVideoPendiente({
+          alumnoId,
+          sesionId: session.id,
+          ejercicioId,
+          numeroSerie,
+        });
+
+        if (targetSet.completada) {
+          reencolarSerieCompletadaConVideo(session, targetExercise, targetSet, null, alumnoId);
+        }
+      },
+
+      reintentarVideoDeSerie: async (ejercicioEnRutinaId, numeroSerie) => {
+        const state = get();
+        const session = state.currentSession;
+        const targetExercise = session.ejercicios.find((e) => e.id === ejercicioEnRutinaId);
+        const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
+        if (!targetExercise || !targetSet) return;
+
+        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
+
+        await reintentarVideoPendiente(
+          { alumnoId, sesionId: session.id, ejercicioId, numeroSerie },
+          construirOpcionesSubidaVideo(set, get),
+        );
+      },
+
+      sincronizarVideosPendientes: async (alumnoIdArg) => {
+        const alumnoId = alumnoIdArg ?? getStorageUser() ?? get().currentSession.studentId;
+        if (!alumnoId) return;
+        await subirPendientes(alumnoId, construirOpcionesSubidaVideo(set, get));
+      },
+
+      attachVideoForSet: (exerciseId, setNumber, videoUrl) => {
+        void get().adjuntarVideoASerie(exerciseId, setNumber, {
+          tipo: "enlace",
+          url: videoUrl,
+        });
       },
 
       applyWarmupSetsToExercise: (exerciseId, warmupSets) => {
@@ -1438,12 +1816,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
       // Sin red no consulta: queda lo persistido. Nunca bloquea el registro de una serie.
       cargarUltimaVez: async () => {
         const session = get().currentSession;
-        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => UUID_RE.test(id));
+        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => esUuid(id));
         if (ids.length === 0 || !useOfflineQueueStore.getState().isOnline) return;
 
         // Solo sesiones anteriores al día de la sesión en curso (hora de Buenos Aires).
         const antesDe = `${session.fecha}T00:00:00-03:00`;
-        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+        const alumnoId = session.studentId && esUuid(session.studentId) ? session.studentId : null;
         set({ cargandoUltimaVez: true });
         try {
           const filas = await Promise.all(
@@ -1492,7 +1870,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 1. Intentar resolver usuario autenticado de la sesión Supabase
         try {
           const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id && UUID_RE.test(authData.user.id)) {
+          if (authData?.user?.id && esUuid(authData.user.id)) {
             alumnoId = authData.user.id;
           }
         } catch (err) {
@@ -1502,7 +1880,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 2. Si no hay auth, resolver desde el perfil de plan persistido
         if (!alumnoId) {
           const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
-          if (planStudentId && UUID_RE.test(planStudentId)) {
+          if (planStudentId && esUuid(planStudentId)) {
             alumnoId = planStudentId;
           }
         }
@@ -1510,13 +1888,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
         if (!alumnoId) {
           const session = get().currentSession;
-          if (session?.studentId && UUID_RE.test(session.studentId)) {
+          if (session?.studentId && esUuid(session.studentId)) {
             alumnoId = session.studentId;
           }
         }
 
         // 4. Fallback al atleta por defecto para entornos demo y testing
-        if (!alumnoId && DEFAULT_ATHLETE_ID && UUID_RE.test(DEFAULT_ATHLETE_ID)) {
+        if (!alumnoId && DEFAULT_ATHLETE_ID && esUuid(DEFAULT_ATHLETE_ID)) {
           alumnoId = DEFAULT_ATHLETE_ID;
         }
 
@@ -1586,7 +1964,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!useOfflineQueueStore.getState().isOnline) return;
         const session = get().currentSession;
         const studentId = session.studentId || DEFAULT_ATHLETE_ID;
-        if (!UUID_RE.test(studentId)) return;
+        if (!esUuid(studentId)) return;
 
         set({ cargandoHistorial: true });
         try {
@@ -1706,7 +2084,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Sincronizar en Supabase si estamos online
         if (useOfflineQueueStore.getState().isOnline) {
           try {
-            if (UUID_RE.test(serieId)) {
+            if (esUuid(serieId)) {
               await supabase
                 .from("registro_series")
                 .update({
@@ -1909,9 +2287,29 @@ export const useAthleteStore = create<AthleteStoreState>()(
         try {
           const plan = await fetchPlanAlumno();
           if (!plan) return;
-          set({ planAlumno: plan });
-          get().loadStudentSession(plan.alumnos[0]?.id);
+          const pendiente = get().nombrePreferidoPendiente;
+          if (pendiente !== undefined) {
+            set({ planAlumno: aplicarNombrePreferidoEnPlan(plan, pendiente) });
+          } else {
+            const nombreServidor =
+              (plan.alumnos[0] as PerfilConNombrePreferido | undefined)?.nombre_preferido ?? null;
+            set({ planAlumno: plan, nombrePreferido: nombreServidor });
+          }
+          const prev = get().currentSession;
+          const studentId = plan.alumnos[0]?.id;
+          const diaEnCurso =
+            studentId &&
+            prev.studentId === studentId &&
+            esUuid(prev.id) &&
+            !get().sesionesCompletadas.some((s) => s.id === prev.id) &&
+            plan.dias.some((d) => d.id === prev.dia_id)
+              ? prev.dia_id
+              : undefined;
+          get().loadStudentSession(studentId, diaEnCurso);
           void get().cargarMolestiasDeSesion(get().currentSession.id);
+          if (pendiente !== undefined) {
+            void get().sincronizarNombrePreferidoPendiente();
+          }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
         } finally {
@@ -1990,17 +2388,32 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         const sortedExercises = sortExercisesWithWarmupFirst(mappedExercises);
 
+        const prev = get().currentSession;
+        const sesionYaCerrada = get().sesionesCompletadas.some((s) => s.id === prev.id);
+        const esMismaSesionEnCurso =
+          prev.studentId === student.id &&
+          prev.dia_id === selectedDia.id &&
+          esUuid(prev.id) &&
+          !sesionYaCerrada;
+
+        const hasCompletedSets =
+          esMismaSesionEnCurso &&
+          prev.ejercicios.some((ej) => ej.series.some((s) => s.completada));
+
         const newSession: LiveWorkoutSession = {
-          id: `session-${student.id}-${selectedDia.id}`,
+          id: esMismaSesionEnCurso ? prev.id : nuevoUuid(),
           nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
           fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-          ejercicios: sortedExercises,
+          ejercicios: hasCompletedSets ? prev.ejercicios : sortedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
           dia_id: selectedDia.id,
-          dia_sugerido_id: diaSugeridoId ?? null,
-          motivo_cambio_dia: motivo ?? null,
-          molestias: [],
+          dia_sugerido_id:
+            diaSugeridoId ?? (hasCompletedSets ? (prev.dia_sugerido_id ?? null) : null),
+          motivo_cambio_dia:
+            motivo ?? (hasCompletedSets ? (prev.motivo_cambio_dia ?? null) : null),
+          // Al retomar la misma sesión en curso se conservan sus molestias (no se pierden de la vista).
+          molestias: esMismaSesionEnCurso ? (prev.molestias ?? []) : [],
         };
 
         const coachRecomendada =
@@ -2009,10 +2422,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const vistaEfectiva = eleccionAlumno ?? coachRecomendada;
 
         set((prev) => ({
-          molestiasPendientesFueraDeSesion: fusionarPendientesFueraDeSesion(
-            prev.molestiasPendientesFueraDeSesion,
-            prev.currentSession.molestias,
-          ),
+          molestiasPendientesFueraDeSesion: esMismaSesionEnCurso
+            ? prev.molestiasPendientesFueraDeSesion
+            : fusionarPendientesFueraDeSesion(
+                prev.molestiasPendientesFueraDeSesion,
+                prev.currentSession.molestias,
+              ),
           currentSession: newSession,
           diaActivoId: prev.diaActivoId ? selectedDia.id : null,
           diaElegidoHoyId: null,
@@ -2055,6 +2470,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
             setNumber: 0,
           },
         }));
+      },
+
+      repararSesionesNoUuid: () => {
+        repararSesionesNoUuid();
       },
     }),
     {
@@ -2099,7 +2518,79 @@ export const useAthleteStore = create<AthleteStoreState>()(
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: state.historialSesiones,
         molestiasPendientesFueraDeSesion: state.molestiasPendientesFueraDeSesion,
+        nombrePreferido: state.nombrePreferido,
+        nombrePreferidoPendiente: state.nombrePreferidoPendiente,
       }),
     },
   ),
 );
+
+/**
+ * Repara al iniciar la app los ids de sesión heredados que no son UUID (`session-<alumno>-<día>`):
+ * asigna un UUID nuevo por cada id viejo distinto preservando agrupación y orden en `WORKOUT_SET_*`,
+ * corrige `currentSession.id` y `sesionesCompletadas[].id`, y dispara `flushQueue()` si reparó eventos.
+ */
+export function repararSesionesNoUuid(): void {
+  const mapaIds = new Map<string, string>();
+  const mapearId = (idViejo: string): string => {
+    const existente = mapaIds.get(idViejo);
+    if (existente) return existente;
+    const nuevo = nuevoUuid();
+    mapaIds.set(idViejo, nuevo);
+    return nuevo;
+  };
+
+  const queueState = useOfflineQueueStore.getState();
+  let repararonEventos = false;
+  const eventosActualizados = queueState.pendingEvents.map((ev) => {
+    if (!ev.action.startsWith("WORKOUT_SET_")) return ev;
+    const sid = ev.payload?.sessionId;
+    if (typeof sid !== "string" || sid.length === 0 || esUuid(sid)) return ev;
+    repararonEventos = true;
+    return {
+      ...ev,
+      payload: {
+        ...ev.payload,
+        sessionId: mapearId(sid),
+      },
+    };
+  });
+
+  if (repararonEventos) {
+    useOfflineQueueStore.setState({ pendingEvents: eventosActualizados });
+  }
+
+  const athleteState = useAthleteStore.getState();
+  const currentId = athleteState.currentSession?.id;
+  const currentNecesita =
+    typeof currentId === "string" && currentId.length > 0 && !esUuid(currentId);
+  const completadasNecesitan = athleteState.sesionesCompletadas.some(
+    (s) => typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id),
+  );
+
+  if (currentNecesita || completadasNecesitan) {
+    useAthleteStore.setState((state) => ({
+      ...(currentNecesita
+        ? {
+            currentSession: {
+              ...state.currentSession,
+              id: mapearId(state.currentSession.id),
+            },
+          }
+        : {}),
+      ...(completadasNecesitan
+        ? {
+            sesionesCompletadas: state.sesionesCompletadas.map((s) =>
+              typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id)
+                ? { ...s, id: mapearId(s.id) }
+                : s,
+            ),
+          }
+        : {}),
+    }));
+  }
+
+  if (repararonEventos && queueState.isOnline) {
+    void useOfflineQueueStore.getState().flushQueue();
+  }
+}
