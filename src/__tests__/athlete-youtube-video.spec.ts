@@ -7,14 +7,19 @@ import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
  * ============================================================================
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import fs from "node:fs";
+import path from "node:path";
+import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import {
   extractYouTubeVideoId,
   getYouTubeEmbedUrl,
   getYouTubeSearchUrl,
   getYouTubeThumbnailUrl,
 } from "@/lib/youtube";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { useAthleteStore, type LiveWorkoutExercise } from "@/store/use-athlete-store";
 import { REAL_ALUMNOS } from "@/services/real-mynter-data";
 
 describe("Pilar C: Utilidades de Extracción de Video de YouTube", () => {
@@ -151,5 +156,57 @@ describe("Pilar C: Integración en Athlete Store y Rutinas de Entrenamiento", ()
       .getState()
       .currentSession.ejercicios.find((e) => e.id === "ej-sentadilla-1");
     expect(ejercicio?.series[0]?.completada).toBe(true);
+  });
+});
+
+describe("FE-07 CP3: ExerciseVideoModal solo video demostrativo (D-50)", () => {
+  const ejConVideo: LiveWorkoutExercise = {
+    id: "ej-bp",
+    nombre: "Press banca plano",
+    musculos_principales: ["Pectoral"],
+    descanso_segundos: 90,
+    rpe_objetivo: 8,
+    repeticiones_objetivo: "8-10",
+    url_video: "https://www.youtube.com/watch?v=rT7DgCr-3pg",
+    series: [],
+    notas: "Bajá la barra controlada.",
+    comentario: null,
+  };
+
+  it("muestra solo el video demostrativo sin buscar en YouTube, sin ID, sin emoji 🎬 y sin opciones de subida", () => {
+    const html = renderToStaticMarkup(
+      createElement(ExerciseVideoModal, {
+        exercise: ejConVideo,
+        isOpen: true,
+        onClose: () => {},
+      }),
+    );
+
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    expect(html).toContain("Video del ejercicio");
+    expect(html).toContain("Press banca plano");
+    expect(html).toContain('data-testid="youtube-iframe"');
+    expect(html).toContain("https://www.youtube-nocookie.com/embed/rT7DgCr-3pg");
+    expect(html).toContain("Video demostrativo que cargó tu coach.");
+    expect(html).toContain("Volver al ejercicio");
+
+    expect(html).not.toContain("Buscar técnica en YouTube");
+    expect(html).not.toContain("Buscar en YouTube");
+    expect(html).not.toContain("ID:");
+    expect(html).not.toContain("🎬");
+    expect(html).not.toContain("🎥");
+    expect(html).not.toContain("Grabar");
+    expect(html).not.toContain("galería");
+    expect(html).not.toContain("enlace");
+  });
+
+  it("oculta el botón de video demostrativo en ejercicio-activo.tsx cuando no hay url_video (F-13)", () => {
+    const src = fs.readFileSync(
+      path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx"),
+      "utf-8",
+    );
+    expect(src).toContain("Boolean(ej.url_video?.trim())");
+    expect(src).toContain("demo-technique-btn-${ej.id}");
   });
 });

@@ -308,7 +308,7 @@ export function EjercicioActivo() {
               <ClipboardList width={20} height={20} className="a-i" />
             </button>
           )}
-          {ej.url_video && (
+          {Boolean(ej.url_video?.trim()) && (
             <button
               type="button"
               className="a-tool"
