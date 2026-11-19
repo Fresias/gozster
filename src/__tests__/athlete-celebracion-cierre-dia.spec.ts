@@ -10,9 +10,11 @@ import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cier
 describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (GOZS-174 / GH #180)", () => {
   const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
   const cierreDiaModalPath = path.resolve(__dirname, "../components/athlete/cierre-dia-modal.tsx");
+  const athleteV7CssPath = path.resolve(__dirname, "../app/(athlete)/athlete/athlete-v7.css");
 
   const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
   const cierreDiaModalCode = fs.readFileSync(cierreDiaModalPath, "utf-8");
+  const athleteV7CssCode = fs.readFileSync(athleteV7CssPath, "utf-8");
 
   beforeEach(() => {
     useOfflineQueueStore.setState({
@@ -58,19 +60,18 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
         })
       );
 
-      // Accesibilidad estándar de diálogo
+      // Accesibilidad estándar de diálogo v7
       expect(html).toContain('role="dialog"');
       expect(html).toContain('aria-modal="true"');
       expect(html).toContain('data-testid="cierre-dia-modal"');
       expect(html).toContain('data-testid="cierre-dia-card"');
       expect(html).toContain('data-testid="cierre-dia-titulo"');
-      expect(html).toContain('data-testid="cierre-dia-close-btn"');
+      expect(html).toContain('a-dk a-dk-cierre');
 
-      // Soporte estricto de accesibilidad para prefers-reduced-motion
-      expect(html).toContain("@media (prefers-reduced-motion: reduce)");
-      expect(html).toContain("animation: none !important");
-      expect(html).toContain("motion-reduce:animate-none");
-      expect(cierreDiaModalCode).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+      // Soporte estricto de accesibilidad para prefers-reduced-motion en athlete-v7.css
+      expect(athleteV7CssCode).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+      expect(athleteV7CssCode).toContain("animation: none !important;");
+      expect(cierreDiaModalCode).not.toContain("🏆");
     });
 
     it("GIVEN LiveWorkout, THEN integra CierreDiaModal y dispara la apertura al concluir el guardado", () => {
@@ -105,9 +106,9 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       expect(html).toContain('data-testid="hero-metric-series"');
       expect(html).toContain("26/26");
 
-      // Duración de la sesión
+      // Duración de la sesión en formato v7 (minutos')
       expect(html).toContain('data-testid="hero-metric-tiempo"');
-      expect(html).toContain("45 min");
+      expect(html).toContain("45&#x27;");
     });
 
     it("GIVEN una sesión con valores dinámicos calculados, THEN no exhibe métrica de tonelaje y mantiene métricas operativas", () => {
@@ -124,12 +125,12 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
 
       expect(html).not.toContain("8.613 kg");
       expect(html).toContain("26/26");
-      expect(html).toContain("52 min");
+      expect(html).toContain("52&#x27;");
     });
   });
 
-  describe("Criterio Gherkin 3: Exhibición de Racha Dinámica (+1 día) e Impacto en Ranking de Constancia (GOZS-359)", () => {
-    it("GIVEN una racha calculada dinámicamente y meta semanal, THEN visualiza el avance y el texto 'Mantener una buena racha tendrá su recompensa'", () => {
+  describe("Criterio Gherkin 3: Exhibición de Racha Semanal y eliminación de Ranking de Constancia (D-33)", () => {
+    it("GIVEN una racha semanal y meta semanal, THEN muestra 'Racha semanal: X de Y días' sin ranking de constancia (D-33)", () => {
       const html = renderToString(
         React.createElement(CierreDiaModal, {
           isOpen: true,
@@ -147,20 +148,15 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       // Card de Racha Semanal
       expect(html).toContain('data-testid="cierre-dia-racha-card"');
       expect(html).toContain('data-testid="racha-dias-valor"');
-      expect(html).toContain("5 días");
+      expect(html).toContain("Racha semanal: 1 de 4 días");
 
-      // Badge de incremento explícito
-      expect(html).toContain('data-testid="racha-incremento-badge"');
-      expect(html).toContain("+1 día hoy");
-
-      // Avance hacia la meta semanal
+      // Explicación v7 de racha semanal
       expect(html).toContain('data-testid="meta-semanal-avance"');
-      expect(html).toContain("Día 1 de 4 completados esta semana");
+      expect(html).toContain("Cuenta solo los días de tu plan; el descanso no la corta.");
 
-      // Impacto positivo en Ranking de Constancia con texto actualizado (GOZS-359)
-      expect(html).toContain('data-testid="cierre-dia-ranking-constancia"');
-      expect(html).toContain("Impacto en Ranking de Constancia");
-      expect(html).toContain("Mantener una buena racha tendrá su recompensa");
+      // D-33: sin ranking de constancia en el cierre
+      expect(html).not.toContain('data-testid="cierre-dia-ranking-constancia"');
+      expect(html).not.toContain("Impacto en Ranking de Constancia");
     });
   });
 
@@ -214,44 +210,38 @@ describe("Athlete App: Pantalla de Celebración y Estímulo de Cierre de Día (G
       );
 
       expect(html).toContain('data-testid="cierre-dia-prs-section"');
-      expect(html).toContain("Nuevos Récords Personales (PRs)");
-      expect(html).toContain("Sentadilla Trasera con Barra");
-      expect(html).toContain("140 kg × 5 reps");
-      expect(html).toContain("Press de Banca Plano");
-      expect(html).toContain("105 kg × 3 reps");
+      expect(html).toContain("Nuevo PR · Sentadilla Trasera con Barra");
+      expect(html).toContain("140 kg × 5");
+      expect(html).toContain("Nuevo PR · Press de Banca Plano");
+      expect(html).toContain("105 kg × 3");
 
-      // Distintivo dorado ("PR" con fondo ámbar/dorado y border dorado)
+      // Distintivo dorado único v7 (D-45: .a-prc sin border-amber-300 ni emoji)
       expect(html).toContain('data-testid="cierre-dia-pr-item-0"');
       expect(html).toContain('data-testid="cierre-dia-pr-badge-0"');
       expect(html).toContain('data-testid="cierre-dia-pr-item-1"');
       expect(html).toContain('data-testid="cierre-dia-pr-badge-1"');
-      expect(html).toContain("border-amber-300");
+      expect(html).toContain('class="a-prc"');
+      expect(html).not.toContain("🏆");
     });
   });
 
   describe("Criterio Gherkin 5: Botón principal ergonómico para cerrar y volver a /athlete", () => {
-    it("GIVEN CierreDiaModal abierto, THEN cuenta con botón ergonómico principal para volver a /athlete", () => {
-      let volverLlamado = false;
+    it("GIVEN CierreDiaModal abierto, THEN cuenta con botón ergonómico principal para volver al inicio", () => {
       const html = renderToString(
         React.createElement(CierreDiaModal, {
           isOpen: true,
           onClose: () => {},
-          onVolverInicio: () => {
-            volverLlamado = true;
-          },
+          onVolverInicio: () => {},
           tonelajeKg: 14250,
           seriesCompletadas: 26,
           totalSeries: 26,
         })
       );
 
-      // Botón principal
+      // Botón principal v7 (.a-btn.a-dk-btn, >= 52px táctil)
       expect(html).toContain('data-testid="cierre-dia-volver-athlete-btn"');
-      expect(html).toContain("Volver a Inicio (/athlete)");
-
-      // Botón táctil grande (ergonómico para mobile/gimnasio con min-h >= 56px)
-      expect(html).toContain("min-h-[56px]");
-      expect(html).toContain("touch-manipulation");
+      expect(html).toContain("Volver al inicio");
+      expect(html).toContain('class="a-btn a-dk-btn"');
     });
 
     it("GIVEN un atleta completando el día en LiveWorkout, WHEN hace click en volver, THEN se limpia diaActivoId volviendo al inicio", () => {

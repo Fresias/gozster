@@ -149,11 +149,8 @@ async function capturarAppYContraste(
 type RecetaRunner = (page: Page, tema: TemaContraste) => Promise<void>;
 
 export const SIN_RECETA: Record<string, string> = {
-  // Acceso
-  onbname: "sin receta (falta FE-11)",
   // Sesión
   "rutina-molestia": "sin receta (falta FE-08)",
-  "toast-sesion": "sin receta (falta FE-11)",
   // Ejercicio
   "ex-tec-rpe": "sin receta (falta FE-05)",
   "ex-drop-2": "sin receta (falta FE-05)",
@@ -181,10 +178,16 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
     await expect(page.getByRole("dialog", { name: "Bienvenida a GOZSter" })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText(/Tu plan ya está listo\./)).toBeVisible();
   },
-  onb2: async (page, tema) => {
+  onbname: async (page, tema) => {
     await RECETAS_ACCESO_ENTRENAR.onb1!(page, tema);
     const dlg = page.getByRole("dialog", { name: "Bienvenida a GOZSter" });
     await dlg.getByRole("button", { name: "Empezar" }).click();
+    await expect(dlg.getByTestId("onboarding-paso-nombre")).toBeVisible();
+  },
+  onb2: async (page, tema) => {
+    await RECETAS_ACCESO_ENTRENAR.onbname!(page, tema);
+    const dlg = page.getByRole("dialog", { name: "Bienvenida a GOZSter" });
+    await dlg.getByRole("button", { name: "Continuar" }).click();
     await expect(dlg.getByText("¿Cómo querés ver tus ejercicios?")).toBeVisible();
   },
   onb3: async (page, tema) => {
@@ -443,9 +446,23 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
     await page.getByTestId("volver-a-rutina-btn").click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    for (let i = 0; i < 3; i++) {
+      await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
+      await page.getByTestId("registrar-serie-btn").click();
+      const omitir = page.getByRole("button", { name: "Omitir" });
+      if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    }
     await page.getByTestId("tab-registro-dia").click();
     await page.getByTestId("terminar-entrenamiento-btn").click();
     await expect(page.getByTestId("cierre-dia-modal")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("cierre-dia-estado-chip")).toContainText("Guardada en el teléfono");
+  },
+  "toast-sesion": async (page, tema) => {
+    await RECETAS_SESION.cierre!(page, tema);
+    await page.getByTestId("cierre-dia-volver-athlete-btn").click();
+    await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("toast-sesion")).toBeVisible();
   },
 };
 
@@ -740,11 +757,21 @@ const ALL_RECETAS: Record<string, RecetaRunner> = {
 };
 
 const GRUPOS_RECETAS: Array<[string, Record<string, RecetaRunner>]> = [
-  ["Acceso", { onb1: RECETAS_ACCESO_ENTRENAR.onb1!, onb2: RECETAS_ACCESO_ENTRENAR.onb2!, onb3: RECETAS_ACCESO_ENTRENAR.onb3! }],
+  [
+    "Acceso",
+    {
+      onb1: RECETAS_ACCESO_ENTRENAR.onb1!,
+      onbname: RECETAS_ACCESO_ENTRENAR.onbname!,
+      onb2: RECETAS_ACCESO_ENTRENAR.onb2!,
+      onb3: RECETAS_ACCESO_ENTRENAR.onb3!,
+    },
+  ],
   [
     "Entrenar",
     Object.fromEntries(
-      Object.entries(RECETAS_ACCESO_ENTRENAR).filter(([k]) => !["onb1", "onb2", "onb3"].includes(k)),
+      Object.entries(RECETAS_ACCESO_ENTRENAR).filter(
+        ([k]) => !["onb1", "onbname", "onb2", "onb3"].includes(k),
+      ),
     ),
   ],
   ["Sesión", RECETAS_SESION],

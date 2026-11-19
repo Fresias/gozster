@@ -172,6 +172,7 @@ export function useLiveWorkout() {
     registrarSerieEnMarcas,
     nombrePreferido,
     guardarNombrePreferido,
+    setToastSesion,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -751,6 +752,7 @@ export function useLiveWorkout() {
     registrarSerieEnMarcas,
     nombrePreferido,
     guardarNombrePreferido,
+    setToastSesion,
     isSimpleView,
     recomendadaTexto,
     tieneVistaDistinta,

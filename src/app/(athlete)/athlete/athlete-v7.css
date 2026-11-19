@@ -2557,8 +2557,10 @@ body:has(.theme-athlete[data-v7]) {
 
 /* ===== Overlays oscuros (Onboarding paso 1 y Cierre de sesión) ===== */
 .theme-athlete[data-v7] .a-dk {
+  margin: 0;
   position: fixed;
   inset: 0;
+  z-index: 50;
   background: #09090B;
   color: #FAFAFA;
   overflow: hidden auto;
@@ -2569,6 +2571,10 @@ body:has(.theme-athlete[data-v7]) {
 
 .theme-athlete[data-v7] .a-dk .a-chev {
   --a-chev: #FAFAFA;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
 .theme-athlete[data-v7] .a-dk-wedge {
@@ -2602,6 +2608,8 @@ body:has(.theme-athlete[data-v7]) {
 .theme-athlete[data-v7] .a-dk-in {
   position: relative;
   min-height: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2612,7 +2620,7 @@ body:has(.theme-athlete[data-v7]) {
   flex: 1;
 }
 
-.theme-athlete[data-v7] .a-dk-in .a-t-dxl {
+.theme-athlete[data-v7] .a-dk.a-dk-cierre .a-dk-in .a-t-dxl {
   font-size: calc(2.125rem * var(--a-ds));
   overflow-wrap: anywhere;
 }
@@ -2621,10 +2629,38 @@ body:has(.theme-athlete[data-v7]) {
   color: #A1A1AA;
 }
 
+.theme-athlete[data-v7] .a-dk .a-dk-link {
+  color: #FAFAFA;
+}
+
+.theme-athlete[data-v7] .a-dk .a-dk-btn {
+  background: #FAFAFA;
+  color: #09090B;
+}
+
+.theme-athlete[data-v7] .a-dk .a-dk-trophy {
+  color: #E4E4E7;
+}
+
+.theme-athlete[data-v7] .a-dk .a-dk-chip {
+  align-self: flex-start;
+  background: #27272A;
+  color: #FAFAFA;
+  border: 0;
+}
+
 .theme-athlete[data-v7] .a-dk .a-card {
   background: #18181B;
   border-color: #27272A;
   color: #FAFAFA;
+}
+
+.theme-athlete[data-v7] .a-dk .a-dk-card {
+  display: grid;
+}
+
+.theme-athlete[data-v7] .a-dk .a-dk-card .a-row + .a-row {
+  border-top: 1px solid #27272A;
 }
 
 .theme-athlete[data-v7] .a-dk .a-row {
@@ -2649,12 +2685,29 @@ body:has(.theme-athlete[data-v7]) {
   color: var(--a-rec-ic);
 }
 
+.theme-athlete[data-v7] .a-onb-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+  background: var(--a-bg);
+  color: var(--a-fg);
+}
+
 .theme-athlete[data-v7] .a-onb {
   min-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding-top: 12px;
+}
+
+.theme-athlete[data-v7] .a-onb .a-t-h {
+  font-size: calc(2rem * var(--a-ds));
+}
+
+.theme-athlete[data-v7] .a-flbl {
+  margin-top: 8px;
 }
 
 .theme-athlete[data-v7] .a-onb .a-grow {
@@ -3025,6 +3078,8 @@ body:has(.theme-athlete[data-v7]) {
   left: 16px;
   right: 16px;
   bottom: 104px;
+  max-width: calc(28rem - 32px);
+  margin-inline: auto;
   z-index: 30;
   background: var(--a-fg);
   color: var(--a-bg);

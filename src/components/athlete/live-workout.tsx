@@ -169,7 +169,15 @@ export function LiveWorkout() {
     handleTerminarEntrenamiento,
     cleanDiaTitle,
     isAllWorkoutCompleted,
+    setCierreAbierto,
+    setToastSesion,
+    nombrePreferido,
   } = useLiveWorkout();
+
+  React.useEffect(() => {
+    setCierreAbierto(showCelebrationModal);
+    return () => setCierreAbierto(false);
+  }, [showCelebrationModal, setCierreAbierto]);
 
   return (
     <div className="space-y-6 pb-44" data-testid="live-workout-container">
@@ -2279,10 +2287,19 @@ export function LiveWorkout() {
       {/* Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180) */}
       <CierreDiaModal
         isOpen={showCelebrationModal}
-        onClose={() => setShowCelebrationModal(false)}
+        onClose={() => {
+          setShowCelebrationModal(false);
+          setCierreAbierto(false);
+        }}
         onVolverInicio={() => {
           setShowCelebrationModal(false);
+          setCierreAbierto(false);
           volverAlInicio();
+          setToastSesion(
+            completedSetsCount > 0
+              ? { mensaje: "Sesión guardada en tu historial", tipo: "ok", irAHistorial: true }
+              : { mensaje: "Sesión cerrada sin series", tipo: "neutral", irAHistorial: false },
+          );
         }}
         tonelajeKg={totalVolumeKg}
         seriesCompletadas={completedSetsCount}
@@ -2296,8 +2313,9 @@ export function LiveWorkout() {
           Math.max(1, (sesionesCompletadas?.length || 0) + 1)
         )}
         recordsObtenidos={sessionPRs}
-        studentName={currentSession.studentName || "Fernando Rosales"}
-        diaNombre={cleanDiaTitle || "Día 1"}
+        studentName={currentSession.studentName}
+        nombrePreferido={nombrePreferido}
+        diaNombre={cleanDiaTitle || "DÍA 1"}
       />
 
       {/* Diálogo HTML5 nativo para confirmación de serie atípica (GOZS-200) */}

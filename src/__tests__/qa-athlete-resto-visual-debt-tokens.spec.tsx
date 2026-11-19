@@ -76,10 +76,7 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
           return;
         }
 
-        // 2. cierre-dia-modal.tsx: border-amber-300 requerido por aserción estricta de test en athlete-celebracion-cierre-dia.spec.ts:228
-        if (fileName === "cierre-dia-modal.tsx" && lineText.includes("border-amber-300")) {
-          return;
-        }
+        // 2. cierre-dia-modal.tsx: migrado a v7 sin border-amber-300 (D-45)
 
         // 3. inicio-mis-dias.tsx: bg-[#38BDF8], text-[#0F172A], bg-[#0F172A] en hero/toast requeridos por test en athlete-inicio-mis-dias.spec.ts:43-45
         if (fileName === "inicio-mis-dias.tsx" && (lineText.includes("#0F172A") || lineText.includes("#38BDF8"))) {
@@ -107,11 +104,11 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     const habits = fs.readFileSync(path.join(baseDir, "habit-tracker.tsx"), "utf-8");
     const classes = fs.readFileSync(path.join(baseDir, "athlete-classes.tsx"), "utf-8");
 
-    // Validar adopción de tokens semánticos
-    expect(onboarding).toContain("bg-primary");
-    expect(onboarding).toContain("text-foreground");
-    expect(onboarding).toContain("text-muted-foreground");
-    expect(onboarding).toContain("border-border");
+    // Validar adopción de tokens semánticos (onboarding migrado a clases .a-* v7 en athlete-v7.css)
+    expect(onboarding).toContain("a-dk");
+    expect(onboarding).toContain("a-btn");
+    expect(onboarding).toContain("a-muted");
+    expect(onboarding).toContain("a-card");
 
     expect(historial).toContain("bg-success-soft");
     expect(historial).toContain("text-success-soft-foreground");

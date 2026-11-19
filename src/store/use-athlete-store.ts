@@ -152,6 +152,11 @@ interface AthleteStoreState {
   ejercicioAbiertoId: string | null;
   cierreAbierto: boolean;
   cuestionarioAbierto: boolean;
+  toastSesion: {
+    mensaje: string;
+    tipo: "ok" | "neutral";
+    irAHistorial?: boolean;
+  } | null;
   diaElegidoHoyId: string | null;
   diaSugeridoId: string | null;
   motivoCambioDia: MotivoCambioDia | null;
@@ -202,6 +207,10 @@ interface AthleteStoreState {
   setEjercicioAbiertoId: (ejercicioId: string | null) => void;
   setCierreAbierto: (abierto: boolean) => void;
   setCuestionarioAbierto: (abierto: boolean) => void;
+  setToastSesion: (
+    toast: { mensaje: string; tipo: "ok" | "neutral"; irAHistorial?: boolean } | null,
+  ) => void;
+  consumirNavegacionHistorialToast: () => void;
   elegirOtroDia: (
     diaId: string,
     motivo?: MotivoCambioDia | null,
@@ -731,6 +740,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       ejercicioAbiertoId: null,
       cierreAbierto: false,
       cuestionarioAbierto: false,
+      toastSesion: null,
       diaElegidoHoyId: null,
       diaSugeridoId: null,
       motivoCambioDia: null,
@@ -884,6 +894,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setEjercicioAbiertoId: (ejercicioAbiertoId) => set({ ejercicioAbiertoId }),
       setCierreAbierto: (cierreAbierto) => set({ cierreAbierto }),
       setCuestionarioAbierto: (cuestionarioAbierto) => set({ cuestionarioAbierto }),
+      setToastSesion: (toastSesion) => set({ toastSesion }),
+      consumirNavegacionHistorialToast: () =>
+        set((state) =>
+          state.toastSesion?.irAHistorial
+            ? { toastSesion: { ...state.toastSesion, irAHistorial: false } }
+            : {},
+        ),
       elegirOtroDia: (diaId, motivo = null, diaSugeridoId = null) =>
         set({
           diaElegidoHoyId: diaId,
@@ -2199,6 +2216,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 },
                 { onConflict: "sesion_id, ejercicio_id, numero_serie" }
               );
+            }
+
+            // Vaciar la cola offline confirmada por el servidor si hay conexión
+            if (useOfflineQueueStore.getState().isOnline) {
+              await useOfflineQueueStore.getState().flushQueue();
             }
 
             // Invalidar y recargar automáticamente miProgreso tras guardar sesión

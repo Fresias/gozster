@@ -71,6 +71,7 @@ export function RutinaDelDia() {
     setEjercicioAbiertoId,
     setSelectedExerciseId,
     setCierreAbierto,
+    setToastSesion,
     setCuestionarioAbierto,
     setNivelVistaAlumno,
     usarVistaRecomendada,
@@ -745,10 +746,27 @@ export function RutinaDelDia() {
 
       <CierreDiaModal
         isOpen={showCelebrationModal}
-        onClose={() => setShowCelebrationModal(false)}
+        onClose={() => {
+          setShowCelebrationModal(false);
+          setCierreAbierto(false);
+        }}
         onVolverInicio={() => {
           setShowCelebrationModal(false);
+          setCierreAbierto(false);
           volverAlInicio();
+          if (completedSetsCount > 0) {
+            setToastSesion({
+              mensaje: "Sesión guardada en tu historial",
+              tipo: "ok",
+              irAHistorial: true,
+            });
+          } else {
+            setToastSesion({
+              mensaje: "Sesión cerrada sin series",
+              tipo: "neutral",
+              irAHistorial: false,
+            });
+          }
         }}
         tonelajeKg={totalVolumeKg}
         seriesCompletadas={completedSetsCount}
@@ -769,8 +787,9 @@ export function RutinaDelDia() {
           Math.max(1, (sesionesCompletadas?.length || 0) + 1),
         )}
         recordsObtenidos={sessionPRs}
-        studentName={currentSession.studentName || ""}
-        diaNombre={cleanDiaTitle || "Día 1"}
+        studentName={currentSession.studentName}
+        nombrePreferido={nombrePreferido}
+        diaNombre={cleanDiaTitle || "DÍA 1"}
       />
 
       {isSettingsOpen && (

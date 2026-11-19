@@ -60,15 +60,15 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
       expect(html).not.toContain("1.960 kg");
       expect(html).not.toContain('data-testid="hero-metric-tonelaje"');
 
-      // Mantiene métricas operativas clave
+      // Mantiene métricas operativas clave (v7: tiempo en formato min')
       expect(html).toContain('data-testid="hero-metric-summary-card"');
       expect(html).toContain('data-testid="hero-metric-series"');
       expect(html).toContain("18/18");
       expect(html).toContain('data-testid="hero-metric-tiempo"');
-      expect(html).toContain("42 min");
+      expect(html).toContain("42&#x27;");
     });
 
-    it("GIVEN CierreDiaModal WHEN se renderiza el ranking de constancia THEN muestra 'Mantener una buena racha tendrá su recompensa'", () => {
+    it("GIVEN CierreDiaModal WHEN se renderiza THEN omite el ranking de constancia por decisión D-33", () => {
       const html = renderToStaticMarkup(
         <CierreDiaModal
           isOpen={true}
@@ -82,9 +82,8 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
         />
       );
 
-      expect(html).toContain('data-testid="cierre-dia-ranking-constancia"');
-      expect(html).toContain("Impacto en Ranking de Constancia");
-      expect(html).toContain("Mantener una buena racha tendrá su recompensa.");
+      expect(html).not.toContain('data-testid="cierre-dia-ranking-constancia"');
+      expect(html).not.toContain("Impacto en Ranking de Constancia");
       expect(html).not.toContain("tonelaje acumulado, sin toxicidad competitiva");
     });
 
@@ -104,12 +103,11 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
       );
 
       expect(html).toContain('data-testid="racha-dias-valor"');
-      expect(html).toContain("3 días");
-      expect(html).not.toContain("5 días");
-      expect(html).toContain("Día 2 de 3 completados esta semana");
+      expect(html).toContain("Racha semanal: 2 de 3 días");
+      expect(html).not.toContain("de 5 días");
     });
 
-    it("GIVEN CierreDiaModal con PRs WHEN tiene cálculo de 1RM THEN incluye el tooltip interactivo '?'", () => {
+    it("GIVEN CierreDiaModal con PRs en vista Técnica WHEN tiene cálculo de 1RM THEN incluye el tooltip interactivo '?'", () => {
       const html = renderToStaticMarkup(
         <CierreDiaModal
           isOpen={true}
@@ -117,6 +115,7 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
           tonelajeKg={1960}
           seriesCompletadas={15}
           totalSeries={15}
+          esVistaTecnica={true}
           recordsObtenidos={[
             {
               exerciseName: "Press de Banca Plano",

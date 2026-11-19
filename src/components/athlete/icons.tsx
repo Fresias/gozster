@@ -206,6 +206,14 @@ export function ChevronRight(props: IconProps) {
   );
 }
 
+export function ChevronLeft(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </Icon>
+  );
+}
+
 export function History(props: IconProps) {
   return (
     <Icon {...props}>
@@ -353,14 +361,6 @@ export function Download(props: IconProps) {
       <path d="M12 3v12" />
       <path d="m7 10 5 5 5-5" />
       <path d="M5 21h14" />
-    </Icon>
-  );
-}
-
-export function ChevronLeft(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="m15 18-6-6 6-6" />
     </Icon>
   );
 }
