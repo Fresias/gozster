@@ -13,7 +13,7 @@ import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useChatStore } from "@/store/use-chat-store";
 import { cn } from "@/lib/utils";
-import { Check, LogOut, MessageSquare } from "@/components/athlete/icons";
+import { Check, LogOut, MessageSquare, Trophy } from "@/components/athlete/icons";
 
 const SERIES_SET_ACTIONS = new Set(["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"]);
 
@@ -318,11 +318,17 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
           className={cn(
             "a-toast a-t-sec a-show",
             toastSesion.tipo === "ok" && "a-ok",
+            toastSesion.tipo === "rec" && "a-rec",
           )}
         >
           {toastSesion.tipo === "ok" && (
             <span className="a-tic">
               <Check width={16} height={16} className="a-i" />
+            </span>
+          )}
+          {toastSesion.tipo === "rec" && (
+            <span className="a-tic">
+              <Trophy width={16} height={16} className="a-i" />
             </span>
           )}
           <span>{toastSesion.mensaje}</span>

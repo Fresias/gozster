@@ -92,5 +92,42 @@ describe("marcas (store, GOZS-161 §3.3 / §3.5)", () => {
   it("persiste marcas para decidir récords sin señal", () => {
     const persistido = useAthleteStore.persist.getOptions().partialize?.(useAthleteStore.getState()) as Record<string, unknown>;
     expect(persistido).toHaveProperty("marcas");
+    expect(persistido).toHaveProperty("seriesRecordIds");
+    expect(persistido).toHaveProperty("sessionPRs");
+  });
+
+  it("registrarRecordSesion conserva PRs de sesión y los limpia al reiniciar sesión (FE-06 CP2)", () => {
+    useAthleteStore.getState().resetSessionToDefaults();
+    useAthleteStore.getState().registrarRecordSesion("er-1-2", {
+      exerciseName: "Sentadilla",
+      peso_kg: 102.5,
+      reps_hechas: 5,
+      tipo: "peso",
+      epley_kg: 119.58,
+      delta_epley_kg: 3,
+      numero_serie: 2,
+    });
+
+    expect(useAthleteStore.getState().seriesRecordIds).toEqual(["er-1-2"]);
+    expect(useAthleteStore.getState().sessionPRs).toHaveLength(1);
+    expect(useAthleteStore.getState().sessionPRs[0]?.exerciseName).toBe("Sentadilla");
+
+    // No duplica la misma serie si se vuelve a registrar
+    useAthleteStore.getState().registrarRecordSesion("er-1-2", {
+      exerciseName: "Sentadilla",
+      peso_kg: 105,
+      reps_hechas: 5,
+      tipo: "peso",
+      epley_kg: 122.5,
+      delta_epley_kg: 5,
+      numero_serie: 2,
+    });
+    expect(useAthleteStore.getState().seriesRecordIds).toEqual(["er-1-2"]);
+    expect(useAthleteStore.getState().sessionPRs).toHaveLength(1);
+    expect(useAthleteStore.getState().sessionPRs[0]?.peso_kg).toBe(105);
+
+    useAthleteStore.getState().resetSessionToDefaults();
+    expect(useAthleteStore.getState().seriesRecordIds).toEqual([]);
+    expect(useAthleteStore.getState().sessionPRs).toEqual([]);
   });
 });
