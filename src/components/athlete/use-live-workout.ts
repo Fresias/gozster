@@ -267,6 +267,16 @@ export function useLiveWorkout() {
     Record<string, { D: { kg: number; reps: number }; I: { kg: number; reps: number } }>
   >({});
 
+  // Flujo unilateral por lado (D/I) en UI, confirmando 1 sola serie al completar ambos lados
+  const [uniSide, setUniSide] = React.useState<"D" | "I">("D");
+  const [uniPend, setUniPend] = React.useState<{
+    D: { kg: number; reps: number } | null;
+    I: { kg: number; reps: number } | null;
+  }>({ D: null, I: null });
+  const [uniLogs, setUniLogs] = React.useState<
+    Record<string, { D: { kg: number; reps: number }; I: { kg: number; reps: number } }>
+  >({});
+
   // Selección manual de ejercicio activo
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
 
