@@ -156,10 +156,13 @@ describe("GOZS-24 / Issue #40: Bimodal Theme (Modo Día Suave & Modo Noche Pulid
       expect(shellContent).toContain("ThemeToggle");
     });
 
-    it("verifica que Athlete App Shell incluye ThemeToggle en su cabecera", () => {
+    it("verifica que Athlete App Shell incluye AthleteThemeButton (con useTheme) en su cabecera", () => {
       const athleteShellPath = path.resolve(__dirname, "../components/athlete/athlete-shell.tsx");
+      const athleteThemeBtnPath = path.resolve(__dirname, "../components/athlete/athlete-theme-button.tsx");
       const athleteShellContent = fs.readFileSync(athleteShellPath, "utf-8");
-      expect(athleteShellContent).toContain("ThemeToggle");
+      const athleteThemeBtnContent = fs.readFileSync(athleteThemeBtnPath, "utf-8");
+      expect(athleteShellContent).toContain("AthleteThemeButton");
+      expect(athleteThemeBtnContent).toContain("useTheme");
     });
 
     it("verifica que la Landing incluye ThemeToggle en su navbar (header compartido de la landing)", () => {

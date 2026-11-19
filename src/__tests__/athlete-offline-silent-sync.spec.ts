@@ -73,8 +73,9 @@ describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
       );
     });
 
-    it("athlete-shell.tsx quita el contador de pendientes y sincroniza al reconectar", () => {
-      expect(athleteShell).not.toContain("pendingEvents.length");
+    it("athlete-shell.tsx muestra las series pendientes sin señal (D-25) y sincroniza al reconectar", () => {
+      expect(athleteShell).toContain("Sin señal ·");
+      expect(athleteShell).toContain("Enviando");
       expect(athleteShell).toContain("flushQueue");
     });
   });

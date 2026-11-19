@@ -443,9 +443,17 @@ describe("QA Verification Suite — Historial y Progreso (GOZS-158 / F1–F6)", 
       const shellCode = fs.readFileSync(shellPath, "utf-8");
       const adherenciaCardCode = fs.readFileSync(adherenciaCardPath, "utf-8");
 
-      // Shell: 3 columnas iguales y táctil min-h-12 (48px)
-      expect(shellCode).toContain("grid-cols-3");
-      expect(shellCode).toContain("min-h-12");
+      const bottomNavPath = path.resolve(__dirname, "../components/athlete/athlete-bottom-nav.tsx");
+      const v7CssPath = path.resolve(__dirname, "../app/(athlete)/athlete/athlete-v7.css");
+      const bottomNavCode = fs.readFileSync(bottomNavPath, "utf-8");
+      const v7CssCode = fs.readFileSync(v7CssPath, "utf-8");
+
+      // Shell v7: navegación inferior de 4 columnas iguales con altura táctil 58px (01 §6, 02 §0)
+      expect(shellCode).toContain("<AthleteBottomNav");
+      expect(bottomNavCode).toContain('data-testid="nav-inferior"');
+      expect(bottomNavCode).toContain("a-bnav");
+      expect(v7CssCode).toContain("grid-template-columns: repeat(4, 1fr);");
+      expect(v7CssCode).toContain("min-height: 58px;");
 
       // Aviso récord: botón de cerrar 48x48 px (h-12 w-12) y aria-live
       expect(avisoRecordCode).toContain("h-12 w-12");

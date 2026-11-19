@@ -195,7 +195,7 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
       },
       {
         descripcion: "Ítem activo de navegación inferior",
-        selector: "[data-testid='nav-inferior'] [aria-current='page']",
+        selector: "[data-testid='nav-inferior'] [aria-current='page'] .a-ni",
         esTestId: false,
         reglas: { backgroundColor: dark ? PAPER : INK },
       },

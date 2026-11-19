@@ -225,7 +225,8 @@ describe("Vistas y detalles de alumnos (#113 / GH #122)", () => {
   it("las rutas existen y están enlazadas desde los shells", () => {
     expect(fs.existsSync(path.resolve(__dirname, "../app/(athlete)/athlete/clases/page.tsx"))).toBe(true);
     expect(fs.existsSync(path.resolve(__dirname, "../app/(coach)/studio/agenda/page.tsx"))).toBe(true);
-    expect(readSource("../components/athlete/athlete-shell.tsx")).toContain('href: "/athlete/clases"');
+    expect(readSource("../components/athlete/athlete-bottom-nav.tsx")).toContain('href: "/athlete/clases"');
+    expect(readSource("../components/athlete/athlete-shell.tsx")).toContain("AthleteBottomNav");
     expect(readSource("../components/coach/studio-shell.tsx")).toContain('href="/studio/agenda"');
   });
 });
