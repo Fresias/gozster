@@ -241,6 +241,7 @@ interface AthleteStoreState {
     diaSugeridoId?: string | null,
   ) => boolean;
   resetSessionToDefaults: () => void;
+  repararSesionesNoUuid: () => void;
 }
 
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
@@ -1845,6 +1846,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
           },
         });
       },
+
+      repararSesionesNoUuid: () => {
+        repararSesionesNoUuid();
+      },
     }),
     {
       name: "gozster-athlete-store",
@@ -1891,3 +1896,73 @@ export const useAthleteStore = create<AthleteStoreState>()(
     },
   ),
 );
+
+/**
+ * Repara al iniciar la app los ids de sesión heredados que no son UUID (`session-<alumno>-<día>`):
+ * asigna un UUID nuevo por cada id viejo distinto preservando agrupación y orden en `WORKOUT_SET_*`,
+ * corrige `currentSession.id` y `sesionesCompletadas[].id`, y dispara `flushQueue()` si reparó eventos.
+ */
+export function repararSesionesNoUuid(): void {
+  const mapaIds = new Map<string, string>();
+  const mapearId = (idViejo: string): string => {
+    const existente = mapaIds.get(idViejo);
+    if (existente) return existente;
+    const nuevo = nuevoUuid();
+    mapaIds.set(idViejo, nuevo);
+    return nuevo;
+  };
+
+  const queueState = useOfflineQueueStore.getState();
+  let repararonEventos = false;
+  const eventosActualizados = queueState.pendingEvents.map((ev) => {
+    if (!ev.action.startsWith("WORKOUT_SET_")) return ev;
+    const sid = ev.payload?.sessionId;
+    if (typeof sid !== "string" || sid.length === 0 || esUuid(sid)) return ev;
+    repararonEventos = true;
+    return {
+      ...ev,
+      payload: {
+        ...ev.payload,
+        sessionId: mapearId(sid),
+      },
+    };
+  });
+
+  if (repararonEventos) {
+    useOfflineQueueStore.setState({ pendingEvents: eventosActualizados });
+  }
+
+  const athleteState = useAthleteStore.getState();
+  const currentId = athleteState.currentSession?.id;
+  const currentNecesita =
+    typeof currentId === "string" && currentId.length > 0 && !esUuid(currentId);
+  const completadasNecesitan = athleteState.sesionesCompletadas.some(
+    (s) => typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id),
+  );
+
+  if (currentNecesita || completadasNecesitan) {
+    useAthleteStore.setState((state) => ({
+      ...(currentNecesita
+        ? {
+            currentSession: {
+              ...state.currentSession,
+              id: mapearId(state.currentSession.id),
+            },
+          }
+        : {}),
+      ...(completadasNecesitan
+        ? {
+            sesionesCompletadas: state.sesionesCompletadas.map((s) =>
+              typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id)
+                ? { ...s, id: mapearId(s.id) }
+                : s,
+            ),
+          }
+        : {}),
+    }));
+  }
+
+  if (repararonEventos && queueState.isOnline) {
+    void useOfflineQueueStore.getState().flushQueue();
+  }
+}

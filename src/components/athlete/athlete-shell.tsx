@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { repararSesionesNoUuid } from "@/store/use-athlete-store";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { createClient } from "@/lib/supabase/browser";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -55,13 +56,26 @@ function ControlesSesion({ isOnline }: { isOnline: boolean }) {
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
+  const reparadoRef = React.useRef(false);
 
   // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
   React.useEffect(() => {
+    const repararUnaVez = () => {
+      if (reparadoRef.current) return;
+      reparadoRef.current = true;
+      repararSesionesNoUuid();
+    };
     void createClient()
       .auth.getUser()
-      .then(({ data }) => (data.user ? activarUsuarioStorage(data.user.id) : undefined))
-      .catch(() => {});
+      .then(async ({ data }) => {
+        if (data.user) {
+          await activarUsuarioStorage(data.user.id);
+        }
+        repararUnaVez();
+      })
+      .catch(() => {
+        repararUnaVez();
+      });
   }, []);
 
   React.useEffect(() => {
