@@ -1184,22 +1184,26 @@ export function EjercicioActivo() {
             null
           }
           onAttachVideo={async (origen) => {
+            if (origen.tipo === "archivo") {
+              const offlineAhora = typeof navigator !== "undefined" && navigator.onLine === false;
+              const setNum = videoUploadModalData.setNumber;
+              void adjuntarVideoASerie(videoUploadModalData.exerciseId, setNum, origen);
+              setToastSesion({
+                mensaje: offlineAhora
+                  ? "Sin señal: el video se envía cuando vuelva la conexión."
+                  : `Video adjunto a la serie ${setNum}`,
+                tipo: "ok",
+              });
+              return "ok";
+            }
             const res = await adjuntarVideoASerie(
               videoUploadModalData.exerciseId,
               videoUploadModalData.setNumber,
               origen,
             );
             if (res === "ok") {
-              const estadoPost = useAthleteStore
-                .getState()
-                .currentSession.ejercicios.find((e) => e.id === videoUploadModalData.exerciseId)
-                ?.series.find((s) => s.numero_serie === videoUploadModalData.setNumber)
-                ?.videoEstado;
-              const offlineArchivo = origen.tipo === "archivo" && estadoPost === "telefono";
               setToastSesion({
-                mensaje: offlineArchivo
-                  ? "Sin señal: el video se envía cuando vuelva la conexión."
-                  : `Video adjunto a la serie ${videoUploadModalData.setNumber}`,
+                mensaje: `Video adjunto a la serie ${videoUploadModalData.setNumber}`,
                 tipo: "ok",
               });
             }
