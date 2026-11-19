@@ -398,7 +398,7 @@ export async function subirPendientes(
 
   const almacen = opciones?.almacen ?? obtenerAlmacenVideosPorDefecto();
   const client = (opciones?.supabaseClient ?? defaultSupabase) as SupabaseVideoClient | undefined;
-  if (!client) return resultado;
+  if (!client?.storage) return resultado;
 
   const pendientes = await almacen.listarPorAlumno(alumnoId);
   const enVuelo = obtenerEnVuelo(almacen);
