@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { createClient } from "@/lib/supabase/browser";
@@ -61,16 +62,26 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
     void createClient()
       .auth.getUser()
       .then(({ data }) => (data.user ? activarUsuarioStorage(data.user.id) : undefined))
+      .then(() => {
+        if (navigator.onLine) {
+          return useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+        }
+      })
       .catch(() => {});
   }, []);
 
   React.useEffect(() => {
-    setOnlineStatus(navigator.onLine);
+    const online = navigator.onLine;
+    setOnlineStatus(online);
+    if (online) {
+      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+    }
     const handleOnline = () => {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
       // nunca ve "pendientes", para él sus datos ya estaban guardados.
       void flushQueue();
+      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
     };
     const handleOffline = () => setOnlineStatus(false);
 

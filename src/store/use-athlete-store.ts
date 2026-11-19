@@ -29,6 +29,10 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
+import {
+  NOMBRE_PREFERIDO_MAX_LEN,
+  normalizarNombrePreferido,
+} from "@/lib/athlete/nombre";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -136,8 +140,15 @@ interface AthleteStoreState {
   colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
+  // Nombre preferido (BE-01 / D-53). nombrePreferidoPendiente === undefined => sin pendiente.
+  nombrePreferido: string | null;
+  nombrePreferidoPendiente: string | null | undefined;
 
   // Actions
+  guardarNombrePreferido: (
+    nombre: string | null,
+  ) => Promise<{ success: boolean; offline?: boolean; error?: string }>;
+  sincronizarNombrePreferidoPendiente: () => Promise<boolean>;
   cargarUltimaVez: () => Promise<void>;
   // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
   cargarMiProgreso: () => Promise<void>;
@@ -404,6 +415,73 @@ const defaultSession: LiveWorkoutSession = {
 };
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+let activeSyncNombrePromise: Promise<boolean> | null = null;
+
+const PERMANENT_NOMBRE_RPC_CODES = new Set(["22001", "42501", "23514"]);
+
+type PerfilConNombrePreferido = LiveSupabaseDataset["alumnos"][number] & {
+  nombre_preferido?: string | null;
+};
+
+function aplicarNombrePreferidoEnPlan(
+  plan: LiveSupabaseDataset | null,
+  nombre: string | null,
+): LiveSupabaseDataset | null {
+  if (!plan || plan.alumnos.length === 0) return plan;
+  const [primero, ...resto] = plan.alumnos;
+  if (!primero) return plan;
+  const actualizado: PerfilConNombrePreferido = {
+    ...primero,
+    nombre_preferido: nombre,
+  };
+  return { ...plan, alumnos: [actualizado, ...resto] };
+}
+
+async function enviarNombrePreferidoRpc(
+  valor: string | null,
+  set: (fn: (state: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+): Promise<{ ok: boolean; permanentError?: string }> {
+  try {
+    const client = supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: { p_nombre: string | null },
+      ) => Promise<{ data: string | null; error: { message: string; code?: string } | null }>;
+    };
+    const { data, error } = await client.rpc("actualizar_nombre_preferido", { p_nombre: valor });
+    if (error) {
+      if (error.code && PERMANENT_NOMBRE_RPC_CODES.has(error.code)) {
+        set((state) =>
+          state.nombrePreferidoPendiente === valor
+            ? { nombrePreferidoPendiente: undefined }
+            : {},
+        );
+        return { ok: false, permanentError: error.message };
+      }
+      console.warn("Aviso guardando nombre_preferido en Supabase (queda pendiente):", error.message);
+      return { ok: false };
+    }
+
+    const confirmado = data ?? null;
+    set((state) => {
+      if (state.nombrePreferidoPendiente !== valor) {
+        return {};
+      }
+      return {
+        nombrePreferido: confirmado,
+        nombrePreferidoPendiente: undefined,
+        planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, confirmado),
+      };
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.warn(
+      "Excepción guardando nombre_preferido (queda pendiente offline):",
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: false };
+  }
+}
 
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
@@ -433,6 +511,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
+      nombrePreferido: null,
+      nombrePreferidoPendiente: undefined,
       rpeValidationError: null,
       rpeReminderNotification: null,
       stopProtocolActive: false,
@@ -449,6 +529,51 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
       setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
+      guardarNombrePreferido: async (nombre) => {
+        const normalizado = normalizarNombrePreferido(nombre);
+        if (normalizado && Array.from(normalizado).length > NOMBRE_PREFERIDO_MAX_LEN) {
+          return {
+            success: false,
+            error: `El nombre no puede superar los ${NOMBRE_PREFERIDO_MAX_LEN} caracteres`,
+          };
+        }
+
+        set((state) => ({
+          nombrePreferido: normalizado,
+          nombrePreferidoPendiente: normalizado,
+          planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, normalizado),
+        }));
+
+        if (!useOfflineQueueStore.getState().isOnline) {
+          return { success: true, offline: true };
+        }
+
+        const res = await enviarNombrePreferidoRpc(normalizado, set);
+        if (res.permanentError) {
+          return { success: false, error: res.permanentError };
+        }
+        return res.ok ? { success: true } : { success: true, offline: true };
+      },
+      sincronizarNombrePreferidoPendiente: async () => {
+        if (activeSyncNombrePromise) return activeSyncNombrePromise;
+        const pendiente = get().nombrePreferidoPendiente;
+        if (pendiente === undefined || !useOfflineQueueStore.getState().isOnline) {
+          return false;
+        }
+
+        activeSyncNombrePromise = (async () => {
+          const valor = get().nombrePreferidoPendiente;
+          if (valor === undefined || !useOfflineQueueStore.getState().isOnline) {
+            return false;
+          }
+          const res = await enviarNombrePreferidoRpc(valor, set);
+          return res.ok;
+        })().finally(() => {
+          activeSyncNombrePromise = null;
+        });
+
+        return activeSyncNombrePromise;
+      },
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -1684,8 +1809,18 @@ export const useAthleteStore = create<AthleteStoreState>()(
         try {
           const plan = await fetchPlanAlumno();
           if (!plan) return;
-          set({ planAlumno: plan });
+          const pendiente = get().nombrePreferidoPendiente;
+          if (pendiente !== undefined) {
+            set({ planAlumno: aplicarNombrePreferidoEnPlan(plan, pendiente) });
+          } else {
+            const nombreServidor =
+              (plan.alumnos[0] as PerfilConNombrePreferido | undefined)?.nombre_preferido ?? null;
+            set({ planAlumno: plan, nombrePreferido: nombreServidor });
+          }
           get().loadStudentSession(plan.alumnos[0]?.id);
+          if (pendiente !== undefined) {
+            void get().sincronizarNombrePreferidoPendiente();
+          }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
         } finally {
@@ -1864,6 +1999,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: state.historialSesiones,
+        nombrePreferido: state.nombrePreferido,
+        nombrePreferidoPendiente: state.nombrePreferidoPendiente,
       }),
     },
   ),
