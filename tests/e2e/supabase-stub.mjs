@@ -219,6 +219,13 @@ http
       return send(200, { forceStorageErrorStatus });
     }
 
+    if (pathname === "/__e2e/storage") {
+      return send(200, {
+        keys: Array.from(storageUploads.keys()),
+        entries: Object.fromEntries(storageUploads.entries()),
+      });
+    }
+
     if (pathname === "/__llamadas") {
       if (req.method === "DELETE") {
         llamadas = [];
@@ -348,6 +355,21 @@ http
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
+          if (sintomas.length > 0 || eva >= 7) {
+            if (!Array.isArray(fixtures.alertas_entrenador)) fixtures.alertas_entrenador = [];
+            fixtures.alertas_entrenador.push({
+              id: crypto.randomUUID(),
+              profesor_id: fixtures.perfil?.profesor_asignado_id ?? USER.id,
+              alumno_id: activeUser.id,
+              ejercicio_id: body?.p_ejercicio_id ?? null,
+              reporte_dolor_id: id,
+              tipo_alerta: sintomas.length > 0 || eva >= 10 ? "SINTOMA_ALARMA" : "DOLOR_AGUDO",
+              severidad: sintomas.length > 0 || eva >= 10 ? "CRITICA" : "ALTA",
+              estado: "PENDIENTE",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
         }
         if (body?.p_numero_serie != null && Array.isArray(fixtures.registro_series)) {
           for (const s of fixtures.registro_series) {
@@ -410,18 +432,30 @@ http
 
       if (tabla && (req.method === "POST" || req.method === "PUT") && body != null) {
         if (!Array.isArray(fixtures[tabla])) fixtures[tabla] = [];
+        const onConflictCols = (parsedUrl.searchParams.get("on_conflict") || "")
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean);
         const items = Array.isArray(body) ? body : [body];
         const inserted = items.map((item) => {
+          const idx = fixtures[tabla].findIndex((existing) => {
+            if (item.id && existing.id === item.id) return true;
+            if (onConflictCols.length > 0) {
+              return onConflictCols.every(
+                (col) => existing[col] !== undefined && item[col] !== undefined && String(existing[col]) === String(item[col]),
+              );
+            }
+            return false;
+          });
           const row = {
-            id: item.id || crypto.randomUUID(),
-            created_at: item.created_at || new Date().toISOString(),
+            id: item.id || (idx >= 0 ? fixtures[tabla][idx].id : undefined) || crypto.randomUUID(),
+            created_at: item.created_at || (idx >= 0 ? fixtures[tabla][idx].created_at : undefined) || new Date().toISOString(),
             updated_at: item.updated_at || new Date().toISOString(),
             ...item,
           };
-          const idx = fixtures[tabla].findIndex((existing) => existing.id && existing.id === row.id);
           if (idx >= 0) fixtures[tabla][idx] = { ...fixtures[tabla][idx], ...row };
           else fixtures[tabla].push(row);
-          return row;
+          return idx >= 0 ? fixtures[tabla][idx] : row;
         });
         return send(201, single ? inserted[0] : inserted);
       }
