@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
+import { NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
+import { Check, CloudOff, X } from "@/components/athlete/icons";
 import {
   claveDia,
   clasesUsadas,
@@ -11,13 +11,44 @@ import {
   horaLocal,
   inicioPeriodoRenovacion,
   ocupaCupo,
+  type EstadoTarjetaClase,
 } from "@/lib/clases";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
 import type { Clase, Reserva } from "@/types/database.types";
 
-// Athlete App · Clases (#113 / GH #122): semana en curso, contador semanal y anotarse/cancelar.
+const DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** "Quedan 2 lugares" · "Queda 1 lugar" · "Completa" · "Cupo libre". */
+export function textoCupo(capacidad: number | null, libres: number | null): string {
+  if (capacidad === null || libres === null) return "Cupo libre";
+  if (libres <= 0) return "Completa";
+  return libres === 1 ? "Queda 1 lugar" : `Quedan ${libres} lugares`;
+}
+
+/** "Te queda 1 clase" · "Te quedan 2 clases" · "No te quedan clases". */
+export function textoRestantes(restantes: number): string {
+  if (restantes <= 0) return "No te quedan clases";
+  return restantes === 1 ? "Te queda 1 clase" : `Te quedan ${restantes} clases`;
+}
+
+/** Celdas del mes (lunes a domingo): `null` para los huecos previos al día 1. */
+function celdasDelMes(base: Date): Array<{ clave: string; numero: number } | null> {
+  const anio = base.getFullYear();
+  const mes = base.getMonth();
+  const primero = new Date(anio, mes, 1, 12);
+  const huecos = (primero.getDay() + 6) % 7;
+  const total = new Date(anio, mes + 1, 0).getDate();
+  const celdas: Array<{ clave: string; numero: number } | null> = Array.from({ length: huecos }, () => null);
+  for (let d = 1; d <= total; d++) celdas.push({ clave: claveDia(new Date(anio, mes, d, 12)), numero: d });
+  return celdas;
+}
+
+// Athlete App v7 · Clases: semana (vista principal) o mes, cupo semanal y reservas con motivo.
 export function AthleteClasses() {
   const {
     clases,
@@ -31,8 +62,6 @@ export function AthleteClasses() {
     accionEnCurso,
     error,
     aviso,
-    demoAlumnoId,
-    setDemoAlumnoId,
     cargarClasesAlumno,
     reservar,
     cancelarReserva,
@@ -41,10 +70,14 @@ export function AthleteClasses() {
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
 
-  const hoy = claveDia(new Date());
+  const ahora = React.useMemo(() => new Date(), []);
+  const hoy = claveDia(ahora);
   const dias = React.useMemo(() => diasDeLaSemana(), []);
+  const celdasMes = React.useMemo(() => celdasDelMes(ahora), [ahora]);
+  const [vista, setVista] = React.useState<"semana" | "mes">("semana");
   const [dia, setDia] = React.useState(hoy);
   const [porCancelar, setPorCancelar] = React.useState<{ clase: Clase; reserva: Reserva } | null>(null);
+  const [mostrarTodas, setMostrarTodas] = React.useState(false);
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   React.useEffect(() => {
@@ -61,322 +94,292 @@ export function AthleteClasses() {
   );
   const usadas = clasesUsadas(misReservas, clases);
   const limite = plan?.limite_semanal ?? null;
+  const restantes = limite === null ? null : Math.max(limite - usadas, 0);
 
-  const diasConReserva = new Set(
-    clases.filter((c) => reservaPorClase.get(c.id)?.estado === "ANOTADO").map((c) => claveDia(c.inicio)),
+  const actividadPlan = plan?.cantidad_actividades === 1 ? (membresia?.actividad ?? null) : null;
+  const visibles = React.useMemo(
+    () => (!mostrarTodas && actividadPlan ? clases.filter((c) => c.actividad === actividadPlan) : clases),
+    [clases, mostrarTodas, actividadPlan],
   );
 
-  // Filtrado por las actividades que habilita su plan (GH #122)
-  const actividadPlan = plan?.cantidad_actividades === 1 ? membresia?.actividad ?? null : null;
-  const [mostrarTodas, setMostrarTodas] = React.useState(false);
-
-  const delDia = React.useMemo(() => {
-    const todos = clases.filter((c) => claveDia(c.inicio) === dia);
-    if (!mostrarTodas && actividadPlan) {
-      return todos.filter((c) => c.actividad === actividadPlan);
+  const clasesPorDia = React.useMemo(() => {
+    const m = new Map<string, Clase[]>();
+    for (const c of visibles) {
+      const k = claveDia(c.inicio);
+      m.set(k, [...(m.get(k) ?? []), c]);
     }
-    return todos;
-  }, [clases, dia, mostrarTodas, actividadPlan]);
+    return m;
+  }, [visibles]);
+  const diasConReserva = new Set(
+    visibles.filter((c) => reservaPorClase.get(c.id)?.estado === "ANOTADO").map((c) => claveDia(c.inicio)),
+  );
+  const delDia = clasesPorDia.get(dia) ?? [];
 
   const ocupacionClase = (claseId: string) =>
     agendaReservas.filter((r) => r.clase_id === claseId && ocupaCupo(r)).length;
 
+  const etiquetaDia = (clave: string, nombre: string) => {
+    const n = clasesPorDia.get(clave)?.length ?? 0;
+    const partes = [nombre];
+    if (clave === hoy) partes.push("hoy");
+    if (n) partes.push(n === 1 ? "1 clase" : `${n} clases`);
+    if (diasConReserva.has(clave)) partes.push("reservada");
+    return partes.join(", ");
+  };
+
+  const fechaSeleccionada = new Date(`${dia}T12:00:00`);
+  const tituloDia = `${DIAS_LARGO[fechaSeleccionada.getDay()]} ${fechaSeleccionada.getDate()}${dia === hoy ? " · hoy" : ""}`;
+
+  const accion = (
+    estado: EstadoTarjetaClase,
+    clase: Clase,
+    reserva: Reserva | null,
+    ocupado: boolean,
+  ): React.ReactNode => {
+    switch (estado) {
+      case "DISPONIBLE":
+        return !isOnline ? (
+          <button type="button" className="a-btn" disabled data-testid="book-class-btn">
+            Necesitás conexión para reservar
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="a-btn"
+            disabled={ocupado}
+            onClick={() => void reservar(clase.id)}
+            data-testid="book-class-btn"
+          >
+            {ocupado ? "Reservando…" : "Reservar cupo"}
+          </button>
+        );
+      case "RESERVADA":
+        return (
+          <button
+            type="button"
+            className="a-btn a-ghost"
+            disabled={ocupado || !reserva}
+            onClick={() => reserva && setPorCancelar({ clase, reserva })}
+            data-testid="cancel-booking-btn"
+          >
+            <Check width={18} height={18} className="a-i" /> {ocupado ? "Cancelando…" : "Reservada · Cancelar"}
+          </button>
+        );
+      case "RESERVADA_INICIADA":
+        return <button type="button" className="a-btn a-ghost" disabled>Asististe</button>;
+      case "AUSENTE":
+        return <button type="button" className="a-btn a-ghost" disabled>Quedaste ausente · cuenta en tu semana</button>;
+      case "CANCELADA":
+        return (
+          <button type="button" className="a-btn a-ghost" disabled>
+            Clase cancelada{clase.motivo_cancelacion ? `: ${clase.motivo_cancelacion}` : ""}
+          </button>
+        );
+      case "INICIADA":
+        return <button type="button" className="a-btn a-ghost" disabled>Clase pasada</button>;
+      case "SIN_CUPO":
+        return <button type="button" className="a-btn a-ghost" disabled>Clase completa</button>;
+      case "LIMITE":
+        return (
+          <button type="button" className="a-btn" disabled data-testid="attempt-limit-class-btn">
+            Ya usaste tus {limite} clases de la semana
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <section className="space-y-4" aria-labelledby="clases-titulo" data-testid="athlete-classes">
-      <div className="flex items-center justify-between">
-        <h1 id="clases-titulo" className="text-xl font-black tracking-tight">Clases</h1>
-        {!isOnline && (
-          <span className="rounded-full border border-warning-soft-border bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning-soft-foreground">
-            Sin conexión · datos guardados
-          </span>
-        )}
+    <section className="flex flex-col gap-3" aria-labelledby="clases-titulo" data-testid="athlete-classes">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h1 id="clases-titulo" className="a-t-d">Clases</h1>
+        <div className="a-seg" role="group" aria-label="Vista de clases" style={{ flex: "0 1 180px", minWidth: 150 }}>
+          <button type="button" aria-pressed={vista === "semana"} onClick={() => setVista("semana")}>Semana</button>
+          <button type="button" aria-pressed={vista === "mes"} onClick={() => setVista("mes")}>Mes</button>
+        </div>
       </div>
 
-      {/* Selector de alumno demo (GH #122) */}
-      <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3 space-y-2" data-testid="demo-athlete-selector">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold text-foreground">
-            Alumno activo
-          </p>
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Dataset Demo
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {DEMO_ALUMNOS_CLASES.map((a) => {
-            const activo = demoAlumnoId === a.id;
+      {!isOnline && (
+        <p className="a-eb a-t-label a-offnote" role="status">
+          <CloudOff width={12} height={12} className="a-i" /> Sin conexión · datos guardados
+        </p>
+      )}
+
+      <section className="a-card a-quota" data-testid="weekly-allowance">
+        {limite === null ? (
+          <b className="a-t-bs">{plan ? "Pase libre esta semana" : "Sin membresía de clases"}</b>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <b className="a-t-bs">{usadas} de {limite} clases usadas</b>
+              <span className="a-t-label a-muted">Esta semana</span>
+            </div>
+            <div className="a-segbar" aria-hidden="true">
+              <span style={{ ["--n" as string]: 2 }}>
+                {Array.from({ length: limite }, (_, i) => (
+                  <i key={i} className={i < usadas ? "a-on" : ""} />
+                ))}
+              </span>
+            </div>
+            <span className="a-t-sec a-muted">{textoRestantes(restantes ?? 0)} · la semana va de lunes a domingo</span>
+          </>
+        )}
+      </section>
+
+      {vista === "semana" ? (
+        <div className="a-week" role="group" aria-label="Días de la semana" data-testid="days-strip">
+          {dias.map((d) => {
+            const reservada = diasConReserva.has(d.clave);
+            const hay = (clasesPorDia.get(d.clave)?.length ?? 0) > 0;
             return (
               <button
-                key={a.id}
+                key={d.clave}
                 type="button"
-                onClick={() => {
-                  setDemoAlumnoId(a.id);
-                  void cargarClasesAlumno();
-                }}
-                className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all touch-manipulation ${
-                  activo
-                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                    : "bg-background/80 text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/60"
-                }`}
-                data-testid={`select-demo-${a.id}`}
+                className="a-wd"
+                aria-pressed={dia === d.clave}
+                aria-label={etiquetaDia(d.clave, `${d.etiqueta} ${d.numero}`)}
+                onClick={() => setDia(d.clave)}
               >
-                {a.nombre_completo}
+                <small>{d.etiqueta}</small>
+                <span className="a-t-bs">{d.numero}</span>
+                <span className="a-mk">
+                  {reservada ? <Check width={11} height={11} className="a-i" /> : hay ? <i className="a-dot" /> : null}
+                </span>
               </button>
             );
           })}
         </div>
+      ) : (
+        <section className="a-card a-cal" data-testid="month-grid">
+          <b className="a-t-bs">{MESES[ahora.getMonth()]} {ahora.getFullYear()}</b>
+          <div className="a-cal-grid">
+            {["L", "M", "M", "J", "V", "S", "D"].map((x, i) => (
+              <span key={`dow-${i}`} className="a-dow a-t-label" aria-hidden="true">{x}</span>
+            ))}
+            {celdasMes.map((c, i) => {
+              if (!c) return <span key={`out-${i}`} className="a-day a-out a-t-sec" aria-hidden="true" />;
+              const reservada = diasConReserva.has(c.clave);
+              const hay = (clasesPorDia.get(c.clave)?.length ?? 0) > 0;
+              return (
+                <button
+                  key={c.clave}
+                  type="button"
+                  className={`a-day a-t-sec ${reservada ? "a-res" : ""} ${c.clave === hoy ? "a-today" : ""}`}
+                  aria-pressed={dia === c.clave}
+                  aria-label={etiquetaDia(c.clave, `${c.numero} de ${MESES[ahora.getMonth()]}`)}
+                  onClick={() => setDia(c.clave)}
+                >
+                  <b>{c.numero}</b>
+                  {reservada ? <Check width={11} height={11} className="a-i" /> : hay ? <i className="a-dot" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <div className="a-legend a-t-sec">
+        <span><i className="a-lg-dot" />hay clases</span>
+        <span><Check width={12} height={12} className="a-i" /> reservada</span>
+        <span><i className="a-lg-today" />seleccionado</span>
       </div>
 
-      {/* Contador semanal o Pase Libre */}
-      <div className="rounded-2xl border border-border/80 bg-card p-4" data-testid="weekly-allowance">
-        {limite === null ? (
-          <p className="text-lg font-black">{plan ? "Pase libre esta semana" : "Sin membresía de clases"}</p>
-        ) : (
-          <>
-            <p className="text-lg font-black tabular-nums">
-              {usadas} de {limite} clases usadas esta semana
-            </p>
-            <div className="mt-2 flex gap-1.5" aria-hidden="true">
-              {Array.from({ length: limite }, (_, i) => (
-                <span
-                  key={i}
-                  className={`h-2.5 flex-1 rounded-full ${i < usadas ? "bg-primary" : "border border-dashed border-border"}`}
-                />
-              ))}
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {Math.max(limite - usadas, 0) === 1 ? "Te queda 1 clase" : `Te quedan ${Math.max(limite - usadas, 0)} clases`} · la semana va de lunes a domingo.
-            </p>
-          </>
+      {(error || aviso) && (
+        <div role="alert" className="a-info a-t-sec" data-testid="alert-message">
+          <span style={{ flex: 1 }}>{error ?? aviso}</span>
+          <button type="button" className="a-icon-btn" onClick={limpiarMensajes} aria-label="Cerrar aviso">
+            <X width={16} height={16} className="a-i" />
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <p className="a-eb a-t-label">{tituloDia}</p>
+        {actividadPlan && (
+          <span className="a-t-sec a-muted" data-testid="plan-activity-filter">
+            {mostrarTodas ? "Todas las actividades" : `Tu plan: ${NOMBRE_ACTIVIDAD[actividadPlan]}`}{" "}
+            <button
+              type="button"
+              className="a-link"
+              onClick={() => setMostrarTodas(!mostrarTodas)}
+              data-testid="toggle-filter-actividades"
+            >
+              {mostrarTodas ? "Solo mi actividad" : "Ver todas"}
+            </button>
+          </span>
         )}
       </div>
 
-      <DaysStrip dias={dias} seleccionado={dia} hoy={hoy} conMarca={diasConReserva} onSeleccionar={setDia} />
-
-      {/* Filtro por actividad de plan */}
-      {actividadPlan && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground px-1" data-testid="plan-activity-filter">
-          <span>Plan habilitado para: <strong className="text-foreground">{NOMBRE_ACTIVIDAD[actividadPlan]}</strong></span>
-          <button
-            type="button"
-            onClick={() => setMostrarTodas(!mostrarTodas)}
-            className="font-semibold text-primary hover:underline text-xs"
-            data-testid="toggle-filter-actividades"
-          >
-            {mostrarTodas ? "Ver solo mi actividad" : "Ver todas las actividades"}
-          </button>
-        </div>
-      )}
-
-      {(error || aviso) && (
-        <div
-          role="alert"
-          className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-sm ${
-            error
-              ? "border-danger-soft-border bg-danger-soft text-danger-soft-foreground"
-              : "border-neutral-soft-border bg-neutral-soft text-neutral-soft-foreground"
-          }`}
-          data-testid="alert-message"
-        >
-          <span>{error ?? aviso}</span>
-          <button type="button" onClick={limpiarMensajes} className="min-h-8 px-1 font-bold" aria-label="Cerrar aviso">
-            ✕
-          </button>
-        </div>
-      )}
-
       {cargando && clases.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">Cargando clases…</p>
+        <p className="a-t-sec a-muted" role="status" style={{ textAlign: "center" }}>Cargando clases…</p>
       ) : delDia.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          {actualizadoAt ? "No hay clases este día." : "Todavía no hay clases cargadas."}
-        </p>
+        <section className="a-card a-state">
+          <b className="a-t-bs">{actualizadoAt ? "No hay clases este día" : "Todavía no hay clases cargadas"}</b>
+          <p className="a-t-sec">Elegí otro día de la semana.</p>
+        </section>
       ) : (
-        <ul className="space-y-3">
-          {delDia.map((clase) => {
-            const reserva = reservaPorClase.get(clase.id) ?? null;
-            const ocupados = ocupacionClase(clase.id);
-            const cuposLibres = clase.capacidad !== null ? Math.max(0, clase.capacidad - ocupados) : null;
-            const claseLlena = sinCupo.includes(clase.id) || (clase.capacidad !== null && cuposLibres === 0);
-
-            const estado = estadoTarjetaClase({
-              clase,
-              reserva,
-              usadas,
-              limiteSemanal: limite,
-              sinCupo: claseLlena,
-            });
-            const renovacion = inicioPeriodoRenovacion(clase, membresia);
-            const ocupado = accionEnCurso === clase.id || (reserva !== null && accionEnCurso === reserva.id);
-
-            return (
-              <li
-                key={clase.id}
-                className={`rounded-2xl border bg-card p-4 transition-all ${
-                  estado === "RESERVADA" ? "border-success ring-1 ring-success/30" : "border-border/80"
-                }`}
-                data-testid="class-booking-card"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-black tabular-nums">{horaLocal(clase.inicio)}</p>
-                    <p className="text-xs text-muted-foreground font-medium" data-testid="class-spots">
-                      {clase.duracion_minutos} min
-                      {clase.capacidad !== null ? ` · ${cuposLibres} de ${clase.capacidad} cupos libres` : " · Cupo libre"}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${COLOR_ACTIVIDAD[clase.actividad]}`}>
-                      {NOMBRE_ACTIVIDAD[clase.actividad]}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
-                          ? "bg-success-soft text-success-soft-foreground border border-success-soft-border"
-                          : estado === "CANCELADA"
-                          ? "bg-danger-soft text-danger-soft-foreground border border-danger-soft-border"
-                          : estado === "INICIADA"
-                          ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
-                          : "bg-secondary text-muted-foreground"
-                      }`}
-                      data-testid="class-status"
-                    >
-                      {estado === "RESERVADA" || estado === "RESERVADA_INICIADA"
-                        ? "Anotado"
-                        : estado === "CANCELADA"
-                        ? "Cancelada"
-                        : estado === "INICIADA"
-                        ? "Comenzada"
-                        : estado === "SIN_CUPO"
-                        ? "Sin cupo"
-                        : "Disponible"}
-                    </span>
-                  </div>
-                </div>
-
-                {renovacion && estado === "DISPONIBLE" && (
-                  <p className="mt-3 rounded-xl border border-neutral-soft-border bg-neutral-soft p-3 text-xs text-neutral-soft-foreground" data-testid="renewal-period-banner">
-                    Esta clase corresponde a tu período de renovación a partir del {renovacion}.
-                  </p>
-                )}
-
-                <div className="mt-3">
-                  {estado === "DISPONIBLE" && (
-                    <Button
-                      size="touch"
-                      className="w-full"
-                      disabled={ocupado}
-                      onClick={() => void reservar(clase.id)}
-                      data-testid="book-class-btn"
-                    >
-                      {ocupado ? "Reservando…" : "Reservar cupo"}
-                    </Button>
-                  )}
-                  {estado === "RESERVADA" && reserva && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-bold text-success">✓ Tu reserva está confirmada</p>
-                      <Button
-                        variant="outline"
-                        size="touch"
-                        className="w-full"
-                        disabled={ocupado}
-                        onClick={() => setPorCancelar({ clase, reserva })}
-                        data-testid="cancel-booking-btn"
-                      >
-                        {ocupado ? "Cancelando…" : "Cancelar mi reserva"}
-                      </Button>
-                    </div>
-                  )}
-                  {estado === "RESERVADA_INICIADA" && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-bold text-success">✓ Estás anotado</p>
-                      <Button variant="outline" size="touch" className="w-full" disabled>
-                        La clase ya comenzó: venció el plazo para cancelar
-                      </Button>
-                    </div>
-                  )}
-                  {estado === "AUSENTE" && <EstadoFijo>Quedaste ausente · la clase cuenta en tu semana</EstadoFijo>}
-                  {estado === "CANCELADA" && (
-                    <EstadoFijo>Clase cancelada{clase.motivo_cancelacion ? `: ${clase.motivo_cancelacion}` : ""}</EstadoFijo>
-                  )}
-                  {estado === "INICIADA" && <EstadoFijo>La clase ya comenzó</EstadoFijo>}
-                  {estado === "SIN_CUPO" && (
-                    <div className="space-y-2">
-                      <EstadoFijo>Cupo agotado</EstadoFijo>
-                      {/* Permitir click para verificar mensaje de error GZ001 */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs text-muted-foreground"
-                        onClick={() => void reservar(clase.id)}
-                        data-testid="attempt-booked-class-btn"
-                      >
-                        Intentar reservar (probar regla)
-                      </Button>
-                    </div>
-                  )}
-                  {estado === "LIMITE" && (
-                    <div className="space-y-2">
-                      <EstadoFijo>Límite semanal alcanzado ({usadas}/{limite})</EstadoFijo>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs text-muted-foreground"
-                        onClick={() => void reservar(clase.id)}
-                        data-testid="attempt-limit-class-btn"
-                      >
-                        Intentar reservar (probar límite)
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        delDia.map((clase) => {
+          const reserva = reservaPorClase.get(clase.id) ?? null;
+          const libres = clase.capacidad !== null ? Math.max(0, clase.capacidad - ocupacionClase(clase.id)) : null;
+          const llena = sinCupo.includes(clase.id) || (clase.capacidad !== null && libres === 0);
+          const estado = estadoTarjetaClase({ clase, reserva, usadas, limiteSemanal: limite, sinCupo: llena });
+          const renovacion = inicioPeriodoRenovacion(clase, membresia);
+          const ocupado = accionEnCurso === clase.id || (reserva !== null && accionEnCurso === reserva.id);
+          return (
+            <section key={clase.id} className="a-card a-ccl" data-testid="class-booking-card">
+              <div className="a-m">
+                <span className="a-t-mm">{horaLocal(clase.inicio)}</span>
+                <span className="a-chip a-t-label" data-testid="class-status" data-estado={estado}>
+                  {NOMBRE_ACTIVIDAD[clase.actividad]}
+                </span>
+              </div>
+              <span className="a-t-sec a-muted" data-testid="class-spots">
+                {clase.duracion_minutos} min · {textoCupo(clase.capacidad, libres)}
+              </span>
+              {renovacion && estado === "DISPONIBLE" && (
+                <p className="a-info a-t-sec" data-testid="renewal-period-banner">
+                  Esta clase corresponde a tu período de renovación a partir del {renovacion}.
+                </p>
+              )}
+              {accion(estado, clase, reserva, ocupado)}
+            </section>
+          );
+        })
       )}
 
       <dialog
         ref={dialogRef}
         onClose={() => setPorCancelar(null)}
-        className="m-auto w-[min(92vw,24rem)] rounded-2xl border border-border bg-card p-5 text-foreground backdrop:bg-black/60"
+        className="a-card"
+        style={{ margin: "auto", width: "min(92vw, 24rem)", padding: 20 }}
         aria-labelledby="cancelar-reserva-titulo"
       >
         {porCancelar && (
-          <div className="space-y-4">
-            <h2 id="cancelar-reserva-titulo" className="text-lg font-black">¿Cancelar tu reserva?</h2>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col gap-3">
+            <h2 id="cancelar-reserva-titulo" className="a-t-h">¿Cancelar tu reserva?</h2>
+            <p className="a-t-body a-muted">
               {NOMBRE_ACTIVIDAD[porCancelar.clase.actividad]} a las {horaLocal(porCancelar.clase.inicio)}. Liberás el cupo y
               la clase deja de contar en tu semana. Podés cancelar hasta que empiece.
             </p>
-            <div className="grid gap-2">
-              <Button
-                variant="destructive"
-                size="touch"
-                onClick={() => {
-                  const { reserva } = porCancelar;
-                  setPorCancelar(null);
-                  void cancelarReserva(reserva.id);
-                }}
-                data-testid="confirm-cancel-reserva-btn"
-              >
-                Sí, cancelar
-              </Button>
-              <Button variant="ghost" size="touch" onClick={() => setPorCancelar(null)}>
-                Mantener reserva
-              </Button>
-            </div>
+            <button
+              type="button"
+              className="a-btn a-danger"
+              onClick={() => {
+                const { reserva } = porCancelar;
+                setPorCancelar(null);
+                void cancelarReserva(reserva.id);
+              }}
+              data-testid="confirm-cancel-reserva-btn"
+            >
+              Sí, cancelar
+            </button>
+            <button type="button" className="a-btn a-ghost" onClick={() => setPorCancelar(null)}>
+              Mantener reserva
+            </button>
           </div>
         )}
       </dialog>
     </section>
-  );
-}
-
-function EstadoFijo({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="flex min-h-12 items-center justify-center rounded-xl border border-border/70 bg-secondary/50 px-3 text-center text-sm font-semibold text-muted-foreground">
-      {children}
-    </p>
   );
 }

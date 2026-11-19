@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { textoCupo, textoRestantes } from "@/components/athlete/athlete-classes";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
@@ -178,15 +179,38 @@ describe("Vistas y detalles de alumnos (#113 / GH #122)", () => {
   const agenda = readSource("../components/coach/class-agenda.tsx");
   const studentDetail = readSource("../components/coach/student-detail.tsx");
 
-  it("Athlete App: contador semanal, selector demo, filtrado por actividad y cupos libres", () => {
-    expect(athlete).toContain("clases usadas esta semana");
-    expect(athlete).toContain("<DaysStrip");
+  it("Athlete App v7: cupo semanal, semana y mes, botones con motivo, filtro por actividad y cupos con plural", () => {
+    expect(athlete).toContain("clases usadas");
+    expect(athlete).toContain('className="a-week"');
+    expect(athlete).toContain('data-testid="month-grid"');
     expect(athlete).toContain('data-testid="class-spots"');
     expect(athlete).toContain('data-testid="class-status"');
     expect(athlete).toContain('data-testid="plan-activity-filter"');
-    expect(athlete).toContain('data-testid="demo-athlete-selector"');
     expect(athlete).toContain('data-testid="renewal-period-banner"');
-    expect(athlete).toContain('size="touch"');
+    for (const motivo of [
+      "Reservar cupo",
+      "Reservada · Cancelar",
+      "Clase completa",
+      "Necesitás conexión para reservar",
+      "Clase pasada",
+      "Asististe",
+    ]) {
+      expect(athlete).toContain(motivo);
+    }
+    expect(athlete).toContain("Ya usaste tus {limite} clases de la semana");
+    // La v7 (02-pantallas §7) no muestra el selector de alumno demo ni botones "probar regla".
+    expect(athlete).not.toContain("demo-athlete-selector");
+    expect(athlete).not.toContain("probar regla");
+  });
+
+  it("textoCupo y textoRestantes respetan singular y plural", () => {
+    expect(textoCupo(10, 2)).toBe("Quedan 2 lugares");
+    expect(textoCupo(10, 1)).toBe("Queda 1 lugar");
+    expect(textoCupo(10, 0)).toBe("Completa");
+    expect(textoCupo(null, null)).toBe("Cupo libre");
+    expect(textoRestantes(2)).toBe("Te quedan 2 clases");
+    expect(textoRestantes(1)).toBe("Te queda 1 clase");
+    expect(textoRestantes(0)).toBe("No te quedan clases");
   });
 
   it("Coach Studio: ocupación, ausente en un toque condicionado al inicio y cancelación con motivo", () => {
