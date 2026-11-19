@@ -1447,7 +1447,7 @@ export function LiveWorkout() {
                           onClick={() =>
                             setPainModalData({
                               exerciseId: currentExercise.id,
-                              ejercicioId: currentExercise.ejercicio_id,
+                              ejercicioId: currentExercise.ejercicio_id || "",
                               exerciseName: currentExercise.nombre,
                               setNumber: serie?.numero_serie || 1,
                             })
