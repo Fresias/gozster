@@ -473,11 +473,13 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
 
   describe("5. Ergonomía Táctil, PWA Offline y Componentes de UI", () => {
     const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+    const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
     const cuestionarioPath = path.resolve(__dirname, "../components/athlete/cuestionario-inicial.tsx");
     const studentDetailPath = path.resolve(__dirname, "../components/coach/student-detail.tsx");
     const coachStudioViewPath = path.resolve(__dirname, "../components/coach/coach-studio-view.tsx");
 
     const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+    const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
     const cuestionarioCode = fs.readFileSync(cuestionarioPath, "utf-8");
     const studentDetailCode = fs.readFileSync(studentDetailPath, "utf-8");
     const coachStudioViewCode = fs.readFileSync(coachStudioViewPath, "utf-8");
@@ -487,7 +489,7 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       expect(liveWorkoutCode).toContain('data-testid="tab-workout"');
       // GOZS-144 PR1: las solapas Hábitos y Nutrición dejaron de montarse en la
       // app del alumno; sólo quedan Entrenamiento y Cuestionario.
-      expect(liveWorkoutCode).toContain('useState<"workout" | "cuestionario">("workout")');
+      expect(useLiveWorkoutCode).toContain('useState<"workout" | "cuestionario">("workout")');
       expect(liveWorkoutCode).not.toContain('data-testid="tab-habits"');
       expect(liveWorkoutCode).not.toContain('data-testid="tab-nutrition"');
       expect(liveWorkoutCode).toContain("<CuestionarioInicial");

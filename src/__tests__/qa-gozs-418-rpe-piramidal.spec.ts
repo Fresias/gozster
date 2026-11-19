@@ -93,7 +93,11 @@ describe("GOZS-418: Motor de Cargas - RPE Piramidal Escalonado con Guiones", () 
         path.resolve(__dirname, "../components/athlete/live-workout.tsx"),
         "utf-8"
       );
-      expect(liveWorkoutCode).toContain("parseTargetRpe");
+      const useLiveWorkoutCode = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/use-live-workout.ts"),
+        "utf-8"
+      );
+      expect(useLiveWorkoutCode).toContain("parseTargetRpe");
       expect(liveWorkoutCode).toContain('data-testid="rpe-prescribed-badge"');
       expect(liveWorkoutCode).toContain(
         "RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador"

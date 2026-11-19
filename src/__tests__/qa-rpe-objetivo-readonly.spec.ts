@@ -24,10 +24,12 @@ import {
 
 describe("QA Verification: RPE Objetivo Fijo y de Solo Lectura Prescrito por el Entrenador (GOZS-179 / GH #185)", () => {
   const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const useLiveWorkoutPath = path.resolve(__dirname, "../components/athlete/use-live-workout.ts");
   const iconsPath = path.resolve(__dirname, "../components/athlete/icons.tsx");
   const packageJsonPath = path.resolve(__dirname, "../../package.json");
 
   const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const useLiveWorkoutCode = fs.readFileSync(useLiveWorkoutPath, "utf-8");
   const iconsCode = fs.readFileSync(iconsPath, "utf-8");
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
 
@@ -138,8 +140,8 @@ describe("QA Verification: RPE Objetivo Fijo y de Solo Lectura Prescrito por el 
     it("cumple la regla Karpathy: modificación concisa y quirúrgica", () => {
       // live-workout.tsx conserva su estructura sin reescrituras masivas
       expect(liveWorkoutCode).toContain("export function LiveWorkout");
-      expect(liveWorkoutCode).toContain("useAthleteStore");
-      expect(liveWorkoutCode).toContain("useOfflineQueueStore");
+      expect(useLiveWorkoutCode).toContain("useAthleteStore");
+      expect(useLiveWorkoutCode).toContain("useOfflineQueueStore");
     });
   });
 });
