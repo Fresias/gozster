@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261119011000_molestias_sesion.sql";
+const NEW_MIGRATION = "20261119030000_molestias_sesion.sql";
 
 const COACH = "00000000-0000-0000-0000-00000000c0ac";
 const ALUMNO_A = "00000000-0000-0000-0000-00000000000a";
