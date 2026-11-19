@@ -28,6 +28,7 @@ import {
   Equal,
   Info,
   Smartphone,
+  ArrowUp,
 } from "@/components/athlete/icons";
 import { isWarmup, isDropset } from "@/lib/serie-tipo";
 import { calcularSeriesAproximacion, esEjercicioAislamiento } from "@/lib/aproximacion-pr";
@@ -165,6 +166,7 @@ export function EjercicioActivo() {
 
   const adjuntarVideoASerie = useAthleteStore((s) => s.adjuntarVideoASerie);
   const quitarVideoDeSerie = useAthleteStore((s) => s.quitarVideoDeSerie);
+  const reintentarVideoDeSerie = useAthleteStore((s) => s.reintentarVideoDeSerie);
 
   const [descansoInfo, setDescansoInfo] = React.useState(false);
   const [rpeAyuda, setRpeAyuda] = React.useState(false);
@@ -1045,21 +1047,79 @@ export function EjercicioActivo() {
                       <Trophy width={11} height={11} className="a-i" /> PR
                     </span>
                   )}
-                  <button
-                    type="button"
-                    className="a-vbtn"
-                    onClick={() =>
-                      setVideoUploadModalData({
-                        exerciseId: ej.id,
-                        exerciseName: ej.nombre,
-                        setNumber: s.numero_serie,
-                      })
+                  {(() => {
+                    const videoEstado = s.videoEstado ?? (s.video_url ? "listo" : "ninguno");
+                    if (videoEstado === "subiendo") {
+                      return (
+                        <span
+                          className="a-chip a-line a-t-label"
+                          role="status"
+                          data-testid={`serie-video-subiendo-${s.numero_serie}`}
+                        >
+                          <ArrowUp width={11} height={11} className="a-i" /> Subiendo…
+                        </span>
+                      );
                     }
-                    aria-label={`Agregar video a la serie ${s.numero_serie}`}
-                    data-testid={`serie-video-btn-${s.numero_serie}`}
-                  >
-                    <Video width={14} height={14} className="a-i" /> Video
-                  </button>
+                    if (videoEstado === "telefono") {
+                      return (
+                        <span
+                          className="a-chip a-ap a-t-label"
+                          data-testid={`serie-video-telefono-${s.numero_serie}`}
+                        >
+                          <Smartphone width={11} height={11} className="a-i" /> Video en el teléfono
+                        </span>
+                      );
+                    }
+                    if (videoEstado === "error") {
+                      return (
+                        <button
+                          type="button"
+                          className="a-vbtn"
+                          onClick={() => void reintentarVideoDeSerie(ej.id, s.numero_serie)}
+                          aria-label={`Reintentar el video de la serie ${s.numero_serie}`}
+                          data-testid={`serie-video-reintentar-${s.numero_serie}`}
+                        >
+                          <TriangleAlert width={14} height={14} className="a-i" /> Reintentar video
+                        </button>
+                      );
+                    }
+                    if (videoEstado === "listo") {
+                      return (
+                        <button
+                          type="button"
+                          className="a-chip a-line a-t-label"
+                          onClick={() =>
+                            setVideoUploadModalData({
+                              exerciseId: ej.id,
+                              exerciseName: ej.nombre,
+                              setNumber: s.numero_serie,
+                            })
+                          }
+                          aria-label={`Video adjunto en la serie ${s.numero_serie}`}
+                          data-testid={`serie-video-listo-${s.numero_serie}`}
+                        >
+                          <Video width={11} height={11} className="a-i" /> Video
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        type="button"
+                        className="a-vbtn"
+                        onClick={() =>
+                          setVideoUploadModalData({
+                            exerciseId: ej.id,
+                            exerciseName: ej.nombre,
+                            setNumber: s.numero_serie,
+                          })
+                        }
+                        aria-label={`Agregar video a la serie ${s.numero_serie}`}
+                        data-testid={`serie-video-btn-${s.numero_serie}`}
+                      >
+                        <Video width={14} height={14} className="a-i" /> Video
+                      </button>
+                    );
+                  })()}
                   <span className="a-stt a-t-sec" data-testid={pendiente ? "serie-en-telefono" : "serie-guardada"}>
                     {pendiente ? (
                       <>
