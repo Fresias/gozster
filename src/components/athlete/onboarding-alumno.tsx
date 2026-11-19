@@ -274,6 +274,15 @@ export function OnboardingAlumno({
                     </span>
                   )}
                   <small className="a-t-sec">Solo peso y repeticiones. Anotás y seguís.</small>
+                  <span className="a-preview">
+                    <span className="a-t-label a-muted">Serie 1 de 3</span>
+                    <span className="a-pr">
+                      <span>
+                        <span className="a-t-mm">60</span>{" "}
+                        <span className="a-t-sec">kg × 8</span>
+                      </span>
+                    </span>
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -294,8 +303,24 @@ export function OnboardingAlumno({
                     Lo mismo, más cuánto te costó (RPE), tipo de serie, aproximación y tu máximo
                     estimado.
                   </small>
+                  <span className="a-preview">
+                    <span className="a-pr">
+                      <span className="a-t-label a-muted">Serie 1 de 3</span>
+                      <span className="a-chip a-t-label">RPE 8</span>
+                    </span>
+                    <span className="a-pr">
+                      <span>
+                        <span className="a-t-mm">60</span>{" "}
+                        <span className="a-t-sec">kg × 8</span>
+                      </span>
+                      <span className="a-t-sec a-muted">1RM 75 kg</span>
+                    </span>
+                  </span>
                 </button>
               </div>
+              <p className="a-t-sec a-muted m-0 text-center">
+                Podés cambiarla cuando quieras desde Configuración.
+              </p>
               <div className="a-grow" />
               <button type="button" className="a-btn" onClick={() => setPaso(4)}>
                 Continuar con {vistaSel === "SIMPLE" ? "Simple" : "Técnica"}
@@ -307,6 +332,10 @@ export function OnboardingAlumno({
             <div className="a-onb">
               <CabeceraPaso paso={4} onAtras={() => setPaso(3)} onSaltar={saltar} />
               <h1 className="a-t-h">¿Querés ver el descanso después de cada serie?</h1>
+              <p className="a-t-body a-muted m-0">
+                Cada ejercicio tiene un descanso que indica tu coach (por ejemplo, 90 s) para
+                recuperarte antes de la próxima serie.
+              </p>
               <div className="a-qgroup" role="group" aria-label="Descanso">
                 <button
                   type="button"
@@ -318,6 +347,17 @@ export function OnboardingAlumno({
                     {timerSel ? <Check width={20} height={20} className="a-i" /> : null}
                   </span>
                   <b className="a-t-title">Sí, mostrame la cuenta</b>
+                  <small className="a-t-sec">
+                    Al registrar una serie aparece el reloj. Suena cuando termina; en Android
+                    también vibra.
+                  </small>
+                  <span className="a-preview">
+                    <span className="a-pr">
+                      <span className="a-t-label a-muted">Descanso</span>
+                      <span className="a-t-sec a-muted">de 1:30</span>
+                    </span>
+                    <span className="a-t-mm">0:58</span>
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -329,6 +369,9 @@ export function OnboardingAlumno({
                     {!timerSel ? <Check width={20} height={20} className="a-i" /> : null}
                   </span>
                   <b className="a-t-title">No, voy a mi ritmo</b>
+                  <small className="a-t-sec">
+                    Registrás la serie y pasás directo a la siguiente. Sin reloj.
+                  </small>
                 </button>
               </div>
               <div className="a-grow" />
