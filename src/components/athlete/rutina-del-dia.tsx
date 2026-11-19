@@ -115,6 +115,7 @@ export function RutinaDelDia() {
     latestUnreadStaffMessage,
     setAthleteChatOpen,
     handleTerminarEntrenamiento,
+    stopTimer,
     cleanDiaTitle,
     isAllWorkoutCompleted,
   } = useLiveWorkout();
@@ -335,7 +336,7 @@ export function RutinaDelDia() {
             <Check width={12} height={12} className="a-i" /> Hecho
           </span>
         ) : hasMolestia ? (
-          <span className="a-chip a-bad a-t-label">
+          <span className="a-chip a-bad a-t-label" data-testid={`molestia-chip-${ej.id}`}>
             <TriangleAlert width={12} height={12} className="a-i" /> Molestia
           </span>
         ) : (
@@ -739,6 +740,8 @@ export function RutinaDelDia() {
                 sintomas: report.sintomasAlarma,
                 momento: report.momentoAparicion,
                 notas: report.notasAlumno,
+              }).then((mol) => {
+                if (mol.nivel === "alta" || mol.nivel === "alarma") stopTimer();
               });
             }
             setPainModalData(null);

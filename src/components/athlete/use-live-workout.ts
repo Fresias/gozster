@@ -7,7 +7,7 @@ import {
   type LiveWorkoutSession,
 } from "@/store/use-athlete-store";
 import { calculateEffectiveVolume } from "@/lib/strength-metrics";
-import { getPainBannerConfig } from "@/components/athlete/pain-banner";
+import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
 import type { RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
@@ -221,6 +221,7 @@ export function useLiveWorkout() {
     nombrePreferido,
     guardarNombrePreferido,
     setToastSesion,
+    stopTimer,
   } = useAthleteStore();
 
   const isSimpleView = (nivelVistaAlumno ?? "SIMPLE") === "SIMPLE";
@@ -345,16 +346,6 @@ export function useLiveWorkout() {
     exerciseName: string;
     setNumber: number;
   } | null>(null);
-  const [dismissedMolestiaId, setDismissedMolestiaId] = React.useState<string | null>(null);
-  const latestMolestia = (currentSession.molestias ?? []).at(-1) ?? null;
-  const derivedPainBanner = React.useMemo(() => {
-    if (!latestMolestia || latestMolestia.id === dismissedMolestiaId) return null;
-    const ej = currentSession.ejercicios.find((e) => e.id === latestMolestia.ejercicioEnRutinaId);
-    return getPainBannerConfig(latestMolestia.eva, {
-      exerciseName: ej?.nombre,
-      sintomasAlarma: latestMolestia.sintomas,
-    });
-  }, [latestMolestia, dismissedMolestiaId, currentSession.ejercicios]);
   const [videoUploadModalData, setVideoUploadModalData] = React.useState<{
     exerciseId: string;
     exerciseName: string;
@@ -440,6 +431,16 @@ export function useLiveWorkout() {
   const currentExerciseIndex = currentSession.ejercicios.findIndex(
     (ej) => ej.id === currentExercise?.id,
   );
+
+  const avisoMolestia = React.useMemo(() => {
+    if (!rawExercise) return null;
+    return avisoMolestiaPara(rawExercise, currentSession.molestias ?? []);
+  }, [rawExercise, currentSession.molestias]);
+
+  const ejercicioEstaBloqueado = React.useMemo(() => {
+    if (!rawExercise) return false;
+    return ejercicioBloqueado(rawExercise.id, currentSession.molestias ?? []);
+  }, [rawExercise, currentSession.molestias]);
 
   const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
   const latestUnreadStaffMessage = getLatestUnreadStaffMessage();
@@ -607,7 +608,7 @@ export function useLiveWorkout() {
     confirmarAtipica = false,
     override?: { pesoKg: number; reps: number },
   ) => {
-    if (!currentExercise || !currentSet) return;
+    if (!currentExercise || !currentSet || ejercicioEstaBloqueado) return;
     setPlausibilityError(null);
 
     const num = currentSet.numero_serie;
@@ -713,7 +714,7 @@ export function useLiveWorkout() {
 
   // Flujo unilateral: registra un lado en UI y solo envía 1 serie al store al completar D e I
   const handleRegistrarUnilateral = (confirmarAtipica = false) => {
-    if (!currentExercise || !currentSet) return;
+    if (!currentExercise || !currentSet || ejercicioEstaBloqueado) return;
     setPlausibilityError(null);
 
     const peso = currentSet.peso_kg;
@@ -951,10 +952,9 @@ export function useLiveWorkout() {
     setWarmupModalExercise,
     painModalData,
     setPainModalData,
-    dismissedMolestiaId,
-    setDismissedMolestiaId,
-    latestMolestia,
-    derivedPainBanner,
+    avisoMolestia,
+    ejercicioEstaBloqueado,
+    stopTimer,
     videoUploadModalData,
     setVideoUploadModalData,
     syncError,
