@@ -3,8 +3,10 @@
 > Lo mantiene `@PM-GOZster` (`07-checkpoints.md §4`). Cada issue tiene además su `progreso/<ID>.md` en su propia rama.
 > **Para retomar la orquestación:** leer esta tabla y, para cada rama abierta, `git show origin/<rama>:docs/athlete-v7/progreso/<ID>.md`.
 
-- **Última actualización:** —
-- **Decisión abierta:** D3 (`00-PM.md §4`)
+- **Última actualización:** 2026-11-18 por `@PM-GOZster`
+- **Épica Multica:** GOZS-573
+- **Decisiones:** D3 cerrada → A (`00-PM.md §4`). No quedan decisiones abiertas.
+- **Bloqueo actual:** creación de issues en espera del conteo de `registro_series` (30 días) en producción, pedido a `@Fresias`.
 
 | ID | Owner | Issue | Rama | Estado | Último CP | PR | Notas |
 |---|---|---|---|---|---|---|---|
@@ -18,7 +20,7 @@
 | FE-02 | frontend | — | — | sin empezar | — | — | |
 | FE-03 | frontend | — | — | sin empezar | — | — | |
 | FE-04 | frontend | — | — | sin empezar | — | — | |
-| FE-05 | frontend | — | — | sin empezar | — | — | Necesita D3 |
+| FE-05 | frontend | — | — | sin empezar | — | — | D3 = A |
 | FE-06 | frontend | — | — | sin empezar | — | — | |
 | FE-07 | frontend | — | — | sin empezar | — | — | |
 | FE-08 | frontend | — | — | sin empezar | — | — | |
