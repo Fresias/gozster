@@ -40,9 +40,9 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # GOZSter Local Guardrails
 
 ## Database & UI Contracts
-- supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS. New version prefix: unique vs main and open PRs, newer than main's latest.
+- supabase/migrations/: append-only (db.append-only), explicit RLS. New version prefix: unique vs main and open PRs, newer than main's latest.
 - Zero references to "Mynter" (ADR-005).
-- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (`assertNoDemoLiteralsInLiveMode`).
+- Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (`assertNoDemoLiteralsInLiveMode`). Screen migrations keep old `data-testid` beside new.
 
 ## QA & Review Rounds
 - **QA CHANGES_REQUESTED r1/2:** set stage in_progress, comment blocker + round N/2 @mentioning assignee; QA issue `todo` until in_review.
