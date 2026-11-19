@@ -205,6 +205,37 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(htmlTec).toContain("47,5 kg × 8 · 1RM ~60 kg");
       expect(cierreCode).not.toMatch(/border-amber-|🏆|#[0-9a-fA-F]{6}/);
     });
+
+    it("redondea 1RM decimal y formatea peso corporal sin '0 kg' en .a-prc (FE-06 CP2)", () => {
+      const html = renderToStaticMarkup(
+        <CierreDiaModal
+          isOpen={true}
+          onClose={() => {}}
+          tonelajeKg={1000}
+          seriesCompletadas={10}
+          totalSeries={10}
+          recordsObtenidos={[
+            {
+              exerciseName: "Press banca plano",
+              peso_kg: 47.5,
+              reps_hechas: 8,
+              epley_kg: 60.1667,
+            },
+            {
+              exerciseName: "Dominadas",
+              peso_kg: 0,
+              reps_hechas: 14,
+              epley_kg: null,
+            },
+          ]}
+          esVistaTecnica={true}
+        />,
+      );
+      expect(html).toContain("47,5 kg × 8 · 1RM ~60 kg");
+      expect(html).not.toContain("60.1667");
+      expect(html).toContain("14 reps");
+      expect(html).not.toContain("0 kg × 14");
+    });
   });
 
   describe("Toast de sesión guardada (toast-sesion)", () => {
@@ -227,6 +258,28 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(html).toContain('data-testid="toast-sesion"');
       expect(html).toContain("a-toast a-t-sec a-show a-ok");
       expect(html).toContain("Sesión guardada en tu historial");
+    });
+
+    it("AthleteShell renderiza toast-record con estilo .a-toast.a-rec y copa sin fondo (01 §8)", () => {
+      useAthleteStore.setState({
+        onboardingCompletado: true,
+        toastSesion: {
+          mensaje: "Nuevo récord en Press banca plano",
+          tipo: "rec",
+        },
+      });
+
+      const html = renderToStaticMarkup(
+        <AthleteShell>
+          <div>Ejercicio</div>
+        </AthleteShell>,
+      );
+
+      expect(html).toContain('data-testid="toast-sesion"');
+      expect(html).toContain("a-toast a-t-sec a-show a-rec");
+      expect(html).toContain('class="a-tic"');
+      expect(html).toContain("Nuevo récord en Press banca plano");
+      useAthleteStore.setState({ toastSesion: null });
     });
   });
 });
