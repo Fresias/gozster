@@ -54,7 +54,15 @@ export const TABLAS = [
   { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes" } },
   { nombre: "habitos_registros", fks: { alumno_id: "perfiles" } },
   { nombre: "nutricion_registros", fks: { alumno_id: "perfiles" } },
-  { nombre: "alumno_historial_dolor", fks: { alumno_id: "perfiles", ejercicio_id: "ejercicios" } },
+  {
+    nombre: "alumno_historial_dolor",
+    fks: {
+      alumno_id: "perfiles",
+      ejercicio_en_rutina_id: "ejercicios_en_rutina",
+      ejercicio_id: "ejercicios",
+      sesion_id: "registro_sesiones",
+    },
+  },
   {
     nombre: "alertas_entrenador",
     fks: {

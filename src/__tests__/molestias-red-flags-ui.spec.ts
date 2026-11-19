@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
+import { ejercicioBloqueado } from "@/lib/athlete/molestias";
 
 const readSource = (relPath: string) =>
   fs.readFileSync(path.resolve(__dirname, relPath), "utf-8");
@@ -141,81 +141,83 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
     });
   });
 
-  describe("3. useAthleteStore: Gestión de dolor, Offline Queue y Red Flags", () => {
-    it("activa protocolo de freno y emite alerta crítica si hay red flags marcadas", async () => {
+  describe("3. useAthleteStore: Gestión de dolor, Outbox propia y Red Flags", () => {
+    it("activa protocolo de freno si hay red flags marcadas", async () => {
       const store = useAthleteStore.getState();
       expect(store.stopProtocolActive).toBe(false);
 
-      const reportPayload: PainReportData = {
-        exerciseId: "ej-sentadilla-1",
-        exerciseName: "Sentadilla Trasera con Barra",
-        setNumber: 2,
-        zonaArticular: "RODILLA",
-        severidad: "MODERADO",
-        intensidadNumerica: 5,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: ["Dolor punzante/súbito"],
-        esSintomaAlarma: true,
-        notasAlumno: "Sentí un pinchazo agudo al bajar",
-      };
-
-      await store.reportPainEvent(reportPayload);
-
-      // Debe haber activado el protocolo de freno
-      expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
-    });
-
-    it("activa protocolo de freno si la severidad es AGUDO aunque no marque red flags", async () => {
-      const store = useAthleteStore.getState();
-      expect(store.stopProtocolActive).toBe(false);
-
-      const reportPayload: PainReportData = {
-        exerciseId: "ej-press-1",
-        exerciseName: "Press de Banca Plano",
-        setNumber: 3,
-        zonaArticular: "HOMBRO",
-        severidad: "AGUDO",
-        intensidadNumerica: 9,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: true,
-        notasAlumno: "Dolor muy intenso en cara anterior",
-      };
-
-      await store.reportPainEvent(reportPayload);
+      await store.reportarMolestia({
+        ejercicioEnRutinaId: "ej-sentadilla-1",
+        ejercicioId: "ej-sentadilla-con-barra",
+        numeroSerie: 2,
+        zona: "RODILLA",
+        eva: 5,
+        momento: "EN_SERIE",
+        sintomas: ["Dolor punzante/súbito"],
+        notas: "Sentí un pinchazo agudo al bajar",
+      });
 
       expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
     });
 
-    it("soporta modo avión encolando el evento PAIN_REPORT_SUBMITTED en useOfflineQueueStore", async () => {
+    it("EVA 8 bloquea el ejercicio y EVA 10 activa protocolo de freno aunque no marque red flags", async () => {
+      const store = useAthleteStore.getState();
+      expect(store.stopProtocolActive).toBe(false);
+
+      const alta = await store.reportarMolestia({
+        ejercicioEnRutinaId: "ej-press-1",
+        ejercicioId: "ej-press-banca",
+        numeroSerie: 3,
+        zona: "HOMBRO",
+        eva: 8,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor muy intenso en cara anterior",
+      });
+
+      expect(alta.nivel).toBe("alta");
+      expect(
+        ejercicioBloqueado("ej-press-1", useAthleteStore.getState().currentSession.molestias ?? []),
+      ).toBe(true);
+
+      await store.reportarMolestia({
+        ejercicioEnRutinaId: "ej-press-1",
+        ejercicioId: "ej-press-banca",
+        numeroSerie: 3,
+        zona: "HOMBRO",
+        eva: 10,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor insoportable",
+      });
+
+      expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
+    });
+
+    it("soporta modo avión guardando la molestia como pendiente en currentSession.molestias sin perderla ni usar la cola de series", async () => {
       const offlineQueue = useOfflineQueueStore.getState();
       offlineQueue.setOnlineStatus(false);
       expect(useOfflineQueueStore.getState().isOnline).toBe(false);
 
       const store = useAthleteStore.getState();
-      const reportPayload: PainReportData = {
-        exerciseId: "ej-peso-muerto-1",
-        exerciseName: "Peso Muerto Convencional",
-        setNumber: 1,
-        zonaArticular: "LUMBAR",
-        severidad: "AGUDO",
-        intensidadNumerica: 8,
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: ["Inestabilidad articular"],
-        esSintomaAlarma: true,
-        notasAlumno: "Tirón lumbar en despegue",
-      };
+      const creada = await store.reportarMolestia({
+        ejercicioEnRutinaId: "ej-peso-muerto-1",
+        ejercicioId: "ej-peso-muerto-convencional",
+        numeroSerie: 1,
+        zona: "LUMBAR",
+        eva: 8,
+        momento: "EN_SERIE",
+        sintomas: ["Inestabilidad articular"],
+        notas: "Tirón lumbar en despegue",
+      });
 
-      await store.reportPainEvent(reportPayload);
+      expect(creada.envio).toBe("pendiente");
+      expect(creada.zona).toBe("LUMBAR");
+      expect(creada.nivel).toBe("alarma");
 
-      // Verificamos que se encoló sin errores en offline
-      const pendingEvents = useOfflineQueueStore.getState().pendingEvents;
-      expect(pendingEvents).toHaveLength(1);
-      const firstEvent = pendingEvents[0]!;
-      expect(firstEvent.action).toBe("PAIN_REPORT_SUBMITTED");
-      expect(firstEvent.payload?.exerciseName).toBe("Peso Muerto Convencional");
-      expect(firstEvent.payload?.zonaArticular).toBe("LUMBAR");
-      expect(firstEvent.payload?.esSintomaAlarma).toBe(true);
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias).toHaveLength(1);
+      expect(molestias[0]?.envio).toBe("pendiente");
 
       // El protocolo de freno se activa localmente de inmediato (Offline-First)
       expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
