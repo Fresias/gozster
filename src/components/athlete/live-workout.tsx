@@ -78,6 +78,8 @@ export function LiveWorkout() {
     stopProtocolActive,
     setStopProtocolActive,
     reportarMolestia,
+    ejercicioAbiertoId,
+    setEjercicioAbiertoId,
     volverAlInicio,
     sesionesCompletadas,
     ultimaVez,
@@ -223,13 +225,19 @@ export function LiveWorkout() {
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={volverAlInicio}
+                  onClick={() => {
+                    if (ejercicioAbiertoId !== null) {
+                      setEjercicioAbiertoId(null);
+                    } else {
+                      volverAlInicio();
+                    }
+                  }}
                   className="flex h-11 items-center gap-1.5 px-3 rounded-xl border border-border/80 bg-card text-xs font-bold text-foreground hover:bg-secondary/60 active:scale-[0.97] transition-all touch-manipulation cursor-pointer"
-                  aria-label="Volver a Mis días"
-                  data-testid="volver-a-mis-dias-btn"
+                  aria-label={ejercicioAbiertoId !== null ? `Volver a ${cleanDiaTitle || "la rutina"}` : "Volver a Mis días"}
+                  data-testid={ejercicioAbiertoId !== null ? "volver-a-rutina-btn" : "volver-a-mis-dias-btn"}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  <span>Mis días</span>
+                  <span>{ejercicioAbiertoId !== null ? (cleanDiaTitle || "Rutina") : "Mis días"}</span>
                 </button>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">

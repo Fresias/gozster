@@ -155,8 +155,11 @@ export function useLiveWorkout() {
     reportarMolestia,
     syncSessionToSupabase,
     diaActivoId,
+    sessionStartedAt,
     ejercicioAbiertoId,
     setEjercicioAbiertoId,
+    setCierreAbierto,
+    setCuestionarioAbierto,
     volverAlInicio,
     marcarDiaCompletado,
     sesionesCompletadas,
@@ -299,7 +302,7 @@ export function useLiveWorkout() {
     setNumber: number;
   } | null>(null);
 
-  const { syncError, clearSyncError, isOnline } = useOfflineQueueStore();
+  const { syncError, clearSyncError, isOnline, pendingEvents } = useOfflineQueueStore();
 
   // "La última vez": se descarga al abrir la sesión y al volver la conexión
   React.useEffect(() => {
@@ -731,8 +734,11 @@ export function useLiveWorkout() {
     reportarMolestia,
     syncSessionToSupabase,
     diaActivoId,
+    sessionStartedAt,
     ejercicioAbiertoId,
     setEjercicioAbiertoId,
+    setCierreAbierto,
+    setCuestionarioAbierto,
     volverAlInicio,
     marcarDiaCompletado,
     sesionesCompletadas,
@@ -802,6 +808,7 @@ export function useLiveWorkout() {
     syncError,
     clearSyncError,
     isOnline,
+    pendingEvents,
     totalSets,
     completedSetsCount,
     completedExercisesCount,

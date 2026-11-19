@@ -346,3 +346,29 @@ export function MessageSquare(props: IconProps) {
     </Icon>
   );
 }
+
+export function ChevronLeft(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m15 18-6-6 6-6" />
+    </Icon>
+  );
+}
+
+export function ArrowRight(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+      <path d="m13 5 7 7-7 7" />
+    </Icon>
+  );
+}
+
+export function Smartphone(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </Icon>
+  );
+}
