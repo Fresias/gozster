@@ -713,7 +713,7 @@ export function EjercicioActivo() {
                 <div className={`a-val ${pesoWarn ? "a-warn" : ""}`}>
                   <input
                     id={`peso-${ej.id}-${serie.numero_serie}`}
-                    className="a-t-mi"
+                    className={`a-t-mi${(pesoDraft ?? fmtAr.format(serie.peso_kg)).length >= 5 ? " a-long" : ""}`}
                     style={{ ["--n" as string]: String(Math.max(1, (pesoDraft ?? fmtAr.format(serie.peso_kg)).length)) }}
                     type="text"
                     inputMode="decimal"

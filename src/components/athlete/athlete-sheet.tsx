@@ -47,6 +47,54 @@ function obtenerFocuseables(container: HTMLElement): HTMLElement[] {
   });
 }
 
+/**
+ * Teclado de una hoja modal v7 (05-qa §6): mientras `isOpen`, `Escape` en `window`
+ * llama a `onClose` y `Tab`/`Shift+Tab` ciclan siempre de forma explícita entre los
+ * enfocables de `sheetRef`. Mover el foco a mano (en vez de dejar el paso nativo)
+ * evita que entre a un `<iframe>` cross-origin (YouTube), donde el teclado deja de
+ * llegar a `window` y `Escape` ya no cierra la hoja. Si no hay enfocables, el foco
+ * vuelve a `titleRef`. El foco inicial y la devolución al disparador quedan a cargo
+ * de cada hoja.
+ */
+export function useAtraparFocoEnHoja(
+  isOpen: boolean,
+  sheetRef: React.RefObject<HTMLElement | null>,
+  titleRef: React.RefObject<HTMLElement | null>,
+  onClose: () => void,
+): void {
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (!(e.key === "Tab" && sheetRef.current)) return;
+      e.preventDefault();
+      const focusables = obtenerFocuseables(sheetRef.current);
+      if (focusables.length === 0) {
+        titleRef.current?.focus();
+        return;
+      }
+      const activeEl =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const idx = activeEl ? focusables.indexOf(activeEl) : -1;
+      const next =
+        siguienteElementoFoco(focusables, activeEl, e.shiftKey) ??
+        focusables[idx + (e.shiftKey ? -1 : 1)];
+      next?.focus();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, sheetRef, titleRef]);
+}
+
 export interface AthleteSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -89,8 +137,8 @@ export function AthleteSheet({
   const sheetRef = React.useRef<HTMLDivElement | null>(null);
   const titleRef = React.useRef<HTMLHeadingElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
-  const onCloseRef = React.useRef(onClose);
-  onCloseRef.current = onClose;
+
+  useAtraparFocoEnHoja(isOpen, sheetRef, titleRef, onClose);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -100,32 +148,7 @@ export function AthleteSheet({
 
     titleRef.current?.focus();
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCloseRef.current();
-        return;
-      }
-      if (e.key === "Tab" && sheetRef.current) {
-        const focusables = obtenerFocuseables(sheetRef.current);
-        if (focusables.length === 0) {
-          e.preventDefault();
-          titleRef.current?.focus();
-          return;
-        }
-        const activeEl =
-          document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        const next = siguienteElementoFoco(focusables, activeEl, e.shiftKey);
-        if (next) {
-          e.preventDefault();
-          next.focus();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       const returnTarget = previousFocusRef.current;
       previousFocusRef.current = null;
       if (returnTarget && returnTarget.isConnected) {

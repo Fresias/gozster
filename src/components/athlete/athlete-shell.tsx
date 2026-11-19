@@ -28,7 +28,7 @@ export function debeOcultarNavegacion(params: {
   cierreAbierto: boolean;
   cuestionarioAbierto: boolean;
 }): boolean {
-  if (!params.onboardingCompletado) return true;
+  if (!params.onboardingCompletado && params.pathname === "/athlete") return true;
   if (params.cierreAbierto) return true;
   if (params.cuestionarioAbierto || params.pathname.startsWith("/athlete/cuestionario")) {
     return true;

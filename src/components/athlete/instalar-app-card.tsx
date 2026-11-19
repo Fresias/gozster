@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Download, Info, X } from "@/components/athlete/icons";
+import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 
 const STORAGE_INSTALLED_KEY = "gozster-app-instalada";
 const STORAGE_DISMISSED_KEY = "gozster-install-dismissed";
@@ -47,6 +48,7 @@ export function InstalarAppCard() {
 
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     setOs(detectPhoneOS());
@@ -65,21 +67,15 @@ export function InstalarAppCard() {
 
   const closeSheet = React.useCallback(() => {
     setSheetOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    triggerRef.current?.focus();
   }, []);
+
+  useAtraparFocoEnHoja(sheetOpen, sheetRef, titleRef, closeSheet);
 
   React.useEffect(() => {
     if (!sheetOpen) return;
     titleRef.current?.focus();
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeSheet();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [sheetOpen, closeSheet]);
+  }, [sheetOpen]);
 
   const handleDismiss = () => {
     try {
@@ -151,6 +147,7 @@ export function InstalarAppCard() {
           data-testid="instalar-app-sheet-backdrop"
         >
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="sheet-install-title"

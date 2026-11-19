@@ -10,6 +10,7 @@ import {
 } from "@/lib/athlete/nombre";
 import { isWarmup } from "@/lib/serie-tipo";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
+import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import {
@@ -123,6 +124,7 @@ export function RutinaDelDia() {
   const [confirmingFinish, setConfirmingFinish] = React.useState(false);
   const settingsBtnRef = React.useRef<HTMLButtonElement>(null);
   const settingsTitleRef = React.useRef<HTMLHeadingElement>(null);
+  const settingsSheetRef = React.useRef<HTMLDivElement>(null);
   const fullNameForGreeting =
     currentSession.studentName || planAlumno?.alumnos[0]?.nombre_completo || "";
   const [draftName, setDraftName] = React.useState<string>("");
@@ -132,9 +134,7 @@ export function RutinaDelDia() {
 
   const closeSettings = React.useCallback(() => {
     setIsSettingsOpen(false);
-    requestAnimationFrame(() => {
-      settingsBtnRef.current?.focus();
-    });
+    settingsBtnRef.current?.focus();
   }, [setIsSettingsOpen]);
 
   React.useEffect(() => {
@@ -145,19 +145,10 @@ export function RutinaDelDia() {
     });
     setDraftName(greeting);
     initialDraftNameRef.current = greeting;
-    requestAnimationFrame(() => {
-      settingsTitleRef.current?.focus();
-    });
+    settingsTitleRef.current?.focus();
+  }, [isSettingsOpen, nombrePreferido, fullNameForGreeting]);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeSettings();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSettingsOpen, nombrePreferido, fullNameForGreeting, closeSettings]);
+  useAtraparFocoEnHoja(isSettingsOpen, settingsSheetRef, settingsTitleRef, closeSettings);
 
   React.useEffect(() => {
     return () => {
@@ -805,6 +796,7 @@ export function RutinaDelDia() {
           }}
         >
           <div
+            ref={settingsSheetRef}
             className="a-sheet max-w-[28rem]"
             role="dialog"
             aria-modal="true"

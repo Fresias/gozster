@@ -130,6 +130,8 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
 
   // Hoja "Corregir serie"
   const [editingSerie, setEditingSerie] = React.useState<SerieEnEdicion | null>(null);
+  // Texto crudo del peso mientras se edita: acepta coma decimal ("147,5").
+  const [pesoDraft, setPesoDraft] = React.useState<string | null>(null);
   // Series corregidas en esta sesión de la app. Deuda (02 §5): no hay columna para el valor original en registro_series.
   const [corregidas, setCorregidas] = React.useState<Set<string>>(() => new Set());
   const [guardadoExitoso, setGuardadoExitoso] = React.useState<string | null>(null);
@@ -153,6 +155,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
   }, [atypicalPrompt]);
 
   const hojaAbierta = editingSerie !== null;
+  const pesoTexto = pesoDraft ?? (editingSerie ? numero.format(editingSerie.peso) : "");
   const atypicalAbierto = atypicalPrompt !== null;
 
   React.useEffect(() => {
@@ -161,6 +164,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
 
   const handleStartEdit = (sesion: SesionHistoricaDetalle, ejercicioNombre: string, s: SerieHistoricaDetalle) => {
     setErrorMessage(null);
+    setPesoDraft(null);
     disparadorRef.current = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
     setEditingSerie({
       sesionId: sesion.id,
@@ -573,17 +577,22 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
               </button>
               <div className="a-val">
                 <input
-                  type="number"
-                  step="0.5"
-                  min="0"
+                  type="text"
                   inputMode="decimal"
                   autoComplete="off"
-                  className="a-t-mi"
-                  style={{ ["--n" as string]: String(numero.format(editingSerie.peso).length) }}
-                  value={editingSerie.peso}
-                  onChange={(e) =>
-                    setEditingSerie((prev) => (prev ? { ...prev, peso: Number(e.target.value) || 0 } : null))
-                  }
+                  className={`a-t-mi${pesoTexto.length >= 5 ? " a-long" : ""}`}
+                  style={{ ["--n" as string]: String(Math.max(1, pesoTexto.length)) }}
+                  value={pesoTexto}
+                  onFocus={() => setPesoDraft(numero.format(editingSerie.peso))}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setPesoDraft(next);
+                    const v = parseFloat(next.trim().replace(",", "."));
+                    setEditingSerie((prev) =>
+                      prev ? { ...prev, peso: Number.isFinite(v) && v >= 0 ? v : 0 } : null,
+                    );
+                  }}
+                  onBlur={() => setPesoDraft(null)}
                   aria-label="Peso en kilogramos"
                   data-testid={`input-peso-${editingSerie.serieId}`}
                 />
