@@ -24,6 +24,18 @@ export interface HistorialSesionesProps {
 const ZONA = "America/Argentina/Buenos_Aires";
 const numero = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 2 });
 const esAproximacion = (t: string) => t === "WARMUP" || t === "W";
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]';
+
+/** Devuelve los elementos tabulables dentro de la hoja en orden DOM. */
+function obtenerEnfocables(raiz: HTMLElement): HTMLElement[] {
+  return Array.from(raiz.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) =>
+      el.getAttribute("tabindex") !== "-1" &&
+      !el.hasAttribute("disabled") &&
+      el.getAttribute("aria-hidden") !== "true",
+  );
+}
 
 function tipoDeSerie(setType: string): string | null {
   if (esAproximacion(setType)) return "Aproximación";
@@ -128,6 +140,7 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     reps: number;
   } | null>(null);
   const atypicalDialogRef = React.useRef<HTMLDialogElement>(null);
+  const hojaRef = React.useRef<HTMLDivElement>(null);
   const tituloHojaRef = React.useRef<HTMLHeadingElement>(null);
   const disparadorRef = React.useRef<HTMLElement | null>(null);
 
@@ -140,13 +153,15 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
   }, [atypicalPrompt]);
 
   const hojaAbierta = editingSerie !== null;
+  const atypicalAbierto = atypicalPrompt !== null;
+
   React.useEffect(() => {
     if (hojaAbierta) tituloHojaRef.current?.focus();
   }, [hojaAbierta]);
 
   const handleStartEdit = (sesion: SesionHistoricaDetalle, ejercicioNombre: string, s: SerieHistoricaDetalle) => {
     setErrorMessage(null);
-    disparadorRef.current = document.activeElement as HTMLElement | null;
+    disparadorRef.current = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
     setEditingSerie({
       sesionId: sesion.id,
       serieId: s.id,
@@ -158,11 +173,54 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
     });
   };
 
-  const cerrarHoja = () => {
+  const cerrarHoja = React.useCallback(() => {
     setEditingSerie(null);
     setErrorMessage(null);
     disparadorRef.current?.focus();
-  };
+  }, []);
+
+  const manejarTeclaHoja = React.useCallback(
+    (e: Pick<KeyboardEvent, "key" | "shiftKey" | "defaultPrevented" | "preventDefault">) => {
+      if (e.defaultPrevented) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cerrarHoja();
+        return;
+      }
+      if (e.key !== "Tab" || !hojaRef.current) return;
+
+      const focos = obtenerEnfocables(hojaRef.current);
+      if (focos.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const primero = focos[0]!;
+      const ultimo = focos[focos.length - 1]!;
+      const activo = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+
+      if (e.shiftKey) {
+        if (!activo || activo === primero || !focos.includes(activo)) {
+          e.preventDefault();
+          ultimo.focus();
+        }
+        return;
+      }
+
+      if (!activo || activo === ultimo || !focos.includes(activo)) {
+        e.preventDefault();
+        primero.focus();
+      }
+    },
+    [cerrarHoja],
+  );
+
+  React.useEffect(() => {
+    if (!hojaAbierta || atypicalAbierto || typeof window === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => manejarTeclaHoja(e);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hojaAbierta, atypicalAbierto, manejarTeclaHoja]);
 
   const ajustar = (campo: "peso" | "reps", delta: number) => {
     setEditingSerie((prev) =>
@@ -477,10 +535,11 @@ export function HistorialSesiones({ offline, initialTab = "sesiones" }: Historia
             if (e.target === e.currentTarget) cerrarHoja();
           }}
           onKeyDown={(e) => {
-            if (e.key === "Escape") cerrarHoja();
+            if (!atypicalPrompt) manejarTeclaHoja(e);
           }}
         >
           <div
+            ref={hojaRef}
             className="a-sheet"
             role="dialog"
             aria-modal="true"
