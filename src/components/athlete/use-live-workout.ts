@@ -28,6 +28,54 @@ export function etiquetaGrupoSuperserie(
   return n > 2 ? `Circuito A${grupo} · ${n} ejercicios` : `Biserie A${grupo}`;
 }
 
+export type UniSide = "D" | "I";
+export type UniEntry = { kg: number; reps: number };
+export type UniPend = { D: UniEntry | null; I: UniEntry | null };
+
+export type UnilateralStepResult =
+  | {
+      completed: false;
+      nextPend: UniPend;
+      nextSide: UniSide;
+      toastMensaje: string;
+    }
+  | {
+      completed: true;
+      nextPend: UniPend;
+      nextSide: "D";
+      pair: { D: UniEntry; I: UniEntry };
+      payload: { pesoKg: number; reps: number };
+    };
+
+/** Resuelve un paso del flujo unilateral sin enviar al store hasta completar ambos lados. */
+export function resolverPasoUnilateral(
+  uniSide: UniSide,
+  uniPend: UniPend,
+  entrada: UniEntry,
+): UnilateralStepResult {
+  const other: UniSide = uniSide === "D" ? "I" : "D";
+  const nextPend: UniPend = { ...uniPend, [uniSide]: entrada };
+  if (!nextPend[other]) {
+    return {
+      completed: false,
+      nextPend,
+      nextSide: other,
+      toastMensaje:
+        uniSide === "D"
+          ? "Derecha registrada. Ahora izquierda."
+          : "Izquierda registrada. Ahora derecha.",
+    };
+  }
+  const pair = { D: nextPend.D!, I: nextPend.I! };
+  return {
+    completed: true,
+    nextPend: { D: null, I: null },
+    nextSide: "D",
+    pair,
+    payload: { pesoKg: pair.D.kg, reps: pair.D.reps },
+  };
+}
+
 /**
  * Determina el siguiente ejercicio en el flujo de entrenamiento en vivo (GOZS-361).
  * - Superseries en circuito Round-Robin: avanza dentro de la ronda entre ejercicios del circuito,
@@ -674,36 +722,22 @@ export function useLiveWorkout() {
       return;
     }
 
-    const other: "D" | "I" = uniSide === "D" ? "I" : "D";
-    const nextPend = {
-      ...uniPend,
-      [uniSide]: { kg: peso, reps },
-    };
-
-    if (!nextPend[other]) {
-      setUniPend(nextPend);
-      setUniSide(other);
-      setToastSesion({
-        mensaje:
-          uniSide === "D"
-            ? "Derecha registrada. Ahora izquierda."
-            : "Izquierda registrada. Ahora derecha.",
-        tipo: "ok",
-      });
+    const res = resolverPasoUnilateral(uniSide, uniPend, { kg: peso, reps });
+    if (!res.completed) {
+      setUniPend(res.nextPend);
+      setUniSide(res.nextSide);
+      setToastSesion({ mensaje: res.toastMensaje, tipo: "ok" });
       return;
     }
 
     const num = currentSet.numero_serie;
     setUniLogs((prev) => ({
       ...prev,
-      [`${currentExercise.id}-${num}`]: { D: nextPend.D!, I: nextPend.I! },
+      [`${currentExercise.id}-${num}`]: res.pair,
     }));
-    setUniPend({ D: null, I: null });
-    setUniSide("D");
-    handleRegistrarSerie(confirmarAtipica, {
-      pesoKg: nextPend.D!.kg,
-      reps: nextPend.D!.reps,
-    });
+    setUniPend(res.nextPend);
+    setUniSide(res.nextSide);
+    handleRegistrarSerie(confirmarAtipica, res.payload);
   };
 
   const handleAdjustPeso = (delta: number) => {

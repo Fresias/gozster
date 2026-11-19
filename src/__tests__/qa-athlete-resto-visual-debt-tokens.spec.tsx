@@ -110,9 +110,11 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(onboarding).toContain("a-muted");
     expect(onboarding).toContain("a-card");
 
-    expect(historial).toContain("bg-success-soft");
-    expect(historial).toContain("text-success-soft-foreground");
-    expect(historial).toContain("border-warning-soft-border");
+    // Historial migrado a clases .a-* v7 (FE-09, 02-pantallas §5): cabecera invertida, tarjetas, chip PR y sin conexión
+    expect(historial).toContain("a-hhero");
+    expect(historial).toContain("a-hcard");
+    expect(historial).toContain("a-chip a-pr");
+    expect(historial).toContain("a-offnote");
 
     expect(paywall).toContain("a-banner");
     expect(paywall).toContain("a-sheet-wrap a-center");
@@ -121,8 +123,10 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(habits).toContain("bg-success-soft");
     expect(habits).toContain("bg-warning-soft");
 
-    expect(classes).toContain("bg-success-soft");
-    expect(classes).toContain("bg-danger-soft");
-    expect(classes).toContain("bg-warning-soft");
+    // Clases v7 (FE-10): clases .a-* de athlete-v7.css, sin colores sueltos de Tailwind.
+    expect(classes).toContain("a-ccl");
+    expect(classes).toContain("a-quota");
+    expect(classes).toContain("a-btn a-danger");
+    expect(classes).not.toContain("bg-success");
   });
 });

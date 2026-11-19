@@ -137,9 +137,9 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
     it("GIVEN HistorialSesiones WHEN se renderiza THEN no figura Volumen Total en el encabezado ni en las tarjetas de sesión", () => {
       const html = renderToStaticMarkup(<HistorialSesiones />);
 
-      // En el encabezado superior
-      expect(html).toContain("Sesiones Realizadas");
-      expect(html).toContain("Series Totales");
+      // En el encabezado superior (v7, 02-pantallas §5: stats "Sesiones" y "Series")
+      expect(html).toContain("Sesiones</small>");
+      expect(html).toContain("Series</small>");
       expect(html).not.toContain("Volumen Total");
 
       // No debe figurar volumen en kg en las líneas de sesión
@@ -152,17 +152,20 @@ describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll 
       const html = renderToStaticMarkup(<HistorialSesiones initialTab="dashboard" />);
 
       // Tarjetas clave del mini dashboard
-      expect(html).toContain("Récord de Carga");
-      expect(html).toContain("Mejor 1RM (Epley)");
-      expect(html).toContain("Máx. Repeticiones");
+      // v7 (02-pantallas §5.6): el 1RM estimado solo aparece en la vista Técnica
+      expect(html).toContain("Récord de carga");
+      expect(html).toContain("Máx. repeticiones");
+      expect(html).not.toContain("Mejor 1RM estimado (Epley)");
       expect(html).not.toContain("<span>Volumen Total</span>");
     });
 
-    it("GIVEN la tarjeta de Mejor 1RM (Epley) en Mini Dashboard THEN incluye el tooltip interactivo '?'", () => {
+    it("GIVEN la tarjeta de Mejor 1RM estimado (Epley) en Técnica THEN incluye el tooltip interactivo '?'", () => {
+      useAthleteStore.setState({ nivelVistaAlumno: "TECNICA" });
       const html = renderToStaticMarkup(<HistorialSesiones initialTab="dashboard" />);
+      useAthleteStore.setState({ nivelVistaAlumno: "SIMPLE" });
 
       expect(html).toContain('data-testid="tooltip-1rm-trigger"');
-      expect(html).toContain("Mejor 1RM (Epley)");
+      expect(html).toContain("Mejor 1RM estimado (Epley)");
     });
   });
 

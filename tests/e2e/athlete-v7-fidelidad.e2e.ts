@@ -158,8 +158,6 @@ export const SIN_RECETA: Record<string, string> = {
   "mol-lumbar": "sin receta (falta FE-08)",
   "mol-no-hereda": "sin receta (falta FE-08)",
   "mol-otro": "sin receta (falta FE-08)",
-  // Clases
-  "cls-mes": "sin receta (falta FE-10)",
 };
 
 export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
@@ -799,13 +797,13 @@ export const RECETAS_HISTORIAL_PROGRESO: Record<string, RecetaRunner> = {
     fixtureVacio.registro_series = [];
     await prepararEntorno(page, { tema, fixture: fixtureVacio });
     await page.goto("/athlete/historial");
-    await expect(page.getByText("No hay sesiones completadas aún")).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText("Todavía no hay sesiones")).toBeVisible({ timeout: 25_000 });
   },
   "hist-off": async (page, tema) => {
     await RECETAS_HISTORIAL_PROGRESO["hist-open"]!(page, tema);
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-    await expect(page.getByText("Offline (Modo Avión)")).toBeVisible();
+    await expect(page.getByTestId("historial-sin-conexion")).toBeVisible();
   },
   prog: async (page, tema) => {
     await prepararEntorno(page, { tema });
@@ -858,13 +856,18 @@ export const RECETAS_CLASES: Record<string, RecetaRunner> = {
     await RECETAS_CLASES.cls!(page, tema);
     await page.getByTestId("book-class-btn").first().click();
     await page.getByTestId("book-class-btn").first().click();
-    await page.getByTestId("days-strip").getByRole("tab", { name: /Mié/i }).click();
-    await expect(page.getByTestId("attempt-limit-class-btn").first()).toBeVisible();
+    await page.getByTestId("days-strip").getByRole("button", { name: /Mié/i }).click();
+    await expect(page.getByTestId("attempt-limit-class-btn").first()).toBeDisabled();
+  },
+  "cls-mes": async (page, tema) => {
+    await RECETAS_CLASES.cls!(page, tema);
+    await page.getByRole("button", { name: "Mes", exact: true }).click();
+    await expect(page.getByTestId("month-grid")).toBeVisible();
   },
   "cls-dia-vacio": async (page, tema) => {
     await RECETAS_CLASES.cls!(page, tema);
-    await page.getByTestId("days-strip").getByRole("tab", { name: /Dom/i }).click();
-    await expect(page.getByText("No hay clases este día.")).toBeVisible();
+    await page.getByTestId("days-strip").getByRole("button", { name: /Dom/i }).click();
+    await expect(page.getByText("No hay clases este día")).toBeVisible();
   },
   "cls-off": async (page, tema) => {
     await RECETAS_CLASES.cls!(page, tema);
