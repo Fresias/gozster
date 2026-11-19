@@ -40,7 +40,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # GOZSter Local Guardrails
 
 ## Database & UI Contracts
-- supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS.
+- supabase/migrations/: strictly append-only, never edit/delete (db.append-only). Explicit RLS. New version prefix: unique vs main and open PRs, newer than main's latest.
 - Zero references to "Mynter" (ADR-005).
 - Canonical UI: docs/ux-ui-review/objetivo/html/*.html. Zero demo data (`assertNoDemoLiteralsInLiveMode`).
 
@@ -51,8 +51,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."` + commit `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `harness-gate.sh --pr-block` in the PR body.
 - Harness changes: only branch `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe.mjs` → `harness-compose.mjs --task <ISSUE>`), label `harness-authorized`.
-- `harness-authorized` solo es válida si la pone `Fresias`; nunca `AgentsMultica` ni otro agente por API u otro camino.
-- Cada push revoca `harness-authorized`; tras verificar el sello en el head nuevo, pedir autorización a `Fresias`.
+- `harness-authorized` solo vale si la pone `Fresias` (nunca un agente); cada push la revoca: verificar el sello en el head nuevo y pedirla de nuevo.
 - Encoding: UTF-8, no BOM. PowerShell: no backtick strings, no `Set-Content`; use Write/Edit.
 
 ## Skills
