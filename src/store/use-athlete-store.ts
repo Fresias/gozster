@@ -146,8 +146,11 @@ interface AthleteStoreState {
   // es el dueño de ambos campos; el ejercicio en vivo consume mostrarTimerDescanso.
   onboardingCompletado: boolean;
   mostrarTimerDescanso: boolean;
-  // Estado del Inicio Mis días (GOZS-147 + GOZS-149)
+  // Estado del Inicio Mis días (GOZS-147 + GOZS-149) y shell v7 (FE-02)
   diaActivoId: string | null;
+  ejercicioAbiertoId: string | null;
+  cierreAbierto: boolean;
+  cuestionarioAbierto: boolean;
   diaElegidoHoyId: string | null;
   diaSugeridoId: string | null;
   motivoCambioDia: MotivoCambioDia | null;
@@ -195,6 +198,9 @@ interface AthleteStoreState {
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
   empezarDia: (diaId: string) => void;
   volverAlInicio: () => void;
+  setEjercicioAbiertoId: (ejercicioId: string | null) => void;
+  setCierreAbierto: (abierto: boolean) => void;
+  setCuestionarioAbierto: (abierto: boolean) => void;
   elegirOtroDia: (
     diaId: string,
     motivo?: MotivoCambioDia | null,
@@ -719,6 +725,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
       onboardingCompletado: false,
       mostrarTimerDescanso: true,
       diaActivoId: null,
+      ejercicioAbiertoId: null,
+      cierreAbierto: false,
+      cuestionarioAbierto: false,
       diaElegidoHoyId: null,
       diaSugeridoId: null,
       motivoCambioDia: null,
@@ -808,7 +817,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const diaSugeridoId = state.diaSugeridoId;
 
         get().loadStudentSession(studentId, diaId, motivo, diaSugeridoId);
-        set({ diaActivoId: diaId });
+        set({
+          diaActivoId: diaId,
+          ejercicioAbiertoId: null,
+          cierreAbierto: false,
+          cuestionarioAbierto: false,
+        });
 
         // Si hubo cambio de día (dia sugerido distinto o motivo asignado), encolar evento offline
         if (diaSugeridoId && diaSugeridoId !== diaId) {
@@ -852,7 +866,16 @@ export const useAthleteStore = create<AthleteStoreState>()(
           }
         }
       },
-      volverAlInicio: () => set({ diaActivoId: null }),
+      volverAlInicio: () =>
+        set({
+          diaActivoId: null,
+          ejercicioAbiertoId: null,
+          cierreAbierto: false,
+          cuestionarioAbierto: false,
+        }),
+      setEjercicioAbiertoId: (ejercicioAbiertoId) => set({ ejercicioAbiertoId }),
+      setCierreAbierto: (cierreAbierto) => set({ cierreAbierto }),
+      setCuestionarioAbierto: (cuestionarioAbierto) => set({ cuestionarioAbierto }),
       elegirOtroDia: (diaId, motivo = null, diaSugeridoId = null) =>
         set({
           diaElegidoHoyId: diaId,

@@ -38,15 +38,19 @@ vi.mock("@/store/use-offline-queue", async (importOriginal) => {
 });
 
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
-import { AthleteShell, estadoChipRed } from "@/components/athlete/athlete-shell";
+import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
+import { AthleteShell, debeOcultarNavegacion, estadoChipRed } from "@/components/athlete/athlete-shell";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
-describe("Athlete v7 · FE-02 Shell (CP1)", () => {
+describe("Athlete v7 · FE-02 Shell (CP1–CP2)", () => {
   beforeEach(() => {
     useAthleteStore.setState({
       onboardingCompletado: true,
       diaActivoId: null,
+      ejercicioAbiertoId: null,
+      cierreAbierto: false,
+      cuestionarioAbierto: false,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -139,5 +143,52 @@ describe("Athlete v7 · FE-02 Shell (CP1)", () => {
     expect(html).toContain("Sin señal · 3 series");
     expect(html).toContain('aria-label="Sin señal, 3 series guardadas en el teléfono"');
     expect(html).toContain("a-off");
+  });
+
+  it("AthleteBottomNav renderiza 4 secciones con .a-ni y aria-current='page' en /athlete", () => {
+    const html = renderToStaticMarkup(<AthleteBottomNav />);
+    expect(html).toContain('data-testid="nav-inferior"');
+    expect(html).toContain("a-bnav");
+    expect(html).toContain('href="/athlete"');
+    expect(html).toContain('href="/athlete/historial"');
+    expect(html).toContain('href="/athlete/progreso"');
+    expect(html).toContain('href="/athlete/clases"');
+    expect(html).toContain("Entrenar");
+    expect(html).toContain("Historial");
+    expect(html).toContain("Progreso");
+    expect(html).toContain("Clases");
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('class="a-ni"');
+  });
+
+  it("debeOcultarNavegacion oculta la nav en rutina, ejercicio, cierre, onboarding y cuestionario", () => {
+    const base = {
+      pathname: "/athlete",
+      onboardingCompletado: true,
+      diaActivoId: null,
+      ejercicioAbiertoId: null,
+      cierreAbierto: false,
+      cuestionarioAbierto: false,
+    };
+
+    expect(debeOcultarNavegacion(base)).toBe(false);
+    expect(debeOcultarNavegacion({ ...base, onboardingCompletado: false })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, diaActivoId: "dia-1" })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, ejercicioAbiertoId: "ej-1" })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, cierreAbierto: true })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, cuestionarioAbierto: true })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, pathname: "/athlete/cuestionario" })).toBe(true);
+    expect(debeOcultarNavegacion({ ...base, pathname: "/athlete/historial" })).toBe(false);
+  });
+
+  it("AthleteShell oculta nav-inferior en rutina y agrega clase a-no-nav", () => {
+    useAthleteStore.setState({ diaActivoId: "dia-1" });
+    const html = renderToStaticMarkup(
+      <AthleteShell>
+        <div>Rutina</div>
+      </AthleteShell>,
+    );
+    expect(html).toContain("a-no-nav");
+    expect(html).not.toContain('data-testid="nav-inferior"');
   });
 });

@@ -9,18 +9,37 @@ import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { getStorageUser } from "@/lib/user-storage";
 import { createClient } from "@/lib/supabase/browser";
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
+import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { cn } from "@/lib/utils";
-import { Calendar, Dumbbell, History, LogOut, TrendingUp } from "@/components/athlete/icons";
-
-const SECCIONES = [
-  { href: "/athlete", label: "Entrenar", Icon: Dumbbell },
-  { href: "/athlete/historial", label: "Historial", Icon: History },
-  { href: "/athlete/progreso", label: "Progreso", Icon: TrendingUp },
-  { href: "/athlete/clases", label: "Clases", Icon: Calendar },
-] as const;
+import { LogOut } from "@/components/athlete/icons";
 
 const SERIES_SET_ACTIONS = new Set(["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"]);
+
+/**
+ * Decide si ocultar navegación inferior y FAB de chat (rutina, ejercicio, cierre, onboarding, cuestionario).
+ */
+export function debeOcultarNavegacion(params: {
+  pathname: string;
+  onboardingCompletado: boolean;
+  diaActivoId: string | null;
+  ejercicioAbiertoId: string | null;
+  cierreAbierto: boolean;
+  cuestionarioAbierto: boolean;
+}): boolean {
+  if (!params.onboardingCompletado) return true;
+  if (params.cierreAbierto) return true;
+  if (params.cuestionarioAbierto || params.pathname.startsWith("/athlete/cuestionario")) {
+    return true;
+  }
+  if (
+    params.pathname === "/athlete" &&
+    (params.diaActivoId !== null || params.ejercicioAbiertoId !== null)
+  ) {
+    return true;
+  }
+  return false;
+}
 
 export interface EstadoChipRed {
   texto: string;
@@ -138,11 +157,25 @@ export async function manejarReconexionOnline(flushQueue: () => Promise<void>): 
 }
 
 export function AthleteShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/athlete";
   const { isOnline, pendingEvents, setOnlineStatus, flushQueue } = useOfflineQueueStore();
   const restTimerActive = useAthleteStore((s) => s.restTimer.isActive);
+  const onboardingCompletado = useAthleteStore((s) => s.onboardingCompletado);
+  const diaActivoId = useAthleteStore((s) => s.diaActivoId);
+  const ejercicioAbiertoId = useAthleteStore((s) => s.ejercicioAbiertoId);
+  const cierreAbierto = useAthleteStore((s) => s.cierreAbierto);
+  const cuestionarioAbierto = useAthleteStore((s) => s.cuestionarioAbierto);
   const reparadoRef = React.useRef(false);
   const [syncingSeriesCount, setSyncingSeriesCount] = React.useState(0);
+
+  const ocultarNav = debeOcultarNavegacion({
+    pathname,
+    onboardingCompletado,
+    diaActivoId,
+    ejercicioAbiertoId,
+    cierreAbierto,
+    cuestionarioAbierto,
+  });
 
   const pendingSeriesCount = React.useMemo(
     () => pendingEvents.filter((ev) => SERIES_SET_ACTIONS.has(ev.action)).length,
@@ -204,6 +237,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       className={cn(
         "theme-athlete a-app bg-background text-foreground",
         restTimerActive && "a-has-rest",
+        ocultarNav && "a-no-nav",
       )}
     >
       <div className="a-chev" aria-hidden="true" />
@@ -235,31 +269,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Navegación temporal hasta CP2 */}
-      <nav
-        aria-label="Secciones Athlete"
-        className="grid grid-cols-4 gap-1.5 border-t border-border bg-card px-2 py-2"
-      >
-        {SECCIONES.map(({ href, label, Icon }) => {
-          const activo = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={activo ? "page" : undefined}
-              className={cn(
-                "flex min-h-12 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors",
-                activo
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-              )}
-            >
-              <Icon className="hidden size-5 sm:block" />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      {!ocultarNav && <AthleteBottomNav />}
     </div>
   );
 }
