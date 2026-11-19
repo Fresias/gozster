@@ -16,6 +16,7 @@ import type {
   RegistroSesion,
 } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
+import type { RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -172,6 +173,9 @@ interface AthleteStoreState {
   cargandoUltimaVez: boolean;
   // Marcas históricas por ejercicio_id para decidir récords offline (GOZS-161). null = sin historial.
   marcas: Record<string, MarcasEjercicio | null>;
+  // Récords registrados en la sesión activa (se conservan entre EjercicioActivo, RutinaDelDia y CierreDiaModal).
+  seriesRecordIds: string[];
+  sessionPRs: RecordSesionItem[];
   // "Mi progreso" (GOZS-162). null = todavía sin descargar; se persiste para verse offline.
   miProgreso: MiProgresoData | null;
   miProgresoFecha: string | null; // ISO de la última descarga
@@ -202,6 +206,7 @@ interface AthleteStoreState {
   ) => Promise<void>;
   // Suma una serie recién registrada a las marcas en memoria (§3.3), para no repetir el récord.
   registrarSerieEnMarcas: (ejercicioId: string, serie: SerieCandidata) => void;
+  registrarRecordSesion: (serieKey: string, pr: RecordSesionItem) => void;
   empezarDia: (diaId: string) => void;
   volverAlInicio: () => void;
   setEjercicioAbiertoId: (ejercicioId: string | null) => void;
@@ -751,6 +756,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       ultimaVez: {},
       cargandoUltimaVez: false,
       marcas: {},
+      seriesRecordIds: [],
+      sessionPRs: [],
       miProgreso: null,
       miProgresoFecha: null,
       cargandoMiProgreso: false,
@@ -895,6 +902,18 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setCierreAbierto: (cierreAbierto) => set({ cierreAbierto }),
       setCuestionarioAbierto: (cuestionarioAbierto) => set({ cuestionarioAbierto }),
       setToastSesion: (toastSesion) => set({ toastSesion }),
+      registrarRecordSesion: (serieKey, pr) =>
+        set((state) => ({
+          seriesRecordIds: state.seriesRecordIds.includes(serieKey)
+            ? state.seriesRecordIds
+            : [...state.seriesRecordIds, serieKey],
+          sessionPRs: [
+            ...state.sessionPRs.filter(
+              (p) => !(p.exerciseName === pr.exerciseName && p.numero_serie === pr.numero_serie),
+            ),
+            pr,
+          ],
+        })),
       consumirNavegacionHistorialToast: () =>
         set((state) =>
           state.toastSesion?.irAHistorial
@@ -2500,6 +2519,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           diaElegidoHoyId: null,
           vistaRecomendadaCoach: coachRecomendada,
           nivelVistaAlumno: vistaEfectiva,
+          seriesRecordIds: esMismaSesionEnCurso ? prev.seriesRecordIds : [],
+          sessionPRs: esMismaSesionEnCurso ? prev.sessionPRs : [],
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -2530,6 +2551,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           diaElegidoHoyId: null,
           diaSugeridoId: null,
           motivoCambioDia: null,
+          seriesRecordIds: [],
+          sessionPRs: [],
           restTimer: {
             isActive: false,
             isPaused: false,
@@ -2580,6 +2603,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         sesionesCompletadas: state.sesionesCompletadas,
         ultimaVez: state.ultimaVez,
         marcas: state.marcas,
+        seriesRecordIds: state.seriesRecordIds,
+        sessionPRs: state.sessionPRs,
         miProgreso: state.miProgreso,
         miProgresoFecha: state.miProgresoFecha,
         diaElegidoHoyId: state.diaElegidoHoyId,
