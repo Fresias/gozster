@@ -12,7 +12,7 @@ import {
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
+import { ejercicioBloqueado } from "@/lib/athlete/molestias";
 
 /**
  * ============================================================================
@@ -199,59 +199,65 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
     });
 
     it("activa stopProtocolActive de inmediato en useAthleteStore al reportar con Red Flags", async () => {
-      const reportConRedFlag: PainReportData = {
-        exerciseId: "ej-qa-1",
-        setNumber: 1,
-        zonaArticular: "RODILLA",
-        intensidadNumerica: 5,
-        severidad: "MODERADO",
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: ["Dolor punzante/súbito"],
-        esSintomaAlarma: true,
-        notasAlumno: "Sensación de chasquido agudo en la bajada",
-      };
-
       expect(useAthleteStore.getState().stopProtocolActive).toBe(false);
-      await useAthleteStore.getState().reportPainEvent(reportConRedFlag);
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-qa-1",
+        ejercicioId: "ej-sentadilla",
+        numeroSerie: 1,
+        zona: "RODILLA",
+        eva: 5,
+        momento: "EN_SERIE",
+        sintomas: ["Dolor punzante/súbito"],
+        notas: "Sensación de chasquido agudo en la bajada",
+      });
 
       // Verificación de activación del protocolo de freno
       expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
     });
 
-    it("activa stopProtocolActive de inmediato al reportar dolor AGUDO (7-10) aun sin red flags explícitas", async () => {
-      const reportAgudo: PainReportData = {
-        exerciseId: "ej-qa-2",
-        setNumber: 2,
-        zonaArticular: "HOMBRO",
-        intensidadNumerica: 8,
-        severidad: "AGUDO",
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "Dolor muy intenso, no puedo estabilizar la barra",
-      };
-
+    it("bloquea el ejercicio con EVA 7-9 y activa stopProtocolActive al reportar EVA 10 aun sin red flags explícitas", async () => {
       expect(useAthleteStore.getState().stopProtocolActive).toBe(false);
-      await useAthleteStore.getState().reportPainEvent(reportAgudo);
+      const alta = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-qa-2",
+        ejercicioId: "ej-press-banca",
+        numeroSerie: 2,
+        zona: "HOMBRO",
+        eva: 8,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor muy intenso, no puedo estabilizar la barra",
+      });
+      expect(alta.nivel).toBe("alta");
+      expect(
+        ejercicioBloqueado("ej-qa-2", useAthleteStore.getState().currentSession.molestias ?? []),
+      ).toBe(true);
+
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-qa-2",
+        ejercicioId: "ej-press-banca",
+        numeroSerie: 2,
+        zona: "HOMBRO",
+        eva: 10,
+        momento: "EN_SERIE",
+        sintomas: [],
+        notas: "Dolor máximo",
+      });
 
       expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
     });
 
     it("NO activa stopProtocolActive si el dolor es LEVE o MODERADO sin síntomas de alarma", async () => {
-      const reportLeve: PainReportData = {
-        exerciseId: "ej-qa-3",
-        setNumber: 1,
-        zonaArticular: "CODO",
-        intensidadNumerica: 3,
-        severidad: "LEVE",
-        momentoAparicion: "POST_EJERCICIO",
-        sintomasAlarma: [],
-        esSintomaAlarma: false,
-        notasAlumno: "Tensión leve en tendón",
-      };
-
       expect(useAthleteStore.getState().stopProtocolActive).toBe(false);
-      await useAthleteStore.getState().reportPainEvent(reportLeve);
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-qa-3",
+        ejercicioId: "ej-curl-biceps",
+        numeroSerie: 1,
+        zona: "CODO",
+        eva: 3,
+        momento: "POST_EJERCICIO",
+        sintomas: [],
+        notas: "Tensión leve en tendón",
+      });
 
       expect(useAthleteStore.getState().stopProtocolActive).toBe(false);
     });
@@ -440,34 +446,31 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
   // 3. CASOS LÍMITE (EDGE CASES) Y ROBUSTEZ OFFLINE
   // =========================================================================
   describe("3. Casos Límite (Edge Cases) y Robustez Offline", () => {
-    it("soporta modo avión encolando PAIN_REPORT_SUBMITTED en useOfflineQueueStore y activando freno local", async () => {
+    it("soporta modo avión guardando la molestia pendiente en currentSession.molestias y activando freno local", async () => {
       // Simular desconexión
       useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
 
-      const offlineReport: PainReportData = {
-        exerciseId: "ej-offline-99",
-        setNumber: 3,
-        zonaArticular: "LUMBAR",
-        intensidadNumerica: 9,
-        severidad: "AGUDO",
-        momentoAparicion: "EN_SERIE",
-        sintomasAlarma: ["Dolor punzante/súbito"],
-        esSintomaAlarma: true,
-        notasAlumno: "Punzón severo en zona lumbar baja",
-      };
-
-      await useAthleteStore.getState().reportPainEvent(offlineReport);
+      const creada = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-offline-99",
+        ejercicioId: "ej-lumbar-99",
+        numeroSerie: 3,
+        zona: "LUMBAR",
+        eva: 9,
+        momento: "EN_SERIE",
+        sintomas: ["Dolor punzante/súbito"],
+        notas: "Punzón severo en zona lumbar baja",
+      });
 
       // Freno de seguridad inmediato en local sin depender de internet
       expect(useAthleteStore.getState().stopProtocolActive).toBe(true);
 
-      // Evento persistido en la cola offline
-      const pendingEvents = useOfflineQueueStore.getState().pendingEvents;
-      expect(pendingEvents.length).toBe(1);
-      const ev = pendingEvents[0]!;
-      expect(ev.action).toBe("PAIN_REPORT_SUBMITTED");
-      expect(ev.payload.zonaArticular).toBe("LUMBAR");
-      expect(ev.payload.esSintomaAlarma).toBe(true);
+      // Molestia persistida en outbox de sesión con estado pendiente
+      const molestias = useAthleteStore.getState().currentSession.molestias ?? [];
+      expect(molestias.length).toBe(1);
+      expect(molestias[0]?.id).toBe(creada.id);
+      expect(molestias[0]?.envio).toBe("pendiente");
+      expect(molestias[0]?.zona).toBe("LUMBAR");
+      expect(molestias[0]?.nivel).toBe("alarma");
     });
 
     it("base de datos rechaza momentos de aparición inválidos mediante CHECK constraint", async () => {

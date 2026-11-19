@@ -64,6 +64,8 @@ export async function activarYSincronizarAlAbrir(alActivar?: () => void): Promis
     if (typeof navigator === "undefined" || navigator.onLine !== false) {
       await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
       if (data.user) {
+        await useAthleteStore.getState().flushMolestiasPendientes();
+        await useAthleteStore.getState().cargarMolestiasDeSesion();
         await useAthleteStore.getState().sincronizarVideosPendientes(data.user.id);
       }
     }
@@ -111,12 +113,17 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
     setOnlineStatus(online);
     if (online) {
       void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      void useAthleteStore
+        .getState()
+        .flushMolestiasPendientes()
+        .then(() => useAthleteStore.getState().cargarMolestiasDeSesion());
     }
     const handleOnline = () => {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
       // nunca ve "pendientes", para él sus datos ya estaban guardados.
       void manejarReconexionOnline(flushQueue);
+      void useAthleteStore.getState().flushMolestiasPendientes();
     };
     const handleOffline = () => setOnlineStatus(false);
 

@@ -62,17 +62,15 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
   describe("2. Pipeline Reactivo: Reporte de Dolor en Athlete App y Detección Inmediata", () => {
     it("GIVEN un reporte en sesión activa en Athlete App THEN fetchCriticalAlerts y store lo detectan de inmediato", async () => {
       // 1. Fernando Rosales reporta un dolor en su sesión activa
-      await useAthleteStore.getState().reportPainEvent({
-        exerciseId: "ej-sentadilla-con-barra",
-        setNumber: 1,
-        zonaArticular: "RODILLA",
-        intensidadNumerica: 8,
-        severidad: "AGUDO",
-        sintomasAlarma: ["Dolor punzante o súbito", "Inestabilidad articular"],
-        esSintomaAlarma: true,
-        notasAlumno: "Pinchazo agudo e inestabilidad al subir",
-        momentoAparicion: "EN_SERIE",
-        exerciseName: "Sentadilla Trasera con Barra",
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-sentadilla-1",
+        ejercicioId: "ej-sentadilla-con-barra",
+        numeroSerie: 1,
+        zona: "RODILLA",
+        eva: 8,
+        sintomas: ["Dolor punzante o súbito", "Inestabilidad articular"],
+        notas: "Pinchazo agudo e inestabilidad al subir",
+        momento: "EN_SERIE",
       });
 
       // 2. fetchCriticalAlerts lee el reporte de inmediato
@@ -95,18 +93,16 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       // Estado inicial: Fernando Rosales no tiene alertas
       expect(getDemoAlumnoAlerts("Fernando Rosales").length).toBe(0);
 
-      // Fernando reporta dolor de Hombro en Press de Banca
-      await useAthleteStore.getState().reportPainEvent({
-        exerciseId: "ej-press-banca",
-        setNumber: 2,
-        zonaArticular: "HOMBRO",
-        intensidadNumerica: 9,
-        severidad: "AGUDO",
-        sintomasAlarma: ["Irradiación o adormecimiento"],
-        esSintomaAlarma: true,
-        notasAlumno: "Molestia anterior aguda al descender",
-        momentoAparicion: "EN_SERIE",
-        exerciseName: "Press de Banca Plano",
+      // Fernando reporta dolor de Hombro en Press Inclinado
+      await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: "ej-press-inclinado-smith",
+        ejercicioId: "ej-press-inclinado-en-smith-con-agarre-cerrado",
+        numeroSerie: 2,
+        zona: "HOMBRO",
+        eva: 9,
+        sintomas: ["Irradiación o adormecimiento"],
+        notas: "Molestia anterior aguda al descender",
+        momento: "EN_SERIE",
       });
 
       // El badge reactivo se genera para Fernando Rosales
@@ -116,7 +112,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       expect(painBadge).toBeDefined();
       expect(painBadge?.label).toBe("🚨 Hombro");
       expect(painBadge?.zona).toBe("Hombro");
-      expect(painBadge?.ejercicio).toBe("Press de Banca Plano");
+      expect(painBadge?.ejercicio).toBe("Press Inclinado en Smith con Agarre Cerrado");
       expect(painBadge?.detalle).toContain("Molestia anterior aguda");
       expect((painBadge as any)?.reporteDolorId).toBeDefined();
     });

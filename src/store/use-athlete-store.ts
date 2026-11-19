@@ -16,11 +16,6 @@ import type {
   RegistroSesion,
 } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
-import type { PainReportData } from "@/components/athlete/pain-report-modal";
-import {
-  getPainBannerConfig,
-  type PainBannerData,
-} from "@/components/athlete/pain-banner";
 import { ultimaVezDeEjercicio, type SerieHistorica, type UltimaVezEjercicio } from "@/lib/historial-ejercicio";
 import {
   agregarSerieAMarcas,
@@ -29,6 +24,12 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
+import {
+  nivelMolestia,
+  type MolestiaSesion,
+  type MomentoMolestia,
+  type ZonaArticular,
+} from "@/lib/athlete/molestias";
 import { getStorageUser } from "@/lib/user-storage";
 import {
   extensionDeArchivoVideo,
@@ -50,6 +51,18 @@ import {
   normalizarNombrePreferido,
 } from "@/lib/athlete/nombre";
 import { esUuid, nuevoUuid } from "@/lib/athlete/uuid";
+
+
+export interface ReportarMolestiaInput {
+  ejercicioEnRutinaId: string;
+  ejercicioId: string;
+  numeroSerie?: number | null;
+  zona: ZonaArticular;
+  eva: number;
+  sintomas?: string[];
+  momento?: MomentoMolestia | null;
+  notas?: string | null;
+}
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 export type VideoEstadoSerie = "ninguno" | "telefono" | "subiendo" | "listo" | "error";
@@ -105,6 +118,7 @@ export interface LiveWorkoutSession {
   dia_id?: string;
   dia_sugerido_id?: string | null;
   motivo_cambio_dia?: MotivoCambioDia | null;
+  molestias?: MolestiaSesion[];
 }
 
 export interface RestTimerState {
@@ -123,7 +137,7 @@ interface AthleteStoreState {
   rpeValidationError: string | null;
   rpeReminderNotification: string | null;
   stopProtocolActive: boolean;
-  activePainBanner: PainBannerData | null;
+  molestiasPendientesFueraDeSesion: MolestiaSesion[];
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
@@ -193,8 +207,6 @@ interface AthleteStoreState {
   setColapsarRutina: (colapsar: boolean) => void;
   deleteCompletedSet: (exerciseId: string, setNumber: number) => void;
   setStopProtocolActive: (active: boolean) => void;
-  setActivePainBanner: (banner: PainBannerData | null) => void;
-  clearActivePainBanner: () => void;
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
   setOnboardingCompletado: (completado: boolean) => void;
@@ -225,7 +237,9 @@ interface AthleteStoreState {
     setNumber: number,
     notes: string,
   ) => void;
-  reportPainEvent: (report: PainReportData) => Promise<void>;
+  reportarMolestia: (datos: ReportarMolestiaInput) => Promise<MolestiaSesion>;
+  flushMolestiasPendientes: () => Promise<void>;
+  cargarMolestiasDeSesion: (sesionId?: string) => Promise<void>;
   adjuntarVideoASerie: (
     ejercicioEnRutinaId: string,
     numeroSerie: number,
@@ -291,6 +305,7 @@ const defaultSession: LiveWorkoutSession = {
   studentName: "Fernando Rosales",
   studentId: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
   dia_id: "6a669097-5bd8-4547-87f7-a43700000001",
+  molestias: [],
   ejercicios: [
     {
       id: "ej-sentadilla-1",
@@ -440,7 +455,79 @@ const defaultSession: LiveWorkoutSession = {
   ],
 };
 
+const PERMANENT_MOLESTIA_CODES = new Set(["42501", "23514"]);
+
+function fusionarPendientesFueraDeSesion(
+  fueraActual: MolestiaSesion[],
+  molestiasSesion: MolestiaSesion[] | undefined,
+): MolestiaSesion[] {
+  const pendientes = (molestiasSesion ?? []).filter((m) => m.envio === "pendiente");
+  if (pendientes.length === 0) return fueraActual;
+  const ids = new Set(fueraActual.map((m) => m.id));
+  const nuevas = pendientes.filter((m) => !ids.has(m.id));
+  return nuevas.length > 0 ? [...fueraActual, ...nuevas] : fueraActual;
+}
+
+async function enviarMolestiaRpc(
+  molestia: MolestiaSesion,
+  diaId: string | null,
+  studentId: string | null,
+): Promise<MolestiaSesion["envio"]> {
+  if (!supabase) return "pendiente";
+
+  try {
+    const { error } = await (supabase as any).rpc("registrar_molestia", {
+      p_id: molestia.id,
+      p_sesion_id: molestia.sesionId,
+      p_ejercicio_id: molestia.ejercicioId,
+      p_zona: molestia.zona,
+      p_eva: molestia.eva,
+      p_dia_id: esUuid(diaId) ? diaId : null,
+      p_ejercicio_en_rutina_id: esUuid(molestia.ejercicioEnRutinaId)
+        ? molestia.ejercicioEnRutinaId
+        : null,
+      p_numero_serie: molestia.numeroSerie,
+      p_momento: molestia.momento,
+      p_sintomas: molestia.sintomas,
+      p_notas: molestia.notas,
+    });
+
+    if (!error) return "enviada";
+
+    const code = typeof error.code === "string" ? error.code : "";
+    if (PERMANENT_MOLESTIA_CODES.has(code)) {
+      try {
+        const authUser = (await supabase.auth.getUser())?.data?.user?.id;
+        const usuarioId = authUser || (esUuid(studentId) ? studentId : null);
+        if (usuarioId) {
+          await supabase.from("errores_app").insert({
+            usuario_id: usuarioId,
+            contexto: "molestia",
+            mensaje_humano: "No se pudo guardar el reporte de molestia.",
+            detalle_tecnico: `${code}: ${error.message ?? ""}`.slice(0, 500),
+            payload_resumen: {
+              id: molestia.id,
+              sesion_id: molestia.sesionId,
+              zona: molestia.zona,
+              eva: molestia.eva,
+              code,
+            },
+          });
+        }
+      } catch {
+        // Silencioso si el registro en errores_app falla
+      }
+      return "error";
+    }
+
+    return "pendiente";
+  } catch {
+    return "pendiente";
+  }
+}
+
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+let activeFlushMolestiasPromise: Promise<void> | null = null;
 let activeSyncNombrePromise: Promise<boolean> | null = null;
 
 const PERMANENT_NOMBRE_RPC_CODES = new Set(["22001", "42501", "23514"]);
@@ -653,7 +740,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       rpeValidationError: null,
       rpeReminderNotification: null,
       stopProtocolActive: false,
-      activePainBanner: null,
+      molestiasPendientesFueraDeSesion: [],
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -845,6 +932,14 @@ export const useAthleteStore = create<AthleteStoreState>()(
           const res = {
             sesionesCompletadas: nuevasSesiones,
             historialSesiones: nuevoHistorial,
+            molestiasPendientesFueraDeSesion: fusionarPendientesFueraDeSesion(
+              state.molestiasPendientesFueraDeSesion,
+              session?.molestias,
+            ),
+            currentSession: {
+              ...session,
+              molestias: [],
+            },
             diaElegidoHoyId: state.diaElegidoHoyId === diaId ? null : state.diaElegidoHoyId,
             motivoCambioDia: state.diaElegidoHoyId === diaId ? null : state.motivoCambioDia,
             diaSugeridoId: state.diaElegidoHoyId === diaId ? null : state.diaSugeridoId,
@@ -856,8 +951,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
           return res;
         }),
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
-      setActivePainBanner: (banner) => set({ activePainBanner: banner }),
-      clearActivePainBanner: () => set({ activePainBanner: null }),
       setNivelVistaAlumno: (nivel) =>
         set({
           vistaElegidaPorAlumno: nivel,
@@ -1034,89 +1127,200 @@ export const useAthleteStore = create<AthleteStoreState>()(
         }));
       },
 
-      reportPainEvent: async (report) => {
+      reportarMolestia: async (datos) => {
         const state = get();
-        const {
-          exerciseId,
-          setNumber,
-          zonaArticular,
-          severidad,
-          sintomasAlarma,
-          esSintomaAlarma,
-          notasAlumno,
-          momentoAparicion,
-        } = report;
+        const sintomas = Array.isArray(datos.sintomas) ? datos.sintomas : [];
+        const nivel = nivelMolestia(datos.eva, sintomas);
+        const notasLimpias = datos.notas?.trim() ? datos.notas.trim() : null;
+        const numeroSerie =
+          typeof datos.numeroSerie === "number" && datos.numeroSerie >= 1
+            ? datos.numeroSerie
+            : null;
 
-        // 1. Si está asociado a un ejercicio y serie, marcarlo
-        if (exerciseId && setNumber) {
-          const notesText = `[Dolor: ${severidad}] ${zonaArticular}${
-            sintomasAlarma.length > 0 ? ` (Síntomas: ${sintomasAlarma.join(", ")})` : ""
-          }${notasAlumno ? ` - ${notasAlumno}` : ""}`;
+        const molestia: MolestiaSesion = {
+          id: nuevoUuid(),
+          sesionId: state.currentSession.id,
+          ejercicioEnRutinaId: datos.ejercicioEnRutinaId,
+          ejercicioId: datos.ejercicioId,
+          numeroSerie,
+          zona: datos.zona,
+          eva: datos.eva,
+          sintomas,
+          momento: datos.momento ?? null,
+          notas: notasLimpias,
+          nivel,
+          reportadaAt: new Date().toISOString(),
+          envio: "pendiente",
+        };
 
-          set((s) => ({
+        const severidadTexto =
+          nivel === "alarma" || nivel === "alta"
+            ? "AGUDO"
+            : nivel === "moderada"
+              ? "MODERADO"
+              : "LEVE";
+        const notesText = `[Dolor: ${severidadTexto}] ${molestia.zona}${
+          sintomas.length > 0 ? ` (Síntomas: ${sintomas.join(", ")})` : ""
+        }${notasLimpias ? ` - ${notasLimpias}` : ""}`;
+
+        set((prev) => {
+          const prevMolestias = prev.currentSession.molestias ?? [];
+          const sinAnterior = prevMolestias.filter(
+            (m) => m.ejercicioEnRutinaId !== molestia.ejercicioEnRutinaId,
+          );
+
+          return {
+            ...(nivel === "alarma" ? { stopProtocolActive: true } : {}),
             currentSession: {
-              ...s.currentSession,
-              ejercicios: s.currentSession.ejercicios.map((ej) => {
-                if (ej.id !== exerciseId) return ej;
-                return {
-                  ...ej,
-                  series: ej.series.map((serie) =>
-                    serie.numero_serie === setNumber
-                      ? { ...serie, pain_reported: true, pain_notes: notesText }
-                      : serie
-                  ),
-                };
-              }),
+              ...prev.currentSession,
+              molestias: [...sinAnterior, molestia],
+              ejercicios:
+                numeroSerie !== null
+                  ? prev.currentSession.ejercicios.map((ej) => {
+                      if (ej.id !== molestia.ejercicioEnRutinaId) return ej;
+                      return {
+                        ...ej,
+                        series: ej.series.map((s) =>
+                          s.numero_serie === numeroSerie
+                            ? { ...s, pain_reported: true, pain_notes: notesText }
+                            : s,
+                        ),
+                      };
+                    })
+                  : prev.currentSession.ejercicios,
             },
-          }));
-        }
-
-        // 2. Generar cartel del reporte de dolor por rango (GOZS-278)
-        const painBanner = getPainBannerConfig(report.intensidadNumerica, {
-          exerciseName: report.exerciseName,
-          sintomasAlarma: report.sintomasAlarma,
-        });
-        set({ activePainBanner: painBanner });
-
-        // 3. Activar protocolo de freno si hay Red Flags o dolor agudo
-        if (esSintomaAlarma || severidad === "AGUDO") {
-          set({ stopProtocolActive: true });
-        }
-
-        // 3. Encolar evento offline en Zustand
-        useOfflineQueueStore.getState().enqueueEvent({
-          id: `pain-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          action: "PAIN_REPORT_SUBMITTED",
-          payload: {
-            sessionId: state.currentSession.id,
-            studentId:
-              state.currentSession.studentId || DEFAULT_ATHLETE_ID,
-            ...report,
-          },
+          };
         });
 
-        // 4. Guardar en Supabase si está disponible
+        await get().flushMolestiasPendientes();
+
+        return (
+          (get().currentSession.molestias ?? []).find((m) => m.id === molestia.id) ??
+          molestia
+        );
+      },
+
+      flushMolestiasPendientes: async () => {
+        if (activeFlushMolestiasPromise) {
+          await activeFlushMolestiasPromise;
+        }
+
+        const haySenal =
+          useOfflineQueueStore.getState().isOnline &&
+          (typeof navigator === "undefined" || navigator.onLine !== false);
+        if (!haySenal || !supabase) return;
+
+        const run = async () => {
+          const snapshot = get();
+          const pendientesFuera = snapshot.molestiasPendientesFueraDeSesion.filter(
+            (m) => m.envio === "pendiente",
+          );
+          const pendientesEnSesion = (snapshot.currentSession.molestias ?? []).filter(
+            (m) => m.envio === "pendiente",
+          );
+          const cola = [...pendientesFuera, ...pendientesEnSesion];
+          if (cola.length === 0) return;
+
+          for (const m of cola) {
+            const actual = get();
+            const diaId =
+              m.sesionId === actual.currentSession.id
+                ? (actual.currentSession.dia_id ?? null)
+                : (actual.sesionesCompletadas.find((s) => s.id === m.sesionId)?.dia_id ??
+                  null);
+
+            const envio = await enviarMolestiaRpc(
+              m,
+              diaId,
+              actual.currentSession.studentId ?? null,
+            );
+            if (envio === "pendiente") {
+              break;
+            }
+
+            set((prev) => ({
+              molestiasPendientesFueraDeSesion:
+                prev.molestiasPendientesFueraDeSesion.filter((item) => item.id !== m.id),
+              currentSession: {
+                ...prev.currentSession,
+                molestias: (prev.currentSession.molestias ?? []).map((item) =>
+                  item.id === m.id ? { ...item, envio } : item,
+                ),
+              },
+            }));
+          }
+        };
+
+        activeFlushMolestiasPromise = run().finally(() => {
+          activeFlushMolestiasPromise = null;
+        });
+        await activeFlushMolestiasPromise;
+      },
+
+      cargarMolestiasDeSesion: async (sesionId) => {
+        const targetSesionId = sesionId ?? get().currentSession.id;
+        if (!esUuid(targetSesionId) || !supabase) return;
+
+        const haySenal =
+          useOfflineQueueStore.getState().isOnline &&
+          (typeof navigator === "undefined" || navigator.onLine !== false);
+        if (!haySenal) return;
+
         try {
-          const studentId =
-            state.currentSession.studentId || DEFAULT_ATHLETE_ID;
-          const resolvedExerciseId =
-            exerciseId && exerciseId.length === 36
-              ? exerciseId
-              : "30000000-0000-0000-0000-000000000001";
+          const { data, error } = await (supabase as any)
+            .from("alumno_historial_dolor")
+            .select(
+              "id, sesion_id, ejercicio_en_rutina_id, ejercicio_id, numero_serie, zona_articular, eva, sintomas_alarma, momento_aparicion, notas_alumno, created_at",
+            )
+            .eq("sesion_id", targetSesionId);
 
-          await supabase.from("alumno_historial_dolor").insert({
-            alumno_id: studentId,
-            ejercicio_id: resolvedExerciseId,
-            zona_articular: zonaArticular,
-            severidad,
-            momento_aparicion: momentoAparicion,
-            es_sintoma_alarma: esSintomaAlarma,
-            sintomas_alarma: sintomasAlarma,
-            notas_alumno: notasAlumno || null,
-            estado: "PENDIENTE",
+          if (error || !Array.isArray(data)) return;
+          if (get().currentSession.id !== targetSesionId) return;
+
+          const remotas: MolestiaSesion[] = data.map((row: any) => {
+            const eva = typeof row.eva === "number" ? row.eva : 5;
+            const sintomas = Array.isArray(row.sintomas_alarma) ? row.sintomas_alarma : [];
+            return {
+              id: row.id,
+              sesionId: row.sesion_id ?? targetSesionId,
+              ejercicioEnRutinaId: row.ejercicio_en_rutina_id ?? row.ejercicio_id,
+              ejercicioId: row.ejercicio_id,
+              numeroSerie: typeof row.numero_serie === "number" ? row.numero_serie : null,
+              zona: row.zona_articular as ZonaArticular,
+              eva,
+              sintomas,
+              momento: (row.momento_aparicion as MomentoMolestia | null) ?? null,
+              notas: row.notas_alumno ?? null,
+              nivel: nivelMolestia(eva, sintomas),
+              reportadaAt: row.created_at ?? new Date().toISOString(),
+              envio: "enviada",
+            };
+          });
+
+          set((prev) => {
+            if (prev.currentSession.id !== targetSesionId) return prev;
+            const merged = new Map<string, MolestiaSesion>();
+            for (const r of remotas) {
+              merged.set(r.id, r);
+            }
+            for (const local of prev.currentSession.molestias ?? []) {
+              const existente = merged.get(local.id);
+              if (!existente || local.envio === "pendiente") {
+                merged.set(local.id, local);
+              }
+            }
+            const lista = Array.from(merged.values());
+            const hayAlarma = lista.some((m) => m.nivel === "alarma");
+            return {
+              ...(hayAlarma ? { stopProtocolActive: true } : {}),
+              currentSession: {
+                ...prev.currentSession,
+                molestias: lista,
+              },
+            };
           });
         } catch {
-          // Silencioso en modo offline o test
+          // Silencioso en modo offline
         }
       },
 
@@ -2102,6 +2306,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
               ? prev.dia_id
               : undefined;
           get().loadStudentSession(studentId, diaEnCurso);
+          void get().cargarMolestiasDeSesion(get().currentSession.id);
           if (pendiente !== undefined) {
             void get().sincronizarNombrePreferidoPendiente();
           }
@@ -2207,6 +2412,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
             diaSugeridoId ?? (hasCompletedSets ? (prev.dia_sugerido_id ?? null) : null),
           motivo_cambio_dia:
             motivo ?? (hasCompletedSets ? (prev.motivo_cambio_dia ?? null) : null),
+          // Al retomar la misma sesión en curso se conservan sus molestias (no se pierden de la vista).
+          molestias: esMismaSesionEnCurso ? (prev.molestias ?? []) : [],
         };
 
         const coachRecomendada =
@@ -2214,9 +2421,15 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const eleccionAlumno = get().vistaElegidaPorAlumno;
         const vistaEfectiva = eleccionAlumno ?? coachRecomendada;
 
-        set({
+        set((prev) => ({
+          molestiasPendientesFueraDeSesion: esMismaSesionEnCurso
+            ? prev.molestiasPendientesFueraDeSesion
+            : fusionarPendientesFueraDeSesion(
+                prev.molestiasPendientesFueraDeSesion,
+                prev.currentSession.molestias,
+              ),
           currentSession: newSession,
-          diaActivoId: get().diaActivoId ? selectedDia.id : null,
+          diaActivoId: prev.diaActivoId ? selectedDia.id : null,
           diaElegidoHoyId: null,
           vistaRecomendadaCoach: coachRecomendada,
           nivelVistaAlumno: vistaEfectiva,
@@ -2228,19 +2441,22 @@ export const useAthleteStore = create<AthleteStoreState>()(
             exerciseName: "",
             setNumber: 0,
           },
-        });
+        }));
 
         return true;
       },
 
       resetSessionToDefaults: () => {
         const eleccionAlumno = get().vistaElegidaPorAlumno;
-        set({
+        set((prev) => ({
+          molestiasPendientesFueraDeSesion: fusionarPendientesFueraDeSesion(
+            prev.molestiasPendientesFueraDeSesion,
+            prev.currentSession.molestias,
+          ),
           currentSession: defaultSession,
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
-          activePainBanner: null,
           diaActivoId: null,
           diaElegidoHoyId: null,
           diaSugeridoId: null,
@@ -2253,7 +2469,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             exerciseName: "",
             setNumber: 0,
           },
-        });
+        }));
       },
 
       repararSesionesNoUuid: () => {
@@ -2301,6 +2517,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: state.historialSesiones,
+        molestiasPendientesFueraDeSesion: state.molestiasPendientesFueraDeSesion,
         nombrePreferido: state.nombrePreferido,
         nombrePreferidoPendiente: state.nombrePreferidoPendiente,
       }),

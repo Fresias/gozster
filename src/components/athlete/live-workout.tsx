@@ -12,7 +12,7 @@ import { ExerciseVideoModal } from "@/components/athlete/exercise-video-modal";
 import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { WarmupModal } from "@/components/athlete/warmup-modal";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
-import { PainReportBanner } from "@/components/athlete/pain-banner";
+import { getPainBannerConfig, PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CuestionarioInicial } from "@/components/athlete/cuestionario-inicial";
 import { CierreDiaModal, type RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -188,9 +188,7 @@ export function LiveWorkout() {
     cuestionarioInicial,
     stopProtocolActive,
     setStopProtocolActive,
-    activePainBanner,
-    clearActivePainBanner,
-    reportPainEvent,
+    reportarMolestia,
     syncSessionToSupabase,
     diaActivoId,
     volverAlInicio,
@@ -313,9 +311,20 @@ export function LiveWorkout() {
   const [warmupModalExercise, setWarmupModalExercise] = React.useState<LiveWorkoutExercise | null>(null);
   const [painModalData, setPainModalData] = React.useState<{
     exerciseId: string;
+    ejercicioId: string;
     exerciseName: string;
     setNumber: number;
   } | null>(null);
+  const [dismissedMolestiaId, setDismissedMolestiaId] = React.useState<string | null>(null);
+  const latestMolestia = (currentSession.molestias ?? []).at(-1) ?? null;
+  const derivedPainBanner = React.useMemo(() => {
+    if (!latestMolestia || latestMolestia.id === dismissedMolestiaId) return null;
+    const ej = currentSession.ejercicios.find((e) => e.id === latestMolestia.ejercicioEnRutinaId);
+    return getPainBannerConfig(latestMolestia.eva, {
+      exerciseName: ej?.nombre,
+      sintomasAlarma: latestMolestia.sintomas,
+    });
+  }, [latestMolestia, dismissedMolestiaId, currentSession.ejercicios]);
   const [videoUploadModalData, setVideoUploadModalData] = React.useState<{
     exerciseId: string;
     exerciseName: string;
@@ -794,6 +803,7 @@ export function LiveWorkout() {
                   onClick={() =>
                     setPainModalData({
                       exerciseId: currentSession.ejercicios[0]?.id || "",
+                      ejercicioId: currentSession.ejercicios[0]?.ejercicio_id || "",
                       exerciseName: currentSession.nombre_rutina,
                       setNumber: 1,
                     })
@@ -821,10 +831,10 @@ export function LiveWorkout() {
             </div>
 
             {/* Cartel de Reporte de Dolor por Rango (GOZS-278) */}
-            {activePainBanner && (
+            {derivedPainBanner && latestMolestia && (
               <PainReportBanner
-                banner={activePainBanner}
-                onDismiss={clearActivePainBanner}
+                banner={derivedPainBanner}
+                onDismiss={() => setDismissedMolestiaId(latestMolestia.id)}
               />
             )}
 
@@ -1437,6 +1447,7 @@ export function LiveWorkout() {
                           onClick={() =>
                             setPainModalData({
                               exerciseId: currentExercise.id,
+                              ejercicioId: currentExercise.ejercicio_id || "",
                               exerciseName: currentExercise.nombre,
                               setNumber: serie?.numero_serie || 1,
                             })
@@ -2772,13 +2783,22 @@ export function LiveWorkout() {
           onClose={() => setPainModalData(null)}
           exerciseName={painModalData.exerciseName}
           exerciseId={painModalData.exerciseId}
+          ejercicioId={painModalData.ejercicioId}
           setNumber={painModalData.setNumber}
           onSavePainReport={(report) => {
             if (typeof report === "string") {
               reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
             } else {
-              reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report.notasAlumno || "");
-              void reportPainEvent(report);
+              void reportarMolestia({
+                ejercicioEnRutinaId: painModalData.exerciseId,
+                ejercicioId: report.ejercicioId || painModalData.ejercicioId || painModalData.exerciseId,
+                numeroSerie: report.setNumber ?? painModalData.setNumber,
+                zona: report.zonaArticular,
+                eva: report.intensidadNumerica,
+                sintomas: report.sintomasAlarma,
+                momento: report.momentoAparicion,
+                notas: report.notasAlumno,
+              });
             }
             setPainModalData(null);
           }}

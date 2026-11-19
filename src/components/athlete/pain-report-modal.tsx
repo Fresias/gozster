@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export interface PainReportData {
   exerciseId?: string;
+  ejercicioId?: string;
   exerciseName?: string;
   setNumber?: number;
   zonaArticular: "HOMBRO" | "RODILLA" | "LUMBAR" | "CODO" | "CUELLO" | "CADERA" | "TOBILLO" | "OTRO";
@@ -21,6 +22,7 @@ export interface PainReportModalProps {
   onClose: () => void;
   exerciseName?: string;
   exerciseId?: string;
+  ejercicioId?: string;
   setNumber?: number;
   onSavePainReport: (report: PainReportData | string) => void;
 }
@@ -57,6 +59,7 @@ export function PainReportModal({
   onClose,
   exerciseName = "Sesión General",
   exerciseId,
+  ejercicioId,
   setNumber = 1,
   onSavePainReport,
 }: PainReportModalProps) {
@@ -84,6 +87,7 @@ export function PainReportModal({
   const handleConfirm = () => {
     const data: PainReportData = {
       exerciseId,
+      ejercicioId,
       exerciseName,
       setNumber,
       zonaArticular,
