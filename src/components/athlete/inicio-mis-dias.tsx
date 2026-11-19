@@ -757,7 +757,8 @@ export function InicioMisDias() {
         <div
           role="status"
           aria-live="polite"
-          className={`a-toast ${toastState.variant === "warn" ? "a-warn" : "a-ok"} a-show justify-between pointer-events-auto max-w-[26rem] mx-auto`}
+          className={`a-toast ${toastState.variant === "warn" ? "a-warn" : "a-ok"} a-show justify-between max-w-[26rem] mx-auto`}
+          style={toastState.canUndo ? { pointerEvents: "auto" } : undefined}
           data-testid={toastState.canUndo ? "toast-cambio-dia" : "toast-inicio"}
         >
           <div className="flex items-center gap-2.5 a-t-sec">
