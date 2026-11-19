@@ -159,13 +159,13 @@ describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs
   });
 
   describe("Criterio 6: Integridad de componentes y accesibilidad táctil", () => {
-    it("Athlete App (live-workout.tsx) expone texto de recomendación y botón 'Usar la recomendada'", () => {
-      const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
-      const content = fs.readFileSync(liveWorkoutPath, "utf-8");
+    it("Athlete App (rutina-del-dia.tsx) expone texto de recomendación y botón 'Usar la recomendada' (FE-04)", () => {
+      const rutinaPath = path.resolve(__dirname, "../components/athlete/rutina-del-dia.tsx");
+      const content = fs.readFileSync(rutinaPath, "utf-8");
 
       expect(content).toContain('data-testid="athlete-vista-recomendada-texto"');
       expect(content).toContain('data-testid="athlete-usar-vista-recomendada-btn"');
-      expect(content).toContain("Recomendada por tu coach:");
+      expect(content).toContain("Tu coach te recomienda:");
       expect(content).toContain("Usar la recomendada");
       expect(content).toContain("usarVistaRecomendada");
     });

@@ -429,14 +429,14 @@ describe("QA Verification Suite — Historial y Progreso (GOZS-158 / F1–F6)", 
   // ==========================================================================
   describe("5. Auditoría de Accesibilidad, Ergonomía y Diseño Ponytail", () => {
     it("los componentes clave cumplen con clases táctiles >= 48px y aria descriptivos", () => {
-      const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+      const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
       const ultimaVezPath = path.resolve(__dirname, "../components/athlete/ultima-vez.tsx");
       const sugerenciaPath = path.resolve(__dirname, "../components/athlete/sugerencia-carga.tsx");
       const avisoRecordPath = path.resolve(__dirname, "../components/athlete/aviso-record.tsx");
       const shellPath = path.resolve(__dirname, "../components/athlete/athlete-shell.tsx");
       const adherenciaCardPath = path.resolve(__dirname, "../components/coach/adherencia-card.tsx");
 
-      const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+      const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
       const ultimaVezCode = fs.readFileSync(ultimaVezPath, "utf-8");
       const sugerenciaCode = fs.readFileSync(sugerenciaPath, "utf-8");
       const avisoRecordCode = fs.readFileSync(avisoRecordPath, "utf-8");
@@ -460,10 +460,10 @@ describe("QA Verification Suite — Historial y Progreso (GOZS-158 / F1–F6)", 
       expect(avisoRecordCode).toContain('aria-live="polite"');
       expect(avisoRecordCode).toContain('role="status"');
 
-      // Live workout: integra los componentes de F1, F2, F3
-      expect(liveWorkoutCode).toContain("<UltimaVez");
-      expect(liveWorkoutCode).toContain("<SugerenciaCarga");
-      expect(liveWorkoutCode).toContain("<AvisoRecord");
+      // EjercicioActivo: integra Última vez, Sugerencia de carga y AvisoRecord (FE-05)
+      expect(ejercicioActivoCode).toContain('data-testid="ultima-vez"');
+      expect(ejercicioActivoCode).toContain('data-testid="sugerencia-carga"');
+      expect(ejercicioActivoCode).toContain("<AvisoRecord");
 
       // Data-testids en los componentes correspondientes
       expect(ultimaVezCode).toContain('data-testid="ultima-vez"');

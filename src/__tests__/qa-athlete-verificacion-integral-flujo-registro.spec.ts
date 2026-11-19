@@ -33,11 +33,11 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
  */
 
 describe("QA Verification: Verificación Integral de Flujo de Registro, Celebración, Historial y Barras (GOZS-180 / GH #186)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
   const iconsPath = path.resolve(__dirname, "../components/athlete/icons.tsx");
   const packageJsonPath = path.resolve(__dirname, "../../package.json");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
   const iconsCode = fs.readFileSync(iconsPath, "utf-8");
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
 
@@ -228,16 +228,16 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
 
   describe("4. RPE Objetivo Fijo y de Solo Lectura (GH #185 / GOZS-179)", () => {
     it("mantiene el RPE en modo estrictamente inmutable sin botones de edición (+ / -)", () => {
-      // No debe contener controladores para incrementar o decrementar RPE
-      expect(liveWorkoutCode).not.toContain("handleAdjustRpe");
-      expect(liveWorkoutCode).not.toContain('aria-label="Aumentar RPE"');
-      expect(liveWorkoutCode).not.toContain('aria-label="Disminuir RPE"');
+      // No debe contener controladores para incrementar o decrementar RPE objetivo
+      expect(ejercicioActivoCode).not.toContain("handleAdjustRpe");
+      expect(ejercicioActivoCode).not.toContain('aria-label="Aumentar RPE"');
+      expect(ejercicioActivoCode).not.toContain('aria-label="Disminuir RPE"');
     });
 
-    it("renderiza el badge prescrito por entrenador con ícono Lock nativo de icons.tsx", () => {
-      expect(liveWorkoutCode).toContain('data-testid="rpe-prescribed-badge"');
+    it("renderiza el badge prescrito por entrenador con leyenda v7 (02-pantallas.md §3)", () => {
+      expect(ejercicioActivoCode).toContain('data-testid="rpe-prescribed-badge"');
       expect(iconsCode).toContain("export function Lock");
-      expect(liveWorkoutCode).toContain("<Lock");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
   });
 

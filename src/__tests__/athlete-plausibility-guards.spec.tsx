@@ -1,5 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { LiveWorkout } from "@/components/athlete/live-workout";
 import { HistorialSesiones } from "@/components/athlete/historial-sesiones";
@@ -30,21 +32,31 @@ describe("Guardas de plausibilidad y UI táctil en la app móvil (GOZS-200)", ()
       expect(html).toContain('max="100"');
     });
 
-    it("los inputs y botones tienen área táctil accesible (clases min-h-[44px] o h-14 / h-16)", () => {
+    it("los inputs y botones tienen área táctil accesible (D-15: .a-stepper button min-height 56px en athlete-v7.css)", () => {
       const html = renderToStaticMarkup(<LiveWorkout />);
-      expect(html).toContain("min-h-[44px]");
-      expect(html).toContain("data-testid=\"peso-decrement-btn\"");
-      expect(html).toContain("data-testid=\"peso-increment-btn\"");
+      expect(html).toContain('class="a-stepper"');
+      expect(html).toContain('data-testid="peso-decrement-btn"');
+      expect(html).toContain('data-testid="peso-increment-btn"');
+      const css = fs.readFileSync(
+        path.resolve(__dirname, "../app/(athlete)/athlete/athlete-v7.css"),
+        "utf-8",
+      );
+      expect(css).toContain(".a-stepper button");
+      expect(css).toContain("min-height: 56px;");
     });
   });
 
-  describe("Diálogos nativos HTML5 (<dialog>) para confirmación de serie atípica", () => {
-    it("LiveWorkout renderiza el diálogo de confirmación atípica con Confirmar y Corregir", () => {
-      const html = renderToStaticMarkup(<LiveWorkout />);
-      expect(html).toContain('data-testid="atypical-confirmation-dialog"');
-      expect(html).toContain('data-testid="atypical-confirmar-btn"');
-      expect(html).toContain('data-testid="atypical-corregir-btn"');
-      expect(html).toContain("Carga atípica");
+  describe("Aviso en línea de serie atípica (v7 .a-kgwarn en 02-pantallas.md §3)", () => {
+    it("EjercicioActivo expone el aviso en línea .a-kgwarn con Sí, es correcto y Corregir", () => {
+      const code = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx"),
+        "utf-8",
+      );
+      expect(code).toContain('className="a-kgwarn"');
+      expect(code).toContain('data-testid="atypical-confirmation-dialog"');
+      expect(code).toContain('data-testid="atypical-confirmar-btn"');
+      expect(code).toContain('data-testid="atypical-corregir-btn"');
+      expect(code).toContain("Sí, es correcto");
     });
 
     it("HistorialSesiones renderiza el diálogo de confirmación atípica para edición", () => {

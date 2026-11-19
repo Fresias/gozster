@@ -7,9 +7,12 @@ import { PainReportModal } from "@/components/athlete/pain-report-modal";
 import { PainReportBanner } from "@/components/athlete/pain-banner";
 import { VideoUploadModal } from "@/components/athlete/video-upload-modal";
 import { CierreDiaModal } from "@/components/athlete/cierre-dia-modal";
+import { AvisoRecord } from "@/components/athlete/aviso-record";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import {
   TriangleAlert,
+  OctagonAlert,
+  X,
   Timer,
   Lightbulb,
   Video,
@@ -27,7 +30,7 @@ import {
   Smartphone,
 } from "@/components/athlete/icons";
 import { isWarmup, isDropset } from "@/lib/serie-tipo";
-import { calcularSeriesAproximacion } from "@/lib/aproximacion-pr";
+import { calcularSeriesAproximacion, esEjercicioAislamiento } from "@/lib/aproximacion-pr";
 import { formatearCarga, formatearFechaCorta, serieDeReferencia } from "@/lib/historial-ejercicio";
 import { motivoSugerencia, partesTitulo } from "@/lib/sugerencia-carga";
 import {
@@ -94,6 +97,14 @@ export function EjercicioActivo() {
     sesionesCompletadas,
     planAlumno,
     seriesRecord,
+    optimisticBanner,
+    setOptimisticBanner,
+    stopProtocolActive,
+    setStopProtocolActive,
+    uniSide,
+    setUniSide,
+    uniPend,
+    uniLogs,
     sessionPRs,
     sessionStartTimeRef,
     sessionStartedAt,
@@ -135,6 +146,7 @@ export function EjercicioActivo() {
     repRange,
     sugerencia,
     handleRegistrarSerie,
+    handleRegistrarUnilateral,
     handleAdjustPeso,
     handleAdjustReps,
     handleDirectUpdatePeso,
@@ -153,7 +165,7 @@ export function EjercicioActivo() {
   const [descansoInfo, setDescansoInfo] = React.useState(false);
   const [rpeAyuda, setRpeAyuda] = React.useState(false);
   const [aproxSaltada, setAproxSaltada] = React.useState<Record<string, boolean>>({});
-  const [aproxHechas, setAproxHechas] = React.useState<boolean[]>([false, false, false, false]);
+  const [aproxHechasPorEj, setAproxHechasPorEj] = React.useState<Record<string, boolean[]>>({});
   const [barra, setBarra] = React.useState("olimpica");
   const [barraKg, setBarraKg] = React.useState(20);
   const [wakeActivo, setWakeActivo] = React.useState(false);
@@ -240,7 +252,15 @@ export function EjercicioActivo() {
   const pesoTrabajo = ej.series.find((s) => !isWarmup(s.set_type))?.peso_kg || serie?.peso_kg || 0;
   const hayW = ej.series.some((s) => isWarmup(s.set_type));
   const mostrarAprox =
-    !esTiempo && !esDrop && !hayW && hechas.length === 0 && pesoTrabajo > 0 && !aproxSaltada[ej.id];
+    !esTiempo &&
+    !esDrop &&
+    !esUni &&
+    !ej.es_superserie &&
+    !esEjercicioAislamiento(ej.nombre) &&
+    !hayW &&
+    hechas.length === 0 &&
+    pesoTrabajo >= 40 &&
+    !aproxSaltada[ej.id];
   const filasAprox = mostrarAprox
     ? calcularSeriesAproximacion(pesoTrabajo, {
         rpeObjetivo: typeof ej.rpe_objetivo === "number" ? ej.rpe_objetivo : undefined,
@@ -249,10 +269,15 @@ export function EjercicioActivo() {
       })
     : [];
 
+  const aproxHechas = aproxHechasPorEj[ej.id] ?? [false, false, false, false];
+  const displayTiempo =
+    !timerTiempoActivo && !timerTiempoPausado && !timerTiempoCompletado && tiempoCountdown === 0
+      ? tiempoObjetivo
+      : tiempoCountdown;
   const meta = ej.repeticiones_objetivo
     ? esTiempo
       ? `OBJ. ${ej.tiempo_objetivo_segundos ?? tiempoObjetivo} S`
-      : `OBJ. ${ej.repeticiones_objetivo}${esUni ? " POR LADO" : ""}`
+      : `OBJ. ${ej.repeticiones_objetivo}${esUni && !/lado/i.test(ej.repeticiones_objetivo) ? " POR LADO" : ""}`
     : "";
 
   const pesoWarn = Boolean(atypicalPrompt);
@@ -308,7 +333,7 @@ export function EjercicioActivo() {
         </div>
       </div>
 
-      <div className="a-ex-head">
+      <div className="a-ex-head" data-testid={`single-exercise-container-${ej.id}`}>
         <div className="a-xmeta">
           <span className="a-eb a-t-label" style={{ margin: 0 }}>
             Ejercicio {currentExerciseIndex + 1} de {currentSession.ejercicios.length}
@@ -395,6 +420,36 @@ export function EjercicioActivo() {
         </div>
       )}
 
+      {stopProtocolActive && (
+        <div
+          role="alert"
+          className="rounded-2xl border-2 border-destructive bg-destructive/10 p-4 space-y-2"
+          data-testid="live-workout-stop-protocol-banner"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-destructive font-black text-sm">
+              <OctagonAlert className="h-6 w-6 shrink-0" />
+              <span>PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStopProtocolActive(false)}
+              className="text-muted-foreground hover:text-foreground px-2 py-1 rounded"
+              title="Ocultar aviso"
+              aria-label="Ocultar aviso"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-sm font-bold text-foreground leading-relaxed">
+            Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Se ha emitido una alerta CRÍTICA a tu entrenador. Tu salud articular es prioritaria; no continúes levantando carga ante síntomas de alarma o dolor agudo.
+          </p>
+        </div>
+      )}
+
       {derivedPainBanner && latestMolestia && (
         <PainReportBanner banner={derivedPainBanner} onDismiss={() => setDismissedMolestiaId(latestMolestia.id)} />
       )}
@@ -433,7 +488,10 @@ export function EjercicioActivo() {
                 onClick={() => {
                   if (aproxHechas[i]) return;
                   registerWarmupSet(ej.id, { peso_kg: a.peso_kg, reps: a.reps, rpe_real: 6.0 });
-                  setAproxHechas((p) => p.map((v, j) => (j === i ? true : v)));
+                  setAproxHechasPorEj((prev) => {
+                    const base = prev[ej.id] ?? [false, false, false, false];
+                    return { ...prev, [ej.id]: base.map((v, j) => (j === i ? true : v)) };
+                  });
                 }}
               >
                 {aproxHechas[i] ? (
@@ -458,6 +516,20 @@ export function EjercicioActivo() {
             Cargar {filasAprox.length} series
           </button>
         </section>
+      )}
+
+      {optimisticBanner?.record && (
+        <AvisoRecord
+          resultado={optimisticBanner.record.resultado}
+          serie={{
+            peso_kg: optimisticBanner.record.peso_kg,
+            reps_hechas: optimisticBanner.record.reps_hechas,
+            set_type: serie?.set_type,
+          }}
+          nombreEjercicio={optimisticBanner.record.exerciseName}
+          tecnica={!isSimpleView}
+          onClose={() => setOptimisticBanner(null)}
+        />
       )}
 
       {abierta && esDrop && (
@@ -547,7 +619,7 @@ export function EjercicioActivo() {
             <div className="a-clock" data-testid="timer-ejercicio-tiempo">
               <span className="a-t-label a-muted">Temporizador del ejercicio</span>
               <div className="a-t-ml" data-testid="timer-tiempo-countdown">
-                {mmss(tiempoCountdown)}
+                {mmss(displayTiempo)}
               </div>
               {timerTiempoCompletado && (
                 <span className="a-chip a-ok a-t-label" data-testid="timer-tiempo-completado-badge">
@@ -560,14 +632,14 @@ export function EjercicioActivo() {
                   className="a-btn a-gym"
                   data-testid="timer-tiempo-iniciar-btn"
                   onClick={() => {
-                    if (tiempoCountdown === 0) setTiempoCountdown(tiempoObjetivo);
+                    if (displayTiempo === 0 || timerTiempoCompletado) setTiempoCountdown(tiempoObjetivo);
                     setTimerTiempoActivo(true);
                     setTimerTiempoPausado(false);
                     setTimerTiempoCompletado(false);
                   }}
                 >
                   <Play width={16} height={16} className="a-i" />{" "}
-                  {tiempoCountdown === 0 || timerTiempoCompletado ? "Reiniciar e iniciar" : "Iniciar"}
+                  {displayTiempo === 0 || timerTiempoCompletado ? "Reiniciar e iniciar" : "Iniciar"}
                 </button>
               ) : timerTiempoPausado ? (
                 <button
@@ -588,7 +660,7 @@ export function EjercicioActivo() {
                   <Pause width={16} height={16} className="a-i" /> Detener
                 </button>
               )}
-              {(timerTiempoActivo || tiempoCountdown !== tiempoObjetivo) && (
+              {(timerTiempoActivo || displayTiempo !== tiempoObjetivo) && (
                 <button
                   type="button"
                   className="a-btn a-ghost"
@@ -608,7 +680,31 @@ export function EjercicioActivo() {
 
           {!esTiempo && (
             <>
-              <label className="a-lbl a-t-label" htmlFor={`peso-${ej.id}-${serie.numero_serie}`}>
+              {esUni && (
+                <div className="a-seg" role="group" aria-label="Lado" data-testid="unilateral-indicator">
+                  <button
+                    type="button"
+                    aria-pressed={uniSide === "D"}
+                    data-testid="uni-side-D"
+                    onClick={() => setUniSide("D")}
+                  >
+                    Derecha {uniPend.D && <Check width={15} height={15} className="a-i" />}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={uniSide === "I"}
+                    data-testid="uni-side-I"
+                    onClick={() => setUniSide("I")}
+                  >
+                    Izquierda {uniPend.I && <Check width={15} height={15} className="a-i" />}
+                  </button>
+                </div>
+              )}
+              <label
+                className="a-lbl a-t-label"
+                htmlFor={`peso-${ej.id}-${serie.numero_serie}`}
+                data-testid={esUni ? "badge-peso-unilateral" : undefined}
+              >
                 Peso{esUni ? " por lado" : ""}
               </label>
               <div className="a-stepper">
@@ -628,6 +724,8 @@ export function EjercicioActivo() {
                     style={{ ["--n" as string]: String(fmtAr.format(serie.peso_kg).length) }}
                     type="text"
                     inputMode="decimal"
+                    min="0"
+                    max="500"
                     autoComplete="off"
                     aria-label="Peso en kilogramos"
                     aria-invalid={pesoWarn || undefined}
@@ -676,6 +774,7 @@ export function EjercicioActivo() {
                         const editando = atypicalPrompt.isEditing;
                         setAtypicalPrompt(null);
                         if (editando) handleSaveEdit(true);
+                        else if (esUni) handleRegistrarUnilateral(true);
                         else handleRegistrarSerie(true);
                       }}
                     >
@@ -707,6 +806,8 @@ export function EjercicioActivo() {
                 style={{ ["--n" as string]: String(serie.reps_hechas).length }}
                 type="text"
                 inputMode="numeric"
+                min="0"
+                max={!esTiempo && repRange?.isRange ? repRange.max : 100}
                 autoComplete="off"
                 aria-label={esTiempo ? "Tiempo en segundos" : "Cantidad de repeticiones"}
                 value={serie.reps_hechas}
@@ -728,11 +829,26 @@ export function EjercicioActivo() {
             </button>
           </div>
 
+          {!esTiempo && repRange?.isRange && (
+            <small className="a-t-sec a-muted" data-testid="rep-range-badge">
+              Rango: {repRange.min} a {repRange.max} reps (máx. {repRange.max})
+            </small>
+          )}
+
           {!isSimpleView && !esTiempo && (
             <div className="a-tec" data-testid="vista-tecnica">
               <div className="a-kv">
                 <span className="a-t-label a-muted">Tipo de serie</span>
-                <span className="a-chip a-t-label" data-testid="fixed-normal-badge">
+                <span
+                  className="a-chip a-t-label"
+                  data-testid={
+                    esDrop
+                      ? "fixed-dropset-badge"
+                      : isWarmup(serie.set_type)
+                        ? "fixed-warmup-badge"
+                        : "fixed-normal-badge"
+                  }
+                >
                   {esDrop ? "Drop set" : isWarmup(serie.set_type) ? "Aproximación" : "Normal"}
                 </span>
               </div>
@@ -832,7 +948,7 @@ export function EjercicioActivo() {
           <button
             type="button"
             className="a-btn a-gym"
-            onClick={() => handleRegistrarSerie(false)}
+            onClick={() => (esUni ? handleRegistrarUnilateral(false) : handleRegistrarSerie(false))}
             data-testid="registrar-serie-btn"
           >
             <Check width={18} height={18} className="a-i" />{" "}
@@ -840,7 +956,9 @@ export function EjercicioActivo() {
               ? `Registrar ${serie.reps_hechas} s`
               : esDrop
                 ? `Registrar drop ${serie.numero_serie}`
-                : `Registrar serie ${serie.numero_serie}`}
+                : esUni
+                  ? `Registrar ${uniSide === "D" ? "derecha" : "izquierda"}`
+                  : `Registrar serie ${serie.numero_serie}`}
           </button>
 
           <div className="a-pagedots" aria-hidden="true">
@@ -852,8 +970,7 @@ export function EjercicioActivo() {
       ) : (
         <section className="a-card a-donecard">
           <b className="a-t-title" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Check width={20} height={20} className="a-i" />{" "}
-            {siguiente || !isAllWorkoutCompleted ? "Ejercicio completo" : "Entrenamiento completo"}
+            <Check width={20} height={20} className="a-i" /> Ejercicio completo
           </b>
           <span className="a-t-sec a-muted">
             {ej.series.length} {ej.series.length === 1 ? "serie registrada" : "series registradas"}.
@@ -905,11 +1022,18 @@ export function EjercicioActivo() {
           <ol className="a-logged" data-testid="registradas">
             {hechas.map((s) => {
               const pendiente = isSetPendingOffline(ej.id, s.numero_serie);
+              const uniPar = esUni ? uniLogs[`${ej.id}-${s.numero_serie}`] : undefined;
               return (
                 <li key={s.numero_serie} data-testid={`log-row-${ej.id}-${s.numero_serie}`}>
                   <span className="a-t-sec">
                     <b>Serie {s.numero_serie}</b> ·{" "}
-                    {esTiempo ? `${s.reps_hechas} s` : `${fmtAr.format(s.peso_kg)} kg × ${s.reps_hechas}`}
+                    {esTiempo
+                      ? `${s.reps_hechas} s`
+                      : esUni
+                        ? uniPar
+                          ? `D ${fmtAr.format(uniPar.D.kg)}×${uniPar.D.reps} · I ${fmtAr.format(uniPar.I.kg)}×${uniPar.I.reps}`
+                          : `D ${fmtAr.format(s.peso_kg)}×${s.reps_hechas} · I ${fmtAr.format(s.peso_kg)}×${s.reps_hechas}`
+                        : `${fmtAr.format(s.peso_kg)} kg × ${s.reps_hechas}`}
                     {!isSimpleView && s.rpe_real && !esTiempo ? ` · RPE ${fmtAr.format(s.rpe_real)}` : ""}
                   </span>
                   {seriesRecord.has(`${ej.id}-${s.numero_serie}`) && (

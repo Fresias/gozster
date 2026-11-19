@@ -3,11 +3,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { useAthleteStore } from "@/store/use-athlete-store";
 
-describe("Athlete App: Tooltip contextual y explicación de taxonomía W, N, F, D (#183 / GOZS-177)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+describe("Athlete App: Taxonomía de series en Vista Técnica (02-pantallas.md §3 / C2)", () => {
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
   const iconsPath = path.resolve(__dirname, "../components/athlete/icons.tsx");
 
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
   const iconsCode = fs.readFileSync(iconsPath, "utf-8");
 
   beforeEach(() => {
@@ -16,56 +16,28 @@ describe("Athlete App: Tooltip contextual y explicación de taxonomía W, N, F, 
     useAthleteStore.getState().stopTimer();
   });
 
-  describe("Criterio 1: Presencia del botón accesible de ayuda en Vista Técnica", () => {
-    it("incluye el botón de ayuda accesible junto a la etiqueta 'Tipo de Serie'", () => {
-      expect(liveWorkoutCode).toContain("Tipo de Serie");
-      expect(liveWorkoutCode).toContain('data-testid="set-type-help-btn"');
-      expect(liveWorkoutCode).toContain('aria-label="Ayuda sobre tipos de serie"');
-      expect(liveWorkoutCode).toContain('title="Explicación de tipos de serie (W, N, F, D)"');
-      expect(liveWorkoutCode).toContain("<HelpCircle");
+  describe("Criterio 1: Tipo de serie en Vista Técnica (solo lectura, sin selector manual W/N/F/D)", () => {
+    it("muestra el chip read-only de 'Tipo de serie' en Vista Técnica", () => {
+      expect(ejercicioActivoCode).toContain("Tipo de serie");
+      expect(ejercicioActivoCode).toContain('data-testid="vista-tecnica"');
+      expect(ejercicioActivoCode).toContain("fixed-normal-badge");
+      expect(ejercicioActivoCode).toContain("fixed-dropset-badge");
     });
 
-    it("el botón se encuentra dentro de la sección técnica junto al selector W/N/F/D", () => {
-      // Verificar que el bloque de Tipo de Serie contiene tanto el selector como el botón de ayuda y el popover
-      const setTypeSection = liveWorkoutCode.split("Selector Taxonomía W/N/F/D")[1];
-      expect(setTypeSection).toBeDefined();
-      expect(setTypeSection).toContain('data-testid="set-type-help-btn"');
-      expect(setTypeSection).toContain('data-testid="set-type-popover-content"');
-      expect(setTypeSection).toContain('onClick={() => updateSetType(currentExercise.id, serie.numero_serie, t)}');
+    it("no renderiza selector manual W/N/F/D ni popover de taxonomía en runtime (GOZS-351 / v7)", () => {
+      expect(ejercicioActivoCode).not.toContain('data-testid="set-type-help-btn"');
+      expect(ejercicioActivoCode).not.toContain('data-testid="set-type-popover-content"');
     });
   });
 
-  describe("Criterio 2: Explicación completa y precisa de la taxonomía W, N, F, D", () => {
-    it("el popover contiene la descripción detallada para cada código de serie", () => {
-      expect(liveWorkoutCode).toContain('data-testid="set-type-popover-content"');
-      expect(liveWorkoutCode).toContain("Taxonomía de Series");
-
-      // W: Warm-up
-      expect(liveWorkoutCode).toContain("Warm-up");
-      expect(liveWorkoutCode).toContain("Series de aproximación, no computan al volumen efectivo ni PRs.");
-
-      // N: Normal
-      expect(liveWorkoutCode).toContain("Normal");
-      expect(liveWorkoutCode).toContain("Serie de trabajo principal programada por el entrenador.");
-
-      // F: Failure
-      expect(liveWorkoutCode).toContain("Failure");
-      expect(liveWorkoutCode).toContain("Esfuerzo máximo absoluto sin repeticiones en reserva (RIR 0 / RPE 10).");
-
-      // D: Drop Set
-      expect(liveWorkoutCode).toContain("Drop Set");
-      expect(liveWorkoutCode).toContain("Reducción inmediata de peso sin pausa previa para extender la fatiga metabólica.");
-    });
-
-    it("los badges visuales en el popover usan la misma paleta de color que los botones de selección", () => {
-      // W -> amber-500
-      expect(liveWorkoutCode).toContain("bg-amber-500 text-white");
-      // N -> primary
-      expect(liveWorkoutCode).toContain("bg-primary text-primary-foreground");
-      // F -> rose-600
-      expect(liveWorkoutCode).toContain("bg-rose-600 text-white");
-      // D -> purple-600
-      expect(liveWorkoutCode).toContain("bg-purple-600 text-white");
+  describe("Criterio 2: Sin colores de tema viejo (C2, 01-sistema-visual.md)", () => {
+    it("distingue Normal, Drop set y Aproximación con tokens v7 sin clases amber/rose/purple", () => {
+      expect(ejercicioActivoCode).toContain("Drop set");
+      expect(ejercicioActivoCode).toContain("Aproximación");
+      expect(ejercicioActivoCode).toContain("Normal");
+      expect(ejercicioActivoCode).not.toContain("bg-amber-500");
+      expect(ejercicioActivoCode).not.toContain("bg-rose-600");
+      expect(ejercicioActivoCode).not.toContain("bg-purple-600");
     });
   });
 

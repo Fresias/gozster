@@ -88,9 +88,9 @@ describe("GOZS-418: Motor de Cargas - RPE Piramidal Escalonado con Guiones", () 
       expect(parseTargetRpe(rpePiramidal, 4)).toBe(9);
     });
 
-    it("live-workout.tsx vincula parseTargetRpe a la serie actual respetando inmutabilidad readonly", () => {
-      const liveWorkoutCode = fs.readFileSync(
-        path.resolve(__dirname, "../components/athlete/live-workout.tsx"),
+    it("ejercicio-activo.tsx vincula parseTargetRpe a la serie actual respetando inmutabilidad readonly (FE-05)", () => {
+      const ejercicioActivoCode = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx"),
         "utf-8"
       );
       const useLiveWorkoutCode = fs.readFileSync(
@@ -98,10 +98,9 @@ describe("GOZS-418: Motor de Cargas - RPE Piramidal Escalonado con Guiones", () 
         "utf-8"
       );
       expect(useLiveWorkoutCode).toContain("parseTargetRpe");
-      expect(liveWorkoutCode).toContain('data-testid="rpe-prescribed-badge"');
-      expect(liveWorkoutCode).toContain(
-        "RPE Objetivo: {currentExercise.rpe_objetivo ?? serie.rpe_real} · Prescrito por entrenador"
-      );
+      expect(ejercicioActivoCode).toContain('data-testid="rpe-prescribed-badge"');
+      expect(ejercicioActivoCode).toContain("{ej.rpe_objetivo ?? serie.rpe_real}");
+      expect(ejercicioActivoCode).toContain("lo prescribe tu coach");
     });
   });
 

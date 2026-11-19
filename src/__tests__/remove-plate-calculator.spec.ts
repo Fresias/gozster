@@ -4,44 +4,44 @@ import { describe, expect, it } from "vitest";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { calculateEffectiveTotalWeight } from "@/lib/strength-metrics";
 
-describe("FE App: quitar la calculadora de discos (GOZS-279)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+describe("FE App: quitar modal de calculadora de discos e integrar discos en Técnica (GOZS-279 / D-21)", () => {
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
 
   const homePagePath = path.resolve(__dirname, "../app/page.tsx");
   const homePageCode = fs.readFileSync(homePagePath, "utf-8");
 
-  describe("1. GIVEN la app WHEN se navega el registro THEN no hay calculadora de discos", () => {
-    it("el registro (LiveWorkout) no contiene el botón táctil de 'Discos'", () => {
-      expect(liveWorkoutCode).not.toContain("<span>Discos</span>");
-      expect(liveWorkoutCode).not.toContain('data-testid="plate-calculator-btn"');
+  describe("1. GIVEN la app WHEN se navega el registro THEN no hay modal PlateCalculatorModal (D-21)", () => {
+    it("el registro (EjercicioActivo) no contiene botón ni modal PlateCalculatorModal (D-21 pasa el cálculo a Técnica)", () => {
+      expect(ejercicioActivoCode).not.toContain("<span>Discos</span>");
+      expect(ejercicioActivoCode).not.toContain('data-testid="plate-calculator-btn"');
+      expect(ejercicioActivoCode).toContain("discosPorLado");
     });
 
-    it("el registro (LiveWorkout) no renderiza el modal PlateCalculatorModal", () => {
-      expect(liveWorkoutCode).not.toContain("<PlateCalculatorModal");
-      expect(liveWorkoutCode).not.toContain("data-testid=\"plate-calculator-modal\"");
+    it("el registro (EjercicioActivo) no renderiza el modal PlateCalculatorModal", () => {
+      expect(ejercicioActivoCode).not.toContain("<PlateCalculatorModal");
+      expect(ejercicioActivoCode).not.toContain('data-testid="plate-calculator-modal"');
     });
 
-    it("el botón de Calentamiento ahora ocupa el ancho completo (w-full) con ergonomía táctil >= 44px", () => {
-      expect(liveWorkoutCode).toContain('data-testid={`warmup-btn-${currentExercise.id}`}');
-      expect(liveWorkoutCode).toContain("w-full min-h-11");
-      expect(liveWorkoutCode).toContain("Calentamiento");
+    it("la aproximación en línea (D-20) expone el botón 'Saltar' con data-testid warmup-btn-${ej.id}", () => {
+      expect(ejercicioActivoCode).toContain("data-testid={`warmup-btn-${ej.id}`}");
+      expect(ejercicioActivoCode).toContain("Aproximación");
     });
   });
 
   describe("2. GIVEN la app WHEN se audita el código THEN no hay código muerto", () => {
-    it("no hay importaciones huérfanas de PlateCalculatorModal en live-workout.tsx", () => {
-      expect(liveWorkoutCode).not.toContain('import { PlateCalculatorModal }');
-      expect(liveWorkoutCode).not.toContain('from "@/components/athlete/plate-calculator-modal"');
+    it("no hay importaciones huérfanas de PlateCalculatorModal en ejercicio-activo.tsx", () => {
+      expect(ejercicioActivoCode).not.toContain("import { PlateCalculatorModal }");
+      expect(ejercicioActivoCode).not.toContain('from "@/components/athlete/plate-calculator-modal"');
     });
 
-    it("no hay estado muerto ni setters de plateModalWeight en live-workout.tsx", () => {
-      expect(liveWorkoutCode).not.toContain("plateModalWeight");
-      expect(liveWorkoutCode).not.toContain("setPlateModalWeight");
+    it("no hay estado muerto ni setters de plateModalWeight en ejercicio-activo.tsx", () => {
+      expect(ejercicioActivoCode).not.toContain("plateModalWeight");
+      expect(ejercicioActivoCode).not.toContain("setPlateModalWeight");
     });
 
-    it("no hay import huérfano de Dumbbell en live-workout.tsx", () => {
-      expect(liveWorkoutCode).not.toContain("Dumbbell");
+    it("no hay import huérfano de Dumbbell en ejercicio-activo.tsx", () => {
+      expect(ejercicioActivoCode).not.toContain("Dumbbell");
     });
 
     it("la landing page (app/page.tsx) no lista la Calculadora de Discos como feature activa", () => {

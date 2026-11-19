@@ -22,7 +22,7 @@ function leerPantallasReferencia(): string[] {
 
 const PANTALLAS = leerPantallasReferencia();
 
-const STUB_URL = "http://localhost:54321";
+const STUB_URL = process.env.E2E_STUB_URL ?? "http://localhost:54321";
 const APP_OUT_DIR = join(process.cwd(), "test-results", "athlete-v7", "app");
 const REF_PNG_DIR = join(process.cwd(), "docs", "athlete-v7", "referencia", "png");
 const EVIDENCIA_DIR = process.env.ATHLETE_V7_EVIDENCIA_DIR
@@ -152,12 +152,7 @@ export const SIN_RECETA: Record<string, string> = {
   // Sesión
   "rutina-molestia": "sin receta (falta FE-08)",
   // Ejercicio
-  "ex-tec-rpe": "sin receta (falta FE-05)",
-  "ex-drop-2": "sin receta (falta FE-05)",
-  "ex-uni-izq": "sin receta (falta FE-05)",
   "toast-record": "sin receta (falta FE-06)",
-  "ex-rej": "sin receta (falta FE-05)",
-  "toast-sinsenal": "sin receta (falta FE-05)",
   "ex-videos": "sin receta (falta FE-07)",
   "ex-video-estados": "sin receta (falta FE-07)",
   setvideo: "sin receta (falta FE-07)",
@@ -487,6 +482,11 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByTestId(`single-exercise-container-${EJ_BP}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId("input-rpe")).toBeVisible();
   },
+  "ex-tec-rpe": async (page, tema) => {
+    await RECETAS_EJERCICIO["ex-tec"]!(page, tema);
+    await page.getByRole("button", { name: "Qué es RPE" }).click();
+    await expect(page.getByText(/RPE 8:/)).toBeVisible();
+  },
   "ex-tiempo": async (page, tema) => {
     await entrarADia1(page, tema);
     await page.getByTestId(`exercise-select-btn-${EJ_PL}`).click();
@@ -504,11 +504,24 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByTestId(`single-exercise-container-${EJ_JL}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId("dropset-banner")).toBeVisible();
   },
+  "ex-drop-2": async (page, tema) => {
+    await RECETAS_EJERCICIO["ex-drop"]!(page, tema);
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir = page.getByRole("button", { name: "Omitir" });
+    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await expect(page.getByTestId("registrar-serie-btn")).toContainText("Registrar drop 2");
+  },
   "ex-uni": async (page, tema) => {
     await entrarADia2(page, tema);
     await page.getByTestId(`exercise-select-btn-${EJ_ZB}`).click();
     await page.getByTestId(`single-exercise-container-${EJ_ZB}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId("unilateral-indicator")).toBeVisible();
+  },
+  "ex-uni-izq": async (page, tema) => {
+    await RECETAS_EJERCICIO["ex-uni"]!(page, tema);
+    await page.getByTestId("registrar-serie-btn").click();
+    await expect(page.getByTestId("uni-side-I")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("registrar-serie-btn")).toContainText("Registrar izquierda");
   },
   "ex-rest": async (page, tema) => {
     await entrarADia1(page, tema);
@@ -545,6 +558,27 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByTestId("registrar-serie-btn").click();
     await expect(page.getByTestId("atypical-confirmation-dialog")).toBeVisible();
   },
+  "ex-rej": async (page, tema) => {
+    await page.route("**/rest/v1/registro_series*", async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ code: "23514", message: "check constraint rejected" }),
+      });
+    });
+    await entrarADia1(page, tema);
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId("registrar-serie-btn").click();
+    const omitir = page.getByRole("button", { name: "Omitir" });
+    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByTestId("sync-error-notice")).toBeVisible({ timeout: 10_000 });
+  },
   "ex-offline": async (page, tema) => {
     await entrarADia1(page, tema);
     await page.context().setOffline(true);
@@ -552,8 +586,19 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
     await page.getByTestId(`single-exercise-container-${EJ_BP}`).scrollIntoViewIfNeeded();
     await page.getByTestId("registrar-serie-btn").click();
+    const omitir = page.getByRole("button", { name: "Omitir" });
+    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
     await expect(page.getByTestId(`single-exercise-container-${EJ_BP}`)).toBeVisible();
+    await expect(page.getByTestId("serie-en-telefono")).toBeVisible();
+  },
+  "toast-sinsenal": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await expect(page.getByTestId("toast-sesion")).toContainText("Sin señal. Seguí entrenando");
   },
   "ex-completo": async (page, tema) => {
     await entrarADia1(page, tema);
@@ -563,9 +608,10 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
       await page.getByTestId("registrar-serie-btn").click();
       const omitir = page.getByRole("button", { name: "Omitir" });
       if (await omitir.isVisible().catch(() => false)) await omitir.click();
+      await page.getByTestId("volver-a-rutina-btn").click();
     }
     await page.getByTestId(`exercise-select-btn-${EJ_RM}`).click();
-    await expect(page.getByText("¡Ejercicio completado!")).toBeVisible();
+    await expect(page.getByText("Ejercicio completo")).toBeVisible();
   },
   notes: async (page, tema) => {
     await entrarADia1(page, tema);

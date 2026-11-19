@@ -227,7 +227,7 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
     checks.push(
       {
         descripcion: "Nombre del ejercicio (Archivo 26px 800)",
-        selector: "main h2",
+        selector: "main h1",
         esTestId: false,
         reglas: { fontFamilyContains: "Archivo", fontSizePx: 26, fontWeight: "800", fontStretch: "100%" },
       },
@@ -237,12 +237,16 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
         esTestId: true,
         reglas: { fontFamilyContains: "Geist", fontSizePx: 14, fontWeight: "500" },
       },
-      {
-        descripcion: "Sugerencia Repetí/Probá",
-        selector: "sugerencia-carga",
-        esTestId: true,
-        reglas: { backgroundColor: dark ? "rgb(6, 46, 37)" : "rgb(227, 244, 238)" },
-      },
+      ...(clave !== "ex-offline"
+        ? [
+            {
+              descripcion: "Sugerencia Repetí/Probá",
+              selector: "sugerencia-carga",
+              esTestId: true,
+              reglas: { backgroundColor: dark ? "rgb(6, 46, 37)" : "rgb(227, 244, 238)" },
+            },
+          ]
+        : []),
       {
         descripcion: "Botón primario Registrar serie",
         selector: "registrar-serie-btn",
@@ -265,8 +269,8 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
     checks.push(
       {
         descripcion: "Timer del descanso (Archivo 44px 800)",
-        selector: "[data-testid='rest-timer-banner'] [role='timer']",
-        esTestId: false,
+        selector: "rest-timer-elapsed",
+        esTestId: true,
         reglas: { fontFamilyContains: "Archivo", fontSizePx: 44, fontWeight: "800" },
       },
       {

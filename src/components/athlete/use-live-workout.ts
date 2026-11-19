@@ -206,6 +206,16 @@ export function useLiveWorkout() {
   // Series que resultaron récord en esta sesión
   const [seriesRecord, setSeriesRecord] = React.useState<Set<string>>(() => new Set());
 
+  // Flujo unilateral por lado (D/I) en UI, confirmando 1 sola serie al completar ambos lados
+  const [uniSide, setUniSide] = React.useState<"D" | "I">("D");
+  const [uniPend, setUniPend] = React.useState<{
+    D: { kg: number; reps: number } | null;
+    I: { kg: number; reps: number } | null;
+  }>({ D: null, I: null });
+  const [uniLogs, setUniLogs] = React.useState<
+    Record<string, { D: { kg: number; reps: number }; I: { kg: number; reps: number } }>
+  >({});
+
   // Selección manual de ejercicio activo
   const [selectedExerciseId, setSelectedExerciseId] = React.useState<string | null>(null);
 
@@ -305,6 +315,18 @@ export function useLiveWorkout() {
 
   const { syncError, clearSyncError, isOnline, pendingEvents } = useOfflineQueueStore();
 
+  // Avisar con toast cuando se pierde la señal durante la sesión
+  const prevOnlineRef = React.useRef(isOnline);
+  React.useEffect(() => {
+    if (prevOnlineRef.current && !isOnline) {
+      setToastSesion({
+        mensaje: "Sin señal. Seguí entrenando: las series quedan en el teléfono.",
+        tipo: "neutral",
+      });
+    }
+    prevOnlineRef.current = isOnline;
+  }, [isOnline, setToastSesion]);
+
   // "La última vez": se descarga al abrir la sesión y al volver la conexión
   React.useEffect(() => {
     if (isOnline) void cargarUltimaVez();
@@ -399,6 +421,10 @@ export function useLiveWorkout() {
   // §2.5: se precarga una sola vez por serie pendiente y nunca encima de lo que el alumno ya tocó.
   const seriesTocadas = React.useRef(new Set<string>());
   const claveSerie = currentExercise && serie ? `${currentExercise.id}-${serie.numero_serie}` : null;
+  React.useEffect(() => {
+    setUniSide("D");
+    setUniPend({ D: null, I: null });
+  }, [claveSerie]);
   const pesoSugerido = sugerencia?.pesoSugerido;
   const repsSugeridas = sugerencia?.repsSugeridas;
   React.useEffect(() => {
@@ -465,75 +491,94 @@ export function useLiveWorkout() {
     return () => clearInterval(interval);
   }, [timerTiempoActivo, timerTiempoPausado, tiempoCountdown]);
 
-  // Registrar serie actual
-  const handleRegistrarSerie = (confirmarAtipica = false) => {
+  const checkPlausibilityBeforeRegister = (peso: number, reps: number, confirmarAtipica: boolean): boolean => {
+    if (!currentExercise || !currentSet || confirmarAtipica) return true;
+    const num = currentSet.numero_serie;
+    const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
+
+    const prevPesos: number[] = [];
+    if (ultimaVez[ejId]?.series) {
+      for (const s of ultimaVez[ejId].series) {
+        if (typeof s.peso_kg === "number") prevPesos.push(s.peso_kg);
+      }
+    }
+    for (const s of currentExercise.series) {
+      if (s.completada && typeof s.peso_kg === "number" && s.numero_serie !== num) {
+        prevPesos.push(s.peso_kg);
+      }
+    }
+    if (prevPesos.length === 0 && marcas[ejId]?.frontera) {
+      for (const f of marcas[ejId].frontera) {
+        if (typeof f.peso_kg === "number") prevPesos.push(f.peso_kg);
+      }
+    }
+
+    let ultPeso: number | null = null;
+    const prevCompletadasHoy = currentExercise.series.filter(
+      (s) => s.completada && s.numero_serie < num,
+    );
+    if (prevCompletadasHoy.length > 0) {
+      ultPeso = prevCompletadasHoy[prevCompletadasHoy.length - 1]!.peso_kg;
+    } else if (ultimaVez[ejId]?.series?.length) {
+      const ref = serieDeReferencia(ultimaVez[ejId]!, num);
+      ultPeso = ref ? ref.peso_kg : ultimaVez[ejId]!.series[ultimaVez[ejId]!.series.length - 1]!.peso_kg;
+    } else if (typeof currentSet.last_session_weight_kg === "number" && currentSet.last_session_weight_kg > 0) {
+      ultPeso = currentSet.last_session_weight_kg;
+    }
+
+    const evalRes = evaluarPlausibilidadSerie({
+      peso,
+      reps,
+      rpe: currentSet.rpe_real,
+      historialPesos: prevPesos,
+      ultimoPeso: ultPeso,
+      musculos: currentExercise.musculos_principales,
+      nombreEjercicio: currentExercise.nombre,
+    });
+
+    if (evalRes.estado === "bloqueado") {
+      setPlausibilityError(evalRes.error);
+      return false;
+    }
+
+    if (evalRes.estado === "requiere_confirmacion") {
+      setAtypicalPrompt({
+        mensaje: evalRes.mensaje,
+        peso: evalRes.peso,
+        reps: evalRes.reps,
+        isEditing: false,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Registrar serie actual (con override opcional para payload unilateral)
+  const handleRegistrarSerie = (
+    confirmarAtipica = false,
+    override?: { pesoKg: number; reps: number },
+  ) => {
     if (!currentExercise || !currentSet) return;
     setPlausibilityError(null);
 
     const num = currentSet.numero_serie;
-    const peso = currentSet.peso_kg;
-    const reps =
-      currentExercise.tipo_medicion === "TIEMPO" && (!currentSet.reps_hechas || currentSet.reps_hechas === 0)
+    const peso = override ? override.pesoKg : currentSet.peso_kg;
+    const reps = override
+      ? override.reps
+      : currentExercise.tipo_medicion === "TIEMPO" && (!currentSet.reps_hechas || currentSet.reps_hechas === 0)
         ? tiempoObjetivo
         : currentSet.reps_hechas;
     const setType = currentSet.set_type;
     const ejId = currentExercise.ejercicio_id ?? currentExercise.id;
 
-    if (!confirmarAtipica) {
-      const prevPesos: number[] = [];
-      if (ultimaVez[ejId]?.series) {
-        for (const s of ultimaVez[ejId].series) {
-          if (typeof s.peso_kg === "number") prevPesos.push(s.peso_kg);
-        }
-      }
-      for (const s of currentExercise.series) {
-        if (s.completada && typeof s.peso_kg === "number" && s.numero_serie !== num) {
-          prevPesos.push(s.peso_kg);
-        }
-      }
-      if (prevPesos.length === 0 && marcas[ejId]?.frontera) {
-        for (const f of marcas[ejId].frontera) {
-          if (typeof f.peso_kg === "number") prevPesos.push(f.peso_kg);
-        }
-      }
+    if (!override && !checkPlausibilityBeforeRegister(peso, reps, confirmarAtipica)) {
+      return;
+    }
 
-      let ultPeso: number | null = null;
-      const prevCompletadasHoy = currentExercise.series.filter(
-        (s) => s.completada && s.numero_serie < num,
-      );
-      if (prevCompletadasHoy.length > 0) {
-        ultPeso = prevCompletadasHoy[prevCompletadasHoy.length - 1]!.peso_kg;
-      } else if (ultimaVez[ejId]?.series?.length) {
-        const ref = serieDeReferencia(ultimaVez[ejId]!, num);
-        ultPeso = ref ? ref.peso_kg : ultimaVez[ejId]!.series[ultimaVez[ejId]!.series.length - 1]!.peso_kg;
-      } else if (typeof currentSet.last_session_weight_kg === "number" && currentSet.last_session_weight_kg > 0) {
-        ultPeso = currentSet.last_session_weight_kg;
-      }
-
-      const evalRes = evaluarPlausibilidadSerie({
-        peso,
-        reps,
-        rpe: currentSet.rpe_real,
-        historialPesos: prevPesos,
-        ultimoPeso: ultPeso,
-        musculos: currentExercise.musculos_principales,
-        nombreEjercicio: currentExercise.nombre,
-      });
-
-      if (evalRes.estado === "bloqueado") {
-        setPlausibilityError(evalRes.error);
-        return;
-      }
-
-      if (evalRes.estado === "requiere_confirmacion") {
-        setAtypicalPrompt({
-          mensaje: evalRes.mensaje,
-          peso: evalRes.peso,
-          reps: evalRes.reps,
-          isEditing: false,
-        });
-        return;
-      }
+    if (override) {
+      updateSetField(currentExercise.id, num, "peso_kg", peso);
+      updateSetField(currentExercise.id, num, "reps_hechas", reps);
     }
 
     const esAtipica = Boolean(confirmarAtipica);
@@ -543,6 +588,7 @@ export function useLiveWorkout() {
     const isLastSetOfWorkout = completedSetsCount + 1 === totalSets && totalSets > 0;
 
     completeSet(currentExercise.id, num, esAtipica);
+    triggerHapticVibration(30);
     if (!esAtipica) {
       registrarSerieEnMarcas(ejId, serieCandidata);
     }
@@ -591,7 +637,73 @@ export function useLiveWorkout() {
           ejecutarTransicionVisual(nextExerciseId);
         }
       }
+
+      const nextExObj = nextExerciseId
+        ? currentSession.ejercicios.find((e) => e.id === nextExerciseId)
+        : undefined;
+      const timerActiveNow = useAthleteStore.getState().restTimer.isActive;
+      if (
+        currentExercise.es_superserie &&
+        nextExObj &&
+        nextExObj.id !== currentExercise.id &&
+        !timerActiveNow
+      ) {
+        setToastSesion({
+          mensaje: `Biserie, sin descanso: ${nextExObj.nombre}`,
+          tipo: "neutral",
+        });
+      } else if (mostrarTimerDescanso === false) {
+        const targetName = nextExObj?.nombre ?? currentExercise.nombre;
+        const nextSetNum = nextExObj && nextExObj.id !== currentExercise.id ? 1 : num + 1;
+        setToastSesion({
+          mensaje: `Serie guardada. Sigue: ${targetName} · Serie ${nextSetNum}`,
+          tipo: "ok",
+        });
+      }
     }
+  };
+
+  // Flujo unilateral: registra un lado en UI y solo envía 1 serie al store al completar D e I
+  const handleRegistrarUnilateral = (confirmarAtipica = false) => {
+    if (!currentExercise || !currentSet) return;
+    setPlausibilityError(null);
+
+    const peso = currentSet.peso_kg;
+    const reps = currentSet.reps_hechas;
+    if (!checkPlausibilityBeforeRegister(peso, reps, confirmarAtipica)) {
+      return;
+    }
+
+    const other: "D" | "I" = uniSide === "D" ? "I" : "D";
+    const nextPend = {
+      ...uniPend,
+      [uniSide]: { kg: peso, reps },
+    };
+
+    if (!nextPend[other]) {
+      setUniPend(nextPend);
+      setUniSide(other);
+      setToastSesion({
+        mensaje:
+          uniSide === "D"
+            ? "Derecha registrada. Ahora izquierda."
+            : "Izquierda registrada. Ahora derecha.",
+        tipo: "ok",
+      });
+      return;
+    }
+
+    const num = currentSet.numero_serie;
+    setUniLogs((prev) => ({
+      ...prev,
+      [`${currentExercise.id}-${num}`]: { D: nextPend.D!, I: nextPend.I! },
+    }));
+    setUniPend({ D: null, I: null });
+    setUniSide("D");
+    handleRegistrarSerie(confirmarAtipica, {
+      pesoKg: nextPend.D!.kg,
+      reps: nextPend.D!.reps,
+    });
   };
 
   const handleAdjustPeso = (delta: number) => {
@@ -769,6 +881,10 @@ export function useLiveWorkout() {
     setOptimisticBanner,
     seriesRecord,
     setSeriesRecord,
+    uniSide,
+    setUniSide,
+    uniPend,
+    uniLogs,
     selectedExerciseId,
     setSelectedExerciseId,
     highlightedExerciseId,
@@ -833,6 +949,7 @@ export function useLiveWorkout() {
     tiempoObjetivo,
     ejecutarTransicionVisual,
     handleRegistrarSerie,
+    handleRegistrarUnilateral,
     handleAdjustPeso,
     handleAdjustReps,
     handleDirectUpdatePeso,

@@ -76,57 +76,49 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(html).toBe("");
     });
 
-    it("GIVEN descanso activo a 390 px THEN renderiza con tokens de componente, tiempo a 60px y botones quick", () => {
+    it("GIVEN descanso activo a 390 px THEN renderiza panel .a-restbar con tiempo transcurrido y botones quick (02-pantallas.md §3)", () => {
       useAthleteStore.getState().startRestTimer(90, "Press de Banca", 2);
 
       const html = renderToStaticMarkup(<RestTimer />);
 
-      // Banner accesible y posicionado como tarjeta en desktop y fijo en mobile
+      // Panel inferior v7 (.a-restbar, sin colores viejos)
       expect(html).toContain('data-testid="rest-timer-banner"');
-      expect(html).toContain('aria-label="Temporizador de descanso"');
-      expect(html).toContain("fixed inset-x-0 bottom-0 z-40");
-      expect(html).toContain("lg:w-[400px]");
-      expect(html).toContain("lg:bottom-6");
-      expect(html).toContain("lg:right-6");
-      expect(html).toContain("lg:rounded-2xl");
-      expect(html).toContain("lg:border");
-      expect(html).toContain("lg:shadow-m3-2");
-      expect(html).toContain("bg-rest-timer");
+      expect(html).toContain('role="timer"');
+      expect(html).toContain('aria-label="Descanso"');
+      expect(html).toContain('class="a-restbar"');
 
-      // Progress bar accesible
+      // Barra de progreso accesible (.a-rb-track)
       expect(html).toContain('role="progressbar"');
       expect(html).toContain('aria-label="Progreso del descanso"');
-      expect(html).toContain("bg-rest-timer-track");
-      expect(html).toContain("bg-rest-timer-fill");
+      expect(html).toContain('class="a-rb-track"');
 
-      // Tiempo en dígitos 60px (text-6xl) tabular-nums
-      expect(html).toContain('role="timer"');
-      expect(html).toContain('aria-live="off"');
-      expect(html).toContain("text-6xl font-black leading-none tracking-tight tabular-nums text-rest-timer-time");
-      expect(html).toContain("01:30");
+      // Tiempo transcurrido sobre el total (02-pantallas.md §3)
+      expect(html).toContain('data-testid="rest-timer-elapsed"');
+      expect(html).toContain("0:00");
+      expect(html).toContain("de 1:30 · faltan 1:30");
 
       // Datos de serie y ejercicio
       expect(html).toContain("Press de Banca · Serie 2");
       expect(html).toContain("Descanso");
 
-      // 4 botones ergonómicos quick (56px) en el orden aprobado: −30 s, +30 s, Pausa, Omitir
+      // 4 botones ergonómicos de 52 px (.a-rb-ctrl): −30 s, +30 s, Pausa (.a-pp), Omitir
       expect(html).toContain("−30 s");
       expect(html).toContain("+30 s");
       expect(html).toContain("Omitir");
       expect(html).toContain('aria-label="Restar 30 segundos"');
       expect(html).toContain('aria-label="Sumar 30 segundos"');
       expect(html).toContain('aria-label="Pausar descanso"');
+      expect(html).toContain('class="a-pp"');
     });
 
-    it("GIVEN descanso pausado THEN muestra 'Pausado', ícono Play y tokens de pausa", () => {
+    it("GIVEN descanso pausado THEN muestra 'Pausado', ícono Play y botón Reanudar descanso", () => {
       useAthleteStore.getState().startRestTimer(60, "Sentadilla", 1);
       useAthleteStore.getState().pauseTimer();
 
       const html = renderToStaticMarkup(<RestTimer />);
 
       expect(html).toContain("Pausado");
-      expect(html).toContain("text-rest-timer-paused");
-      expect(html).toContain("bg-rest-timer-paused");
+      expect(html).toContain('class="a-pp"');
       expect(html).toContain('aria-label="Reanudar descanso"');
     });
   });
@@ -263,12 +255,17 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(blancoStats.size).toBeGreaterThan(1000);
     });
 
-    it("GIVEN live-workout.tsx THEN su contenedor principal usa pb-44 para no tapar acciones con el timer", () => {
-      const filePath = path.resolve(process.cwd(), "src/components/athlete/live-workout.tsx");
+    it("GIVEN ejercicio-activo.tsx y athlete-v7.css THEN reserva espacio inferior (.a-has-rest .a-scroll) para no tapar acciones con el timer (FE-05)", () => {
+      const filePath = path.resolve(process.cwd(), "src/components/athlete/ejercicio-activo.tsx");
       const content = fs.readFileSync(filePath, "utf-8");
+      const cssContent = fs.readFileSync(
+        path.resolve(process.cwd(), "src/app/(athlete)/athlete/athlete-v7.css"),
+        "utf-8",
+      );
 
       expect(content).toContain('data-testid="live-workout-container"');
-      expect(content).toContain("pb-44");
+      expect(cssContent).toContain(".a-app.a-has-rest .a-scroll");
+      expect(cssContent).toContain("padding-bottom: 230px;");
     });
   });
 });

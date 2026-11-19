@@ -16,9 +16,11 @@ import {
 } from "@/lib/record-ejercicio";
 
 describe("Registro explícito de series de calentamiento (W) en ejercicio activo (GH #182, GOZS-176)", () => {
-  const liveWorkoutPath = path.resolve(__dirname, "../components/athlete/live-workout.tsx");
+  const ejercicioActivoPath = path.resolve(__dirname, "../components/athlete/ejercicio-activo.tsx");
+  const rutinaDelDiaPath = path.resolve(__dirname, "../components/athlete/rutina-del-dia.tsx");
   const warmupModalPath = path.resolve(__dirname, "../components/athlete/warmup-modal.tsx");
-  const liveWorkoutCode = fs.readFileSync(liveWorkoutPath, "utf-8");
+  const ejercicioActivoCode = fs.readFileSync(ejercicioActivoPath, "utf-8");
+  const rutinaDelDiaCode = fs.readFileSync(rutinaDelDiaPath, "utf-8");
   const warmupModalCode = fs.readFileSync(warmupModalPath, "utf-8");
 
   beforeEach(() => {
@@ -157,23 +159,23 @@ describe("Registro explícito de series de calentamiento (W) en ejercicio activo
     });
   });
 
-  describe("3. Presencia de componentes visuales en LiveWorkout y WarmupModal", () => {
-    it("el badge ámbar 'Calentamiento (W)' se muestra claramente identificado", () => {
-      expect(liveWorkoutCode).toContain('data-testid="warmup-badge"');
-      expect(liveWorkoutCode).toContain("Calentamiento (W)");
-      expect(liveWorkoutCode).toContain("border-amber-500");
+  describe("3. Presencia de componentes visuales en EjercicioActivo, RutinaDelDia y WarmupModal (D-20 / C2)", () => {
+    it("el chip 'Aproximación' está identificado con data-testid='warmup-badge' sin colores amber", () => {
+      expect(ejercicioActivoCode).toContain('data-testid="warmup-badge"');
+      expect(ejercicioActivoCode).toContain("Aproximación");
+      expect(ejercicioActivoCode).not.toContain("border-amber-500");
     });
 
-    it("el bloque visual dedicado 'Series de Calentamiento' está separado de las series efectivas en vivo", () => {
-      expect(liveWorkoutCode).toContain('data-testid="warmup-sets-section"');
-      expect(liveWorkoutCode).toContain("Series de Calentamiento");
-      expect(liveWorkoutCode).toContain('data-testid="effective-sets-section"');
-      expect(liveWorkoutCode).toContain("Series Efectivas");
+    it("la sección en línea 'Aproximación' (D-20) expone W1..Wn y carga de series", () => {
+      expect(ejercicioActivoCode).toContain('data-testid="warmup-sets-section"');
+      expect(ejercicioActivoCode).toContain("Aproximación");
+      expect(ejercicioActivoCode).toContain('data-testid={`aproximacion-btn-${ej.id}`}');
+      expect(ejercicioActivoCode).toContain('data-testid={`warmup-set-card-${a.setNumber}`}');
     });
 
-    it("en el registro del día se separan las series de calentamiento de las efectivas", () => {
-      expect(liveWorkoutCode).toContain('data-testid={`registro-warmup-section-${ej.id}`}');
-      expect(liveWorkoutCode).toContain('data-testid={`registro-effective-section-${ej.id}`}');
+    it("en RutinaDelDia se mantiene el registro de la sesión con series completadas", () => {
+      expect(rutinaDelDiaCode).toContain('data-testid="registro-dia-container"');
+      expect(rutinaDelDiaCode).toContain("series");
     });
 
     it("el modal de calentamiento expone botones de registro directo y carga de 4 series", () => {

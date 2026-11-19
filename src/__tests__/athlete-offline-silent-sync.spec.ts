@@ -10,7 +10,7 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 const readSource = (relPath: string) =>
   fs.readFileSync(path.resolve(__dirname, relPath), "utf-8");
 
-const liveWorkout = readSource("../components/athlete/live-workout.tsx");
+const ejercicioActivo = readSource("../components/athlete/ejercicio-activo.tsx");
 const athleteShell = readSource("../components/athlete/athlete-shell.tsx");
 
 describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
@@ -56,21 +56,21 @@ describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
   });
 
   describe("La UI del alumno no expone la cola ni la sincronización manual", () => {
-    it("live-workout.tsx no muestra cola, contadores ni botones de sync/paywall", () => {
-      expect(liveWorkout).not.toContain("Cola Offline");
-      expect(liveWorkout).not.toContain("Sincronizar en Supabase");
-      expect(liveWorkout).not.toContain("Simular Cuota");
-      expect(liveWorkout).not.toContain("Esperando Conexión");
-      expect(liveWorkout).not.toContain("pendingEvents");
-      expect(liveWorkout).not.toContain("sync-supabase-btn");
-      expect(liveWorkout).not.toContain("simulate-paywall-btn");
+    it("ejercicio-activo.tsx no muestra cola, contadores ni botones de sync/paywall (D3-A solo deriva estado de fila)", () => {
+      expect(ejercicioActivo).not.toContain("Cola Offline");
+      expect(ejercicioActivo).not.toContain("Sincronizar en Supabase");
+      expect(ejercicioActivo).not.toContain("Simular Cuota");
+      expect(ejercicioActivo).not.toContain("Esperando Conexión");
+      // D3-A (00-PM.md §4): pendingEvents se usa únicamente para derivar Guardada / En el teléfono por fila.
+      expect(ejercicioActivo).toContain("isSetPendingOffline");
+      expect(ejercicioActivo).not.toContain("sync-supabase-btn");
+      expect(ejercicioActivo).not.toContain("simulate-paywall-btn");
     });
 
-    it("live-workout.tsx muestra el aviso discreto y no bloqueante ante fallo definitivo", () => {
-      expect(liveWorkout).toContain('data-testid="sync-error-notice"');
-      expect(liveWorkout).toContain(
-        "No pudimos guardar en el servidor. Tus datos siguen en el teléfono.",
-      );
+    it("ejercicio-activo.tsx muestra el aviso discreto y no bloqueante ante fallo definitivo", () => {
+      expect(ejercicioActivo).toContain('data-testid="sync-error-notice"');
+      expect(ejercicioActivo).toContain("No pudimos guardar en el servidor");
+      expect(ejercicioActivo).toContain("Tus datos siguen en el teléfono. Se reintenta solo.");
     });
 
     it("athlete-shell.tsx muestra las series pendientes sin señal (D-25) y sincroniza al reconectar", () => {
@@ -81,22 +81,22 @@ describe("GOZS-144 PR1 · Modelo offline silencioso del alumno", () => {
   });
 
   describe("Hábitos y Nutrición ya no se montan en la app del alumno", () => {
-    it("live-workout.tsx no importa ni renderiza HabitTracker / NutritionTracker", () => {
-      expect(liveWorkout).not.toContain("HabitTracker");
-      expect(liveWorkout).not.toContain("NutritionTracker");
-      expect(liveWorkout).not.toContain('data-testid="tab-habits"');
-      expect(liveWorkout).not.toContain('data-testid="tab-nutrition"');
+    it("ejercicio-activo.tsx no importa ni renderiza HabitTracker / NutritionTracker", () => {
+      expect(ejercicioActivo).not.toContain("HabitTracker");
+      expect(ejercicioActivo).not.toContain("NutritionTracker");
+      expect(ejercicioActivo).not.toContain('data-testid="tab-habits"');
+      expect(ejercicioActivo).not.toContain('data-testid="tab-nutrition"');
     });
   });
 
   describe("Iconografía Lucide inline, sin dependencia prohibida", () => {
-    it("live-workout.tsx usa íconos del módulo local en vez de emojis", () => {
-      expect(liveWorkout).toContain('from "@/components/athlete/icons"');
+    it("ejercicio-activo.tsx usa íconos del módulo local en vez de emojis", () => {
+      expect(ejercicioActivo).toContain('from "@/components/athlete/icons"');
       // Emojis reemplazados en la vista de entrenamiento.
-      expect(liveWorkout).not.toContain("⚠️");
-      expect(liveWorkout).not.toContain("⏱️");
-      expect(liveWorkout).not.toContain("🔥");
-      expect(liveWorkout).not.toContain("🎬");
+      expect(ejercicioActivo).not.toContain("⚠️");
+      expect(ejercicioActivo).not.toContain("⏱️");
+      expect(ejercicioActivo).not.toContain("🔥");
+      expect(ejercicioActivo).not.toContain("🎬");
     });
   });
 });
