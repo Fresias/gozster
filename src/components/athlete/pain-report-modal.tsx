@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Info, TriangleAlert, X } from "@/components/athlete/icons";
+import { nivelMolestia, type NivelMolestia } from "@/lib/athlete/molestias";
 
 export interface PainReportData {
   exerciseId?: string;
@@ -17,6 +18,12 @@ export interface PainReportData {
   notasAlumno: string;
 }
 
+export interface PainReportModalEjercicio {
+  id: string;
+  ejercicio_id?: string | null;
+  nombre: string;
+}
+
 export interface PainReportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,13 +31,14 @@ export interface PainReportModalProps {
   exerciseId?: string;
   ejercicioId?: string;
   setNumber?: number;
+  ejercicios?: PainReportModalEjercicio[];
   onSavePainReport: (report: PainReportData | string) => void;
 }
 
 export const JOINT_ZONES: Array<{ id: PainReportData["zonaArticular"]; label: string }> = [
   { id: "HOMBRO", label: "Hombro" },
   { id: "RODILLA", label: "Rodilla" },
-  { id: "LUMBAR", label: "Espalda Baja / Lumbar" },
+  { id: "LUMBAR", label: "Espalda baja / Lumbar" },
   { id: "CODO", label: "Codo" },
   { id: "CUELLO", label: "Cuello / Cervical" },
   { id: "CADERA", label: "Cadera" },
@@ -43,16 +51,45 @@ export const MOMENTOS_APARICION: Array<{
   label: string;
 }> = [
   { id: "CALENTAMIENTO", label: "Calentamiento" },
-  { id: "EN_SERIE", label: "Durante la Serie" },
-  { id: "POST_EJERCICIO", label: "Post-Ejercicio" },
+  { id: "EN_SERIE", label: "Durante la serie" },
+  { id: "POST_EJERCICIO", label: "Post-ejercicio" },
 ];
 
 export const RED_FLAG_SYMPTOMS = [
-  { id: "Dolor punzante/súbito", label: "Dolor punzante/súbito" },
-  { id: "Irradiación/adormecimiento", label: "Irradiación/adormecimiento" },
-  { id: "Mareo/falta de aire", label: "Mareo/falta de aire" },
-  { id: "Inestabilidad articular", label: "Inestabilidad articular" },
+  { id: "Dolor punzante/súbito", label: "Dolor punzante o súbito" },
+  { id: "Irradiación/adormecimiento", label: "Irradiación o adormecimiento" },
+  { id: "Mareo/falta de aire", label: "Mareo o falta de aire" },
+  { id: "Inestabilidad articular", label: "Inestabilidad en la articulación" },
 ] as const;
+
+const MENSAJE_NIVEL: Record<NivelMolestia, string> = {
+  leve: "Leve: avisamos a tu coach. Seguí con precaución.",
+  moderada: "Moderada: avisamos a tu coach. Si sigue, bajá el peso en las próximas series.",
+  alta: "Alta: vas a suspender este ejercicio. Seguí con el resto solo si no molesta.",
+  alarma: "Síntoma de alarma: frená por hoy y avisá en el gimnasio.",
+};
+
+const CLASE_NIVEL: Record<NivelMolestia, string> = {
+  leve: "a-pain a-t-sec",
+  moderada: "a-pain a-mod a-t-sec",
+  alta: "a-pain a-alta a-t-sec",
+  alarma: "a-pain a-alarm a-t-sec",
+};
+
+const TESTID_NIVEL: Record<NivelMolestia, string> = {
+  leve: "pain-modal-cartel-1-3",
+  moderada: "pain-modal-cartel-4-6",
+  alta: "pain-modal-cartel-7-9",
+  alarma: "protocolo-freno-alert",
+};
+
+function obtenerEnfocables(contenedor: HTMLElement): HTMLElement[] {
+  return Array.from(
+    contenedor.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+}
 
 export function PainReportModal({
   isOpen,
@@ -61,8 +98,22 @@ export function PainReportModal({
   exerciseId,
   ejercicioId,
   setNumber = 1,
+  ejercicios,
   onSavePainReport,
 }: PainReportModalProps) {
+  const ejerciciosList = React.useMemo<PainReportModalEjercicio[]>(() => {
+    if (ejercicios && ejercicios.length > 0) return ejercicios;
+    return [
+      {
+        id: exerciseId || "",
+        ejercicio_id: ejercicioId || "",
+        nombre: exerciseName,
+      },
+    ];
+  }, [ejercicios, exerciseId, ejercicioId, exerciseName]);
+
+  const defaultExId = exerciseId || ejerciciosList[0]?.id || "";
+  const [selectedExId, setSelectedExId] = React.useState<string>(defaultExId);
   const [zonaArticular, setZonaArticular] = React.useState<PainReportData["zonaArticular"]>("RODILLA");
   const [intensidad, setIntensidad] = React.useState<number>(5);
   const [momentoAparicion, setMomentoAparicion] =
@@ -70,345 +121,265 @@ export function PainReportModal({
   const [sintomasAlarma, setSintomasAlarma] = React.useState<string[]>([]);
   const [notasAlumno, setNotasAlumno] = React.useState<string>("");
 
+  const sheetRef = React.useRef<HTMLDivElement | null>(null);
+  const titleRef = React.useRef<HTMLHeadingElement | null>(null);
+  const disparadorRef = React.useRef<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    disparadorRef.current =
+      typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+    setSelectedExId(exerciseId || ejerciciosList[0]?.id || "");
+    setZonaArticular("RODILLA");
+    setIntensidad(5);
+    setMomentoAparicion("EN_SERIE");
+    setSintomasAlarma([]);
+    setNotasAlumno("");
+    titleRef.current?.focus();
+  }, [isOpen, exerciseId, ejerciciosList]);
+
+  const cerrarHoja = React.useCallback(() => {
+    onClose();
+    disparadorRef.current?.focus();
+  }, [onClose]);
+
+  React.useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cerrarHoja();
+        return;
+      }
+      if (e.key !== "Tab" || !sheetRef.current) return;
+
+      const focos = obtenerEnfocables(sheetRef.current);
+      if (focos.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const primero = focos[0]!;
+      const ultimo = focos[focos.length - 1]!;
+      const activo =
+        typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+
+      if (e.shiftKey) {
+        if (!activo || activo === primero || !focos.includes(activo)) {
+          e.preventDefault();
+          ultimo.focus();
+        }
+        return;
+      }
+
+      if (!activo || activo === ultimo || !focos.includes(activo)) {
+        e.preventDefault();
+        primero.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, cerrarHoja]);
+
   if (!isOpen) return null;
 
-  // Derivar severidad de la escala numérica (1-3: LEVE, 4-6: MODERADO, 7-10: AGUDO)
+  const nivel = nivelMolestia(intensidad, sintomasAlarma);
   const severidad: "LEVE" | "MODERADO" | "AGUDO" =
-    intensidad <= 3 ? "LEVE" : intensidad <= 6 ? "MODERADO" : "AGUDO";
-
-  const isRedFlag = sintomasAlarma.length > 0 || severidad === "AGUDO" || intensidad >= 8;
+    nivel === "leve" ? "LEVE" : nivel === "moderada" ? "MODERADO" : "AGUDO";
 
   const toggleSintomaAlarma = (sintoma: string) => {
     setSintomasAlarma((prev) =>
-      prev.includes(sintoma) ? prev.filter((s) => s !== sintoma) : [...prev, sintoma]
+      prev.includes(sintoma) ? prev.filter((s) => s !== sintoma) : [...prev, sintoma],
     );
   };
 
   const handleConfirm = () => {
+    const chosen = ejerciciosList.find((e) => e.id === selectedExId) ?? ejerciciosList[0];
+    const resolvedExerciseId = chosen?.id || exerciseId;
+    const resolvedEjercicioId = chosen?.ejercicio_id || ejercicioId || resolvedExerciseId;
+    const resolvedExerciseName = chosen?.nombre || exerciseName;
+
     const data: PainReportData = {
-      exerciseId,
-      ejercicioId,
-      exerciseName,
+      exerciseId: resolvedExerciseId,
+      ejercicioId: resolvedEjercicioId,
+      exerciseName: resolvedExerciseName,
       setNumber,
       zonaArticular,
       severidad,
       intensidadNumerica: intensidad,
       momentoAparicion,
       sintomasAlarma,
-      esSintomaAlarma: isRedFlag,
+      esSintomaAlarma: nivel === "alarma" || nivel === "alta",
       notasAlumno: notasAlumno.trim(),
     };
 
     onSavePainReport(data);
-    onClose();
+    cerrarHoja();
   };
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="pain-report-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm animate-in fade-in"
+      className="a-sheet-wrap justify-center"
       data-testid="pain-report-modal"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) cerrarHoja();
+      }}
     >
-      <div className="w-full max-w-lg rounded-2xl border border-destructive/40 bg-card p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
-        {/* Cabecera del Modal */}
-        <div className="flex items-start justify-between border-b border-border/60 pb-3">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive text-lg font-bold border border-destructive/30">
-              ⚠️
+      <div
+        ref={sheetRef}
+        className="a-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pain-report-title"
+      >
+        <div className="a-sh-h">
+          <div>
+            <h2 id="pain-report-title" ref={titleRef} className="a-t-h" tabIndex={-1}>
+              Tengo una molestia
+            </h2>
+            <span className="a-t-sec a-muted">
+              Tu coach recibe el aviso y decide si cambia el ejercicio.
             </span>
-            <div>
-              <h2
-                id="pain-report-title"
-                className="text-base sm:text-lg font-bold text-foreground"
-              >
-                Reportar Molestia o Dolor Articular
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {exerciseName} • Serie {setNumber}
-              </p>
-            </div>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-sm font-bold p-1 rounded-lg hover:bg-secondary/60 transition-colors"
-            aria-label="Cerrar modal"
+            className="a-icon-btn"
+            onClick={cerrarHoja}
+            aria-label="Cerrar"
           >
-            ✕
+            <X width={18} height={18} className="a-i" />
           </button>
         </div>
 
-        {/* Zona Corporal */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-foreground block">
-            Zona Articular Afectada:
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-            {JOINT_ZONES.map((zone) => {
-              const isSelected = zonaArticular === zone.id;
-              return (
-                <button
-                  key={zone.id}
-                  type="button"
-                  onClick={() => setZonaArticular(zone.id)}
-                  className={`px-2.5 py-2 text-xs rounded-xl border text-center font-semibold transition-all min-h-10 ${
-                    isSelected
-                      ? "bg-destructive text-destructive-foreground border-destructive shadow-xs font-bold"
-                      : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary/80 hover:text-foreground"
-                  }`}
-                  data-testid={`zona-btn-${zone.id.toLowerCase()}`}
-                >
-                  {zone.label}
-                </button>
-              );
-            })}
-          </div>
+        <label className="a-t-label a-muted" htmlFor="molEx">
+          Ejercicio
+        </label>
+        <select
+          id="molEx"
+          className="a-sel-native"
+          value={selectedExId}
+          onChange={(e) => setSelectedExId(e.target.value)}
+          data-testid="pain-exercise-select"
+        >
+          {ejerciciosList.map((ej) => (
+            <option key={ej.id || ej.nombre} value={ej.id}>
+              {ej.nombre}
+            </option>
+          ))}
+        </select>
+
+        <span className="a-t-label a-muted">Zona</span>
+        <div className="a-grid2" role="group" aria-label="Zona">
+          {JOINT_ZONES.map((zone) => {
+            const isSelected = zonaArticular === zone.id;
+            return (
+              <button
+                key={zone.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setZonaArticular(zone.id)}
+                data-testid={`zona-btn-${zone.id.toLowerCase()}`}
+              >
+                {zone.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Momento de Aparición */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-foreground block">
-            Momento de Aparición:
-          </label>
-          <div className="grid grid-cols-3 gap-1.5">
-            {MOMENTOS_APARICION.map((momento) => {
-              const isSelected = momentoAparicion === momento.id;
-              return (
-                <button
-                  key={momento.id}
-                  type="button"
-                  onClick={() => setMomentoAparicion(momento.id)}
-                  className={`px-2 py-2 text-xs rounded-xl border text-center font-semibold transition-all min-h-10 ${
-                    isSelected
-                      ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
-                      : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary/80 hover:text-foreground"
-                  }`}
-                  data-testid={`momento-btn-${momento.id.toLowerCase()}`}
-                >
-                  {momento.label}
-                </button>
-              );
-            })}
-          </div>
+        <span className="a-t-label a-muted">Cuándo apareció</span>
+        <div className="a-chips" role="group" aria-label="Momento">
+          {MOMENTOS_APARICION.map((momento) => {
+            const isSelected = momentoAparicion === momento.id;
+            return (
+              <button
+                key={momento.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setMomentoAparicion(momento.id)}
+                data-testid={`momento-btn-${momento.id.toLowerCase()}`}
+              >
+                {momento.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Intensidad Percibida (Escala 1 a 10 con Severidad) */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <label htmlFor="pain-intensity-range" className="font-bold text-foreground">
-              Intensidad Percibida:
-            </label>
-            <span
-              className={`font-mono font-bold px-2 py-0.5 rounded-full text-xs ${
-                severidad === "LEVE"
-                  ? "bg-success-soft text-success border border-success-soft-border"
-                  : severidad === "MODERADO"
-                  ? "bg-warning-soft text-warning border border-warning-soft-border"
-                  : "bg-destructive/20 text-destructive border border-destructive/30"
-              }`}
-              data-testid="pain-severity-badge"
+        <div className="a-lblrow">
+          <span className="a-t-label a-muted">Intensidad</span>
+          <span className="a-t-bs" data-testid="pain-severity-badge">
+            {intensidad}/10 · {nivel}
+          </span>
+        </div>
+        <div className="a-ints" role="group" aria-label="Intensidad del 1 al 10">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+            <button
+              key={val}
+              type="button"
+              className={val >= 7 ? "a-hi" : undefined}
+              aria-pressed={intensidad === val}
+              onClick={() => setIntensidad(val)}
+              data-testid={`intensity-chip-${val}`}
             >
-              {intensidad}/10 • {severidad}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-10 gap-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => {
-              const isSelected = intensidad === val;
-              const isHigh = val >= 7;
-              return (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setIntensidad(val)}
-                  className={`h-9 text-xs font-mono font-bold rounded-lg border transition-all ${
-                    isSelected
-                      ? isHigh
-                        ? "bg-destructive text-destructive-foreground border-destructive shadow-sm"
-                        : "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-secondary/40 text-muted-foreground border-border/60 hover:bg-secondary/80 hover:text-foreground"
-                  }`}
-                  data-testid={`intensity-chip-${val}`}
-                >
-                  {val}
-                </button>
-              );
-            })}
-          </div>
-          <input
-            id="pain-intensity-range"
-            type="range"
-            min="1"
-            max="10"
-            value={intensidad}
-            onChange={(e) => setIntensidad(Number(e.target.value))}
-            className="w-full accent-destructive cursor-pointer h-2 bg-secondary rounded-lg"
-            aria-label="Escala de dolor de 1 a 10"
-          />
-
-          {/* Cartel según rango de intensidad (GOZS-278) */}
-          <div className="pt-1" data-testid="pain-modal-range-guidance">
-            {intensidad <= 3 && (
-              <div
-                className="rounded-xl border border-border/80 bg-secondary/40 p-3 text-xs space-y-0.5 text-foreground animate-in fade-in"
-                data-testid="pain-modal-cartel-1-3"
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  <span>ℹ️</span>
-                  <span>Aviso Neutro (Rango 1-3)</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Aviso neutro de que se notifica al coach, sin colores de alerta. Puedes continuar con precaución según tus sensaciones.
-                </p>
-              </div>
-            )}
-
-            {intensidad >= 4 && intensidad <= 6 && (
-              <div
-                className="rounded-xl border-2 border-warning-soft-border bg-warning-soft p-3 text-xs space-y-0.5 text-warning animate-in fade-in"
-                data-testid="pain-modal-cartel-4-6"
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  <span>⚠️</span>
-                  <span>Cartel Amarillo (Rango 4-6)</span>
-                </div>
-                <p className="text-xs font-semibold text-foreground leading-relaxed">
-                  Cartel amarillo, recomienda reducir peso si continúa la molestia en las siguientes series.
-                </p>
-              </div>
-            )}
-
-            {intensidad >= 7 && intensidad <= 9 && (
-              <div
-                className="rounded-xl border-2 border-destructive bg-destructive/15 p-3 text-xs space-y-0.5 text-destructive animate-in fade-in"
-                data-testid="pain-modal-cartel-7-9"
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  <span>🛑</span>
-                  <span>Cartel Rojo a Prueba de Errores (Rango 7-9)</span>
-                </div>
-                <p className="text-xs font-bold text-foreground leading-relaxed">
-                  Cartel rojo a prueba de errores: suspender ese ejercicio y cualquiera que acentúe el dolor, seguir con lo que no moleste; no debe invitar a seguir.
-                </p>
-              </div>
-            )}
-
-            {intensidad === 10 && (
-              <div
-                className="rounded-xl border-2 border-destructive bg-destructive/20 p-3 text-xs space-y-0.5 text-destructive animate-in fade-in"
-                data-testid="pain-modal-cartel-10"
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  <span>🚨</span>
-                  <span>Cartel Rojo: Parada Total (Rango 10)</span>
-                </div>
-                <p className="text-xs font-bold text-foreground leading-relaxed">
-                  Cartel rojo, cesar el entrenamiento y contactar al entrenador de inmediato.
-                </p>
-              </div>
-            )}
-          </div>
+              {val}
+            </button>
+          ))}
         </div>
 
-        {/* Checkboxes de Síntomas de Alarma (Red Flags) */}
-        <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">🚩</span>
-            <label className="text-xs font-black uppercase tracking-wider text-destructive">
-              Síntomas de Alarma (Red Flags)
-            </label>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Marca si experimentas alguno de estos síntomas críticos durante el ejercicio:
-          </p>
+        <p
+          className={CLASE_NIVEL[nivel]}
+          style={{ margin: 0 }}
+          data-testid={TESTID_NIVEL[nivel]}
+          data-nivel={nivel}
+        >
+          {nivel === "leve" ? (
+            <Info width={18} height={18} className="a-i" />
+          ) : (
+            <TriangleAlert width={18} height={18} className="a-i" />
+          )}
+          <span>{MENSAJE_NIVEL[nivel]}</span>
+        </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            {RED_FLAG_SYMPTOMS.map((rf) => {
-              const isChecked = sintomasAlarma.includes(rf.id);
-              return (
-                <label
-                  key={rf.id}
-                  className={`flex items-center gap-2.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-all ${
-                    isChecked
-                      ? "border-destructive bg-destructive/20 text-destructive font-bold"
-                      : "border-border/60 bg-card hover:bg-secondary/60 text-foreground"
-                  }`}
-                  data-testid={`red-flag-label-${rf.id}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleSintomaAlarma(rf.id)}
-                    className="h-4 w-4 rounded border-border accent-destructive focus:ring-destructive cursor-pointer"
-                    data-testid={`red-flag-checkbox-${rf.id}`}
-                  />
-                  <span>{rf.label}</span>
-                </label>
-              );
-            })}
-          </div>
+        <span className="a-t-label a-muted">Síntomas de alarma</span>
+        <div className="a-checks a-t-body">
+          {RED_FLAG_SYMPTOMS.map((rf) => {
+            const isChecked = sintomasAlarma.includes(rf.id);
+            return (
+              <label key={rf.id} data-testid={`red-flag-label-${rf.id}`}>
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggleSintomaAlarma(rf.id)}
+                  data-testid={`red-flag-checkbox-${rf.id}`}
+                />
+                <span>{rf.label}</span>
+              </label>
+            );
+          })}
         </div>
 
-        {/* Protocolo de Freno: Cartel de advertencia médica ante Red Flags o Dolor Agudo */}
-        {isRedFlag && (
-          <div
-            className="rounded-xl border-2 border-destructive bg-destructive/15 p-4 text-destructive space-y-2 animate-in fade-in"
-            data-testid="protocolo-freno-alert"
-          >
-            <div className="flex items-center gap-2 font-black text-sm">
-              <span className="text-xl">🛑</span>
-              <span>PROTOCOLO DE FRENO POR SEGURIDAD MÉDICA</span>
-            </div>
-            <p className="text-xs font-bold leading-relaxed text-foreground">
-              Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Ante síntomas de alarma o dolor agudo, no se sugieren sustituciones automáticas sin supervisión presencial. Se enviará una alerta CRÍTICA a tu coach.
-            </p>
-          </div>
-        )}
+        <label className="a-t-label a-muted" htmlFor="molCom">
+          Comentario (opcional)
+        </label>
+        <textarea
+          id="molCom"
+          rows={2}
+          value={notasAlumno}
+          onChange={(e) => setNotasAlumno(e.target.value)}
+          className="a-fin a-t-body"
+          data-testid="pain-notes-input"
+        />
 
-        {/* Detalle Adicional */}
-        <div className="space-y-1">
-          <label htmlFor="pain-notes-input" className="text-xs font-bold text-foreground block">
-            Comentario opcional para el Coach:
-          </label>
-          <textarea
-            id="pain-notes-input"
-            rows={2}
-            value={notasAlumno}
-            onChange={(e) => setNotasAlumno(e.target.value)}
-            placeholder="Ej: Pinchazo en la cara anterior del hombro al descender..."
-            className="w-full rounded-xl border border-input bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            data-testid="pain-notes-input"
-          />
-        </div>
-
-        {/* Acciones del Modal */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/60">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 sm:flex-1 text-xs font-semibold"
-            onClick={onClose}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            className={`min-h-11 sm:flex-1 text-xs font-bold transition-all shadow-xs ${
-              isRedFlag
-                ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse"
-                : "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-            }`}
-            onClick={handleConfirm}
-            data-testid="submit-pain-report-btn"
-          >
-            {isRedFlag ? "🛑 Frenar y Enviar Alerta CRÍTICA" : "✓ Alertar al Coach"}
-          </Button>
-        </div>
+        <button
+          type="button"
+          className="a-btn a-danger a-gym"
+          onClick={handleConfirm}
+          data-testid="submit-pain-report-btn"
+        >
+          Avisar a mi coach
+        </button>
       </div>
     </div>
   );

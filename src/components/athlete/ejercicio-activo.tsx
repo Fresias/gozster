@@ -1099,13 +1099,15 @@ export function EjercicioActivo() {
           exerciseId={painModalData.exerciseId}
           ejercicioId={painModalData.ejercicioId}
           setNumber={painModalData.setNumber}
+          ejercicios={currentSession.ejercicios}
           onSavePainReport={(report) => {
             if (typeof report === "string") {
               reportPainForSet(painModalData.exerciseId, painModalData.setNumber, report);
             } else {
+              const targetExerciseId = report.exerciseId || painModalData.exerciseId;
               void reportarMolestia({
-                ejercicioEnRutinaId: painModalData.exerciseId,
-                ejercicioId: report.ejercicioId || painModalData.ejercicioId || painModalData.exerciseId,
+                ejercicioEnRutinaId: targetExerciseId,
+                ejercicioId: report.ejercicioId || painModalData.ejercicioId || targetExerciseId,
                 numeroSerie: report.setNumber ?? painModalData.setNumber,
                 zona: report.zonaArticular,
                 eva: report.intensidadNumerica,
