@@ -27,8 +27,8 @@ import { generarDemoPlanesIniciales } from "@/store/use-cobros-store";
  *   4. Generación y almacenamiento de capturas de evidencia en docs/qa/demo-evidencia/<proyecto>/UX-*.png.
  */
 
-const STUB_URL = "http://localhost:54321";
-const APP_URL = "http://localhost:3100";
+const STUB_URL = process.env.E2E_STUB_URL ?? "http://localhost:54321";
+const APP_URL = process.env.E2E_APP_URL ?? "http://localhost:3100";
 const COACH_ID = "00000000-0000-4000-8000-000000000001";
 const EVIDENCIA_BASE = "docs/qa/demo-evidencia";
 
