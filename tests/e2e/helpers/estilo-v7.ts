@@ -291,7 +291,7 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
         reglas: {
           backgroundColor: dark ? "rgb(42, 34, 8)" : "rgb(255, 246, 218)",
           borderColor: dark ? "rgb(212, 167, 44)" : "rgb(168, 123, 11)",
-          boxShadowContains: "0px 3px 8px 2px",
+          boxShadowContains: dark ? "0px 4px 10px 3px" : "0px 3px 8px 2px",
         },
       },
       {
@@ -301,6 +301,41 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
         reglas: { backgroundColor: "rgba(0, 0, 0, 0)" },
       },
     );
+  }
+
+  if (clave === "toast-record") {
+    checks.push(
+      {
+        descripcion: "Toast de récord (dorado único + elevación nivel 3)",
+        selector: "toast-sesion",
+        esTestId: true,
+        reglas: {
+          backgroundColor: dark ? "rgb(42, 34, 8)" : "rgb(255, 246, 218)",
+          color: dark ? "rgb(245, 215, 122)" : "rgb(92, 67, 0)",
+          borderColor: dark ? "rgb(212, 167, 44)" : "rgb(168, 123, 11)",
+          boxShadowContains: dark ? "0px 8px 18px 6px" : "0px 6px 14px 4px",
+        },
+      },
+      {
+        descripcion: "Copa del toast de récord sin fondo",
+        selector: "[data-testid='toast-sesion'] .a-tic",
+        esTestId: false,
+        reglas: { backgroundColor: "rgba(0, 0, 0, 0)" },
+      },
+    );
+  }
+
+  if (clave === "cierre") {
+    checks.push({
+      descripcion: "Tarjeta Nuevo PR en cierre (siempre dorado oscuro)",
+      selector: "cierre-dia-pr-item-0",
+      esTestId: true,
+      reglas: {
+        backgroundColor: "rgb(42, 34, 8)",
+        color: "rgb(245, 215, 122)",
+        borderColor: "rgb(212, 167, 44)",
+      },
+    });
   }
 
   if (clave === "mol-alta") {
@@ -330,6 +365,19 @@ export function checksEstiloParaPantalla(clave: string, tema: TemaContraste): Es
       selector: "main h1",
       esTestId: false,
       reglas: { fontFamilyContains: "Archivo", fontSizePx: 32, fontWeight: "800", fontStretch: "112%" },
+    });
+  }
+
+  if (clave === "hist") {
+    checks.push({
+      descripcion: "Chip PR en Historial (dorado único)",
+      selector: "chip-pr",
+      esTestId: true,
+      reglas: {
+        backgroundColor: dark ? "rgb(42, 34, 8)" : "rgb(255, 246, 218)",
+        color: dark ? "rgb(245, 215, 122)" : "rgb(92, 67, 0)",
+        borderColor: dark ? "rgb(212, 167, 44)" : "rgb(168, 123, 11)",
+      },
     });
   }
 

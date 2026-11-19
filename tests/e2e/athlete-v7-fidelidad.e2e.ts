@@ -23,6 +23,7 @@ function leerPantallasReferencia(): string[] {
 const PANTALLAS = leerPantallasReferencia();
 
 const STUB_URL = process.env.E2E_STUB_URL ?? "http://localhost:54321";
+const APP_URL = process.env.E2E_APP_URL ?? "http://localhost:3100";
 const APP_OUT_DIR = join(process.cwd(), "test-results", "athlete-v7", "app");
 const REF_PNG_DIR = join(process.cwd(), "docs", "athlete-v7", "referencia", "png");
 const EVIDENCIA_DIR = process.env.ATHLETE_V7_EVIDENCIA_DIR
@@ -75,7 +76,7 @@ async function prepararEntorno(page: Page, opts: PrepararOpciones) {
     {
       name: "sb-localhost-auth-token",
       value: `base64-${b64url(buildSessionCookie(FIXTURE_BASE.user))}`,
-      url: "http://localhost:3100",
+      url: APP_URL,
     },
   ]);
 
@@ -152,7 +153,6 @@ export const SIN_RECETA: Record<string, string> = {
   // Sesión
   "rutina-molestia": "sin receta (falta FE-08)",
   // Ejercicio
-  "toast-record": "sin receta (falta FE-06)",
   "ex-videos": "sin receta (falta FE-07)",
   "ex-video-estados": "sin receta (falta FE-07)",
   setvideo: "sin receta (falta FE-07)",
@@ -421,14 +421,17 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
   },
   cierre: async (page, tema) => {
     await entrarADia1(page, tema);
-    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await expect(page.getByTestId("ultima-vez")).toBeVisible({ timeout: 10_000 });
+    await page.getByLabel("Peso en kilogramos").fill("47.5");
+    await page.getByLabel("Cantidad de repeticiones").fill("8");
     await page.getByTestId("registrar-serie-btn").click();
-    const omitir = page.getByRole("button", { name: "Omitir" });
-    if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    await expect(page.getByTestId("nuevo-record-banner")).toBeVisible();
     await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId("tab-registro-dia").click();
     await page.getByTestId("terminar-entrenamiento-btn").click();
     await expect(page.getByTestId("cierre-dia-modal")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("cierre-dia-pr-item-0")).toBeVisible();
   },
   "cierre-off": async (page, tema) => {
     await entrarADia1(page, tema);
@@ -547,6 +550,11 @@ export const RECETAS_EJERCICIO: Record<string, RecetaRunner> = {
     await page.getByLabel("Cantidad de repeticiones").fill("8");
     await page.getByTestId("registrar-serie-btn").click();
     await expect(page.getByTestId("nuevo-record-banner")).toBeVisible();
+  },
+  "toast-record": async (page, tema) => {
+    await RECETAS_EJERCICIO["ex-record"]!(page, tema);
+    await expect(page.getByTestId("toast-sesion")).toBeVisible();
+    await expect(page.getByTestId("toast-sesion")).toContainText("Nuevo récord en Press banca plano");
   },
   "ex-x10": async (page, tema) => {
     await entrarADia1(page, tema);
