@@ -94,8 +94,8 @@ test.describe("@mobile Athlete v7 · FE-01 Base visual", () => {
         fontFamilyContains: "Geist",
       }, { esTestId: false, descripcion: `.theme-athlete[data-v7] (${tema})` });
 
-      // 2. Los tokens HSL de primario ya heredan el scope v7 (tinta/papel, sin azul #2563EB / #0EA5E9)
-      const activeNavItem = page.locator("nav[aria-label='Secciones Athlete'] [aria-current='page']");
+      // 2. Los tokens HSL de primario y la pastilla de navegación inferior heredan el scope v7 (tinta/papel, sin azul)
+      const activeNavItem = page.locator("[data-testid='nav-inferior'] [aria-current='page'] .a-ni");
       await expect(activeNavItem).toBeVisible();
       const navStyles = await activeNavItem.evaluate((el) => {
         const cs = window.getComputedStyle(el);

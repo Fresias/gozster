@@ -401,6 +401,9 @@ body:has(.theme-athlete[data-v7]) {
 }
 
 .theme-athlete[data-v7] .a-scroll {
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
   padding: 24px 16px 112px;
   scroll-padding-bottom: 140px;
 }
@@ -523,6 +526,9 @@ body:has(.theme-athlete[data-v7]) {
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   background: var(--a-surface);
@@ -533,6 +539,14 @@ body:has(.theme-athlete[data-v7]) {
   padding: 6px 6px 24px;
   z-index: 4;
   box-shadow: 0 -1px 0 var(--a-line), var(--a-elev-2);
+}
+
+@media (min-width: 28.0625rem) {
+  .theme-athlete[data-v7] .a-bnav {
+    border-inline: 1px solid var(--a-line);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+  }
 }
 
 .theme-athlete[data-v7] .a-bnav button,
@@ -571,7 +585,7 @@ body:has(.theme-athlete[data-v7]) {
 
 .theme-athlete[data-v7] .a-fab {
   position: fixed;
-  right: 16px;
+  right: max(16px, calc((100vw - 28rem) / 2 + 16px));
   bottom: 98px;
   width: 56px;
   height: 56px;

@@ -8,14 +8,45 @@ import * as path from "node:path";
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
-  usePathname: () => "/studio/cobros",
+  usePathname: () => "/athlete",
 }));
+
+vi.mock("@/lib/supabase/browser", () => ({
+  createClient: () => ({
+    auth: {
+      signOut: vi.fn().mockResolvedValue({}),
+      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
+  }),
+  SUPABASE_URL: "http://localhost",
+  SUPABASE_ANON_KEY: "x",
+}));
+
+vi.mock("@/store/use-athlete-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-athlete-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useAthleteStore.getState()) : mod.useAthleteStore.getState()),
+    mod.useAthleteStore,
+  );
+  return { ...mod, useAthleteStore: hook };
+});
+
+vi.mock("@/store/use-chat-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-chat-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useChatStore.getState()) : mod.useChatStore.getState()),
+    mod.useChatStore,
+  );
+  return { ...mod, useChatStore: hook };
+});
 
 import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { HistorialCobrosDrawer } from "@/components/coach/historial-cobros-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
 import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
-import { AthleteChat } from "@/components/athlete/athlete-chat";
+import { AthleteShell } from "@/components/athlete/athlete-shell";
+import { useAthleteStore } from "@/store/use-athlete-store";
 import {
   useChatStore,
   STAFF_COACH_PRINCIPAL,
@@ -108,8 +139,9 @@ describe("GOZS-350: In-App Chat en Fila de Alumno, Notificación al Loguear en A
       expect(html).toContain("Ver mensaje");
     });
 
-    it("THEN el botón flotante de chat muestra el badge pulsante con el conteo de no leídos", () => {
+    it("THEN el botón flotante de chat del shell muestra la insignia con el conteo de no leídos", () => {
       const alumnoId = DEFAULT_ATHLETE_SENDER.id;
+      useAthleteStore.setState({ onboardingCompletado: true, diaActivoId: null });
       useChatStore.getState().markAsRead(alumnoId);
 
       useChatStore.getState().sendMessage({
@@ -118,9 +150,14 @@ describe("GOZS-350: In-App Chat en Fila de Alumno, Notificación al Loguear en A
         contenido: "Buen entrenamiento hoy!",
       });
 
-      const html = renderToStaticMarkup(<AthleteChat />);
+      const html = renderToStaticMarkup(
+        <AthleteShell>
+          <div />
+        </AthleteShell>,
+      );
+      expect(html).toContain('data-testid="athlete-chat-fab"');
       expect(html).toContain('data-testid="unread-chat-badge"');
-      expect(html).toContain("animate-pulse");
+      expect(html).toContain("a-fab");
       expect(html).toContain("mensajes no leídos del equipo GOZS");
     });
 

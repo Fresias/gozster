@@ -43,7 +43,14 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
       expect(athleteChatSource).toContain("Tu equipo de entrenadores GOZS");
       expect(athleteChatSource).toContain("Comunícate directamente con el equipo GOZS.");
       expect(athleteChatSource).toContain('placeholder="Escribe al equipo GOZS..."');
-      expect(athleteChatSource).toContain('aria-label="Abrir chat con el equipo GOZS"');
+
+      // El disparador flotante se reubicó al shell v7 (FE-02)
+      const athleteShellSource = fs.readFileSync(
+        path.resolve(process.cwd(), "src/components/athlete/athlete-shell.tsx"),
+        "utf-8",
+      );
+      expect(athleteShellSource).toContain('data-testid="athlete-chat-fab"');
+      expect(athleteShellSource).toContain("Chat con el coach");
     });
 
     it("cada mensaje emitido por cualquier miembro del staff se rotula hacia el alumno como 'GOZS' con badge 'Equipo'", () => {

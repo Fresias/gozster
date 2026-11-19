@@ -6,7 +6,6 @@ import {
   DEFAULT_ATHLETE_SENDER,
   useChatStore,
 } from "@/store/use-chat-store";
-import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
   getPushSubscriptionStatus,
@@ -33,7 +32,6 @@ export function AthleteChat({
   const [message, setMessage] = React.useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  const { restTimer } = useAthleteStore();
   const { isOnline } = useOfflineQueueStore();
   const {
     getConversation,
@@ -115,59 +113,11 @@ export function AthleteChat({
     handleSend();
   };
 
-  // Posicionamiento dinámico seguro para no colisionar con el banner de RestTimer
-  const fabBottomClass = restTimer.isActive
-    ? "bottom-28 right-4 sm:bottom-32 sm:right-6"
-    : "bottom-5 right-4 sm:bottom-6 sm:right-6";
-
-  const unreadStaffMessagesCount = messages.filter(
-    (m) => m.es_staff && !m.leido,
-  ).length;
+  if (!isOpen) return null;
 
   return (
-    <>
-      {/* Botón flotante táctil (FAB) de Chat para el Atleta */}
-      <aside
-        aria-label="Acceso a mensajería con el equipo GOZS"
-        className={`fixed ${fabBottomClass} z-40 transition-all duration-300`}
-      >
-        <button
-          type="button"
-          onClick={() => setAthleteChatOpen(!isOpen)}
-          aria-expanded={isOpen}
-          aria-controls="athlete-chat-drawer"
-          aria-label="Abrir chat con el equipo GOZS"
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-all hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 select-none touch-manipulation min-h-11 min-w-11"
-        >
-          <svg
-            className="h-6 w-6 fill-none stroke-current stroke-2"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-
-          {/* Badge de mensajes no leídos de entrenadores */}
-          {unreadStaffMessagesCount > 0 && (
-            <span
-              data-testid="unread-chat-badge"
-              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-xs font-bold text-success-foreground ring-2 ring-background animate-pulse"
-              aria-label={`${unreadStaffMessagesCount} mensajes no leídos del equipo GOZS`}
-            >
-              {unreadStaffMessagesCount}
-            </span>
-          )}
-        </button>
-      </aside>
-
-      {/* Drawer / Modal Táctil de Chat para el Atleta */}
-      {isOpen && (
-        <div
-          id="athlete-chat-drawer"
+    <div
+      id="athlete-chat-drawer"
           role="dialog"
           aria-modal="true"
           aria-labelledby="athlete-chat-title"
@@ -373,7 +323,5 @@ export function AthleteChat({
             </Button>
           </form>
         </div>
-      )}
-    </>
   );
 }

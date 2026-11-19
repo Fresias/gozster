@@ -48,6 +48,11 @@ import { useOfflineQueueStore } from "@/store/use-offline-queue";
 describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive con logotipo GOZS", () => {
   beforeEach(() => {
     useAthleteStore.setState({
+      onboardingCompletado: true,
+      diaActivoId: null,
+      ejercicioAbiertoId: null,
+      cierreAbierto: false,
+      cuestionarioAbierto: false,
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -126,68 +131,92 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
     });
   });
 
-  describe("B. Estructura Responsive de Athlete App (AthleteShell)", () => {
-    it("GIVEN vista en escritorio (1440 px) THEN muestra riel lateral de 240px y columna de contenido de 672px (max-w-2xl)", () => {
+  describe("B. Estructura Responsive de Athlete App (AthleteShell v7)", () => {
+    it("GIVEN vista en escritorio THEN mantiene columna centrada de max-width 28rem sin riel lateral (02 §0)", () => {
       const html = renderToStaticMarkup(
         <AthleteShell>
           <div data-testid="contenido">Rutina de hoy</div>
         </AthleteShell>,
       );
 
-      // Grid de desktop con columna lateral de 240px
-      expect(html).toContain("lg:grid lg:grid-cols-[240px_minmax(0,1fr)]");
-      // Riel lateral sticky de pantalla completa
-      expect(html).toContain("lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-border lg:bg-card");
-      // Columna de contenido de 672px (max-w-2xl) sin marco de teléfono
-      expect(html).toContain("lg:max-w-2xl lg:px-8 lg:py-8");
+      expect(html).toContain("a-app");
+      expect(html).toContain("a-scroll");
+      expect(html).not.toContain("lg:grid-cols-[240px_minmax(0,1fr)]");
+
+      const cssContent = fs.readFileSync(
+        path.resolve(process.cwd(), "src/app/(athlete)/athlete/athlete-v7.css"),
+        "utf-8",
+      );
+      expect(cssContent).toContain("max-width: 28rem;");
     });
 
-    it("GIVEN vista en mobile (390 px) THEN el header muestra el logotipo GOZS y los controles de sesión en una línea", () => {
+    it("GIVEN vista en mobile (390 px) THEN el header muestra franja .a-chev, logotipo GOZS y controles v7 en una línea", () => {
       const html = renderToStaticMarkup(
         <AthleteShell>
           <div>Contenido</div>
         </AthleteShell>,
       );
+
+      expect(html).toContain("a-chev");
+      expect(html).toContain("a-ahead");
 
       // Logotipos bimodal día / noche
       expect(html).toContain('src="/brand/gozs-logo-negro.png"');
       expect(html).toContain("dark:hidden");
       expect(html).toContain('src="/brand/gozs-logo-blanco.png"');
-      expect(html).toContain("hidden h-5 w-auto dark:block");
+      expect(html).toContain("hidden dark:block");
+      expect(html).toContain("a-logo");
 
-      // En mobile solo va el logotipo; palabra Athlete oculta en mobile y visible desde sm
-      expect(html).toContain("hidden text-base font-bold tracking-tight text-primary sm:inline");
-
-      // Chip Online con tokens semánticos
+      // Chip Online v7
+      expect(html).toContain('data-testid="chip-red"');
       expect(html).toContain("Online");
-      expect(html).toContain("border-success-soft-border bg-success-soft text-success-soft-foreground");
+      expect(html).toContain("a-net");
 
-      // Botón Cerrar Sesión con size-target y texto sr-only
-      expect(html).toContain("size-target");
+      // Botón Cerrar Sesión con .a-icon-btn y texto sr-only
+      expect(html).toContain("a-icon-btn");
       expect(html).toContain('aria-label="Cerrar sesión"');
       expect(html).toContain('<span class="sr-only">Cerrar Sesión</span>');
     });
 
-    it("GIVEN desconexión (Modo Avión) THEN el chip de estado cambia a warning-soft", () => {
-      useOfflineQueueStore.setState({ isOnline: false });
+    it("GIVEN desconexión THEN el chip de red muestra 'Sin señal · se guarda igual' y clase a-off (y conteo con series pendientes)", () => {
+      useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
 
-      const html = renderToStaticMarkup(
+      const htmlSinPendientes = renderToStaticMarkup(
         <AthleteShell>
           <div>Contenido</div>
         </AthleteShell>,
       );
 
-      expect(html).toContain("Modo Avión");
-      expect(html).toContain("border-warning-soft-border bg-warning-soft text-warning-soft-foreground");
+      expect(htmlSinPendientes).toContain("Sin señal · se guarda igual");
+      expect(htmlSinPendientes).toContain("a-off");
+
+      useOfflineQueueStore.setState({
+        isOnline: false,
+        pendingEvents: [
+          { id: "s1", action: "WORKOUT_SET_COMPLETED", payload: {}, createdAt: "2026-11-17T10:00:00Z" },
+          { id: "s2", action: "WORKOUT_SET_COMPLETED", payload: {}, createdAt: "2026-11-17T10:01:00Z" },
+        ],
+      });
+
+      const htmlConPendientes = renderToStaticMarkup(
+        <AthleteShell>
+          <div>Contenido</div>
+        </AthleteShell>,
+      );
+
+      expect(htmlConPendientes).toContain("Sin señal · 2 series");
+      expect(htmlConPendientes).toContain('aria-label="Sin señal, 2 series guardadas en el teléfono"');
     });
 
-    it("GIVEN navegación THEN cuenta con las 4 secciones con iconos en desktop y min-h-12", () => {
+    it("GIVEN navegación inferior v7 THEN cuenta con las 4 secciones, pastilla .a-ni y aria-current='page'", () => {
       const html = renderToStaticMarkup(
         <AthleteShell>
           <div>Contenido</div>
         </AthleteShell>,
       );
 
+      expect(html).toContain('data-testid="nav-inferior"');
+      expect(html).toContain("a-bnav");
       expect(html).toContain('href="/athlete"');
       expect(html).toContain('href="/athlete/historial"');
       expect(html).toContain('href="/athlete/progreso"');
@@ -196,7 +225,8 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(html).toContain("Historial");
       expect(html).toContain("Progreso");
       expect(html).toContain("Clases");
-      expect(html).toContain("min-h-12");
+      expect(html).toContain('aria-current="page"');
+      expect(html).toContain("a-ni");
     });
   });
 

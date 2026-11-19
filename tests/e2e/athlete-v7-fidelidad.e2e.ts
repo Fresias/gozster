@@ -153,7 +153,6 @@ export const SIN_RECETA: Record<string, string> = {
   onbname: "sin receta (falta FE-11)",
   // Entrenar
   "inicio-error": "sin receta (falta FE-03)",
-  "inicio-pendientes": "sin receta (falta FE-03)",
   "inicio-instalar": "sin receta (falta FE-03)",
   "inicio-instalar-android": "sin receta (falta FE-03)",
   // Sesión
@@ -248,14 +247,28 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
       await new Promise((r) => setTimeout(r, 8_000));
       await route.abort().catch(() => {});
     });
-    await page.getByRole("link", { name: "Entrenar", exact: true }).click();
+    await page.getByRole("link", { name: "Entrenar", exact: true }).click({ position: { x: 64, y: 16 } });
     await expect(page.getByText("Cargando tu plan…")).toBeVisible({ timeout: 10_000 });
   },
   "inicio-offline": async (page, tema) => {
     await RECETAS_ACCESO_ENTRENAR.inicio!(page, tema);
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
-    await expect(page.getByRole("banner").getByText("Modo Avión")).toBeVisible();
+    await expect(page.getByTestId("chip-red")).toContainText("Sin señal · se guarda igual");
+  },
+  "inicio-pendientes": async (page, tema) => {
+    await entrarADia1(page, tema);
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    for (let i = 0; i < 3; i++) {
+      await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
+      await page.getByTestId("registrar-serie-btn").click();
+      const omitir = page.getByRole("button", { name: "Omitir" });
+      if (await omitir.isVisible().catch(() => false)) await omitir.click();
+    }
+    await page.getByTestId("volver-a-mis-dias-btn").click();
+    await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("chip-red")).toContainText("Sin señal · 3 series");
   },
   "inicio-vencida": async (page, tema) => {
     await prepararEntorno(page, {
@@ -277,7 +290,7 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
   },
   chat: async (page, tema) => {
     await RECETAS_ACCESO_ENTRENAR.inicio!(page, tema);
-    await page.getByRole("button", { name: "Abrir chat con el equipo GOZS" }).click();
+    await page.getByTestId("athlete-chat-fab").click();
     await expect(page.getByTestId("athlete-chat-messages-container")).toBeVisible();
   },
 };
