@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Check, X } from "@/components/athlete/icons";
 import {
   DEFAULT_ATHLETE_SENDER,
   useChatStore,
@@ -19,10 +19,9 @@ export interface AthleteChatProps {
 }
 
 const QUICK_GYM_REPLIES = [
-  "¿Puedo subir 5kg en esta serie?",
-  "¿Cuánto descanso mantengo acá?",
-  "¡Terminé el bloque de fuerza!",
-  "¿Revisás mi técnica en sentadilla?",
+  "¿Puedo subir 5 kg en esta serie?",
+  "¿Cuánto descanso mantengo?",
+  "Me molesta la rodilla",
 ];
 
 export function AthleteChat({
@@ -70,7 +69,7 @@ export function AthleteChat({
         setPushStatus({
           isSubscribed: true,
           loading: false,
-          message: "✓ Push activado",
+          message: "Te avisamos cuando responda tu coach.",
         });
       } else {
         setPushStatus({
@@ -81,6 +80,23 @@ export function AthleteChat({
       }
     }
   };
+
+  // Foco al título al abrir, Escape cierra y el foco vuelve al disparador (a11y de hojas).
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    titleRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAthleteChatOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      triggerRef.current?.focus();
+    };
+  }, [isOpen, setAthleteChatOpen]);
 
   // Auto-scroll al final al abrir o enviar
   React.useEffect(() => {
@@ -117,211 +133,135 @@ export function AthleteChat({
 
   return (
     <div
-      id="athlete-chat-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="athlete-chat-title"
-          className="fixed inset-x-3 bottom-4 top-16 sm:inset-x-auto sm:right-6 sm:bottom-20 sm:top-auto sm:h-[540px] sm:w-96 z-50 flex flex-col rounded-2xl border border-border bg-card text-card-foreground shadow-2xl backdrop-blur transition-all animate-in fade-in-50 zoom-in-95"
-        >
-          {/* Header del Chat */}
-          <div className="flex items-center justify-between border-b border-border p-3.5 bg-card/95">
-            <div>
-              <h3
-                id="athlete-chat-title"
-                className="text-sm font-bold text-foreground flex items-center gap-2"
-              >
-                <span>GOZS</span>
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold text-primary">
-                  Equipo
-                </span>
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Tu equipo de entrenadores GOZS
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAthleteChatOpen(false)}
-              aria-label="Cerrar chat"
-              className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground touch-manipulation min-h-11 min-w-11"
-            >
-              ✕
-            </button>
+      className="a-sheet-wrap justify-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setAthleteChatOpen(false);
+      }}
+    >
+      <div
+        id="athlete-chat-drawer"
+        className="a-sheet max-w-[28rem]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="athlete-chat-title"
+      >
+        <div className="a-sh-h">
+          <div>
+            <h2 id="athlete-chat-title" ref={titleRef} className="a-t-h" tabIndex={-1}>
+              <span>GOZS</span> · Equipo
+            </h2>
+            <span className="a-t-sec a-muted">Tu equipo de entrenadores GOZS</span>
           </div>
-
-          {/* Registro de notificaciones Push (PWA) */}
-          <div
-            data-testid="push-subscription-container"
-            className="border-b border-border/60 bg-muted/20 px-3 py-2 flex items-center justify-between gap-2 text-xs"
+          <button
+            type="button"
+            className="a-icon-btn"
+            onClick={() => setAthleteChatOpen(false)}
+            aria-label="Cerrar chat"
           >
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm">🔔</span>
-              <span className="text-xs text-muted-foreground truncate">
-                {pushStatus.message ||
-                  (pushStatus.isSubscribed
-                    ? "Notificaciones push activadas"
-                    : "Avisos de respuestas del coach")}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleTogglePush}
-              data-testid="toggle-push-btn"
-              disabled={pushStatus.loading}
-              className={`min-h-8 min-w-[90px] px-2.5 py-1 rounded-md text-xs font-bold transition-colors touch-manipulation cursor-pointer ${
-                pushStatus.isSubscribed
-                  ? "bg-success-soft text-success-soft-foreground border border-success-soft-border"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
-              }`}
-            >
-              {pushStatus.loading
-                ? "..."
-                : pushStatus.isSubscribed
-                ? "Activadas ✓"
-                : "Activar push"}
-            </button>
-          </div>
-
-          {/* Advertencia Offline si está en modo avión */}
-          {!isOnline && (
-            <div className="bg-warning-soft border-b border-warning-soft-border px-3 py-1.5 text-xs text-warning-soft-foreground flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-warning" />
-              <span>Modo Avión: Tu mensaje se enviará al retomar conexión.</span>
-            </div>
-          )}
-
-          {/* Listado ergonómico de mensajes */}
-          <div
-            className="flex-1 space-y-3.5 overflow-y-auto p-3.5 text-xs"
-            data-testid="athlete-chat-messages-container"
-          >
-            {messages.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                Comunícate directamente con el equipo GOZS.
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <div key={msg.id}>
-                  {msg.es_staff ? (
-                    /* Mensaje emitido por el equipo GOZS (Identidad institucional unificada "Somos un equipo") */
-                    <div
-                      className="flex flex-col items-start"
-                      data-testid={`staff-message-bubble-${msg.id}`}
-                    >
-                      {/* Identidad institucional GOZS hacia el alumno (sin firmas individuales ni nombres de profesores) */}
-                      <div className="flex items-center gap-1.5 mb-1 ml-9">
-                        <span
-                          className="text-xs font-bold text-primary"
-                          data-testid={`staff-author-${msg.id}`}
-                        >
-                          GOZS
-                        </span>
-                        <span className="rounded bg-primary/20 px-1.5 py-0.5 text-xs font-extrabold text-primary uppercase">
-                          Equipo
-                        </span>
-                        {!msg.leido && (
-                          <span
-                            data-testid={`unread-tag-${msg.id}`}
-                            className="rounded bg-success-soft px-1.5 py-0.5 text-xs font-extrabold text-success uppercase border border-success-soft-border"
-                          >
-                            No leído
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-start gap-2 max-w-[90%]">
-                        {/* Avatar institucional unificado GOZS */}
-                        <div
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary ring-2 ring-primary/40 select-none"
-                          title="GOZS"
-                          aria-label="Avatar del equipo GOZS"
-                        >
-                          G
-                        </div>
-
-                        <div className="rounded-2xl rounded-tl-none px-3.5 py-2.5 bg-secondary text-secondary-foreground border border-border shadow-sm">
-                          <p className="text-xs leading-relaxed">{msg.contenido}</p>
-                        </div>
-                      </div>
-
-                      <span className="mt-1 text-xs text-muted-foreground ml-9">
-                        {msg.hora}
-                      </span>
-                    </div>
-                  ) : (
-                    /* Mensaje emitido por el propio atleta */
-                    <div
-                      className="flex flex-col items-end"
-                      data-testid={`athlete-own-bubble-${msg.id}`}
-                    >
-                      <div className="flex items-end gap-2 max-w-[90%]">
-                        <div className="rounded-2xl rounded-tr-none px-3.5 py-2.5 bg-primary text-primary-foreground shadow-sm">
-                          <p className="text-xs leading-relaxed">{msg.contenido}</p>
-                        </div>
-                        <div
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/30 text-xs font-bold text-primary-foreground ring-1 ring-primary-foreground/30 select-none"
-                          aria-label="Tu avatar"
-                        >
-                          Tú
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground mr-9">
-                        <span>{msg.hora}</span>
-                        {msg.estado_envio === "pendiente" && (
-                          <span className="text-warning font-semibold">
-                            ⏳ Pendiente
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Respuestas rápidas táctiles para el gimnasio (chips ergonómicos) */}
-          <div className="border-t border-border/60 bg-muted/30 px-3 py-2">
-            <p className="text-xs text-muted-foreground font-medium mb-1.5">
-              Respuestas rápidas para el gimnasio:
-            </p>
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {QUICK_GYM_REPLIES.map((quickText, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSend(quickText)}
-                  className="shrink-0 min-h-7 rounded-full bg-secondary/80 hover:bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground transition-colors border border-border/50 touch-manipulation"
-                >
-                  {quickText}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Formulario táctil de envío */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex gap-2 border-t border-border p-3 bg-card"
-          >
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe al equipo GOZS..."
-              className="min-h-11 flex-1 rounded-lg border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <Button
-              type="submit"
-              size="default"
-              variant="default"
-              className="min-h-11 px-4 text-xs font-semibold"
-            >
-              Enviar
-            </Button>
-          </form>
+            <X width={18} height={18} className="a-i" />
+          </button>
         </div>
+
+        {/* Avisos push (PWA) */}
+        <div
+          data-testid="push-subscription-container"
+          className="a-card"
+          style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}
+        >
+          <span className="a-t-sec" style={{ flex: 1 }} role="status">
+            {pushStatus.message ||
+              (pushStatus.isSubscribed
+                ? "Te avisamos cuando responda tu coach."
+                : "¿Querés que te avisemos cuando responda tu coach?")}
+          </span>
+          <button
+            type="button"
+            onClick={handleTogglePush}
+            data-testid="toggle-push-btn"
+            disabled={pushStatus.loading}
+            aria-pressed={pushStatus.isSubscribed}
+            className={`a-mini ${pushStatus.isSubscribed ? "a-done" : ""}`}
+          >
+            {pushStatus.loading ? (
+              "..."
+            ) : pushStatus.isSubscribed ? (
+              <>
+                <Check width={14} height={14} className="a-i" /> Avisos activos
+              </>
+            ) : (
+              "Activar avisos"
+            )}
+          </button>
+        </div>
+
+        {!isOnline && (
+          <p className="a-eb a-t-label a-offnote" role="status">
+            Sin conexión · tu mensaje se envía al volver la señal
+          </p>
+        )}
+
+        <div className="a-msgs" data-testid="athlete-chat-messages-container" aria-live="polite">
+          {messages.length === 0 ? (
+            <p className="a-t-sec a-muted" style={{ textAlign: "center" }}>
+              Comunícate directamente con el equipo GOZS.
+            </p>
+          ) : (
+            messages.map((msg) =>
+              msg.es_staff ? (
+                <div
+                  key={msg.id}
+                  className="a-msg a-t-body"
+                  data-testid={`staff-message-bubble-${msg.id}`}
+                >
+                  {msg.contenido}
+                  <small>
+                    <span data-testid={`staff-author-${msg.id}`}>Coach</span> · {msg.hora}
+                    {!msg.leido && (
+                      <span data-testid={`unread-tag-${msg.id}`}> · No leído</span>
+                    )}
+                  </small>
+                </div>
+              ) : (
+                <div
+                  key={msg.id}
+                  className="a-msg a-me a-t-body"
+                  data-testid={`athlete-own-bubble-${msg.id}`}
+                >
+                  {msg.contenido}
+                  <small>
+                    Vos · {msg.hora}
+                    {msg.estado_envio === "pendiente" && " · Pendiente"}
+                  </small>
+                </div>
+              ),
+            )
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <span className="a-t-label a-muted">Respuestas rápidas</span>
+        <div className="a-quick">
+          {QUICK_GYM_REPLIES.map((quickText) => (
+            <button key={quickText} type="button" onClick={() => handleSend(quickText)}>
+              {quickText}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="a-chatf">
+          <label htmlFor="chatIn" className="sr-only">Mensaje</label>
+          <input
+            id="chatIn"
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            autoComplete="off"
+            placeholder="Escribile al equipo GOZS"
+            className="a-fin a-t-body"
+          />
+          <button type="submit">Enviar</button>
+        </form>
+      </div>
+    </div>
   );
 }

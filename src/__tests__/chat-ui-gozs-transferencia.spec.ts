@@ -39,10 +39,10 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
       expect(athleteChatSource).not.toContain("title={msg.remitente_nombre}");
 
       // Debe mostrar la marca institucional GOZS
-      expect(athleteChatSource).toContain("<span>GOZS</span>");
+      expect(athleteChatSource).toContain("<span>GOZS</span> · Equipo");
       expect(athleteChatSource).toContain("Tu equipo de entrenadores GOZS");
       expect(athleteChatSource).toContain("Comunícate directamente con el equipo GOZS.");
-      expect(athleteChatSource).toContain('placeholder="Escribe al equipo GOZS..."');
+      expect(athleteChatSource).toContain('placeholder="Escribile al equipo GOZS"');
 
       // El disparador flotante se reubicó al shell v7 (FE-02)
       const athleteShellSource = fs.readFileSync(
@@ -58,7 +58,8 @@ describe("GOZS-46: feat(chat-ui) - Identidad única 'GOZS' hacia el alumno, auto
       expect(athleteChatSource).toContain('data-testid={`staff-author-${msg.id}`}');
       expect(athleteChatSource).toContain("GOZS");
       expect(athleteChatSource).toContain("Equipo");
-      expect(athleteChatSource).toContain('aria-label="Avatar del equipo GOZS"');
+      // La v7 (02-pantallas §8) quita avatares: la burbuja del staff se firma solo como Coach, sin nombres individuales
+      expect(athleteChatSource).not.toContain("remitente_nombre");
     });
   });
 
