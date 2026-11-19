@@ -295,6 +295,7 @@ svg.i{flex:none}
 .days{display:grid}
 .days .row{border-radius:0; border:0; border-top:1px solid var(--line)}
 .days .row:first-child{border-top:0}
+.days .row{background:transparent}
 .days .num{width:40px; height:40px; border-radius:12px; font-size:15px}
 .days .row.today .num{background:var(--sel); color:var(--on-sel)}
 .banner{display:grid; gap:10px; padding:14px; border:1.5px solid var(--warn-line); background:var(--warn-bg); color:var(--warn-fg); border-radius:18px}
@@ -634,7 +635,7 @@ body.embed .sbar, body.embed .island, body.embed .homei, body.embed .topmask{dis
 body.embed .chev{top:0}
 body.embed #scroll{padding-top:24px}
 body.embed .dk-in{padding-top:44px}
-body.embed .toast{display:none}
+body.embed .toast:not(.hold){display:none}
 .dk .row{color:#FAFAFA}
 .dk-in .t-dxl{font-size:calc(2.125rem * var(--ds)); overflow-wrap:anywhere}
 </style>
@@ -681,7 +682,7 @@ body.embed .toast{display:none}
         <p class="ph2">Fondo</p>
         <div class="prow"><span>Intensidad</span><div class="pseg" role="group" aria-label="Intensidad del fondo"><button data-act="set-int" data-v="sutil">Sutil</button><button data-act="set-int" data-v="media">Media</button><button data-act="set-int" data-v="mockup">Mockup</button></div></div>
         <div class="swatches" id="swatches" role="group" aria-label="Fondo de la app"></div>
-        <label class="prow" for="bgSeed"><span>Semilla<small>Cambia la composición</small></span><input type="range" id="bgSeed" min="1" max="9" step="1" style="width:150px"></label>
+        <div class="prow"><span>Semilla<small>Al azar en cada apertura de la app</small></span><button class="pbtn" style="margin:0;width:auto;padding:0 14px" data-act="bg-reseed">Otra semilla</button></div>
         <label class="prow" for="bgScale"><span>Escala<small>Tamaño de las formas</small></span><input type="range" id="bgScale" min="0.6" max="1.6" step="0.2" style="width:150px"></label>
         <p class="note" id="bgVals" style="font-family:var(--pf-mono)"></p>
         <p class="note" id="bgNote"></p>
@@ -778,9 +779,9 @@ const HIST0 = [
 ];
 
 /* ---------- estado ---------- */
-let PREF = {bg:'malla', pal:'prop', font:'archivo', sem:'p1', night:'igual', view:'SIMPLE', dark:false, intensity:'sutil', seed:3, scale:1};
+let PREF = {bg:'malla', pal:'prop', font:'archivo', sem:'p1', night:'igual', view:'SIMPLE', dark:false, intensity:'sutil', seed:1+Math.floor(Math.random()*9999), scale:1};
 try{ const r = localStorage.getItem('gozs-ref-v7'); if(r) PREF = Object.assign(PREF, JSON.parse(r)); }catch(e){}
-function savePref(){ try{ localStorage.setItem('gozs-ref-v7', JSON.stringify({bg:S.bg, view:S.view, dark:S.dark, intensity:S.intensity, seed:S.seed, scale:S.scale})); }catch(e){} }
+function savePref(){ try{ localStorage.setItem('gozs-ref-v7', JSON.stringify({bg:S.bg, view:S.view, dark:S.dark, intensity:S.intensity, scale:S.scale})); }catch(e){} }
 function fresh(){
   return {
     screen:'login', tab:'entrenar', sub:null, wtab:'entrenar', sheet:null, sd:null,
@@ -909,12 +910,12 @@ const TABS = [['entrenar','Entrenar','dumbbell'],['historial','Historial','histo
 function netText(){
   if(S.syncing) return `Enviando ${S.syncing} ${S.syncing===1?'serie':'series'}…`;
   const loc = countSt('local');
-  if(S.offline) return loc ? `Sin señal · ${loc} en el teléfono` : 'Sin señal · se guarda igual';
+  if(S.offline) return loc ? `Sin señal · ${loc} ${loc===1?'serie':'series'}` : 'Sin señal · se guarda igual';
   return 'Online';
 }
 function vHeader(){
   return `<header class="ahead"><img class="logo" src="${S.dark?LOGO_B:LOGO_N}" alt="GOZS">
-    <span class="net t-sec ${S.offline||S.syncing?'off':''}"><i></i>${netText()}</span>
+    <span class="net t-sec ${S.offline||S.syncing?'off':''}" role="status" aria-label="${countSt('local')&&S.offline?`Sin señal, ${countSt('local')} series guardadas en el teléfono`:netText()}"><i></i>${netText()}</span>
     <button class="icon-btn" data-act="theme" aria-label="${S.dark?'Usar tema claro':'Usar tema oscuro'}">${ic(S.dark?'moon':'sun',18)}</button>
     <button class="icon-btn" data-act="logout" aria-label="Cerrar sesión">${ic('logout',18)}</button></header>`;
 }
@@ -1077,6 +1078,13 @@ function vSetCard(ex){
     <button class="btn gym" data-act="reg" ${bl?'disabled':''}>${ic('check',18)} ${uni ? `Registrar ${d.side==='D'?'derecha':'izquierda'}` : `Registrar serie ${k}`}</button>${pdots}
   </section>`;
 }
+function vidChip(x, i){
+  if(!x.video) return x.st==='rejected' ? '' : `<button class="vbtn" data-act="set-video" data-i="${i}" aria-label="Agregar video a la serie ${i+1}">${ic('video',14)} Video</button>`;
+  if(x.vidSt==='subiendo') return `<span class="chip line t-label" role="status">${ic('up',11)} Subiendo…</span>`;
+  if(x.vidSt==='telefono') return `<span class="chip ap t-label">${ic('phone',11)} Video en el teléfono</span>`;
+  if(x.vidSt==='error') return `<button class="vbtn" data-act="vid-retry" data-i="${i}" aria-label="Reintentar el video de la serie ${i+1}">${ic('alert',14)} Reintentar video</button>`;
+  return `<span class="chip line t-label">${ic('video',11)} Video</span>`;
+}
 function logTxt(ex, x){
   if(ex.kind==='time') return `${x.secs} s`;
   if(ex.kind==='uni') return `D ${f(x.D.kg)}×${x.D.reps} · I ${f(x.I.kg)}×${x.I.reps}`;
@@ -1112,7 +1120,7 @@ function vExercise(ex){
       ${nx ? `<button class="btn gym" data-act="next-ex" data-id="${nx.id}">Siguiente: ${nx.name} ${ic('right',18)}</button>` : `<button class="btn gym" data-act="finish">Terminar sesión</button>`}</section>` : vSetCard(ex);
   const R = S.record && S.record.id===ex.id ? S.record : null;
   const rec = R ? `<div class="record" role="status"><span class="medal">${ic('trophy',22)}</span><span class="rt"><b class="t-bs">¡Nuevo récord!</b><small class="t-sec">${R.secs?`${R.secs} s · tu mejor marca (+${R.plus} s)`:`${f(R.kg)} kg × ${R.reps} · tu mejor marca en ${ex.name}`}${S.view==='TECNICA'&&R.rm?` · 1RM estimado ${R.rm} kg (+${R.plus} kg)`:''}</small></span><button class="q x" data-act="rec-close" aria-label="Cerrar aviso">${ic('x',14)}</button></div>` : '';
-  const logged = Lg.length ? `<p class="eb t-label">Registradas</p><ol class="logged">${Lg.map((x,i)=>`<li class="${x.st==='rejected'?'rej':''}"><span class="t-sec"><b>Serie ${i+1}</b> · ${logTxt(ex,x)}${S.view==='TECNICA' && x.rpe && ex.kind!=='time'?` · RPE ${f(x.rpe)}`:''}</span>${x.pr?`<span class="chip pr t-label">${ic('trophy',11)} PR</span>`:''}${x.video?`<span class="chip line t-label">${ic('video',11)} Video</span>`:(x.st==='rejected'?'':`<button class="vbtn" data-act="set-video" data-i="${i}" aria-label="Agregar video a la serie ${i+1}">${ic('video',14)} Video</button>`)}<span class="stt t-sec">${stLabel(x)}</span>
+  const logged = Lg.length ? `<p class="eb t-label">Registradas</p><ol class="logged">${Lg.map((x,i)=>`<li class="${x.st==='rejected'?'rej':''}"><span class="t-sec"><b>Serie ${i+1}</b> · ${logTxt(ex,x)}${S.view==='TECNICA' && x.rpe && ex.kind!=='time'?` · RPE ${f(x.rpe)}`:''}</span>${x.pr?`<span class="chip pr t-label">${ic('trophy',11)} PR</span>`:''}${vidChip(x,i)}<span class="stt t-sec">${stLabel(x)}</span>
       ${x.st==='rejected' ? `<span class="acts"><button class="mini ghost" data-act="log-fix" data-i="${i}">Corregir</button><button class="mini" data-act="log-retry" data-i="${i}">Volver a enviar</button></span>` : ''}</li>`).join('')}</ol>` : '';
   return `<div class="wk-head"><button class="back" data-act="back">${ic('left',18)} ${DAYS[S.day].name}</button>
       <div class="tools">${ex.notes?`<button class="tool" data-act="notes" aria-label="Indicaciones del ejercicio">${ic('note',20)}</button>`:''}<button class="tool" data-act="video" aria-label="Video del ejercicio">${ic('video',20)}</button><button class="tool wide" data-act="rest-info" aria-label="Descanso recomendado: ${ex.rest} segundos" aria-expanded="${S.restInfo===ex.id}">${ic('timer',18)}<span class="t-label">${ex.rest} s</span></button></div></div>
@@ -1199,7 +1207,7 @@ function classesFor(day){
   if([1,3,5].includes(wd)) L.push({t:'07:00',n:'Fuerza',dur:60},{t:'18:00',n:'Funcional',dur:60});
   if([2,4].includes(wd)) L.push({t:'17:00',n:'Funcional',dur:60},{t:'18:00',n:'Funcional',dur:60});
   if(wd===6) L.push({t:'10:00',n:'Funcional',dur:60});
-  return L.filter(c=>c.n==='Funcional').map((c,i)=>{ const q=(day*7+i*3)%6; return Object.assign(c,{key:`${day}|${c.t}`, cupo: q===0?'Completa':q<3?`Quedan ${q} lugares`:'Cupo libre', full:q===0}); });
+  return L.filter(c=>c.n==='Funcional').map((c,i)=>{ const q=(day*7+i*3)%6; return Object.assign(c,{key:`${day}|${c.t}`, cupo: q===0?'Completa':q===1?'Queda 1 lugar':q<3?`Quedan ${q} lugares`:'Cupo libre', full:q===0}); });
 }
 const usedWeek = () => [...S.res].filter(k=>{ const d = +k.split('|')[0]; return d>=16 && d<=22; }).length;
 function vClassCard(day, c){
@@ -1227,7 +1235,7 @@ function vClases(){
   const cl = classesFor(S.clsDay);
   return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h1 class="t-d">Clases</h1><div class="seg" role="group" aria-label="Vista de clases" style="flex:0 1 180px;min-width:150px"><button data-act="cls-mode" data-v="semana" aria-pressed="${S.clsMode==='semana'}">Semana</button><button data-act="cls-mode" data-v="mes" aria-pressed="${S.clsMode==='mes'}">Mes</button></div></div>
     ${S.offline?`<p class="eb t-label offnote">${ic('cloudoff',12)} Sin conexión · datos guardados</p>`:''}
-    <section class="card quota"><div style="display:flex;justify-content:space-between;align-items:baseline"><b class="t-bs">${used} de ${S.quota} clases usadas</b><span class="t-label muted">Esta semana</span></div><div class="segbar"><span style="--n:2">${Array.from({length:S.quota},(_,i)=>`<i class="${i<used?'on':''}"></i>`).join('')}</span></div><span class="t-sec muted">Te ${left===1?'queda 1 clase':`quedan ${left} clases`} · la semana va de lunes a domingo</span></section>
+    <section class="card quota"><div style="display:flex;justify-content:space-between;align-items:baseline"><b class="t-bs">${used} de ${S.quota} clases usadas</b><span class="t-label muted">Esta semana</span></div><div class="segbar"><span style="--n:2">${Array.from({length:S.quota},(_,i)=>`<i class="${i<used?'on':''}"></i>`).join('')}</span></div><span class="t-sec muted">${left<=0?'No te quedan clases':left===1?'Te queda 1 clase':`Te quedan ${left} clases`} · la semana va de lunes a domingo</span></section>
     ${pick}
     <div class="legend t-sec"><span><i class="lg-dot"></i>hay clases</span><span>${ic('check',12)} reservada</span><span><i class="lg-today"></i>seleccionado</span></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><p class="eb t-label">${DOWL[new Date(2026,10,S.clsDay).getDay()]} ${S.clsDay}${S.clsDay===17?' · hoy':''}</p><span class="t-sec muted">Tu plan: Funcional</span></div>
@@ -1360,6 +1368,7 @@ function vSheet(){
   if(k==='setvideo'){ const ex = cur(), i = S.setVid; return sheetWrap(`${sh(`Video de la serie ${i+1}`, `${ex.name} · opcional · tu coach lo ve en tu registro`)}
       <button class="vopt primary" data-act="vid-rec">${ic('video',20)} Grabar ahora</button><input id="vidRec" class="vfile" type="file" accept="video/*" capture="environment" tabindex="-1" aria-hidden="true">
       <button class="vopt" data-act="vid-gal">${ic('image',20)} Elegir de la galería</button><input id="vidGal" class="vfile" type="file" accept="video/*" tabindex="-1" aria-hidden="true">
+      <span class="t-sec muted">Hasta 2 minutos o 100 MB. Sin señal, queda en el teléfono y se envía cuando vuelva.</span>
       ${S.linkOpen ? `<label class="t-label muted" for="vidLink">Enlace al video</label><input class="fin t-body" id="vidLink" type="url" inputmode="url" placeholder="https://">` : `<button class="vopt" data-act="video-link">${ic('link',20)} Pegar un enlace</button>`}
       ${S.video ? `<p class="oknote t-sec">${ic('check',16)} ${esc(S.video)}</p>` : ''}
       <button class="btn" id="vidSend" data-act="video-send" ${S.video?'':'disabled'}>Adjuntar a la serie ${i+1}</button>`); }
@@ -1413,7 +1422,7 @@ function vSheet(){
 
 /* ---------- fondos ---------- */
 const PAT = [
-  {k:'malla', name:'Malla suave', sub:'Mesh gradient', note:'Recomendado. Cinco manchas de zinc mezcladas (gradiente de malla). Solo CSS: sin JavaScript, sin batería, offline. Variables: semilla (posición), escala (tamaño), intensidad.'},
+  {k:'malla', name:'Malla suave', sub:'Mesh asimétrico', note:'Elegido. Cinco manchas elípticas de zinc, rotadas y desenfocadas, en posiciones asimétricas. La semilla cambia en cada apertura de la app dentro de un rango acotado: se nota la diferencia sin perder la composición. SVG estático: sin animación ni costo de batería.'},
   {k:'grano', name:'Malla con grano', sub:'Mesh + ruido', note:'La malla suave con grano fino de feTurbulence (ruido fractal). CSS + SVG en línea. Variables: semilla, escala, intensidad.'},
   {k:'nubes', name:'Ruido fractal', sub:'fbm', note:'Ruido fractal browniano (fbm, Book of Shaders cap. 13) con feTurbulence: manchas suaves tipo humo. CSS + SVG. Variables: semilla, escala (frecuencia), intensidad.'},
   {k:'celdas', name:'Celdas', sub:'Voronoi', note:'Ruido celular (Voronoi, Book of Shaders cap. 12). Necesita JavaScript una vez al abrir (canvas → imagen). Variables: semilla, escala (cantidad de celdas), intensidad.'},
@@ -1469,7 +1478,22 @@ function paint(ctx, w, h, key, dark, k, base){
 
 /* v7 · fondos generativos estáticos. Mismas fórmulas que debe usar el frontend (ver 01-sistema-visual.md §7). */
 const BG_TONES = {l:['228,228,231','212,212,216','244,244,245','255,255,255','212,212,216'], d:['39,39,42','63,63,70','24,24,27','31,31,35','63,63,70']};
+/* Anclas de la malla: x %, y %, radio x (% del ancho), radio y (% del alto), rotación, tono. Asimétricas a propósito. */
+const MESH_ANCLAS = [[86,4,70,18,-16,0],[6,24,52,16,24,1],[62,47,60,12,-30,2],[14,74,64,15,12,3],[96,90,46,14,26,4]];
+const MESH_TONOS = {l:['205,206,211','226,226,230','255,255,255','190,191,197','236,236,239'], d:['58,58,64','30,30,34','76,76,84','20,20,23','44,44,49']};
+/* Desvío por semilla: posición ±10 % (x) y ±7 % (y), tamaño ±18 %, rotación ±15°. Se nota la diferencia sin perder la composición. */
+function meshSvg(dark, k, seed, scale){
+  const r = rng(seed*977), W = 390, H = 844, t = MESH_TONOS[dark?'d':'l'], j = a => (r()*2-1)*a;
+  const els = MESH_ANCLAS.map(([x,y,rx,ry,rot,ti])=>{ const cx=((x+j(10))/100*W).toFixed(1), cy=((y+j(7))/100*H).toFixed(1), ex=(rx*(1+j(.18))*scale/100*W).toFixed(1), ey=(ry*(1+j(.18))*scale/100*H).toFixed(1), ro=(rot+j(15)).toFixed(1);
+    return `<ellipse cx='${cx}' cy='${cy}' rx='${ex}' ry='${ey}' transform='rotate(${ro} ${cx} ${cy})' fill='rgb(${t[ti]})'/>`; }).join('');
+  const op = Math.min(1, .4 + k).toFixed(2), blur = Math.round(46*scale);
+  return `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${W} ${H}' preserveAspectRatio='none'><defs><filter id='b' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='${blur}'/></filter></defs><g filter='url(#b)' opacity='${op}'>${els}</g></svg>`;
+}
 function bgMesh(dark, k, seed, scale){
+  const svg = meshSvg(dark, k, seed, scale);
+  return `url("data:image/svg+xml,${svg.replace(/%/g,'%25').replace(/#/g,'%23').replace(/</g,'%3C').replace(/>/g,'%3E')}") center/100% 100% no-repeat`;
+}
+function bgMeshViejo(dark, k, seed, scale){
   const r = rng(seed*977), t = BG_TONES[dark?'d':'l'], a = (dark?.9:.95)*k;
   return t.map((c,i)=>{ const x = Math.round(r()*100), y = Math.round(r()*100), rad = Math.round((38+r()*24)*scale);
     return `radial-gradient(at ${x}% ${y}%, rgba(${c},${a.toFixed(2)}) 0, rgba(${c},0) ${rad}%)`; }).join(', ');
@@ -1490,14 +1514,15 @@ function bgCells(w, h, dark, k, seed, scale){
 }
 function bgHex(w, h, dark, k, base){ const c = document.createElement('canvas'); c.width = Math.round(w); c.height = Math.round(h); paint(c.getContext('2d'), w, h, 'hex', dark, k, base); return `url(${c.toDataURL()}) center/100% 100%`; }
 function bgValue(key, dark, k, seed, scale, w, h, base){
-  const fade = `linear-gradient(180deg, ${base}00 0%, ${base}00 35%, ${base}${dark?'99':'B3'} 100%)`;
-  if(key==='malla') return `${fade}, ${bgMesh(dark,k,seed,scale)}, ${base}`;
+  const fade = `linear-gradient(180deg, ${base}00 0%, ${base}00 55%, ${base}${dark?'80':'99'} 100%)`;
+  if(key==='malla') return `${fade}, ${bgNoise(dark,1,seed,(0.9).toFixed(2),2,dark?.10:.05,[180,180])}, ${bgMesh(dark,k,seed,scale)}, ${base}`;
   if(key==='grano') return `${fade}, ${bgNoise(dark,k,seed,(0.9).toFixed(2),2,dark?.10:.08,[180,180])}, ${bgMesh(dark,k,seed,scale)}, ${base}`;
   if(key==='nubes') return `${fade}, ${bgNoise(dark,k,seed,(0.006/scale).toFixed(4),4,dark?.38:.30,[390,844])} center/100% 100% no-repeat, ${base}`;
   if(key==='celdas') return `${fade}, ${bgCells(w,h,dark,k,seed,scale)}`;
   if(key==='hex') return bgHex(w,h,dark,k,base);
   return base;
 }
+window.gzFondo = {bgValue:(...a)=>bgValue(...a), meshSvg:(...a)=>meshSvg(...a), INT};
 function syncBgVals(){ const el = $('#bgVals'); if(el) el.textContent = `fondo=${S.bg} · semilla=${S.seed} · escala=${S.scale} · intensidad=${S.intensity}`; const a=$('#bgSeed'), b=$('#bgScale'); if(a) a.value=S.seed; if(b) b.value=S.scale; }
 let bgMemo = '';
 function drawBg(force){
@@ -1608,12 +1633,12 @@ function semDoc(){
 /* ---------- panel ---------- */
 const GOTO = [
   ['Acceso',[['login','Login'],['login-err','Login · error'],['onb1','Onboarding 1 · bienvenida'],['onbname','Onboarding 2 · nombre'],['onb2','Onboarding 3 · vista'],['onb3','Onboarding 4 · descanso']]],
-  ['Entrenar',[['inicio','Inicio'],['inicio-dia','Inicio · hacer otro día'],['inicio-sinplan','Inicio · sin plan'],['inicio-cargando','Inicio · cargando'],['inicio-error','Inicio · error'],['inicio-vencida','Inicio · suscripción vencida'],['chat','Chat con el coach']]],
-  ['Sesión',[['rutina','Rutina del día'],['registro','Registro de la sesión (vacío)'],['config','Configuración'],['cuest','Cuestionario inicial'],['cierre','Cierre de sesión']]],
-  ['Ejercicio',[['ex-aprox','Aproximación · Sentadilla'],['ex-ss','Biserie · Press banca'],['ex-tec','Vista Técnica · Press banca'],['ex-tiempo','Por tiempo · Plancha'],['ex-drop','Drop set · Jalón al pecho'],['ex-uni','Por lado · Zancada búlgara'],['ex-rest','Descanso activo'],['ex-record','Aviso de récord'],['ex-x10','Aviso de peso mal tecleado'],['ex-rej','Serie no guardada'],['ex-videos','Registradas con video'],['setvideo','Video de una serie'],['notes','Indicaciones'],['video','Video y Form Check']]],
-  ['Molestias',[['mol-modal','Reportar molestia'],['mol-leve','Banner leve'],['mol-mod','Banner moderado'],['mol-alta','Banner alto'],['mol-alarma','Síntoma de alarma'],['mol-hereda','Molestia heredada · Remo (hombro)'],['mol-lumbar','Molestia heredada · Plancha (lumbar)'],['mol-no-hereda','Sin herencia · Sentadilla (hombro)'],['mol-otro','Zona Otro · no se hereda']]],
-  ['Historial y progreso',[['hist','Historial'],['hist-open','Historial · sesión abierta'],['hist-fix','Historial · corregir serie'],['hist-dash','Historial · por ejercicio'],['hist-vacio','Historial · vacío'],['prog','Progreso'],['prog-tec','Progreso · Técnica'],['prog-vacio','Progreso · vacío'],['prog-off','Progreso · sin conexión'],['habitos','Hábitos (propuesta)']]],
-  ['Clases',[['cls','Clases · semana'],['cls-mes','Clases · mes'],['cls-off','Clases · sin conexión']]]
+  ['Entrenar',[['inicio','Inicio'],['inicio-dia','Inicio · hacer otro día'],['inicio-sinplan','Inicio · sin plan'],['inicio-cargando','Inicio · cargando'],['inicio-error','Inicio · error'],['inicio-vencida','Inicio · suscripción vencida'],['inicio-suscripcion','Inicio · detalle de la suscripción'],['inicio-instalar','Inicio · instalar (iPhone)'],['inicio-instalar-android','Inicio · instalar (Android)'],['inicio-semana','Inicio · un día hecho'],['inicio-offline','Inicio · sin señal'],['inicio-pendientes','Inicio · series en el teléfono'],['chat','Chat con el coach']]],
+  ['Sesión',[['rutina','Rutina del día'],['rutina-curso','Rutina · en curso'],['rutina-terminar','Rutina · confirmar terminar'],['rutina-molestia','Rutina · ejercicio con molestia'],['registro','Registro de la sesión (vacío)'],['registro-datos','Registro de la sesión · con series'],['config','Configuración'],['cuest','Cuestionario inicial'],['cuest-hecho','Cuestionario · completado'],['cierre','Cierre de sesión'],['cierre-off','Cierre · sin señal'],['toast-sesion','Toast · sesión guardada']]],
+  ['Ejercicio',[['ex-aprox','Aproximación · Sentadilla'],['ex-ss','Biserie · Press banca'],['ex-tec','Vista Técnica · Press banca'],['ex-tiempo','Por tiempo · Plancha'],['ex-drop','Drop set · Jalón al pecho'],['ex-uni','Por lado · Zancada búlgara'],['ex-rest','Descanso activo'],['ex-rest-pausa','Descanso en pausa'],['ex-descanso-info','Ayuda del descanso'],['ex-tec-rpe','Técnica · ayuda de RPE'],['ex-drop-2','Drop set · segundo tramo'],['ex-uni-izq','Por lado · falta izquierda'],['ex-tiempo-run','Por tiempo · corriendo'],['ex-completo','Ejercicio completo'],['ex-offline','Sin señal · series en el teléfono'],['ex-video-estados','Video de la serie · estados'],['toast-record','Toast · nuevo récord'],['toast-sinsenal','Toast · sin señal'],['ex-record','Aviso de récord'],['ex-x10','Aviso de peso mal tecleado'],['ex-rej','Serie no guardada'],['ex-videos','Registradas con video'],['setvideo','Video de una serie'],['notes','Indicaciones'],['video','Video demostrativo']]],
+  ['Molestias',[['mol-modal','Reportar molestia'],['mol-modal-alta','Reportar · intensidad alta'],['mol-modal-alarma','Reportar · síntoma de alarma'],['mol-leve','Banner leve'],['mol-mod','Banner moderado'],['mol-alta','Banner alto'],['mol-alarma','Síntoma de alarma'],['mol-hereda','Molestia heredada · Remo (hombro)'],['mol-lumbar','Molestia heredada · Plancha (lumbar)'],['mol-no-hereda','Sin herencia · Sentadilla (hombro)'],['mol-otro','Zona Otro · no se hereda']]],
+  ['Historial y progreso',[['hist','Historial'],['hist-open','Historial · sesión abierta'],['hist-fix','Historial · corregir serie'],['hist-dash','Historial · por ejercicio'],['hist-vacio','Historial · vacío'],['hist-off','Historial · sin conexión'],['hist-open-tec','Historial · Técnica'],['prog','Progreso'],['prog-tec','Progreso · Técnica'],['prog-vacio','Progreso · vacío'],['prog-off','Progreso · sin conexión'],['habitos','Hábitos (propuesta)']]],
+  ['Clases',[['cls','Clases · semana'],['cls-mes','Clases · mes'],['cls-off','Clases · sin conexión'],['cls-reservada','Clases · reservada'],['cls-cupo','Clases · sin cupo semanal'],['cls-dia-vacio','Clases · día sin clases']]]
 ];
 function buildGoto(){ $('#goto').innerHTML = `<option value="">Elegí una pantalla…</option>` + GOTO.map(([g,arr])=>`<optgroup label="${g}">${arr.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</optgroup>`).join(''); }
 function syncPanel(){
@@ -1698,6 +1723,37 @@ function goTo(k){
     'mol-modal':()=>{ ex('bp'); S.molDraft={exId:'bp', zona:'Rodilla', int:5, mom:'Durante la serie', flags:[], com:''}; S.sheet='molestia'; },
     'mol-leve':()=>{ ex('bp'); S.mol.bp={zona:'Hombro', int:2, flags:[], level:'leve'}; }, 'mol-mod':()=>{ ex('bp'); S.mol.bp={zona:'Hombro', int:5, flags:[], level:'moderada'}; },
     'mol-alta':()=>{ ex('bp'); S.mol.bp={zona:'Hombro', int:8, flags:[], level:'alta'}; }, 'mol-alarma':()=>{ ex('bp'); S.mol.bp={zona:'Rodilla', int:6, flags:[1], level:'alarma'}; },
+    'inicio-suscripcion':()=>{ S.vencida=true; S.vencidaSeen=true; S.sheet='suscripcion'; },
+    'inicio-instalar':()=>{ S.installDismissed=false; S.sheet='install'; S.installOS='ios'; },
+    'inicio-instalar-android':()=>{ S.installDismissed=false; S.sheet='install'; S.installOS='android'; },
+    'inicio-semana':()=>{ S.weekDone=[0]; S.day=1; },
+    'inicio-offline':()=>{ S.offline=true; },
+    'inicio-pendientes':()=>{ S.offline=true; seed('sq',3); S.logs.sq.forEach(x=>x.st='local'); },
+    'rutina-curso':()=>{ S.sub='workout'; S.apprDone=true; seed('sq',4); seed('bp',1); seed('rm',1); },
+    'rutina-terminar':()=>{ S.sub='workout'; S.apprDone=true; seed('sq',4); seed('bp',1); seed('rm',1); S.confirm=true; S.scrollSel='.confirm'; },
+    'rutina-molestia':()=>{ S.sub='workout'; S.mol.bp={zona:'Hombro', int:5, flags:[], level:'moderada'}; },
+    'registro-datos':()=>{ S.sub='workout'; S.wtab='registro'; S.apprDone=true; seed('sq',4); seed('bp',2); S.logs.bp[1].st='local'; },
+    'cuest-hecho':()=>{ S.sub='cuestionario'; S.cuest.done=true; },
+    'cierre-off':()=>{ seed('sq',4); seed('bp',3); seed('rm',3); seed('pl',3); S.offline=true; S.logs.pl.forEach(x=>x.st='local'); S.sessionStart=Date.now()-54*60000; S.sub='cierre'; },
+    'toast-sesion':()=>{ S.tab='historial'; S.holdToast=['Sesión guardada en tu historial','ok']; },
+    'ex-rest-pausa':()=>{ ex('sq'); S.apprDone=true; seed('sq',1); S.rest={start:Date.now()-46000, end:Date.now()+104000, total:150, label:'Sentadilla con barra · Serie 2', paused:true, left:104}; },
+    'ex-descanso-info':()=>{ ex('bp'); S.restInfo='bp'; },
+    'ex-tec-rpe':()=>{ ex('bp'); S.view='TECNICA'; S.rpeHelp=true; },
+    'ex-drop-2':()=>{ ex('jl',1); const d=draft(XS.jl); d.stages=[{kg:47.5,reps:10}]; d.stage=1; d.reps=8; },
+    'ex-uni-izq':()=>{ ex('zb',1); const d=draft(XS.zb); d.pend.D={kg:14.5,reps:10}; d.side='I'; },
+    'ex-tiempo-run':()=>{ ex('pl'); S.sessionStart=Date.now()-300000; S.work={id:'pl', start:Date.now()-23000}; },
+    'ex-completo':()=>{ ex('rm'); seed('rm',3); },
+    'ex-offline':()=>{ ex('bp'); S.offline=true; seed('bp',2); S.logs.bp.forEach(x=>x.st='local'); S.scrollSel='.logged'; },
+    'ex-video-estados':()=>{ ex('sq'); S.apprDone=true; seed('sq',4); const L=S.logs.sq; L[0].video='Enlace: https://youtu.be/ejemplo'; L[0].vidSt='ok'; L[1].video='serie2.mp4'; L[1].vidSt='subiendo'; L[2].video='serie3.mp4'; L[2].vidSt='telefono'; L[3].video='serie4.mp4'; L[3].vidSt='error'; },
+    'toast-record':()=>{ ex('bp'); seed('bp',1); S.logs.bp[0].pr=true; S.holdToast=['Nuevo récord en Press banca plano','rec']; },
+    'toast-sinsenal':()=>{ ex('bp'); S.offline=true; S.holdToast=['Sin señal. Seguí entrenando: las series quedan en el teléfono.','warn']; },
+    'mol-modal-alta':()=>{ ex('bp'); S.molDraft={exId:'bp', zona:'Hombro', int:8, mom:'Durante la serie', flags:[], com:''}; S.sheet='molestia'; },
+    'mol-modal-alarma':()=>{ ex('bp'); S.molDraft={exId:'bp', zona:'Rodilla', int:6, mom:'Durante la serie', flags:[1], com:''}; S.sheet='molestia'; },
+    'hist-off':()=>{ S.tab='historial'; S.offline=true; },
+    'hist-open-tec':()=>{ S.tab='historial'; S.histOpen={0:true}; S.view='TECNICA'; },
+    'cls-reservada':()=>{ S.tab='clases'; S.clsDay=20; },
+    'cls-cupo':()=>{ S.tab='clases'; S.res=new Set(['16|18:00','20|18:00']); S.clsDay=19; },
+    'cls-dia-vacio':()=>{ S.tab='clases'; S.clsDay=22; },
     'mol-hereda':()=>{ ex('rm'); S.mol.bp={zona:'Hombro', int:5, flags:[], level:'moderada'}; },
     'mol-lumbar':()=>{ ex('pl'); S.mol.sq={zona:'Espalda baja / Lumbar', int:3, flags:[], level:'leve'}; },
     'mol-no-hereda':()=>{ ex('sq'); S.mol.bp={zona:'Hombro', int:5, flags:[], level:'moderada'}; },
@@ -1710,6 +1766,8 @@ function goTo(k){
     'cls':()=>{ S.tab='clases'; }, 'cls-mes':()=>{ S.tab='clases'; S.clsMode='mes'; }, 'cls-off':()=>{ S.tab='clases'; S.offline=true; }
   };
   (M[k]||(()=>{}))(); render();
+  if(S.scrollSel){ const el = document.querySelector(S.scrollSel); if(el) el.scrollIntoView({block:'center'}); S.scrollSel = null; }
+  if(S.holdToast){ const ht = S.holdToast; S.holdToast = null; toast(ht[0], ht[1]); clearTimeout(tt); $('#toast').classList.add('hold'); }
 }
 function EXRESET(){ const o = JSON.parse(XS0); Object.entries(o).forEach(([k,v])=>Object.assign(XS[k], v)); }
 
@@ -1772,10 +1830,11 @@ const A = {
   'log-retry':d=>{ const x=S.logs[cur().id][Number(d.i)]; if(S.offline){ x.st='local'; render(); toast('Sin señal: queda en el teléfono y se envía al volver.'); return; } x.st='sending'; render(); setTimeout(()=>{ x.st='ok'; render(); toast('Serie guardada','ok'); }, 900); },
   'log-fix':d=>{ const ex=cur(), L=S.logs[ex.id], x=L.splice(Number(d.i),1)[0], dr=draft(ex); if(x.kg!=null){ dr.kg=x.kg; dr.reps=x.reps; } else if(x.D){ dr.kg=x.D.kg; dr.reps=x.D.reps; } else if(x.secs){ dr.secs=x.secs; } render(); toast('Corregí los datos y registrala de nuevo.'); },
   'video':()=>{ S.sheet='video'; render(); },
+  'vid-retry':d=>{ const x=S.logs[cur().id][Number(d.i)]; x.vidSt='subiendo'; render(); setTimeout(()=>{ x.vidSt='ok'; render(); toast('Video enviado a tu coach','ok'); }, 1500); },
   'set-video':d=>{ S.setVid=Number(d.i); S.sheet='setvideo'; S.video=null; S.linkOpen=false; render(); },
   'vid-rec':()=>$('#vidRec').click(), 'vid-gal':()=>$('#vidGal').click(),
   'video-link':()=>{ S.linkOpen=true; render(); const i=$('#vidLink'); i && i.focus(); },
-  'video-send':()=>{ const ex=cur(), L=S.logs[ex.id]; if(L && L[S.setVid]) L[S.setVid].video=S.video; const n=S.setVid+1; S.sheet=null; S.video=null; render(); toast(S.offline ? 'Sin señal: el video se envía cuando vuelva la conexión.' : `Video adjunto a la serie ${n}`,'ok'); },
+  'video-send':()=>{ const ex=cur(), L=S.logs[ex.id], x=L && L[S.setVid]; if(x){ x.video=S.video; x.vidSt = /^Enlace/.test(S.video) ? 'ok' : (S.offline ? 'telefono' : 'subiendo'); if(x.vidSt==='subiendo') setTimeout(()=>{ x.vidSt='ok'; render(); }, 1500); } const n=S.setVid+1; S.sheet=null; S.video=null; render(); toast(S.offline ? 'Sin señal: el video se envía cuando vuelva la conexión.' : `Video adjunto a la serie ${n}`,'ok'); },
   'molestia':()=>{ const c = cur() || nextUp() || EXL()[0]; S.molDraft={exId:c.id, zona:'Rodilla', int:5, mom:'Durante la serie', flags:[], com:''}; S.sheet='molestia'; render(); },
   'mol-zona':d=>{ S.molDraft.zona=d.v; render(); }, 'mol-mom':d=>{ S.molDraft.mom=d.v; render(); }, 'mol-int':d=>{ S.molDraft.int=Number(d.v); render(); },
   'mol-send':()=>{ const m=S.molDraft, level=painLevel(m); S.mol[m.exId]=Object.assign({}, m, {level}); S.sheet=null; S.molDraft=null; if(level==='alarma'||level==='alta') S.rest=null; if(!cur()) S.sub={type:'ex', id:m.exId}; render(); toast(level==='alarma'?'Alerta enviada a tu coach':'Avisamos a tu coach', level==='leve'?undefined:'warn'); },
@@ -1793,6 +1852,7 @@ const A = {
   'sub-detail':()=>{ S.sheet='suscripcion'; render(); }, 'sub-chat':()=>{ S.sheet='chat'; render(); }, 'wa':()=>toast('Abriría WhatsApp con el número del equipo.'),
   'sub-copy':()=>{ const done=()=>toast('Alias copiado','ok'); try{ navigator.clipboard.writeText('GOZSTER.FIT').then(done).catch(selAlias); }catch(e){ selAlias(); } },
   'set-bg':d=>{ S.bg=d.v; savePref(); render(); syncBgVals(); },
+  'bg-reseed':()=>{ S.seed=1+Math.floor(Math.random()*9999); paintSwatches(); drawBg(true); syncBgVals(); },
   'set-int':d=>{ S.intensity=d.v; savePref(); paintSwatches(); render(); },
   'set-pal':d=>{ S.pal=d.v; savePref(); render(); }, 'set-font':d=>{ S.font=d.v; savePref(); render(); toast(`Fuentes: ${FONTSM[d.v].name}`); }, 'set-night':d=>{ S.night=d.v; if(d.v==='volt' && !S.dark){ S.dark=true; } savePref(); render(); toast(d.v==='volt'?'Éxito en volt para el modo noche':'Éxito con el mismo tono en día y noche','ok'); }, 'set-sem':d=>{ S.sem=d.v; if(S.pal==='actual') S.pal='prop'; savePref(); render(); toast(`Estados: ${SEMSM[d.v].name}`,'ok'); },
   'set-theme':d=>{ S.dark = d.v==='dark'; savePref(); render(); paintSwatches(); },
@@ -1989,7 +2049,7 @@ DEC.push(['D-50','Registro','El botón de video del ejercicio muestra solo el vi
 DEC.push(['D-51','Molestias','El aviso completo queda solo en el ejercicio reportado. Los ejercicios de la misma articulación muestran "! Molestia reportada" en chico. Lumbar: ambos trenes y core. Otro: solo ese ejercicio. No pasa a la sesión siguiente.','Banner global de la sesión','Pedido del producto (v7)','Elegida']);
 DEC.push(['D-52','Progreso','"+10 kg" sin "desde octubre".','"+10 kg desde octubre"','Pedido del producto (v7)','Elegida']);
 DEC.push(['D-53','Onboarding','Paso nuevo "¿Cómo querés que te llamemos?" (4 pasos). Se guarda en perfiles.nombre_preferido y se edita en Configuración.','Usar el primer nombre de nombre_completo','Pedido del producto (v7)','Elegida']);
-DEC.push(['D-54','Sistema','Fondos generativos estáticos (Book of Shaders): malla, malla con grano, ruido fractal y celdas, con semilla, escala e intensidad. Nunca detrás del registro, del login ni de formularios.','Patrones de la v6','Pedido del producto (v7): sutil y estático','A elegir']);
+DEC.push(['D-54','Sistema','Fondo: malla suave asimétrica (elipses de zinc rotadas y desenfocadas), estática, con semilla al azar en cada apertura dentro de un desvío acotado. Nunca detrás del ejercicio, del onboarding de nombre ni del cuestionario.','Malla simétrica, ruido fractal, celdas, patrones de la v6','Pedido del producto (v7.1): como un mesh, no simétrico, que cambie un poco','Elegida']);
 DEC.push(['D-36','Tipografía','Archivo + Geist + Geist Mono, elegida por ahora entre seis combinaciones.','Outfit + Inter (MARCA), Saira + Barlow, Space Grotesk + Inter, Unbounded + Manrope','Todas verificadas en Google Fonts con cifras tabulares; anchos medidos','Elegida']);
 DEC.push(['D-37','Color','Cinco paletas de estado como filtro (positivo y advertencia). Recomendada: monocromo. El rojo de seguridad queda fijo.','Semáforo, Volt, Acero, Okabe-Ito','Contraste calculado: todos los textos ≥ 6:1','Reemplazada por D-41']);
 DEC.push(['D-38','Tipografía','Combinación mixta: Archivo para títulos cortos, Outfit para nombres de ejercicio, Space Grotesk para números grandes, Geist para texto y Geist Mono para etiquetas.','Una sola familia display (Archivo + Geist)','Selección del producto; cifras tabulares y anchos ya verificados. Cuatro familias: medir la descarga','Descartada por ahora']);

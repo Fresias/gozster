@@ -8,7 +8,7 @@
 
 ## 1. Orden de trabajo
 
-FE-01 → FE-02 → (FE-03, FE-04, FE-09, FE-10 en paralelo) → FE-05 → (FE-06, FE-07, FE-08) → FE-11, FE-12. Un PR por issue. Cada PR adjunta el contraste visual de las pantallas que toca (`05-qa.md §2`).
+FE-01 → FE-02 → (FE-03, FE-04, FE-09, FE-10 en paralelo) → FE-05 → (FE-06, FE-07, FE-08) → FE-11, FE-12. Un PR por issue. Cada PR adjunta el contraste visual de las pantallas que toca (`05-qa.md §2`). **Cada issue avanza por checkpoints con commit y push (`07-checkpoints.md`)**: si la sesión se corta, se retoma desde `docs/athlete-v7/progreso/<ID>.md`.
 
 ---
 
@@ -53,8 +53,8 @@ FE-01 → FE-02 → (FE-03, FE-04, FE-09, FE-10 en paralelo) → FE-05 → (FE-0
 | `aviso-record.tsx` | Dorado único, copa sin círculo (`01 §8`). | FE-06 |
 | `exercise-notes-modal.tsx` | Hoja con formato usando `parseIndicaciones()` (BE-04). Crece con el contenido y se desliza adentro. | FE-07 |
 | `exercise-video-modal.tsx` | Solo el video demostrativo. Sin `url_video`, no hay botón. Se quitan "Buscar en YouTube", el ID y el emoji 🎬. | FE-07 |
-| `video-upload-modal.tsx` | Hoja "Video de la serie N", abierta desde cada fila de Registradas. Conectar con `attachVideoForSet` (BE-03). Opciones según D2. | FE-07 |
-| `pain-report-modal.tsx` | Reestilo de la hoja (`02 §3.3`). Pasa `ejercicioId` real. | FE-08 |
+| `video-upload-modal.tsx` | Hoja "Video de la serie N", abierta desde cada fila de Registradas: grabar, galería y enlace. Llama `adjuntarVideoASerie` y muestra `videoEstado` en la fila (BE-03, `03b-video-serie.md §4`). | FE-07 |
+| `pain-report-modal.tsx` | Reestilo de la hoja (`02 §3.3`). Llama `reportarMolestia` con el `ejercicioId` real (BE-02, `03a-molestias.md §4`). | FE-08 |
 | `pain-banner.tsx` | Nuevo `aviso-molestia.tsx` con dos variantes: completa y heredada, usando `avisoMolestiaPara()` (BE-02). Se renderiza **dentro de `ejercicio-activo.tsx`**, no en la cabecera de la sesión. | FE-08 |
 | `historial-sesiones.tsx` | Cabecera invertida, chip PR dorado, hoja de corrección. | FE-09 |
 | `mi-progreso.tsx` | Cabecera invertida, delta `+10 kg`, gráfico SVG de la referencia. | FE-09 |
@@ -64,7 +64,7 @@ FE-01 → FE-02 → (FE-03, FE-04, FE-09, FE-10 en paralelo) → FE-05 → (FE-0
 | `cuestionario-inicial.tsx` | Reestilo de opciones y chips. | FE-10 |
 | `onboarding-alumno.tsx` | 4 pasos, con el paso del nombre (`02 §10`). | FE-11 |
 | `cierre-dia-modal.tsx` | Pantalla oscura de la referencia. Se quita el ranking de constancia (D-33) y el emoji 🏆. | FE-11 |
-| — | `fondo-generativo.tsx` (nuevo) + `src/lib/athlete/fondo.ts` | FE-12 |
+| — | `fondo-generativo.tsx` (nuevo) + `src/lib/athlete/fondo.ts`: malla asimétrica, semilla al azar por apertura (`01 §10`) | FE-12 |
 | `habit-tracker.tsx`, `nutrition-tracker.tsx`, `mi-progreso` de hábitos | Sin cambios: no están montados en `/athlete` (D-34). | — |
 
 ---
@@ -92,7 +92,7 @@ Estos specs leen el código fuente del alumno con `readFileSync` (entre corchete
 | FE-04, FE-05 | `athlete-exercise-selector-column` [1], `athlete-single-set-workout` [4], `athlete-autofinish-last-set` [1], `athlete-set-type-taxonomy-popover` [2], `qa-athlete-verificacion-integral-flujo-registro` [3], `qa-audit-gozs-351-edge-cases` [1], `qa-gozs-418-rpe-piramidal` [3], `qa-pulido-app-alta-cobro-rutinas-351` [1], `qa-rpe-objetivo-readonly` [3], `rpe-objetivo-readonly` [2], `vista-simple-tecnica-alumno-coach` [2], `aproximacion-pr` [2], `warmup-sets-w-registro` [2], `remove-plate-calculator` [2] (fijaba que la calculadora no estuviera montada: la v7 la pone en Técnica por D-21; actualizar citando D-21), `sugerencia-carga-componente` [2] |
 | FE-06 | `qa-historial-progreso-verification` [7], `aviso-record-componente`, `record-store` |
 | FE-07 | `athlete-exercise-notes-button` [1], `athlete-youtube-video` |
-| FE-08 | `pain-report-banners-by-range` [1], `molestias-red-flags-ui` [1], `qa-molestias-red-flags-sustituciones` [2], `pipeline-alertas-dolor-fernando` [3] |
+| FE-08 (y BE-02) | `pain-report-banners-by-range` [1], `molestias-red-flags-ui` [1], `qa-molestias-red-flags-sustituciones` [2], `pipeline-alertas-dolor-fernando` [3] |
 | FE-09 | `athlete-historial-sesiones`, `mi-progreso-componente` (texto "desde {mes}" → "+10 kg"), `qa-gozs-359-athlete-studio-fixes` [1] |
 | FE-10 | `chat-ui-gozs-transferencia` [5], `inapp-chat-athlete-notif-drawer-cobros` [1], `chat-ui-shared-messaging` |
 | FE-11 | `onboarding-alumno-preferencias`, `onboarding-cuestionario-vista-minimalista` [6], `athlete-celebracion-cierre-dia` [2] (ranking de constancia: quitar citando D-33) |

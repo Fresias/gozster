@@ -244,31 +244,44 @@ Mismo diseño en los cuatro lugares: **fondo `--rec-bg`, texto `--rec-fg`, copa 
 
 ---
 
-## 10. Fondos generativos (D-54, decisión D1 del PM)
+## 10. Fondo: malla asimétrica (D-54)
 
-Inspirados en *The Book of Shaders*: se generan con variables (semilla, escala, intensidad) y son **estáticos**. **Nunca** van detrás de la pantalla del ejercicio, del onboarding de nombre, del cuestionario ni del login: ahí el lienzo es liso.
+Un mesh gradient de zinc: cinco manchas elípticas, rotadas y muy desenfocadas, en posiciones **asimétricas**. Es **estático** (no se anima) y cambia un poco en cada apertura de la app. **Nunca** va detrás de la pantalla del ejercicio, del onboarding de nombre ni del cuestionario: ahí el lienzo es liso. Fuente exacta: `meshSvg`, `bgMesh`, `bgNoise` y `bgValue` en `referencia/athlete-v7.html` (expuestas como `window.gzFondo` para comparar). Portar a `src/lib/athlete/fondo.ts`.
 
-Intensidad: `Sutil = 0.42`, `Media = 0.70`, `Mockup = 1`. Todos llevan un desvanecido hacia abajo:
-`linear-gradient(180deg, <bg>00 0%, <bg>00 35%, <bg>B3 100%)` (oscuro: `99` en vez de `B3`).
+### 10.1 Semilla
 
-| Fondo | Técnica | Implementación en la app | Variables |
-|---|---|---|---|
-| **Malla suave** (recomendado) | Gradiente de malla: 5 `radial-gradient` | **Solo CSS**, en un `<div aria-hidden>` fijo detrás del contenido | semilla → posiciones; escala → radio |
-| Malla con grano | Malla + ruido fino | CSS + SVG en línea (`feTurbulence`) como `background-image` | semilla, escala |
-| Ruido fractal | fbm (capítulo 13) | SVG `feTurbulence type="fractalNoise"` | semilla, escala → `baseFrequency` |
-| Celdas | Voronoi (capítulo 12) | Canvas una sola vez al montar → `toDataURL()` → `background-image`, memorizado por (tema, semilla, escala, tamaño) | semilla, escala → cantidad de celdas |
+- Se elige **al azar en cada apertura de la app**, entero en `1..9999`, y se guarda en `sessionStorage` (`gozster-fondo-semilla`): no cambia al navegar ni al recargar dentro de la misma visita.
+- La semilla **no** decide la composición: solo desvía cada mancha dentro de un rango acotado alrededor de su ancla. Por eso todas las variantes se parecen y aun así se nota el cambio.
+- Generador: `rng(semilla * 977)` con mulberry32 (`rng` en la referencia). Con la semilla fija en 3 se reproducen exactamente las capturas.
 
-Fórmulas exactas (son las de la referencia: `bgMesh`, `bgNoise`, `bgCells`, `bgValue` en `athlete-v7.html`; portar a `src/lib/athlete/fondo.ts`):
+### 10.2 Anclas (en orden; x, y en % de la pantalla; radios en % del ancho y del alto)
 
-- **Generador de números:** `rng(seed)` = mulberry32 (está en la referencia). La malla usa `rng(seed*977)`; las celdas, `rng(seed*131)`.
-- **Tonos** (r,g,b) en orden. Claro: `228,228,231` · `212,212,216` · `244,244,245` · `255,255,255` · `212,212,216`. Oscuro: `39,39,42` · `63,63,70` · `24,24,27` · `31,31,35` · `63,63,70`.
-- **Malla:** para cada tono: `x = round(r()*100)`, `y = round(r()*100)`, `rad = round((38 + r()*24) * escala)`, `alpha = (claro .95 | oscuro .90) * intensidad` → `radial-gradient(at x% y%, rgba(tono,alpha) 0, rgba(tono,0) rad%)`. Las 5 capas, en ese orden, sobre el color `--bg`.
-- **Grano:** `feTurbulence fractalNoise baseFrequency=.9 numOctaves=2 seed=<semilla>` + `feColorMatrix` que lleva el canal rojo a alfa con factor `(claro .08 | oscuro .10) * intensidad` y color negro (claro) o blanco (oscuro). Mosaico de 180 × 180.
-- **Ruido fractal:** igual, con `baseFrequency = .006 / escala`, `numOctaves=4`, factor `(claro .30 | oscuro .38) * intensidad`, a tamaño completo (`center/100% 100%`).
+| # | x | y | radio x | radio y | rotación | tono claro (rgb) | tono oscuro (rgb) |
+|---|---|---|---|---|---|---|---|
+| 1 | 86 | 4 | 70 | 18 | −16° | 205,206,211 | 58,58,64 |
+| 2 | 6 | 24 | 52 | 16 | 24° | 226,226,230 | 30,30,34 |
+| 3 | 62 | 47 | 60 | 12 | −30° | 255,255,255 | 76,76,84 |
+| 4 | 14 | 74 | 64 | 15 | 12° | 190,191,197 | 20,20,23 |
+| 5 | 96 | 90 | 46 | 14 | 26° | 236,236,239 | 44,44,49 |
 
-Con la opción recomendada (Malla suave, semilla 3, escala 1, Sutil) el costo es cero: no hay JavaScript ni repintado.
+### 10.3 Desvío por semilla (rango acotado)
 
----
+Para cada ancla, en orden, con `j(a) = (r()*2 − 1) * a`: x `± 10` puntos, y `± 7` puntos, radios `× (1 ± 0,18)` (cada uno con su propio `r()`), rotación `± 15°`. El orden de las llamadas a `r()` es: x, y, radio x, radio y, rotación.
+
+### 10.4 Composición (de arriba hacia abajo)
+
+1. Desvanecido: `linear-gradient(180deg, <bg>00 0%, <bg>00 55%, <bg>99 100%)` (oscuro: `80`).
+2. Grano fino que disimula los escalones del degradé: SVG `feTurbulence type="fractalNoise" baseFrequency="0.90" numOctaves="2" seed=<semilla>` + `feColorMatrix` que lleva el canal rojo a alfa con factor **0,05 (claro) o 0,10 (oscuro)**, en negro (claro) o blanco (oscuro), mosaico de 180 × 180.
+3. La malla: SVG `viewBox="0 0 390 844" preserveAspectRatio="none"` con las 5 elipses (`transform="rotate(r cx cy)"`) dentro de un `<g>` con `filter: feGaussianBlur stdDeviation=46` (región del filtro `−50% / 200%`) y `opacity = min(1, 0,4 + intensidad)`. Intensidad Sutil = 0,42 → opacidad 0,82. Se dibuja a `center / 100% 100% no-repeat`.
+4. Color de `--a-bg`.
+
+El SVG va como `data:image/svg+xml,` codificando `%` → `%25` **primero**, después `#` → `%23`, `<` → `%3C`, `>` → `%3E`. (Si `%` no se codifica, el navegador descarta la imagen sin dar error.)
+
+### 10.5 Implementación
+
+- `fondo-generativo.tsx`: un `<div aria-hidden>` `position: fixed; inset: 0; z-index: 0; pointer-events: none` detrás del contenido, con `background` = la cadena del §10.4. Se calcula una vez por (tema, semilla) con `useMemo`.
+- Costo: un SVG estático pintado una vez. Sin JavaScript por cuadro, sin animación, funciona sin red.
+- De noche puede verse algo de escalonado en pantallas de 8 bits. Si en un teléfono real se nota, subir el grano oscuro hasta 0,14 (anotarlo en el PR).
 
 ## 11. Íconos
 

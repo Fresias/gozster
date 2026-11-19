@@ -22,7 +22,7 @@
 |---|---|---|
 | Con señal | "Online" | `--ok-bg` / `--ok-fg`, punto lleno |
 | Sin señal, nada pendiente | "Sin señal · se guarda igual" | `--warn-*`, borde punteado, punto hueco |
-| Sin señal con series en el teléfono | "Sin señal · 3 en el teléfono" | igual |
+| Sin señal con series en el teléfono | "Sin señal · 3 series" (`aria-label` "Sin señal, 3 series guardadas en el teléfono") | igual |
 | Enviando | "Enviando 3 series…" | igual |
 
 **Reglas:** durante la rutina, el ejercicio, el cierre, el onboarding y el cuestionario **no** se muestran la navegación inferior ni el botón de chat (se vuelve con "Mis días" o "Volver"). `ModeSwitcher` (solo lo ve el rol ADMIN) se conserva como fila debajo del encabezado. En escritorio (≥ 1024 px) se mantiene la columna centrada de `max-width: 28rem` y la navegación inferior centrada al mismo ancho: no hace falta el riel lateral.
@@ -40,7 +40,12 @@
 | `inicio-sinplan` | Sin plan |
 | `inicio-cargando` | Cargando (después de 1 s) |
 | `inicio-error` | Error |
-| `inicio-vencida` | Suscripción vencida |
+| `inicio-vencida` | Suscripción vencida (banner) |
+| `inicio-suscripcion` | Hoja centrada de la suscripción |
+| `inicio-semana` | Día 1 hecho, te toca el Día 2 |
+| `inicio-offline` | Sin señal, nada pendiente |
+| `inicio-pendientes` | Sin señal con 3 series en el teléfono y sesión empezada ("Seguir Día 1") |
+| `inicio-instalar`, `inicio-instalar-android` | Hoja de instalación (iPhone y Android) |
 
 **Componente actual:** `inicio-mis-dias.tsx` (+ `membership-paywall.tsx`).
 
@@ -70,7 +75,11 @@
 | Clave | Estado |
 |---|---|
 | `rutina` | Rutina antes de empezar |
+| `rutina-curso` | En curso: Sentadilla hecha, biserie 1/3, próximo marcado |
+| `rutina-terminar` | Confirmación en línea "Te faltan 7 series." |
+| `rutina-molestia` | Chip `MOLESTIA` en el ejercicio reportado |
 | `registro` | Pestaña "Registro de la sesión" sin series |
+| `registro-datos` | Registro con series guardadas y una en el teléfono |
 | `config` | Hoja de Configuración |
 
 **Componente actual:** parte superior de `live-workout.tsx` (columna `exercise-selector-column`). Hoy rutina y ejercicio están apilados en una sola pantalla. **Pasa a ser una pantalla propia** (`rutina-del-dia.tsx`), sin navegación inferior.
@@ -104,11 +113,21 @@
 | `ex-tiempo` | Plancha por tiempo |
 | `ex-drop` | Drop set |
 | `ex-uni` | Zancada por lado |
+| `ex-tec-rpe` | Técnica con la ayuda de RPE abierta |
+| `ex-tiempo-run` | Plancha con el reloj corriendo ("Detener") |
+| `ex-drop-2` | Drop set en el segundo tramo |
+| `ex-uni-izq` | Por lado: derecha cargada, falta izquierda |
 | `ex-rest` | Panel de descanso activo |
+| `ex-rest-pausa` | Descanso en pausa ("PAUSADO") |
+| `ex-descanso-info` | Ayuda del botón de descanso |
+| `ex-completo` | "Ejercicio completo" + "Siguiente: …" |
+| `ex-offline` | Sin señal: series "En el teléfono" |
+| `toast-sinsenal`, `toast-record` | Toasts de advertencia y de récord |
 | `ex-record` | Aviso de récord (FE-06) |
 | `ex-x10` | Aviso de peso mal tecleado |
 | `ex-rej` | Serie no guardada |
 | `ex-videos` | Registradas, una con video (FE-07) |
+| `ex-video-estados` | Los 4 estados del video de la serie (FE-07) |
 | `setvideo` | Hoja "Video de la serie 2" (FE-07) |
 | `notes` | Hoja de indicaciones con formato (FE-07) |
 | `video` | Hoja del video demostrativo (FE-07) |
@@ -164,13 +183,17 @@ Contenido, a partir del parser (`03-backend.md §4`), en este orden y solo las s
 ### 3.2 Videos separados · D-50
 
 - **`video` (botón del ejercicio):** "Video del ejercicio" · nombre · cuadro 16:9 negro con play (embed de YouTube cuando hay `url_video`) · "Video demostrativo que cargó tu coach." · "Volver al ejercicio". **Nada para subir.** Sin `url_video`: el botón no se muestra (hoy ofrece buscar en YouTube: se quita).
-- **`setvideo` (desde Registradas):** botón "▶ Video" en cada serie registrada (`aria-label` "Agregar video a la serie N") → hoja "Video de la serie 2" · "Press banca plano · opcional · tu coach lo ve en tu registro" · "Grabar ahora" | "Elegir de la galería" | "Pegar un enlace" (según D2) · confirmación del archivo o enlace · botón "Adjuntar a la serie 2" (deshabilitado sin video). Al adjuntar: la fila muestra el chip `VIDEO` y aparece el toast "Video adjunto a la serie 2" (sin señal: "Sin señal: el video se envía cuando vuelva la conexión.").
+- **`setvideo` (desde Registradas):** botón "▶ Video" en cada serie registrada (`aria-label` "Agregar video a la serie N") → hoja "Video de la serie 2" · "Press banca plano · opcional · tu coach lo ve en tu registro" · "Grabar ahora" (`<input type="file" accept="video/*" capture="environment">`) · "Elegir de la galería" (`accept="video/*"`) · "Hasta 2 minutos o 100 MB. Sin señal, queda en el teléfono y se envía cuando vuelva." · "Pegar un enlace" (despliega el campo "Enlace al video", `type="url"`) · confirmación con check del archivo o enlace elegido · botón "Adjuntar a la serie 2" (deshabilitado sin video). Toast al adjuntar: "Video adjunto a la serie 2" (sin señal: "Sin señal: el video se envía cuando vuelva la conexión.").
+- **Errores** (debajo de las opciones, caja `.a-ferr` con borde izquierdo de tinta): más de 100 MB → "El video pesa más de 100 MB. Grabá uno más corto o pegá un enlace." · más de 2 minutos → "El video dura más de 2 minutos. Grabá uno más corto o pegá un enlace." · formato → "Ese archivo no es un video que podamos subir (MP4, MOV o WebM)." · enlace → "Pegá un enlace que empiece con https://".
+- **Estados en la fila de Registradas** (`ex-video-estados`): sin video → botón "▶ Video" · listo → chip `▶ VIDEO` · subiendo → chip `↑ SUBIENDO…` (`role="status"`) · sin señal → chip punteado `📱 VIDEO EN EL TELÉFONO` (ícono `phone`) · error → botón "⚠ Reintentar video". La pestaña "Registro de la sesión" muestra el mismo chip. Datos y subida: `03b-video-serie.md`.
 
 ### 3.3 Molestias · D-51 · FE-08
 
 | Clave | Qué muestra |
 |---|---|
-| `mol-modal` | Hoja "Tengo una molestia" |
+| `mol-modal` | Hoja "Tengo una molestia" (5/10, moderada) |
+| `mol-modal-alta`, `mol-modal-alarma` | Hoja con intensidad 8 (botones 7-10 en rojo) y con síntoma de alarma |
+| `rutina-molestia` | Chip rojo en la rutina |
 | `mol-leve`, `mol-mod`, `mol-alta`, `mol-alarma` | Aviso completo en el ejercicio reportado (Press banca) |
 | `mol-hereda` | Hombro reportado en Press banca → **Remo** (Espalda, tren superior) muestra el formato chico |
 | `mol-lumbar` | Lumbar reportado en Sentadilla → **Plancha** (Core) muestra el formato chico |
@@ -188,17 +211,19 @@ Contenido, a partir del parser (`03-backend.md §4`), en este orden y solo las s
 | Alta | 7 a 9 | relleno rojo | "Suspendé este ejercicio" / "Hombro · 8/10. Seguí con el resto solo si no te molesta. Tu coach ya fue avisado." · **Bloquea el registro de ese ejercicio** |
 | Alarma | algún síntoma o 10 | `#7F1D1D` | "Frená por hoy" / "Rodilla · 6/10. Avisá en el gimnasio o a tu entrenador cercano. Tu coach ya recibió una alerta." + "Terminar sesión" · **Frena la sesión** |
 
-**Formato chico (heredado):** en los demás ejercicios de la sesión cuyo grupo muscular comparte la articulación (tabla en `03-backend.md §2.3`): caja `.a-pain-mini` con borde 1,5 px `--warn-line`, fondo `--warn-bg`, círculo de 24 px `--warn-ic` con "!" y el texto `a-t-bs` **"Molestia reportada"**. Sin descripción, sin nivel, **no bloquea** (aunque el original sea alto). `role="status"`, `data-testid="molestia-heredada"`.
+**Formato chico (heredado):** en los demás ejercicios de la sesión cuyo grupo muscular comparte la articulación (tabla en `03a-molestias.md §6`): caja `.a-pain-mini` con borde 1,5 px `--warn-line`, fondo `--warn-bg`, círculo de 24 px `--warn-ic` con "!" y el texto `a-t-bs` **"Molestia reportada"**. Sin descripción, sin nivel, **no bloquea** (aunque el original sea alto). `role="status"`, `data-testid="molestia-heredada"`.
 
 **No pasa a la sesión siguiente:** al terminar o reiniciar la sesión se limpian los avisos. En la rutina, solo el ejercicio reportado lleva el chip rojo `MOLESTIA`.
 
-**Brecha:** hoy `PainReportBanner` es uno solo para toda la sesión (`activePainBanner`), arriba de la rutina, y no sabe de articulaciones.
+**Guardado y asociación:** cada reporte es una fila de `alumno_historial_dolor` asociada a la sesión, la prescripción y la serie; el aviso de la sesión se deriva de esas filas y aparece al instante aunque no haya señal (`03a-molestias.md §2 y §4`).
+
+**Brecha:** hoy `PainReportBanner` es uno solo para toda la sesión (`activePainBanner`), arriba de la rutina, no sabe de articulaciones, y **sin señal el reporte se pierde**.
 
 ---
 
 ## 4. Cierre de sesión · FE-11
 
-**Clave:** `cierre`. **Componente actual:** `cierre-dia-modal.tsx`.
+**Claves:** `cierre`, `cierre-off` (sin señal: chip "Guardada en el teléfono" y "· 3 series se envían cuando vuelva la señal"), `toast-sesion` (al volver: Historial con el toast "Sesión guardada en tu historial"). **Componente actual:** `cierre-dia-modal.tsx`.
 
 Pantalla completa siempre oscura (`#09090B`) con cuña plateada arriba a la derecha y una "G" gigante al 4 %: chip `✓ GUARDADA Y SINCRONIZADA` (o "Guardada en el teléfono") · copa de 44 px · `a-t-dxl` (2,125rem) "¡Gran entrenamiento, {nombre}!" · "Completaste DÍA 1" (+ " · 3 series se envían cuando vuelva la señal") · 2 tarjetas: `SERIES` "13/13" "100% completadas" · `TIEMPO` "54'" "duración de la sesión" · tarjeta "Racha semanal: 1 de 3 días" / "Cuenta solo los días de tu plan; el descanso no la corta." · tarjetas doradas "🏆 Nuevo PR · Press banca plano" / "47,5 kg × 8" (+ " · 1RM ~60 kg" en Técnica) · botón claro "Volver al inicio".
 
@@ -215,6 +240,8 @@ Pantalla completa siempre oscura (`#09090B`) con cuña plateada arriba a la dere
 | `hist-fix` | Hoja "Corregir serie" |
 | `hist-dash` | Por ejercicio |
 | `hist-vacio` | Vacío |
+| `hist-off` | Sin conexión |
+| `hist-open-tec` | Sesión abierta en Técnica (RPE por serie) |
 
 **Componente actual:** `historial-sesiones.tsx`.
 
@@ -255,11 +282,14 @@ Pantalla completa siempre oscura (`#09090B`) con cuña plateada arriba a la dere
 |---|---|
 | `cls` | Semana (vista principal) |
 | `cls-mes` | Mes |
+| `cls-reservada` | Clase reservada ("✓ Reservada · Cancelar") |
+| `cls-cupo` | Cupo semanal agotado ("Ya usaste tus 2 clases de la semana") |
+| `cls-dia-vacio` | Domingo sin clases |
 | `cls-off` | Sin conexión |
 
 **Componente actual:** `athlete-classes.tsx`.
 
-`a-t-d` "Clases" · segmentado Semana | Mes · cupo semanal `.a-quota` ("1 de 2 clases usadas" · `ESTA SEMANA` · barra segmentada · "Te queda 1 clase · la semana va de lunes a domingo") · semana en 7 celdas de 60 px (día de la semana y número; elegido en tinta; punto si hay reserva) o mes en grilla de 7 columnas con celdas de 48 px · tarjetas de clase `.a-ccl`: hora `a-t-mm` "18:00" + chip `FUNCIONAL` · "60 min · Quedan 2 lugares" · botón según estado: "Reservar cupo" · "✓ Reservada · Cancelar" · "Clase completa" · "Ya usaste tus 2 clases de la semana" · "Necesitás conexión para reservar" · "Asististe" / "Clase pasada" (los deshabilitados dicen el motivo). Día sin clases: "No hay clases este día" · "Elegí otro día de la semana.".
+`a-t-d` "Clases" · segmentado Semana | Mes · cupo semanal `.a-quota` ("1 de 2 clases usadas" · `ESTA SEMANA` · barra segmentada · "Te queda 1 clase · la semana va de lunes a domingo"; con 0: "No te quedan clases · …") · semana en 7 celdas de 60 px (día de la semana y número; elegido en tinta; punto si hay reserva) o mes en grilla de 7 columnas con celdas de 48 px · tarjetas de clase `.a-ccl`: hora `a-t-mm` "18:00" + chip `FUNCIONAL` · "60 min · Quedan 2 lugares" ("Queda 1 lugar", "Cupo libre", "Completa") · botón según estado: "Reservar cupo" · "✓ Reservada · Cancelar" · "Clase completa" · "Ya usaste tus 2 clases de la semana" · "Necesitás conexión para reservar" · "Asististe" / "Clase pasada" (los deshabilitados dicen el motivo). Día sin clases: "No hay clases este día" · "Elegí otro día de la semana.".
 
 ---
 
@@ -273,7 +303,7 @@ Hoja: "GOZS · Equipo" · "Tu equipo de entrenadores" · tarjeta de avisos ("¿Q
 
 ## 9. Cuestionario inicial · FE-10
 
-**Clave:** `cuest`. **Componente actual:** `cuestionario-inicial.tsx`. Se abre desde Configuración. Lienzo liso, sin fondo generativo.
+**Claves:** `cuest`, `cuest-hecho`. **Componente actual:** `cuestionario-inicial.tsx`. Se abre desde Configuración. Lienzo liso, sin fondo generativo.
 
 "‹ Volver" · tarjeta "Cuestionario inicial" / "Opcional. No bloquea tu entrenamiento: ayuda a tu coach a ajustar el plan y las sugerencias de carga." · secciones numeradas (`1 · OBJETIVO PRINCIPAL` … `6 · COMENTARIOS PARA TU COACH (OPCIONAL)`) con opciones `.a-opt` de tarjeta completa, chips para días (2 a 6) y textareas · "Guardar respuestas". Completado: chip `✓ COMPLETADO`, "Tu coach ve estas respuestas en el Coach Studio. Podés editarlas cuando quieras.", "✎ Modificar respuestas" y una tarjeta por respuesta.
 
@@ -296,4 +326,4 @@ Hoja: "GOZS · Equipo" · "Tu equipo de entrenadores" · tarjeta de avisos ("¿Q
 - **Paso 4:** "¿Querés ver el descanso después de cada serie?" · "Cada ejercicio tiene un descanso que indica tu coach (por ejemplo, 90 s) para recuperarte antes de la próxima serie." · "Sí, mostrame la cuenta" ("Al registrar una serie aparece el reloj. **Suena cuando termina; en Android también vibra.**") · "No, voy a mi ritmo" · "Listo, ver mis días".
 - "Saltar" en cualquier paso: vista recomendada + descanso visible + nombre = primer nombre (no se guarda `nombre_preferido`).
 
-**Login** (`login`, `login-err`): fuera de alcance por D4; queda como referencia para una próxima épica.
+**Login** (`login`, `login-err`): fuera de alcance (C10: esta épica es la estética de la app); queda como referencia para una próxima épica.
