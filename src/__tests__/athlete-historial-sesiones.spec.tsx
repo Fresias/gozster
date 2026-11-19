@@ -208,9 +208,10 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
       const { mockDoc, mockWin } = instalarDomTeclado();
       const ui = render(<HistorialSesiones />);
 
-      const disparador = ui.container
-        .querySelectorAll<HTMLElement>(".a-ed")
-        .find((b) => b.getAttribute("data-testid")?.startsWith("btn-editar-serie-")) ?? null;
+      const disparador =
+        Array.from(ui.container.querySelectorAll<HTMLElement>(".a-ed")).find((b) =>
+          b.getAttribute("data-testid")?.startsWith("btn-editar-serie-"),
+        ) ?? null;
       expect(disparador).not.toBeNull();
       const serieId = disparador!.getAttribute("data-testid")!.replace("btn-editar-serie-", "");
 
@@ -256,9 +257,9 @@ describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", 
       const { mockWin } = instalarDomTeclado();
       const ui = render(<HistorialSesiones />);
 
-      const disparador = ui.container
-        .querySelectorAll<HTMLElement>(".a-ed")
-        .find((b) => b.getAttribute("data-testid")?.startsWith("btn-editar-serie-"))!;
+      const disparador = Array.from(ui.container.querySelectorAll<HTMLElement>(".a-ed")).find((b) =>
+        b.getAttribute("data-testid")?.startsWith("btn-editar-serie-"),
+      )!;
       const serieId = disparador.getAttribute("data-testid")!.replace("btn-editar-serie-", "");
       fireEvent.click(disparador);
 
