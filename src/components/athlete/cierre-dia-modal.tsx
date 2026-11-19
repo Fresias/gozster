@@ -211,8 +211,10 @@ export function CierreDiaModal({
                   </b>
                   <span className="a-t-sec inline-flex items-center gap-1">
                     <span>
-                      {`${formatearKg(rec.peso_kg)} kg × ${rec.reps_hechas}`}
-                      {tiene1RM ? ` · 1RM ~${rec.epley_kg} kg` : ""}
+                      {rec.peso_kg > 0
+                        ? `${formatearKg(rec.peso_kg)} kg × ${rec.reps_hechas}`
+                        : `${rec.reps_hechas} reps`}
+                      {tiene1RM ? ` · 1RM ~${Math.round(rec.epley_kg!)} kg` : ""}
                     </span>
                     {tiene1RM ? <Tooltip1RM size="sm" /> : null}
                   </span>

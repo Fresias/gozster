@@ -218,6 +218,9 @@ export function useLiveWorkout() {
     planAlumno,
     marcas,
     registrarSerieEnMarcas,
+    seriesRecordIds,
+    sessionPRs,
+    registrarRecordSesion,
     nombrePreferido,
     guardarNombrePreferido,
     setToastSesion,
@@ -251,8 +254,8 @@ export function useLiveWorkout() {
     record?: { resultado: ResultadoRecord; exerciseName: string; peso_kg: number; reps_hechas: number };
   } | null>(null);
 
-  // Series que resultaron récord en esta sesión
-  const [seriesRecord, setSeriesRecord] = React.useState<Set<string>>(() => new Set());
+  // Series que resultaron récord en esta sesión (persistidas en store entre pantallas)
+  const seriesRecord = React.useMemo(() => new Set(seriesRecordIds), [seriesRecordIds]);
 
   // Flujo unilateral por lado (D/I) en UI, confirmando 1 sola serie al completar ambos lados
   const [uniSide, setUniSide] = React.useState<"D" | "I">("D");
@@ -332,7 +335,6 @@ export function useLiveWorkout() {
 
   // Modal de celebración y estímulo de cierre de día (GOZS-174 / Issue #180)
   const [showCelebrationModal, setShowCelebrationModal] = React.useState(false);
-  const [sessionPRs, setSessionPRs] = React.useState<RecordSesionItem[]>([]);
   const sessionStartTimeRef = React.useRef<number>(Date.now());
 
   // Modales
@@ -642,7 +644,6 @@ export function useLiveWorkout() {
     }
 
     if (resultado.esRecord && !esAtipica) {
-      setSeriesRecord((prev) => new Set(prev).add(`${currentExercise.id}-${num}`));
       triggerHapticVibration([60, 40, 60]);
       setOptimisticBanner({
         setNumber: num,
@@ -650,20 +651,15 @@ export function useLiveWorkout() {
         reps,
         record: { resultado, exerciseName: currentExercise.nombre, peso_kg: peso, reps_hechas: reps },
       });
-      setSessionPRs((prev) => [
-        ...prev.filter(
-          (p) => !(p.exerciseName === currentExercise.nombre && p.numero_serie === num),
-        ),
-        {
-          exerciseName: currentExercise.nombre,
-          peso_kg: peso,
-          reps_hechas: reps,
-          tipo: resultado.tipo,
-          epley_kg: resultado.epley_kg,
-          delta_epley_kg: resultado.delta_epley_kg,
-          numero_serie: num,
-        },
-      ]);
+      registrarRecordSesion(`${currentExercise.id}-${num}`, {
+        exerciseName: currentExercise.nombre,
+        peso_kg: peso,
+        reps_hechas: reps,
+        tipo: resultado.tipo,
+        epley_kg: resultado.epley_kg,
+        delta_epley_kg: resultado.delta_epley_kg,
+        numero_serie: num,
+      });
     } else {
       setOptimisticBanner({ setNumber: num, pesoKg: peso, reps });
     }
@@ -690,7 +686,12 @@ export function useLiveWorkout() {
         ? currentSession.ejercicios.find((e) => e.id === nextExerciseId)
         : undefined;
       const timerActiveNow = useAthleteStore.getState().restTimer.isActive;
-      if (
+      if (resultado.esRecord && !esAtipica) {
+        setToastSesion({
+          mensaje: `Nuevo récord en ${currentExercise.nombre}`,
+          tipo: "rec",
+        });
+      } else if (
         currentExercise.es_superserie &&
         nextExObj &&
         nextExObj.id !== currentExercise.id &&
@@ -914,7 +915,6 @@ export function useLiveWorkout() {
     optimisticBanner,
     setOptimisticBanner,
     seriesRecord,
-    setSeriesRecord,
     uniSide,
     setUniSide,
     uniPend,

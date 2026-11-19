@@ -137,10 +137,11 @@ describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", (
       );
 
       expect(html).toContain("Técnica estricta: codos a 45 grados sin balancear el torso.");
-      expect(html).toContain("Indicaciones del Ejercicio:");
+      expect(html).toContain("Indicaciones del ejercicio");
+      expect(html).toContain("Volver al ejercicio");
     });
 
-    it("debe mostrar tanto notas del coach como de biblioteca si ambas están presentes y difieren", () => {
+    it("debe mostrar tanto notas del coach como de biblioteca (De la biblioteca) si ambas están presentes y difieren", () => {
       const exerciseWithBoth: LiveWorkoutExercise = {
         ...mockExerciseWithNotes,
         notas: "Foco en tempo 3-1-0 en las primeras dos series.",
@@ -156,9 +157,47 @@ describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", (
       );
 
       expect(html).toContain("Foco en tempo 3-1-0 en las primeras dos series.");
-      expect(html).toContain("Indicaciones del Coach:");
+      expect(html).toContain("De la biblioteca");
       expect(html).toContain("Configuración: Pies al ancho de hombros, barra apoyada en trapecios.");
-      expect(html).toContain("Guía técnica de biblioteca:");
+    });
+
+    it("formatea Pasos, Puntos clave, Errores comunes y Tempo y respiración con parseIndicaciones (D-49)", () => {
+      const structured: LiveWorkoutExercise = {
+        ...mockExerciseWithoutNotes,
+        notas: [
+          "Consejo inicial.",
+          "Pasos:",
+          "1. Barra apoyada en los trapecios.",
+          "2. Bajá controlado.",
+          "Puntos clave:",
+          "- Rodillas hacia afuera.",
+          "Errores comunes:",
+          "- Despegar los talones.",
+          "Tempo: 3-1-X-1",
+          "Respiración: inspirá arriba y soltá al subir.",
+        ].join("\n"),
+      };
+
+      const html = renderToStaticMarkup(
+        createElement(ExerciseNotesModal, {
+          exercise: structured,
+          isOpen: true,
+          onClose: () => {},
+        })
+      );
+
+      expect(html).toContain("Consejo inicial.");
+      expect(html).toContain("Pasos");
+      expect(html).toContain("a-steps");
+      expect(html).toContain("Barra apoyada en los trapecios.");
+      expect(html).toContain("Puntos clave");
+      expect(html).toContain("Rodillas hacia afuera.");
+      expect(html).toContain("Errores comunes");
+      expect(html).toContain("a-err");
+      expect(html).toContain("Despegar los talones.");
+      expect(html).toContain("Tempo y respiración");
+      expect(html).toContain("3-1-X-1");
+      expect(html).toContain("inspirá arriba y soltá al subir.");
     });
   });
 
