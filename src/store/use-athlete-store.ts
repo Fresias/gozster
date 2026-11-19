@@ -45,7 +45,11 @@ import {
   type VideoPendiente,
 } from "@/lib/athlete/video-subida";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  NOMBRE_PREFERIDO_MAX_LEN,
+  normalizarNombrePreferido,
+} from "@/lib/athlete/nombre";
+import { esUuid, nuevoUuid } from "@/lib/athlete/uuid";
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 export type VideoEstadoSerie = "ninguno" | "telefono" | "subiendo" | "listo" | "error";
@@ -153,8 +157,15 @@ interface AthleteStoreState {
   colapsarRutina: boolean;
   historialSesiones: HistoricalLoadEntry[];
   cargandoHistorial: boolean;
+  // Nombre preferido (BE-01 / D-53). nombrePreferidoPendiente === undefined => sin pendiente.
+  nombrePreferido: string | null;
+  nombrePreferidoPendiente: string | null | undefined;
 
   // Actions
+  guardarNombrePreferido: (
+    nombre: string | null,
+  ) => Promise<{ success: boolean; offline?: boolean; error?: string }>;
+  sincronizarNombrePreferidoPendiente: () => Promise<boolean>;
   cargarUltimaVez: () => Promise<void>;
   // Descarga y agrega "Mi progreso" del alumno (§4.3); offline mantiene lo persistido.
   cargarMiProgreso: () => Promise<void>;
@@ -267,6 +278,7 @@ interface AthleteStoreState {
     diaSugeridoId?: string | null,
   ) => boolean;
   resetSessionToDefaults: () => void;
+  repararSesionesNoUuid: () => void;
 }
 
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
@@ -429,6 +441,73 @@ const defaultSession: LiveWorkoutSession = {
 };
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
+let activeSyncNombrePromise: Promise<boolean> | null = null;
+
+const PERMANENT_NOMBRE_RPC_CODES = new Set(["22001", "42501", "23514"]);
+
+type PerfilConNombrePreferido = LiveSupabaseDataset["alumnos"][number] & {
+  nombre_preferido?: string | null;
+};
+
+function aplicarNombrePreferidoEnPlan(
+  plan: LiveSupabaseDataset | null,
+  nombre: string | null,
+): LiveSupabaseDataset | null {
+  if (!plan || plan.alumnos.length === 0) return plan;
+  const [primero, ...resto] = plan.alumnos;
+  if (!primero) return plan;
+  const actualizado: PerfilConNombrePreferido = {
+    ...primero,
+    nombre_preferido: nombre,
+  };
+  return { ...plan, alumnos: [actualizado, ...resto] };
+}
+
+async function enviarNombrePreferidoRpc(
+  valor: string | null,
+  set: (fn: (state: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+): Promise<{ ok: boolean; permanentError?: string }> {
+  try {
+    const client = supabase as unknown as {
+      rpc: (
+        fn: string,
+        args: { p_nombre: string | null },
+      ) => Promise<{ data: string | null; error: { message: string; code?: string } | null }>;
+    };
+    const { data, error } = await client.rpc("actualizar_nombre_preferido", { p_nombre: valor });
+    if (error) {
+      if (error.code && PERMANENT_NOMBRE_RPC_CODES.has(error.code)) {
+        set((state) =>
+          state.nombrePreferidoPendiente === valor
+            ? { nombrePreferidoPendiente: undefined }
+            : {},
+        );
+        return { ok: false, permanentError: error.message };
+      }
+      console.warn("Aviso guardando nombre_preferido en Supabase (queda pendiente):", error.message);
+      return { ok: false };
+    }
+
+    const confirmado = data ?? null;
+    set((state) => {
+      if (state.nombrePreferidoPendiente !== valor) {
+        return {};
+      }
+      return {
+        nombrePreferido: confirmado,
+        nombrePreferidoPendiente: undefined,
+        planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, confirmado),
+      };
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.warn(
+      "Excepción guardando nombre_preferido (queda pendiente offline):",
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: false };
+  }
+}
 
 function reencolarSerieCompletadaConVideo(
   ses: LiveWorkoutSession,
@@ -569,6 +648,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       cargandoHistorial: false,
       pasoIncrementoPeso: 2.5,
       colapsarRutina: false,
+      nombrePreferido: null,
+      nombrePreferidoPendiente: undefined,
       rpeValidationError: null,
       rpeReminderNotification: null,
       stopProtocolActive: false,
@@ -585,6 +666,51 @@ export const useAthleteStore = create<AthleteStoreState>()(
       setMembershipStatus: (status) => set({ membershipStatus: status }),
       setPasoIncrementoPeso: (paso) => set({ pasoIncrementoPeso: paso }),
       setColapsarRutina: (colapsar) => set({ colapsarRutina: colapsar }),
+      guardarNombrePreferido: async (nombre) => {
+        const normalizado = normalizarNombrePreferido(nombre);
+        if (normalizado && Array.from(normalizado).length > NOMBRE_PREFERIDO_MAX_LEN) {
+          return {
+            success: false,
+            error: `El nombre no puede superar los ${NOMBRE_PREFERIDO_MAX_LEN} caracteres`,
+          };
+        }
+
+        set((state) => ({
+          nombrePreferido: normalizado,
+          nombrePreferidoPendiente: normalizado,
+          planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, normalizado),
+        }));
+
+        if (!useOfflineQueueStore.getState().isOnline) {
+          return { success: true, offline: true };
+        }
+
+        const res = await enviarNombrePreferidoRpc(normalizado, set);
+        if (res.permanentError) {
+          return { success: false, error: res.permanentError };
+        }
+        return res.ok ? { success: true } : { success: true, offline: true };
+      },
+      sincronizarNombrePreferidoPendiente: async () => {
+        if (activeSyncNombrePromise) return activeSyncNombrePromise;
+        const pendiente = get().nombrePreferidoPendiente;
+        if (pendiente === undefined || !useOfflineQueueStore.getState().isOnline) {
+          return false;
+        }
+
+        activeSyncNombrePromise = (async () => {
+          const valor = get().nombrePreferidoPendiente;
+          if (valor === undefined || !useOfflineQueueStore.getState().isOnline) {
+            return false;
+          }
+          const res = await enviarNombrePreferidoRpc(valor, set);
+          return res.ok;
+        })().finally(() => {
+          activeSyncNombrePromise = null;
+        });
+
+        return activeSyncNombrePromise;
+      },
       deleteCompletedSet: (exerciseId, setNumber) => {
         get().uncompleteSet(exerciseId, setNumber);
       },
@@ -656,7 +782,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set((state) => {
           const session = state.currentSession;
           const studentId = session?.studentId || DEFAULT_ATHLETE_ID;
-          const sessionId = session?.id || ("sesion-" + Date.now());
+          const sessionId = session?.id || nuevoUuid();
           const fechaIso = new Date().toISOString();
 
           const nuevasSesiones = [
@@ -1486,12 +1612,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
       // Sin red no consulta: queda lo persistido. Nunca bloquea el registro de una serie.
       cargarUltimaVez: async () => {
         const session = get().currentSession;
-        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => UUID_RE.test(id));
+        const ids = [...new Set(session.ejercicios.map((e) => e.ejercicio_id ?? e.id))].filter((id) => esUuid(id));
         if (ids.length === 0 || !useOfflineQueueStore.getState().isOnline) return;
 
         // Solo sesiones anteriores al día de la sesión en curso (hora de Buenos Aires).
         const antesDe = `${session.fecha}T00:00:00-03:00`;
-        const alumnoId = session.studentId && UUID_RE.test(session.studentId) ? session.studentId : null;
+        const alumnoId = session.studentId && esUuid(session.studentId) ? session.studentId : null;
         set({ cargandoUltimaVez: true });
         try {
           const filas = await Promise.all(
@@ -1540,7 +1666,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 1. Intentar resolver usuario autenticado de la sesión Supabase
         try {
           const { data: authData } = await supabase.auth.getUser();
-          if (authData?.user?.id && UUID_RE.test(authData.user.id)) {
+          if (authData?.user?.id && esUuid(authData.user.id)) {
             alumnoId = authData.user.id;
           }
         } catch (err) {
@@ -1550,7 +1676,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 2. Si no hay auth, resolver desde el perfil de plan persistido
         if (!alumnoId) {
           const planStudentId = get().planAlumno?.alumnos?.[0]?.id;
-          if (planStudentId && UUID_RE.test(planStudentId)) {
+          if (planStudentId && esUuid(planStudentId)) {
             alumnoId = planStudentId;
           }
         }
@@ -1558,13 +1684,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Si no, resolver desde la sesión actual o cerrada si tiene studentId válido
         if (!alumnoId) {
           const session = get().currentSession;
-          if (session?.studentId && UUID_RE.test(session.studentId)) {
+          if (session?.studentId && esUuid(session.studentId)) {
             alumnoId = session.studentId;
           }
         }
 
         // 4. Fallback al atleta por defecto para entornos demo y testing
-        if (!alumnoId && DEFAULT_ATHLETE_ID && UUID_RE.test(DEFAULT_ATHLETE_ID)) {
+        if (!alumnoId && DEFAULT_ATHLETE_ID && esUuid(DEFAULT_ATHLETE_ID)) {
           alumnoId = DEFAULT_ATHLETE_ID;
         }
 
@@ -1634,7 +1760,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!useOfflineQueueStore.getState().isOnline) return;
         const session = get().currentSession;
         const studentId = session.studentId || DEFAULT_ATHLETE_ID;
-        if (!UUID_RE.test(studentId)) return;
+        if (!esUuid(studentId)) return;
 
         set({ cargandoHistorial: true });
         try {
@@ -1754,7 +1880,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         // 3. Sincronizar en Supabase si estamos online
         if (useOfflineQueueStore.getState().isOnline) {
           try {
-            if (UUID_RE.test(serieId)) {
+            if (esUuid(serieId)) {
               await supabase
                 .from("registro_series")
                 .update({
@@ -1957,8 +2083,28 @@ export const useAthleteStore = create<AthleteStoreState>()(
         try {
           const plan = await fetchPlanAlumno();
           if (!plan) return;
-          set({ planAlumno: plan });
-          get().loadStudentSession(plan.alumnos[0]?.id);
+          const pendiente = get().nombrePreferidoPendiente;
+          if (pendiente !== undefined) {
+            set({ planAlumno: aplicarNombrePreferidoEnPlan(plan, pendiente) });
+          } else {
+            const nombreServidor =
+              (plan.alumnos[0] as PerfilConNombrePreferido | undefined)?.nombre_preferido ?? null;
+            set({ planAlumno: plan, nombrePreferido: nombreServidor });
+          }
+          const prev = get().currentSession;
+          const studentId = plan.alumnos[0]?.id;
+          const diaEnCurso =
+            studentId &&
+            prev.studentId === studentId &&
+            esUuid(prev.id) &&
+            !get().sesionesCompletadas.some((s) => s.id === prev.id) &&
+            plan.dias.some((d) => d.id === prev.dia_id)
+              ? prev.dia_id
+              : undefined;
+          get().loadStudentSession(studentId, diaEnCurso);
+          if (pendiente !== undefined) {
+            void get().sincronizarNombrePreferidoPendiente();
+          }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
         } finally {
@@ -2037,16 +2183,30 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
         const sortedExercises = sortExercisesWithWarmupFirst(mappedExercises);
 
+        const prev = get().currentSession;
+        const sesionYaCerrada = get().sesionesCompletadas.some((s) => s.id === prev.id);
+        const esMismaSesionEnCurso =
+          prev.studentId === student.id &&
+          prev.dia_id === selectedDia.id &&
+          esUuid(prev.id) &&
+          !sesionYaCerrada;
+
+        const hasCompletedSets =
+          esMismaSesionEnCurso &&
+          prev.ejercicios.some((ej) => ej.series.some((s) => s.completada));
+
         const newSession: LiveWorkoutSession = {
-          id: `session-${student.id}-${selectedDia.id}`,
+          id: esMismaSesionEnCurso ? prev.id : nuevoUuid(),
           nombre_rutina: `${student.nombre_completo}: ${selectedDia.nombre}`,
           fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
-          ejercicios: sortedExercises,
+          ejercicios: hasCompletedSets ? prev.ejercicios : sortedExercises,
           studentName: student.nombre_completo,
           studentId: student.id,
           dia_id: selectedDia.id,
-          dia_sugerido_id: diaSugeridoId ?? null,
-          motivo_cambio_dia: motivo ?? null,
+          dia_sugerido_id:
+            diaSugeridoId ?? (hasCompletedSets ? (prev.dia_sugerido_id ?? null) : null),
+          motivo_cambio_dia:
+            motivo ?? (hasCompletedSets ? (prev.motivo_cambio_dia ?? null) : null),
         };
 
         const coachRecomendada =
@@ -2095,6 +2255,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
           },
         });
       },
+
+      repararSesionesNoUuid: () => {
+        repararSesionesNoUuid();
+      },
     }),
     {
       name: "gozster-athlete-store",
@@ -2137,7 +2301,79 @@ export const useAthleteStore = create<AthleteStoreState>()(
         diaSugeridoId: state.diaSugeridoId,
         motivoCambioDia: state.motivoCambioDia,
         historialSesiones: state.historialSesiones,
+        nombrePreferido: state.nombrePreferido,
+        nombrePreferidoPendiente: state.nombrePreferidoPendiente,
       }),
     },
   ),
 );
+
+/**
+ * Repara al iniciar la app los ids de sesión heredados que no son UUID (`session-<alumno>-<día>`):
+ * asigna un UUID nuevo por cada id viejo distinto preservando agrupación y orden en `WORKOUT_SET_*`,
+ * corrige `currentSession.id` y `sesionesCompletadas[].id`, y dispara `flushQueue()` si reparó eventos.
+ */
+export function repararSesionesNoUuid(): void {
+  const mapaIds = new Map<string, string>();
+  const mapearId = (idViejo: string): string => {
+    const existente = mapaIds.get(idViejo);
+    if (existente) return existente;
+    const nuevo = nuevoUuid();
+    mapaIds.set(idViejo, nuevo);
+    return nuevo;
+  };
+
+  const queueState = useOfflineQueueStore.getState();
+  let repararonEventos = false;
+  const eventosActualizados = queueState.pendingEvents.map((ev) => {
+    if (!ev.action.startsWith("WORKOUT_SET_")) return ev;
+    const sid = ev.payload?.sessionId;
+    if (typeof sid !== "string" || sid.length === 0 || esUuid(sid)) return ev;
+    repararonEventos = true;
+    return {
+      ...ev,
+      payload: {
+        ...ev.payload,
+        sessionId: mapearId(sid),
+      },
+    };
+  });
+
+  if (repararonEventos) {
+    useOfflineQueueStore.setState({ pendingEvents: eventosActualizados });
+  }
+
+  const athleteState = useAthleteStore.getState();
+  const currentId = athleteState.currentSession?.id;
+  const currentNecesita =
+    typeof currentId === "string" && currentId.length > 0 && !esUuid(currentId);
+  const completadasNecesitan = athleteState.sesionesCompletadas.some(
+    (s) => typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id),
+  );
+
+  if (currentNecesita || completadasNecesitan) {
+    useAthleteStore.setState((state) => ({
+      ...(currentNecesita
+        ? {
+            currentSession: {
+              ...state.currentSession,
+              id: mapearId(state.currentSession.id),
+            },
+          }
+        : {}),
+      ...(completadasNecesitan
+        ? {
+            sesionesCompletadas: state.sesionesCompletadas.map((s) =>
+              typeof s.id === "string" && s.id.length > 0 && !esUuid(s.id)
+                ? { ...s, id: mapearId(s.id) }
+                : s,
+            ),
+          }
+        : {}),
+    }));
+  }
+
+  if (repararonEventos && queueState.isOnline) {
+    void useOfflineQueueStore.getState().flushQueue();
+  }
+}

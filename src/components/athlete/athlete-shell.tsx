@@ -3,8 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useAthleteStore } from "@/store/use-athlete-store";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { getStorageUser } from "@/lib/user-storage";
 import { createClient } from "@/lib/supabase/browser";
@@ -54,21 +54,28 @@ function ControlesSesion({ isOnline }: { isOnline: boolean }) {
   );
 }
 
-export async function activarYSincronizarAlAbrir(): Promise<void> {
+export async function activarYSincronizarAlAbrir(alActivar?: () => void): Promise<void> {
   try {
     const { data } = await createClient().auth.getUser();
-    if (!data.user) return;
-    await activarUsuarioStorage(data.user.id);
+    if (data.user) {
+      await activarUsuarioStorage(data.user.id);
+    }
+    alActivar?.();
     if (typeof navigator === "undefined" || navigator.onLine !== false) {
-      await useAthleteStore.getState().sincronizarVideosPendientes(data.user.id);
+      await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      if (data.user) {
+        await useAthleteStore.getState().sincronizarVideosPendientes(data.user.id);
+      }
     }
   } catch {
     // Silencioso en modo offline o sin sesión
+    alActivar?.();
   }
 }
 
 export async function manejarReconexionOnline(flushQueue: () => Promise<void>): Promise<void> {
   void flushQueue();
+  void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
   const userId = getStorageUser();
   if (userId) {
     await useAthleteStore.getState().sincronizarVideosPendientes(userId);
@@ -87,14 +94,24 @@ export async function manejarReconexionOnline(flushQueue: () => Promise<void>): 
 export function AthleteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOnline, setOnlineStatus, flushQueue } = useOfflineQueueStore();
+  const reparadoRef = React.useRef(false);
 
   // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
   React.useEffect(() => {
-    void activarYSincronizarAlAbrir();
+    const repararUnaVez = () => {
+      if (reparadoRef.current) return;
+      reparadoRef.current = true;
+      repararSesionesNoUuid();
+    };
+    void activarYSincronizarAlAbrir(repararUnaVez);
   }, []);
 
   React.useEffect(() => {
-    setOnlineStatus(navigator.onLine);
+    const online = navigator.onLine;
+    setOnlineStatus(online);
+    if (online) {
+      void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+    }
     const handleOnline = () => {
       setOnlineStatus(true);
       // Al volver la señal, la cola sincroniza sola y en silencio: el alumno
