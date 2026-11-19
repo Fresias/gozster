@@ -5,7 +5,6 @@ import { useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
 import {
   calcularEstadosDias,
-  calcularUltimoDiaRealizado,
   calcularSemanaPlan,
   etiquetaDia,
   primerNombre,
@@ -13,6 +12,7 @@ import {
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
+import { nombreParaSaludo } from "@/lib/athlete/nombre";
 
 export { primerNombre, saludoAlumno };
 import type { MotivoCambioDia } from "@/types/database.types";
@@ -32,6 +32,9 @@ import {
   ChevronRight,
   Check,
   X,
+  MessageSquare,
+  TriangleAlert,
+  TrendingUp,
 } from "@/components/athlete/icons";
 
 export function InicioMisDias() {
@@ -47,6 +50,7 @@ export function InicioMisDias() {
     cargandoPlan,
     cargarPlanAlumno,
     rpeReminderNotification,
+    nombrePreferido,
   } = useAthleteStore();
 
   const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
@@ -56,7 +60,6 @@ export function InicioMisDias() {
       ej.force_rpe_required &&
       ej.series.some((s) => !s.rpe_real || s.rpe_real < 6 || s.rpe_real > 10),
   );
-  const hasSuperserie = currentSession.ejercicios.some((e) => e.es_superserie);
 
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [sheetSelectedDiaId, setSheetSelectedDiaId] = React.useState<string | null>(null);
@@ -145,10 +148,6 @@ export function InicioMisDias() {
       });
   }, [planAlumno, plan]);
 
-  const ultimoDiaRealizado = React.useMemo(() => {
-    return calcularUltimoDiaRealizado(diasItems, sesionesCompletadas);
-  }, [diasItems, sesionesCompletadas]);
-
   // Cálculo puro de estados de los días
   const {
     diasConEstado,
@@ -208,24 +207,72 @@ export function InicioMisDias() {
 
   const semanaPlan = plan ? calcularSemanaPlan(plan.fecha_inicio, plan.fecha_fin) : { actual: 1, total: null };
   const diaHero = diaActivoHoy || diasConEstado[0];
+  const sesionIniciada = Boolean(
+    diaHero &&
+      currentSession.dia_id === diaHero.id &&
+      currentSession.ejercicios.some((ej) => ej.series.some((s) => s.completada)),
+  );
+  const hasSuperserie = Boolean(
+    diaHero &&
+      (planAlumno?.ejerciciosEnRutina.some(
+        (er) => er.dia_id === diaHero.id && Boolean(er.es_superserie),
+      ) ||
+        (currentSession.dia_id === diaHero.id &&
+          currentSession.ejercicios.some((e) => e.es_superserie))),
+  );
+  const saludoNombre = nombreParaSaludo({
+    nombre_preferido:
+      nombrePreferido ??
+      (student as { nombre_preferido?: string | null } | undefined)?.nombre_preferido,
+    nombre_completo: student?.nombre_completo,
+  });
+  const saludoTexto = saludoNombre ? `Hola, ${saludoNombre}` : "Hola";
+
+  const showToast = (msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(msg);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
+  };
+
+  const handleOpenOtherDay = (preselectedId?: string) => {
+    if (sesionIniciada) {
+      showToast("Terminá la sesión actual antes de cambiar de día.");
+      return;
+    }
+    handleOpenSheet(preselectedId);
+  };
+
+  const handlePickDay = (dia: DiaConEstado) => {
+    if (dia.estado === "DONE") return;
+    if (diaHero && dia.id === diaHero.id) {
+      empezarDia(dia.id);
+      return;
+    }
+    handleOpenOtherDay(dia.id);
+  };
 
   const tarjetaRecordatorioPeso = debeRecordarPeso ? (
     <div
       role="region"
       aria-label="Recordatorio de peso corporal"
-      className="rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-xs space-y-3 transition-all text-left"
+      className="a-card p-4 space-y-3 text-left"
       data-testid="recordatorio-peso-card"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-lg shadow-xs">
-            ⚖️
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{ background: "var(--a-primary)", color: "var(--a-on-primary)" }}
+          >
+            <TrendingUp width={18} height={18} className="a-i" />
           </span>
           <div>
-            <p className="text-xs sm:text-sm font-bold text-foreground">
+            <p className="a-t-bs">
               Actualizá tu peso corporal para calibrar tus marcas de fuerza (kg)
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="a-t-sec a-muted mt-0.5">
               {student?.peso_corporal_kg
                 ? `Último registro: ${student.peso_corporal_kg} kg (hace ${diasSinActualizarPeso} días)`
                 : "Calibración en kilogramos puros sin métricas invasivas"}
@@ -236,37 +283,39 @@ export function InicioMisDias() {
         <button
           type="button"
           onClick={() => setRecordatorioDescartado(true)}
-          className="text-muted-foreground hover:text-foreground text-xs font-bold p-1 rounded-lg cursor-pointer"
+          className="a-icon-btn"
           aria-label="Descartar recordatorio"
           data-testid="descartar-recordatorio-peso-btn"
         >
-          ✕
+          <X width={16} height={16} className="a-i" />
         </button>
       </div>
 
       {pesoGuardadoMensaje ? (
         <div
-          className="rounded-xl bg-success-soft border border-success-soft-border p-2.5 text-xs font-bold text-success-soft-foreground"
+          className="a-oknote a-t-sec font-semibold"
           data-testid="peso-guardado-feedback"
         >
-          ✓ {pesoGuardadoMensaje}
+          <Check width={16} height={16} className="a-i" />
+          <span>{pesoGuardadoMensaje}</span>
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <div className="relative flex-1 min-w-[130px] max-w-[200px]">
             <input
               type="number"
+              inputMode="decimal"
               step="0.5"
               min="20"
               max="400"
               placeholder={student?.peso_corporal_kg ? String(student.peso_corporal_kg) : "Ej: 75.0"}
               value={nuevoPesoKg}
               onChange={(e) => setNuevoPesoKg(e.target.value)}
-              className="w-full min-h-11 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary pr-9"
+              className="a-t-body w-full min-h-11 rounded-2xl border border-input bg-card px-3 pr-9 text-foreground"
               data-testid="input-peso-corporal"
               aria-label="Nuevo peso corporal en kilogramos"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground pointer-events-none">
+            <span className="a-t-sec a-muted pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
               kg
             </span>
           </div>
@@ -275,7 +324,7 @@ export function InicioMisDias() {
             type="button"
             disabled={!nuevoPesoKg || guardandoPeso}
             onClick={handleGuardarPeso}
-            className="min-h-11 rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+            className="a-mini min-h-11"
             data-testid="btn-guardar-peso-corporal"
           >
             {guardandoPeso ? "Guardando…" : "Actualizar"}
@@ -286,306 +335,182 @@ export function InicioMisDias() {
   ) : null;
 
   const bannerMensajeNoLeido = latestUnreadStaffMessage ? (
-    <div
-      role="status"
+    <button
+      type="button"
       onClick={() => setAthleteChatOpen(true)}
-      className="flex items-center justify-between gap-3 rounded-2xl border border-primary/40 bg-primary/10 hover:bg-primary/15 transition-all p-3.5 text-xs text-foreground cursor-pointer shadow-xs"
+      className="a-card a-coachmsg w-full text-left"
       data-testid="unread-coach-message-banner"
     >
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
-          !
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-primary">Mensaje nuevo del Coach</span>
-            <span className="rounded-full bg-success-soft text-success border border-success-soft-border px-1.5 py-0.5 text-xs font-bold">
-              No leído
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-            {latestUnreadStaffMessage.contenido}
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setAthleteChatOpen(true);
-        }}
-        className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-primary/50 bg-primary/20 hover:bg-primary/30 text-primary transition-colors touch-manipulation min-h-8"
-      >
-        Ver mensaje
-      </button>
-    </div>
+      <span className="a-av">
+        <MessageSquare width={18} height={18} className="a-i" />
+      </span>
+      <span className="a-rt">
+        <b className="a-t-bs">
+          Mensaje del coach <span className="a-chip a-ink a-t-label">Nuevo</span>
+        </b>
+        <small className="a-t-sec">{latestUnreadStaffMessage.contenido}</small>
+      </span>
+      <ChevronRight width={18} height={18} className="a-i" />
+    </button>
   ) : null;
 
   if (diasItems.length === 0) {
     return (
-      <div className="space-y-4 pt-6 pb-20" data-testid="inicio-sin-plan">
+      <div className="a-view a-anim" data-testid="inicio-sin-plan">
         {bannerMensajeNoLeido}
         {tarjetaRecordatorioPeso}
-        <div className="text-center space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            {saludoAlumno(student?.nombre_completo)}
-          </p>
-          <h1 className="font-outfit text-xl font-extrabold text-foreground">
+        <div className="a-hello">
+          <span className="a-t-sec a-muted">{saludoTexto}</span>
+        </div>
+        <section className="a-card a-state">
+          <h1 className="a-t-title">
             {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
           </h1>
           {!cargandoPlan && (
-            <p className="text-sm text-muted-foreground">Tu coach te va a asignar una rutina pronto.</p>
+            <p className="a-t-sec">Tu coach te va a asignar una rutina pronto.</p>
           )}
-        </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 pb-20" data-testid="inicio-mis-dias-container">
+    <div className="a-view a-anim" data-testid="inicio-mis-dias-container">
       {/* Saludo y Plan */}
-      <div className="pt-2">
-        <p className="text-sm font-medium text-muted-foreground">
-          {saludoAlumno(student?.nombre_completo)}
-        </p>
-        <h1 className="font-outfit text-2xl sm:text-[26px] font-extrabold tracking-tight text-foreground mt-0.5">
-          {plan?.nombre ?? "Tu plan"}
-        </h1>
-        <p className="text-sm font-medium text-muted-foreground mt-0.5">
-          Semana{" "}
-          <span className="font-mono font-bold text-foreground">{semanaPlan.actual}</span>
-          {semanaPlan.total !== null && (
-            <>
-              {" "}de <span className="font-mono font-bold text-foreground">{semanaPlan.total}</span>
-            </>
-          )}
-        </p>
+      <div className="a-hello">
+        <span className="a-t-sec a-muted">{saludoTexto}</span>
+        <h1 className="a-t-d uppercase">{plan?.nombre ?? "Tu plan"}</h1>
+        <span className="a-t-sec a-muted">
+          Semana {semanaPlan.actual}
+          {semanaPlan.total !== null ? ` de ${semanaPlan.total}` : ""}
+        </span>
       </div>
-
-      {/* Recordatorio Mensual de Peso Corporal (kg puro) (GOZS-345) */}
-      {tarjetaRecordatorioPeso}
-
-      {/* Indicador de Último Entrenamiento Realizado */}
-      {ultimoDiaRealizado && (
-        <div
-          className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-secondary/60 border border-border/80 text-xs shadow-xs"
-          data-testid="ultimo-entrenamiento-card"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success font-bold">
-              <Check className="h-4 w-4" strokeWidth={3} />
-            </span>
-            <div className="truncate">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Último entrenamiento realizado
-              </p>
-              <p className="text-sm font-bold text-foreground truncate mt-0.5">
-                {etiquetaDia(ultimoDiaRealizado.dia)}
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0 text-right">
-            <span
-              className="inline-block px-2.5 py-1 rounded-lg bg-background/80 border border-border/60 text-xs font-bold text-foreground"
-              data-testid="ultimo-entrenamiento-fecha"
-            >
-              {ultimoDiaRealizado.tiempoRelativo
-                ? `${ultimoDiaRealizado.tiempoRelativo} · ${ultimoDiaRealizado.fechaLegible}`
-                : ultimoDiaRealizado.fechaLegible}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Aviso prominente de mensaje no leído del Coach */}
       {bannerMensajeNoLeido}
 
+      {/* Recordatorio Mensual de Peso Corporal (kg puro) (GOZS-345) */}
+      {tarjetaRecordatorioPeso}
+
       {/* Recordatorio de RPE obligatorio sin bloqueo */}
       {(rpeReminderNotification || pendingRpeExercise) && (
-        <div
+        <section
           role="alert"
-          className="flex items-center justify-between gap-2 rounded-2xl border border-warning-soft-border bg-warning-soft p-3.5 text-xs text-warning-soft-foreground"
+          className="a-banner"
           data-testid="rpe-reminder-banner"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning font-bold text-xs">
-              ⚡
-            </span>
-            <div className="min-w-0">
-              <span className="font-bold text-warning">RPE obligatorio (sin bloqueo):</span>{" "}
-              <span className="text-warning-soft-foreground text-xs">
-                {rpeReminderNotification ||
-                  `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
-              </span>
-            </div>
-          </div>
-        </div>
+          <b className="a-t-bs">
+            <TriangleAlert width={18} height={18} className="a-i" />
+            RPE obligatorio (sin bloqueo)
+          </b>
+          <span className="a-t-sec">
+            {rpeReminderNotification ||
+              `Tu Coach requiere registrar RPE en "${pendingRpeExercise?.nombre || "ejercicio indicado"}". Podés cargarlo sin detener tu entrenamiento.`}
+          </span>
+        </section>
       )}
 
-      {/* Hero Oscuro (#0F172A) con el Día activo para hoy */}
+      {/* Héroe "Te toca hoy" (invertido de noche) */}
       {diaHero && (
         <section
-          aria-label="Día de hoy"
-          className="rounded-[20px] bg-[#0F172A] p-5 text-white shadow-xl border border-border"
-          data-testid="hero-dia-hoy"
+          aria-label="Te toca hoy"
+          className="a-hero"
+          data-testid="heroe-te-toca-hoy"
         >
-          <div className="flex items-center gap-2 flex-wrap">
-            {cambioDeDia ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold tracking-wider text-primary uppercase">
-                  Hoy
+          <div className="a-hp" data-testid="hero-dia-hoy">
+            <div className="a-hrow2">
+              {cambioDeDia ? (
+                <>
+                  <span className="a-t-label a-eh">Hoy</span>
+                  <span className="a-chip a-t-label" data-testid="tag-cambiaste-dia">
+                    Cambiaste de día
+                  </span>
+                </>
+              ) : (
+                <span className="a-t-label a-eh">Te toca hoy</span>
+              )}
+              {hasSuperserie && (
+                <span className="a-chip a-t-label" data-testid="hero-superserie-badge">
+                  Con biserie
                 </span>
-                <span
-                  className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning-soft-foreground border border-warning-soft-border"
-                  data-testid="tag-cambiaste-dia"
-                >
-                  Cambiaste de día
-                </span>
-              </div>
-            ) : (
-              <span className="text-xs font-bold tracking-wider text-primary uppercase">
-                Te toca hoy
-              </span>
-            )}
-            {hasSuperserie && (
-              <span
-                data-testid="hero-superserie-badge"
-                className="inline-flex items-center gap-1 rounded-full border border-neutral-soft-border bg-neutral-soft px-2 py-0.5 text-xs font-bold text-neutral-soft-foreground"
-              >
-                Circuito Violeta
-              </span>
-            )}
+              )}
+            </div>
+
+            <h2 className="a-t-d mt-[6px]">Día {diaHero.orden}</h2>
+            <small className="a-t-sec">
+              {diaHero.ejerciciosCount} ejercicios · ~{diaHero.duracionMinutos} min
+            </small>
           </div>
 
-          <h2 className="font-outfit text-[26px] sm:text-[28px] font-extrabold tracking-tight text-white mt-1.5 leading-tight">
-            {etiquetaDia(diaHero)}
-          </h2>
-
-          <p className="text-sm font-medium text-muted-foreground mt-1">
-            <span className="font-mono">{diaHero.ejerciciosCount}</span> ejercicios ·{" "}
-            <span className="font-mono">~{diaHero.duracionMinutos}</span> min
-          </p>
-
-          {/* CTA Principal: Empezar Día */}
           <button
             type="button"
             onClick={() => empezarDia(diaHero.id)}
-            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#38BDF8] text-[#0F172A] text-base font-bold shadow-md hover:bg-[#38BDF8]/90 active:scale-[0.97] transition-all"
+            className="a-btn a-hbtn a-gym"
             data-testid="empezar-dia-btn"
           >
-            <Play className="h-5 w-5" />
-            <span>Empezar Día {diaHero.orden}</span>
+            <Play width={16} height={16} className="a-i" />
+            <span>
+              {sesionIniciada ? "Seguir" : "Empezar"} Día {diaHero.orden}
+            </span>
           </button>
 
-          {/* Botón Secundario: Hacer otro día */}
           <button
             type="button"
-            onClick={() => handleOpenSheet()}
-            className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[12px] border border-border bg-transparent text-foreground text-sm font-semibold hover:bg-secondary/60 active:scale-[0.97] transition-all"
+            onClick={() => handleOpenOtherDay()}
+            className="a-btn a-hero-ghost"
             data-testid="hacer-otro-dia-btn"
           >
-            <ArrowRightLeft className="h-4 w-4" />
+            <ArrowRightLeft width={16} height={16} className="a-i" />
             <span>Hacer otro día</span>
           </button>
         </section>
       )}
 
       {/* Lista: Tus Días */}
-      <section aria-label="Lista de días de rutina" className="space-y-2.5">
-        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
-          <span>Tus días</span>
-          <span className="font-mono lowercase">
-            {diasHechosCount}/{totalDias} esta semana
-          </span>
-        </div>
+      <div className="flex items-baseline justify-between">
+        <p className="a-eb a-t-label">Tus días</p>
+        <span className="a-t-label a-muted">
+          {diasHechosCount}/{totalDias} esta semana
+        </span>
+      </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs divide-y divide-border">
-          {diasConEstado.map((dia: DiaConEstado) => {
-            const isDone = dia.estado === "DONE";
-            const isToday = dia.estado === "TODAY";
-            const isSkipped = dia.estado === "PENDING_SKIPPED";
-            const isUltimo = ultimoDiaRealizado?.dia.id === dia.id;
+      <section className="a-card a-days" aria-label="Lista de días de rutina">
+        {diasConEstado.map((dia: DiaConEstado) => {
+          const isDone = dia.estado === "DONE";
+          const isToday = dia.estado === "TODAY";
+          const isSkipped = dia.estado === "PENDING_SKIPPED";
+          const subtitle = isToday
+            ? cambioDeDia
+              ? "Hoy"
+              : "Te toca hoy"
+            : isSkipped
+              ? dia.subtitulo
+              : `${dia.ejerciciosCount} ejercicios · ~${dia.duracionMinutos} min`;
 
-            return (
-              <div
-                key={dia.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  if (isDone) return;
-                  if (isToday) {
-                    empezarDia(dia.id);
-                  } else {
-                    handleOpenSheet(dia.id);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    if (!isDone) {
-                      if (isToday) empezarDia(dia.id);
-                      else handleOpenSheet(dia.id);
-                    }
-                  }
-                }}
-                className={`flex min-h-[68px] items-center gap-3.5 px-4 py-3 cursor-pointer transition-colors ${
-                  isDone
-                    ? "bg-muted/10 opacity-75 cursor-default"
-                    : "hover:bg-secondary/40 active:bg-secondary/60"
-                }`}
-                data-testid={`dia-row-${dia.id}`}
-              >
-                {/* Badge con el Número o Check */}
-                <div
-                  className={`flex h-11 w-11 flex-none items-center justify-center rounded-xl font-mono text-lg font-extrabold ${
-                    isDone
-                      ? "bg-success-soft text-success-soft-foreground"
-                      : isToday
-                      ? "bg-primary text-primary-foreground"
-                      : isSkipped
-                      ? "bg-warning-soft text-warning-soft-foreground border border-warning-soft-border"
-                      : "bg-secondary text-foreground"
-                  }`}
-                >
-                  {isDone ? <Check className="h-5 w-5 stroke-[2.5]" /> : dia.orden}
-                </div>
-
-                {/* Título y Subtítulo descriptivo */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <b className="text-base font-bold text-foreground truncate">
-                      {etiquetaDia(dia)}
-                    </b>
-                    {isUltimo && (
-                      <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-success-soft text-success"
-                        data-testid={`badge-ultimo-realizado-${dia.id}`}
-                      >
-                        Último realizado
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`block text-[13px] truncate ${
-                      isToday
-                        ? "text-primary font-semibold"
-                        : isSkipped
-                        ? "text-warning font-semibold"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {dia.subtitulo}
-                  </span>
-                </div>
-
-                {/* Chevron */}
-                {!isDone && (
-                  <ChevronRight className="h-5 w-5 flex-none text-muted-foreground/60" />
-                )}
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={dia.id}
+              type="button"
+              onClick={() => handlePickDay(dia)}
+              className={`a-row ${isToday ? "a-today" : ""}`}
+              data-testid={`dia-row-${dia.id}`}
+            >
+              <span className="a-num">{dia.orden}</span>
+              <span className="a-rt">
+                <b className="a-t-bs">{etiquetaDia(dia)}</b>
+                <small className="a-t-sec">{subtitle}</small>
+              </span>
+              {isDone ? (
+                <span className="a-chip a-ok a-t-label">
+                  <Check width={12} height={12} className="a-i" />
+                  Hecho
+                </span>
+              ) : (
+                <ChevronRight width={18} height={18} className="a-i" />
+              )}
+            </button>
+          );
+        })}
       </section>
 
       {/* Sheet Inferior: ¿Qué día querés hacer hoy? */}
