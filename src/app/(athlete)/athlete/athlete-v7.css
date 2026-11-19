@@ -1,0 +1,96 @@
+/* Athlete App v7 — Sistema visual aislado bajo .theme-athlete[data-v7]
+   Fuente: docs/athlete-v7/01-sistema-visual.md y docs/athlete-v7/referencia/athlete-v7.html */
+
+body:has(.theme-athlete[data-v7]) {
+  --background: 0 0% 98%;
+}
+
+.dark body:has(.theme-athlete[data-v7]) {
+  --background: 240 10% 3.9%;
+}
+
+/* Mapeo a variables HSL de shadcn/Tailwind (claro).
+   Se incluye `.theme-athlete[data-v7] .theme-athlete` para cubrir el contenedor interno de athlete-shell.tsx
+   hasta que FE-02 lo migre. */
+.theme-athlete[data-v7],
+.theme-athlete[data-v7] .theme-athlete {
+  --background: 0 0% 98%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 10% 3.9%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 5.2% 33.9%;
+  --subtle-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 10% 3.9%;
+  --border: 240 5.9% 90%;
+  --input: 240 3.8% 46.1%;
+  --ring: 240 10% 3.9%;
+  --destructive: 0 72.2% 50.6%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 164 100% 31%;
+  --success-foreground: 0 0% 100%;
+  --success-soft: 159 43.6% 92.4%;
+  --success-soft-foreground: 164 100% 20%;
+  --success-soft-border: 164 100% 31%;
+  --warning: 240 10% 3.9%;
+  --warning-foreground: 0 0% 100%;
+  --warning-soft: 0 0% 100%;
+  --warning-soft-foreground: 240 10% 3.9%;
+  --warning-soft-border: 240 10% 3.9%;
+  --danger-soft: 0 85.7% 97.3%;
+  --danger-soft-foreground: 0 73.7% 41.8%;
+  --danger-soft-border: 0 72.2% 50.6%;
+}
+
+/* Mapeo a variables HSL de shadcn/Tailwind (oscuro) */
+.dark .theme-athlete[data-v7],
+.dark .theme-athlete[data-v7] .theme-athlete {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 5.9% 10%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 5.4% 14.5%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 10% 3.9%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --subtle-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.8% 46.1%;
+  --ring: 0 0% 98%;
+  --destructive: 0 72.2% 50.6%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 164 100% 31%;
+  --success-foreground: 0 0% 100%;
+  --success-soft: 166 76.9% 10.2%;
+  --success-soft-foreground: 162 56.9% 60%;
+  --success-soft-border: 164 100% 31%;
+  --warning: 0 0% 98%;
+  --warning-foreground: 240 10% 3.9%;
+  --warning-soft: 240 5.9% 10%;
+  --warning-soft-foreground: 0 0% 98%;
+  --warning-soft-border: 0 0% 98%;
+  --danger-soft: 352 40% 11.8%;
+  --danger-soft-foreground: 0 90.6% 70.8%;
+  --danger-soft-border: 0 72.2% 50.6%;
+}
+
+.theme-athlete[data-v7] {
+  font-family: var(--a-f-sans), system-ui, sans-serif;
+}
+
+.theme-athlete[data-v7] .font-mono {
+  font-family: var(--a-f-mono), ui-monospace, monospace;
+}
