@@ -3,9 +3,7 @@
 import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useAthleteStore } from "@/store/use-athlete-store";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Check, Pencil } from "@/components/athlete/icons";
 import type { AlumnoCuestionarioInicial } from "@/types/database.types";
 
 interface CuestionarioInicialProps {
@@ -15,24 +13,24 @@ interface CuestionarioInicialProps {
 }
 
 const OBJETIVOS_PRESET = [
-  "Hipertrofia / Ganancia Muscular",
-  "Pérdida de Grasa / Recomposición",
-  "Fuerza Máxima & Powerlifting",
-  "Salud General & Acondicionamiento",
-  "Rendimiento Deportivo",
+  "Hipertrofia / ganancia muscular",
+  "Pérdida de grasa / recomposición",
+  "Fuerza máxima",
+  "Salud general",
+  "Rendimiento deportivo",
 ] as const;
 
 const EXPERIENCIA_PRESET = [
-  "Principiante (< 1 año constante)",
-  "Intermedio (1 a 3 años entrenando)",
-  "Avanzado (> 3 años con sobrecarga)",
+  "Principiante (menos de 1 año)",
+  "Intermedio (1 a 3 años)",
+  "Avanzado (más de 3 años)",
 ] as const;
 
 const EQUIPAMIENTO_PRESET = [
   "Gimnasio comercial completo",
   "Gimnasio de edificio / básico",
-  "Equipamiento en casa (mancuernas/banco)",
-  "Peso corporal / Calistenia",
+  "Mancuernas y banco en casa",
+  "Peso corporal",
 ] as const;
 
 export function CuestionarioInicial({
@@ -58,10 +56,10 @@ export function CuestionarioInicial({
 
   // Form State
   const [objetivo, setObjetivo] = React.useState(
-    cuestionarioInicial?.objetivo_principal || "Hipertrofia / Ganancia Muscular",
+    cuestionarioInicial?.objetivo_principal || OBJETIVOS_PRESET[0],
   );
   const [experiencia, setExperiencia] = React.useState(
-    cuestionarioInicial?.experiencia_previa || "Intermedio (1 a 3 años entrenando)",
+    cuestionarioInicial?.experiencia_previa || EXPERIENCIA_PRESET[1],
   );
   const [dias, setDias] = React.useState<number>(
     cuestionarioInicial?.dias_disponibles_semana ?? 4,
@@ -148,7 +146,7 @@ export function CuestionarioInicial({
 
     if (res.success) {
       setIsEditing(false);
-      setFeedbackMessage("✓ Cuestionario guardado con éxito. Tu entrenador ya tiene acceso a tus respuestas.");
+      setFeedbackMessage("Listo, guardamos tus respuestas. Tu coach ya puede verlas.");
       onComplete?.();
     } else {
       setFeedbackMessage(res.error || "Ocurrió un error al guardar. Los datos se preservaron localmente.");
@@ -157,331 +155,144 @@ export function CuestionarioInicial({
 
   const isCompleted = Boolean(cuestionarioInicial?.completado_at);
 
-  return (
-    <div className="space-y-4" data-testid="cuestionario-inicial-container">
-      {/* Banner de Estado No Bloqueante */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3.5">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <span className="text-base">📋</span>
-            <h2 className="text-sm font-bold text-foreground">
-              Cuestionario Inicial (Opcional)
-            </h2>
-            {isCompleted ? (
-              <Badge
-                variant="success"
-                className="text-xs font-bold"
-                data-testid="cuestionario-completado-badge"
-              >
-                ✓ Completado
-              </Badge>
-            ) : (
-              <Badge
-                variant="secondary"
-                className="text-xs font-bold"
-                data-testid="cuestionario-opcional-badge"
-              >
-                Opcional • Demo
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {isCompleted
-              ? `Completado por ${effectiveAthleteName}. Puedes editar tus datos cuando quieras.`
-              : "No bloquea tu entrenamiento. Puedes entrenar directamente y completarlo cuando prefieras."}
-          </p>
-        </div>
+  const resumen: Array<[string, string, string]> = [
+    ["Objetivo principal", cuestionarioInicial?.objetivo_principal || objetivo, "objetivo"],
+    ["Experiencia previa", cuestionarioInicial?.experiencia_previa || experiencia, "experiencia"],
+    ["Días disponibles", `${cuestionarioInicial?.dias_disponibles_semana ?? dias} días por semana`, "dias"],
+    ["Equipamiento", cuestionarioInicial?.equipamiento_disponible || equipamiento, "equipamiento"],
+    ["Molestias o lesiones previas", cuestionarioInicial?.molestias_o_lesiones_previas || molestias || "Ninguna", "molestias"],
+  ];
+  if (comentarios) resumen.push(["Comentarios", comentarios, "comentarios"]);
 
-        {isCompleted && !isEditing && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-            className="text-xs font-semibold"
-            data-testid="btn-editar-cuestionario"
-          >
-            ✏️ Modificar Respuestas
-          </Button>
-        )}
-      </div>
-
-      {feedbackMessage && (
-        <div
-          role="alert"
-          className="rounded-lg border border-success-soft-border bg-success-soft p-3 text-xs font-semibold text-success-soft-foreground"
-          data-testid="cuestionario-feedback-msg"
+  const grupo = (
+    nombre: string,
+    opciones: readonly string[],
+    actual: string,
+    onSelect: (v: string) => void,
+    testPrefix: string,
+  ) => (
+    <div className="a-qgroup" role="group" aria-label={nombre}>
+      {opciones.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className="a-opt"
+          aria-pressed={actual === opt}
+          onClick={() => onSelect(opt)}
+          data-testid={`${testPrefix}-${opt}`}
         >
+          <span className="a-t-bs">{opt}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="cuestionario-inicial-container">
+      {feedbackMessage && (
+        <p role="alert" className="a-info a-t-sec" data-testid="cuestionario-feedback-msg">
           {feedbackMessage}
-        </div>
+        </p>
       )}
 
-      {/* Vista Resumen cuando ya está completado y no está en modo edición */}
       {isCompleted && !isEditing ? (
-        <Card className="border border-border shadow-xs" data-testid="cuestionario-resumen-card">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold text-foreground">
-              Respuestas Registradas
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Información visible para tu entrenador en el Coach Studio.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 p-4 pt-0">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Objetivo Principal
-                </span>
-                <p
-                  className="mt-0.5 text-xs font-semibold text-foreground"
-                  data-testid="cuestionario-resumen-objetivo"
-                >
-                  {cuestionarioInicial?.objetivo_principal || objetivo}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Experiencia Previa
-                </span>
-                <p
-                  className="mt-0.5 text-xs font-semibold text-foreground"
-                  data-testid="cuestionario-resumen-experiencia"
-                >
-                  {cuestionarioInicial?.experiencia_previa || experiencia}
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Días Disponibles / Semana
-                </span>
-                <p
-                  className="mt-0.5 text-xs font-semibold text-foreground"
-                  data-testid="cuestionario-resumen-dias"
-                >
-                  {cuestionarioInicial?.dias_disponibles_semana ?? dias} días por semana
-                </p>
-              </div>
-
-              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Equipamiento Disponible
-                </span>
-                <p
-                  className="mt-0.5 text-xs font-semibold text-foreground"
-                  data-testid="cuestionario-resumen-equipamiento"
-                >
-                  {cuestionarioInicial?.equipamiento_disponible || equipamiento}
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Molestias o Lesiones Previas
+        <>
+          <section className="a-card" style={{ padding: 16, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <h1 className="a-t-h">Cuestionario inicial</h1>
+              <span className="a-chip a-ok a-t-label" data-testid="cuestionario-completado-badge">
+                <Check width={12} height={12} className="a-i" /> Completado
               </span>
-              <p
-                className="mt-0.5 text-xs font-medium text-foreground"
-                data-testid="cuestionario-resumen-molestias"
-              >
-                {cuestionarioInicial?.molestias_o_lesiones_previas || molestias || "Ninguna reportada"}
-              </p>
             </div>
-
-            {comentarios && (
-              <div className="rounded-lg border border-border/80 bg-secondary/30 p-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Comentarios o Preferencias
-                </span>
-                <p
-                  className="mt-0.5 text-xs font-medium text-foreground"
-                  data-testid="cuestionario-resumen-comentarios"
-                >
-                  {comentarios}
-                </p>
+            <p className="a-t-sec a-muted" style={{ margin: 0 }}>
+              Tu coach ve estas respuestas en el Coach Studio. Podés editarlas cuando quieras.
+            </p>
+            <button
+              type="button"
+              className="a-btn a-ghost"
+              onClick={() => setIsEditing(true)}
+              data-testid="btn-editar-cuestionario"
+            >
+              <Pencil width={16} height={16} className="a-i" /> Modificar respuestas
+            </button>
+          </section>
+          <div className="flex flex-col gap-3" data-testid="cuestionario-resumen-card">
+            {resumen.map(([titulo, valor, clave]) => (
+              <div key={clave} className="a-card" style={{ padding: "12px 14px", display: "grid", gap: 2 }}>
+                <span className="a-t-label a-muted">{titulo}</span>
+                <span className="a-t-bs" data-testid={`cuestionario-resumen-${clave}`}>{valor}</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        </>
       ) : (
-        /* Formulario Interactivo */
-        <Card className="border border-border shadow-xs">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold text-foreground">
-              {isCompleted ? "Editar Cuestionario Inicial" : "Formulario de Inicialización"}
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Preguntas para orientar tu planificación y sugerencias de cargas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 1. Objetivo Principal */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="cuestionario-objetivo"
-                  className="text-xs font-bold text-foreground block"
-                >
-                  1. ¿Cuál es tu objetivo principal?
-                </label>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                  {OBJETIVOS_PRESET.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setObjetivo(opt)}
-                      className={`min-h-[44px] rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-all touch-manipulation ${
-                        objetivo === opt
-                          ? "border-primary bg-primary/10 text-primary shadow-xs"
-                          : "border-border bg-card text-foreground hover:bg-secondary/40"
-                      }`}
-                      data-testid={`opt-objetivo-${opt}`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <section className="a-card" style={{ padding: 14, display: "grid", gap: 4 }}>
+            <h1 className="a-t-h">Cuestionario inicial</h1>
+            <span className="a-t-sec a-muted" data-testid="cuestionario-opcional-badge">
+              Opcional. No bloquea tu entrenamiento: ayuda a tu coach a ajustar el plan y las sugerencias de carga.
+            </span>
+          </section>
 
-              {/* 2. Experiencia Previa */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="cuestionario-experiencia"
-                  className="text-xs font-bold text-foreground block"
-                >
-                  2. ¿Qué nivel de experiencia previa tienes?
-                </label>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                  {EXPERIENCIA_PRESET.map((exp) => (
-                    <button
-                      key={exp}
-                      type="button"
-                      onClick={() => setExperiencia(exp)}
-                      className={`min-h-[44px] rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-all touch-manipulation ${
-                        experiencia === exp
-                          ? "border-primary bg-primary/10 text-primary shadow-xs"
-                          : "border-border bg-card text-foreground hover:bg-secondary/40"
-                      }`}
-                      data-testid={`opt-experiencia-${exp}`}
-                    >
-                      {exp}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <p className="a-eb a-t-label">1 · Objetivo principal</p>
+          {grupo("Objetivo principal", OBJETIVOS_PRESET, objetivo, setObjetivo, "opt-objetivo")}
 
-              {/* 3. Días Disponibles */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground block">
-                  3. ¿Cuántos días por semana puedes entrenar?
-                </label>
-                <div className="flex items-center gap-2">
-                  {[2, 3, 4, 5, 6].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setDias(num)}
-                      className={`flex-1 min-h-[44px] rounded-lg border text-xs font-bold transition-all touch-manipulation ${
-                        dias === num
-                          ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                          : "border-border bg-card text-foreground hover:bg-secondary/40"
-                      }`}
-                      data-testid={`opt-dias-${num}`}
-                    >
-                      {num} días
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <p className="a-eb a-t-label">2 · Experiencia previa</p>
+          {grupo("Experiencia previa", EXPERIENCIA_PRESET, experiencia, setExperiencia, "opt-experiencia")}
 
-              {/* 4. Molestias o Lesiones */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="cuestionario-molestias"
-                  className="text-xs font-bold text-foreground block"
-                >
-                  4. ¿Tienes molestias o lesiones previas? (Opcional)
-                </label>
-                <textarea
-                  id="cuestionario-molestias"
-                  rows={2}
-                  value={molestias}
-                  onChange={(e) => setMolestias(e.target.value)}
-                  placeholder="Ej.: Dolor lumbar al hacer sentadillas pesadas, o molestia en rodilla derecha. (Si no tienes, deja vacío)."
-                  className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  data-testid="input-molestias"
-                />
-              </div>
+          <p className="a-eb a-t-label">3 · Días por semana</p>
+          <div className="a-chips" role="group" aria-label="Días por semana">
+            {[2, 3, 4, 5, 6].map((num) => (
+              <button
+                key={num}
+                type="button"
+                aria-pressed={dias === num}
+                onClick={() => setDias(num)}
+                data-testid={`opt-dias-${num}`}
+              >
+                {num} días
+              </button>
+            ))}
+          </div>
 
-              {/* 5. Equipamiento */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground block">
-                  5. ¿Con qué equipamiento cuentas?
-                </label>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                  {EQUIPAMIENTO_PRESET.map((eq) => (
-                    <button
-                      key={eq}
-                      type="button"
-                      onClick={() => setEquipamiento(eq)}
-                      className={`min-h-[44px] rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-all touch-manipulation ${
-                        equipamiento === eq
-                          ? "border-primary bg-primary/10 text-primary shadow-xs"
-                          : "border-border bg-card text-foreground hover:bg-secondary/40"
-                      }`}
-                      data-testid={`opt-equipamiento-${eq}`}
-                    >
-                      {eq}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <label className="a-eb a-t-label" htmlFor="cuestionario-molestias">
+            4 · Molestias o lesiones previas (opcional)
+          </label>
+          <textarea
+            id="cuestionario-molestias"
+            rows={3}
+            value={molestias}
+            onChange={(e) => setMolestias(e.target.value)}
+            placeholder="Por ejemplo: molestia lumbar en sentadilla pesada."
+            className="a-fin a-t-body"
+            data-testid="input-molestias"
+          />
 
-              {/* 6. Comentarios Adicionales */}
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="cuestionario-comentarios"
-                  className="text-xs font-bold text-foreground block"
-                >
-                  6. Comentarios adicionales para el entrenador (Opcional)
-                </label>
-                <textarea
-                  id="cuestionario-comentarios"
-                  rows={2}
-                  value={comentarios}
-                  onChange={(e) => setComentarios(e.target.value)}
-                  placeholder="Ej.: Horarios en los que suelo entrenar, preferencias sobre ejercicios..."
-                  className="w-full rounded-lg border border-input bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  data-testid="input-comentarios"
-                />
-              </div>
+          <p className="a-eb a-t-label">5 · Equipamiento</p>
+          {grupo("Equipamiento", EQUIPAMIENTO_PRESET, equipamiento, setEquipamiento, "opt-equipamiento")}
 
-              {/* Botón Guardar */}
-              <div className="flex items-center gap-2 pt-2">
-                <Button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 min-h-[48px] text-xs font-bold"
-                  data-testid="submit-cuestionario-btn"
-                >
-                  {isSaving ? "Guardando cuestionario..." : "✓ Guardar Cuestionario Inicial"}
-                </Button>
+          <label className="a-eb a-t-label" htmlFor="cuestionario-comentarios">
+            6 · Comentarios para tu coach (opcional)
+          </label>
+          <textarea
+            id="cuestionario-comentarios"
+            rows={3}
+            value={comentarios}
+            onChange={(e) => setComentarios(e.target.value)}
+            placeholder="Por ejemplo: prefiero entrenar a la tarde."
+            className="a-fin a-t-body"
+            data-testid="input-comentarios"
+          />
 
-                {isCompleted && isEditing && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsEditing(false)}
-                    className="min-h-[48px] text-xs font-semibold text-muted-foreground hover:text-foreground"
-                  >
-                    Cancelar
-                  </Button>
-                )}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          <button type="submit" disabled={isSaving} className="a-btn a-gym" data-testid="submit-cuestionario-btn">
+            {isSaving ? "Guardando…" : "Guardar respuestas"}
+          </button>
+          {isCompleted && isEditing && (
+            <button type="button" className="a-btn a-ghost" onClick={() => setIsEditing(false)}>
+              Cancelar
+            </button>
+          )}
+        </form>
       )}
     </div>
   );

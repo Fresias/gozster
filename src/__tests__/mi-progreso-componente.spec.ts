@@ -63,7 +63,7 @@ describe("MiProgreso — vista SIMPLE (spec historial-progreso §4.6, §4.8)", (
     expect(h).toContain('data-testid="progreso-ejercicio"');
     expect(t).toContain("Sentadilla");
     expect(t).toContain("85 kg");
-    expect(t).toContain("+10 kg desde agosto");
+    expect(t).toContain("+10 kg");
   });
 
   it("peso corporal: el número son reps, nunca 0 kg", () => {
@@ -72,8 +72,8 @@ describe("MiProgreso — vista SIMPLE (spec historial-progreso §4.6, §4.8)", (
   });
 
   it("dibuja la línea SVG (una sola) y el punto final", () => {
-    expect(h).toContain("<polyline");
-    expect(h).not.toContain("stroke-dasharray");
+    expect(h).toContain("a-ch-line");
+    expect(h).not.toContain("a-ch-rm");
     expect(h).toContain('role="img"');
   });
 
@@ -97,14 +97,14 @@ describe("MiProgreso — vista TECNICA (spec historial-progreso §4.6, §4.8)", 
   });
 
   it("agrega el 1RM estimado y la segunda línea punteada con leyenda", () => {
-    expect(t).toContain("1RM est. 99 kg");
-    expect(h).toContain('stroke-dasharray="3 3"');
+    expect(t).toContain("1RM estimado 99 kg");
+    expect(h).toContain("a-ch-rm");
     expect(t).toContain("1RM estimado");
   });
 
   it("peso corporal no inventa 1RM (sin línea punteada en esa tarjeta)", () => {
     // Dominadas (peso corporal) no debe mostrar "1RM est." pese a estar en TECNICA.
-    expect(t).not.toContain("1RM est. 0");
+    expect(t).not.toContain("1RM estimado 0");
   });
 });
 

@@ -192,44 +192,44 @@ describe("helpers de presentación (spec historial-progreso §4.3, §4.4, §4.6)
     expect(valorPunto(p, true)).toBe(14);
   });
 
-  it("delta positivo: +10 kg desde agosto, signo positivo", () => {
-    expect(formatearDelta(ej({}), HOY)).toEqual({ texto: "+10 kg desde agosto", signo: "positivo" });
+  it("delta positivo: +10 kg, signo positivo (D-52)", () => {
+    expect(formatearDelta(ej({}))).toEqual({ texto: "+10 kg", signo: "positivo" });
   });
 
   it("delta negativo usa el signo menos tipográfico y no es un reto", () => {
     const d = formatearDelta(ej({ puntos: [
       { fecha: "2026-08-10T10:00:00Z", peso_max_kg: 85, reps_max: 5, epley_max_kg: 99 },
       { fecha: "2026-10-10T10:00:00Z", peso_max_kg: 80, reps_max: 5, epley_max_kg: 95 },
-    ] }), HOY);
-    expect(d).toEqual({ texto: "−5 kg desde agosto", signo: "negativo" });
+    ] }));
+    expect(d).toEqual({ texto: "−5 kg", signo: "negativo" });
   });
 
-  it("delta cero: Igual que en agosto", () => {
+  it("delta cero: Igual", () => {
     const d = formatearDelta(ej({ puntos: [
       { fecha: "2026-08-10T10:00:00Z", peso_max_kg: 80, reps_max: 5, epley_max_kg: 95 },
       { fecha: "2026-10-10T10:00:00Z", peso_max_kg: 80, reps_max: 5, epley_max_kg: 95 },
-    ] }), HOY);
-    expect(d).toEqual({ texto: "Igual que en agosto", signo: "cero" });
+    ] }));
+    expect(d).toEqual({ texto: "Igual", signo: "cero" });
   });
 
-  it("delta agrega el año si el primer punto es de otro año", () => {
+  it("delta no menciona mes ni año del primer punto (D-52)", () => {
     const d = formatearDelta(ej({ puntos: [
       { fecha: "2025-08-10T10:00:00Z", peso_max_kg: 75, reps_max: 6, epley_max_kg: 90 },
       { fecha: "2026-10-10T10:00:00Z", peso_max_kg: 85, reps_max: 5, epley_max_kg: 99 },
-    ] }), HOY);
-    expect(d?.texto).toBe("+10 kg desde agosto 2025");
+    ] }));
+    expect(d?.texto).toBe("+10 kg");
   });
 
   it("delta a peso corporal cuenta reps", () => {
     const d = formatearDelta(ej({ a_peso_corporal: true, puntos: [
       { fecha: "2026-08-10T10:00:00Z", peso_max_kg: 0, reps_max: 10, epley_max_kg: 0 },
       { fecha: "2026-10-10T10:00:00Z", peso_max_kg: 0, reps_max: 14, epley_max_kg: 0 },
-    ] }), HOY);
-    expect(d?.texto).toBe("+4 reps desde agosto");
+    ] }));
+    expect(d?.texto).toBe("+4 reps");
   });
 
   it("delta null con menos de 2 puntos", () => {
-    expect(formatearDelta(ej({ puntos: [{ fecha: "x", peso_max_kg: 80, reps_max: 5, epley_max_kg: 95 }] }), HOY)).toBeNull();
+    expect(formatearDelta(ej({ puntos: [{ fecha: "x", peso_max_kg: 80, reps_max: 5, epley_max_kg: 95 }] }))).toBeNull();
   });
 
   it("aria-label describe el rango", () => {
