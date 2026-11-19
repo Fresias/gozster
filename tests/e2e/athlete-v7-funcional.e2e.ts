@@ -583,4 +583,261 @@ test.describe("@mobile Athlete v7 · Capa C Funcional (QA-02)", () => {
     await page.getByTestId(`exercise-select-btn-${EJ_RM}`).click();
     await expect(page.getByTestId("molestia-heredada")).toBeVisible();
   });
+
+  // ── CP3 · F-11 a F-16 (Video e Indicaciones) ──
+  async function registrarSerie1EnSentadilla(page: Page) {
+    await entrarARutinaDia1(page);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await expect(page.getByTestId("registrar-serie-btn")).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId("registrar-serie-btn").click();
+    await omitirDescansoSiVisible(page);
+    await expect(page.getByTestId(`log-row-${EJ_SQ}-1`)).toBeVisible();
+  }
+
+  test("F-11: video por enlace en serie 1 muestra chip VIDEO y guarda video_url en registro_series", async ({
+    page,
+    request,
+  }) => {
+    await prepararEntorno(page);
+    await registrarSerie1EnSentadilla(page);
+    const sesionId = await obtenerSesionIdActual(page);
+
+    await page.getByTestId("serie-video-btn-1").click();
+    await expect(page.getByTestId("video-upload-modal")).toBeVisible();
+    await page.getByTestId("video-link-toggle-btn").click();
+    await page.getByTestId("video-link-input").fill("https://youtu.be/x");
+    await page.getByTestId("submit-video-url-btn").click();
+
+    await expect(page.getByTestId("serie-video-listo-1")).toBeVisible();
+
+    // Disparar flush silencioso de la cola (online / cierre) para verificar persistencia en registro_series
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+    await expect
+      .poll(async () => {
+        const res = await request.get(
+          `${STUB_URL}/rest/v1/registro_series?sesion_id=eq.${sesionId}&ejercicio_id=eq.${EJ_SQ_CATALOG_ID}&numero_serie=eq.1`,
+        );
+        const rows = (await res.json()) as Array<{ video_url?: string | null }>;
+        return rows[0]?.video_url ?? null;
+      })
+      .toBe("https://youtu.be/x");
+  });
+
+  test("F-11b: video de 5 MB sin señal queda en teléfono y al reconectar sube a videos-series", async ({
+    page,
+    request,
+  }) => {
+    await prepararEntorno(page);
+    await registrarSerie1EnSentadilla(page);
+    const sesionId = await obtenerSesionIdActual(page);
+
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+
+    const video5Mb = Buffer.alloc(5 * 1024 * 1024);
+    Buffer.from("00000018667479706d703432", "hex").copy(video5Mb, 0);
+
+    await page.getByTestId("serie-video-btn-1").click();
+    await page.getByTestId("video-gallery-input").setInputFiles({
+      name: "serie-5mb.mp4",
+      mimeType: "video/mp4",
+      buffer: video5Mb,
+    });
+    await expect(page.getByTestId("video-selection-confirm")).toBeVisible();
+    await page.getByTestId("submit-video-url-btn").click();
+
+    await expect(page.getByTestId("serie-video-telefono-1")).toContainText("Video en el teléfono");
+
+    // Al volver la red, interceptamos brevemente para observar "Subiendo…" antes de completarse
+    let liberarUpload!: () => void;
+    const uploadPausado = new Promise<void>((resolve) => {
+      liberarUpload = resolve;
+    });
+    await page.route("**/storage/v1/object/videos-series/**", async (route) => {
+      await uploadPausado;
+      await route.continue();
+    });
+
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+    await expect(page.getByTestId("serie-video-subiendo-1")).toBeVisible({ timeout: 10_000 });
+    liberarUpload();
+
+    await expect(page.getByTestId("serie-video-listo-1")).toBeVisible({ timeout: 15_000 });
+    await page.unroute("**/storage/v1/object/videos-series/**");
+
+    // Verificar objeto en Storage del stub
+    const storageRes = await request.get(`${STUB_URL}/__e2e/storage`);
+    const storage = (await storageRes.json()) as { keys: string[] };
+    const prefijoEsperado = `videos-series/${LUCIA_ID}/${sesionId}/`;
+    expect(storage.keys.some((k) => k.startsWith(prefijoEsperado))).toBe(true);
+
+    // Disparar flush para sincronizar la serie reencolada con storage:videos-series/...
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+
+    await expect
+      .poll(async () => {
+        const res = await request.get(
+          `${STUB_URL}/rest/v1/registro_series?sesion_id=eq.${sesionId}&ejercicio_id=eq.${EJ_SQ_CATALOG_ID}&numero_serie=eq.1`,
+        );
+        const rows = (await res.json()) as Array<{ video_url?: string | null }>;
+        return rows[0]?.video_url ?? "";
+      })
+      .toMatch(new RegExp(`^storage:videos-series/${LUCIA_ID}/${sesionId}/`));
+  });
+
+  test("F-11c: archivo mayor a 100 MB muestra error y no se adjunta", async ({ page }) => {
+    await prepararEntorno(page);
+    await registrarSerie1EnSentadilla(page);
+
+    await page.getByTestId("serie-video-btn-1").click();
+    await expect(page.getByTestId("video-upload-modal")).toBeVisible();
+
+    await page.evaluate(() => {
+      const input = document.querySelector<HTMLInputElement>('[data-testid="video-gallery-input"]');
+      if (!input) throw new Error("No se encontró video-gallery-input");
+      const file = new File([new Uint8Array(101 * 1024 * 1024)], "enorme.mp4", { type: "video/mp4" });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await expect(page.getByTestId("video-upload-error")).toContainText("El video pesa más de 100 MB");
+    await expect(page.getByTestId("submit-video-url-btn")).toBeDisabled();
+    await page.getByTestId("close-video-upload-modal-btn").click();
+    await expect(page.getByTestId("serie-video-btn-1")).toBeVisible();
+  });
+
+  test("F-11d: fallo en Storage permite reintentar hasta quedar Video listo (4xx Reintentar y 500 recuperable)", async ({
+    page,
+    request,
+  }) => {
+    await prepararEntorno(page);
+    await registrarSerie1EnSentadilla(page);
+
+    const videoChico = {
+      name: "serie.mp4",
+      mimeType: "video/mp4",
+      buffer: Buffer.from("00000018667479706d703432", "hex"),
+    };
+
+    // 1) Error 500 del stub de Storage: se trata como transitorio ("Video en el teléfono") y se recupera al volver la red
+    await request.put(`${STUB_URL}/__e2e/storage-error`, { data: { status: 500 } });
+    await page.getByTestId("serie-video-btn-1").click();
+    await page.getByTestId("video-gallery-input").setInputFiles(videoChico);
+    await page.getByTestId("submit-video-url-btn").click();
+    await expect(page.getByTestId("serie-video-telefono-1")).toBeVisible({ timeout: 10_000 });
+
+    // 2) Error 413 del stub de Storage: muestra "Reintentar video" y al recuperarse sube a "Video"
+    await request.put(`${STUB_URL}/__e2e/storage-error`, { data: { status: 413 } });
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByTestId("serie-video-reintentar-1")).toBeVisible({ timeout: 10_000 });
+
+    await request.put(`${STUB_URL}/__e2e/storage-error`, { data: { status: null } });
+    await page.getByTestId("serie-video-reintentar-1").click();
+    await expect(page.getByTestId("serie-video-listo-1")).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("F-12 y F-13: botón de video demostrativo solo con url_video y sin opciones de subida", async ({
+    page,
+  }) => {
+    await prepararEntorno(page);
+    await entrarARutinaDia1(page);
+
+    // F-13: Sentadilla no tiene url_video -> sin botón de video en herramientas
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await expect(page.getByTestId(`single-exercise-container-${EJ_SQ}`)).toBeVisible();
+    await expect(page.getByTestId(`demo-technique-btn-${EJ_SQ}`)).toHaveCount(0);
+
+    // F-12: Press banca tiene url_video -> abre hoja solo con video demostrativo
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await page.getByTestId(`demo-technique-btn-${EJ_BP}`).click();
+
+    const modal = page.getByTestId("exercise-video-modal");
+    await expect(modal).toBeVisible();
+    await expect(modal.getByTestId("youtube-iframe")).toBeVisible();
+    await expect(modal.getByText(/Grabar/i)).toHaveCount(0);
+    await expect(modal.getByText(/Galería/i)).toHaveCount(0);
+    await expect(modal.getByText(/Enlace/i)).toHaveCount(0);
+  });
+
+  test("F-14: indicaciones estructuradas muestran Pasos (ol), Puntos clave, Errores comunes y Tempo y respiración en orden", async ({
+    page,
+  }) => {
+    await prepararEntorno(page);
+    await entrarARutinaDia1(page);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId(`exercise-notes-btn-${EJ_SQ}`).click();
+
+    const content = page.getByTestId("exercise-notes-content");
+    await expect(content).toBeVisible();
+    await expect(content.locator("ol.a-steps li").first()).toBeVisible();
+
+    const texto = await content.innerText();
+    const iPasos = texto.search(/PASOS/i);
+    const iClave = texto.search(/PUNTOS CLAVE/i);
+    const iErrores = texto.search(/ERRORES COMUNES/i);
+    const iTempo = texto.search(/TEMPO Y RESPIRACI[ÓO]N/i);
+
+    expect(iPasos).toBeGreaterThanOrEqual(0);
+    expect(iClave).toBeGreaterThan(iPasos);
+    expect(iErrores).toBeGreaterThan(iClave);
+    expect(iTempo).toBeGreaterThan(iErrores);
+  });
+
+  test("F-15: indicaciones de 40 líneas respetan alto de ventana - 40px, scrollean adentro y dejan título visible", async ({
+    page,
+  }) => {
+    const fixture = structuredClone(FIXTURE_BASE);
+    const pasos40 = Array.from({ length: 40 }, (_, idx) => `${idx + 1}. Paso de control técnico número ${idx + 1}.`).join(
+      "\n",
+    );
+    fixture.ejercicios_en_rutina[0].notas = `Pasos:\n${pasos40}`;
+    fixture.ejercicios[0].comentario = null;
+
+    await prepararEntorno(page, { fixture });
+    await entrarARutinaDia1(page);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId(`exercise-notes-btn-${EJ_SQ}`).click();
+
+    const modal = page.getByTestId("exercise-notes-modal");
+    await expect(modal).toBeVisible();
+
+    const metrics = await modal.evaluate((el) => {
+      el.scrollTop = 400;
+      const rect = el.getBoundingClientRect();
+      return {
+        height: rect.height,
+        innerHeight: window.innerHeight,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+      };
+    });
+
+    expect(metrics.height).toBeLessThanOrEqual(metrics.innerHeight - 40 + 1);
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+    await expect(page.getByTestId("exercise-notes-modal-title")).toBeInViewport();
+  });
+
+  test("F-16: indicaciones viejas sin encabezados se ven como párrafos planos", async ({ page }) => {
+    const fixture = structuredClone(FIXTURE_BASE);
+    fixture.ejercicios_en_rutina[0].notas =
+      "Mantené la espalda neutra durante todo el recorrido.\nBajá controlado hasta romper el paralelo.";
+    fixture.ejercicios[0].comentario = null;
+
+    await prepararEntorno(page, { fixture });
+    await entrarARutinaDia1(page);
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await page.getByTestId(`exercise-notes-btn-${EJ_SQ}`).click();
+
+    const content = page.getByTestId("exercise-notes-content");
+    await expect(content).toBeVisible();
+    await expect(content.locator("p.a-free")).toHaveCount(2);
+    await expect(content.locator("ol.a-steps")).toHaveCount(0);
+    await expect(content.getByText(/PASOS/i)).toHaveCount(0);
+  });
 });
