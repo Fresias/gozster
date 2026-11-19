@@ -33,6 +33,7 @@ import { isWarmup, isDropset } from "@/lib/serie-tipo";
 import { calcularSeriesAproximacion, esEjercicioAislamiento } from "@/lib/aproximacion-pr";
 import { formatearCarga, formatearFechaCorta, serieDeReferencia } from "@/lib/historial-ejercicio";
 import { motivoSugerencia, partesTitulo } from "@/lib/sugerencia-carga";
+import { useAthleteStore } from "@/store/use-athlete-store";
 import {
   useLiveWorkout,
   etiquetaGrupoSuperserie,
@@ -161,6 +162,9 @@ export function EjercicioActivo() {
     setToastSesion,
     nombrePreferido,
   } = useLiveWorkout();
+
+  const adjuntarVideoASerie = useAthleteStore((s) => s.adjuntarVideoASerie);
+  const quitarVideoDeSerie = useAthleteStore((s) => s.quitarVideoDeSerie);
 
   const [descansoInfo, setDescansoInfo] = React.useState(false);
   const [rpeAyuda, setRpeAyuda] = React.useState(false);
@@ -1041,6 +1045,21 @@ export function EjercicioActivo() {
                       <Trophy width={11} height={11} className="a-i" /> PR
                     </span>
                   )}
+                  <button
+                    type="button"
+                    className="a-vbtn"
+                    onClick={() =>
+                      setVideoUploadModalData({
+                        exerciseId: ej.id,
+                        exerciseName: ej.nombre,
+                        setNumber: s.numero_serie,
+                      })
+                    }
+                    aria-label={`Agregar video a la serie ${s.numero_serie}`}
+                    data-testid={`serie-video-btn-${s.numero_serie}`}
+                  >
+                    <Video width={14} height={14} className="a-i" /> Video
+                  </button>
                   <span className="a-stt a-t-sec" data-testid={pendiente ? "serie-en-telefono" : "serie-guardada"}>
                     {pendiente ? (
                       <>
@@ -1098,6 +1117,37 @@ export function EjercicioActivo() {
           onClose={() => setVideoUploadModalData(null)}
           exerciseName={videoUploadModalData.exerciseName}
           setNumber={videoUploadModalData.setNumber}
+          currentVideoUrl={
+            currentSession.ejercicios
+              .find((e) => e.id === videoUploadModalData.exerciseId)
+              ?.series.find((s) => s.numero_serie === videoUploadModalData.setNumber)?.video_url ??
+            null
+          }
+          onAttachVideo={async (origen) => {
+            const res = await adjuntarVideoASerie(
+              videoUploadModalData.exerciseId,
+              videoUploadModalData.setNumber,
+              origen,
+            );
+            if (res === "ok") {
+              const estadoPost = useAthleteStore
+                .getState()
+                .currentSession.ejercicios.find((e) => e.id === videoUploadModalData.exerciseId)
+                ?.series.find((s) => s.numero_serie === videoUploadModalData.setNumber)
+                ?.videoEstado;
+              const offlineArchivo = origen.tipo === "archivo" && estadoPost === "telefono";
+              setToastSesion({
+                mensaje: offlineArchivo
+                  ? "Sin señal: el video se envía cuando vuelva la conexión."
+                  : `Video adjunto a la serie ${videoUploadModalData.setNumber}`,
+                tipo: "ok",
+              });
+            }
+            return res;
+          }}
+          onRemoveVideo={() => {
+            quitarVideoDeSerie(videoUploadModalData.exerciseId, videoUploadModalData.setNumber);
+          }}
           onSaveVideoUrl={(url) =>
             attachVideoForSet(videoUploadModalData.exerciseId, videoUploadModalData.setNumber, url)
           }
