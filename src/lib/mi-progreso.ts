@@ -160,32 +160,24 @@ export function valorPunto(p: PuntoProgreso, aPesoCorporal: boolean): number {
   return aPesoCorporal ? p.reps_max : p.peso_max_kg;
 }
 
-// §4.3: nombre del mes en minúscula; con el año solo si difiere del año de `hoy`.
-function mesDe(fecha: string, hoy: Date): string {
-  const nombre = new Date(fecha).toLocaleDateString("es-AR", { timeZone: ZONA, month: "long" });
-  const anio = anioMes(fecha).anio;
-  return anio === anioMes(hoy).anio ? nombre : `${nombre} ${anio}`;
-}
-
 export type SignoDelta = "positivo" | "cero" | "negativo";
 export interface Delta {
   texto: string;
   signo: SignoDelta;
 }
 
-// §4.3: delta entre el primer y el último punto. null si hay menos de 2 puntos.
-// "+10 kg desde agosto" | "Igual que en agosto" | "−5 kg desde agosto" (sin rojo: es info).
-export function formatearDelta(ej: EjercicioProgreso, hoy: Date = new Date()): Delta | null {
+// 02-pantallas §6 (D-52): delta entre el primer y el último punto. null si hay menos de 2 puntos.
+// "+10 kg" | "−5 kg" | "+2 reps" | "Igual" (sin "desde {mes}" y sin rojo: es info).
+export function formatearDelta(ej: EjercicioProgreso): Delta | null {
   if (ej.puntos.length < 2) return null;
   const primero = ej.puntos[0]!;
   const ultimo = ej.puntos[ej.puntos.length - 1]!;
   const diff = valorPunto(ultimo, ej.a_peso_corporal) - valorPunto(primero, ej.a_peso_corporal);
-  const mes = mesDe(primero.fecha, hoy);
-  if (diff === 0) return { texto: `Igual que en ${mes}`, signo: "cero" };
+  if (diff === 0) return { texto: "Igual", signo: "cero" };
   const unidad = ej.a_peso_corporal ? "reps" : "kg";
   const prefijo = diff > 0 ? "+" : "−"; // U+2212 signo menos
   const magnitud = ej.a_peso_corporal ? String(Math.abs(diff)) : kg.format(Math.abs(diff));
-  return { texto: `${prefijo}${magnitud} ${unidad} desde ${mes}`, signo: diff > 0 ? "positivo" : "negativo" };
+  return { texto: `${prefijo}${magnitud} ${unidad}`, signo: diff > 0 ? "positivo" : "negativo" };
 }
 
 // §4.4: aria-label del gráfico. "Sentadilla: de 75 a 85 kilos en las últimas 12 sesiones".
