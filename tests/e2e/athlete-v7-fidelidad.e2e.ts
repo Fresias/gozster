@@ -132,6 +132,7 @@ async function capturarAppYContraste(
   mkdirSync(APP_OUT_DIR, { recursive: true });
   const appPngPath = join(APP_OUT_DIR, `${clave}-${tema}.png`);
   await page.screenshot({ path: appPngPath });
+  await expect(page).toHaveScreenshot(`${clave}-${tema}.png`, { maxDiffPixelRatio: 0.01 });
 
   if (EVIDENCIA_DIR) {
     const refPngPath = join(REF_PNG_DIR, `${clave}-${tema}.png`);
@@ -368,11 +369,14 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
       const omitir = page.getByRole("button", { name: "Omitir" });
       if (await omitir.isVisible().catch(() => false)) await omitir.click();
     }
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
     await page.getByTestId("registrar-serie-btn").click();
     const omitir1 = page.getByRole("button", { name: "Omitir" });
     if (await omitir1.isVisible().catch(() => false)) await omitir1.click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
     await page.getByTestId("registrar-serie-btn").click();
     const omitir2 = page.getByRole("button", { name: "Omitir" });
@@ -443,6 +447,7 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
       const omitir = page.getByRole("button", { name: "Omitir" });
       if (await omitir.isVisible().catch(() => false)) await omitir.click();
     }
+    await page.getByTestId("volver-a-rutina-btn").click();
     await page.getByTestId("tab-registro-dia").click();
     await page.getByTestId("terminar-entrenamiento-btn").click();
     await expect(page.getByTestId("cierre-dia-modal")).toBeVisible({ timeout: 15_000 });
@@ -967,7 +972,9 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
         outDir: EVIDENCIA_DIR,
         filas: filasGeneradas,
         sinReceta: sinRecetaList,
-        titulo: "Evidencia visual Athlete v7 (antes)",
+        titulo: EVIDENCIA_DIR.endsWith("final")
+          ? "Evidencia visual Athlete v7 (final)"
+          : "Evidencia visual Athlete v7",
       });
     }
   });
