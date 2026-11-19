@@ -35,6 +35,7 @@ import {
   MessageSquare,
   TriangleAlert,
   TrendingUp,
+  ClipboardList,
 } from "@/components/athlete/icons";
 
 export function InicioMisDias() {
@@ -48,6 +49,7 @@ export function InicioMisDias() {
     deshacerCambioDia,
     planAlumno,
     cargandoPlan,
+    errorPlan,
     cargarPlanAlumno,
     rpeReminderNotification,
     nombrePreferido,
@@ -73,9 +75,22 @@ export function InicioMisDias() {
   const [guardandoPeso, setGuardandoPeso] = React.useState(false);
   const [pesoGuardadoMensaje, setPesoGuardadoMensaje] = React.useState<string | null>(null);
 
+  const [mostrarCargando, setMostrarCargando] = React.useState(false);
+
   React.useEffect(() => {
     void cargarPlanAlumno();
   }, [cargarPlanAlumno]);
+
+  React.useEffect(() => {
+    if (!cargandoPlan || planAlumno !== null) {
+      setMostrarCargando(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setMostrarCargando(true);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cargandoPlan, planAlumno]);
 
   // Alumno, plan y días reales del alumno autenticado (Supabase + RLS)
   const student = planAlumno?.alumnos[0];
@@ -355,20 +370,80 @@ export function InicioMisDias() {
   ) : null;
 
   if (diasItems.length === 0) {
+    if (!planAlumno) {
+      if (errorPlan) {
+        return (
+          <div className="a-view a-anim" data-testid="inicio-error">
+            <section className="a-card a-state" role="alert">
+              <span className="a-ic">
+                <TriangleAlert width={24} height={24} className="a-i" />
+              </span>
+              <h2 className="a-t-title">No pudimos cargar tu plan</h2>
+              <p className="a-t-sec">
+                Pasó algo de nuestro lado. Tus series guardadas no se perdieron.
+              </p>
+              <button
+                type="button"
+                className="a-btn"
+                onClick={() => void cargarPlanAlumno()}
+                data-testid="reintentar-plan-btn"
+              >
+                Reintentar
+              </button>
+            </section>
+          </div>
+        );
+      }
+
+      if (!mostrarCargando) {
+        return <div className="a-view" data-testid="inicio-cargando-espera" />;
+      }
+
+      return (
+        <div className="a-view a-anim" data-testid="inicio-cargando">
+          {saludoNombre && (
+            <div className="a-hello">
+              <span className="a-t-sec a-muted">{saludoTexto}</span>
+            </div>
+          )}
+          <section className="a-card a-state" role="status">
+            <div className="a-loading" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+            <b className="a-t-bs">Cargando tu plan…</b>
+            <p className="a-t-sec">
+              Si tarda, revisá la señal. Lo último que viste queda guardado.
+            </p>
+          </section>
+        </div>
+      );
+    }
+
     return (
       <div className="a-view a-anim" data-testid="inicio-sin-plan">
-        {bannerMensajeNoLeido}
-        {tarjetaRecordatorioPeso}
         <div className="a-hello">
           <span className="a-t-sec a-muted">{saludoTexto}</span>
         </div>
+        {bannerMensajeNoLeido}
+        {tarjetaRecordatorioPeso}
         <section className="a-card a-state">
-          <h1 className="a-t-title">
-            {cargandoPlan ? "Cargando tu plan…" : "Todavía no tenés un plan asignado"}
-          </h1>
-          {!cargandoPlan && (
-            <p className="a-t-sec">Tu coach te va a asignar una rutina pronto.</p>
-          )}
+          <span className="a-ic">
+            <ClipboardList width={24} height={24} className="a-i" />
+          </span>
+          <h2 className="a-t-title">Todavía no tenés un plan</h2>
+          <p className="a-t-sec">
+            Tu coach te lo va a asignar pronto. Mientras, podés escribirle.
+          </p>
+          <button
+            type="button"
+            className="a-btn"
+            onClick={() => setAthleteChatOpen(true)}
+            data-testid="sin-plan-chat-btn"
+          >
+            Escribirle al coach
+          </button>
         </section>
       </div>
     );
