@@ -1047,4 +1047,38 @@ test.describe("@mobile Athlete v7 · Harness de fidelidad visual", () => {
       expect(cubiertas.has(k), `Falta definir receta o sinReceta para ${k}`).toBe(true);
     }
   });
+
+  test("[Molestias] hoja Tengo una molestia atrapa foco, cierra con Escape y devuelve foco al disparador", async ({
+    page,
+  }) => {
+    await entrarADia1(page, "light");
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+
+    const trigger = page.getByTestId(`exercise-pain-report-btn-${EJ_BP}`);
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const modal = page.getByTestId("pain-report-modal");
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#pain-report-title")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.focus();
+    await trigger.click();
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#pain-report-title")).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByTestId("submit-pain-report-btn")).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(modal.getByRole("button", { name: "Cerrar" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
 });

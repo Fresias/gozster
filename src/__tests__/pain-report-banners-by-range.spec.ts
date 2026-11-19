@@ -240,10 +240,13 @@ describe("FE App: Avisos de molestia por nivel y heredados v7 (FE-08)", () => {
       expect(rutinaCode).toContain("data-testid={`molestia-chip-${ej.id}`}");
     });
 
-    it("PainReportModal usa hoja v7 con focus trap, Escape y los 4 avisos por nivel", () => {
+    it("PainReportModal usa hoja v7 con focus trap, Escape, captura segura en StrictMode y retorno de foco al disparador", () => {
       expect(painModalCode).toContain('className="a-sheet-wrap justify-center"');
       expect(painModalCode).toContain('e.key === "Escape"');
       expect(painModalCode).toContain('e.key !== "Tab"');
+      expect(painModalCode).toContain("!sheetRef.current?.contains(active)");
+      expect(painModalCode).toContain("returnTarget.isConnected");
+      expect(painModalCode).toContain("returnTarget.focus()");
       expect(painModalCode).toContain('"pain-modal-cartel-1-3"');
       expect(painModalCode).toContain('"pain-modal-cartel-4-6"');
       expect(painModalCode).toContain('"pain-modal-cartel-7-9"');

@@ -121,26 +121,47 @@ export function PainReportModal({
   const [sintomasAlarma, setSintomasAlarma] = React.useState<string[]>([]);
   const [notasAlumno, setNotasAlumno] = React.useState<string>("");
 
+  const fallbackExId = ejercicios?.[0]?.id ?? "";
   const sheetRef = React.useRef<HTMLDivElement | null>(null);
   const titleRef = React.useRef<HTMLHeadingElement | null>(null);
   const disparadorRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
     if (!isOpen) return;
-    disparadorRef.current =
+
+    const active =
       typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
-    setSelectedExId(exerciseId || ejerciciosList[0]?.id || "");
+    if (active && !sheetRef.current?.contains(active) && !disparadorRef.current) {
+      disparadorRef.current = active;
+    }
+
+    titleRef.current?.focus();
+
+    return () => {
+      const returnTarget = disparadorRef.current;
+      disparadorRef.current = null;
+      if (returnTarget && returnTarget.isConnected) {
+        returnTarget.focus();
+      }
+    };
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setSelectedExId(exerciseId || fallbackExId);
     setZonaArticular("RODILLA");
     setIntensidad(5);
     setMomentoAparicion("EN_SERIE");
     setSintomasAlarma([]);
     setNotasAlumno("");
-    titleRef.current?.focus();
-  }, [isOpen, exerciseId, ejerciciosList]);
+  }, [isOpen, exerciseId, fallbackExId]);
 
   const cerrarHoja = React.useCallback(() => {
+    const returnTarget = disparadorRef.current;
     onClose();
-    disparadorRef.current?.focus();
+    if (returnTarget && returnTarget.isConnected) {
+      returnTarget.focus();
+    }
   }, [onClose]);
 
   React.useEffect(() => {
