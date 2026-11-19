@@ -64,12 +64,13 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
       }
     });
 
-    it("incluye selector de intensidad del 1 al 10 con rangos LEVE, MODERADO y AGUDO", () => {
-      expect(painModalContent).toContain('id="pain-intensity-range"');
+    it("incluye selector de intensidad del 1 al 10 con niveles v7 (leve, moderada, alta, alarma)", () => {
+      expect(painModalContent).toContain("a-ints");
       expect(painModalContent).toContain('data-testid="pain-severity-badge"');
-      expect(painModalContent).toContain('data-testid={`intensity-chip-${val}`}');
-      expect(painModalContent).toContain('severidad === "LEVE"');
-      expect(painModalContent).toContain('severidad === "MODERADO"');
+      expect(painModalContent).toContain("data-testid={`intensity-chip-${val}`}");
+      expect(painModalContent).toContain("nivelMolestia");
+      expect(painModalContent).toContain('"LEVE"');
+      expect(painModalContent).toContain('"MODERADO"');
       expect(painModalContent).toContain('"AGUDO"');
     });
 
@@ -95,18 +96,19 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
           'data-testid={`red-flag-checkbox-${rf.id}`}',
         );
       }
-      expect(painModalContent).toContain("Síntomas de Alarma (Red Flags)");
+      expect(painModalContent).toContain("Síntomas de alarma");
     });
 
     it("permite ingresar un comentario libre opcional para contexto adicional", () => {
       expect(painModalContent).toContain('data-testid="pain-notes-input"');
-      expect(painModalContent).toContain("Comentario opcional para el Coach:");
+      expect(painModalContent).toContain("Comentario (opcional)");
     });
   });
 
   describe("2. Regla Ponytail & ADR-002: Alumno SIN visualización de alternativas y Protocolo de Freno", () => {
     const painModalContent = readSource("../components/athlete/pain-report-modal.tsx");
     const ejercicioContent = readSource("../components/athlete/ejercicio-activo.tsx");
+    const avisoMolestiaContent = readSource("../components/athlete/aviso-molestia.tsx");
 
     it("el modal del alumno NO contiene selectores ni dropdowns de ejercicios alternativos", () => {
       // Prohibido que el atleta elija o vea alternativas automáticas
@@ -118,24 +120,23 @@ describe("Stage 2: Frontend & Mobile UI - Molestias, Red Flags y Sustituciones T
     });
 
     it("muestra advertencia médica obligatoria al detectar síntomas de alarma o dolor agudo", () => {
-      expect(painModalContent).toContain('data-testid="protocolo-freno-alert"');
+      expect(painModalContent).toContain('"protocolo-freno-alert"');
       expect(painModalContent).toContain(
-        "Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.",
+        "Síntoma de alarma: frená por hoy y avisá en el gimnasio.",
       );
       expect(painModalContent).toContain(
-        "PROTOCOLO DE FRENO POR SEGURIDAD MÉDICA",
+        "Alta: vas a suspender este ejercicio. Seguí con el resto solo si no molesta.",
       );
     });
 
-    it("muestra banner persistente de freno en ejercicio-activo si el protocolo de freno está activo", () => {
-      expect(ejercicioContent).toContain(
+    it("muestra banner persistente de freno en ejercicio-activo vía AvisoMolestia en alarma", () => {
+      expect(ejercicioContent).toContain("<AvisoMolestia");
+      expect(avisoMolestiaContent).toContain(
         'data-testid="live-workout-stop-protocol-banner"',
       );
-      expect(ejercicioContent).toContain(
-        "PROTOCOLO DE FRENO POR SÍNTOMA DE ALARMA ACTIVADO",
-      );
-      expect(ejercicioContent).toContain(
-        "Te recomendamos frenar el entrenamiento por hoy y avisar inmediatamente al personal del gimnasio o a tu entrenador.",
+      expect(avisoMolestiaContent).toContain("Frená por hoy");
+      expect(avisoMolestiaContent).toContain(
+        "Avisá en el gimnasio o a tu entrenador cercano. Tu coach ya recibió una alerta.",
       );
     });
   });
