@@ -424,6 +424,7 @@ export const RECETAS_SESION: Record<string, RecetaRunner> = {
     await page.getByTestId("volver-a-rutina-btn").click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
     for (let i = 0; i < 3; i++) {
       await page.getByTestId(`single-exercise-container-${EJ_SQ}`).scrollIntoViewIfNeeded();
       await page.getByTestId("registrar-serie-btn").click();
