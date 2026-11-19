@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { type LiveWorkoutExercise } from "@/store/use-athlete-store";
+import { type LiveWorkoutExercise, type LiveWorkoutSet } from "@/store/use-athlete-store";
 import { ejercicioBloqueado } from "@/lib/athlete/molestias";
 import { isWarmup } from "@/lib/serie-tipo";
 import { PainReportModal } from "@/components/athlete/pain-report-modal";
@@ -12,10 +12,13 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   MessageSquare,
   Settings,
+  Smartphone,
   Timer,
   TriangleAlert,
+  Trophy,
 } from "@/components/athlete/icons";
 import {
   useLiveWorkout,
@@ -46,6 +49,13 @@ function formatEjercicioMeta(ej: LiveWorkoutExercise): string {
   return `${ej.repeticiones_objetivo} reps · ${totalSeries} ${labelSeries}`;
 }
 
+function formatSetLogText(ej: LiveWorkoutExercise, s: LiveWorkoutSet): string {
+  if (ej.tipo_medicion === "TIEMPO") {
+    return `${s.reps_hechas} s`;
+  }
+  return `${formatAr.format(s.peso_kg)} kg × ${s.reps_hechas}`;
+}
+
 export function RutinaDelDia() {
   const {
     currentSession,
@@ -64,6 +74,7 @@ export function RutinaDelDia() {
     workoutTab,
     setWorkoutTab,
     setIsSettingsOpen,
+    seriesRecord,
     isFinishing,
     workoutFinished,
     showCelebrationModal,
@@ -75,6 +86,7 @@ export function RutinaDelDia() {
     setPainModalData,
     syncError,
     clearSyncError,
+    pendingEvents,
     totalSets,
     completedSetsCount,
     completedExercisesCount,
@@ -87,6 +99,8 @@ export function RutinaDelDia() {
     cleanDiaTitle,
     isAllWorkoutCompleted,
   } = useLiveWorkout();
+
+  const [confirmingFinish, setConfirmingFinish] = React.useState(false);
 
   const [elapsedSec, setElapsedSec] = React.useState<number>(() =>
     sessionStartedAt ? Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000)) : 0,
@@ -125,7 +139,26 @@ export function RutinaDelDia() {
   const setsProgressPercent =
     totalSets > 0 ? Math.round((completedSetsCount / totalSets) * 100) : 0;
 
+  const remainingSets = Math.max(0, totalSets - completedSetsCount);
+
+  const isSetPendingOffline = React.useCallback(
+    (exerciseId: string, setNumber: number) =>
+      pendingEvents.some((ev) => {
+        if (ev.action !== "WORKOUT_SET_COMPLETED" && ev.action !== "WORKOUT_SET_UPDATED") {
+          return false;
+        }
+        const payload = ev.payload as
+          | { exerciseId?: string; setNumber?: number; sessionId?: string }
+          | undefined;
+        if (!payload) return false;
+        if (payload.exerciseId !== exerciseId || payload.setNumber !== setNumber) return false;
+        return !payload.sessionId || payload.sessionId === currentSession.id;
+      }),
+    [pendingEvents, currentSession.id],
+  );
+
   const openExercise = (exerciseId: string) => {
+    setConfirmingFinish(false);
     setSelectedExerciseId(exerciseId);
     setEjercicioAbiertoId(exerciseId);
   };
@@ -460,34 +493,143 @@ export function RutinaDelDia() {
             Tengo una molestia
           </button>
 
-          <button
-            type="button"
-            className={`a-btn${nextExercise ? " a-ghost" : ""}`}
-            disabled={isFinishing}
-            onClick={() => {
-              if (workoutFinished || isAllWorkoutCompleted) {
-                setShowCelebrationModal(true);
-              } else {
-                void handleTerminarEntrenamiento();
-              }
-            }}
-            data-testid="terminar-entrenamiento-btn-entrenar"
-          >
-            {isFinishing ? "Guardando sesión…" : "Terminar sesión"}
-          </button>
-        </>
-      ) : (
-        <div className="space-y-3" data-testid="registro-dia-container">
-          <section className="a-card a-state">
-            <b className="a-t-bs">Todavía no guardaste ninguna serie hoy</b>
+          {confirmingFinish ? (
+            <div
+              className="a-card a-confirm p-3.5 grid gap-2.5"
+              role="alert"
+              data-testid="confirmar-terminar-card"
+            >
+              <b className="a-t-bs">
+                Te {remainingSets === 1 ? "falta 1 serie" : `faltan ${remainingSets} series`}.
+              </b>
+              <span className="a-t-sec a-muted">Lo que registraste se guarda igual.</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="a-btn a-ghost"
+                  onClick={() => setConfirmingFinish(false)}
+                  data-testid="terminar-seguir-btn"
+                >
+                  Seguir
+                </button>
+                <button
+                  type="button"
+                  className="a-btn"
+                  disabled={isFinishing}
+                  onClick={() => {
+                    setConfirmingFinish(false);
+                    void handleTerminarEntrenamiento();
+                  }}
+                  data-testid="terminar-confirmar-btn"
+                >
+                  {isFinishing ? "Guardando…" : "Terminar"}
+                </button>
+              </div>
+            </div>
+          ) : (
             <button
               type="button"
-              className="a-btn a-soft"
-              onClick={() => setWorkoutTab("entrenar")}
+              className={`a-btn${nextExercise ? " a-ghost" : ""}`}
+              disabled={isFinishing}
+              onClick={() => {
+                if (workoutFinished || isAllWorkoutCompleted) {
+                  setShowCelebrationModal(true);
+                } else if (remainingSets > 0) {
+                  setConfirmingFinish(true);
+                } else {
+                  void handleTerminarEntrenamiento();
+                }
+              }}
+              data-testid="terminar-entrenamiento-btn-entrenar"
             >
-              Empezar a entrenar
+              {isFinishing ? "Guardando sesión…" : "Terminar sesión"}
             </button>
-          </section>
+          )}
+        </>
+      ) : completedSetsCount === 0 ? (
+        <section className="a-card a-state" data-testid="registro-dia-container">
+          <span className="a-ic">
+            <ClipboardList width={22} height={22} className="a-i" />
+          </span>
+          <b className="a-t-bs">Todavía no guardaste ninguna serie hoy</b>
+          <button
+            type="button"
+            className="a-btn a-soft"
+            onClick={() => setWorkoutTab("entrenar")}
+          >
+            Empezar a entrenar
+          </button>
+        </section>
+      ) : (
+        <div className="space-y-3" data-testid="registro-dia-container">
+          {currentSession.ejercicios
+            .filter((ej) => ej.series.some((s) => s.completada))
+            .map((ej) => {
+              const completedSets = ej.series.filter((s) => s.completada);
+              return (
+                <div key={ej.id} className="space-y-1.5">
+                  <p className="a-exn">
+                    <b className="a-t-bs">{ej.nombre}</b>
+                    <span className="a-t-label a-muted">
+                      {completedSets.length}/{ej.series.length}
+                    </span>
+                  </p>
+                  <ol className="a-logged">
+                    {completedSets.map((s) => {
+                      const pending = isSetPendingOffline(ej.id, s.numero_serie);
+                      const isPr = seriesRecord.has(`${ej.id}-${s.numero_serie}`);
+                      return (
+                        <li
+                          key={s.numero_serie}
+                          data-testid={`log-row-${ej.id}-${s.numero_serie}`}
+                        >
+                          <span className="a-t-sec">
+                            <b>Serie {s.numero_serie}</b> · {formatSetLogText(ej, s)}
+                            {!isSimpleView && s.rpe_real
+                              ? ` · RPE ${formatAr.format(s.rpe_real)}`
+                              : ""}
+                          </span>
+                          {isPr && (
+                            <span className="a-chip a-pr a-t-label">
+                              <Trophy width={11} height={11} className="a-i" /> PR
+                            </span>
+                          )}
+                          <span className="a-stt a-t-sec">
+                            {pending ? (
+                              <>
+                                <Smartphone width={13} height={13} className="a-i" /> En el teléfono
+                              </>
+                            ) : (
+                              <>
+                                <Check width={13} height={13} className="a-i" /> Guardada
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              );
+            })}
+
+          <div className="pt-2">
+            <button
+              type="button"
+              className="a-btn"
+              disabled={isFinishing}
+              onClick={() => {
+                if (workoutFinished || isAllWorkoutCompleted) {
+                  setShowCelebrationModal(true);
+                } else {
+                  void handleTerminarEntrenamiento();
+                }
+              }}
+              data-testid="terminar-entrenamiento-btn"
+            >
+              {isFinishing ? "Guardando sesión…" : "Terminar sesión"}
+            </button>
+          </div>
         </div>
       )}
 
