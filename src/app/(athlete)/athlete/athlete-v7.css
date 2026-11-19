@@ -9,11 +9,12 @@ body:has(.theme-athlete[data-v7]) {
   --background: 240 10% 3.9%;
 }
 
-/* Mapeo a variables HSL de shadcn/Tailwind (claro).
+/* Mapeo a variables HSL de shadcn/Tailwind + tokens --a-* (claro).
    Se incluye `.theme-athlete[data-v7] .theme-athlete` para cubrir el contenedor interno de athlete-shell.tsx
    hasta que FE-02 lo migre. */
 .theme-athlete[data-v7],
 .theme-athlete[data-v7] .theme-athlete {
+  /* Variables HSL shadcn */
   --background: 0 0% 98%;
   --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
@@ -47,11 +48,93 @@ body:has(.theme-athlete[data-v7]) {
   --danger-soft: 0 85.7% 97.3%;
   --danger-soft-foreground: 0 73.7% 41.8%;
   --danger-soft-border: 0 72.2% 50.6%;
+
+  /* Tokens --a-* neutros y acción */
+  --a-bg: #FAFAFA;
+  --a-surface: #FFFFFF;
+  --a-surface-l2: #FFFFFF;
+  --a-surface-l3: #FFFFFF;
+  --a-surface-2: #F4F4F5;
+  --a-fg: #09090B;
+  --a-fg-2: #52525B;
+  --a-fg-3: #71717A;
+  --a-line: #E4E4E7;
+  --a-line-strong: #71717A;
+  --a-primary: #09090B;
+  --a-on-primary: #FAFAFA;
+  --a-sel: #09090B;
+  --a-on-sel: #FAFAFA;
+  --a-sel-soft: #F4F4F5;
+  --a-sel-line: #09090B;
+  --a-silver: #D4D4D8;
+  --a-silver-2: #A1A1AA;
+  --a-link: #09090B;
+  --a-tip: #18181B;
+  --a-tip-fg: #F4F4F5;
+  --a-chev: #09090B;
+  --a-hatch: rgba(9, 9, 11, 0.06);
+  --a-sb: #09090B;
+
+  /* Tokens --a-* estados (paleta p1: verde, oro y tinta) */
+  --a-ok-bg: #E3F4EE;
+  --a-ok-fg: #00664A;
+  --a-ok-ic: #009E73;
+  --a-ok-on: #FFFFFF;
+  --a-ok-line: #009E73;
+  --a-rec-bg: #FFF6DA;
+  --a-rec-bg2: #FFF6DA;
+  --a-rec-fg: #5C4300;
+  --a-rec-ic: #A87B0B;
+  --a-rec-on: #FFFFFF;
+  --a-rec-line: #A87B0B;
+  --a-warn-bg: #FFFFFF;
+  --a-warn-fg: #09090B;
+  --a-warn-line: #09090B;
+  --a-warn-ic: #09090B;
+  --a-warn-on: #FFFFFF;
+  --a-bad: #DC2626;
+  --a-on-bad: #FFFFFF;
+  --a-bad-fg: #B91C1C;
+  --a-bad-soft: #FEF2F2;
+
+  /* Tokens --a-* tarjeta destacada (héroe) */
+  --a-hero: #09090B;
+  --a-on-hero: #FAFAFA;
+  --a-hero-2: #A1A1AA;
+  --a-hero-btn: #FAFAFA;
+  --a-on-hero-btn: #09090B;
+  --a-hero-line: #3F3F46;
+  --a-wedge-a: #F3F3F5;
+  --a-wedge-b: #A3A5AB;
+  --a-wedge-c: #5A5C62;
+  --a-wedge-d: #2B2C30;
+
+  /* Tokens --a-* chips de tipo de serie */
+  --a-chip-ss-bg: #09090B;
+  --a-chip-ss-fg: #FAFAFA;
+  --a-chip-ap-bg: #F4F4F5;
+  --a-chip-ap-fg: #09090B;
+  --a-chip-ap-line: #09090B;
+
+  /* Elevación (Material, niveles 1 a 3) */
+  --a-elev-1: 0 1px 2px rgba(9, 9, 11, 0.06), 0 1px 3px 1px rgba(9, 9, 11, 0.04);
+  --a-elev-2: 0 1px 2px rgba(9, 9, 11, 0.08), 0 3px 8px 2px rgba(9, 9, 11, 0.08);
+  --a-elev-3: 0 6px 14px 4px rgba(9, 9, 11, 0.1), 0 2px 4px rgba(9, 9, 11, 0.12);
+
+  /* Parámetros tipográficos base */
+  --a-f-metric: var(--a-f-display);
+  --a-wx: 125%;
+  --a-wl: 112%;
+  --a-ds: 1;
+  --a-w-xl: 900;
+  --a-w-d: 800;
+  --a-ls-d: -0.02em;
 }
 
-/* Mapeo a variables HSL de shadcn/Tailwind (oscuro) */
+/* Mapeo a variables HSL de shadcn/Tailwind + tokens --a-* (oscuro) */
 .dark .theme-athlete[data-v7],
 .dark .theme-athlete[data-v7] .theme-athlete {
+  /* Variables HSL shadcn */
   --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
   --card: 240 5.9% 10%;
@@ -85,12 +168,205 @@ body:has(.theme-athlete[data-v7]) {
   --danger-soft: 352 40% 11.8%;
   --danger-soft-foreground: 0 90.6% 70.8%;
   --danger-soft-border: 0 72.2% 50.6%;
+
+  /* Tokens --a-* neutros y acción */
+  --a-bg: #09090B;
+  --a-surface: #18181B;
+  --a-surface-l2: #1F1F23;
+  --a-surface-l3: #232327;
+  --a-surface-2: #27272A;
+  --a-fg: #FAFAFA;
+  --a-fg-2: #A1A1AA;
+  --a-fg-3: #A1A1AA;
+  --a-line: #27272A;
+  --a-line-strong: #71717A;
+  --a-primary: #FAFAFA;
+  --a-on-primary: #09090B;
+  --a-sel: #FAFAFA;
+  --a-on-sel: #09090B;
+  --a-sel-soft: #27272A;
+  --a-sel-line: #FAFAFA;
+  --a-silver: #52525B;
+  --a-silver-2: #71717A;
+  --a-link: #FAFAFA;
+  --a-tip: #27272A;
+  --a-tip-fg: #F4F4F5;
+  --a-chev: #FAFAFA;
+  --a-hatch: rgba(255, 255, 255, 0.06);
+  --a-sb: #FAFAFA;
+
+  /* Tokens --a-* estados (paleta p1: verde, oro y tinta) */
+  --a-ok-bg: #062E25;
+  --a-ok-fg: #5FD3B0;
+  --a-ok-ic: #009E73;
+  --a-ok-on: #FFFFFF;
+  --a-ok-line: #009E73;
+  --a-rec-bg: #2A2208;
+  --a-rec-bg2: #2A2208;
+  --a-rec-fg: #F5D77A;
+  --a-rec-ic: #D4A72C;
+  --a-rec-on: #09090B;
+  --a-rec-line: #D4A72C;
+  --a-warn-bg: #18181B;
+  --a-warn-fg: #FAFAFA;
+  --a-warn-line: #FAFAFA;
+  --a-warn-ic: #FAFAFA;
+  --a-warn-on: #09090B;
+  --a-bad: #DC2626;
+  --a-on-bad: #FFFFFF;
+  --a-bad-fg: #F87171;
+  --a-bad-soft: #2A1215;
+
+  /* Tokens --a-* tarjeta destacada (héroe invertido de noche) */
+  --a-hero: #FAFAFA;
+  --a-on-hero: #09090B;
+  --a-hero-2: #52525B;
+  --a-hero-btn: #09090B;
+  --a-on-hero-btn: #FAFAFA;
+  --a-hero-line: #71717A;
+  --a-wedge-a: #3F3F46;
+  --a-wedge-b: #18181B;
+  --a-wedge-c: #A1A1AA;
+  --a-wedge-d: #D4D4D8;
+
+  /* Tokens --a-* chips de tipo de serie */
+  --a-chip-ss-bg: #FAFAFA;
+  --a-chip-ss-fg: #09090B;
+  --a-chip-ap-bg: #27272A;
+  --a-chip-ap-fg: #FAFAFA;
+  --a-chip-ap-line: #FAFAFA;
+
+  /* Elevación (Material, niveles 1 a 3 en oscuro) */
+  --a-elev-1: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 3px 1px rgba(0, 0, 0, 0.3);
+  --a-elev-2: 0 1px 3px rgba(0, 0, 0, 0.55), 0 4px 10px 3px rgba(0, 0, 0, 0.35);
+  --a-elev-3: 0 8px 18px 6px rgba(0, 0, 0, 0.45), 0 3px 6px rgba(0, 0, 0, 0.5);
 }
 
+/* Base de fuente y superficie */
 .theme-athlete[data-v7] {
-  font-family: var(--a-f-sans), system-ui, sans-serif;
+  background: var(--a-bg);
+  color: var(--a-fg);
+  font-family: var(--a-f-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 .theme-athlete[data-v7] .font-mono {
-  font-family: var(--a-f-mono), ui-monospace, monospace;
+  font-family: var(--a-f-mono), ui-monospace, Menlo, monospace;
+}
+
+/* ===== Escala tipográfica (11 tokens) ===== */
+.theme-athlete[data-v7] .a-t-dxl {
+  font-family: var(--a-f-display), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: var(--a-w-xl);
+  font-size: calc(2.5rem * var(--a-ds));
+  line-height: 1.1;
+  font-stretch: var(--a-wx);
+  letter-spacing: var(--a-ls-d);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.theme-athlete[data-v7] .a-t-d {
+  font-family: var(--a-f-display), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: var(--a-w-d);
+  font-size: calc(2rem * var(--a-ds));
+  line-height: 1.125;
+  font-stretch: var(--a-wl);
+  letter-spacing: var(--a-ls-d);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.theme-athlete[data-v7] .a-t-h {
+  font-family: var(--a-f-display), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: var(--a-w-d);
+  font-size: calc(1.625rem * var(--a-ds));
+  line-height: 1.15;
+  font-stretch: 100%;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.theme-athlete[data-v7] .a-t-ml {
+  font-family: var(--a-f-metric), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: var(--a-w-d);
+  font-size: calc(3.5rem * var(--a-ds));
+  line-height: 1;
+  font-stretch: var(--a-wx);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.theme-athlete[data-v7] .a-t-mi {
+  font-family: var(--a-f-metric), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-stretch: 100%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.theme-athlete[data-v7] .a-t-mi.long,
+.theme-athlete[data-v7] .a-t-mi.a-long {
+  font-size: 2rem;
+}
+
+.theme-athlete[data-v7] .a-t-mm {
+  font-family: var(--a-f-metric), "Archivo", "Arial Black", system-ui, sans-serif;
+  font-weight: var(--a-w-d);
+  font-size: calc(2.25rem * var(--a-ds));
+  line-height: 1.1;
+  font-stretch: var(--a-wl);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.theme-athlete[data-v7] .a-t-title {
+  font-family: var(--a-f-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.theme-athlete[data-v7] .a-t-bs {
+  font-family: var(--a-f-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.375;
+}
+
+.theme-athlete[data-v7] .a-t-body {
+  font-family: var(--a-f-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 400;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.theme-athlete[data-v7] .a-t-sec {
+  font-family: var(--a-f-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.43;
+  font-variant-numeric: tabular-nums;
+}
+
+.theme-athlete[data-v7] .a-t-label {
+  font-family: var(--a-f-mono), ui-monospace, Menlo, monospace;
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1.33;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-athlete[data-v7] *,
+  .theme-athlete[data-v7] *::before,
+  .theme-athlete[data-v7] *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }
