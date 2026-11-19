@@ -16,7 +16,7 @@ const record = (over: Partial<ResultadoRecord>): ResultadoRecord => ({
 });
 
 describe("AvisoRecord (spec historial-progreso §3.5, §3.6)", () => {
-  it("récord de peso: título, carga en font-mono y «tu mejor marca en»", () => {
+  it("récord de peso: título, detalle tabular v7 y clase dorada .a-record con copa sin círculo", () => {
     const h = html({
       resultado: record({ tipo: "peso" }),
       serie: { peso_kg: 85, reps_hechas: 5 },
@@ -27,8 +27,10 @@ describe("AvisoRecord (spec historial-progreso §3.5, §3.6)", () => {
     expect(h).toContain('data-testid="nuevo-record-banner"');
     expect(h).toContain('role="status"');
     expect(h).toContain('aria-live="polite"');
-    expect(h).toContain("font-mono font-bold tabular-nums");
-    expect(h).toContain("border-warning");
+    expect(h).toContain('class="a-record"');
+    expect(h).toContain('class="a-medal"');
+    expect(h).toContain('class="a-t-bs"');
+    expect(h).toContain('class="a-t-sec"');
   });
 
   it("récord de reps resalta las reps", () => {
@@ -82,14 +84,14 @@ describe("AvisoRecord (spec historial-progreso §3.5, §3.6)", () => {
     expect(h).toBe("");
   });
 
-  it("botón de cierre táctil de 48×48 px con etiqueta accesible", () => {
+  it("botón de cierre v7 (.a-q .a-x, 32 px según 01 §8) con etiqueta accesible", () => {
     const h = html({
       resultado: record({}),
       serie: { peso_kg: 85, reps_hechas: 5 },
       nombreEjercicio: "Sentadilla",
     });
     expect(h).toContain('aria-label="Cerrar aviso de récord"');
-    expect(h).toContain("h-12 w-12");
+    expect(h).toContain('class="a-q a-x"');
   });
 
   it("sin emojis en el texto ni referencias a «Mynter» (ADR-005)", () => {
