@@ -840,4 +840,215 @@ test.describe("@mobile Athlete v7 · Capa C Funcional (QA-02)", () => {
     await expect(content.locator("ol.a-steps")).toHaveCount(0);
     await expect(content.getByText(/PASOS/i)).toHaveCount(0);
   });
+
+  // ── CP4 · F-17 a F-21 (Progreso, Récord, Oscuro, Fondo) ──
+  test("F-17: Progreso con +10 kg muestra delta '+10 KG' sin 'desde'", async ({ page }) => {
+    const fixture = structuredClone(FIXTURE_BASE);
+    const sesionRecienteSq = "66666666-6666-4666-8666-666666666604";
+    for (const row of fixture.registro_series as Array<{
+      sesion_id: string;
+      ejercicio_id: string;
+      peso_kg: number;
+    }>) {
+      if (row.sesion_id === sesionRecienteSq && row.ejercicio_id === EJ_SQ_CATALOG_ID && row.peso_kg > 20) {
+        row.peso_kg = 70;
+      }
+    }
+
+    await prepararEntorno(page, { fixture });
+    await page.goto("/athlete/progreso");
+
+    const tarjetaSq = page.getByTestId("progreso-ejercicio").filter({ hasText: "Sentadilla con barra" });
+    await expect(tarjetaSq).toBeVisible({ timeout: 25_000 });
+    const delta = tarjetaSq.locator(".a-delta");
+    await expect(delta).toBeVisible();
+    const textoVisual = await delta.evaluate((el) => (el as HTMLElement).innerText.trim());
+    expect(textoVisual).toBe("+10 KG");
+    expect(textoVisual.toLowerCase()).not.toContain("desde");
+  });
+
+  test("F-18: récord en serie comparte exactamente fondo y borde dorado en aviso, toast, Registradas, cierre e Historial", async ({
+    page,
+  }) => {
+    await prepararEntorno(page, { tema: "dark" });
+    await entrarARutinaDia1(page);
+
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    await expect(page.getByTestId("ultima-vez")).toBeVisible({ timeout: 10_000 });
+    await page.getByLabel("Peso en kilogramos").fill("47.5");
+    await page.getByLabel("Cantidad de repeticiones").fill("8");
+    await page.getByTestId("registrar-serie-btn").click();
+
+    const aviso = page.getByTestId("nuevo-record-banner");
+    const toast = page.getByTestId("toast-sesion");
+    await expect(aviso).toBeVisible();
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText("Nuevo récord en Press banca plano");
+
+    const estilo = async (locator: ReturnType<Page["locator"]>) =>
+      locator.evaluate((el) => {
+        const cs = window.getComputedStyle(el);
+        return { bg: cs.backgroundColor, border: cs.borderTopColor };
+      });
+
+    const estAviso = await estilo(aviso);
+    const estToast = await estilo(toast);
+
+    // Volver a Press banca para ver el chip PR en Registradas
+    await omitirDescansoSiVisible(page);
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_BP}`).click();
+    const chipReg = page.getByTestId("registradas").locator(".a-chip.a-pr").first();
+    await expect(chipReg).toBeVisible();
+    const estReg = await estilo(chipReg);
+
+    // Cerrar sesión -> tarjeta dorada del cierre
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId("terminar-entrenamiento-btn-entrenar").click();
+    await page.getByTestId("terminar-confirmar-btn").click();
+    await expect(page.getByTestId("cierre-dia-modal")).toBeVisible({ timeout: 15_000 });
+    const cardCierre = page.getByTestId("cierre-dia-pr-item-0");
+    await expect(cardCierre).toBeVisible();
+    const estCierre = await estilo(cardCierre);
+
+    // Volver -> Historial -> chip PR
+    await page.getByTestId("cierre-dia-volver-athlete-btn").click();
+    await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 15_000 });
+    const chipHist = page.getByTestId("chip-pr").first();
+    await expect(chipHist).toBeVisible();
+    const estHist = await estilo(chipHist);
+
+    expect(estAviso).toEqual({ bg: "rgb(42, 34, 8)", border: "rgb(212, 167, 44)" });
+    expect(estToast).toEqual(estAviso);
+    expect(estReg).toEqual(estAviso);
+    expect(estCierre).toEqual(estAviso);
+    expect(estHist).toEqual(estAviso);
+  });
+
+  test("F-19: tema oscuro invierte héroe de Inicio y cabeceras de Historial y Progreso a rgb(250, 250, 250) / rgb(9, 9, 11)", async ({
+    page,
+  }) => {
+    await prepararEntorno(page, { tema: "dark" });
+    await page.goto("/athlete");
+    const heroe = page.getByTestId("heroe-te-toca-hoy");
+    await expect(heroe).toBeVisible({ timeout: 25_000 });
+    const estHeroe = await heroe.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      return { bg: cs.backgroundColor, color: cs.color };
+    });
+    expect(estHeroe).toEqual({ bg: "rgb(250, 250, 250)", color: "rgb(9, 9, 11)" });
+
+    await page.getByRole("link", { name: "Historial", exact: true }).click();
+    await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 15_000 });
+    const estHist = await page
+      .locator(".a-hhero")
+      .first()
+      .evaluate((el) => {
+        const cs = window.getComputedStyle(el);
+        return { bg: cs.backgroundColor, color: cs.color };
+      });
+    expect(estHist).toEqual({ bg: "rgb(250, 250, 250)", color: "rgb(9, 9, 11)" });
+
+    await page.getByRole("link", { name: "Progreso", exact: true }).click();
+    await expect(page.getByTestId("progreso-ejercicio").first()).toBeVisible({ timeout: 15_000 });
+    const estProg = await page
+      .locator(".a-hhero")
+      .first()
+      .evaluate((el) => {
+        const cs = window.getComputedStyle(el);
+        return { bg: cs.backgroundColor, color: cs.color };
+      });
+    expect(estProg).toEqual({ bg: "rgb(250, 250, 250)", color: "rgb(9, 9, 11)" });
+  });
+
+  test("F-20: malla presente en Inicio y lienzo liso en ejercicio, onboarding de nombre y cuestionario", async ({
+    page,
+  }) => {
+    // 1) Onboarding -> lienzo liso
+    await prepararEntorno(page, { onboardingCompletado: false });
+    await page.goto("/athlete");
+    const dlg = page.getByRole("dialog", { name: "Bienvenida a GOZSter" });
+    await expect(dlg).toBeVisible({ timeout: 25_000 });
+    await dlg.getByRole("button", { name: "Empezar" }).click();
+    await expect(dlg.getByTestId("onboarding-paso-nombre")).toBeVisible();
+    await expect(page.getByTestId("fondo-generativo")).toHaveCount(0);
+
+    // Completar onboarding -> Inicio muestra malla con data:image/svg+xml
+    await dlg.getByRole("button", { name: "Continuar" }).click();
+    await dlg.getByRole("button", { name: /Continuar con/i }).click();
+    await dlg.getByRole("button", { name: "Listo, ver mis días" }).click();
+    await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 15_000 });
+
+    const fondo = page.getByTestId("fondo-generativo");
+    await expect(fondo).toHaveCount(1);
+    const bgImg = await fondo.evaluate((el) => window.getComputedStyle(el).backgroundImage);
+    expect(bgImg).toContain("data:image/svg+xml");
+
+    // 2) Ejercicio abierto -> lienzo liso
+    await page.getByTestId("empezar-dia-btn").click();
+    await page.getByTestId(`exercise-select-btn-${EJ_SQ}`).click();
+    await expect(page.getByTestId(`single-exercise-container-${EJ_SQ}`)).toBeVisible();
+    await expect(page.getByTestId("fondo-generativo")).toHaveCount(0);
+
+    // 3) Cuestionario inicial -> lienzo liso
+    await page.getByTestId("volver-a-rutina-btn").click();
+    await page.getByTestId("athlete-settings-btn").click();
+    await page.getByTestId("tab-cuestionario").click();
+    await expect(page.getByTestId("cuestionario-inicial-container")).toBeVisible();
+    await expect(page.getByTestId("fondo-generativo")).toHaveCount(0);
+  });
+
+  test("F-21: semilla estable al navegar en la misma visita y distinta en nueva apertura de pestaña", async ({
+    context,
+    page,
+  }) => {
+    await prepararEntorno(page);
+    await page.goto("/athlete");
+    await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
+
+    const leerSemilla = async (p: Page) => {
+      const fondo = p.getByTestId("fondo-generativo");
+      await expect(fondo).toHaveCount(1);
+      const raw = await fondo.getAttribute("data-semilla");
+      return Number(raw);
+    };
+
+    const s1 = await leerSemilla(page);
+    expect(Number.isInteger(s1) && s1 >= 1 && s1 <= 9999).toBe(true);
+    const bg1 = await page.getByTestId("fondo-generativo").evaluate((el) => window.getComputedStyle(el).backgroundImage);
+
+    // Navegar entre secciones mantiene la semilla intacta
+    await page.getByRole("link", { name: "Historial", exact: true }).click();
+    await expect(page.getByTestId("historial-sesiones-container")).toBeVisible({ timeout: 15_000 });
+    expect(await leerSemilla(page)).toBe(s1);
+
+    await page.getByRole("link", { name: "Progreso", exact: true }).click();
+    await expect(page.getByTestId("progreso-ejercicio").first()).toBeVisible({ timeout: 15_000 });
+    expect(await leerSemilla(page)).toBe(s1);
+    const bgProg = await page.getByTestId("fondo-generativo").evaluate((el) => window.getComputedStyle(el).backgroundImage);
+    expect(bgProg).toBe(bg1);
+
+    // Cerrar pestaña y abrir otra nueva -> nueva semilla aleatoria en 1..9999 distinta
+    await page.close();
+    const page2 = await context.newPage();
+    await page2.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page2.clock.setFixedTime(new Date("2026-11-17T10:00:00-03:00"));
+    await page2.goto("/athlete");
+    await expect(page2.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
+
+    let s2 = await leerSemilla(page2);
+    expect(Number.isInteger(s2) && s2 >= 1 && s2 <= 9999).toBe(true);
+    if (s2 === s1) {
+      // Reintento único ante colisión 1/9999
+      await page2.close();
+      const page3 = await context.newPage();
+      await page3.goto("/athlete");
+      await expect(page3.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
+      s2 = await leerSemilla(page3);
+      await page3.close();
+    } else {
+      await page2.close();
+    }
+    expect(s2).not.toBe(s1);
+  });
 });
