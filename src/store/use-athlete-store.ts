@@ -29,9 +29,47 @@ import {
   type SerieCandidata,
 } from "@/lib/record-ejercicio";
 import { agregarMiProgreso, type MiProgresoData, type SesionHistorica } from "@/lib/mi-progreso";
-import type { MolestiaSesion } from "@/lib/athlete/molestias";
+import {
+  nivelMolestia,
+  type MolestiaSesion,
+  type MomentoMolestia,
+  type ZonaArticular,
+} from "@/lib/athlete/molestias";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function esUuid(valor?: string | null): valor is string {
+  return typeof valor === "string" && UUID_RE.test(valor);
+}
+
+function generarUuidMolestia(): string {
+  if (typeof globalThis.crypto !== "undefined") {
+    if (typeof globalThis.crypto.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+    if (typeof globalThis.crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16);
+      globalThis.crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+      bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+  }
+  const rnd = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, "0");
+  return `${rnd()}${rnd()}-${rnd()}-4${rnd().slice(1)}-8${rnd().slice(1)}-${rnd()}${rnd()}${rnd()}`;
+}
+
+export interface ReportarMolestiaInput {
+  ejercicioEnRutinaId: string;
+  ejercicioId: string;
+  numeroSerie?: number | null;
+  zona: ZonaArticular;
+  eva: number;
+  sintomas?: string[];
+  momento?: MomentoMolestia | null;
+  notas?: string | null;
+}
 
 export type AthleteMembershipStatus = "ACTIVE" | "EXPIRED_PAYMENT_PENDING";
 
@@ -199,6 +237,7 @@ interface AthleteStoreState {
     setNumber: number,
     notes: string,
   ) => void;
+  reportarMolestia: (datos: ReportarMolestiaInput) => Promise<MolestiaSesion>;
   reportPainEvent: (report: PainReportData) => Promise<void>;
   attachVideoForSet: (
     exerciseId: string,
@@ -405,6 +444,66 @@ const defaultSession: LiveWorkoutSession = {
     },
   ],
 };
+
+const PERMANENT_MOLESTIA_CODES = new Set(["42501", "23514"]);
+
+async function enviarMolestiaRpc(
+  molestia: MolestiaSesion,
+  diaId: string | null,
+  studentId: string | null,
+): Promise<MolestiaSesion["envio"]> {
+  if (!supabase) return "pendiente";
+
+  try {
+    const { error } = await (supabase as any).rpc("registrar_molestia", {
+      p_id: molestia.id,
+      p_sesion_id: molestia.sesionId,
+      p_ejercicio_id: molestia.ejercicioId,
+      p_zona: molestia.zona,
+      p_eva: molestia.eva,
+      p_dia_id: esUuid(diaId) ? diaId : null,
+      p_ejercicio_en_rutina_id: esUuid(molestia.ejercicioEnRutinaId)
+        ? molestia.ejercicioEnRutinaId
+        : null,
+      p_numero_serie: molestia.numeroSerie,
+      p_momento: molestia.momento,
+      p_sintomas: molestia.sintomas,
+      p_notas: molestia.notas,
+    });
+
+    if (!error) return "enviada";
+
+    const code = typeof error.code === "string" ? error.code : "";
+    if (PERMANENT_MOLESTIA_CODES.has(code)) {
+      try {
+        const authUser = (await supabase.auth.getUser())?.data?.user?.id;
+        const usuarioId = authUser || (esUuid(studentId) ? studentId : null);
+        if (usuarioId) {
+          await supabase.from("errores_app").insert({
+            usuario_id: usuarioId,
+            contexto: "molestia",
+            mensaje_humano: "No se pudo guardar el reporte de molestia.",
+            detalle_tecnico: `${code}: ${error.message ?? ""}`.slice(0, 500),
+            payload_resumen: {
+              id: molestia.id,
+              sesion_id: molestia.sesionId,
+              zona: molestia.zona,
+              eva: molestia.eva,
+              code,
+            },
+          });
+        }
+      } catch {
+        // Silencioso si el registro en errores_app falla
+      }
+      return "error";
+    }
+
+    return "pendiente";
+  } catch {
+    return "pendiente";
+  }
+}
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
 
@@ -773,6 +872,100 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }),
           },
         }));
+      },
+
+      reportarMolestia: async (datos) => {
+        const state = get();
+        const sintomas = Array.isArray(datos.sintomas) ? datos.sintomas : [];
+        const nivel = nivelMolestia(datos.eva, sintomas);
+        const notasLimpias = datos.notas?.trim() ? datos.notas.trim() : null;
+        const numeroSerie =
+          typeof datos.numeroSerie === "number" && datos.numeroSerie >= 1
+            ? datos.numeroSerie
+            : null;
+
+        const molestia: MolestiaSesion = {
+          id: generarUuidMolestia(),
+          sesionId: state.currentSession.id,
+          ejercicioEnRutinaId: datos.ejercicioEnRutinaId,
+          ejercicioId: datos.ejercicioId,
+          numeroSerie,
+          zona: datos.zona,
+          eva: datos.eva,
+          sintomas,
+          momento: datos.momento ?? null,
+          notas: notasLimpias,
+          nivel,
+          reportadaAt: new Date().toISOString(),
+          envio: "pendiente",
+        };
+
+        const severidadTexto =
+          nivel === "alarma" || nivel === "alta"
+            ? "AGUDO"
+            : nivel === "moderada"
+              ? "MODERADO"
+              : "LEVE";
+        const notesText = `[Dolor: ${severidadTexto}] ${molestia.zona}${
+          sintomas.length > 0 ? ` (Síntomas: ${sintomas.join(", ")})` : ""
+        }${notasLimpias ? ` - ${notasLimpias}` : ""}`;
+
+        set((prev) => {
+          const prevMolestias = prev.currentSession.molestias ?? [];
+          const sinAnterior = prevMolestias.filter(
+            (m) => m.ejercicioEnRutinaId !== molestia.ejercicioEnRutinaId,
+          );
+
+          return {
+            ...(nivel === "alarma" ? { stopProtocolActive: true } : {}),
+            currentSession: {
+              ...prev.currentSession,
+              molestias: [...sinAnterior, molestia],
+              ejercicios:
+                numeroSerie !== null
+                  ? prev.currentSession.ejercicios.map((ej) => {
+                      if (ej.id !== molestia.ejercicioEnRutinaId) return ej;
+                      return {
+                        ...ej,
+                        series: ej.series.map((s) =>
+                          s.numero_serie === numeroSerie
+                            ? { ...s, pain_reported: true, pain_notes: notesText }
+                            : s,
+                        ),
+                      };
+                    })
+                  : prev.currentSession.ejercicios,
+            },
+          };
+        });
+
+        const haySenal =
+          useOfflineQueueStore.getState().isOnline &&
+          (typeof navigator === "undefined" || navigator.onLine !== false);
+
+        if (!haySenal || !supabase) {
+          return molestia;
+        }
+
+        const envio = await enviarMolestiaRpc(
+          molestia,
+          state.currentSession.dia_id ?? null,
+          state.currentSession.studentId ?? null,
+        );
+
+        if (envio !== "pendiente") {
+          set((prev) => ({
+            currentSession: {
+              ...prev.currentSession,
+              molestias: (prev.currentSession.molestias ?? []).map((m) =>
+                m.id === molestia.id ? { ...m, envio } : m,
+              ),
+            },
+          }));
+          return { ...molestia, envio };
+        }
+
+        return molestia;
       },
 
       reportPainEvent: async (report) => {
