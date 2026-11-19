@@ -453,6 +453,20 @@ function gh(args) {
   return execFileSync("gh", args, opts);
 }
 
+/**
+ * PR files via the paginated REST API: `gh pr view --json files` caps at 100 entries.
+ * Fails closed when the count does not match the PR's changedFiles.
+ */
+export function fetchPrFiles(runGh, prNumber, changedFiles) {
+  if (!prNumber) throw new Error("files: missing PR number");
+  const raw = runGh(["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/files?per_page=100`]);
+  const files = parseJsonArrays(raw).map((f) => ({ path: f.filename }));
+  if (!Number.isInteger(changedFiles) || files.length !== changedFiles) {
+    throw new Error(`files: paginated API returned ${files.length} file(s) but the PR reports changedFiles=${changedFiles}; refusing to evaluate an incomplete list.`);
+  }
+  return files;
+}
+
 const VALUE_FLAGS = new Set(["--pr-json", "--lesson-file", "--base-lesson-file", "--events-file", "--event-action", "--probes-dir", "--probes-file"]);
 
 function readBaseLessonFromGit(root, baseRef, issue) {
@@ -624,7 +638,13 @@ export function main(argv, deps = {}) {
       process.stderr.write("usage: harness-merge-check.mjs <pr> [--json]\n");
       process.exit(2);
     }
-    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,baseRefName,body,files,labels,state,mergedAt"]));
+    pr = JSON.parse(runGh(["pr", "view", selector, "--json", "number,headRefName,headRefOid,baseRefName,body,changedFiles,labels,state,mergedAt"]));
+    try {
+      pr.files = fetchPrFiles(runGh, pr.number, pr.changedFiles);
+    } catch (err) {
+      process.stderr.write(`[harness-merge-check BLOCKED]\n- ${String(err.message || err).split("\n")[0]}\n`);
+      process.exit(1);
+    }
     const issue = issueFromBranch(pr.headRefName, project.issue_prefix);
     if (issue) {
       try {

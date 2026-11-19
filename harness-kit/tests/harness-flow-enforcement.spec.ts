@@ -9,7 +9,7 @@ import { evaluateRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import { evaluateAuthorization, evaluateMerge, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
+import { evaluateAuthorization, evaluateMerge, fetchPrFiles, isHarnessPath, issueFromBranch, parseSealBlock } from "../core/scripts/harness-merge-check.mjs";
 // @ts-expect-error - mjs module
 import { evaluateCandidates, hashReport, CONTRAST_VERSION } from "../core/scripts/harness-contrast.mjs";
 // @ts-expect-error - mjs module
@@ -1437,6 +1437,7 @@ describe("harness-merge-check: sello == HEAD del PR, lección y PPC", () => {
         contentsLesson?: string;
         probeContents?: Record<string, string>;
         eventsJson?: unknown[];
+        filesRaw?: string;
       }
     ) {
       const binDir = path.join(ws, "fake-bin");
@@ -1449,8 +1450,15 @@ const args = process.argv.slice(2);
 appendFileSync(${JSON.stringify(logFile)}, JSON.stringify(args) + "\\n");
 const joined = args.join(" ");
 const probeMap = ${JSON.stringify(behavior.probeContents || {})};
+const prJson = ${JSON.stringify(behavior.prJson || {})};
+const prFiles = Array.isArray(prJson.files) ? prJson.files : [];
 if (args[0] === "pr" && args[1] === "view") {
-  process.stdout.write(${JSON.stringify(JSON.stringify(behavior.prJson || {}))});
+  process.stdout.write(JSON.stringify({ changedFiles: prFiles.length, ...prJson }));
+  process.exit(0);
+}
+if (/\\/pulls\\/\\d+\\/files/.test(joined)) {
+  const filesRaw = ${JSON.stringify(behavior.filesRaw ?? null)};
+  process.stdout.write(filesRaw ?? JSON.stringify(prFiles.map((f) => ({ filename: f.path }))));
   process.exit(0);
 }
 if (joined.includes("/contents/harness/experience/probes/")) {
@@ -1602,6 +1610,91 @@ process.stdout.write("");
       const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
       expect(calls.some((c) => c.join(" ").includes("/events"))).toBe(true);
       expect(calls.some((c) => c.join(" ").includes("/statuses/"))).toBe(false);
+    });
+
+    describe("GOZS-594: archivos del PR por API paginada (gh pr view --json files corta en 100)", () => {
+      const manyPaths = (n: number) => Array.from({ length: n }, (_, i) => `docs/png/img-${String(i).padStart(3, "0")}.png`);
+      const twoPages = (paths: string[]) =>
+        JSON.stringify(paths.slice(0, 100).map((p) => ({ filename: p }))) + JSON.stringify(paths.slice(100).map((p) => ({ filename: p })));
+      const prFor = (paths: string[], branch: string) => ({
+        number: 594,
+        headRefName: branch,
+        headRefOid: head,
+        baseRefName: "main",
+        state: "OPEN",
+        body: `PR test\n\n${seal}`,
+        changedFiles: paths.length,
+        files: paths.slice(0, 100).map((p) => ({ path: p })),
+        labels: [],
+      });
+      const run = (ws: string, env: NodeJS.ProcessEnv, extra: string[] = []) => {
+        try {
+          return { status: 0, out: execFileSync(process.execPath, [mergeCheckScript, "594", ...extra], { cwd: ws, env, encoding: "utf8", stdio: "pipe" }), err: "" };
+        } catch (e: any) {
+          return { status: e.status as number, out: String(e.stdout || ""), err: String(e.stderr || "") };
+        }
+      };
+
+      it("GIVEN un PR de 150 archivos con la lección en la posición 140 WHEN corre el CLI THEN la lección se encuentra y pasa", () => {
+        const { ws } = setupTempRepoWithPpc();
+        const paths = manyPaths(150);
+        paths[139] = "harness/experience/PROJ-573.jsonl";
+        const fake = setupFakeGh(ws, {
+          prJson: prFor(paths, "docs/573-athlete-v7-progreso"),
+          filesRaw: twoPages(paths),
+          contentsLesson: JSON.stringify({ task: "PROJ-573", lesson: "x" }) + "\n",
+        });
+        const r = run(ws, fake.env);
+        expect(r.err).not.toContain("learn:");
+        expect(r.status).toBe(0);
+        expect(r.out).toContain("[harness-merge-check OK] PROJ-573");
+      });
+
+      it("GIVEN un PR de más de 100 archivos con un archivo de harness después del 100 WHEN corre el CLI THEN se detecta como cambio de harness", () => {
+        const { ws } = setupTempRepoWithPpc();
+        const paths = manyPaths(150);
+        paths[10] = "harness/experience/PROJ-573.jsonl";
+        paths[120] = "harness-kit/core/scripts/harness-merge-check.mjs";
+        const fake = setupFakeGh(ws, {
+          prJson: prFor(paths, "docs/573-athlete-v7-progreso"),
+          filesRaw: twoPages(paths),
+          contentsLesson: JSON.stringify({ task: "PROJ-573", lesson: "x" }) + "\n",
+        });
+        const r = run(ws, fake.env, ["--json"]);
+        expect(r.status).toBe(1);
+        const result = JSON.parse(r.out);
+        expect(result.mergeable).toBe(false);
+        expect(result.harness_files).toContain("harness-kit/core/scripts/harness-merge-check.mjs");
+      });
+
+      it("GIVEN la API paginada devuelve menos archivos que changedFiles WHEN corre el CLI THEN falla en modo cerrado sin evaluar ni publicar estado", () => {
+        const { ws } = setupTempRepoWithPpc();
+        const paths = manyPaths(150);
+        paths[10] = "harness/experience/PROJ-573.jsonl";
+        const fake = setupFakeGh(ws, {
+          prJson: prFor(paths, "docs/573-athlete-v7-progreso"),
+          filesRaw: JSON.stringify(paths.slice(0, 100).map((p) => ({ filename: p }))),
+          contentsLesson: JSON.stringify({ task: "PROJ-573", lesson: "x" }) + "\n",
+        });
+        const r = run(ws, fake.env, ["--post-status"]);
+        expect(r.status).toBe(1);
+        expect(r.err).toContain("returned 100 file(s) but the PR reports changedFiles=150");
+        const calls = readFileSync(fake.logFile, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]);
+        expect(calls.some((c) => c.join(" ").includes("/statuses/"))).toBe(false);
+      });
+
+      it("GIVEN gh api --paginate concatena páginas [...][...] WHEN fetchPrFiles THEN devuelve todos los archivos como { path }; sin changedFiles falla", () => {
+        const paths = manyPaths(150);
+        const runGh = (args: string[]) => {
+          expect(args).toEqual(["api", "--paginate", "repos/{owner}/{repo}/pulls/594/files?per_page=100"]);
+          return twoPages(paths);
+        };
+        const files = fetchPrFiles(runGh, 594, 150);
+        expect(files).toHaveLength(150);
+        expect(files[149]).toEqual({ path: paths[149] });
+        expect(() => fetchPrFiles(runGh, 594, undefined)).toThrow(/changedFiles=undefined/);
+        expect(() => fetchPrFiles(runGh, null, 150)).toThrow(/missing PR number/);
+      });
     });
 
     it("GIVEN --pr-json OPEN y --base-lesson-file con el mismo id WHEN corre CLI THEN bloquea con ya existe en la base; con id nuevo pasa", () => {
