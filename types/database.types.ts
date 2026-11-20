@@ -54,6 +54,8 @@ export interface Database {
           ultimo_entreno_at?: string | null;
           peso_corporal_kg?: number | null;
           sexo?: 'M' | 'F' | null;
+          nombre_preferido?: string | null;
+          onboarding_completado?: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -74,6 +76,8 @@ export interface Database {
           ultimo_entreno_at?: string | null;
           peso_corporal_kg?: number | null;
           sexo?: 'M' | 'F' | null;
+          nombre_preferido?: string | null;
+          onboarding_completado?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -94,6 +98,8 @@ export interface Database {
           ultimo_entreno_at?: string | null;
           peso_corporal_kg?: number | null;
           sexo?: 'M' | 'F' | null;
+          nombre_preferido?: string | null;
+          onboarding_completado?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1867,6 +1873,10 @@ export interface Database {
       };
     };
     Functions: {
+      completar_onboarding_alumno: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
       actualizar_estado_dolor: {
         Args: {
           p_reporte_id: string;
