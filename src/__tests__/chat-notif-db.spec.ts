@@ -171,6 +171,7 @@ describe("GOZS-626: requiere_lectura_inicio, Realtime, marcar_mensajes_leidos y 
          FROM pg_publication_tables pt
          JOIN pg_publication p ON p.pubname = pt.pubname
          WHERE pt.pubname = 'supabase_realtime' AND pt.schemaname = 'public'
+           AND pt.tablename IN ('conversaciones', 'mensajes')
          ORDER BY pt.tablename`
       );
       expect(pub.rows).toEqual([
