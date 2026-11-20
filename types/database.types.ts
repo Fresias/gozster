@@ -2210,6 +2210,53 @@ export interface Database {
         };
         Returns: Database['public']['Tables']['clases']['Row'];
       };
+      crear_clases_agenda: {
+        Args: {
+          p_actividad: ActividadClase;
+          p_inicio?: string | null;
+          p_duracion_minutos?: number;
+          p_capacidad?: number | null;
+          p_recurrente?: boolean;
+          p_dias_semana?: number[] | null;
+          p_hora_inicio?: string | null;
+          p_fecha_inicio?: string | null;
+          p_fecha_fin?: string | null;
+          p_semanas?: number;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'][];
+      };
+      reactivar_clase: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'];
+      };
+      eliminar_clase_vacia: {
+        Args: {
+          p_clase_id: string;
+        };
+        Returns: boolean;
+      };
+      anotar_alumno_coach: {
+        Args: {
+          p_clase_id: string;
+          p_alumno_id: string;
+          p_forzar?: boolean;
+        };
+        Returns: {
+          reserva_id: string | null;
+          requiere_confirmacion: boolean;
+          tipo_aviso: string;
+          sobrecupo: boolean;
+          aviso: string | null;
+        }[];
+      };
+      quitar_reserva_coach: {
+        Args: {
+          p_reserva_id: string;
+        };
+        Returns: Database['public']['Tables']['reservas']['Row'];
+      };
     };
     Enums: {
       rol_usuario: RolUsuario;
