@@ -256,7 +256,6 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
         ocultarNav && "a-no-nav",
       )}
     >
-      <div className="a-chev" aria-hidden="true" />
       <div className="a-scroll">
         <header className="a-ahead">
           <Link
