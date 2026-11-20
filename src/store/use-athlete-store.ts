@@ -139,6 +139,8 @@ interface AthleteStoreState {
   rpeReminderNotification: string | null;
   stopProtocolActive: boolean;
   molestiasPendientesFueraDeSesion: MolestiaSesion[];
+  molestiaEnvioError: string | null;
+  molestiasErrorRegistradoIds: string[];
   nivelVistaAlumno: NivelVistaAlumno;
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
@@ -478,6 +480,45 @@ const defaultSession: LiveWorkoutSession = {
 };
 
 const PERMANENT_MOLESTIA_CODES = new Set(["42501", "23514"]);
+const MISSING_SCHEMA_MOLESTIA_CODES = new Set(["PGRST202", "42883", "42P01"]);
+export const MOLESTIA_ENVIO_ERROR_MSG =
+  "No pudimos avisarle a tu coach. Si la molestia es fuerte, escribile por el chat.";
+
+type ResultadoEnvioMolestia =
+  | { estado: "enviada" }
+  | { estado: "error"; registrarError: boolean }
+  | { estado: "pendiente"; missingSchema: boolean; registrarError: boolean };
+
+async function registrarErrorMolestiaApp(
+  molestia: MolestiaSesion,
+  studentId: string | null,
+  code: string,
+  errorMessage: string | undefined,
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const authUser = (await supabase.auth.getUser())?.data?.user?.id;
+    const usuarioId = authUser || (esUuid(studentId) ? studentId : null);
+    if (!usuarioId) return false;
+    await supabase.from("errores_app").insert({
+      usuario_id: usuarioId,
+      contexto: "molestia",
+      mensaje_humano: "No se pudo guardar el reporte de molestia.",
+      detalle_tecnico: `${code}: ${errorMessage ?? ""}`.slice(0, 500),
+      payload_resumen: {
+        id: molestia.id,
+        sesion_id: molestia.sesionId,
+        zona: molestia.zona,
+        eva: molestia.eva,
+        code,
+      },
+    });
+    return true;
+  } catch {
+    // Silencioso si el registro en errores_app falla
+    return false;
+  }
+}
 
 function fusionarPendientesFueraDeSesion(
   fueraActual: MolestiaSesion[],
@@ -494,8 +535,11 @@ async function enviarMolestiaRpc(
   molestia: MolestiaSesion,
   diaId: string | null,
   studentId: string | null,
-): Promise<MolestiaSesion["envio"]> {
-  if (!supabase) return "pendiente";
+  yaRegistradoError: boolean,
+): Promise<ResultadoEnvioMolestia> {
+  if (!supabase) {
+    return { estado: "pendiente", missingSchema: false, registrarError: false };
+  }
 
   try {
     const { error } = await (supabase as any).rpc("registrar_molestia", {
@@ -514,37 +558,42 @@ async function enviarMolestiaRpc(
       p_notas: molestia.notas,
     });
 
-    if (!error) return "enviada";
+    if (!error) return { estado: "enviada" };
 
     const code = typeof error.code === "string" ? error.code : "";
     if (PERMANENT_MOLESTIA_CODES.has(code)) {
-      try {
-        const authUser = (await supabase.auth.getUser())?.data?.user?.id;
-        const usuarioId = authUser || (esUuid(studentId) ? studentId : null);
-        if (usuarioId) {
-          await supabase.from("errores_app").insert({
-            usuario_id: usuarioId,
-            contexto: "molestia",
-            mensaje_humano: "No se pudo guardar el reporte de molestia.",
-            detalle_tecnico: `${code}: ${error.message ?? ""}`.slice(0, 500),
-            payload_resumen: {
-              id: molestia.id,
-              sesion_id: molestia.sesionId,
-              zona: molestia.zona,
-              eva: molestia.eva,
-              code,
-            },
-          });
-        }
-      } catch {
-        // Silencioso si el registro en errores_app falla
+      let registrado = yaRegistradoError;
+      if (!yaRegistradoError) {
+        registrado = await registrarErrorMolestiaApp(
+          molestia,
+          studentId,
+          code,
+          error.message,
+        );
       }
-      return "error";
+      return { estado: "error", registrarError: registrado };
     }
 
-    return "pendiente";
+    if (MISSING_SCHEMA_MOLESTIA_CODES.has(code)) {
+      let registrado = yaRegistradoError;
+      if (!yaRegistradoError) {
+        registrado = await registrarErrorMolestiaApp(
+          molestia,
+          studentId,
+          code,
+          error.message,
+        );
+      }
+      return {
+        estado: "pendiente",
+        missingSchema: true,
+        registrarError: registrado,
+      };
+    }
+
+    return { estado: "pendiente", missingSchema: false, registrarError: false };
   } catch {
-    return "pendiente";
+    return { estado: "pendiente", missingSchema: false, registrarError: false };
   }
 }
 
@@ -771,6 +820,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       rpeReminderNotification: null,
       stopProtocolActive: false,
       molestiasPendientesFueraDeSesion: [],
+      molestiaEnvioError: null,
+      molestiasErrorRegistradoIds: [],
       restTimer: {
         isActive: false,
         isPaused: false,
@@ -1296,26 +1347,71 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ? (actual.currentSession.dia_id ?? null)
                 : (actual.sesionesCompletadas.find((s) => s.id === m.sesionId)?.dia_id ??
                   null);
+            const yaRegistrado = actual.molestiasErrorRegistradoIds.includes(m.id);
 
-            const envio = await enviarMolestiaRpc(
+            const res = await enviarMolestiaRpc(
               m,
               diaId,
               actual.currentSession.studentId ?? null,
+              yaRegistrado,
             );
-            if (envio === "pendiente") {
+
+            if (res.estado === "pendiente") {
+              if (res.missingSchema || res.registrarError) {
+                set((prev) => ({
+                  ...(res.missingSchema
+                    ? { molestiaEnvioError: MOLESTIA_ENVIO_ERROR_MSG }
+                    : {}),
+                  ...(res.registrarError &&
+                  !prev.molestiasErrorRegistradoIds.includes(m.id)
+                    ? {
+                        molestiasErrorRegistradoIds: [
+                          ...prev.molestiasErrorRegistradoIds,
+                          m.id,
+                        ],
+                      }
+                    : {}),
+                }));
+              }
               break;
             }
 
-            set((prev) => ({
-              molestiasPendientesFueraDeSesion:
-                prev.molestiasPendientesFueraDeSesion.filter((item) => item.id !== m.id),
-              currentSession: {
-                ...prev.currentSession,
-                molestias: (prev.currentSession.molestias ?? []).map((item) =>
-                  item.id === m.id ? { ...item, envio } : item,
-                ),
-              },
-            }));
+            const envio = res.estado;
+            set((prev) => {
+              const nuevasFuera = prev.molestiasPendientesFueraDeSesion.filter(
+                (item) => item.id !== m.id,
+              );
+              const nuevasEnSesion = (prev.currentSession.molestias ?? []).map((item) =>
+                item.id === m.id ? { ...item, envio } : item,
+              );
+              const quedanPendientes =
+                nuevasFuera.some((item) => item.envio === "pendiente") ||
+                nuevasEnSesion.some((item) => item.envio === "pendiente");
+              const tieneErrorPermanente = nuevasEnSesion.some(
+                (item) => item.envio === "error",
+              );
+
+              return {
+                molestiasPendientesFueraDeSesion: nuevasFuera,
+                molestiaEnvioError:
+                  envio === "error"
+                    ? MOLESTIA_ENVIO_ERROR_MSG
+                    : !quedanPendientes && !tieneErrorPermanente
+                      ? null
+                      : prev.molestiaEnvioError,
+                molestiasErrorRegistradoIds:
+                  envio === "enviada"
+                    ? prev.molestiasErrorRegistradoIds.filter((id) => id !== m.id)
+                    : res.registrarError &&
+                        !prev.molestiasErrorRegistradoIds.includes(m.id)
+                      ? [...prev.molestiasErrorRegistradoIds, m.id]
+                      : prev.molestiasErrorRegistradoIds,
+                currentSession: {
+                  ...prev.currentSession,
+                  molestias: nuevasEnSesion,
+                },
+              };
+            });
           }
         };
 
@@ -2545,6 +2641,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
           vistaRecomendadaCoach: "SIMPLE",
           nivelVistaAlumno: eleccionAlumno ?? "SIMPLE",
           stopProtocolActive: false,
+          molestiaEnvioError: null,
+          molestiasErrorRegistradoIds: [],
           diaActivoId: null,
           sessionStartedAt: null,
           ejercicioAbiertoId: null,
