@@ -627,6 +627,7 @@ export interface Database {
           remitente_id: string;
           contenido: string;
           leido: boolean;
+          requiere_lectura_inicio: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -636,6 +637,7 @@ export interface Database {
           remitente_id: string;
           contenido: string;
           leido?: boolean;
+          requiere_lectura_inicio?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -645,6 +647,7 @@ export interface Database {
           remitente_id?: string;
           contenido?: string;
           leido?: boolean;
+          requiere_lectura_inicio?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -2196,6 +2199,14 @@ export interface Database {
         Args: {
           p_clase_id: string;
           p_motivo?: string | null;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'];
+      };
+      cancelar_clase_con_aviso: {
+        Args: {
+          p_clase_id: string;
+          p_motivo?: string | null;
+          p_pushear_inicio?: boolean;
         };
         Returns: Database['public']['Tables']['clases']['Row'];
       };
