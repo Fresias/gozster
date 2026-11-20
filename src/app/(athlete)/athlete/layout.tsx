@@ -1,27 +1,29 @@
 import * as React from "react";
-import { Archivo, Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { AthleteShell } from "@/components/athlete/athlete-shell";
 import { AthleteSessionNavigator } from "@/components/athlete/athlete-session-navigator";
 import { FondoGenerativo } from "@/components/athlete/fondo-generativo";
 import { OnboardingAlumno } from "@/components/athlete/onboarding-alumno";
 import "./athlete-v7.css";
 
-const archivo = Archivo({
-  subsets: ["latin"],
-  axes: ["wdth"],
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
+  weight: "100 900",
   variable: "--a-f-display",
   display: "swap",
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
 });
 
-const geist = Geist({
-  subsets: ["latin"],
+const geist = localFont({
+  src: "./fonts/geist-latin.woff2",
+  weight: "100 900",
   variable: "--a-f-sans",
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+const geistMono = localFont({
+  src: "./fonts/geist-mono-latin.woff2",
+  weight: "600 700",
   variable: "--a-f-mono",
   display: "swap",
 });
