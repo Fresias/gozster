@@ -166,3 +166,38 @@ export async function fetchPlanAlumno(client: SupabaseClient<Database> = supabas
     ejercicios: (ejerciciosRes.data as Ejercicio[]) ?? [],
   };
 }
+
+export interface SesionFechaResumen {
+  id: string;
+  dia_id: string | null;
+  fecha: string;
+}
+
+/**
+ * Consulta no bloqueante de las últimas sesiones del alumno en `registro_sesiones`
+ * para hidratar la racha semanal multi-dispositivo desde Supabase.
+ * Devuelve `null` si falla la lectura o no hay conexión (preservando caché local).
+ */
+export async function fetchSesionesRecientesAlumno(
+  alumnoId: string,
+  client: SupabaseClient<Database> = supabase,
+): Promise<SesionFechaResumen[] | null> {
+  try {
+    if (!alumnoId) return null;
+    const { data, error } = await client
+      .from("registro_sesiones")
+      .select("id, dia_id, fecha")
+      .eq("alumno_id", alumnoId)
+      .order("fecha", { ascending: false })
+      .limit(100);
+    if (error || !Array.isArray(data)) return null;
+    return data
+      .filter(
+        (r): r is { id: string; dia_id: string | null; fecha: string } =>
+          Boolean(r && typeof r.id === "string" && typeof r.fecha === "string"),
+      )
+      .map((r) => ({ id: r.id, dia_id: r.dia_id ?? null, fecha: r.fecha }));
+  } catch {
+    return null;
+  }
+}

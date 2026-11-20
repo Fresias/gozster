@@ -11,15 +11,12 @@ import {
   calcularRachaSemanas,
   calcularSemanaPlan,
   etiquetaDia,
-  formatearFechaUltimoEntrenamiento,
-  obtenerUltimaFechaEntreno,
   primerNombre,
   saludoAlumno,
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
 import { obtenerProximaClaseReservada } from "@/lib/clases";
-import { nombreParaSaludo } from "@/lib/athlete/nombre";
 
 export { primerNombre, saludoAlumno };
 import type { MotivoCambioDia } from "@/types/database.types";
@@ -43,9 +40,88 @@ import {
   TriangleAlert,
   TrendingUp,
   ClipboardList,
+  RachaFlama,
+  nivelRachaFlama,
 } from "@/components/athlete/icons";
 import { InstalarAppCard } from "@/components/athlete/instalar-app-card";
 import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
+
+export interface IndicadorRachaSemanasProps {
+  semanas: number;
+  initialPopoverOpen?: boolean;
+}
+
+/**
+ * Indicador compacto de racha semanal con Flama Geométrica Progresiva (Opción B)
+ * y popover accesible explicativo al tocar.
+ */
+export function IndicadorRachaSemanas({
+  semanas,
+  initialPopoverOpen = false,
+}: IndicadorRachaSemanasProps) {
+  const [popoverOpen, setPopoverOpen] = React.useState(initialPopoverOpen);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const nivel = nivelRachaFlama(semanas);
+
+  React.useEffect(() => {
+    if (!popoverOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const isNode = typeof Node !== "undefined" ? target instanceof Node : Boolean(target);
+      if (wrapRef.current && isNode && !wrapRef.current.contains(target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPopoverOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [popoverOpen]);
+
+  return (
+    <div ref={wrapRef} className="a-racha-wrap">
+      <button
+        ref={buttonRef}
+        type="button"
+        className="a-racha-btn"
+        data-testid="racha-semanas-chip"
+        data-level={nivel}
+        aria-label={`Racha de ${semanas} ${semanas === 1 ? "semana" : "semanas"}`}
+        aria-expanded={popoverOpen}
+        aria-haspopup="dialog"
+        onClick={() => setPopoverOpen((prev) => !prev)}
+      >
+        <RachaFlama semanas={semanas} width={15} height={15} className="a-i" />
+        <span>{semanas} SEM</span>
+      </button>
+
+      {popoverOpen && (
+        <div
+          role="dialog"
+          aria-label="Detalle de racha semanal"
+          className="a-racha-popover"
+          data-testid="racha-popover"
+        >
+          <b className="a-t-bs block">
+            {semanas} {semanas === 1 ? "semana consecutiva" : "semanas consecutivas"}
+          </b>
+          <small className="a-t-sec a-muted">
+            Sumás racha completando al menos 1 sesión por semana. La semana en curso no corta tu racha mientras siga abierta.
+          </small>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function InicioMisDias() {
   const {
@@ -53,6 +129,7 @@ export function InicioMisDias() {
     diaElegidoHoyId,
     motivoCambioDia,
     sesionesCompletadas,
+    fechasSesionesServidor,
     historialSesiones,
     empezarDia,
     elegirOtroDia,
@@ -62,7 +139,6 @@ export function InicioMisDias() {
     errorPlan,
     cargarPlanAlumno,
     rpeReminderNotification,
-    nombrePreferido,
   } = useAthleteStore();
 
   const clases = useClasesStore((s) => s.clases);
@@ -301,15 +377,12 @@ export function InicioMisDias() {
   const fechasSesiones = React.useMemo(
     () => [
       student?.ultimo_entreno_at,
+      ...(fechasSesionesServidor ?? []),
       ...sesionesCompletadas.map((s) => s.fecha),
       ...historialSesiones.map((h) => h.sesion?.fecha),
     ],
-    [student?.ultimo_entreno_at, sesionesCompletadas, historialSesiones],
+    [student?.ultimo_entreno_at, fechasSesionesServidor, sesionesCompletadas, historialSesiones],
   );
-  const ultimoEntrenoRelativo = React.useMemo(() => {
-    const ultima = obtenerUltimaFechaEntreno(fechasSesiones);
-    return ultima ? formatearFechaUltimoEntrenamiento(ultima).tiempoRelativo : "";
-  }, [fechasSesiones]);
   const rachaSemanas = React.useMemo(
     () => calcularRachaSemanas(fechasSesiones),
     [fechasSesiones],
@@ -338,13 +411,6 @@ export function InicioMisDias() {
         (currentSession.dia_id === diaHero.id &&
           currentSession.ejercicios.some((e) => e.es_superserie))),
   );
-  const saludoNombre = nombreParaSaludo({
-    nombre_preferido:
-      nombrePreferido ??
-      (student as { nombre_preferido?: string | null } | undefined)?.nombre_preferido,
-    nombre_completo: student?.nombre_completo,
-  });
-  const saludoTexto = saludoNombre ? `Hola, ${saludoNombre}` : "Hola";
 
   const handleOpenOtherDay = (preselectedId?: string) => {
     if (sesionIniciada) {
@@ -512,11 +578,6 @@ export function InicioMisDias() {
 
       return (
         <div className="a-view a-anim" data-testid="inicio-cargando">
-          {saludoNombre && (
-            <div className="a-hello">
-              <span className="a-t-sec a-muted">{saludoTexto}</span>
-            </div>
-          )}
           <section className="a-card a-state" role="status">
             <div className="a-loading" aria-hidden="true">
               <i />
@@ -534,16 +595,6 @@ export function InicioMisDias() {
 
     return (
       <div className="a-view a-anim" data-testid="inicio-sin-plan">
-        <div className="a-hello">
-          <div className="a-hello-top">
-            <span className="a-t-sec a-muted">{saludoTexto}</span>
-            {ultimoEntrenoRelativo && (
-              <span className="a-t-sec a-muted whitespace-nowrap" data-testid="ultimo-entreno-relativo">
-                Último entreno: {ultimoEntrenoRelativo}
-              </span>
-            )}
-          </div>
-        </div>
         {bannerMensajeNoLeido}
         {tarjetaRecordatorioPeso}
         {tarjetaClaseReservada}
@@ -570,26 +621,12 @@ export function InicioMisDias() {
 
   return (
     <div className="a-view a-anim" data-testid="inicio-mis-dias-container">
-      {/* Saludo y Semana del Plan (Opción 2 compacta, 52 px) */}
+      {/* Cabecera limpia de 1 fila: Semana del Plan + Racha SVG Flama Geométrica */}
       <div className="a-hello" data-testid="inicio-cabecera-hola">
-        <div className="a-hello-top">
-          <span className="a-t-sec a-muted">{saludoTexto}</span>
-          {ultimoEntrenoRelativo && (
-            <span className="a-t-sec a-muted whitespace-nowrap" data-testid="ultimo-entreno-relativo">
-              Último entreno: {ultimoEntrenoRelativo}
-            </span>
-          )}
-        </div>
-        <div className="a-hello-bot">
-          <h1 className="a-hello-week uppercase" data-testid="semana-plan-titulo">
-            SEMANA {semanaPlan.actual}
-          </h1>
-          {rachaSemanas >= 1 && (
-            <span className="a-chip a-ok a-t-label" data-testid="racha-semanas-chip">
-              Racha {rachaSemanas} sem
-            </span>
-          )}
-        </div>
+        <h1 className="a-hello-week uppercase" data-testid="semana-plan-titulo">
+          SEMANA {semanaPlan.actual}
+        </h1>
+        {rachaSemanas >= 1 && <IndicadorRachaSemanas semanas={rachaSemanas} />}
       </div>
 
       {/* Aviso prominente de mensaje no leído del Coach */}

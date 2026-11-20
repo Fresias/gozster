@@ -7,7 +7,13 @@ import { parseDefaultReps, parseTargetRpe, sortExercisesWithWarmupFirst } from "
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
-import { fetchPlanAlumno, type LiveSupabaseDataset } from "@/services/alumnos-service";
+import {
+  fetchPlanAlumno,
+  fetchSesionesRecientesAlumno,
+  type LiveSupabaseDataset,
+  type SesionFechaResumen,
+} from "@/services/alumnos-service";
+import { esFechaEnSemanaActual } from "@/lib/athlete-dias";
 import type {
   NivelVistaAlumno,
   AlumnoCuestionarioInicial,
@@ -170,6 +176,8 @@ interface AthleteStoreState {
     dia_sugerido_id?: string | null;
     motivo_cambio_dia?: MotivoCambioDia | null;
   }>;
+  /** Fechas reales de `registro_sesiones` hidratadas desde Supabase para racha multi-dispositivo. */
+  fechasSesionesServidor: string[];
   // "La última vez" por ejercicio_id (GOZS-159). null = sin historial; undefined = todavía no consultado.
   ultimaVez: Record<string, UltimaVezEjercicio | null>;
   cargandoUltimaVez: boolean;
@@ -808,6 +816,29 @@ function construirOpcionesSubidaVideo(
   };
 }
 
+function fusionarSesionesSemanaDesdeServidor(
+  locales: AthleteStoreState["sesionesCompletadas"],
+  remotas: SesionFechaResumen[],
+): AthleteStoreState["sesionesCompletadas"] {
+  const resultado = [...locales];
+  const idsPresentes = new Set(locales.map((s) => s.id));
+  const diasSemanaPresentes = new Set(
+    locales.filter((s) => esFechaEnSemanaActual(s.fecha)).map((s) => s.dia_id),
+  );
+  for (const r of remotas) {
+    if (!r.dia_id || !esFechaEnSemanaActual(r.fecha)) continue;
+    if (idsPresentes.has(r.id) || diasSemanaPresentes.has(r.dia_id)) continue;
+    idsPresentes.add(r.id);
+    diasSemanaPresentes.add(r.dia_id);
+    resultado.push({
+      id: r.id,
+      dia_id: r.dia_id,
+      fecha: r.fecha,
+    });
+  }
+  return resultado;
+}
+
 export const useAthleteStore = create<AthleteStoreState>()(
   persist(
     (set, get) => ({
@@ -830,6 +861,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       diaSugeridoId: null,
       motivoCambioDia: null,
       sesionesCompletadas: [],
+      fechasSesionesServidor: [],
       planAlumno: null,
       cargandoPlan: false,
       errorPlan: false,
@@ -2597,6 +2629,22 @@ export const useAthleteStore = create<AthleteStoreState>()(
           if (onboardingPendiente) {
             void get().sincronizarOnboardingPendiente();
           }
+          if (
+            studentId &&
+            useOfflineQueueStore.getState().isOnline &&
+            typeof fetchSesionesRecientesAlumno === "function"
+          ) {
+            const sesionesRemotas = await fetchSesionesRecientesAlumno(studentId);
+            if (sesionesRemotas !== null) {
+              set((state) => ({
+                fechasSesionesServidor: sesionesRemotas.map((s) => s.fecha),
+                sesionesCompletadas: fusionarSesionesSemanaDesdeServidor(
+                  state.sesionesCompletadas,
+                  sesionesRemotas,
+                ),
+              }));
+            }
+          }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
           if (!get().planAlumno) {
@@ -2808,6 +2856,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         onboardingCompletadoPendiente: state.onboardingCompletadoPendiente,
         mostrarTimerDescanso: state.mostrarTimerDescanso,
         sesionesCompletadas: state.sesionesCompletadas,
+        fechasSesionesServidor: state.fechasSesionesServidor,
         ultimaVez: state.ultimaVez,
         marcas: state.marcas,
         seriesRecordIds: state.seriesRecordIds,

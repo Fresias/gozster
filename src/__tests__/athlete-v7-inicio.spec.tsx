@@ -29,13 +29,15 @@ vi.mock("@/store/use-clases-store", async (importOriginal) => {
   return { ...mod, useClasesStore: hook };
 });
 
-import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
+import { IndicadorRachaSemanas, InicioMisDias } from "@/components/athlete/inicio-mis-dias";
+import { RachaFlama } from "@/components/athlete/icons";
 import { MembershipExpiredNotice } from "@/components/athlete/membership-paywall";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { DEFAULT_ATHLETE_SENDER, STAFF_COACH_PRINCIPAL, useChatStore } from "@/store/use-chat-store";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
+import * as alumnosService from "@/services/alumnos-service";
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 
 const PLAN_BASE: LiveSupabaseDataset = {
@@ -99,6 +101,7 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       errorPlan: false,
       nombrePreferido: null,
       sesionesCompletadas: [],
+      fechasSesionesServidor: [],
       historialSesiones: [],
       membershipStatus: "ACTIVE",
     });
@@ -113,23 +116,28 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     useChatStore.getState().markAsRead(DEFAULT_ATHLETE_SENDER.id);
   });
 
-  it("usa nombreParaSaludo: nombre_preferido primero, sino primer nombre de nombre_completo, sin renderizar plan.nombre ni DE X", () => {
+  it("cabecera limpia: omite saludo personal y último entreno, sin renderizar plan.nombre ni DE X", () => {
     useAthleteStore.setState({
       planAlumno: PLAN_BASE,
       nombrePreferido: "Lu",
     });
     const htmlPreferido = renderToStaticMarkup(<InicioMisDias />);
-    expect(htmlPreferido).toContain("Hola, Lu");
+    expect(htmlPreferido).not.toContain("Hola,");
+    expect(htmlPreferido).not.toContain("Último entreno:");
+    expect(htmlPreferido).not.toContain('data-testid="ultimo-entreno-relativo"');
     expect(htmlPreferido).not.toContain("PLAN GENERAL");
+    expect(htmlPreferido).toContain('data-testid="semana-plan-titulo"');
     expect(htmlPreferido).toContain("SEMANA ");
     expect(htmlPreferido).not.toMatch(/SEMANA\s+\d+\s+DE\s+\d+/i);
 
     useAthleteStore.setState({
-      planAlumno: PLAN_BASE,
+      planAlumno: { ...PLAN_BASE, planes: [], dias: [], ejerciciosEnRutina: [] },
       nombrePreferido: null,
     });
-    const htmlCompleto = renderToStaticMarkup(<InicioMisDias />);
-    expect(htmlCompleto).toContain("Hola, Lucía");
+    const htmlSinPlan = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlSinPlan).not.toContain("Hola,");
+    expect(htmlSinPlan).not.toContain("Último entreno:");
+    expect(htmlSinPlan).not.toContain('data-testid="ultimo-entreno-relativo"');
   });
 
   it("renderiza el héroe Te toca hoy con biserie, CTA Seguir cuando la sesión inició y lista de días", () => {
@@ -267,7 +275,7 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(useChatStore.getState().isAthleteChatOpen).toBe(true);
   });
 
-  it("GIVEN plan iniciado hace 7 días y racha >= 1 THEN muestra SEMANA 2, Último entreno y chip Racha N sem", () => {
+  it("GIVEN plan iniciado hace 7 días y racha >= 1 THEN muestra SEMANA 2 y badge SVG Opción B sin Último entreno ni palabra RACHA", () => {
     const hace7Dias = new Date(Date.now() - 7 * 86_400_000);
     const fechaInicioStr = `${hace7Dias.getFullYear()}-${String(hace7Dias.getMonth() + 1).padStart(2, "0")}-${String(hace7Dias.getDate()).padStart(2, "0")}`;
     useAthleteStore.setState({
@@ -282,10 +290,13 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(html).toContain("SEMANA 2");
     expect(html).not.toContain("PLAN GENERAL");
     expect(html).not.toMatch(/SEMANA\s+\d+\s+DE\s+\d+/i);
-    expect(html).toContain('data-testid="ultimo-entreno-relativo"');
-    expect(html).toContain("Último entreno: Hoy");
+    expect(html).not.toContain('data-testid="ultimo-entreno-relativo"');
+    expect(html).not.toContain("Último entreno:");
     expect(html).toContain('data-testid="racha-semanas-chip"');
-    expect(html).toContain("Racha 1 sem");
+    expect(html).toContain("1 SEM");
+    expect(html).not.toContain("RACHA");
+    expect(html).not.toContain("Racha 1 sem");
+    expect(html).toContain('data-level="1"');
 
     // Sin sesiones previas, el chip Racha no se muestra
     useAthleteStore.setState({ sesionesCompletadas: [] });
@@ -428,6 +439,175 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       expect(useClasesStore.getState().misReservas[0]?.id).toBe(reservaId);
     } finally {
       getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
+  });
+
+  it("RachaFlama progresa visualmente por nivel (1, 2-3, 4-7, 8+) con IDs de gradiente únicos (useId)", () => {
+    const svg1 = renderToStaticMarkup(<RachaFlama semanas={1} />);
+    expect(svg1).toContain('data-level="1"');
+    expect(svg1).toContain('fill="none"');
+    expect(svg1).toContain('stroke="#F97316"');
+    expect(svg1).not.toContain("<linearGradient");
+
+    const svg3 = renderToStaticMarkup(<RachaFlama semanas={3} />);
+    expect(svg3).toContain('data-level="2"');
+    expect(svg3).toContain('fill="#EA580C"');
+    expect(svg3).toContain('fill="#FDE047"');
+
+    const svg5 = renderToStaticMarkup(<RachaFlama semanas={5} />);
+    expect(svg5).toContain('data-level="3"');
+    expect(svg5).toContain("<linearGradient");
+    expect(svg5).toContain("#FDE047");
+    expect(svg5).toContain("#F97316");
+    expect(svg5).toContain("#DC2626");
+
+    const svg8 = renderToStaticMarkup(<RachaFlama semanas={8} />);
+    expect(svg8).toContain('data-level="4"');
+    expect(svg8).toContain('stroke="var(--a-rec-ic, #D4A72C)"');
+
+    // Dos flamas en un mismo árbol SSR producen IDs distintos (sin colisión)
+    const par = renderToStaticMarkup(
+      <>
+        <RachaFlama semanas={5} />
+        <RachaFlama semanas={9} />
+      </>,
+    );
+    const ids = [...par.matchAll(/<linearGradient id="([^"]+)"/g)].map((m) => m[1]);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("IndicadorRachaSemanas abre popover accesible role='dialog' y cierra al volver a tocar, clic afuera o Escape", () => {
+    const htmlCerrado = renderToStaticMarkup(<IndicadorRachaSemanas semanas={4} />);
+    expect(htmlCerrado).toContain('data-testid="racha-semanas-chip"');
+    expect(htmlCerrado).toContain("4 SEM");
+    expect(htmlCerrado).not.toContain("RACHA");
+    expect(htmlCerrado).not.toContain('data-testid="racha-popover"');
+    expect(htmlCerrado).toContain('aria-expanded="false"');
+
+    const htmlAbierto = renderToStaticMarkup(
+      <IndicadorRachaSemanas semanas={4} initialPopoverOpen={true} />,
+    );
+    expect(htmlAbierto).toContain('data-testid="racha-popover"');
+    expect(htmlAbierto).toContain('role="dialog"');
+    expect(htmlAbierto).toContain("4 semanas consecutivas");
+    expect(htmlAbierto).toContain("al menos 1 sesión por semana");
+
+    // Verificar toggle, clic afuera y Escape con hooks stub
+    const setPopoverMock = vi.fn();
+    let cleanupFn: (() => void) | undefined;
+    const listeners: Record<string, (e: any) => void> = {};
+    const prevDoc = (globalThis as any).document;
+    const prevNode = (globalThis as any).Node;
+    class FakeNode {}
+    (globalThis as any).Node = FakeNode;
+    const outsideTarget = new FakeNode();
+    const insideTarget = new FakeNode();
+    (globalThis as any).document = {
+      addEventListener: (ev: string, fn: (e: any) => void) => {
+        listeners[ev] = fn;
+      },
+      removeEventListener: vi.fn(),
+    };
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const prevDispatcher = internals.H;
+    const wrapCurrent = { contains: (target: unknown) => target === insideTarget };
+    let refCall = 0;
+    internals.H = {
+      useState: () => [true, setPopoverMock],
+      useEffect: (fn: () => void | (() => void)) => {
+        const res = fn();
+        if (typeof res === "function") cleanupFn = res;
+      },
+      useMemo: (fn: () => unknown) => fn(),
+      useCallback: (fn: unknown) => fn,
+      useRef: () => {
+        refCall += 1;
+        return { current: refCall === 1 ? wrapCurrent : { focus: vi.fn() } };
+      },
+    };
+    try {
+      const tree = IndicadorRachaSemanas({ semanas: 4, initialPopoverOpen: true }) as any;
+      const btn = tree.props.children[0];
+      btn.props.onClick();
+      expect(setPopoverMock).toHaveBeenCalledTimes(1);
+
+      // Clic adentro NO cierra
+      listeners.pointerdown?.({ target: insideTarget });
+      expect(setPopoverMock).toHaveBeenCalledTimes(1);
+
+      // Clic afuera SÍ cierra
+      listeners.pointerdown?.({ target: outsideTarget });
+      expect(setPopoverMock).toHaveBeenCalledWith(false);
+
+      // Escape SÍ cierra
+      setPopoverMock.mockClear();
+      listeners.keydown?.({ key: "Escape" });
+      expect(setPopoverMock).toHaveBeenCalledWith(false);
+      cleanupFn?.();
+    } finally {
+      internals.H = prevDispatcher;
+      (globalThis as any).document = prevDoc;
+      (globalThis as any).Node = prevNode;
+    }
+  });
+
+  it("cargarPlanAlumno() hidrata fechas reales desde registro_sesiones y degrada seguro en offline/error", async () => {
+    const ahora = Date.now();
+    const fechas4Semanas = [0, 7, 14, 21].map((dias) =>
+      new Date(ahora - dias * 86_400_000).toISOString(),
+    );
+    const fetchPlanSpy = vi.spyOn(alumnosService, "fetchPlanAlumno").mockResolvedValue(PLAN_BASE);
+    const fromSpy = vi.spyOn(supabase, "from").mockImplementation((table: string) => {
+      if (table === "registro_sesiones") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: () => ({
+                limit: async () => ({
+                  data: fechas4Semanas.map((fecha, idx) => ({
+                    id: `00000000-0000-4000-8000-00000000000${idx + 1}`,
+                    dia_id: "d1",
+                    fecha,
+                  })),
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        } as any;
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            order: () => ({
+              limit: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    try {
+      await useAthleteStore.getState().cargarPlanAlumno();
+      expect(useAthleteStore.getState().fechasSesionesServidor).toEqual(fechas4Semanas);
+      const html = renderToStaticMarkup(<InicioMisDias />);
+      expect(html).toContain('data-testid="racha-semanas-chip"');
+      expect(html).toContain("4 SEM");
+      expect(html).toContain('data-level="3"');
+
+      // En offline conserva fechas ya hidratadas y sesiones locales pendientes
+      useOfflineQueueStore.setState({ isOnline: false });
+      useAthleteStore.setState({
+        sesionesCompletadas: [{ id: "local-off-1", dia_id: "d2", fecha: new Date().toISOString() }],
+      });
+      await useAthleteStore.getState().cargarPlanAlumno();
+      expect(useAthleteStore.getState().fechasSesionesServidor).toEqual(fechas4Semanas);
+      expect(useAthleteStore.getState().sesionesCompletadas.some((s) => s.id === "local-off-1")).toBe(true);
+      expect(useAthleteStore.getState().errorPlan).toBe(false);
+    } finally {
+      fetchPlanSpy.mockRestore();
       fromSpy.mockRestore();
     }
   });
