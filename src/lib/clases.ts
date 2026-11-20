@@ -500,3 +500,71 @@ export function buildWhatsAppCancelacionUrl(params: {
     ? `https://wa.me/${cleanPhone}?text=${encodedMsg}`
     : `https://wa.me/?text=${encodedMsg}`;
 }
+
+export interface ProximaClaseReservada {
+  reserva: Reserva;
+  clase: Clase;
+  actividadLabel: string;
+  horarioLabel: string;
+}
+
+const fmtDiaCortoClase = new Intl.DateTimeFormat("es-AR", {
+  timeZone: ZONA_GIMNASIO,
+  weekday: "short",
+  day: "numeric",
+});
+
+/**
+ * Selecciona la próxima reserva activa del alumno (`estado === 'ANOTADO'` + clase `'PROGRAMADA'`
+ * aún no iniciada, ordenada por `inicio ASC`) y formatea actividad + horario en hora argentina.
+ */
+export function obtenerProximaClaseReservada(
+  reservas: Reserva[],
+  clases: Clase[],
+  ahora: Date = new Date(),
+): ProximaClaseReservada | null {
+  if (!reservas?.length || !clases?.length) return null;
+
+  const clasesPorId = new Map<string, Clase>();
+  for (const c of clases) {
+    if (c.estado === "PROGRAMADA") clasesPorId.set(c.id, c);
+  }
+
+  const ahoraMs = ahora.getTime();
+  let mejor: { reserva: Reserva; clase: Clase; inicioMs: number } | null = null;
+
+  for (const r of reservas) {
+    if (r.estado !== "ANOTADO") continue;
+    const clase = clasesPorId.get(r.clase_id);
+    if (!clase) continue;
+    const inicioMs = Date.parse(clase.inicio);
+    if (Number.isNaN(inicioMs) || inicioMs < ahoraMs) continue;
+    if (!mejor || inicioMs < mejor.inicioMs) {
+      mejor = { reserva: r, clase, inicioMs };
+    }
+  }
+
+  if (!mejor) return null;
+
+  const hoyClave = claveDia(ahora);
+  const mananaClave = claveDia(new Date(ahoraMs + 86_400_000));
+  const claseClave = claveDia(mejor.clase.inicio);
+  const hora = horaLocal(mejor.clase.inicio);
+
+  let prefijoDia: string;
+  if (claseClave === hoyClave) {
+    prefijoDia = "Hoy";
+  } else if (claseClave === mananaClave) {
+    prefijoDia = "Mañana";
+  } else {
+    const crudo = fmtDiaCortoClase.format(new Date(mejor.inicioMs)).replace(/\./g, "");
+    prefijoDia = crudo.charAt(0).toUpperCase() + crudo.slice(1);
+  }
+
+  return {
+    reserva: mejor.reserva,
+    clase: mejor.clase,
+    actividadLabel: ACTIVIDAD_LABEL[mejor.clase.actividad] || mejor.clase.actividad,
+    horarioLabel: `${prefijoDia} · ${hora} hs`,
+  };
+}

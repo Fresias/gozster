@@ -20,10 +20,22 @@ vi.mock("@/store/use-chat-store", async (importOriginal) => {
   return { ...mod, useChatStore: hook };
 });
 
+vi.mock("@/store/use-clases-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-clases-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useClasesStore.getState()) : mod.useClasesStore.getState()),
+    mod.useClasesStore,
+  );
+  return { ...mod, useClasesStore: hook };
+});
+
 import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
 import { MembershipExpiredNotice } from "@/components/athlete/membership-paywall";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { DEFAULT_ATHLETE_SENDER, STAFF_COACH_PRINCIPAL, useChatStore } from "@/store/use-chat-store";
+import { useClasesStore } from "@/store/use-clases-store";
+import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { supabase } from "@/lib/supabase/client";
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 
 const PLAN_BASE: LiveSupabaseDataset = {
@@ -87,20 +99,30 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       errorPlan: false,
       nombrePreferido: null,
       sesionesCompletadas: [],
+      historialSesiones: [],
       membershipStatus: "ACTIVE",
     });
+    useClasesStore.setState({
+      clases: [],
+      misReservas: [],
+      agendaReservas: [],
+      testAhora: null,
+    });
+    useOfflineQueueStore.setState({ isOnline: true });
     useChatStore.getState().resetToDefaults();
     useChatStore.getState().markAsRead(DEFAULT_ATHLETE_SENDER.id);
   });
 
-  it("usa nombreParaSaludo: nombre_preferido primero, sino primer nombre de nombre_completo", () => {
+  it("usa nombreParaSaludo: nombre_preferido primero, sino primer nombre de nombre_completo, sin renderizar plan.nombre ni DE X", () => {
     useAthleteStore.setState({
       planAlumno: PLAN_BASE,
       nombrePreferido: "Lu",
     });
     const htmlPreferido = renderToStaticMarkup(<InicioMisDias />);
     expect(htmlPreferido).toContain("Hola, Lu");
-    expect(htmlPreferido).toContain("PLAN GENERAL");
+    expect(htmlPreferido).not.toContain("PLAN GENERAL");
+    expect(htmlPreferido).toContain("SEMANA ");
+    expect(htmlPreferido).not.toMatch(/SEMANA\s+\d+\s+DE\s+\d+/i);
 
     useAthleteStore.setState({
       planAlumno: PLAN_BASE,
@@ -243,5 +265,170 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       internals.H = prevDispatcher;
     }
     expect(useChatStore.getState().isAthleteChatOpen).toBe(true);
+  });
+
+  it("GIVEN plan iniciado hace 7 días y racha >= 1 THEN muestra SEMANA 2, Último entreno y chip Racha N sem", () => {
+    const hace7Dias = new Date(Date.now() - 7 * 86_400_000);
+    const fechaInicioStr = `${hace7Dias.getFullYear()}-${String(hace7Dias.getMonth() + 1).padStart(2, "0")}-${String(hace7Dias.getDate()).padStart(2, "0")}`;
+    useAthleteStore.setState({
+      planAlumno: {
+        ...PLAN_BASE,
+        planes: [{ ...PLAN_BASE.planes[0]!, fecha_inicio: fechaInicioStr, fecha_fin: null }],
+      },
+      sesionesCompletadas: [{ id: "s1", dia_id: "d1", fecha: new Date().toISOString() }],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain("SEMANA 2");
+    expect(html).not.toContain("PLAN GENERAL");
+    expect(html).not.toMatch(/SEMANA\s+\d+\s+DE\s+\d+/i);
+    expect(html).toContain('data-testid="ultimo-entreno-relativo"');
+    expect(html).toContain("Último entreno: Hoy");
+    expect(html).toContain('data-testid="racha-semanas-chip"');
+    expect(html).toContain("Racha 1 sem");
+
+    // Sin sesiones previas, el chip Racha no se muestra
+    useAthleteStore.setState({ sesionesCompletadas: [] });
+    const htmlSinRacha = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlSinRacha).not.toContain('data-testid="racha-semanas-chip"');
+  });
+
+  it("GIVEN reserva activa ANOTADO en clase PROGRAMADA THEN muestra tarjeta CLASE RESERVADA sin botones encima de TE TOCA HOY y desaparece al cancelar", () => {
+    useAthleteStore.setState({ planAlumno: PLAN_BASE });
+    useClasesStore.setState({
+      testAhora: "2026-11-20T12:00:00-03:00",
+      clases: [
+        {
+          id: "clase-uuid-1",
+          horario_id: null,
+          actividad: "FUNCIONAL",
+          inicio: "2026-11-20T19:00:00-03:00",
+          duracion_minutos: 60,
+          capacidad: 12,
+          estado: "PROGRAMADA",
+          motivo_cancelacion: null,
+          created_at: "2026-11-20T08:00:00Z",
+          updated_at: "2026-11-20T08:00:00Z",
+        },
+      ],
+      misReservas: [
+        {
+          id: "res-uuid-1",
+          clase_id: "clase-uuid-1",
+          alumno_id: "al-1",
+          estado: "ANOTADO",
+          created_at: "2026-11-20T09:00:00Z",
+          updated_at: "2026-11-20T09:00:00Z",
+        },
+      ],
+    });
+
+    const htmlActiva = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlActiva).toContain('data-testid="clase-reservada-card"');
+    expect(htmlActiva).toContain("CLASE RESERVADA");
+    expect(htmlActiva).toContain("Funcional");
+    expect(htmlActiva).toContain("Hoy · 19:00 hs");
+    // Ubicada encima de "Te toca hoy" y sin botones dentro de la tarjeta
+    expect(htmlActiva.indexOf('data-testid="clase-reservada-card"')).toBeLessThan(
+      htmlActiva.indexOf('data-testid="heroe-te-toca-hoy"'),
+    );
+    const cardHtml = htmlActiva.slice(
+      htmlActiva.indexOf('data-testid="clase-reservada-card"'),
+      htmlActiva.indexOf("</section>", htmlActiva.indexOf('data-testid="clase-reservada-card"')),
+    );
+    expect(cardHtml).not.toContain("<button");
+
+    // Baja del alumno -> desaparece
+    useClasesStore.setState({
+      misReservas: [{ ...useClasesStore.getState().misReservas[0]!, estado: "CANCELADO" }],
+    });
+    expect(renderToStaticMarkup(<InicioMisDias />)).not.toContain('data-testid="clase-reservada-card"');
+
+    // Clase cancelada por coach -> desaparece
+    useClasesStore.setState({
+      misReservas: [{ ...useClasesStore.getState().misReservas[0]!, estado: "ANOTADO" }],
+      clases: [{ ...useClasesStore.getState().clases[0]!, estado: "CANCELADA" }],
+    });
+    expect(renderToStaticMarkup(<InicioMisDias />)).not.toContain('data-testid="clase-reservada-card"');
+  });
+
+  it("useClasesStore.cargarClasesAlumno consulta Supabase con sesión real y preserva caché offline", async () => {
+    const uid = "11111111-1111-4111-8111-111111111111";
+    const claseId = "22222222-2222-4222-8222-222222222222";
+    const reservaId = "33333333-3333-4333-8333-333333333333";
+
+    const getUserSpy = vi.spyOn(supabase.auth, "getUser").mockResolvedValue({
+      data: { user: { id: uid } as any },
+      error: null,
+    } as any);
+    const fromSpy = vi.spyOn(supabase, "from").mockImplementation((table: string) => {
+      if (table === "clases") {
+        return {
+          select: () => ({
+            order: async () => ({
+              data: [
+                {
+                  id: claseId,
+                  horario_id: null,
+                  actividad: "BOXEO",
+                  inicio: "2026-11-21T19:00:00-03:00",
+                  duracion_minutos: 60,
+                  capacidad: 10,
+                  estado: "PROGRAMADA",
+                  motivo_cancelacion: null,
+                  created_at: "2026-11-20T10:00:00Z",
+                  updated_at: "2026-11-20T10:00:00Z",
+                },
+              ],
+              error: null,
+            }),
+          }),
+        } as any;
+      }
+      if (table === "reservas") {
+        return {
+          select: () => ({
+            eq: async () => ({
+              data: [
+                {
+                  id: reservaId,
+                  clase_id: claseId,
+                  alumno_id: uid,
+                  estado: "ANOTADO",
+                  created_at: "2026-11-20T10:00:00Z",
+                  updated_at: "2026-11-20T10:00:00Z",
+                },
+              ],
+              error: null,
+            }),
+          }),
+        } as any;
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            order: () => ({
+              limit: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    try {
+      await useClasesStore.getState().cargarClasesAlumno();
+      expect(useClasesStore.getState().clases[0]?.id).toBe(claseId);
+      expect(useClasesStore.getState().misReservas[0]?.id).toBe(reservaId);
+
+      // En offline conserva la caché real sin sobrescribir con dataset demo
+      useOfflineQueueStore.setState({ isOnline: false });
+      await useClasesStore.getState().cargarClasesAlumno();
+      expect(useClasesStore.getState().misReservas[0]?.id).toBe(reservaId);
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
   });
 });

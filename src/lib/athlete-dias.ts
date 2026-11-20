@@ -277,12 +277,15 @@ export function calcularUltimoDiaRealizado(
   };
 }
 
-/** Semana real del plan (1-based, hora local) a partir de `fecha_inicio`/`fecha_fin`. `total` es null si el plan no tiene fin. */
+/** Semana real del plan (1-based, hora local) desde `fecha_inicio` por bloques de 7 días corridos, sin tope por `fecha_fin`. */
 export function calcularSemanaPlan(
   fechaInicio: string,
   fechaFin: string | null,
   hoy: Date = new Date(),
 ): { actual: number; total: number | null } {
+  if (!fechaInicio) {
+    return { actual: 1, total: null };
+  }
   const DIA_MS = 86_400_000;
   const dia = (s: string) => {
     const [y = 0, m = 1, d = 1] = s.slice(0, 10).split("-").map(Number);
@@ -290,9 +293,67 @@ export function calcularSemanaPlan(
   };
   const hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const inicio = dia(fechaInicio);
+  if (Number.isNaN(inicio)) {
+    return { actual: 1, total: null };
+  }
   const total = fechaFin ? Math.max(1, Math.ceil((dia(fechaFin) - inicio + DIA_MS) / (7 * DIA_MS))) : null;
   const actual = Math.max(1, Math.floor((hoyUtc - inicio) / (7 * DIA_MS)) + 1);
-  return { actual: total ? Math.min(actual, total) : actual, total };
+  return { actual, total };
+}
+
+/**
+ * Devuelve la fecha ISO más reciente entre varias fuentes posibles de entrenamiento.
+ */
+export function obtenerUltimaFechaEntreno(
+  fechas: Array<string | null | undefined>,
+): string | null {
+  let mejorMs = -Infinity;
+  let mejorIso: string | null = null;
+  for (const f of fechas) {
+    if (!f) continue;
+    const ms = Date.parse(f);
+    if (!Number.isNaN(ms) && ms > mejorMs) {
+      mejorMs = ms;
+      mejorIso = f;
+    }
+  }
+  return mejorIso;
+}
+
+/**
+ * Calcula la racha consecutiva de semanas con al menos 1 sesión (hora local del gimnasio).
+ * Si la semana en curso aún no tiene sesiones, continúa desde la semana anterior cerrada.
+ */
+export function calcularRachaSemanas(
+  fechasSesiones: Array<string | Date | null | undefined>,
+  hoy: Date = new Date(),
+): number {
+  const semanasConEntreno = new Set<number>();
+  for (const raw of fechasSesiones) {
+    if (!raw) continue;
+    const d = typeof raw === "string" ? new Date(raw) : raw;
+    if (Number.isNaN(d.getTime())) continue;
+    semanasConEntreno.add(semanaEnCurso(d).inicio.getTime());
+  }
+  if (semanasConEntreno.size === 0) return 0;
+
+  const actualInicio = semanaEnCurso(hoy).inicio.getTime();
+  const prevInicio = semanaEnCurso(new Date(actualInicio - 3 * 86_400_000)).inicio.getTime();
+
+  let cursor = semanasConEntreno.has(actualInicio)
+    ? actualInicio
+    : semanasConEntreno.has(prevInicio)
+      ? prevInicio
+      : null;
+
+  if (cursor === null) return 0;
+
+  let racha = 0;
+  while (semanasConEntreno.has(cursor)) {
+    racha += 1;
+    cursor = semanaEnCurso(new Date(cursor - 3 * 86_400_000)).inicio.getTime();
+  }
+  return racha;
 }
 
 /** Etiqueta del día: antepone `Día {orden} ·` salvo que el coach ya nombró el día "Día N: ...". */

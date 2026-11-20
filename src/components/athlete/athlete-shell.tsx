@@ -12,7 +12,8 @@ import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
 import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { useChatStore } from "@/store/use-chat-store";
 import { cn } from "@/lib/utils";
-import { Check, LogOut, MessageSquare, Trophy } from "@/components/athlete/icons";
+import { Check, LogOut, MessageSquare, PlaneAndroid, PlaneIos, Trophy } from "@/components/athlete/icons";
+import { detectPhoneOS, type PhoneOS } from "@/components/athlete/instalar-app-card";
 
 const SERIES_SET_ACTIONS = new Set(["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"]);
 
@@ -80,6 +81,118 @@ export function estadoChipRed(
   return { texto: "Online", ariaLabel: "Online", esOff: false };
 }
 
+export interface IndicadorEstadoRedProps {
+  isOnline: boolean;
+  pendingSeriesCount: number;
+  syncingSeriesCount: number;
+  phoneOsOverride?: PhoneOS;
+  initialPopoverOpen?: boolean;
+}
+
+/**
+ * Indicador mínimo Online / Modo avión (1 ícono 18×18 px en botón 44×44 px) + popover explicativo.
+ */
+export function IndicadorEstadoRed({
+  isOnline,
+  pendingSeriesCount,
+  syncingSeriesCount,
+  phoneOsOverride,
+  initialPopoverOpen = false,
+}: IndicadorEstadoRedProps) {
+  const chip = estadoChipRed(isOnline, pendingSeriesCount, syncingSeriesCount);
+  const [phoneOS, setPhoneOS] = React.useState<PhoneOS>(() => phoneOsOverride ?? detectPhoneOS());
+  const [popoverOpen, setPopoverOpen] = React.useState(initialPopoverOpen);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    setPhoneOS(phoneOsOverride ?? detectPhoneOS());
+  }, [phoneOsOverride]);
+
+  React.useEffect(() => {
+    if (!popoverOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (wrapRef.current && event.target instanceof Node && !wrapRef.current.contains(event.target)) {
+        setPopoverOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPopoverOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [popoverOpen]);
+
+  const activeOs = phoneOsOverride ?? phoneOS;
+  const PlaneIcon = activeOs === "android" ? PlaneAndroid : PlaneIos;
+
+  return (
+    <div ref={wrapRef} className="a-net-wrap">
+      <button
+        ref={buttonRef}
+        type="button"
+        data-testid="chip-red"
+        aria-label={chip.ariaLabel}
+        aria-expanded={popoverOpen}
+        aria-haspopup="dialog"
+        onClick={() => setPopoverOpen((prev) => !prev)}
+        className={cn("a-net-btn", chip.esOff && "a-off")}
+      >
+        {isOnline ? (
+          <span className="a-net-dot" aria-hidden="true" data-testid="online-dot-icon" />
+        ) : (
+          <PlaneIcon
+            width={18}
+            height={18}
+            className="a-i"
+            data-testid={activeOs === "android" ? "plane-icon-android" : "plane-icon-ios"}
+          />
+        )}
+      </button>
+
+      {popoverOpen && (
+        <div
+          role="dialog"
+          aria-label="Estado de conexión"
+          className="a-net-popover"
+          data-testid="network-status-popover"
+        >
+          <div className="a-net-pop-row">
+            <span className="a-net-pop-ic" aria-hidden="true">
+              <span className="a-net-pop-dot" />
+            </span>
+            <div>
+              <b className="a-t-bs block">En línea</b>
+              <small className="a-t-sec a-muted">
+                Tus series se guardan y sincronizan al instante.
+              </small>
+            </div>
+          </div>
+
+          <div className="a-net-pop-row">
+            <span className="a-net-pop-ic" aria-hidden="true">
+              <PlaneIcon width={15} height={15} className="a-i" />
+            </span>
+            <div>
+              <b className="a-t-bs block">Modo avión</b>
+              <small className="a-t-sec a-muted">
+                Entrenás igual: se guarda en el teléfono y se envía al volver.
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ControlesSesion({
   isOnline,
   pendingSeriesCount,
@@ -89,20 +202,13 @@ function ControlesSesion({
   pendingSeriesCount: number;
   syncingSeriesCount: number;
 }) {
-  const chip = estadoChipRed(isOnline, pendingSeriesCount, syncingSeriesCount);
-
   return (
     <>
-      <span
-        data-testid="chip-red"
-        role="status"
-        aria-live="polite"
-        aria-label={chip.ariaLabel}
-        className={cn("a-net a-t-sec", chip.esOff && "a-off")}
-      >
-        <i aria-hidden="true" />
-        {chip.texto}
-      </span>
+      <IndicadorEstadoRed
+        isOnline={isOnline}
+        pendingSeriesCount={pendingSeriesCount}
+        syncingSeriesCount={syncingSeriesCount}
+      />
       <AthleteThemeButton />
       <button
         type="button"

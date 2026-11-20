@@ -159,10 +159,11 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(html).toContain("hidden dark:block");
       expect(html).toContain("a-logo");
 
-      // Chip Online v7
+      // Indicador Online v7: solo círculo verde (sin texto visible "Online" ni círculo envolvente)
       expect(html).toContain('data-testid="chip-red"');
-      expect(html).toContain("Online");
-      expect(html).toContain("a-net");
+      expect(html).toContain('data-testid="online-dot-icon"');
+      expect(html).toContain("a-net-btn");
+      expect(html).not.toContain(">Online<");
 
       // Botón Cerrar Sesión con .a-icon-btn y texto sr-only
       expect(html).toContain("a-icon-btn");
@@ -170,7 +171,7 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(html).toContain('<span class="sr-only">Cerrar Sesión</span>');
     });
 
-    it("GIVEN desconexión THEN el chip de red muestra 'Sin señal · se guarda igual' y clase a-off (y conteo con series pendientes)", () => {
+    it("GIVEN desconexión THEN el indicador de red muestra ícono avión SVG (sin texto visible) y aria-label accesible", () => {
       useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
 
       const htmlSinPendientes = renderToStaticMarkup(
@@ -179,7 +180,10 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
         </AthleteShell>,
       );
 
-      expect(htmlSinPendientes).toContain("Sin señal · se guarda igual");
+      expect(htmlSinPendientes).toContain('data-testid="plane-icon-ios"');
+      expect(htmlSinPendientes).not.toContain('data-testid="online-dot-icon"');
+      expect(htmlSinPendientes).toContain('aria-label="Sin señal · se guarda igual"');
+      expect(htmlSinPendientes).not.toContain(">Sin señal · se guarda igual<");
       expect(htmlSinPendientes).toContain("a-off");
 
       useOfflineQueueStore.setState({
@@ -196,8 +200,9 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
         </AthleteShell>,
       );
 
-      expect(htmlConPendientes).toContain("Sin señal · 2 series");
+      expect(htmlConPendientes).toContain('data-testid="plane-icon-ios"');
       expect(htmlConPendientes).toContain('aria-label="Sin señal, 2 series guardadas en el teléfono"');
+      expect(htmlConPendientes).not.toContain(">Sin señal · 2 series<");
     });
 
     it("GIVEN navegación inferior v7 THEN cuenta con las 4 secciones, pastilla .a-ni y aria-current='page'", () => {

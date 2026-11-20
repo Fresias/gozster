@@ -50,7 +50,12 @@ vi.mock("@/store/use-chat-store", async (importOriginal) => {
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
 import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
 import { AthleteChat } from "@/components/athlete/athlete-chat";
-import { AthleteShell, debeOcultarNavegacion, estadoChipRed } from "@/components/athlete/athlete-shell";
+import {
+  AthleteShell,
+  debeOcultarNavegacion,
+  estadoChipRed,
+  IndicadorEstadoRed,
+} from "@/components/athlete/athlete-shell";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { DEFAULT_ATHLETE_SENDER, STAFF_COACH_PRINCIPAL, useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -122,7 +127,7 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
     });
   });
 
-  it("AthleteShell renderiza encabezado .a-ahead, logo de 19px y chip-red sin banda .a-chev", () => {
+  it("AthleteShell renderiza encabezado .a-ahead, logo de 19px y 1 solo ícono verde (online) sin texto ni .a-chev", () => {
     const html = renderToStaticMarkup(
       <AthleteShell>
         <div>Contenido</div>
@@ -132,13 +137,16 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
     expect(html).not.toContain("a-chev");
     expect(html).toContain("a-ahead");
     expect(html).toContain('data-testid="chip-red"');
-    expect(html).toContain("Online");
+    expect(html).toContain('data-testid="online-dot-icon"');
+    expect(html).not.toContain('data-testid="plane-icon-ios"');
+    expect(html).not.toContain('data-testid="plane-icon-android"');
+    expect(html).not.toContain(">Online<");
     expect(html).toContain("a-logo");
     expect(html).toContain('aria-label="Cerrar sesión"');
-    expect(html).not.toContain("Modo Avión");
+    expect(html).not.toContain('data-testid="network-status-popover"');
   });
 
-  it("AthleteShell sin señal y con series pendientes muestra 'Sin señal · 3 series'", () => {
+  it("AthleteShell sin señal muestra solo el ícono de avión SVG (sin texto visible) y aria-label con series pendientes", () => {
     useOfflineQueueStore.setState({
       isOnline: false,
       pendingEvents: [
@@ -155,9 +163,88 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
       </AthleteShell>,
     );
 
-    expect(html).toContain("Sin señal · 3 series");
+    expect(html).toContain('data-testid="plane-icon-ios"');
+    expect(html).not.toContain('data-testid="online-dot-icon"');
+    expect(html).not.toContain(">Sin señal · 3 series<");
     expect(html).toContain('aria-label="Sin señal, 3 series guardadas en el teléfono"');
     expect(html).toContain("a-off");
+  });
+
+  it("IndicadorEstadoRed diferencia SVG iOS vs Android en offline y abre popover breve role='dialog'", () => {
+    const htmlIos = renderToStaticMarkup(
+      <IndicadorEstadoRed isOnline={false} pendingSeriesCount={0} syncingSeriesCount={0} phoneOsOverride="ios" />,
+    );
+    expect(htmlIos).toContain('data-testid="plane-icon-ios"');
+    expect(htmlIos).toContain("M22.2 12c0");
+
+    const htmlAndroid = renderToStaticMarkup(
+      <IndicadorEstadoRed isOnline={false} pendingSeriesCount={0} syncingSeriesCount={0} phoneOsOverride="android" />,
+    );
+    expect(htmlAndroid).toContain('data-testid="plane-icon-android"');
+    expect(htmlAndroid).toContain("M21 16v-2l-8-5V3.5");
+
+    const htmlPopover = renderToStaticMarkup(
+      <IndicadorEstadoRed
+        isOnline={false}
+        pendingSeriesCount={0}
+        syncingSeriesCount={0}
+        phoneOsOverride="ios"
+        initialPopoverOpen={true}
+      />,
+    );
+    expect(htmlPopover).toContain('data-testid="network-status-popover"');
+    expect(htmlPopover).toContain('role="dialog"');
+    expect(htmlPopover).toContain("En línea");
+    expect(htmlPopover).toContain("Modo avión");
+    expect(htmlPopover).toContain("Tus series se guardan y sincronizan al instante.");
+    expect(htmlPopover).toContain("Entrenás igual: se guarda en el teléfono y se envía al volver.");
+
+    // Verificar interacción de toggle, Escape y clic afuera con hooks stub
+    let setPopoverMock = vi.fn();
+    let cleanupFn: (() => void) | undefined;
+    const listeners: Record<string, (e: any) => void> = {};
+    const prevDoc = (globalThis as any).document;
+    (globalThis as any).document = {
+      addEventListener: (ev: string, fn: (e: any) => void) => {
+        listeners[ev] = fn;
+      },
+      removeEventListener: vi.fn(),
+    };
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const prevDispatcher = internals.H;
+    let stateCall = 0;
+    internals.H = {
+      useState: (init: unknown) => {
+        stateCall += 1;
+        const val = typeof init === "function" ? (init as () => unknown)() : init;
+        if (stateCall === 2) return [true, setPopoverMock];
+        return [val, vi.fn()];
+      },
+      useEffect: (fn: () => void | (() => void)) => {
+        const res = fn();
+        if (typeof res === "function") cleanupFn = res;
+      },
+      useMemo: (fn: () => unknown) => fn(),
+      useCallback: (fn: unknown) => fn,
+      useRef: (v: unknown) => ({ current: v }),
+    };
+    try {
+      const tree = IndicadorEstadoRed({
+        isOnline: true,
+        pendingSeriesCount: 0,
+        syncingSeriesCount: 0,
+      }) as any;
+      const btn = tree.props.children[0];
+      btn.props.onClick();
+      expect(setPopoverMock).toHaveBeenCalledTimes(1);
+      // Escape cierra el popover
+      listeners.keydown?.({ key: "Escape" });
+      expect(setPopoverMock).toHaveBeenCalledWith(false);
+      cleanupFn?.();
+    } finally {
+      internals.H = prevDispatcher;
+      (globalThis as any).document = prevDoc;
+    }
   });
 
   it("AthleteBottomNav renderiza 4 secciones con .a-ni y aria-current='page' en /athlete", () => {

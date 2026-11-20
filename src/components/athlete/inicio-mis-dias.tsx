@@ -3,17 +3,22 @@
 import * as React from "react";
 import { DEFAULT_ATHLETE_ID, useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
+import { useClasesStore } from "@/store/use-clases-store";
 import { getStorageUser } from "@/lib/user-storage";
 import { createClient } from "@/lib/supabase/browser";
 import {
   calcularEstadosDias,
+  calcularRachaSemanas,
   calcularSemanaPlan,
   etiquetaDia,
+  formatearFechaUltimoEntrenamiento,
+  obtenerUltimaFechaEntreno,
   primerNombre,
   saludoAlumno,
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
+import { obtenerProximaClaseReservada } from "@/lib/clases";
 import { nombreParaSaludo } from "@/lib/athlete/nombre";
 
 export { primerNombre, saludoAlumno };
@@ -48,6 +53,7 @@ export function InicioMisDias() {
     diaElegidoHoyId,
     motivoCambioDia,
     sesionesCompletadas,
+    historialSesiones,
     empezarDia,
     elegirOtroDia,
     deshacerCambioDia,
@@ -58,6 +64,12 @@ export function InicioMisDias() {
     rpeReminderNotification,
     nombrePreferido,
   } = useAthleteStore();
+
+  const clases = useClasesStore((s) => s.clases);
+  const misReservas = useClasesStore((s) => s.misReservas);
+  const testAhoraClases = useClasesStore((s) => s.testAhora);
+  const cargarClasesAlumno = useClasesStore((s) => s.cargarClasesAlumno);
+  const subscribeClasesRealtime = useClasesStore((s) => s.subscribeToRealtime);
 
   const { getLatestUnreadPushStaffMessage, setAthleteChatOpen } = useChatStore();
   const [authUserId, setAuthUserId] = React.useState<string | null>(() => getStorageUser());
@@ -115,6 +127,17 @@ export function InicioMisDias() {
   React.useEffect(() => {
     void cargarPlanAlumno();
   }, [cargarPlanAlumno]);
+
+  React.useEffect(() => {
+    void cargarClasesAlumno();
+  }, [cargarClasesAlumno]);
+
+  React.useEffect(() => {
+    if (!resolvedAlumnoId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedAlumnoId)) {
+      return;
+    }
+    return subscribeClasesRealtime(resolvedAlumnoId);
+  }, [resolvedAlumnoId, subscribeClasesRealtime]);
 
   React.useEffect(() => {
     if (!cargandoPlan || planAlumno !== null) {
@@ -275,6 +298,32 @@ export function InicioMisDias() {
   }, []);
 
   const semanaPlan = plan ? calcularSemanaPlan(plan.fecha_inicio, plan.fecha_fin) : { actual: 1, total: null };
+  const fechasSesiones = React.useMemo(
+    () => [
+      student?.ultimo_entreno_at,
+      ...sesionesCompletadas.map((s) => s.fecha),
+      ...historialSesiones.map((h) => h.sesion?.fecha),
+    ],
+    [student?.ultimo_entreno_at, sesionesCompletadas, historialSesiones],
+  );
+  const ultimoEntrenoRelativo = React.useMemo(() => {
+    const ultima = obtenerUltimaFechaEntreno(fechasSesiones);
+    return ultima ? formatearFechaUltimoEntrenamiento(ultima).tiempoRelativo : "";
+  }, [fechasSesiones]);
+  const rachaSemanas = React.useMemo(
+    () => calcularRachaSemanas(fechasSesiones),
+    [fechasSesiones],
+  );
+  const proximaClaseReservada = React.useMemo(
+    () =>
+      obtenerProximaClaseReservada(
+        misReservas,
+        clases,
+        testAhoraClases ? new Date(testAhoraClases) : new Date(),
+      ),
+    [misReservas, clases, testAhoraClases],
+  );
+
   const diaHero = diaActivoHoy || diasConEstado[0];
   const sesionIniciada = Boolean(
     diaHero &&
@@ -415,6 +464,22 @@ export function InicioMisDias() {
     </button>
   ) : null;
 
+  const tarjetaClaseReservada = proximaClaseReservada ? (
+    <section
+      aria-label="Clase reservada"
+      className="a-hero a-hero-notice"
+      data-testid="clase-reservada-card"
+    >
+      <div className="a-hp">
+        <span className="a-t-label a-eh">CLASE RESERVADA</span>
+        <h2 className="a-t-d uppercase mt-[6px]">
+          {proximaClaseReservada.actividadLabel}
+        </h2>
+        <small className="a-t-sec">{proximaClaseReservada.horarioLabel}</small>
+      </div>
+    </section>
+  ) : null;
+
   if (diasItems.length === 0) {
     if (!planAlumno) {
       if (errorPlan) {
@@ -470,10 +535,18 @@ export function InicioMisDias() {
     return (
       <div className="a-view a-anim" data-testid="inicio-sin-plan">
         <div className="a-hello">
-          <span className="a-t-sec a-muted">{saludoTexto}</span>
+          <div className="a-hello-top">
+            <span className="a-t-sec a-muted">{saludoTexto}</span>
+            {ultimoEntrenoRelativo && (
+              <span className="a-t-sec a-muted whitespace-nowrap" data-testid="ultimo-entreno-relativo">
+                Último entreno: {ultimoEntrenoRelativo}
+              </span>
+            )}
+          </div>
         </div>
         {bannerMensajeNoLeido}
         {tarjetaRecordatorioPeso}
+        {tarjetaClaseReservada}
         <section className="a-card a-state">
           <span className="a-ic">
             <ClipboardList width={24} height={24} className="a-i" />
@@ -497,14 +570,26 @@ export function InicioMisDias() {
 
   return (
     <div className="a-view a-anim" data-testid="inicio-mis-dias-container">
-      {/* Saludo y Plan */}
-      <div className="a-hello">
-        <span className="a-t-sec a-muted">{saludoTexto}</span>
-        <h1 className="a-t-d uppercase">{plan?.nombre ?? "Tu plan"}</h1>
-        <span className="a-t-sec a-muted">
-          Semana {semanaPlan.actual}
-          {semanaPlan.total !== null ? ` de ${semanaPlan.total}` : ""}
-        </span>
+      {/* Saludo y Semana del Plan (Opción 2 compacta, 52 px) */}
+      <div className="a-hello" data-testid="inicio-cabecera-hola">
+        <div className="a-hello-top">
+          <span className="a-t-sec a-muted">{saludoTexto}</span>
+          {ultimoEntrenoRelativo && (
+            <span className="a-t-sec a-muted whitespace-nowrap" data-testid="ultimo-entreno-relativo">
+              Último entreno: {ultimoEntrenoRelativo}
+            </span>
+          )}
+        </div>
+        <div className="a-hello-bot">
+          <h1 className="a-hello-week uppercase" data-testid="semana-plan-titulo">
+            SEMANA {semanaPlan.actual}
+          </h1>
+          {rachaSemanas >= 1 && (
+            <span className="a-chip a-ok a-t-label" data-testid="racha-semanas-chip">
+              Racha {rachaSemanas} sem
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Aviso prominente de mensaje no leído del Coach */}
@@ -533,6 +618,9 @@ export function InicioMisDias() {
           </span>
         </section>
       )}
+
+      {/* Aviso de próxima clase reservada activa (sin acciones) */}
+      {tarjetaClaseReservada}
 
       {/* Héroe "Te toca hoy" (invertido de noche) */}
       {diaHero && (

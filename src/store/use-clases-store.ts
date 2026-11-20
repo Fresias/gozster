@@ -22,6 +22,8 @@ import {
 import type { ActividadClase, Clase, Contratacion, PlanMembresia, Reserva } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const NOMBRE_ACTIVIDAD: Record<string, string> = {
   FUNCIONAL: "Funcional",
   BOXEO: "Boxeo",
@@ -75,6 +77,7 @@ interface ClasesState {
   aviso: string | null;
 
   cargarClasesAlumno: () => Promise<void>;
+  subscribeToRealtime: (alumnoId?: string) => () => void;
   reservar: (claseId: string) => Promise<void>;
   cancelarReserva: (reservaId: string) => Promise<void>;
   cargarAgenda: () => Promise<void>;
@@ -202,6 +205,70 @@ export const useClasesStore = create<ClasesState>()(
 
       cargarClasesAlumno: async () => {
         const { inicio } = semanaEnCurso();
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+
+        if (isOnline && typeof supabase?.auth?.getUser === "function" && typeof supabase?.from === "function") {
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            const userId = authData?.user?.id;
+            if (userId) {
+              const [clasesRes, reservasRes, contratacionRes] = await Promise.all([
+                supabase.from("clases").select("*").order("inicio", { ascending: true }),
+                supabase.from("reservas").select("*").eq("alumno_id", userId),
+                supabase
+                  .from("contrataciones")
+                  .select("*")
+                  .eq("alumno_id", userId)
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle(),
+              ]);
+
+              if (!clasesRes.error && !reservasRes.error && Array.isArray(clasesRes.data) && Array.isArray(reservasRes.data)) {
+                const clasesReales = clasesRes.data as Clase[];
+                const reservasReales = reservasRes.data as Reserva[];
+                const contratacionReal = !contratacionRes.error ? (contratacionRes.data as Contratacion | null) : get().membresia;
+                let planReal = get().plan;
+                if (contratacionReal?.plan_membresia_id) {
+                  const planRes = await supabase
+                    .from("planes_membresia")
+                    .select("*")
+                    .eq("id", contratacionReal.plan_membresia_id)
+                    .maybeSingle();
+                  if (!planRes.error && planRes.data) {
+                    planReal = planRes.data as PlanMembresia;
+                  }
+                } else if (!contratacionRes.error && contratacionReal === null) {
+                  planReal = null;
+                }
+
+                set({
+                  semanaInicio: inicio.toISOString(),
+                  clases: clasesReales,
+                  misReservas: reservasReales,
+                  membresia: contratacionReal ?? null,
+                  plan: planReal,
+                  actualizadoAt: new Date().toISOString(),
+                  cargando: false,
+                  error: null,
+                });
+                return;
+              }
+            }
+          } catch {
+            // Fallback offline-first: conservar caché real si existe, o dataset demo
+          }
+        }
+
+        // Caché offline-first de sesión real: no pisar reservas reales con dataset demo
+        const tieneCacheReal =
+          get().misReservas.some((r) => UUID_RE.test(r.id)) ||
+          get().clases.some((c) => UUID_RE.test(c.id));
+        if (tieneCacheReal) {
+          set({ cargando: false });
+          return;
+        }
+
         const clases = get().clases.length ? get().clases : generarDemoClasesSemana();
         const agendaReservas = get().agendaReservas.length ? get().agendaReservas : generarDemoReservasIniciales();
         const alumnoId = get().demoAlumnoId || "demo-alumno-valentina";
@@ -230,6 +297,77 @@ export const useClasesStore = create<ClasesState>()(
           actualizadoAt: new Date().toISOString(),
           cargando: false,
         });
+      },
+
+      subscribeToRealtime: (alumnoId?: string) => {
+        if (typeof supabase?.channel !== "function") return () => {};
+        const channelName = alumnoId ? `clases-reservas-${alumnoId}` : "clases-reservas-global";
+        const channel = supabase
+          .channel(channelName)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "reservas" },
+            (payload: any) => {
+              const eventType = payload?.eventType as string | undefined;
+              const newRow = payload?.new as Reserva | undefined;
+              const oldRow = payload?.old as Partial<Reserva> | undefined;
+
+              if (eventType === "DELETE" && oldRow?.id) {
+                set((state) => ({
+                  misReservas: state.misReservas.filter((r) => r.id !== oldRow.id),
+                  agendaReservas: state.agendaReservas.filter((r) => r.id !== oldRow.id),
+                }));
+                return;
+              }
+
+              if (!newRow?.id) return;
+              if (alumnoId && newRow.alumno_id !== alumnoId) return;
+
+              set((state) => {
+                const exists = state.misReservas.some((r) => r.id === newRow.id);
+                const misReservas = exists
+                  ? state.misReservas.map((r) => (r.id === newRow.id ? newRow : r))
+                  : [...state.misReservas, newRow];
+                return { misReservas };
+              });
+
+              if (!get().clases.some((c) => c.id === newRow.clase_id)) {
+                void get().cargarClasesAlumno();
+              }
+            },
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "clases" },
+            (payload: any) => {
+              const eventType = payload?.eventType as string | undefined;
+              const newRow = payload?.new as Clase | undefined;
+              const oldRow = payload?.old as Partial<Clase> | undefined;
+
+              if (eventType === "DELETE" && oldRow?.id) {
+                set((state) => ({
+                  clases: state.clases.filter((c) => c.id !== oldRow.id),
+                }));
+                return;
+              }
+
+              if (!newRow?.id) return;
+              set((state) => {
+                const exists = state.clases.some((c) => c.id === newRow.id);
+                const clases = exists
+                  ? state.clases.map((c) => (c.id === newRow.id ? newRow : c))
+                  : [...state.clases, newRow];
+                return { clases };
+              });
+            },
+          )
+          .subscribe();
+
+        return () => {
+          if (typeof supabase?.removeChannel === "function") {
+            void supabase.removeChannel(channel);
+          }
+        };
       },
 
       reservar: async (claseId) => {
@@ -422,7 +560,6 @@ export const useClasesStore = create<ClasesState>()(
           (r) => r.clase_id === claseId && ocupaCupo(r),
         );
 
-        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const isClaseUuid = UUID_RE.test(claseId);
         const isOnline = useOfflineQueueStore.getState().isOnline;
         let syncedViaRpc = false;

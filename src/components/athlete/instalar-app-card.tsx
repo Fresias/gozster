@@ -7,7 +7,7 @@ import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 const STORAGE_INSTALLED_KEY = "gozster-app-instalada";
 const STORAGE_DISMISSED_KEY = "gozster-install-dismissed";
 
-type PhoneOS = "ios" | "android";
+export type PhoneOS = "ios" | "android";
 
 const STEPS_BY_OS: Record<PhoneOS, string[]> = {
   ios: [
@@ -24,7 +24,7 @@ const STEPS_BY_OS: Record<PhoneOS, string[]> = {
   ],
 };
 
-function detectPhoneOS(): PhoneOS {
+export function detectPhoneOS(): PhoneOS {
   if (typeof navigator === "undefined") return "ios";
   return /android/i.test(navigator.userAgent) ? "android" : "ios";
 }
