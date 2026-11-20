@@ -104,6 +104,7 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       expect(onboardingCode).toContain("a-onb-wrap");
       expect(onboardingCode).toContain("a-preview");
       expect(onboardingCode).toContain("a-opt");
+      expect(onboardingCode).not.toContain("a-chev");
       expect(onboardingCode).not.toMatch(/🎬|🏆|#[0-9a-fA-F]{6}/);
     });
 

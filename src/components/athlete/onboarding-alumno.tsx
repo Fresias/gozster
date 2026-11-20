@@ -150,7 +150,6 @@ export function OnboardingAlumno({
         aria-label="Bienvenida a GOZSter"
         className="a-dk a-dk-onb"
       >
-        <div className="a-chev" aria-hidden="true" />
         <div className="a-dk-wedge" aria-hidden="true" />
         <div className="a-bigG" aria-hidden="true">
           G
@@ -218,7 +217,6 @@ export function OnboardingAlumno({
       aria-label="Bienvenida a GOZSter"
       className="a-onb-wrap"
     >
-      <div className="a-chev" aria-hidden="true" />
       <div className="a-scroll">
         <div className="a-view">
           {paso === 2 && (
