@@ -10,7 +10,6 @@ import { getStorageUser } from "@/lib/user-storage";
 import { createClient } from "@/lib/supabase/browser";
 import { AthleteThemeButton } from "@/components/athlete/athlete-theme-button";
 import { AthleteBottomNav } from "@/components/athlete/athlete-bottom-nav";
-import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { useChatStore } from "@/store/use-chat-store";
 import { cn } from "@/lib/utils";
 import { Check, LogOut, MessageSquare, Trophy } from "@/components/athlete/icons";
@@ -270,12 +269,6 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
             syncingSeriesCount={syncingSeriesCount}
           />
         </header>
-
-        <ModeSwitcher
-          current="athlete"
-          showReturnButton={true}
-          className="mt-2 w-full justify-between rounded-xl border border-border bg-card px-4 py-2"
-        />
 
         <main className="mt-3 space-y-4">
           {children}
