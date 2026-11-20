@@ -45,6 +45,12 @@ export function AvisoMolestia({
   const m = aviso.molestia;
   const zonaLabel = ZONA_LABEL[m.zona] ?? m.zona;
   const head = `${zonaLabel} · ${m.eva}/10`;
+  const errorEnvio =
+    m.envio === "error" ? (
+      <small className="a-t-sec" data-testid="molestia-envio-error">
+        No se pudo enviar el reporte al servidor. Avisá a tu coach en persona.
+      </small>
+    ) : null;
 
   if (m.nivel === "alarma") {
     return (
@@ -60,6 +66,7 @@ export function AvisoMolestia({
           <small className="a-t-sec">
             {head}. Avisá en el gimnasio o a tu entrenador cercano. Tu coach ya recibió una alerta.
           </small>
+          {errorEnvio}
           {onTerminarSesion && (
             <button
               type="button"
@@ -90,6 +97,7 @@ export function AvisoMolestia({
           <small className="a-t-sec">
             {head}. Seguí con el resto solo si no te molesta. Tu coach ya fue avisado.
           </small>
+          {errorEnvio}
         </span>
       </div>
     );
@@ -109,6 +117,7 @@ export function AvisoMolestia({
           <small className="a-t-sec">
             Avisamos a tu coach. Si sigue, bajá el peso en las próximas series.
           </small>
+          {errorEnvio}
         </span>
       </div>
     );
@@ -127,6 +136,7 @@ export function AvisoMolestia({
         <small className="a-t-sec">
           Avisamos a tu coach. Seguí con precaución según cómo te sientas.
         </small>
+        {errorEnvio}
       </span>
     </div>
   );

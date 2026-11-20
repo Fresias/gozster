@@ -3,10 +3,13 @@ import { PGlite, type Transaction } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
 import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
+import { AvisoMolestia } from "@/components/athlete/aviso-molestia";
 
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261119030000_molestias_sesion.sql";
@@ -571,4 +574,72 @@ describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () =>
     expect(shellCode).toContain("flushMolestiasPendientes");
     expect(shellCode).toContain("cargarMolestiasDeSesion");
   });
+
+  it.each([
+    ["PGRST202", "Could not find the function public.registrar_molestia"],
+    ["42883", "function public.registrar_molestia does not exist"],
+    ["42P01", 'relation "public.alumno_historial_dolor" does not exist'],
+  ] as const)(
+    "R4 · código permanente %s marca envio error, registra en errores_app y activa aviso visible al alumno",
+    async (code, message) => {
+      useOfflineQueueStore.setState({ isOnline: true, pendingEvents: [], syncError: null });
+      const erroresInsertSpy = vi.fn().mockResolvedValue({ data: null, error: null });
+      vi.spyOn(supabase.auth, "getUser").mockResolvedValue({
+        data: { user: { id: ALUMNO_A } as any },
+        error: null,
+      });
+      const fromSpy = vi.spyOn(supabase, "from").mockImplementation((table: string) => {
+        if (table === "errores_app") {
+          return { insert: erroresInsertSpy } as any;
+        }
+        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
+      });
+      const rpcSpy = vi
+        .spyOn(supabase, "rpc")
+        .mockResolvedValue({ data: null, error: { code, message } } as any);
+
+      const molestia = await useAthleteStore.getState().reportarMolestia({
+        ejercicioEnRutinaId: EJ_RUTINA_UUID,
+        ejercicioId: EJ_CATALOGO_UUID,
+        zona: "HOMBRO",
+        eva: 5,
+      });
+
+      expect(molestia.envio).toBe("error");
+      expect(rpcSpy).toHaveBeenCalledTimes(1);
+      expect(fromSpy).toHaveBeenCalledWith("errores_app");
+      expect(erroresInsertSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          usuario_id: ALUMNO_A,
+          contexto: "molestia",
+          mensaje_humano: "No se pudo guardar el reporte de molestia.",
+          payload_resumen: expect.objectContaining({
+            id: molestia.id,
+            sesion_id: SESION_UUID,
+            code,
+          }),
+        }),
+      );
+
+      // No se reintenta en bucle al volver a llamar flushMolestiasPendientes
+      await useAthleteStore.getState().flushMolestiasPendientes();
+      expect(rpcSpy).toHaveBeenCalledTimes(1);
+
+      // Aviso visible en barra de sincronización
+      expect(useOfflineQueueStore.getState().syncError).toBe(
+        "No pudimos guardar el reporte de molestia. Avisá a tu coach.",
+      );
+
+      // Aviso visible en AvisoMolestia con envio === "error"
+      const aviso = avisoMolestiaPara(
+        { id: EJ_RUTINA_UUID, musculos_principales: ["Pecho"] },
+        useAthleteStore.getState().currentSession.molestias ?? [],
+      );
+      const html = renderToStaticMarkup(React.createElement(AvisoMolestia, { aviso }));
+      expect(html).toContain('data-testid="molestia-envio-error"');
+      expect(html).toContain(
+        "No se pudo enviar el reporte al servidor. Avisá a tu coach en persona.",
+      );
+    },
+  );
 });

@@ -477,7 +477,13 @@ const defaultSession: LiveWorkoutSession = {
   ],
 };
 
-const PERMANENT_MOLESTIA_CODES = new Set(["42501", "23514"]);
+const PERMANENT_MOLESTIA_CODES = new Set([
+  "42501",
+  "23514",
+  "PGRST202",
+  "42883",
+  "42P01",
+]);
 
 function fusionarPendientesFueraDeSesion(
   fueraActual: MolestiaSesion[],
@@ -539,6 +545,9 @@ async function enviarMolestiaRpc(
       } catch {
         // Silencioso si el registro en errores_app falla
       }
+      useOfflineQueueStore
+        .getState()
+        .setSyncError("No pudimos guardar el reporte de molestia. Avisá a tu coach.");
       return "error";
     }
 
