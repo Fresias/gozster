@@ -953,7 +953,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           plan_membresia_id: string | null;
-          actividad: ActividadClase | null;
+          actividad: ActividadAlumno | null;
           precio_pactado: number | null;
         };
         Insert: {
@@ -968,7 +968,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           plan_membresia_id?: string | null;
-          actividad?: ActividadClase | null;
+          actividad?: ActividadAlumno | null;
           precio_pactado?: number | null;
         };
         Update: {
@@ -983,7 +983,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           plan_membresia_id?: string | null;
-          actividad?: ActividadClase | null;
+          actividad?: ActividadAlumno | null;
           precio_pactado?: number | null;
         };
         Relationships: [
@@ -1149,6 +1149,8 @@ export interface Database {
           monto: number;
           fecha_vencimiento: string;
           estado: EstadoCobro;
+          concepto: string | null;
+          notas: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1160,6 +1162,8 @@ export interface Database {
           monto: number;
           fecha_vencimiento: string;
           estado?: EstadoCobro;
+          concepto?: string | null;
+          notas?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1171,6 +1175,8 @@ export interface Database {
           monto?: number;
           fecha_vencimiento?: string;
           estado?: EstadoCobro;
+          concepto?: string | null;
+          notas?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -2149,11 +2155,35 @@ export interface Database {
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
       };
+      asignar_suscripcion_y_cobro: {
+        Args: {
+          p_alumno_id: string;
+          p_plan_id?: string | null;
+          p_actividad?: ActividadAlumno | null;
+          p_monto?: number | null;
+          p_pagado?: boolean;
+          p_medio_pago?: MedioPago | 'MERCADO_PAGO';
+          p_es_adicional?: boolean;
+          p_concepto?: string | null;
+          p_nota?: string | null;
+          p_veces_por_semana?: number | null;
+          p_pase_libre?: boolean;
+        };
+        Returns: {
+          contratacion_id: string;
+          cobro_id: string;
+          pago_id: string | null;
+          estado_cobro: EstadoCobro;
+          monto: number;
+          concepto: string | null;
+        }[];
+      };
       registrar_pago: {
         Args: {
           p_cobro_id: string;
           p_monto: number;
           p_metodo: MedioPago | 'MERCADO_PAGO';
+          p_nota: string | null;
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
       };
