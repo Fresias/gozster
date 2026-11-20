@@ -25,6 +25,7 @@ import type {
   AlumnoActividad,
   Clase,
   Contratacion,
+  Database,
   PlanMembresia,
   Reserva,
 } from "@/types/database.types";
@@ -1334,13 +1335,15 @@ export const useClasesStore = create<ClasesState>()(
 
         const userId = await getAuthenticatedUserId();
         if (userId && UUID_RE.test(claseId)) {
-          const payload: Record<string, unknown> = { updated_at: updatedAt };
+          const payload: Database["public"]["Tables"]["clases"]["Update"] = {
+            updated_at: updatedAt,
+          };
           if (datos.actividad !== undefined) payload.actividad = datos.actividad;
           if (datos.inicio !== undefined) payload.inicio = datos.inicio;
           if (datos.duracion_minutos !== undefined) payload.duracion_minutos = datos.duracion_minutos;
           if (datos.capacidad !== undefined) payload.capacidad = datos.capacidad;
 
-          const { data, error } = await (supabase as any)
+          const { data, error } = await supabase
             .from("clases")
             .update(payload)
             .eq("id", claseId)
@@ -1348,12 +1351,20 @@ export const useClasesStore = create<ClasesState>()(
             .maybeSingle();
 
           if (error) {
-            set({ error: extraerMensajeRpcError(error, "No pudimos actualizar la clase.") });
+            set({
+              error: extraerMensajeRpcError(error, "No pudimos actualizar la clase."),
+              aviso: null,
+            });
             return false;
           }
-          if (data) {
-            claseActualizada = data as Clase;
+          if (!data) {
+            set({
+              error: "No pudimos guardar los cambios de la clase.",
+              aviso: null,
+            });
+            return false;
           }
+          claseActualizada = data;
         }
 
         const sinCupo = recalcularSinCupoClase(

@@ -96,9 +96,31 @@ describe("GOZS-638: Agenda Online Real, recurrencia, des-cancelar, Listo unifica
       });
       expect(failOk).toBe(false);
       expect(useClasesStore.getState().error).toBeTruthy();
+      expect(useClasesStore.getState().aviso).toBeNull();
       expect(useClasesStore.getState().clases[0]?.actividad).toBe("FUNCIONAL");
 
-      // 2) Éxito -> actualiza clase y emite aviso "Clase actualizada"
+      // 2) RLS filtra o la clase ya no existe ({ data: null, error: null }) -> no emite aviso ni altera estado local
+      vi.spyOn(supabase, "from").mockImplementationOnce(() => ({
+        update: () => ({
+          eq: () => ({
+            select: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }),
+      }) as any);
+
+      const notFoundOk = await useClasesStore.getState().actualizarClase(claseId, {
+        actividad: "BOXEO",
+        capacidad: 20,
+      });
+      expect(notFoundOk).toBe(false);
+      expect(useClasesStore.getState().error).toBe("No pudimos guardar los cambios de la clase.");
+      expect(useClasesStore.getState().aviso).toBeNull();
+      expect(useClasesStore.getState().clases[0]?.actividad).toBe("FUNCIONAL");
+      expect(useClasesStore.getState().clases[0]?.capacidad).toBe(10);
+
+      // 3) Éxito -> actualiza clase y emite aviso "Clase actualizada"
       const updatedRow: Clase = { ...claseReal, actividad: "BOXEO", capacidad: 14 };
       vi.spyOn(supabase, "from").mockImplementationOnce(() => ({
         update: () => ({
