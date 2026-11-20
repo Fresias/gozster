@@ -458,3 +458,45 @@ export function calcularRangoHorarioUtil(
     textoLeyenda: `Mostrando horario con actividad: ${minStr} - ${maxStr} · las horas sin clases se ocultan automáticamente.`,
   };
 }
+
+const ACTIVIDAD_LABEL: Record<string, string> = {
+  FUNCIONAL: "Funcional",
+  BOXEO: "Boxeo",
+};
+
+/** Construye el mensaje de aviso in-app/WhatsApp por cancelación de clase. */
+export function buildCancelacionAvisoTexto(params: {
+  actividad: string;
+  inicio: string;
+  motivo?: string | null;
+}): string {
+  const fechaObj = new Date(params.inicio);
+  const horaStr = fechaObj.toLocaleTimeString("es-AR", {
+    timeZone: ZONA_GIMNASIO,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const diaStr = fechaObj.toLocaleDateString("es-AR", {
+    timeZone: ZONA_GIMNASIO,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const actividadNombre = ACTIVIDAD_LABEL[params.actividad] || params.actividad;
+  const motivoTrim = params.motivo?.trim();
+  const motivoTexto = motivoTrim ? ` Motivo: ${motivoTrim}` : "";
+  return `Tu clase de ${actividadNombre} del ${diaStr} ${horaStr} fue cancelada.${motivoTexto}`;
+}
+
+/** Genera la URL wa.me ($0/mes) con el aviso de cancelación prellenado para un alumno. */
+export function buildWhatsAppCancelacionUrl(params: {
+  telefono?: string | null;
+  mensaje: string;
+}): string {
+  const cleanPhone = (params.telefono || "").replace(/\D/g, "");
+  const encodedMsg = encodeURIComponent(params.mensaje);
+  return cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodedMsg}`
+    : `https://wa.me/?text=${encodedMsg}`;
+}

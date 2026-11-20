@@ -28,6 +28,7 @@ export interface ChatMessage {
   remitente_avatar?: string | null;
   contenido: string;
   leido: boolean;
+  requiere_lectura_inicio?: boolean;
   created_at: string;
   hora: string;
   es_staff: boolean;
@@ -78,114 +79,13 @@ const UUID_REGEX =
 const isUuid = (val?: string | null): boolean =>
   typeof val === "string" && UUID_REGEX.test(val);
 
-const INITIAL_CONVERSATIONS: Record<string, ChatConversation> = {
-  // Conversación para Lucas Giménez (con respuestas de Félix y Coach Principal)
-  "a1111111-1111-4111-8111-111111111101": {
-    id: "conv-lucas-001",
-    alumno_id: "a1111111-1111-4111-8111-111111111101",
-    alumno_nombre: "Lucas Giménez",
-    created_at: "2026-10-16T18:00:00Z",
-    updated_at: "2026-10-16T18:28:00Z",
-    unreadCount: 0,
-    responsable_id: MOCK_COACH_PRINCIPAL_ID,
-    responsable_nombre: "Coach Principal",
-    estado: "ABIERTA",
-    mensajes: [
-      {
-        id: "msg-lucas-1",
-        conversacion_id: "conv-lucas-001",
-        remitente_id: "a1111111-1111-4111-8111-111111111101",
-        remitente_nombre: "Lucas Giménez",
-        remitente_rol: "ALUMNO",
-        contenido: "¡Hola profes! ¿En la serie pesada mantengo los 3 min de pausa?",
-        leido: true,
-        created_at: "2026-10-16T18:20:00Z",
-        hora: "18:20",
-        es_staff: false,
-        estado_envio: "enviado",
-      },
-      {
-        id: "msg-lucas-2",
-        conversacion_id: "conv-lucas-001",
-        remitente_id: MOCK_COACH_FELIX_ID,
-        remitente_nombre: "Félix",
-        remitente_rol: "ENTRENADOR",
-        contenido: "Sí Lucas, respetá los 3 min para no acumular fatiga antes del fallo.",
-        leido: true,
-        created_at: "2026-10-16T18:25:00Z",
-        hora: "18:25",
-        es_staff: true,
-        estado_envio: "enviado",
-      },
-      {
-        id: "msg-lucas-3",
-        conversacion_id: "conv-lucas-001",
-        remitente_id: MOCK_COACH_PRINCIPAL_ID,
-        remitente_nombre: "Coach Principal",
-        remitente_rol: "ENTRENADOR",
-        contenido:
-          "Totalmente de acuerdo con Félix. Si sentís molestia en el lumbar avísanos antes de subir kilos.",
-        leido: false,
-        created_at: "2026-10-16T18:28:00Z",
-        hora: "18:28",
-        es_staff: true,
-        estado_envio: "enviado",
-      },
-    ],
-  },
-  // Conversación para Sofía Rossi
-  "a2222222-2222-4222-8222-222222222202": {
-    id: "conv-sofia-002",
-    alumno_id: "a2222222-2222-4222-8222-222222222202",
-    alumno_nombre: "Sofía Rossi",
-    created_at: "2026-10-16T17:00:00Z",
-    updated_at: "2026-10-16T17:40:00Z",
-    unreadCount: 1,
-    responsable_id: MOCK_COACH_FELIX_ID,
-    responsable_nombre: "Félix",
-    estado: "PENDIENTE",
-    mensajes: [
-      {
-        id: "msg-sofia-1",
-        conversacion_id: "conv-sofia-002",
-        remitente_id: "a2222222-2222-4222-8222-222222222202",
-        remitente_nombre: "Sofía Rossi",
-        remitente_rol: "ALUMNO",
-        contenido: "Hola equipo, hoy sentí muy pesado el press militar.",
-        leido: true,
-        created_at: "2026-10-16T17:10:00Z",
-        hora: "17:10",
-        es_staff: false,
-        estado_envio: "enviado",
-      },
-      {
-        id: "msg-sofia-2",
-        conversacion_id: "conv-sofia-002",
-        remitente_id: MOCK_COACH_PRINCIPAL_ID,
-        remitente_nombre: "Coach Principal",
-        remitente_rol: "ENTRENADOR",
-        contenido: "Hola Sofi, podemos bajar 2.5kg y trabajar a RPE 7 la próxima.",
-        leido: true,
-        created_at: "2026-10-16T17:25:00Z",
-        hora: "17:25",
-        es_staff: true,
-        estado_envio: "enviado",
-      },
-      {
-        id: "msg-sofia-3",
-        conversacion_id: "conv-sofia-002",
-        remitente_id: MOCK_COACH_FELIX_ID,
-        remitente_nombre: "Félix",
-        remitente_rol: "ENTRENADOR",
-        contenido: "Revisá también el ancho de agarre que vimos la semana pasada.",
-        leido: false,
-        created_at: "2026-10-16T17:40:00Z",
-        hora: "17:40",
-        es_staff: true,
-        estado_envio: "enviado",
-      },
-    ],
-  },
+const formatHora = (isoDate: string): string => {
+  const parsedDate = new Date(isoDate);
+  if (Number.isNaN(parsedDate.getTime())) return "12:00";
+  return parsedDate.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 interface ChatStoreState {
@@ -203,6 +103,7 @@ interface ChatStoreState {
     alumnoId: string;
     remitente: ChatSender;
     contenido: string;
+    requiereLecturaInicio?: boolean;
   }) => ChatMessage;
   transferirConversacion: (params: {
     conversacionId: string;
@@ -215,16 +116,18 @@ interface ChatStoreState {
     nuevoEstado: EstadoConversacion,
   ) => Promise<void>;
   syncWithSupabase: (alumnoId?: string) => Promise<void>;
-  markAsRead: (alumnoId: string) => void;
+  subscribeToRealtime: (alumnoId?: string) => () => void;
+  markAsRead: (alumnoId: string, readerRole?: "ALUMNO" | "STAFF") => void;
   getUnreadStaffCount: (alumnoId?: string) => number;
   getLatestUnreadStaffMessage: (alumnoId?: string) => ChatMessage | null;
+  getLatestUnreadPushStaffMessage: (alumnoId?: string) => ChatMessage | null;
   resetToDefaults: () => void;
 }
 
 export const useChatStore = create<ChatStoreState>()(
   persist(
     (set, get) => ({
-      conversations: INITIAL_CONVERSATIONS,
+      conversations: {},
       selectedAlumnoId: null,
       activeCoachSender: STAFF_COACH_PRINCIPAL,
       isAthleteChatOpen: false,
@@ -260,7 +163,7 @@ export const useChatStore = create<ChatStoreState>()(
         return newConv;
       },
 
-      sendMessage: ({ alumnoId, remitente, contenido }) => {
+      sendMessage: ({ alumnoId, remitente, contenido, requiereLecturaInicio = false }) => {
         const trimmed = contenido.trim();
         if (!trimmed) {
           throw new Error("El mensaje no puede estar vacío");
@@ -268,10 +171,8 @@ export const useChatStore = create<ChatStoreState>()(
 
         const now = new Date();
         const isoTime = now.toISOString();
-        const formattedHour = now.toLocaleTimeString("es-AR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const formattedHour = formatHora(isoTime);
+        const requiereInicio = Boolean(requiereLecturaInicio);
 
         const conv = get().getConversation(alumnoId);
         const isOnline = useOfflineQueueStore.getState().isOnline;
@@ -285,6 +186,7 @@ export const useChatStore = create<ChatStoreState>()(
           remitente_avatar: remitente.avatarUrl,
           contenido: trimmed,
           leido: remitente.esStaff ? false : true,
+          requiere_lectura_inicio: requiereInicio,
           created_at: isoTime,
           hora: formattedHour,
           es_staff: remitente.esStaff,
@@ -297,31 +199,114 @@ export const useChatStore = create<ChatStoreState>()(
             id: `chat-${newMsg.id}`,
             action: "ENVIAR_MENSAJE_CHAT",
             payload: {
-              conversacion_id: conv.id,
+              alumno_id: alumnoId,
+              conversacion_id: isUuid(conv.id) ? conv.id : undefined,
               remitente_id: remitente.id,
               contenido: trimmed,
+              requiere_lectura_inicio: requiereInicio,
               created_at: isoTime,
             },
           });
-        } else if (isUuid(conv.id) && isUuid(remitente.id)) {
-          // Persistencia en Supabase cuando online y con UUIDs válidos
-          Promise.resolve(
-            supabase.from("mensajes").insert({
-              conversacion_id: conv.id,
-              remitente_id: remitente.id,
-              contenido: trimmed,
-              leido: false,
-            }),
-          )
-            .then((res) => {
-              if (res.error) {
+        } else if (isUuid(alumnoId)) {
+          // Persistencia real en Supabase: asegura UUID de conversación vía RPC y guarda requiere_lectura_inicio
+          void (async () => {
+            try {
+              let convId = isUuid(conv.id) ? conv.id : null;
+              if (!convId) {
+                const { data: rpcConvId, error: rpcErr } = await supabase.rpc(
+                  "obtener_o_crear_conversacion",
+                  { p_alumno_id: alumnoId },
+                );
+                if (!rpcErr && typeof rpcConvId === "string" && isUuid(rpcConvId)) {
+                  convId = rpcConvId;
+                  set((state) => {
+                    const current = state.conversations[alumnoId];
+                    if (!current || current.id === convId) return state;
+                    return {
+                      conversations: {
+                        ...state.conversations,
+                        [alumnoId]: {
+                          ...current,
+                          id: convId!,
+                          mensajes: current.mensajes.map((m) =>
+                            m.conversacion_id === current.id
+                              ? { ...m, conversacion_id: convId! }
+                              : m,
+                          ),
+                        },
+                      },
+                    };
+                  });
+                }
+              }
+              if (!convId) return;
+
+              let remitenteId = isUuid(remitente.id) ? remitente.id : null;
+              try {
+                const { data: authData } = await supabase.auth.getUser();
+                if (authData?.user?.id && isUuid(authData.user.id)) {
+                  remitenteId = authData.user.id;
+                }
+              } catch {
+                // Mantener remitente.id en entornos sin auth
+              }
+              if (!remitenteId) return;
+
+              const insertRes = await supabase
+                .from("mensajes")
+                .insert({
+                  conversacion_id: convId,
+                  remitente_id: remitenteId,
+                  contenido: trimmed,
+                  leido: false,
+                  requiere_lectura_inicio: requiereInicio,
+                })
+                .select("id, conversacion_id, remitente_id, contenido, leido, requiere_lectura_inicio, created_at")
+                .single();
+
+              if (insertRes.error) {
                 console.warn(
                   "Aviso insertando mensaje en Supabase:",
-                  res.error.message,
+                  insertRes.error.message,
                 );
+                return;
               }
-            })
-            .catch(() => {});
+
+              const inserted = insertRes.data;
+              if (inserted?.id) {
+                set((state) => {
+                  const current = state.conversations[alumnoId];
+                  if (!current) return state;
+                  const alreadyExists = current.mensajes.some((m) => m.id === inserted.id);
+                  const nextMensajes = alreadyExists
+                    ? current.mensajes.filter((m) => m.id !== newMsg.id)
+                    : current.mensajes.map((m) =>
+                        m.id === newMsg.id
+                          ? {
+                              ...m,
+                              id: inserted.id,
+                              conversacion_id: inserted.conversacion_id,
+                              created_at: inserted.created_at,
+                              hora: formatHora(inserted.created_at),
+                              requiere_lectura_inicio: Boolean(inserted.requiere_lectura_inicio),
+                            }
+                          : m,
+                      );
+                  return {
+                    conversations: {
+                      ...state.conversations,
+                      [alumnoId]: {
+                        ...current,
+                        mensajes: nextMensajes,
+                      },
+                    },
+                  };
+                });
+              }
+            } catch {
+              // Mantener estado local resiliente
+            }
+          })();
         }
 
         set((state) => {
@@ -426,8 +411,7 @@ export const useChatStore = create<ChatStoreState>()(
 
       cambiarEstadoConversacion: async (alumnoId, nuevoEstado) => {
         set((state) => {
-          const conv = state.conversations[alumnoId];
-          if (!conv) return state;
+          const conv = state.conversations[alumnoId] || get().getConversation(alumnoId);
           return {
             conversations: {
               ...state.conversations,
@@ -486,6 +470,7 @@ export const useChatStore = create<ChatStoreState>()(
                 remitente_id,
                 contenido,
                 leido,
+                requiere_lectura_inicio,
                 created_at
               )
             `);
@@ -504,42 +489,42 @@ export const useChatStore = create<ChatStoreState>()(
               const responsable =
                 AVAILABLE_COACH_SENDERS.find((coach) => coach.id === c.responsable_id) ||
                 MOCK_STAFF_COACHES.find((coach) => coach.id === c.responsable_id);
-              const msgs: ChatMessage[] = (c.mensajes || []).map((m: any) => {
-                const senderCoach =
-                  AVAILABLE_COACH_SENDERS.find(
-                    (coach) => coach.id === m.remitente_id,
-                  ) ||
-                  MOCK_STAFF_COACHES.find((coach) => coach.id === m.remitente_id);
-                const esStaff =
-                  !!senderCoach ||
-                  m.remitente_id === MOCK_COACH_PRINCIPAL_ID ||
-                  m.remitente_id === MOCK_COACH_FELIX_ID;
-                const parsedDate = new Date(m.created_at);
-                const hora = !Number.isNaN(parsedDate.getTime())
-                  ? parsedDate.toLocaleTimeString("es-AR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "12:00";
-                return {
-                  id: m.id,
-                  conversacion_id: m.conversacion_id,
-                  remitente_id: m.remitente_id,
-                  remitente_nombre: senderCoach
-                    ? (senderCoach as any).nombre_completo ||
-                      (senderCoach as any).nombre
-                    : existing?.mensajes.find((x) => x.id === m.id)
-                        ?.remitente_nombre ||
-                      (esStaff ? "Coach" : existing?.alumno_nombre || "Atleta"),
-                  remitente_rol: esStaff ? "ENTRENADOR" : "ALUMNO",
-                  contenido: m.contenido,
-                  leido: m.leido,
-                  created_at: m.created_at,
-                  hora,
-                  es_staff: esStaff,
-                  estado_envio: "enviado",
-                };
-              });
+              const msgs: ChatMessage[] = (c.mensajes || [])
+                .map((m: any) => {
+                  const senderCoach =
+                    AVAILABLE_COACH_SENDERS.find(
+                      (coach) => coach.id === m.remitente_id,
+                    ) ||
+                    MOCK_STAFF_COACHES.find((coach) => coach.id === m.remitente_id);
+                  const esStaff = m.remitente_id !== c.alumno_id;
+                  return {
+                    id: m.id,
+                    conversacion_id: m.conversacion_id,
+                    remitente_id: m.remitente_id,
+                    remitente_nombre: senderCoach
+                      ? (senderCoach as any).nombre_completo ||
+                        (senderCoach as any).nombre
+                      : existing?.mensajes.find((x) => x.id === m.id)
+                          ?.remitente_nombre ||
+                        (esStaff ? "Coach" : existing?.alumno_nombre || "Atleta"),
+                    remitente_rol: (esStaff ? "ENTRENADOR" : "ALUMNO") as "ENTRENADOR" | "ALUMNO",
+                    contenido: m.contenido,
+                    leido: Boolean(m.leido),
+                    requiere_lectura_inicio: Boolean(m.requiere_lectura_inicio),
+                    created_at: m.created_at,
+                    hora: formatHora(m.created_at),
+                    es_staff: esStaff,
+                    estado_envio: "enviado" as const,
+                  };
+                })
+                .sort((a: ChatMessage, b: ChatMessage) =>
+                  a.created_at.localeCompare(b.created_at),
+                );
+
+              const pendingLocal = (existing?.mensajes || []).filter(
+                (m) => m.estado_envio === "pendiente" && !msgs.some((s) => s.id === m.id),
+              );
+              const mergedMsgs = [...msgs, ...pendingLocal];
 
               nextConversations[c.alumno_id] = {
                 id: c.id,
@@ -553,8 +538,8 @@ export const useChatStore = create<ChatStoreState>()(
                     (responsable as any).nombre
                   : null,
                 estado: (c.estado as EstadoConversacion) || "ABIERTA",
-                mensajes: msgs.length > 0 ? msgs : existing?.mensajes || [],
-                unreadCount: msgs.filter((m) => !m.leido && !m.es_staff).length,
+                mensajes: mergedMsgs.length > 0 ? mergedMsgs : existing?.mensajes || [],
+                unreadCount: mergedMsgs.filter((m) => !m.leido && !m.es_staff).length,
               };
             }
             return { conversations: nextConversations };
@@ -564,45 +549,231 @@ export const useChatStore = create<ChatStoreState>()(
         }
       },
 
-      markAsRead: (alumnoId: string) => {
+      subscribeToRealtime: (alumnoId?: string) => {
+        if (typeof supabase?.channel !== "function") return () => {};
+        const channelName = alumnoId ? `chat-mensajes-${alumnoId}` : "chat-mensajes-studio";
+        const channel = supabase
+          .channel(channelName)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "mensajes" },
+            (payload: any) => {
+              const row = payload?.new as
+                | {
+                    id: string;
+                    conversacion_id: string;
+                    remitente_id: string;
+                    contenido: string;
+                    leido: boolean;
+                    requiere_lectura_inicio?: boolean;
+                    created_at: string;
+                  }
+                | undefined;
+              if (!row?.id || !row?.conversacion_id) return;
+
+              const currentEntry = Object.entries(get().conversations).find(
+                ([, conv]) => conv.id === row.conversacion_id,
+              );
+              if (!currentEntry) {
+                void get().syncWithSupabase(alumnoId);
+                return;
+              }
+
+              const [keyAlumnoId, conv] = currentEntry;
+              const esStaff = row.remitente_id !== conv.alumno_id;
+              const senderCoach =
+                AVAILABLE_COACH_SENDERS.find((c) => c.id === row.remitente_id) ||
+                MOCK_STAFF_COACHES.find((c) => c.id === row.remitente_id);
+
+              const realtimeMsg: ChatMessage = {
+                id: row.id,
+                conversacion_id: row.conversacion_id,
+                remitente_id: row.remitente_id,
+                remitente_nombre: senderCoach
+                  ? (senderCoach as any).nombre_completo || (senderCoach as any).nombre
+                  : esStaff
+                    ? "Coach"
+                    : conv.alumno_nombre || "Atleta",
+                remitente_rol: esStaff ? "ENTRENADOR" : "ALUMNO",
+                contenido: row.contenido,
+                leido: Boolean(row.leido),
+                requiere_lectura_inicio: Boolean(row.requiere_lectura_inicio),
+                created_at: row.created_at,
+                hora: formatHora(row.created_at),
+                es_staff: esStaff,
+                estado_envio: "enviado",
+              };
+
+              set((state) => {
+                const targetConv = state.conversations[keyAlumnoId];
+                if (!targetConv) return state;
+                if (targetConv.mensajes.some((m) => m.id === row.id)) return state;
+
+                // Reconciliar mensaje optimista pendiente de reemplazo por UUID
+                const optimisticIdx = targetConv.mensajes.findIndex(
+                  (m) =>
+                    !isUuid(m.id) &&
+                    m.contenido === row.contenido &&
+                    m.es_staff === esStaff,
+                );
+                const nextMsgs =
+                  optimisticIdx >= 0
+                    ? targetConv.mensajes.map((m, idx) =>
+                        idx === optimisticIdx ? realtimeMsg : m,
+                      )
+                    : [...targetConv.mensajes, realtimeMsg];
+
+                return {
+                  conversations: {
+                    ...state.conversations,
+                    [keyAlumnoId]: {
+                      ...targetConv,
+                      updated_at: row.created_at || targetConv.updated_at,
+                      mensajes: nextMsgs,
+                      unreadCount: nextMsgs.filter((m) => !m.leido && !m.es_staff).length,
+                    },
+                  },
+                };
+              });
+            },
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "mensajes" },
+            (payload: any) => {
+              const row = payload?.new as
+                | {
+                    id: string;
+                    conversacion_id: string;
+                    contenido?: string;
+                    leido?: boolean;
+                    requiere_lectura_inicio?: boolean;
+                  }
+                | undefined;
+              if (!row?.id) return;
+
+              set((state) => {
+                const matchEntry = Object.entries(state.conversations).find(
+                  ([, conv]) =>
+                    conv.id === row.conversacion_id ||
+                    conv.mensajes.some((m) => m.id === row.id),
+                );
+                if (!matchEntry) return state;
+
+                const [keyAlumnoId, conv] = matchEntry;
+                const nextMsgs = conv.mensajes.map((m) =>
+                  m.id === row.id
+                    ? {
+                        ...m,
+                        leido: row.leido !== undefined ? Boolean(row.leido) : m.leido,
+                        contenido: row.contenido ?? m.contenido,
+                        requiere_lectura_inicio:
+                          row.requiere_lectura_inicio !== undefined
+                            ? Boolean(row.requiere_lectura_inicio)
+                            : m.requiere_lectura_inicio,
+                      }
+                    : m,
+                );
+
+                return {
+                  conversations: {
+                    ...state.conversations,
+                    [keyAlumnoId]: {
+                      ...conv,
+                      mensajes: nextMsgs,
+                      unreadCount: nextMsgs.filter((m) => !m.leido && !m.es_staff).length,
+                    },
+                  },
+                };
+              });
+            },
+          )
+          .subscribe();
+
+        return () => {
+          if (typeof supabase?.removeChannel === "function") {
+            void supabase.removeChannel(channel);
+          }
+        };
+      },
+
+      markAsRead: (alumnoId: string, readerRole?: "ALUMNO" | "STAFF") => {
+        if (!alumnoId) return;
+        const convBefore = get().conversations[alumnoId];
+        if (!convBefore) return;
+
+        const shouldMark = (m: ChatMessage) => {
+          if (readerRole === "STAFF") return !m.es_staff;
+          if (readerRole === "ALUMNO") return m.es_staff;
+          return true;
+        };
+
+        const hadUnreadTarget = convBefore.mensajes.some(
+          (m) => shouldMark(m) && !m.leido,
+        );
+
         set((state) => {
           const currentConv = state.conversations[alumnoId];
           if (!currentConv) return state;
 
-          const updatedMessages = currentConv.mensajes.map((m) => ({
-            ...m,
-            leido: true,
-          }));
+          const updatedMessages = currentConv.mensajes.map((m) =>
+            shouldMark(m) ? { ...m, leido: true } : m,
+          );
 
           return {
             conversations: {
               ...state.conversations,
               [alumnoId]: {
                 ...currentConv,
-                unreadCount: 0,
+                unreadCount: updatedMessages.filter((m) => !m.leido && !m.es_staff).length,
                 mensajes: updatedMessages,
               },
             },
           };
         });
+
+        if (
+          hadUnreadTarget &&
+          isUuid(convBefore.id) &&
+          useOfflineQueueStore.getState().isOnline &&
+          typeof supabase?.rpc === "function"
+        ) {
+          Promise.resolve(
+            supabase.rpc("marcar_mensajes_leidos", {
+              p_conversacion_id: convBefore.id,
+            }),
+          ).catch(() => {});
+        }
       },
 
-      getUnreadStaffCount: (alumnoId = DEFAULT_ATHLETE_SENDER.id) => {
+      getUnreadStaffCount: (alumnoId?: string) => {
+        if (!alumnoId) return 0;
         const conv = get().conversations[alumnoId];
         if (!conv) return 0;
         return conv.mensajes.filter((m) => m.es_staff && !m.leido).length;
       },
 
-      getLatestUnreadStaffMessage: (alumnoId = DEFAULT_ATHLETE_SENDER.id) => {
+      getLatestUnreadStaffMessage: (alumnoId?: string) => {
+        if (!alumnoId) return null;
         const conv = get().conversations[alumnoId];
         if (!conv) return null;
         const unreadStaffMsgs = conv.mensajes.filter((m) => m.es_staff && !m.leido);
         return unreadStaffMsgs[unreadStaffMsgs.length - 1] || null;
       },
 
+      getLatestUnreadPushStaffMessage: (alumnoId?: string) => {
+        if (!alumnoId) return null;
+        const conv = get().conversations[alumnoId];
+        if (!conv) return null;
+        const unreadPushMsgs = conv.mensajes.filter(
+          (m) => m.es_staff && !m.leido && m.requiere_lectura_inicio === true,
+        );
+        return unreadPushMsgs[unreadPushMsgs.length - 1] || null;
+      },
+
       resetToDefaults: () => {
         set({
-          conversations: INITIAL_CONVERSATIONS,
+          conversations: {},
           selectedAlumnoId: null,
           activeCoachSender: STAFF_COACH_PRINCIPAL,
           isAthleteChatOpen: false,

@@ -31,6 +31,7 @@ export function ChatFab({
   onSendMessage,
 }: ChatFabProps) {
   const [message, setMessage] = React.useState("");
+  const [pushOnHome, setPushOnHome] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -92,11 +93,11 @@ export function ChatFab({
     : null;
   const chatMessages = conversation?.mensajes || [];
 
-  // Auto-scroll al final y marcar como leído
+  // Auto-scroll al final y marcar mensajes del alumno como leídos (visto unidireccional)
   React.useEffect(() => {
     if (isOpen && viewMode === "chat" && currentAlumnoId) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      markAsRead(currentAlumnoId);
+      markAsRead(currentAlumnoId, "STAFF");
     }
   }, [isOpen, viewMode, chatMessages.length, currentAlumnoId, markAsRead]);
 
@@ -208,13 +209,15 @@ export function ChatFab({
   const handleSelectConversation = (targetAlumno: Perfil) => {
     setSelectedInboxAlumno(targetAlumno);
     setViewMode("chat");
+    setPushOnHome(false);
     useChatStore.getState().setSelectedAlumnoId(targetAlumno.id);
-    markAsRead(targetAlumno.id);
+    markAsRead(targetAlumno.id, "STAFF");
   };
 
   const handleBackToInbox = () => {
     setViewMode("inbox");
     setSelectedInboxAlumno(null);
+    setPushOnHome(false);
     useCoachStudioStore.getState().setChatAlumnoId(null);
     useChatStore.getState().setSelectedAlumnoId(null);
   };
@@ -227,10 +230,12 @@ export function ChatFab({
       alumnoId: currentAlumnoId,
       remitente: activeCoachSender,
       contenido: message.trim(),
+      requiereLecturaInicio: pushOnHome,
     });
 
     onSendMessage?.(message.trim());
     setMessage("");
+    setPushOnHome(false);
   };
 
   const handleTransferir = async () => {
@@ -665,13 +670,34 @@ export function ChatFab({
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground mr-9">
+                        {msg.requiere_lectura_inicio && (
+                          <span
+                            className="rounded bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary"
+                            data-testid={`msg-push-badge-${msg.id}`}
+                          >
+                            Aviso inicio
+                          </span>
+                        )}
                         <span data-testid={`msg-timestamp-${msg.id}`}>
                           {msg.hora}
                         </span>
-                        {msg.estado_envio === "pendiente" && (
+                        {msg.estado_envio === "pendiente" ? (
                           <span className="text-amber-400 font-semibold inline-flex items-center gap-1">
                             <Timer className="h-3 w-3 inline" aria-hidden="true" />{" "}
                             Pendiente
+                          </span>
+                        ) : (
+                          <span
+                            data-testid={`msg-read-receipt-${msg.id}`}
+                            aria-label={msg.leido ? "Leído por el alumno" : "Enviado"}
+                            title={msg.leido ? "Leído por el alumno" : "Enviado (no leído aún)"}
+                            className={
+                              msg.leido
+                                ? "font-bold text-primary"
+                                : "font-medium text-muted-foreground"
+                            }
+                          >
+                            {msg.leido ? "✓✓" : "✓"}
                           </span>
                         )}
                       </div>
@@ -715,28 +741,47 @@ export function ChatFab({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Formulario de envío ergonómico */}
+          {/* Formulario de envío ergonómico con toggle de Push en inicio */}
           <form
             onSubmit={handleSend}
-            className="flex gap-2 border-t border-border p-3 bg-card/60"
+            className="flex flex-col gap-2 border-t border-border p-3 bg-card/60"
           >
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Responder como ${activeCoachSender.nombre}...`}
-              className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              data-testid="coach-chat-input"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="default"
-              className="min-h-11 px-4 text-xs font-semibold cursor-pointer"
-              data-testid="coach-chat-send-btn"
+            <label
+              htmlFor="coach-chat-push-checkbox"
+              className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer select-none min-h-7"
+              data-testid="coach-chat-push-toggle"
             >
-              Enviar
-            </Button>
+              <input
+                id="coach-chat-push-checkbox"
+                type="checkbox"
+                checked={pushOnHome}
+                onChange={(e) => setPushOnHome(e.target.checked)}
+                data-testid="coach-chat-push-checkbox"
+                className="size-4 rounded border-input accent-primary cursor-pointer"
+              />
+              <span className="font-medium text-foreground">
+                Pushear aviso al inicio
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={`Responder como ${activeCoachSender.nombre}...`}
+                className="min-h-11 flex-1 rounded-md border border-input bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                data-testid="coach-chat-input"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                variant="default"
+                className="min-h-11 px-4 text-xs font-semibold cursor-pointer"
+                data-testid="coach-chat-send-btn"
+              >
+                Enviar
+              </Button>
+            </div>
           </form>
         </div>
       )}

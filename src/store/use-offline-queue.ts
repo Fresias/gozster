@@ -34,6 +34,7 @@ interface OfflineQueueState {
 }
 
 const SET_ACTIONS = ["WORKOUT_SET_COMPLETED", "WORKOUT_SET_UPDATED"];
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type SendResult = "ok" | "retry" | "rejected";
 
@@ -100,6 +101,49 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   return toResult(serie.error);
 }
 
+async function sendChatEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  const p = ev.payload as {
+    alumno_id?: string;
+    conversacion_id?: string;
+    remitente_id?: string;
+    contenido?: string;
+    requiere_lectura_inicio?: boolean;
+  };
+  if (!supabase) return "retry";
+  const contenido = typeof p.contenido === "string" ? p.contenido.trim() : "";
+  if (!contenido) return "rejected";
+
+  const authUserId = (await supabase.auth.getUser()).data.user?.id;
+  const remitenteId =
+    authUserId && UUID_REGEX.test(authUserId)
+      ? authUserId
+      : p.remitente_id && UUID_REGEX.test(p.remitente_id)
+        ? p.remitente_id
+        : null;
+  if (!remitenteId) return "retry";
+
+  let convId = p.conversacion_id && UUID_REGEX.test(p.conversacion_id) ? p.conversacion_id : null;
+  if (!convId && p.alumno_id && UUID_REGEX.test(p.alumno_id)) {
+    const { data, error } = await supabase.rpc("obtener_o_crear_conversacion", {
+      p_alumno_id: p.alumno_id,
+    });
+    if (error) return toResult(error);
+    if (typeof data === "string" && UUID_REGEX.test(data)) {
+      convId = data;
+    }
+  }
+  if (!convId) return "rejected";
+
+  const res = await supabase.from("mensajes").insert({
+    conversacion_id: convId,
+    remitente_id: remitenteId,
+    contenido,
+    leido: false,
+    requiere_lectura_inicio: Boolean(p.requiere_lectura_inicio),
+  });
+  return toResult(res.error);
+}
+
 const memoryFallback: Record<string, string> = {};
 
 export const safeStorage: StateStorage = {
@@ -153,6 +197,12 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
           if (SET_ACTIONS.includes(ev.action)) {
             try {
               result = await sendSetEvent(ev);
+            } catch {
+              result = "retry";
+            }
+          } else if (ev.action === "ENVIAR_MENSAJE_CHAT") {
+            try {
+              result = await sendChatEvent(ev);
             } catch {
               result = "retry";
             }

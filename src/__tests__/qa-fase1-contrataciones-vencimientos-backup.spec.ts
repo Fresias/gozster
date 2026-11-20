@@ -157,7 +157,7 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
 
       expect(content).toContain("<LiveWorkout />");
       expect(content).toContain("<RestTimer />");
-      expect(content).toContain("<AthleteChat />");
+      expect(content).toContain("<AthleteChat");
       expect(content).toContain("isExpired && <MembershipExpiredNotice />");
       expect(content).not.toMatch(/if\s*\(isExpired\)\s*return\s*<Membership/);
     });

@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import { Check, X } from "@/components/athlete/icons";
-import {
-  DEFAULT_ATHLETE_SENDER,
-  useChatStore,
-} from "@/store/use-chat-store";
+import { useChatStore } from "@/store/use-chat-store";
+import { getStorageUser } from "@/lib/user-storage";
+import { createClient } from "@/lib/supabase/browser";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
   getPushSubscriptionStatus,
@@ -65,11 +64,31 @@ export function handleAthleteChatKeyDown(
 }
 
 export function AthleteChat({
-  athleteId = DEFAULT_ATHLETE_SENDER.id,
-  athleteName = DEFAULT_ATHLETE_SENDER.nombre,
+  athleteId,
+  athleteName,
 }: AthleteChatProps) {
   const [message, setMessage] = React.useState("");
+  const [authUserId, setAuthUserId] = React.useState<string | null>(() => getStorageUser());
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (athleteId || authUserId) return;
+    let active = true;
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (active && data?.user?.id) {
+          setAuthUserId(data.user.id);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [athleteId, authUserId]);
+
+  const effectiveAthleteId = athleteId || authUserId || "";
+  const effectiveAthleteName = athleteName || "Atleta";
 
   const { isOnline } = useOfflineQueueStore();
   const {
@@ -80,8 +99,10 @@ export function AthleteChat({
     setAthleteChatOpen,
   } = useChatStore();
 
-  const conversation = getConversation(athleteId, athleteName);
-  const messages = conversation.mensajes;
+  const conversation = effectiveAthleteId
+    ? getConversation(effectiveAthleteId, effectiveAthleteName)
+    : null;
+  const messages = conversation?.mensajes ?? [];
 
   const [pushStatus, setPushStatus] = React.useState<{
     isSubscribed: boolean;
@@ -93,18 +114,20 @@ export function AthleteChat({
   });
 
   React.useEffect(() => {
-    getPushSubscriptionStatus(athleteId).then((st) => {
+    if (!effectiveAthleteId) return;
+    getPushSubscriptionStatus(effectiveAthleteId).then((st) => {
       setPushStatus((prev) => ({ ...prev, isSubscribed: st.isSubscribed }));
     });
-  }, [athleteId]);
+  }, [effectiveAthleteId]);
 
   const handleTogglePush = async () => {
+    if (!effectiveAthleteId) return;
     setPushStatus((prev) => ({ ...prev, loading: true, message: undefined }));
     if (pushStatus.isSubscribed) {
-      await unsubscribeFromPush(athleteId);
+      await unsubscribeFromPush(effectiveAthleteId);
       setPushStatus({ isSubscribed: false, loading: false });
     } else {
-      const res = await subscribeToPush(athleteId);
+      const res = await subscribeToPush(effectiveAthleteId);
       if (res.success) {
         setPushStatus({
           isSubscribed: true,
@@ -145,23 +168,23 @@ export function AthleteChat({
     };
   }, [isOpen, setAthleteChatOpen]);
 
-  // Auto-scroll al final al abrir o enviar
+  // Auto-scroll al final al abrir o enviar y marca mensajes del staff como leídos
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && effectiveAthleteId) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      markAsRead(athleteId);
+      markAsRead(effectiveAthleteId, "ALUMNO");
     }
-  }, [isOpen, messages.length, athleteId, markAsRead]);
+  }, [isOpen, messages.length, effectiveAthleteId, markAsRead]);
 
   const handleSend = (textToSend?: string) => {
     const text = (textToSend ?? message).trim();
-    if (!text) return;
+    if (!text || !effectiveAthleteId) return;
 
     sendMessage({
-      alumnoId: athleteId,
+      alumnoId: effectiveAthleteId,
       remitente: {
-        id: athleteId,
-        nombre: athleteName,
+        id: effectiveAthleteId,
+        nombre: effectiveAthleteName,
         rol: "ALUMNO",
         esStaff: false,
       },

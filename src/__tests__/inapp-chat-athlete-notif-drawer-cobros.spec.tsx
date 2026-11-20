@@ -117,11 +117,12 @@ describe("GOZS-350: In-App Chat en Fila de Alumno, Notificación al Loguear en A
       useChatStore.getState().markAsRead(alumnoId);
       expect(useChatStore.getState().getUnreadStaffCount(alumnoId)).toBe(0);
 
-      // El coach envía un mensaje al alumno
+      // El coach envía un mensaje pusheado al inicio al alumno
       useChatStore.getState().sendMessage({
         alumnoId,
         remitente: STAFF_COACH_PRINCIPAL,
         contenido: "Lucas, acordate de hidratar bien antes de la serie pesada.",
+        requiereLecturaInicio: true,
       });
 
       // El alumno tiene 1 mensaje no leído del staff
