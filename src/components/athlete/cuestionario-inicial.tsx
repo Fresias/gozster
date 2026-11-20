@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { DEFAULT_ATHLETE_ID, useAthleteStore } from "@/store/use-athlete-store";
 import { Check, Pencil } from "@/components/athlete/icons";
 import type { AlumnoCuestionarioInicial } from "@/types/database.types";
 
@@ -40,15 +40,19 @@ export function CuestionarioInicial({
 }: CuestionarioInicialProps) {
   const {
     currentSession,
+    planAlumno,
     cuestionarioInicial,
     setCuestionarioInicial,
     saveCuestionarioInicial,
   } = useAthleteStore();
 
   const effectiveAthleteId =
-    athleteId || currentSession.studentId || "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
+    athleteId || currentSession.studentId || DEFAULT_ATHLETE_ID;
   const effectiveAthleteName =
-    athleteName || currentSession.studentName || "Fernando Rosales";
+    athleteName ||
+    planAlumno?.alumnos?.[0]?.nombre_completo ||
+    (currentSession.studentId !== DEFAULT_ATHLETE_ID ? currentSession.studentName : "") ||
+    "";
 
   const [isEditing, setIsEditing] = React.useState(!cuestionarioInicial?.completado_at);
   const [isSaving, setIsSaving] = React.useState(false);
