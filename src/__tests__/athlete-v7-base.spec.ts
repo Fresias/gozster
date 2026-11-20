@@ -88,7 +88,6 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
       "--a-link:",
       "--a-tip:",
       "--a-tip-fg:",
-      "--a-chev:",
       "--a-hatch:",
       "--a-ok-bg:",
       "--a-ok-fg:",
@@ -157,7 +156,6 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
 
     const clasesComponentes = [
       ".a-app",
-      ".a-chev",
       ".a-card",
       ".a-hero",
       ".a-btn.a-hbtn",
@@ -185,6 +183,8 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
     expect(cssSrc).toContain("transition: none !important;");
     expect(cssSrc).toContain("animation: none !important;");
     expect(cssSrc).not.toMatch(/#2563EB|#0EA5E9/i);
+    expect(cssSrc).not.toContain("--a-chev");
+    expect(cssSrc).not.toContain(".a-chev");
   });
 
   it("mantiene globals.css, tailwind.config.ts y package.json sin cambios de v7", () => {
