@@ -75,7 +75,6 @@ export function OnboardingAlumno({
   cantidadDias,
   onComplete,
 }: OnboardingAlumnoProps) {
-  const currentSession = useAthleteStore((s) => s.currentSession);
   const planAlumno = useAthleteStore((s) => s.planAlumno);
   const nombrePreferido = useAthleteStore((s) => s.nombrePreferido);
   const vistaRecomendadaCoach = useAthleteStore((s) => s.vistaRecomendadaCoach);
@@ -83,7 +82,7 @@ export function OnboardingAlumno({
   const setNivelVistaAlumno = useAthleteStore((s) => s.setNivelVistaAlumno);
   const usarVistaRecomendada = useAthleteStore((s) => s.usarVistaRecomendada);
   const setMostrarTimerDescanso = useAthleteStore((s) => s.setMostrarTimerDescanso);
-  const setOnboardingCompletado = useAthleteStore((s) => s.setOnboardingCompletado);
+  const completarOnboarding = useAthleteStore((s) => s.completarOnboarding);
   const guardarNombrePreferido = useAthleteStore((s) => s.guardarNombrePreferido);
 
   // Evita el flash/hydration-mismatch: el estado persistido sólo se conoce en cliente.
@@ -95,7 +94,6 @@ export function OnboardingAlumno({
   const rawNombre =
     nombreAlumno ||
     planAlumno?.alumnos?.[0]?.nombre_completo ||
-    currentSession.studentName ||
     "";
   const primerNombre = rawNombre.trim().split(/\s+/)[0] || "";
   const nombreInicial = nombrePreferido || primerNombre;
@@ -122,23 +120,23 @@ export function OnboardingAlumno({
   const finalizar = React.useCallback(() => {
     setNivelVistaAlumno(vistaSel);
     setMostrarTimerDescanso(timerSel);
-    setOnboardingCompletado(true);
+    void completarOnboarding();
     onComplete?.();
-  }, [vistaSel, timerSel, setNivelVistaAlumno, setMostrarTimerDescanso, setOnboardingCompletado, onComplete]);
+  }, [vistaSel, timerSel, setNivelVistaAlumno, setMostrarTimerDescanso, completarOnboarding, onComplete]);
 
   const saltar = React.useCallback(() => {
     usarVistaRecomendada();
     setMostrarTimerDescanso(true);
-    setOnboardingCompletado(true);
+    void completarOnboarding();
     onComplete?.();
-  }, [usarVistaRecomendada, setMostrarTimerDescanso, setOnboardingCompletado, onComplete]);
+  }, [usarVistaRecomendada, setMostrarTimerDescanso, completarOnboarding, onComplete]);
 
   const continuarNombre = React.useCallback(() => {
     void guardarNombrePreferido(nombreInput);
     setPaso(3);
   }, [guardarNombrePreferido, nombreInput]);
 
-  if (!montado || onboardingCompletado) return null;
+  if (!montado || onboardingCompletado || (!nombreAlumno && planAlumno === null)) return null;
 
   const saludo = primerNombre ? `Hola, ${primerNombre}.` : "Hola.";
 

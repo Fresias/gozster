@@ -127,6 +127,7 @@ export async function activarYSincronizarAlAbrir(alActivar?: () => void): Promis
     alActivar?.();
     if (typeof navigator === "undefined" || navigator.onLine !== false) {
       await useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      await useAthleteStore.getState().sincronizarOnboardingPendiente();
       if (data.user) {
         await useAthleteStore.getState().flushMolestiasPendientes();
         await useAthleteStore.getState().cargarMolestiasDeSesion();
@@ -142,6 +143,7 @@ export async function activarYSincronizarAlAbrir(alActivar?: () => void): Promis
 export async function manejarReconexionOnline(flushQueue: () => Promise<void>): Promise<void> {
   void flushQueue();
   void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+  void useAthleteStore.getState().sincronizarOnboardingPendiente();
   const userId = getStorageUser();
   if (userId) {
     await useAthleteStore.getState().sincronizarVideosPendientes(userId);
@@ -225,6 +227,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
         void flushConIndicador();
       }
       void useAthleteStore.getState().sincronizarNombrePreferidoPendiente();
+      void useAthleteStore.getState().sincronizarOnboardingPendiente();
       void useAthleteStore
         .getState()
         .flushMolestiasPendientes()
