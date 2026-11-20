@@ -108,13 +108,14 @@ describe("GOZS-613: PWA manifest, metadata appleWebApp, ServiceWorkerRegister y 
   });
 
   describe("2. src/app/layout.tsx & ServiceWorkerRegister", () => {
-    it("exporta metadata.appleWebApp (capable: true), icons.apple (/apple-touch-icon.png) y monta ServiceWorkerRegister", () => {
+    it("exporta metadata.appleWebApp (capable: true), other.apple-mobile-web-app-capable, icons.apple (/apple-touch-icon.png) y monta ServiceWorkerRegister", () => {
       expect(metadata.manifest).toBe("/manifest.json");
       expect(metadata.appleWebApp).toEqual({
         capable: true,
         title: "GOZSter",
         statusBarStyle: "black-translucent",
       });
+      expect(metadata.other?.["apple-mobile-web-app-capable"]).toBe("yes");
 
       const icons = metadata.icons as {
         icon?: Array<{ url: string; sizes?: string; type?: string }>;
@@ -137,7 +138,8 @@ describe("GOZS-613: PWA manifest, metadata appleWebApp, ServiceWorkerRegister y 
       expect(layoutSource).toContain("<ServiceWorkerRegister />");
     });
 
-    it("ServiceWorkerRegister invoca registerServiceWorker() al montarse sin pedir permisos de notificación", async () => {
+    async function runServiceWorkerRegisterMount(nodeEnv: string) {
+      vi.stubEnv("NODE_ENV", nodeEnv);
       const registerMock = vi.fn().mockResolvedValue({ scope: "/" });
       const requestPermissionMock = vi.fn();
       const registerSpy = vi.spyOn(pushNotifications, "registerServiceWorker");
@@ -174,12 +176,10 @@ describe("GOZS-613: PWA manifest, metadata appleWebApp, ServiceWorkerRegister y 
           runEffect();
         }
         await Promise.resolve();
-
-        expect(registerSpy).toHaveBeenCalledTimes(1);
-        expect(registerMock).toHaveBeenCalledWith("/sw.js", { scope: "/" });
-        expect(requestPermissionMock).not.toHaveBeenCalled();
+        return { registerMock, requestPermissionMock, registerSpy };
       } finally {
         internals.H = prevDispatcher;
+        vi.unstubAllEnvs();
         if (originalWindow === undefined) {
           delete (globalThis as any).window;
         } else {
@@ -196,6 +196,23 @@ describe("GOZS-613: PWA manifest, metadata appleWebApp, ServiceWorkerRegister y 
           writable: true,
         });
       }
+    }
+
+    it("ServiceWorkerRegister invoca registerServiceWorker() al montarse en producción sin pedir permisos de notificación", async () => {
+      const { registerMock, requestPermissionMock, registerSpy } =
+        await runServiceWorkerRegisterMount("production");
+
+      expect(registerSpy).toHaveBeenCalledTimes(1);
+      expect(registerMock).toHaveBeenCalledWith("/sw.js", { scope: "/" });
+      expect(requestPermissionMock).not.toHaveBeenCalled();
+    });
+
+    it("ServiceWorkerRegister NO invoca registerServiceWorker() cuando NODE_ENV !== 'production'", async () => {
+      const { registerMock, registerSpy } =
+        await runServiceWorkerRegisterMount("development");
+
+      expect(registerSpy).not.toHaveBeenCalled();
+      expect(registerMock).not.toHaveBeenCalled();
     });
   });
 
