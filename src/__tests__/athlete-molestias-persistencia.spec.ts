@@ -580,7 +580,7 @@ describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () =>
     ["42883", "function public.registrar_molestia does not exist"],
     ["42P01", 'relation "public.alumno_historial_dolor" does not exist'],
   ] as const)(
-    "R4 · código permanente %s marca envio error, registra en errores_app y activa aviso visible al alumno",
+    "R4 · código de esquema faltante %s: registra en errores_app una sola vez, mantiene envio pendiente en cola, conserva aviso tras flushQueue de series y envía una vez al aplicarse la migración",
     async (code, message) => {
       useOfflineQueueStore.setState({ isOnline: true, pendingEvents: [], syncError: null });
       const erroresInsertSpy = vi.fn().mockResolvedValue({ data: null, error: null });
@@ -592,12 +592,18 @@ describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () =>
         if (table === "errores_app") {
           return { insert: erroresInsertSpy } as any;
         }
-        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
       });
       const rpcSpy = vi
         .spyOn(supabase, "rpc")
-        .mockResolvedValue({ data: null, error: { code, message } } as any);
+        .mockResolvedValueOnce({ data: null, error: { code, message } } as any)
+        .mockResolvedValueOnce({ data: null, error: { code, message } } as any)
+        .mockResolvedValueOnce({ data: null, error: null } as any);
 
+      // 1. Primer intento al reportar: falla con código de función/tabla faltante
       const molestia = await useAthleteStore.getState().reportarMolestia({
         ejercicioEnRutinaId: EJ_RUTINA_UUID,
         ejercicioId: EJ_CATALOGO_UUID,
@@ -605,9 +611,12 @@ describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () =>
         eva: 5,
       });
 
-      expect(molestia.envio).toBe("error");
+      // Sigue en la cola con envio: "pendiente"
+      expect(molestia.envio).toBe("pendiente");
+      expect(useAthleteStore.getState().currentSession.molestias?.[0]?.envio).toBe("pendiente");
       expect(rpcSpy).toHaveBeenCalledTimes(1);
       expect(fromSpy).toHaveBeenCalledWith("errores_app");
+      expect(erroresInsertSpy).toHaveBeenCalledTimes(1);
       expect(erroresInsertSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           usuario_id: ALUMNO_A,
@@ -621,25 +630,41 @@ describe("BE-02 CP5 · Store: outbox, recuperación y limpieza (03a §7)", () =>
         }),
       );
 
-      // No se reintenta en bucle al volver a llamar flushMolestiasPendientes
+      // 2. Segundo reintento (sigue faltando la migración): se reintenta la RPC pero NO duplica en errores_app
       await useAthleteStore.getState().flushMolestiasPendientes();
-      expect(rpcSpy).toHaveBeenCalledTimes(1);
+      expect(rpcSpy).toHaveBeenCalledTimes(2);
+      expect(erroresInsertSpy).toHaveBeenCalledTimes(1);
+      expect(useAthleteStore.getState().currentSession.molestias?.[0]?.envio).toBe("pendiente");
 
-      // Aviso visible en barra de sincronización
-      expect(useOfflineQueueStore.getState().syncError).toBe(
-        "No pudimos guardar el reporte de molestia. Avisá a tu coach.",
+      // 3. El aviso propio sigue visible incluso después de ejecutar un flushQueue() de la cola de series
+      await useOfflineQueueStore.getState().flushQueue();
+      expect(useAthleteStore.getState().molestiaEnvioError).toBe(
+        "No pudimos avisarle a tu coach. Si la molestia es fuerte, escribile por el chat.",
       );
 
-      // Aviso visible en AvisoMolestia con envio === "error"
-      const aviso = avisoMolestiaPara(
+      const avisoConError = avisoMolestiaPara(
         { id: EJ_RUTINA_UUID, musculos_principales: ["Pecho"] },
         useAthleteStore.getState().currentSession.molestias ?? [],
       );
-      const html = renderToStaticMarkup(React.createElement(AvisoMolestia, { aviso }));
-      expect(html).toContain('data-testid="molestia-envio-error"');
-      expect(html).toContain(
-        "No se pudo enviar el reporte al servidor. Avisá a tu coach en persona.",
+      const htmlConError = renderToStaticMarkup(
+        React.createElement(AvisoMolestia, { aviso: avisoConError }),
       );
+      expect(htmlConError).toContain('data-testid="molestia-envio-error"');
+      expect(htmlConError).toContain(
+        "No pudimos avisarle a tu coach. Si la molestia es fuerte, escribile por el chat.",
+      );
+
+      // 4. Tercer reintento (migración aplicada en producción): la RPC responde OK, pasa a "enviada" y sale de la cola
+      await useAthleteStore.getState().flushMolestiasPendientes();
+      expect(rpcSpy).toHaveBeenCalledTimes(3);
+      expect(erroresInsertSpy).toHaveBeenCalledTimes(1);
+      expect(useAthleteStore.getState().currentSession.molestias?.[0]?.envio).toBe("enviada");
+      expect(useAthleteStore.getState().molestiasPendientesFueraDeSesion).toEqual([]);
+      expect(useAthleteStore.getState().molestiaEnvioError).toBeNull();
+
+      // Un flush posterior ya no vuelve a enviar la molestia
+      await useAthleteStore.getState().flushMolestiasPendientes();
+      expect(rpcSpy).toHaveBeenCalledTimes(3);
     },
   );
 });

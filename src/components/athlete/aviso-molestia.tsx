@@ -2,6 +2,10 @@
 
 import * as React from "react";
 import { Info, TriangleAlert } from "@/components/athlete/icons";
+import {
+  MOLESTIA_ENVIO_ERROR_MSG,
+  useAthleteStore,
+} from "@/store/use-athlete-store";
 import type {
   AvisoMolestia as AvisoMolestiaData,
   ZonaArticular,
@@ -29,6 +33,10 @@ export function AvisoMolestia({
   onTerminarSesion,
   isFinishing = false,
 }: AvisoMolestiaProps) {
+  const molestiaEnvioErrorHook = useAthleteStore((s) => s.molestiaEnvioError);
+  const molestiaEnvioError =
+    molestiaEnvioErrorHook ?? useAthleteStore.getState().molestiaEnvioError;
+
   if (!aviso) return null;
 
   if (aviso.tipo === "heredado") {
@@ -45,12 +53,12 @@ export function AvisoMolestia({
   const m = aviso.molestia;
   const zonaLabel = ZONA_LABEL[m.zona] ?? m.zona;
   const head = `${zonaLabel} · ${m.eva}/10`;
-  const errorEnvio =
-    m.envio === "error" ? (
-      <small className="a-t-sec" data-testid="molestia-envio-error">
-        No se pudo enviar el reporte al servidor. Avisá a tu coach en persona.
-      </small>
-    ) : null;
+  const mostrarErrorEnvio = m.envio === "error" || Boolean(molestiaEnvioError);
+  const errorEnvio = mostrarErrorEnvio ? (
+    <small className="a-t-sec" data-testid="molestia-envio-error">
+      {molestiaEnvioError ?? MOLESTIA_ENVIO_ERROR_MSG}
+    </small>
+  ) : null;
 
   if (m.nivel === "alarma") {
     return (
