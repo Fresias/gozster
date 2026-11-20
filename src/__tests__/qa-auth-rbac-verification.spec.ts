@@ -803,24 +803,50 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       expect(content).toContain("Cerrar sesión e ingresar con otra cuenta");
     });
 
-    it("debe verificar que los layouts de studio y athlete integran ModeSwitcher para soporte de rol dual ADMIN (GOZS-336)", () => {
+    it("debe verificar que los layouts de studio y athlete no renderizan ModeSwitcher ni 'Volver a Coach Studio' y que middleware permite acceso directo a ADMIN (GH #551)", async () => {
       const studioShellPath = path.resolve(__dirname, "../components/coach/studio-shell.tsx");
       const athleteShellPath = path.resolve(__dirname, "../components/athlete/athlete-shell.tsx");
       const modeSwitcherPath = path.resolve(__dirname, "../components/navigation/mode-switcher.tsx");
+      const useRolActualPath = path.resolve(__dirname, "../lib/use-rol-actual.ts");
+      const middlewarePath = path.resolve(__dirname, "../middleware.ts");
 
       const studioContent = fs.readFileSync(studioShellPath, "utf-8");
       const athleteContent = fs.readFileSync(athleteShellPath, "utf-8");
-      const switcherContent = fs.readFileSync(modeSwitcherPath, "utf-8");
+      const middlewareContent = fs.readFileSync(middlewarePath, "utf-8");
 
-      expect(studioContent).toContain('<ModeSwitcher current="studio"');
-      expect(athleteContent).toContain('<ModeSwitcher');
-      expect(athleteContent).toContain('current="athlete"');
-      expect(athleteContent).toContain("showReturnButton={true}");
+      for (const forbidden of [
+        "ModeSwitcher",
+        "Modo Studio",
+        "Modo Entrenamiento",
+        "Volver a Coach Studio",
+      ]) {
+        expect(studioContent).not.toContain(forbidden);
+        expect(athleteContent).not.toContain(forbidden);
+      }
 
-      expect(switcherContent).toContain("Modo Studio");
-      expect(switcherContent).toContain("Modo Entrenamiento");
-      expect(switcherContent).toContain("Volver a Coach Studio");
-      expect(switcherContent).toContain('rol !== "ADMIN"');
+      expect(fs.existsSync(modeSwitcherPath)).toBe(false);
+      expect(fs.existsSync(useRolActualPath)).toBe(false);
+
+      expect(middlewareContent).toContain('const COACH_ROLES = ["ENTRENADOR", "ADMIN"]');
+
+      const adminUser = { id: "00000000-0000-4000-8000-0000000000a1", email: "94.gabriel.sanchez@gmail.com" };
+      const mockGetUser = vi.fn().mockResolvedValue({ data: { user: adminUser } });
+      const mockMaybeSingle = vi.fn().mockResolvedValue({ data: { rol: "ADMIN" } });
+      const mockEq = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+      const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
+
+      (createServerClient as any).mockReturnValue({
+        auth: { getUser: mockGetUser },
+        from: vi.fn().mockReturnValue({ select: mockSelect }),
+      });
+
+      const studioResponse = await middleware(new NextRequest("https://gozster.com/studio"));
+      expect(studioResponse.status).toBe(200);
+      expect(studioResponse.headers.get("location")).toBeNull();
+
+      const athleteResponse = await middleware(new NextRequest("https://gozster.com/athlete"));
+      expect(athleteResponse.status).toBe(200);
+      expect(athleteResponse.headers.get("location")).toBeNull();
     });
   });
 

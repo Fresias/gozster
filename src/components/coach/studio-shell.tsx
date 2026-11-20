@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/browser";
 import { cerrarSesion } from "@/lib/session-scope";
-import { ModeSwitcher } from "@/components/navigation/mode-switcher";
 import { ChatFab } from "@/components/coach/chat-fab";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useChatStore } from "@/store/use-chat-store";
@@ -652,10 +651,6 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               </div>
               <div className="my-1.5 h-px bg-border" />
               <div className="px-2 py-1.5 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Modo</span>
-                <ModeSwitcher current="studio" />
-              </div>
-              <div className="px-2 py-1.5 flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Tema</span>
                 <ThemeToggle />
               </div>
@@ -1086,10 +1081,6 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Tema visual</span>
                 <ThemeToggle />
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Modo</span>
-                <ModeSwitcher current="studio" />
               </div>
             </div>
           </div>
