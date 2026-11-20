@@ -15,16 +15,22 @@ describe("Athlete v7 · FE-01 Base visual (fuentes, tokens, tipografía y elevac
     devDependencies?: Record<string, string>;
   };
 
-  it("layout.tsx carga Archivo, Geist y Geist_Mono desde next/font/google con sus variables CSS", () => {
-    expect(layoutSrc).toContain('from "next/font/google"');
-    expect(layoutSrc).toContain("Archivo");
-    expect(layoutSrc).toContain("Geist");
-    expect(layoutSrc).toContain("Geist_Mono");
+  it("layout.tsx carga Archivo, Geist y Geist Mono locales desde next/font/local con sus variables CSS", () => {
+    expect(layoutSrc).toContain('from "next/font/local"');
+    expect(layoutSrc).not.toContain("next/font/google");
+    expect(layoutSrc).toContain("./fonts/archivo-latin.woff2");
+    expect(layoutSrc).toContain("./fonts/geist-latin.woff2");
+    expect(layoutSrc).toContain("./fonts/geist-mono-latin.woff2");
     expect(layoutSrc).toContain('variable: "--a-f-display"');
     expect(layoutSrc).toContain('variable: "--a-f-sans"');
     expect(layoutSrc).toContain('variable: "--a-f-mono"');
-    expect(layoutSrc).toContain('axes: ["wdth"]');
+    expect(layoutSrc).toContain('weight: "100 900"');
+    expect(layoutSrc).toContain('weight: "600 700"');
+    expect(layoutSrc).toContain('value: "62% 125%"');
     expect(layoutSrc).toContain('import "./athlete-v7.css"');
+    expect(() => read("src/app/(athlete)/athlete/fonts/archivo-latin.woff2")).not.toThrow();
+    expect(() => read("src/app/(athlete)/athlete/fonts/geist-latin.woff2")).not.toThrow();
+    expect(() => read("src/app/(athlete)/athlete/fonts/geist-mono-latin.woff2")).not.toThrow();
   });
 
   it("layout.tsx envuelve la app del alumno en .theme-athlete con data-v7 y las 3 variables de fuente", () => {
