@@ -84,6 +84,24 @@ function numeroSemanaIso(fecha: Date): number {
   return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
+const DIAS_RECURRENCIA = [
+  { iso: 1, label: "Lun" },
+  { iso: 2, label: "Mar" },
+  { iso: 3, label: "Mié" },
+  { iso: 4, label: "Jue" },
+  { iso: 5, label: "Vie" },
+  { iso: 6, label: "Sáb" },
+  { iso: 7, label: "Dom" },
+] as const;
+
+function diaIsoDeFecha(fechaStr: string): number {
+  if (!fechaStr) return 1;
+  const d = new Date(`${fechaStr}T12:00:00-03:00`);
+  if (Number.isNaN(d.getTime())) return 1;
+  const day = d.getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
 function parseHoraMinutoLocal(fechaIso: string): { hora: number; minuto: number } {
   const [hStr, mStr] = horaLocal(fechaIso).split(":");
   return { hora: Number(hStr) || 0, minuto: Number(mStr) || 0 };
@@ -271,23 +289,29 @@ export function ClassAgenda({
     testAhora: testAhoraStore,
     cargando,
     accionEnCurso,
-    error,
-    aviso,
+    error: errorStore,
+    aviso: avisoStore,
     cargarAgenda,
+    subscribeToRealtime,
     marcarAusente,
     cancelarClase,
+    reactivarClase,
     crearClase,
+    crearClasesRecurrentes,
     actualizarClase,
-    moverClase,
-    redimensionarClase,
-    actualizarCupoClase,
     anotarAlumnoCoach,
     quitarAnotadoCoach,
     limpiarMensajes,
   } = useClasesStore();
 
-  const isOnline = useOfflineQueueStore((s) => s.isOnline);
+  const isOnlineStore = useOfflineQueueStore((s) => s.isOnline);
+  const isOnline =
+    typeof window === "undefined" ? useOfflineQueueStore.getState().isOnline : isOnlineStore;
 
+  const error =
+    typeof window === "undefined" ? useClasesStore.getState().error : errorStore;
+  const aviso =
+    typeof window === "undefined" ? useClasesStore.getState().aviso : avisoStore;
   const testAhora =
     testAhoraProp ??
     (typeof window === "undefined" ? useClasesStore.getState().testAhora : testAhoraStore);
@@ -332,8 +356,9 @@ export function ClassAgenda({
   const [avisoCopiado, setAvisoCopiado] = React.useState(false);
   const cancelDialogRef = React.useRef<HTMLDialogElement>(null);
   const studioAlumnos = useCoachStudioStore((s) => s.alumnos);
+  const studioLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
 
-  // Modal Crear Clase
+  // Modal Crear Clase (única o recurrente estilo Google Calendar)
   const createDialogRef = React.useRef<HTMLDialogElement>(null);
   const [crearActividad, setCrearActividad] = React.useState<ActividadClase>("FUNCIONAL");
   const [crearFecha, setCrearFecha] = React.useState(hoy);
@@ -341,6 +366,13 @@ export function ClassAgenda({
   const [crearDuracion, setCrearDuracion] = React.useState(60);
   const [crearCapacidad, setCrearCapacidad] = React.useState<number | null>(null);
   const [crearSinLimite, setCrearSinLimite] = React.useState(true);
+  const [crearRecurrencia, setCrearRecurrencia] = React.useState<"UNICA" | "SEMANAL">("UNICA");
+  const [crearDiasSemana, setCrearDiasSemana] = React.useState<number[]>(() => [diaIsoDeFecha(hoy)]);
+  const [crearFinModo, setCrearFinModo] = React.useState<"semanas" | "fecha">("semanas");
+  const [crearSemanas, setCrearSemanas] = React.useState(4);
+  const [crearFechaFin, setCrearFechaFin] = React.useState("");
+  const [creandoClase, setCreandoClase] = React.useState(false);
+  const [crearErrorLocal, setCrearErrorLocal] = React.useState<string | null>(null);
 
   // Modal Anotar Alumno
   const enrollDialogRef = React.useRef<HTMLDialogElement>(null);
@@ -348,18 +380,12 @@ export function ClassAgenda({
   const [advertenciaAnotacion, setAdvertenciaAnotacion] = React.useState<string | null>(null);
   const [requiereConfirmacion, setRequiereConfirmacion] = React.useState(false);
 
-  // Edición directa de cupo
-  const [editandoCupo, setEditandoCupo] = React.useState(false);
-  const [nuevoCupo, setNuevoCupo] = React.useState<number>(3);
-
-  // Edición de movimiento / hora
-  const [editandoHora, setEditandoHora] = React.useState(false);
-  const [nuevaHora, setNuevaHora] = React.useState<string>("18:00");
-
-  // Modal Diálogo Unificado Editar Clase (GOZS-419)
+  // Modal Diálogo Unificado Editar Clase (GOZS-419 / GOZS-638)
   const [editDialogAbierto, setEditDialogAbierto] = React.useState<boolean>(
     initialEditDialogOpen ?? false
   );
+  const [guardandoEdicion, setGuardandoEdicion] = React.useState(false);
+  const [editarErrorLocal, setEditarErrorLocal] = React.useState<string | null>(null);
   const [claseAEditar, setClaseAEditar] = React.useState<Clase | null>(() => {
     const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
     if (initialClaseId) {
@@ -409,31 +435,46 @@ export function ClassAgenda({
     setEditDuracion(clase.duracion_minutos || 60);
     setEditSinLimite(clase.capacidad === null);
     setEditCapacidad(clase.capacidad ?? 6);
+    setEditarErrorLocal(null);
     setEditDialogAbierto(true);
   }, []);
 
   const handleGuardarEdicion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!claseAEditar) return;
+    if (!claseAEditar || guardandoEdicion) return;
     const fechaHora = `${editFecha}T${editHora}:00-03:00`;
     const nuevoInicio = new Date(fechaHora).toISOString();
     const capacidadFinal = editSinLimite ? null : (editCapacidad ?? null);
 
-    await actualizarClase(claseAEditar.id, {
+    setGuardandoEdicion(true);
+    setEditarErrorLocal(null);
+    const ok = await actualizarClase(claseAEditar.id, {
       actividad: editActividad,
       inicio: nuevoInicio,
       duracion_minutos: editDuracion || 60,
       capacidad: capacidadFinal,
     });
+    setGuardandoEdicion(false);
 
-    setDia(editFecha);
-    setClaseId(claseAEditar.id);
-    setEditDialogAbierto(false);
+    if (ok) {
+      setDia(editFecha);
+      setClaseId(claseAEditar.id);
+      setEditDialogAbierto(false);
+      setSheetDetalleAbierto(false);
+    } else {
+      setEditarErrorLocal(
+        useClasesStore.getState().error ?? "No pudimos actualizar la clase.",
+      );
+    }
   };
 
   React.useEffect(() => {
     void cargarAgenda();
   }, [cargarAgenda]);
+
+  React.useEffect(() => {
+    return subscribeToRealtime();
+  }, [subscribeToRealtime]);
 
   // Días de la semana en curso
   const diasSemana = React.useMemo(() => diasDeLaSemana(fechaBase), [fechaBase]);
@@ -574,13 +615,18 @@ export function ClassAgenda({
     : false;
 
   const listaAlumnos = React.useMemo(() => {
-    const combinados = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
-    const unicos = new Map<string, (typeof combinados)[0]>();
-    for (const a of combinados) {
+    const tieneReales =
+      studioLiveDatabase ||
+      studioAlumnos.some((a) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(a.id));
+    const fuente = tieneReales
+      ? studioAlumnos
+      : [...studioAlumnos, ...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
+    const unicos = new Map<string, (typeof fuente)[0]>();
+    for (const a of fuente) {
       if (!unicos.has(a.id)) unicos.set(a.id, a);
     }
     return [...unicos.values()].sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
-  }, []);
+  }, [studioAlumnos, studioLiveDatabase]);
 
   const abrirDialogoCancelar = React.useCallback(() => {
     setPushearAvisoInicio(true);
@@ -631,21 +677,64 @@ export function ClassAgenda({
     }
   };
 
+  const handleReactivarClase = React.useCallback(
+    async (idClase: string) => {
+      const ok = await reactivarClase(idClase);
+      if (ok) {
+        setCancelacionResultado(null);
+      }
+    },
+    [reactivarClase],
+  );
+
   const handleCrearClase = async (e: React.FormEvent) => {
     e.preventDefault();
-    const fechaHora = `${crearFecha}T${crearHora}:00-03:00`;
-    const nueva = await crearClase({
-      actividad: crearActividad,
-      inicio: new Date(fechaHora).toISOString(),
-      duracion_minutos: crearDuracion || 60,
-      capacidad: crearSinLimite ? null : (crearCapacidad ?? null),
-    });
-    setDia(crearFecha);
-    setClaseId(nueva.id);
-    setCrearDuracion(60);
-    setCrearSinLimite(true);
-    setCrearCapacidad(null);
-    createDialogRef.current?.close();
+    if (creandoClase) return;
+    setCreandoClase(true);
+    setCrearErrorLocal(null);
+
+    try {
+      const capacidadFinal = crearSinLimite ? null : (crearCapacidad ?? null);
+      if (crearRecurrencia === "SEMANAL") {
+        const dias =
+          crearDiasSemana.length > 0 ? crearDiasSemana : [diaIsoDeFecha(crearFecha)];
+        const creadas = await crearClasesRecurrentes({
+          actividad: crearActividad,
+          hora_inicio: crearHora,
+          fecha_inicio: crearFecha,
+          dias_semana: dias,
+          semanas: crearFinModo === "semanas" ? crearSemanas : undefined,
+          fecha_fin: crearFinModo === "fecha" && crearFechaFin ? crearFechaFin : null,
+          duracion_minutos: crearDuracion || 60,
+          capacidad: capacidadFinal,
+        });
+        setDia(crearFecha);
+        if (creadas[0]) setClaseId(creadas[0].id);
+      } else {
+        const fechaHora = `${crearFecha}T${crearHora}:00-03:00`;
+        const nueva = await crearClase({
+          actividad: crearActividad,
+          inicio: new Date(fechaHora).toISOString(),
+          duracion_minutos: crearDuracion || 60,
+          capacidad: capacidadFinal,
+        });
+        setDia(crearFecha);
+        setClaseId(nueva.id);
+      }
+      setCrearDuracion(60);
+      setCrearSinLimite(true);
+      setCrearCapacidad(null);
+      setCrearRecurrencia("UNICA");
+      setCrearSemanas(4);
+      setCrearFechaFin("");
+      createDialogRef.current?.close();
+    } catch (err: any) {
+      setCrearErrorLocal(
+        err?.message || useClasesStore.getState().error || "No pudimos crear la clase.",
+      );
+    } finally {
+      setCreandoClase(false);
+    }
   };
 
   const abrirAnotarAlumno = () => {
@@ -666,20 +755,6 @@ export function ClassAgenda({
       setRequiereConfirmacion(false);
       enrollDialogRef.current?.close();
     }
-  };
-
-  const guardarNuevoCupo = async () => {
-    if (!seleccionada) return;
-    await actualizarCupoClase(seleccionada.id, nuevoCupo > 0 ? nuevoCupo : null);
-    setEditandoCupo(false);
-  };
-
-  const guardarNuevaHora = async () => {
-    if (!seleccionada) return;
-    const fechaSolo = claveDia(seleccionada.inicio);
-    const nuevoIso = new Date(`${fechaSolo}T${nuevaHora}:00-03:00`).toISOString();
-    await moverClase(seleccionada.id, nuevoIso);
-    setEditandoHora(false);
   };
 
   // Cálculo de rango horario dinámico para la grilla según clases activas (GOZS-385)
@@ -913,6 +988,12 @@ export function ClassAgenda({
               setCrearDuracion(60);
               setCrearSinLimite(true);
               setCrearCapacidad(null);
+              setCrearRecurrencia("UNICA");
+              setCrearDiasSemana([diaIsoDeFecha(dia)]);
+              setCrearFinModo("semanas");
+              setCrearSemanas(4);
+              setCrearFechaFin("");
+              setCrearErrorLocal(null);
               createDialogRef.current?.showModal();
             }}
             className="h-9 px-3.5 text-sm font-medium"
@@ -928,6 +1009,16 @@ export function ClassAgenda({
           )}
         </div>
       </header>
+
+      {!isOnline && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm font-medium text-amber-800 dark:text-amber-300"
+          data-testid="agenda-offline-banner"
+        >
+          Estás sin señal (Modo Offline). Podés ver la agenda guardada; para crear, editar, cancelar o anotar alumnos esperá a volver a estar en verde (Online).
+        </div>
+      )}
 
       {/* Alertas */}
       {error && (
@@ -1215,17 +1306,7 @@ export function ClassAgenda({
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
                 abrirDialogoEditar,
-                redimensionarClase,
-                editandoHora,
-                nuevaHora,
-                setNuevaHora,
-                guardarNuevaHora,
-                setEditandoHora,
-                editandoCupo,
-                nuevoCupo,
-                setNuevoCupo,
-                guardarNuevoCupo,
-                setEditandoCupo,
+                handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
                 quitarAnotadoCoach
@@ -1386,17 +1467,7 @@ export function ClassAgenda({
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
                 abrirDialogoEditar,
-                redimensionarClase,
-                editandoHora,
-                nuevaHora,
-                setNuevaHora,
-                guardarNuevaHora,
-                setEditandoHora,
-                editandoCupo,
-                nuevoCupo,
-                setNuevoCupo,
-                guardarNuevoCupo,
-                setEditandoCupo,
+                handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
                 quitarAnotadoCoach
@@ -1412,6 +1483,12 @@ export function ClassAgenda({
                     setCrearDuracion(60);
                     setCrearSinLimite(true);
                     setCrearCapacidad(null);
+                    setCrearRecurrencia("UNICA");
+                    setCrearDiasSemana([diaIsoDeFecha(dia)]);
+                    setCrearFinModo("semanas");
+                    setCrearSemanas(4);
+                    setCrearFechaFin("");
+                    setCrearErrorLocal(null);
                     createDialogRef.current?.showModal();
                   }}
                 >
@@ -1426,7 +1503,7 @@ export function ClassAgenda({
       {/* DIÁLOGO: CREAR NUEVA CLASE */}
       <dialog
         ref={createDialogRef}
-        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
+        className="m-auto w-[min(92vw,30rem)] max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
         aria-labelledby="crear-clase-titulo"
         data-testid="create-class-dialog"
       >
@@ -1434,6 +1511,16 @@ export function ClassAgenda({
           <h2 id="crear-clase-titulo" className="text-lg font-black">
             Crear nueva clase
           </h2>
+
+          {crearErrorLocal && (
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300"
+              data-testid="create-class-error"
+            >
+              {crearErrorLocal}
+            </div>
+          )}
 
           <div className="space-y-1">
             <label htmlFor="crear-actividad" className="text-xs font-bold text-muted-foreground">
@@ -1454,13 +1541,19 @@ export function ClassAgenda({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label htmlFor="crear-fecha" className="text-xs font-bold text-muted-foreground">
-                Fecha
+                {crearRecurrencia === "SEMANAL" ? "Fecha de inicio" : "Fecha"}
               </label>
               <input
                 id="crear-fecha"
                 type="date"
                 value={crearFecha}
-                onChange={(e) => setCrearFecha(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCrearFecha(val);
+                  if (crearRecurrencia === "SEMANAL" && crearDiasSemana.length === 0) {
+                    setCrearDiasSemana([diaIsoDeFecha(val)]);
+                  }
+                }}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
                 data-testid="create-class-date"
                 required
@@ -1480,6 +1573,122 @@ export function ClassAgenda({
                 required
               />
             </div>
+          </div>
+
+          {/* Repetición estilo Google Calendar */}
+          <div className="space-y-2 rounded-xl border border-border/80 bg-muted/20 p-3">
+            <label htmlFor="crear-recurrencia" className="block text-xs font-bold text-muted-foreground">
+              Repetición
+            </label>
+            <select
+              id="crear-recurrencia"
+              value={crearRecurrencia}
+              onChange={(e) => {
+                const next = e.target.value as "UNICA" | "SEMANAL";
+                setCrearRecurrencia(next);
+                if (next === "SEMANAL" && crearDiasSemana.length === 0) {
+                  setCrearDiasSemana([diaIsoDeFecha(crearFecha)]);
+                }
+              }}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold"
+              data-testid="create-class-recurrence"
+            >
+              <option value="UNICA">No se repite (única)</option>
+              <option value="SEMANAL">Semanalmente</option>
+            </select>
+
+            {crearRecurrencia === "SEMANAL" && (
+              <div className="space-y-3 pt-1" data-testid="create-recurrence-options">
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-semibold text-muted-foreground">
+                    Se repite los días
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DIAS_RECURRENCIA.map((d) => {
+                      const activo = crearDiasSemana.includes(d.iso);
+                      return (
+                        <button
+                          key={d.iso}
+                          type="button"
+                          aria-pressed={activo}
+                          onClick={() => {
+                            setCrearDiasSemana((prev) => {
+                              if (prev.includes(d.iso)) {
+                                return prev.length > 1 ? prev.filter((x) => x !== d.iso) : prev;
+                              }
+                              return [...prev, d.iso].sort((a, b) => a - b);
+                            });
+                          }}
+                          data-testid={`create-recurrence-day-${d.iso}`}
+                          className={`min-h-9 min-w-9 rounded-lg border px-2 text-xs font-bold transition-colors cursor-pointer ${
+                            activo
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 items-end">
+                  <div className="space-y-1">
+                    <label htmlFor="crear-fin-modo" className="text-xs font-semibold text-muted-foreground">
+                      Finaliza
+                    </label>
+                    <select
+                      id="crear-fin-modo"
+                      value={crearFinModo}
+                      onChange={(e) => setCrearFinModo(e.target.value as "semanas" | "fecha")}
+                      className="w-full rounded-xl border border-border bg-background px-2.5 py-2 text-xs font-semibold"
+                      data-testid="create-recurrence-end-mode"
+                    >
+                      <option value="semanas">Cantidad de semanas</option>
+                      <option value="fecha">En fecha</option>
+                    </select>
+                  </div>
+
+                  {crearFinModo === "semanas" ? (
+                    <div className="space-y-1">
+                      <label htmlFor="crear-semanas" className="text-xs font-semibold text-muted-foreground">
+                        Semanas (máx. 12)
+                      </label>
+                      <input
+                        id="crear-semanas"
+                        type="number"
+                        min={1}
+                        max={12}
+                        value={crearSemanas}
+                        onChange={(e) =>
+                          setCrearSemanas(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
+                        }
+                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-sm font-semibold"
+                        data-testid="create-recurrence-weeks"
+                        required
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label htmlFor="crear-fecha-fin" className="text-xs font-semibold text-muted-foreground">
+                        Fecha de fin
+                      </label>
+                      <input
+                        id="crear-fecha-fin"
+                        type="date"
+                        min={crearFecha}
+                        value={crearFechaFin}
+                        onChange={(e) => setCrearFechaFin(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-2.5 py-1.5 text-xs font-semibold"
+                        data-testid="create-recurrence-end-date"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -1544,8 +1753,12 @@ export function ClassAgenda({
             >
               Cancelar
             </Button>
-            <Button type="submit" data-testid="create-class-submit">
-              Guardar clase
+            <Button type="submit" disabled={creandoClase} data-testid="create-class-submit">
+              {creandoClase
+                ? "Guardando..."
+                : crearRecurrencia === "SEMANAL"
+                  ? "Crear clases"
+                  : "Guardar clase"}
             </Button>
           </div>
         </form>
@@ -1554,7 +1767,7 @@ export function ClassAgenda({
       {/* DIÁLOGO: ANOTAR ALUMNO */}
       <dialog
         ref={enrollDialogRef}
-        className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
+        className="m-auto w-[min(92vw,28rem)] max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60"
         aria-labelledby="anotar-alumno-titulo"
         data-testid="enroll-student-dialog"
       >
@@ -1573,6 +1786,11 @@ export function ClassAgenda({
               onChange={(e) => {
                 const nuevoId = e.target.value;
                 setAlumnoSeleccionado(nuevoId);
+                if (studioLiveDatabase) {
+                  setAdvertenciaAnotacion(null);
+                  setRequiereConfirmacion(false);
+                  return;
+                }
                 const alumno = listaAlumnos.find((a) => a.id === nuevoId);
                 const contratacion = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === nuevoId);
                 if (alumno && (!contratacion || contratacion.estado === "VENCIDA")) {
@@ -1661,17 +1879,7 @@ export function ClassAgenda({
                 abrirAnotarAlumno,
                 abrirDialogoCancelar,
                 abrirDialogoEditar,
-                redimensionarClase,
-                editandoHora,
-                nuevaHora,
-                setNuevaHora,
-                guardarNuevaHora,
-                setEditandoHora,
-                editandoCupo,
-                nuevoCupo,
-                setNuevoCupo,
-                guardarNuevoCupo,
-                setEditandoCupo,
+                handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
                 quitarAnotadoCoach
@@ -1902,11 +2110,11 @@ export function ClassAgenda({
         </DialogContent>
       </Dialog>
 
-      {/* DIÁLOGO MODAL ACCESIBLE: EDITAR CLASE (GOZS-419) */}
+      {/* DIÁLOGO MODAL ACCESIBLE: EDITAR CLASE (GOZS-419 / GOZS-638) */}
       <Dialog open={editDialogAbierto} onOpenChange={setEditDialogAbierto}>
         <DialogContent
           forceMount
-          className="w-[min(92vw,28rem)] p-6 bg-card border border-border rounded-2xl text-foreground"
+          className="w-[min(92vw,28rem)] max-h-[90vh] overflow-y-auto p-6 bg-card border border-border rounded-2xl text-foreground"
           data-testid="edit-class-dialog"
           aria-labelledby="editar-clase-titulo"
           aria-describedby="editar-clase-descripcion"
@@ -1920,6 +2128,16 @@ export function ClassAgenda({
                 Modificá la actividad, fecha, horario, duración y cupo de la clase.
               </DialogDescription>
             </DialogHeader>
+
+            {editarErrorLocal && (
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300"
+                data-testid="edit-class-error"
+              >
+                {editarErrorLocal}
+              </div>
+            )}
 
             <div className="space-y-1">
               <label htmlFor="edit-actividad" className="text-xs font-bold text-muted-foreground">
@@ -2031,8 +2249,8 @@ export function ClassAgenda({
               >
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="edit-class-submit">
-                Guardar cambios
+              <Button type="submit" disabled={guardandoEdicion} data-testid="edit-class-submit">
+                {guardandoEdicion ? "Guardando..." : "Listo · Guardar cambios"}
               </Button>
             </DialogFooter>
           </form>
@@ -2050,17 +2268,7 @@ function renderDetalleClase(
   abrirAnotarAlumno: () => void,
   abrirDialogoCancelar: () => void,
   abrirDialogoEditar?: (clase: Clase) => void,
-  redimensionarClase?: (id: string, duracion: number) => Promise<boolean>,
-  editandoHora?: boolean,
-  nuevaHora?: string,
-  setNuevaHora?: (h: string) => void,
-  guardarNuevaHora?: () => Promise<void>,
-  setEditandoHora?: (b: boolean) => void,
-  editandoCupo?: boolean,
-  nuevoCupo?: number,
-  setNuevoCupo?: (n: number) => void,
-  guardarNuevoCupo?: () => Promise<void>,
-  setEditandoCupo?: (b: boolean) => void,
+  onReactivarClase?: (claseId: string) => Promise<void>,
   marcarAusente?: (reservaId: string) => Promise<void | boolean>,
   accionEnCurso?: string | null,
   quitarAnotadoCoach?: (reservaId: string) => Promise<void | boolean>
@@ -2176,143 +2384,24 @@ function renderDetalleClase(
       </div>
 
       {seleccionada.estado === "CANCELADA" && (
-        <p
-          className="rounded-xl bg-secondary/60 p-3 text-sm text-rose-600 dark:text-rose-400 font-semibold"
-          data-testid="class-canceled-banner"
-        >
-          Clase cancelada
-          {seleccionada.motivo_cancelacion ? `: ${seleccionada.motivo_cancelacion}` : "."}
-        </p>
-      )}
-
-      {/* Controles de Clase (Cupo flexible & Horario) */}
-      {seleccionada.estado === "PROGRAMADA" && (
-        <div className="space-y-2.5 border-t border-border pt-4">
-          <h3 className="m-0 text-[13px] font-semibold text-foreground">Ajustes de la clase</h3>
-
-          {/* Redimensión rápida de duración */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-neutral-soft-foreground">Duración</span>
-            <button
-              type="button"
-              onClick={() => void redimensionarClase?.(seleccionada.id, 45)}
-              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
-                seleccionada.duracion_minutos === 45
-                  ? "bg-muted border-border text-foreground font-medium"
-                  : "border-border text-neutral-soft-foreground hover:bg-muted"
-              }`}
-              data-testid="resize-class-45-btn"
-            >
-              45m
-            </button>
-            <button
-              type="button"
-              onClick={() => void redimensionarClase?.(seleccionada.id, 60)}
-              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
-                seleccionada.duracion_minutos === 60
-                  ? "bg-muted border-border text-foreground font-medium"
-                  : "border-border text-neutral-soft-foreground hover:bg-muted"
-              }`}
-              data-testid="resize-class-60-btn"
-            >
-              60m
-            </button>
-            <button
-              type="button"
-              onClick={() => void redimensionarClase?.(seleccionada.id, 90)}
-              className={`h-8 px-2.5 rounded-lg border text-[13px] cursor-pointer ${
-                seleccionada.duracion_minutos === 90
-                  ? "bg-muted border-border text-foreground font-medium"
-                  : "border-border text-neutral-soft-foreground hover:bg-muted"
-              }`}
-              data-testid="resize-class-90-btn"
-            >
-              90m
-            </button>
-          </div>
-
-          {/* Mover horario */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground font-semibold">Horario:</span>
-            {editandoHora ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="time"
-                  value={nuevaHora}
-                  onChange={(e) => setNuevaHora?.(e.target.value)}
-                  className="rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
-                  data-testid="move-class-time"
-                />
-                <Button size="sm" onClick={() => void guardarNuevaHora?.()} data-testid="save-move-class-btn">
-                  Guardar
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditandoHora?.(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setNuevaHora?.(horaLocal(seleccionada.inicio));
-                  setEditandoHora?.(true);
-                }}
-                data-testid="move-class-btn"
-              >
-                Mover horario ({horaLocal(seleccionada.inicio)})
-              </Button>
-            )}
-          </div>
-
-          {/* Editar cupo flexible */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="text-muted-foreground font-semibold">Cupo flexible:</span>
-            {editandoCupo ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={nuevoCupo}
-                  onChange={(e) => setNuevoCupo?.(Number(e.target.value))}
-                  className="w-16 rounded-lg border border-border bg-background px-2 py-0.5 text-xs"
-                  data-testid="edit-capacity-input"
-                />
-                <Button size="sm" onClick={() => void guardarNuevoCupo?.()} data-testid="save-capacity-btn">
-                  Guardar
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditandoCupo?.(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setNuevoCupo?.(seleccionada.capacidad ?? 6);
-                  setEditandoCupo?.(true);
-                }}
-                data-testid="edit-capacity-btn"
-              >
-                Editar cupo ({seleccionada.capacidad ?? "Sin límite"})
-              </Button>
-            )}
-          </div>
-
-          {/* Diálogo unificado Editar Clase (GOZS-419) */}
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-muted-foreground font-semibold">Edición completa:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => abrirDialogoEditar?.(seleccionada)}
-              data-testid="edit-class-btn"
-            >
-              Editar clase
-            </Button>
-          </div>
+        <div className="space-y-2.5">
+          <p
+            className="rounded-xl bg-secondary/60 p-3 text-sm text-rose-600 dark:text-rose-400 font-semibold"
+            data-testid="class-canceled-banner"
+          >
+            Clase cancelada
+            {seleccionada.motivo_cancelacion ? `: ${seleccionada.motivo_cancelacion}` : "."}
+          </p>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={() => void onReactivarClase?.(seleccionada.id)}
+            data-testid="reactivate-class-btn"
+            className="h-9 px-3.5 text-sm font-medium"
+          >
+            Des-cancelar clase
+          </Button>
         </div>
       )}
 

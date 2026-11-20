@@ -39,7 +39,7 @@ describe("GOZS-419: Agenda: Diálogo unificado 'Editar Clase' (actividad, fecha,
       expect(html).toContain("Editar clase");
     });
 
-    it("GIVEN una clase abierta en el Sheet lateral de class-agenda.tsx THEN exhibe el botón 'Editar clase' en las acciones y en ajustes", () => {
+    it("GIVEN una clase abierta en el Sheet lateral de class-agenda.tsx THEN exhibe un único botón 'Editar clase' sin micro-ajustes inline redundantes", () => {
       const store = useClasesStore.getState();
       const clase = store.clases.find((c) => c.estado === "PROGRAMADA")!;
       expect(clase).toBeDefined();
@@ -52,13 +52,14 @@ describe("GOZS-419: Agenda: Diálogo unificado 'Editar Clase' (actividad, fecha,
         />
       );
 
-      // Botón principal de edición en la barra de acciones de la clase
+      // Botón único de edición en la barra de acciones de la clase
       expect(html).toContain('data-testid="edit-class-dialog-btn"');
       expect(html).toContain(">Editar clase<");
 
-      // Botón de edición completa en los ajustes de la clase
-      expect(html).toContain('data-testid="edit-class-btn"');
-      expect(html).toContain("Edición completa");
+      // Sin micro-ajustes inline redundantes
+      expect(html).not.toContain('data-testid="resize-class-45-btn"');
+      expect(html).not.toContain('data-testid="move-class-btn"');
+      expect(html).not.toContain('data-testid="edit-capacity-btn"');
     });
   });
 

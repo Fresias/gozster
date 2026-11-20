@@ -11,11 +11,12 @@ import {
   horaLocal,
   inicioPeriodoRenovacion,
   ocupaCupo,
+  resolverActividadesHabilitadas,
   type EstadoTarjetaClase,
 } from "@/lib/clases";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { Clase, Reserva } from "@/types/database.types";
+import type { ActividadClase, Clase, Reserva } from "@/types/database.types";
 
 const DIAS_LARGO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES = [
@@ -50,12 +51,16 @@ function celdasDelMes(base: Date): Array<{ clave: string; numero: number } | nul
 
 // Athlete App v7 · Clases: semana (vista principal) o mes, cupo semanal y reservas con motivo.
 export function AthleteClasses() {
+  const clasesHookState = useClasesStore();
   const {
     clases,
     misReservas,
     agendaReservas,
     membresia,
     plan,
+    contratacionesAlumno,
+    actividadesAlumno,
+    actividadesHabilitadas,
     sinCupo,
     actualizadoAt,
     cargando,
@@ -66,9 +71,11 @@ export function AthleteClasses() {
     reservar,
     cancelarReserva,
     limpiarMensajes,
-  } = useClasesStore();
+  } = typeof window === "undefined" ? useClasesStore.getState() : clasesHookState;
 
-  const isOnline = useOfflineQueueStore((s) => s.isOnline);
+  const isOnlineStore = useOfflineQueueStore((s) => s.isOnline);
+  const isOnline =
+    typeof window === "undefined" ? useOfflineQueueStore.getState().isOnline : isOnlineStore;
 
   const ahora = React.useMemo(() => new Date(), []);
   const hoy = claveDia(ahora);
@@ -77,7 +84,6 @@ export function AthleteClasses() {
   const [vista, setVista] = React.useState<"semana" | "mes">("semana");
   const [dia, setDia] = React.useState(hoy);
   const [porCancelar, setPorCancelar] = React.useState<{ clase: Clase; reserva: Reserva } | null>(null);
-  const [mostrarTodas, setMostrarTodas] = React.useState(false);
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
   React.useEffect(() => {
@@ -89,18 +95,35 @@ export function AthleteClasses() {
     else dialogRef.current?.close();
   }, [porCancelar]);
 
+  const habilitadas = React.useMemo(() => {
+    if (actividadesHabilitadas.length > 0) return actividadesHabilitadas;
+    return resolverActividadesHabilitadas({
+      contrataciones: contratacionesAlumno,
+      actividadesAlumno,
+      membresia,
+      plan,
+      ahora,
+    });
+  }, [actividadesHabilitadas, contratacionesAlumno, actividadesAlumno, membresia, plan, ahora]);
+
+  const habilitadasSet = React.useMemo(() => new Set<ActividadClase>(habilitadas), [habilitadas]);
+
+  const visibles = React.useMemo(
+    () => clases.filter((c) => habilitadasSet.has(c.actividad)),
+    [clases, habilitadasSet],
+  );
+
   const reservaPorClase = new Map(
     misReservas.filter((r) => r.estado !== "CANCELADO").map((r) => [r.clase_id, r]),
   );
-  const usadas = clasesUsadas(misReservas, clases);
-  const limite = plan?.limite_semanal ?? null;
+  const usadas = clasesUsadas(misReservas, visibles);
+  const limite =
+    plan?.limite_semanal ??
+    actividadesAlumno.find(
+      (a) => habilitadasSet.has(a.actividad as ActividadClase) && !a.pase_libre,
+    )?.veces_por_semana ??
+    null;
   const restantes = limite === null ? null : Math.max(limite - usadas, 0);
-
-  const actividadPlan = plan?.cantidad_actividades === 1 ? (membresia?.actividad ?? null) : null;
-  const visibles = React.useMemo(
-    () => (!mostrarTodas && actividadPlan ? clases.filter((c) => c.actividad === actividadPlan) : clases),
-    [clases, mostrarTodas, actividadPlan],
-  );
 
   const clasesPorDia = React.useMemo(() => {
     const m = new Map<string, Clase[]>();
@@ -154,7 +177,16 @@ export function AthleteClasses() {
           </button>
         );
       case "RESERVADA":
-        return (
+        return !isOnline ? (
+          <button
+            type="button"
+            className="a-btn a-ghost"
+            disabled
+            data-testid="cancel-booking-btn"
+          >
+            Necesitás conexión para cancelar
+          </button>
+        ) : (
           <button
             type="button"
             className="a-btn a-ghost"
@@ -201,14 +233,14 @@ export function AthleteClasses() {
       </div>
 
       {!isOnline && (
-        <p className="a-eb a-t-label a-offnote" role="status">
-          <CloudOff width={12} height={12} className="a-i" /> Sin conexión · datos guardados
+        <p className="a-eb a-t-label a-offnote" role="status" data-testid="athlete-offline-banner">
+          <CloudOff width={12} height={12} className="a-i" /> Sin conexión · Estás sin señal. Para reservar o cancelar clases volvé a intentarlo en verde (Online).
         </p>
       )}
 
       <section className="a-card a-quota" data-testid="weekly-allowance">
         {limite === null ? (
-          <b className="a-t-bs">{plan ? "Pase libre esta semana" : "Sin membresía de clases"}</b>
+          <b className="a-t-bs">{plan || habilitadas.length > 0 ? "Pase libre esta semana" : "Sin membresía de clases"}</b>
         ) : (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -296,23 +328,24 @@ export function AthleteClasses() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
         <p className="a-eb a-t-label">{tituloDia}</p>
-        {actividadPlan && (
+        {habilitadas.length > 0 && (
           <span className="a-t-sec a-muted" data-testid="plan-activity-filter">
-            {mostrarTodas ? "Todas las actividades" : `Tu plan: ${NOMBRE_ACTIVIDAD[actividadPlan]}`}{" "}
-            <button
-              type="button"
-              className="a-link"
-              onClick={() => setMostrarTodas(!mostrarTodas)}
-              data-testid="toggle-filter-actividades"
-            >
-              {mostrarTodas ? "Solo mi actividad" : "Ver todas"}
-            </button>
+            {habilitadas.length === 1
+              ? `Tu actividad: ${NOMBRE_ACTIVIDAD[habilitadas[0]!]}`
+              : `Tus actividades: ${habilitadas.map((a) => NOMBRE_ACTIVIDAD[a]).join(" · ")}`}
           </span>
         )}
       </div>
 
       {cargando && clases.length === 0 ? (
         <p className="a-t-sec a-muted" role="status" style={{ textAlign: "center" }}>Cargando clases…</p>
+      ) : habilitadas.length === 0 ? (
+        <section className="a-card a-state" data-testid="no-enabled-activities-empty">
+          <b className="a-t-bs">Todavía no tenés actividades habilitadas</b>
+          <p className="a-t-sec">
+            Pedile a tu entrenador que habilite Funcional o Boxeo desde Studio para ver y reservar tus clases.
+          </p>
+        </section>
       ) : delDia.length === 0 ? (
         <section className="a-card a-state">
           <b className="a-t-bs">{actualizadoAt ? "No hay clases este día" : "Todavía no hay clases cargadas"}</b>

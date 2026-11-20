@@ -1,4 +1,12 @@
-import type { Clase, Contratacion, Perfil, PlanMembresia, Reserva } from "@/types/database.types";
+import type {
+  ActividadClase,
+  AlumnoActividad,
+  Clase,
+  Contratacion,
+  Perfil,
+  PlanMembresia,
+  Reserva,
+} from "@/types/database.types";
 
 // Reglas de UI de clases presenciales (#113 / GH #122). Todo en hora argentina,
 // igual que las RPC del backend (supabase/migrations/20261021120000_membresias_clases_reservas.sql).
@@ -130,9 +138,84 @@ export const MENSAJES_ERROR: Record<string, string> = {
   P0002: "No encontramos la clase o la reserva",
 };
 
+export const MENSAJE_SIN_SENAL =
+  "Estás sin señal. Volvé a intentarlo cuando el indicador esté en verde (Online).";
+
 export function mensajeErrorReserva(error: { code?: string; message?: string } | null): string {
   if (!error) return "";
   return (error.code && MENSAJES_ERROR[error.code]) || "No pudimos completar la acción. Probá de nuevo.";
+}
+
+/**
+ * Resuelve las actividades presenciales habilitadas (`FUNCIONAL` / `BOXEO`) para un alumno
+ * combinando sus `contrataciones` vigentes y `alumno_actividades` (espejo de `_resolver_cobertura_actividad_alumno`).
+ */
+export function resolverActividadesHabilitadas(params: {
+  contrataciones?: Pick<
+    Contratacion,
+    "plan_membresia_id" | "estado" | "fecha_inicio" | "fecha_fin" | "actividad"
+  >[];
+  planesPorId?: Record<string, Pick<PlanMembresia, "cantidad_actividades" | "limite_semanal">>;
+  actividadesAlumno?: Pick<AlumnoActividad, "actividad">[];
+  membresia?: Pick<
+    Contratacion,
+    "plan_membresia_id" | "estado" | "fecha_inicio" | "fecha_fin" | "actividad"
+  > | null;
+  plan?: Pick<PlanMembresia, "cantidad_actividades" | "limite_semanal"> | null;
+  ahora?: Date;
+}): ActividadClase[] {
+  const {
+    contrataciones,
+    planesPorId,
+    actividadesAlumno = [],
+    membresia,
+    plan,
+    ahora = new Date(),
+  } = params;
+
+  const hoy = claveDia(ahora);
+  const listaContrataciones =
+    contrataciones && contrataciones.length > 0
+      ? contrataciones
+      : membresia
+        ? [membresia]
+        : [];
+
+  const esVigente = (
+    c: Pick<Contratacion, "estado" | "fecha_inicio" | "fecha_fin">,
+  ): boolean =>
+    c.estado !== "EN_PAUSA" &&
+    c.estado !== "VENCIDA" &&
+    (!c.fecha_inicio || c.fecha_inicio <= hoy) &&
+    (!c.fecha_fin || c.fecha_fin >= hoy);
+
+  const habilitadas = new Set<ActividadClase>();
+
+  for (const c of listaContrataciones) {
+    if (!esVigente(c) || !c.plan_membresia_id) continue;
+    const planContratacion =
+      (planesPorId && planesPorId[c.plan_membresia_id]) || plan || null;
+    if (planContratacion?.cantidad_actividades === 2) {
+      habilitadas.add("FUNCIONAL");
+      habilitadas.add("BOXEO");
+    } else if (c.actividad === "FUNCIONAL" || c.actividad === "BOXEO") {
+      habilitadas.add(c.actividad);
+    }
+  }
+
+  const tieneContratacionVigente = listaContrataciones.some(esVigente);
+  if (
+    actividadesAlumno.length > 0 &&
+    (tieneContratacionVigente || listaContrataciones.length === 0)
+  ) {
+    for (const act of actividadesAlumno) {
+      if (act.actividad === "FUNCIONAL" || act.actividad === "BOXEO") {
+        habilitadas.add(act.actividad);
+      }
+    }
+  }
+
+  return Array.from(habilitadas);
 }
 
 /** Reservas que ocupan cupo y consumen límite semanal (las mismas que cuenta el backend). */
