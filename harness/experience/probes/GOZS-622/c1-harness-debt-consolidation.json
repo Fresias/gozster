@@ -1,0 +1,63 @@
+{
+  "candidate_id": "c1-harness-debt-consolidation",
+  "probe_branch": "probe/c1-harness-debt-consolidation-mwovxky7",
+  "probe_cmd": "npx vitest run harness-kit/tests/harness-propose.spec.ts harness-kit/tests/render.spec.ts",
+  "passed": true,
+  "exit_code": 0,
+  "duration_ms": 9122,
+  "tests": {
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones en harness/experience/*.jsonl WHEN se consolida THEN se sincronizan en experience_library.jsonl": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones sin procesar WHEN calculateDebt THEN reporta la deuda y deudaExcedida según umbral": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN deuda excedida WHEN se ejecuta CLI --check-debt THEN sale con código 1; con deuda <= umbral sale con 0": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN fixture con lecciones sin procesar WHEN --check-debt o --post-merge THEN pureza estricta sin escrituras en harness/": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN lecciones con patrones de fricción WHEN analyzeFrictionAndPropose THEN genera candidatos conformes al contrato": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN tareas procesadas WHEN markLessonsProcessed THEN actualiza processed_by_proposer: true": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN CLI con --generate y --json WHEN se ejecuta THEN escribe .harness/candidates.json y emite JSON válido": "passed",
+    "harness-kit/tests/harness-propose.spec.ts::Harness² Proposer & Debt Controller (harness-propose) GIVEN 1 lección normal y 1 línea caveat WHEN calculateDebt y consolidateLessons THEN devuelve unprocessed: 1 sin null y excluye caveat de experience_library.jsonl": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto el repo pasa la verificación de drift sin modificaciones": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md respeta el presupuesto duro (<150 líneas, <=8000 caracteres)": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md respeta el orden canónico C1 -> C2 -> C4": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto Multica tool_guidance y templates incluyen la regla obligatoria de --pr-auto-complete off para multi-stage (GOZS-450/GOZS-451)": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto GIVEN tool_guidance de Multica THEN especifica resiliencia de la cola nativa de squads y prohíbe polling de wakeup (GOZS-454)": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md incluye cada hecho [verified … | src: …] de LongTermMEMORY.md": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md lista cada script de core/scripts con su docstring y la ruta existe": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto AGENTS.md documenta los 7 comandos obligatorios de package.json": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: compilación de artefactos y presupuesto harness.lock tiene kitVersion 2.0.0, renderedAt null y mapa de artefactos": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) dos renders sucesivos son 100% idempotentes byte a byte": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) --check detecta modificación manual en .claude/settings.json con exit 1": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) --check detecta modificación manual en AGENTS.md con exit 1": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) --check detecta modificación manual en .opencode/plugins/harness-guard.ts con exit 1": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) --check detecta un artefacto faltante con exit 1": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) --check detecta alteración manual en harness.lock con exit 1": "passed",
+    "harness-kit/tests/render.spec.ts::harness-render: idempotencia y detección de drift (--check) un hecho de LongTermMEMORY.md sin [verified … | src: …] hace fallar el render con exit 1": "passed"
+  },
+  "target_components": [
+    "guardrails",
+    "tool_guidance"
+  ],
+  "timestamp": "2026-11-20T11:17:58.102Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓ harness-kit/tests/harness-propose.spec.ts (8 tests) 357ms\n ✓ harness-kit/tests/render.spec.ts (17 tests) 6813ms\n   ✓ harness-render: compilación de artefactos y presupuesto > el repo pasa la verificación de drift sin modificaciones  646ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > dos renders sucesivos son 100% idempotentes byte a byte  1019ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > --check detecta modificación manual en .claude/settings.json con exit 1  1014ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > --check detecta modificación manual en AGENTS.md con exit 1  1014ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > --check detecta modificación manual en .opencode/plugins/harness-guard.ts con exit 1  1007ms\n   ✓ harness-render: idempotencia y detección de drift (--check) > --check detecta un artefacto faltante con exit 1  998ms\n   ✓ harness-render: idempotencia y det",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-propose.spec.ts harness-kit/tests/render.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-harness-debt-consolidation-mwovxlop.json\n",
+  "files_touched": [
+    "AGENTS.md",
+    "harness/experience/GOZS-622.jsonl",
+    "harness/experience_library.jsonl",
+    "harness/guardrails.local.md",
+    "harness/harness.lock",
+    "harness/tool_guidance.local.md"
+  ],
+  "in_scope_files": [
+    "AGENTS.md",
+    "harness/experience/GOZS-622.jsonl",
+    "harness/experience_library.jsonl",
+    "harness/guardrails.local.md",
+    "harness/harness.lock",
+    "harness/tool_guidance.local.md"
+  ],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
