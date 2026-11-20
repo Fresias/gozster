@@ -478,3 +478,115 @@ export function PlaneAndroid({ className, ...props }: IconProps) {
     </svg>
   );
 }
+
+export type NivelRachaFlama = 1 | 2 | 3 | 4;
+
+/** Nivel visual progresivo según semanas consecutivas de racha. */
+export function nivelRachaFlama(semanas: number): NivelRachaFlama {
+  if (semanas >= 8) return 4;
+  if (semanas >= 4) return 3;
+  if (semanas >= 2) return 2;
+  return 1;
+}
+
+export interface RachaFlamaProps extends IconProps {
+  semanas: number;
+}
+
+/**
+ * Opción B — Flama Geométrica Progresiva inline (sin dependencias externas).
+ * Acompaña el peso stencil/angular de Archivo 800 y usa `React.useId()` para
+ * evitar colisiones de gradientes en DOM/SSR.
+ */
+export function RachaFlama({ semanas, className, ...props }: RachaFlamaProps) {
+  const rawId = React.useId();
+  const gradId = `racha-flama-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const nivel = nivelRachaFlama(semanas);
+
+  const outerPath =
+    "M12.5 2L18 9.2L15.6 11.4L19.2 14.8L15.8 21.5H8.2L4.8 14.8L8.4 11.4L6.2 8.8L12.5 2Z";
+  const innerPath = "M12.1 10.6L14.9 14.6L13.5 19.5H10.5L9.1 14.6L12.1 10.6Z";
+
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      focusable="false"
+      data-level={nivel}
+      className={className}
+      {...props}
+    >
+      {(nivel === 3 || nivel === 4) && (
+        <defs>
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#FDE047" />
+            <stop offset="55%" stopColor="#F97316" />
+            <stop offset="100%" stopColor="#DC2626" />
+          </linearGradient>
+        </defs>
+      )}
+
+      {nivel === 1 && (
+        <>
+          <path
+            d={outerPath}
+            fill="none"
+            stroke="#F97316"
+            strokeWidth="1.9"
+            strokeLinejoin="miter"
+          />
+          <path d={innerPath} fill="#F97316" fillOpacity="0.35" />
+        </>
+      )}
+
+      {nivel === 2 && (
+        <>
+          <path
+            d={outerPath}
+            fill="#EA580C"
+            stroke="#FB923C"
+            strokeWidth="1.2"
+            strokeLinejoin="miter"
+          />
+          <path d={innerPath} fill="#FDE047" />
+        </>
+      )}
+
+      {nivel === 3 && (
+        <>
+          <path
+            d={outerPath}
+            fill={`url(#${gradId})`}
+            stroke="#F97316"
+            strokeWidth="0.9"
+            strokeLinejoin="miter"
+          />
+          <path d={innerPath} fill="#FEF08A" fillOpacity="0.9" />
+        </>
+      )}
+
+      {nivel === 4 && (
+        <>
+          <path
+            d={outerPath}
+            fill={`url(#${gradId})`}
+            stroke="var(--a-rec-ic, #D4A72C)"
+            strokeWidth="1.6"
+            strokeLinejoin="miter"
+          />
+          <path d={innerPath} fill="#FEF9C3" fillOpacity="0.95" />
+          <path
+            d="M19.5 3.2L20.3 5.2L22.3 6L20.3 6.8L19.5 8.8L18.7 6.8L16.7 6L18.7 5.2Z"
+            fill="var(--a-rec-ic, #D4A72C)"
+          />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export const StreakFlame = RachaFlama;

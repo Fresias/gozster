@@ -62,7 +62,7 @@ describe("GOZS-372: Manejo Robusto de Perfil Incompleto y Error Boundaries en /a
   });
 
   describe("2. Renderizado defensivo de InicioMisDias con perfil incompleto (/athlete)", () => {
-    it("GIVEN perfil con nombre_completo = null WHEN se renderiza THEN muestra 'Hola' sin arrojar TypeError", () => {
+    it("GIVEN perfil con nombre_completo = null WHEN se renderiza THEN no arroja TypeError y no muestra saludo ni último entreno", () => {
       sembrarPlanAlumno();
       const planActual = useAthleteStore.getState().planAlumno!;
       useAthleteStore.setState({
@@ -83,14 +83,13 @@ describe("GOZS-372: Manejo Robusto de Perfil Incompleto y Error Boundaries en /a
         html = renderToStaticMarkup(<InicioMisDias />);
       }).not.toThrow();
 
-      // Renderiza exactamente "Hola" y no "Hola, " ni "Hola, undefined"
-      expect(html).toContain("Hola");
-      expect(html).not.toContain("Hola, ");
-      expect(html).not.toContain("Hola, undefined");
-      expect(html).not.toContain("Hola, null");
+      expect(html).toContain('data-testid="semana-plan-titulo"');
+      expect(html).not.toContain("Hola");
+      expect(html).not.toContain("Último entreno:");
+      expect(html).not.toContain("undefined");
     });
 
-    it("GIVEN perfil con nombre_completo = '' (cadena vacía) THEN muestra 'Hola'", () => {
+    it("GIVEN perfil con nombre_completo = '' (cadena vacía) THEN renderiza cabecera limpia sin 'Hola'", () => {
       sembrarPlanAlumno();
       const planActual = useAthleteStore.getState().planAlumno!;
       useAthleteStore.setState({
@@ -106,11 +105,11 @@ describe("GOZS-372: Manejo Robusto de Perfil Incompleto y Error Boundaries en /a
       });
 
       const html = renderToStaticMarkup(<InicioMisDias />);
-      expect(html).toContain("Hola");
-      expect(html).not.toContain("Hola, ");
+      expect(html).toContain('data-testid="semana-plan-titulo"');
+      expect(html).not.toContain("Hola");
     });
 
-    it("GIVEN perfil con nombre_completo = 'Gabriel Sanchez' THEN muestra 'Hola, Gabriel'", () => {
+    it("GIVEN perfil con nombre_completo = 'Gabriel Sanchez' THEN cabecera limpia omite 'Hola, Gabriel' y muestra SEMANA", () => {
       sembrarPlanAlumno();
       const planActual = useAthleteStore.getState().planAlumno!;
       useAthleteStore.setState({
@@ -126,10 +125,12 @@ describe("GOZS-372: Manejo Robusto de Perfil Incompleto y Error Boundaries en /a
       });
 
       const html = renderToStaticMarkup(<InicioMisDias />);
-      expect(html).toContain("Hola, Gabriel");
+      expect(html).toContain('data-testid="semana-plan-titulo"');
+      expect(html).not.toContain("Hola, Gabriel");
+      expect(html).not.toContain('data-testid="ultimo-entreno-relativo"');
     });
 
-    it("GIVEN alumno sin plan (0 días) y nombre_completo = null THEN vista sin plan renderiza 'Hola'", () => {
+    it("GIVEN alumno sin plan (0 días) y nombre_completo = null THEN vista sin plan renderiza sin errores ni saludo", () => {
       useAthleteStore.setState({
         planAlumno: {
           alumnos: [
@@ -152,8 +153,8 @@ describe("GOZS-372: Manejo Robusto de Perfil Incompleto y Error Boundaries en /a
       }).not.toThrow();
 
       expect(html).toContain('data-testid="inicio-sin-plan"');
-      expect(html).toContain("Hola");
-      expect(html).not.toContain("Hola, ");
+      expect(html).not.toContain("Hola");
+      expect(html).not.toContain('data-testid="ultimo-entreno-relativo"');
     });
   });
 
