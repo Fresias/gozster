@@ -440,3 +440,41 @@ export function ArrowUp(props: IconProps) {
     </Icon>
   );
 }
+
+/** Avión horizontal sólido estilo iOS / SF Symbols para indicador offline. */
+export function PlaneIos({ className, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+      {...props}
+    >
+      <path d="M22.2 12c0 .85-.85 1.45-2.1 1.45h-4.7l-4.2 7.55c-.2.35-.55.5-.95.5h-1.2c-.45 0-.75-.4-.6-.85L10.9 13.45H6.2l-2.1 2.75c-.15.2-.4.3-.65.3H2.4c-.35 0-.6-.35-.45-.7l1.35-3.8-1.35-3.8c-.15-.35.1-.7.45-.7h1.05c.25 0 .5.1.65.3l2.1 2.75h4.7L8.45 3.35c-.15-.45.15-.85.6-.85h1.2c.4 0 .75.15.95.5l4.2 7.55h4.7c1.25 0 2.1.6 2.1 1.45z" />
+    </svg>
+  );
+}
+
+/** Avión vertical sólido estilo Material airplanemode_active para Android. */
+export function PlaneAndroid({ className, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+      className={className}
+      {...props}
+    >
+      <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" />
+    </svg>
+  );
+}
