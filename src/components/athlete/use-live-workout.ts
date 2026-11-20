@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import {
+  DEFAULT_ATHLETE_ID,
   useAthleteStore,
   type LiveWorkoutExercise,
   type LiveWorkoutSession,
 } from "@/store/use-athlete-store";
+import { getStorageUser } from "@/lib/user-storage";
 import { calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { avisoMolestiaPara, ejercicioBloqueado } from "@/lib/athlete/molestias";
 import type { RecordSesionItem } from "@/components/athlete/cierre-dia-modal";
@@ -444,8 +446,14 @@ export function useLiveWorkout() {
     return ejercicioBloqueado(rawExercise.id, currentSession.molestias ?? []);
   }, [rawExercise, currentSession.molestias]);
 
-  const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
-  const latestUnreadStaffMessage = getLatestUnreadStaffMessage();
+  const { getLatestUnreadPushStaffMessage, setAthleteChatOpen } = useChatStore();
+  const sessionStudentId =
+    currentSession.studentId && currentSession.studentId !== DEFAULT_ATHLETE_ID
+      ? currentSession.studentId
+      : undefined;
+  const resolvedAlumnoId =
+    planAlumno?.alumnos[0]?.id || sessionStudentId || getStorageUser() || undefined;
+  const latestUnreadStaffMessage = getLatestUnreadPushStaffMessage(resolvedAlumnoId);
   const pendingRpeExercise = currentSession.ejercicios.find(
     (ej) =>
       ej.force_rpe_required &&

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
+import { DEFAULT_ATHLETE_ID, repararSesionesNoUuid, useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { activarUsuarioStorage, cerrarSesion } from "@/lib/session-scope";
 import { getStorageUser } from "@/lib/user-storage";
@@ -169,8 +169,16 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
   const cuestionarioAbierto = useAthleteStore((s) => s.cuestionarioAbierto);
   const toastSesion = useAthleteStore((s) => s.toastSesion);
   const setToastSesion = useAthleteStore((s) => s.setToastSesion);
+  const planAlumnoId = useAthleteStore((s) => s.planAlumno?.alumnos[0]?.id);
+  const sessionStudentId = useAthleteStore((s) =>
+    s.currentSession.studentId && s.currentSession.studentId !== DEFAULT_ATHLETE_ID
+      ? s.currentSession.studentId
+      : undefined,
+  );
+  const [authUserId, setAuthUserId] = React.useState<string | null>(() => getStorageUser());
+  const resolvedAlumnoId = authUserId || planAlumnoId || sessionStudentId || undefined;
   const { getUnreadStaffCount, isAthleteChatOpen, setAthleteChatOpen } = useChatStore();
-  const unreadChatCount = getUnreadStaffCount();
+  const unreadChatCount = getUnreadStaffCount(resolvedAlumnoId);
   const reparadoRef = React.useRef(false);
   const [syncingSeriesCount, setSyncingSeriesCount] = React.useState(0);
 
@@ -190,13 +198,43 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
 
   // Aísla la persistencia local por usuario: se rehidrata solo con los datos del alumno autenticado.
   React.useEffect(() => {
+    let active = true;
     const repararUnaVez = () => {
       if (reparadoRef.current) return;
       reparadoRef.current = true;
       repararSesionesNoUuid();
     };
-    void activarYSincronizarAlAbrir(repararUnaVez);
+    void activarYSincronizarAlAbrir(repararUnaVez).then(() => {
+      const storedUser = getStorageUser();
+      if (active && storedUser) {
+        setAuthUserId(storedUser);
+        return;
+      }
+      void createClient()
+        .auth.getUser()
+        .then(({ data }) => {
+          if (active && data?.user?.id) {
+            setAuthUserId(data.user.id);
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      active = false;
+    };
   }, []);
+
+  // Sincroniza mensajes reales y suscribe a Supabase Realtime (INSERT/UPDATE en public.mensajes)
+  React.useEffect(() => {
+    if (!resolvedAlumnoId) return;
+    if (isOnline) {
+      void useChatStore.getState().syncWithSupabase(resolvedAlumnoId);
+    }
+    const unsubscribe = useChatStore.getState().subscribeToRealtime(resolvedAlumnoId);
+    return () => {
+      unsubscribe();
+    };
+  }, [resolvedAlumnoId, isOnline]);
 
   React.useEffect(() => {
     if (!toastSesion) return;

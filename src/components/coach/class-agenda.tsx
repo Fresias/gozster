@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/sheet";
 import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import {
+  buildCancelacionAvisoTexto,
+  buildWhatsAppCancelacionUrl,
   calcularRangoHorarioUtil,
   claveDia,
   detectarSolapes,
@@ -38,6 +40,7 @@ import {
   DEMO_CONTRATACIONES_CLASES,
 } from "@/services/coach-demo-dataset";
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { ActividadClase, Clase } from "@/types/database.types";
 
@@ -317,10 +320,18 @@ export function ClassAgenda({
 
   // Estados de modales y formularios
   const [motivo, setMotivo] = React.useState("");
+  const [pushearAvisoInicio, setPushearAvisoInicio] = React.useState(true);
   const [cancelDialogAbierto, setCancelDialogAbierto] = React.useState<boolean>(
     initialCancelDialogOpen ?? false
   );
+  const [cancelacionResultado, setCancelacionResultado] = React.useState<{
+    claseId: string;
+    mensajeAviso: string;
+    alumnos: Array<{ id: string; nombre: string; telefono?: string | null }>;
+  } | null>(null);
+  const [avisoCopiado, setAvisoCopiado] = React.useState(false);
   const cancelDialogRef = React.useRef<HTMLDialogElement>(null);
+  const studioAlumnos = useCoachStudioStore((s) => s.alumnos);
 
   // Modal Crear Clase
   const createDialogRef = React.useRef<HTMLDialogElement>(null);
@@ -572,12 +583,48 @@ export function ClassAgenda({
   }, []);
 
   const abrirDialogoCancelar = React.useCallback(() => {
+    setPushearAvisoInicio(true);
     setCancelDialogAbierto(true);
   }, []);
 
   const confirmarCancelacion = async () => {
     if (!seleccionada) return;
-    if (await cancelarClase(seleccionada.id, motivo.trim())) {
+    const motivoLimpio = motivo.trim();
+    const afectadosMap = new Map<
+      string,
+      { id: string; nombre: string; telefono?: string | null }
+    >();
+    for (const r of inscriptosClase) {
+      if (!afectadosMap.has(r.alumno_id)) {
+        const perfil =
+          studioAlumnos.find((a) => a.id === r.alumno_id) ||
+          listaAlumnos.find((a) => a.id === r.alumno_id);
+        afectadosMap.set(r.alumno_id, {
+          id: r.alumno_id,
+          nombre: r.alumno_nombre || perfil?.nombre_completo || "Atleta",
+          telefono: perfil?.telefono ?? null,
+        });
+      }
+    }
+    const afectados = Array.from(afectadosMap.values());
+    const mensajeAviso = buildCancelacionAvisoTexto({
+      actividad: seleccionada.actividad,
+      inicio: seleccionada.inicio,
+      motivo: motivoLimpio,
+    });
+
+    if (await cancelarClase(seleccionada.id, motivoLimpio, pushearAvisoInicio)) {
+      if (afectados.length > 0) {
+        setCancelacionResultado({
+          claseId: seleccionada.id,
+          mensajeAviso,
+          alumnos: afectados,
+        });
+        setAvisoCopiado(false);
+        setSheetDetalleAbierto(true);
+      } else {
+        setCancelacionResultado(null);
+      }
       setMotivo("");
       setCancelDialogAbierto(false);
       cancelDialogRef.current?.close();
@@ -1629,6 +1676,120 @@ export function ClassAgenda({
                 accionEnCurso,
                 quitarAnotadoCoach
               )}
+              {seleccionada.estado === "CANCELADA" &&
+                (() => {
+                  const alumnosAfectados =
+                    cancelacionResultado?.claseId === seleccionada.id
+                      ? cancelacionResultado.alumnos
+                      : Array.from(
+                          new Map(
+                            anotados
+                              .filter((r) => r.estado === "ANULADO")
+                              .map((r) => {
+                                const perfil =
+                                  studioAlumnos.find((a) => a.id === r.alumno_id) ||
+                                  listaAlumnos.find((a) => a.id === r.alumno_id);
+                                return [
+                                  r.alumno_id,
+                                  {
+                                    id: r.alumno_id,
+                                    nombre: r.alumno_nombre || perfil?.nombre_completo || "Atleta",
+                                    telefono: perfil?.telefono ?? null,
+                                  },
+                                ] as const;
+                              }),
+                          ).values(),
+                        );
+                  if (alumnosAfectados.length === 0) return null;
+                  const mensajeAviso =
+                    cancelacionResultado?.claseId === seleccionada.id
+                      ? cancelacionResultado.mensajeAviso
+                      : buildCancelacionAvisoTexto({
+                          actividad: seleccionada.actividad,
+                          inicio: seleccionada.inicio,
+                          motivo: seleccionada.motivo_cancelacion,
+                        });
+                  const handleCopiarAviso = () => {
+                    if (typeof navigator !== "undefined" && navigator.clipboard) {
+                      void navigator.clipboard.writeText(mensajeAviso);
+                    }
+                    setAvisoCopiado(true);
+                    setTimeout(() => setAvisoCopiado(false), 2000);
+                  };
+
+                  return (
+                    <div
+                      className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3"
+                      data-testid="cancel-whatsapp-panel"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="m-0 text-sm font-bold text-foreground">
+                            Avisar por WhatsApp ($0/mes)
+                          </h3>
+                          <p className="m-0 text-xs text-muted-foreground">
+                            {alumnosAfectados.length}{" "}
+                            {alumnosAfectados.length === 1
+                              ? "alumno afectado"
+                              : "alumnos afectados"}{" "}
+                            · enviá el aviso individual o copialo.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopiarAviso}
+                          data-testid="copy-cancel-notice-btn"
+                          className="min-h-9 shrink-0 text-xs font-semibold"
+                        >
+                          {avisoCopiado ? "¡Aviso copiado!" : "Copiar aviso"}
+                        </Button>
+                      </div>
+
+                      <p
+                        className="rounded-lg border border-border bg-background/80 p-2.5 text-xs text-muted-foreground"
+                        data-testid="cancel-notice-preview"
+                      >
+                        {mensajeAviso}
+                      </p>
+
+                      <ul className="divide-y divide-border/60" aria-label="Alumnos afectados por cancelación">
+                        {alumnosAfectados.map((al) => {
+                          const waUrl = buildWhatsAppCancelacionUrl({
+                            telefono: al.telefono,
+                            mensaje: mensajeAviso,
+                          });
+                          return (
+                            <li
+                              key={al.id}
+                              className="flex items-center justify-between gap-2 py-2"
+                              data-testid={`cancel-affected-row-${al.id}`}
+                            >
+                              <div className="min-w-0">
+                                <span className="block truncate text-xs font-semibold text-foreground">
+                                  {al.nombre}
+                                </span>
+                                <span className="block text-[11px] text-muted-foreground">
+                                  {al.telefono || "Sin teléfono (abrir WhatsApp para elegir contacto)"}
+                                </span>
+                              </div>
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                data-testid={`whatsapp-cancel-btn-${al.id}`}
+                                className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                              >
+                                WhatsApp
+                              </a>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })()}
             </div>
           )}
         </SheetContent>
@@ -1690,6 +1851,31 @@ export function ClassAgenda({
                 data-testid="cancel-class-reason"
               />
             </div>
+
+            {inscriptosClase.length > 0 && (
+              <label
+                htmlFor="pushear-aviso-inicio"
+                className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/30 p-3 text-xs cursor-pointer"
+                data-testid="cancel-push-home-label"
+              >
+                <input
+                  id="pushear-aviso-inicio"
+                  type="checkbox"
+                  checked={pushearAvisoInicio}
+                  onChange={(e) => setPushearAvisoInicio(e.target.checked)}
+                  className="mt-0.5 size-4 rounded border-input accent-primary cursor-pointer"
+                  data-testid="cancel-push-home-checkbox"
+                />
+                <span className="space-y-0.5">
+                  <span className="block font-semibold text-foreground">
+                    Pushear aviso al inicio de la app
+                  </span>
+                  <span className="block text-muted-foreground">
+                    Muestra la tarjeta de aviso destacada apenas el alumno abra GOZSter.
+                  </span>
+                </span>
+              </label>
+            )}
 
             <DialogFooter className="flex justify-end gap-2">
               <Button

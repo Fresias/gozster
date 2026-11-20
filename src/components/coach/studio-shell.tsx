@@ -77,12 +77,21 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setOnlineStatus(navigator.onLine);
-    const handleOnline = () => setOnlineStatus(true);
+    const handleOnline = () => {
+      setOnlineStatus(true);
+      void useChatStore.getState().syncWithSupabase();
+    };
     const handleOffline = () => setOnlineStatus(false);
+
+    if (navigator.onLine) {
+      void useChatStore.getState().syncWithSupabase();
+    }
+    const unsubscribeChat = useChatStore.getState().subscribeToRealtime();
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
+      unsubscribeChat();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };

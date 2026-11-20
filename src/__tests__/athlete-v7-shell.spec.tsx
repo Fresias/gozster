@@ -209,6 +209,15 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
   });
 
   it("AthleteShell renderiza botón flotante de chat .a-fab solo en Entrenar con insignia de no leídos", () => {
+    useAthleteStore.setState({
+      planAlumno: {
+        alumnos: [{ id: DEFAULT_ATHLETE_SENDER.id, nombre_completo: "Lucas", rol: "ALUMNO" } as any],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      },
+    });
     useChatStore.getState().sendMessage({
       alumnoId: DEFAULT_ATHLETE_SENDER.id,
       remitente: STAFF_COACH_PRINCIPAL,

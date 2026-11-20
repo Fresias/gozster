@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { DEFAULT_ATHLETE_ID, useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
+import { getStorageUser } from "@/lib/user-storage";
+import { createClient } from "@/lib/supabase/browser";
 import {
   calcularEstadosDias,
   calcularSemanaPlan,
@@ -57,8 +59,32 @@ export function InicioMisDias() {
     nombrePreferido,
   } = useAthleteStore();
 
-  const { getLatestUnreadStaffMessage, setAthleteChatOpen } = useChatStore();
-  const latestUnreadStaffMessage = getLatestUnreadStaffMessage();
+  const { getLatestUnreadPushStaffMessage, setAthleteChatOpen } = useChatStore();
+  const [authUserId, setAuthUserId] = React.useState<string | null>(() => getStorageUser());
+  React.useEffect(() => {
+    let active = true;
+    if (!authUserId) {
+      createClient()
+        .auth.getUser()
+        .then(({ data }) => {
+          if (active && data?.user?.id) {
+            setAuthUserId(data.user.id);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [authUserId]);
+
+  const sessionStudentId =
+    currentSession.studentId && currentSession.studentId !== DEFAULT_ATHLETE_ID
+      ? currentSession.studentId
+      : undefined;
+  const resolvedAlumnoId =
+    planAlumno?.alumnos[0]?.id || sessionStudentId || authUserId || undefined;
+  const latestUnreadStaffMessage = getLatestUnreadPushStaffMessage(resolvedAlumnoId);
   const pendingRpeExercise = currentSession.ejercicios.find(
     (ej) =>
       ej.force_rpe_required &&

@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+
+vi.mock("@/store/use-chat-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-chat-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useChatStore.getState()) : mod.useChatStore.getState()),
+    mod.useChatStore,
+  );
+  return { ...mod, useChatStore: hook };
+});
+
 import {
   useChatStore,
   STAFF_COACH_PRINCIPAL,
@@ -69,7 +79,23 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
 
     it("GIVEN el hilo compartido de Lucas Giménez, THEN contiene mensajes intercalados de Lucas, Félix y Coach Principal con trazabilidad completa", () => {
       const chatStore = useChatStore.getState();
-      const conv = chatStore.getConversation("a1111111-1111-4111-8111-111111111101");
+      const lucasId = "a1111111-1111-4111-8111-111111111101";
+      chatStore.sendMessage({
+        alumnoId: lucasId,
+        remitente: { id: lucasId, nombre: "Lucas Giménez", rol: "ALUMNO", esStaff: false },
+        contenido: "¡Hola profes! ¿En la serie pesada mantengo los 3 min de pausa?",
+      });
+      chatStore.sendMessage({
+        alumnoId: lucasId,
+        remitente: STAFF_COACH_FELIX,
+        contenido: "Sí Lucas, respetá los 3 min.",
+      });
+      chatStore.sendMessage({
+        alumnoId: lucasId,
+        remitente: STAFF_COACH_PRINCIPAL,
+        contenido: "Totalmente de acuerdo con Félix.",
+      });
+      const conv = useChatStore.getState().getConversation(lucasId);
 
       expect(conv.mensajes.length).toBeGreaterThanOrEqual(3);
 
@@ -337,8 +363,13 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
       const chatStore = useChatStore.getState();
       const sofiaId = "a2222222-2222-4222-8222-222222222202";
 
-      // Sofía tiene 1 mensaje no leído inicialmente en mock
-      expect(chatStore.conversations[sofiaId]?.unreadCount).toBe(1);
+      // Simulamos un mensaje enviado por el coach a Sofía (no leído)
+      chatStore.sendMessage({
+        alumnoId: sofiaId,
+        remitente: STAFF_COACH_FELIX,
+        contenido: "Revisá el ancho de agarre.",
+      });
+      expect(useChatStore.getState().getUnreadStaffCount(sofiaId)).toBe(1);
 
       chatStore.markAsRead(sofiaId);
 
@@ -366,6 +397,37 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
 
   describe("7. Criterios de Aceptación GOZS-416: Master-Detail Inbox general vs. Chat directo simplificado sin alertas de dolor", () => {
     it("GIVEN el botón global de Chat en el shell del Coach WHEN el entrenador lo abre (alumno = null) THEN se muestra por defecto el Inbox de Chats con buscador, filtros y lista de conversaciones", () => {
+      const sofiaId = "a2222222-2222-4222-8222-222222222202";
+      useChatStore.setState((state) => ({
+        conversations: {
+          ...state.conversations,
+          [sofiaId]: {
+            id: "conv-sofia-test",
+            alumno_id: sofiaId,
+            alumno_nombre: "Sofía Rossi",
+            created_at: "2026-10-16T17:00:00Z",
+            updated_at: "2026-10-16T17:40:00Z",
+            unreadCount: 1,
+            estado: "PENDIENTE",
+            mensajes: [
+              {
+                id: "msg-sofia-test-1",
+                conversacion_id: "conv-sofia-test",
+                remitente_id: sofiaId,
+                remitente_nombre: "Sofía Rossi",
+                remitente_rol: "ALUMNO",
+                contenido: "Hola equipo, hoy sentí pesado el press.",
+                leido: false,
+                created_at: "2026-10-16T17:40:00Z",
+                hora: "17:40",
+                es_staff: false,
+                estado_envio: "enviado",
+              },
+            ],
+          },
+        },
+      }));
+
       const html = renderToStaticMarkup(
         React.createElement(ChatFab, { alumno: null, isOpen: true, onToggle: vi.fn() })
       );
@@ -394,7 +456,6 @@ describe("Issue #19: feat(chat-ui) - Interfaz de mensajería compartida para Coa
       expect(html).toContain("Sofía Rossi");
 
       // Badge de no leídos para Sofía Rossi
-      const sofiaId = "a2222222-2222-4222-8222-222222222202";
       expect(html).toContain(`data-testid="unread-badge-${sofiaId}"`);
 
       // Cero literales de demo

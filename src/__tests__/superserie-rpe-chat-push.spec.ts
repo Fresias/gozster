@@ -101,11 +101,21 @@ describe("GOZS-281: FE App - superserie violeta, aviso RPE sin bloqueo, chat y p
   describe("Criterio Gherkin 3: Bandeja de chat con mensajes sin leer", () => {
     it("el alumno ve el mensaje nuevo del coach como no leído al abrir la app", () => {
       const chatStore = useChatStore.getState();
-      const unreadCount = chatStore.getUnreadStaffCount(DEFAULT_ATHLETE_SENDER.id);
+      chatStore.sendMessage({
+        alumnoId: DEFAULT_ATHLETE_SENDER.id,
+        remitente: {
+          id: "coach-001",
+          nombre: "Coach Principal",
+          rol: "ENTRENADOR",
+          esStaff: true,
+        },
+        contenido: "Recordá hidratar bien hoy.",
+      });
+      const unreadCount = useChatStore.getState().getUnreadStaffCount(DEFAULT_ATHLETE_SENDER.id);
 
       expect(unreadCount).toBeGreaterThanOrEqual(1);
 
-      const latestUnread = chatStore.getLatestUnreadStaffMessage(DEFAULT_ATHLETE_SENDER.id);
+      const latestUnread = useChatStore.getState().getLatestUnreadStaffMessage(DEFAULT_ATHLETE_SENDER.id);
       expect(latestUnread).not.toBeNull();
       expect(latestUnread?.es_staff).toBe(true);
       expect(latestUnread?.leido).toBe(false);
@@ -113,7 +123,17 @@ describe("GOZS-281: FE App - superserie violeta, aviso RPE sin bloqueo, chat y p
 
     it("al abrir el chat o marcar como leído, el conteo de no leídos vuelve a 0", () => {
       const chatStore = useChatStore.getState();
-      expect(chatStore.getUnreadStaffCount(DEFAULT_ATHLETE_SENDER.id)).toBeGreaterThanOrEqual(1);
+      chatStore.sendMessage({
+        alumnoId: DEFAULT_ATHLETE_SENDER.id,
+        remitente: {
+          id: "coach-001",
+          nombre: "Coach Principal",
+          rol: "ENTRENADOR",
+          esStaff: true,
+        },
+        contenido: "Mensaje pendiente de lectura.",
+      });
+      expect(useChatStore.getState().getUnreadStaffCount(DEFAULT_ATHLETE_SENDER.id)).toBeGreaterThanOrEqual(1);
 
       chatStore.markAsRead(DEFAULT_ATHLETE_SENDER.id);
 

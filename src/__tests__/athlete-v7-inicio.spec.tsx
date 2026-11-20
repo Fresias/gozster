@@ -170,12 +170,13 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(htmlSinPlan).toContain("Escribirle al coach");
   });
 
-  it("muestra la tarjeta del coach v7 cuando hay mensaje sin leer", () => {
+  it("muestra la tarjeta del coach v7 cuando hay mensaje pusheado sin leer", () => {
     useAthleteStore.setState({ planAlumno: PLAN_BASE });
     useChatStore.getState().sendMessage({
-      alumnoId: DEFAULT_ATHLETE_SENDER.id,
+      alumnoId: PLAN_BASE.alumnos[0]!.id,
       remitente: STAFF_COACH_PRINCIPAL,
       contenido: "Lucía, hoy subí 2,5 kg en la sentadilla",
+      requiereLecturaInicio: true,
     });
     const html = renderToStaticMarkup(<InicioMisDias />);
     expect(html).toContain("a-coachmsg");
@@ -201,7 +202,12 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
   it("el clic en la tarjeta del coach abre el chat del alumno", () => {
     const alumnoId = DEFAULT_ATHLETE_SENDER.id;
     useChatStore.getState().markAsRead(alumnoId);
-    useChatStore.getState().sendMessage({ alumnoId, remitente: STAFF_COACH_PRINCIPAL, contenido: "Hola, revisá tu plan." });
+    useChatStore.getState().sendMessage({
+      alumnoId,
+      remitente: STAFF_COACH_PRINCIPAL,
+      contenido: "Hola, revisá tu plan.",
+      requiereLecturaInicio: true,
+    });
     useAthleteStore.setState({
       planAlumno: {
         alumnos: [{ id: alumnoId, nombre_completo: "Lucía Fernández", rol: "ALUMNO" } as any],

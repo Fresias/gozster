@@ -7,8 +7,9 @@ import {
   semanaEnCurso,
   validarAnotacionCoach,
   claveDia,
+  buildCancelacionAvisoTexto,
 } from "@/lib/clases";
-import { safeStorage } from "@/store/use-offline-queue";
+import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore, STAFF_COACH_PRINCIPAL } from "@/store/use-chat-store";
 import {
   DEMO_ALUMNOS,
@@ -78,7 +79,7 @@ interface ClasesState {
   cancelarReserva: (reservaId: string) => Promise<void>;
   cargarAgenda: () => Promise<void>;
   marcarAusente: (reservaId: string) => Promise<void>;
-  cancelarClase: (claseId: string, motivo: string) => Promise<boolean>;
+  cancelarClase: (claseId: string, motivo: string, pushearInicio?: boolean) => Promise<boolean>;
 
   // Métodos Coach Studio (GOZS-184: crear, mover, redimensionar, cupo flexible, anotar)
   crearClase: (datos: {
@@ -406,7 +407,7 @@ export const useClasesStore = create<ClasesState>()(
         });
       },
 
-      cancelarClase: async (claseId, motivo) => {
+      cancelarClase: async (claseId, motivo, pushearInicio = true) => {
         const clase = get().clases.find((c) => c.id === claseId);
         if (!clase) {
           set({ error: MENSAJES_ERROR.P0002 });
@@ -420,6 +421,26 @@ export const useClasesStore = create<ClasesState>()(
         const inscriptos = get().agendaReservas.filter(
           (r) => r.clase_id === claseId && ocupaCupo(r),
         );
+
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const isClaseUuid = UUID_RE.test(claseId);
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+        let syncedViaRpc = false;
+
+        if (isClaseUuid && isOnline) {
+          try {
+            const { data, error } = await supabase.rpc("cancelar_clase_con_aviso", {
+              p_clase_id: claseId,
+              p_motivo: motivo.trim() || null,
+              p_pushear_inicio: pushearInicio,
+            });
+            if (!error && data) {
+              syncedViaRpc = true;
+            }
+          } catch {
+            // Fallback resiliente para modo demo/offline o entorno sin sesión
+          }
+        }
 
         if (inscriptos.length === 0) {
           // Sin inscriptos: se borra sin avisar y sin mensajes
@@ -446,33 +467,29 @@ export const useClasesStore = create<ClasesState>()(
           error: null,
         });
 
-        // Notificar por chat a cada alumno inscripto
-        const alumnoIds = Array.from(new Set(inscriptos.map((r) => r.alumno_id)));
-        const remitente = useChatStore.getState().activeCoachSender || STAFF_COACH_PRINCIPAL;
-        const fechaObj = new Date(clase.inicio);
-        const horaStr = fechaObj.toLocaleTimeString("es-AR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-        const diaStr = fechaObj.toLocaleDateString("es-AR", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        });
-        const actividadNombre = NOMBRE_ACTIVIDAD[clase.actividad] || clase.actividad;
-        const motivoTexto = motivo?.trim() ? ` Motivo: ${motivo.trim()}` : "";
-        const mensajeTexto = `Tu clase de ${actividadNombre} del ${diaStr} ${horaStr} fue cancelada.${motivoTexto}`;
+        // Notificar por chat a cada alumno inscripto (si ya insertó la RPC en Supabase, solo sincronizamos)
+        if (syncedViaRpc) {
+          void useChatStore.getState().syncWithSupabase();
+        } else {
+          const alumnoIds = Array.from(new Set(inscriptos.map((r) => r.alumno_id)));
+          const remitente = useChatStore.getState().activeCoachSender || STAFF_COACH_PRINCIPAL;
+          const mensajeTexto = buildCancelacionAvisoTexto({
+            actividad: clase.actividad,
+            inicio: clase.inicio,
+            motivo,
+          });
 
-        for (const alumnoId of alumnoIds) {
-          try {
-            useChatStore.getState().sendMessage({
-              alumnoId,
-              remitente,
-              contenido: mensajeTexto,
-            });
-          } catch {
-            // si falla o se encola offline, no interrumpe
+          for (const alumnoId of alumnoIds) {
+            try {
+              useChatStore.getState().sendMessage({
+                alumnoId,
+                remitente,
+                contenido: mensajeTexto,
+                requiereLecturaInicio: pushearInicio,
+              });
+            } catch {
+              // si falla o se encola offline, no interrumpe
+            }
           }
         }
 
