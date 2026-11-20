@@ -491,6 +491,7 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
         remitente_id: alumno2.id,
         contenido: 'Mensaje privado de Sofía',
         leido: false,
+        requiere_lectura_inicio: false,
         created_at: '2026-10-01T10:05:00Z',
         updated_at: '2026-10-01T10:05:00Z',
       };
@@ -662,6 +663,7 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
           remitente_id: alumno1.id,
           contenido: 'Pregunta del alumno',
           leido: false,
+          requiere_lectura_inicio: false,
           created_at: '2026-10-01T10:00:00Z',
           updated_at: '2026-10-01T10:00:00Z',
         },
@@ -671,6 +673,7 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
           remitente_id: coachPrincipalId,
           contenido: 'Respuesta del coach principal',
           leido: false,
+          requiere_lectura_inicio: false,
           created_at: '2026-10-01T10:05:00Z',
           updated_at: '2026-10-01T10:05:00Z',
         },
