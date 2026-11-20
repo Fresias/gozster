@@ -145,9 +145,9 @@ interface AthleteStoreState {
   vistaElegidaPorAlumno: NivelVistaAlumno | null;
   vistaRecomendadaCoach: NivelVistaAlumno;
   cuestionarioInicial: AlumnoCuestionarioInicial | null;
-  // Preferencias locales del onboarding de primera vez (GOZS-145). Este store
-  // es el dueño de ambos campos; el ejercicio en vivo consume mostrarTimerDescanso.
+  // Preferencias del onboarding de primera vez (GOZS-145 / GH #548).
   onboardingCompletado: boolean;
+  onboardingCompletadoPendiente: boolean;
   mostrarTimerDescanso: boolean;
   // Estado del Inicio Mis días (GOZS-147 + GOZS-149) y shell v7 (FE-02)
   diaActivoId: string | null;
@@ -233,6 +233,8 @@ interface AthleteStoreState {
   setNivelVistaAlumno: (nivel: NivelVistaAlumno) => void;
   usarVistaRecomendada: () => void;
   setOnboardingCompletado: (completado: boolean) => void;
+  completarOnboarding: () => Promise<{ success: boolean; offline?: boolean; error?: string }>;
+  sincronizarOnboardingPendiente: () => Promise<boolean>;
   setMostrarTimerDescanso: (mostrar: boolean) => void;
   setCuestionarioInicial: (data: AlumnoCuestionarioInicial | null) => void;
   saveCuestionarioInicial: (
@@ -600,25 +602,53 @@ async function enviarMolestiaRpc(
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
 let activeFlushMolestiasPromise: Promise<void> | null = null;
 let activeSyncNombrePromise: Promise<boolean> | null = null;
+let activeSyncOnboardingPromise: Promise<boolean> | null = null;
 
 const PERMANENT_NOMBRE_RPC_CODES = new Set(["22001", "42501", "23514"]);
 
 type PerfilConNombrePreferido = LiveSupabaseDataset["alumnos"][number] & {
   nombre_preferido?: string | null;
+  onboarding_completado?: boolean;
 };
 
-function aplicarNombrePreferidoEnPlan(
+function actualizarPrimerAlumnoEnPlan(
   plan: LiveSupabaseDataset | null,
-  nombre: string | null,
+  patch: Partial<PerfilConNombrePreferido>,
 ): LiveSupabaseDataset | null {
   if (!plan || plan.alumnos.length === 0) return plan;
   const [primero, ...resto] = plan.alumnos;
   if (!primero) return plan;
-  const actualizado: PerfilConNombrePreferido = {
-    ...primero,
-    nombre_preferido: nombre,
-  };
+  const actualizado: PerfilConNombrePreferido = { ...primero, ...patch };
   return { ...plan, alumnos: [actualizado, ...resto] };
+}
+
+async function enviarOnboardingCompletadoRpc(
+  set: (fn: (state: AthleteStoreState) => Partial<AthleteStoreState>) => void,
+): Promise<{ ok: boolean; permanentError?: string }> {
+  try {
+    const { error } = await supabase.rpc("completar_onboarding_alumno");
+    if (error) {
+      if (error.code && PERMANENT_NOMBRE_RPC_CODES.has(error.code)) {
+        set(() => ({ onboardingCompletadoPendiente: false }));
+        return { ok: false, permanentError: error.message };
+      }
+      console.warn("Aviso guardando onboarding_completado en Supabase (queda pendiente):", error.message);
+      return { ok: false };
+    }
+
+    set((state) => ({
+      onboardingCompletado: true,
+      onboardingCompletadoPendiente: false,
+      planAlumno: actualizarPrimerAlumnoEnPlan(state.planAlumno, { onboarding_completado: true }),
+    }));
+    return { ok: true };
+  } catch (err: unknown) {
+    console.warn(
+      "Excepción guardando onboarding_completado (queda pendiente offline):",
+      err instanceof Error ? err.message : err,
+    );
+    return { ok: false };
+  }
 }
 
 async function enviarNombrePreferidoRpc(
@@ -654,7 +684,7 @@ async function enviarNombrePreferidoRpc(
       return {
         nombrePreferido: confirmado,
         nombrePreferidoPendiente: undefined,
-        planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, confirmado),
+        planAlumno: actualizarPrimerAlumnoEnPlan(state.planAlumno, { nombre_preferido: confirmado }),
       };
     });
     return { ok: true };
@@ -788,6 +818,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
       vistaRecomendadaCoach: "SIMPLE",
       cuestionarioInicial: null,
       onboardingCompletado: false,
+      onboardingCompletadoPendiente: false,
       mostrarTimerDescanso: true,
       diaActivoId: null,
       sessionStartedAt: null,
@@ -846,7 +877,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set((state) => ({
           nombrePreferido: normalizado,
           nombrePreferidoPendiente: normalizado,
-          planAlumno: aplicarNombrePreferidoEnPlan(state.planAlumno, normalizado),
+          planAlumno: actualizarPrimerAlumnoEnPlan(state.planAlumno, { nombre_preferido: normalizado }),
         }));
 
         if (!useOfflineQueueStore.getState().isOnline) {
@@ -1082,6 +1113,41 @@ export const useAthleteStore = create<AthleteStoreState>()(
         })),
       setOnboardingCompletado: (completado) =>
         set({ onboardingCompletado: completado }),
+      completarOnboarding: async () => {
+        set((state) => ({
+          onboardingCompletado: true,
+          onboardingCompletadoPendiente: true,
+          planAlumno: actualizarPrimerAlumnoEnPlan(state.planAlumno, { onboarding_completado: true }),
+        }));
+
+        if (!useOfflineQueueStore.getState().isOnline) {
+          return { success: true, offline: true };
+        }
+
+        const res = await enviarOnboardingCompletadoRpc(set);
+        if (res.permanentError) {
+          return { success: false, error: res.permanentError };
+        }
+        return res.ok ? { success: true } : { success: true, offline: true };
+      },
+      sincronizarOnboardingPendiente: async () => {
+        if (activeSyncOnboardingPromise) return activeSyncOnboardingPromise;
+        if (!get().onboardingCompletadoPendiente || !useOfflineQueueStore.getState().isOnline) {
+          return false;
+        }
+
+        activeSyncOnboardingPromise = (async () => {
+          if (!get().onboardingCompletadoPendiente || !useOfflineQueueStore.getState().isOnline) {
+            return false;
+          }
+          const res = await enviarOnboardingCompletadoRpc(set);
+          return res.ok;
+        })().finally(() => {
+          activeSyncOnboardingPromise = null;
+        });
+
+        return activeSyncOnboardingPromise;
+      },
       setMostrarTimerDescanso: (mostrar) =>
         set({ mostrarTimerDescanso: mostrar }),
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
@@ -2467,13 +2533,26 @@ export const useAthleteStore = create<AthleteStoreState>()(
             return;
           }
           const pendiente = get().nombrePreferidoPendiente;
-          if (pendiente !== undefined) {
-            set({ planAlumno: aplicarNombrePreferidoEnPlan(plan, pendiente) });
-          } else {
-            const nombreServidor =
-              (plan.alumnos[0] as PerfilConNombrePreferido | undefined)?.nombre_preferido ?? null;
-            set({ planAlumno: plan, nombrePreferido: nombreServidor });
-          }
+          const onboardingPendiente = get().onboardingCompletadoPendiente;
+          const perfilAlumno = plan.alumnos[0] as PerfilConNombrePreferido | undefined;
+          const planNormalizado = actualizarPrimerAlumnoEnPlan(plan, {
+            ...(pendiente !== undefined ? { nombre_preferido: pendiente } : {}),
+            ...(onboardingPendiente ? { onboarding_completado: true } : {}),
+          });
+
+          const onboardingServidor = perfilAlumno?.onboarding_completado;
+          set({
+            planAlumno: planNormalizado,
+            ...(pendiente === undefined
+              ? { nombrePreferido: perfilAlumno?.nombre_preferido ?? null }
+              : {}),
+            ...(onboardingPendiente
+              ? { onboardingCompletado: true }
+              : typeof onboardingServidor === "boolean"
+                ? { onboardingCompletado: onboardingServidor }
+                : {}),
+          });
+
           const prev = get().currentSession;
           const studentId = plan.alumnos[0]?.id;
           const diaEnCurso =
@@ -2484,10 +2563,39 @@ export const useAthleteStore = create<AthleteStoreState>()(
             plan.dias.some((d) => d.id === prev.dia_id)
               ? prev.dia_id
               : undefined;
-          get().loadStudentSession(studentId, diaEnCurso);
+          const cargaOk = get().loadStudentSession(studentId, diaEnCurso);
+          if (!cargaOk && plan.alumnos[0]) {
+            const alumnoReal = plan.alumnos[0];
+            const coachRecomendada =
+              (alumnoReal.nivel_vista_alumno as NivelVistaAlumno) || "SIMPLE";
+            const eleccionAlumno = get().vistaElegidaPorAlumno;
+            set((state) => ({
+              vistaRecomendadaCoach: coachRecomendada,
+              nivelVistaAlumno: eleccionAlumno ?? coachRecomendada,
+              ...(state.currentSession.studentId !== alumnoReal.id ||
+              state.currentSession.id === defaultSession.id
+                ? {
+                    currentSession: {
+                      id: nuevoUuid(),
+                      nombre_rutina: "",
+                      fecha: new Date().toISOString().split("T")[0] || "2026-10-16",
+                      ejercicios: [],
+                      studentName: alumnoReal.nombre_completo || "",
+                      studentId: alumnoReal.id,
+                      dia_id: "",
+                      molestias: [],
+                    },
+                    diaActivoId: null,
+                  }
+                : {}),
+            }));
+          }
           void get().cargarMolestiasDeSesion(get().currentSession.id);
           if (pendiente !== undefined) {
             void get().sincronizarNombrePreferidoPendiente();
+          }
+          if (onboardingPendiente) {
+            void get().sincronizarOnboardingPendiente();
           }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
@@ -2697,6 +2805,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         vistaRecomendadaCoach: state.vistaRecomendadaCoach,
         cuestionarioInicial: state.cuestionarioInicial,
         onboardingCompletado: state.onboardingCompletado,
+        onboardingCompletadoPendiente: state.onboardingCompletadoPendiente,
         mostrarTimerDescanso: state.mostrarTimerDescanso,
         sesionesCompletadas: state.sesionesCompletadas,
         ultimaVez: state.ultimaVez,

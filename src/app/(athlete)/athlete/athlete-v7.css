@@ -71,7 +71,6 @@ body:has(.theme-athlete[data-v7]) {
   --a-link: #09090B;
   --a-tip: #18181B;
   --a-tip-fg: #F4F4F5;
-  --a-chev: #09090B;
   --a-hatch: rgba(9, 9, 11, 0.06);
   --a-sb: #09090B;
 
@@ -191,7 +190,6 @@ body:has(.theme-athlete[data-v7]) {
   --a-link: #FAFAFA;
   --a-tip: #27272A;
   --a-tip-fg: #F4F4F5;
-  --a-chev: #FAFAFA;
   --a-hatch: rgba(255, 255, 255, 0.06);
   --a-sb: #FAFAFA;
 
@@ -390,14 +388,6 @@ body:has(.theme-athlete[data-v7]) {
 .theme-athlete[data-v7] :focus-visible {
   outline: 2px solid var(--a-fg);
   outline-offset: 2px;
-}
-
-.theme-athlete[data-v7] .a-chev {
-  position: relative;
-  height: 8px;
-  z-index: 3;
-  pointer-events: none;
-  background: repeating-linear-gradient(-55deg, var(--a-chev) 0 7px, transparent 7px 14px);
 }
 
 .theme-athlete[data-v7] .a-scroll {
@@ -2573,14 +2563,6 @@ body:has(.theme-athlete[data-v7]) {
   --a-rec-bg: #2A2208;
   --a-rec-fg: #F5D77A;
   --a-rec-ic: #D4A72C;
-}
-
-.theme-athlete[data-v7] .a-dk .a-chev {
-  --a-chev: #FAFAFA;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
 }
 
 .theme-athlete[data-v7] .a-dk-wedge {

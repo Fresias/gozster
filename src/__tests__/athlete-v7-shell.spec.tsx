@@ -122,14 +122,14 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
     });
   });
 
-  it("AthleteShell renderiza franja .a-chev, encabezado .a-ahead, logo de 19px y chip-red", () => {
+  it("AthleteShell renderiza encabezado .a-ahead, logo de 19px y chip-red sin banda .a-chev", () => {
     const html = renderToStaticMarkup(
       <AthleteShell>
         <div>Contenido</div>
       </AthleteShell>,
     );
 
-    expect(html).toContain("a-chev");
+    expect(html).not.toContain("a-chev");
     expect(html).toContain("a-ahead");
     expect(html).toContain('data-testid="chip-red"');
     expect(html).toContain("Online");
