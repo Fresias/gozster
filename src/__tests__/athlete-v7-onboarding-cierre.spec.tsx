@@ -2,7 +2,10 @@ import * as React from "react";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render } from "@/test-utils/no-demo-literals";
+import { supabase } from "@/lib/supabase/client";
+import * as alumnosService from "@/services/alumnos-service";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/athlete/historial",
@@ -75,14 +78,21 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
     });
     useAthleteStore.getState().resetSessionToDefaults();
     useAthleteStore.setState({
+      planAlumno: null,
       onboardingCompletado: false,
+      onboardingCompletadoPendiente: false,
       mostrarTimerDescanso: true,
       nivelVistaAlumno: "SIMPLE",
       vistaRecomendadaCoach: "SIMPLE",
       nombrePreferido: null,
+      nombrePreferidoPendiente: undefined,
       cierreAbierto: false,
       toastSesion: null,
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("Onboarding de 4 pasos (02-pantallas.md §10)", () => {
@@ -111,6 +121,125 @@ describe("Athlete v7 · FE-11 Onboarding de 4 pasos y cierre", () => {
       useAthleteStore.setState({ onboardingCompletado: true });
       const html = renderToStaticMarkup(<OnboardingAlumno nombreAlumno="Lucía Fernández" />);
       expect(html).toBe("");
+    });
+
+    it("sin nombreAlumno prop y con planAlumno null devuelve vacío aunque currentSession sea Fernando Rosales (GH #548)", () => {
+      const { container } = render(<OnboardingAlumno />);
+      expect(container.innerHTML).toBe("");
+      expect(container.textContent).not.toContain("Fernando");
+    });
+
+    it("con planAlumno cargado (Gabriel Sanchez) muestra 'Hola, Gabriel.' y al completar o saltar llama a completar_onboarding_alumno", async () => {
+      const rpc = vi
+        .spyOn(supabase, "rpc")
+        .mockResolvedValue({ data: true, error: null } as never);
+
+      useAthleteStore.setState({
+        planAlumno: {
+          alumnos: [
+            {
+              id: "11111111-1111-4111-8111-111111111109",
+              email: "gabriel@gozster.test",
+              nombre_completo: "Gabriel Sanchez",
+              rol: "ALUMNO",
+              estado_membresia: "ACTIVA",
+              profesor_asignado_id: null,
+              fecha_baja: null,
+              created_at: "2026-11-01T00:00:00Z",
+              updated_at: "2026-11-01T00:00:00Z",
+              onboarding_completado: false,
+            } as any,
+          ],
+          planes: [],
+          dias: [],
+          ejerciciosEnRutina: [],
+          ejercicios: [],
+        },
+      });
+
+      const { container, getByRole } = render(<OnboardingAlumno />);
+      expect(container.textContent).toContain("Hola, Gabriel.");
+      expect(container.textContent).not.toContain("Fernando");
+
+      fireEvent.click(getByRole("button", { name: "Empezar" }));
+      fireEvent.click(getByRole("button", { name: "Continuar" }));
+      fireEvent.click(getByRole("button", { name: /Continuar con/i }));
+      fireEvent.click(getByRole("button", { name: "Listo, ver mis días" }));
+
+      await vi.waitFor(() => {
+        expect(rpc).toHaveBeenCalledWith("completar_onboarding_alumno");
+      });
+      expect(useAthleteStore.getState().onboardingCompletado).toBe(true);
+      expect(useAthleteStore.getState().onboardingCompletadoPendiente).toBe(false);
+
+      rpc.mockClear();
+      useAthleteStore.setState({ onboardingCompletado: false, onboardingCompletadoPendiente: false });
+      const { getByRole: getByRoleSaltar } = render(<OnboardingAlumno />);
+      fireEvent.click(getByRoleSaltar("button", { name: "Saltar" }));
+      await vi.waitFor(() => {
+        expect(rpc).toHaveBeenCalledWith("completar_onboarding_alumno");
+      });
+      expect(useAthleteStore.getState().onboardingCompletado).toBe(true);
+    });
+
+    it("cargarPlanAlumno() sincroniza onboardingCompletado desde perfiles.onboarding_completado y limpia defaultSession sin días (GH #548)", async () => {
+      const fetchSpy = vi.spyOn(alumnosService, "fetchPlanAlumno").mockResolvedValue({
+        alumnos: [
+          {
+            id: "11111111-1111-4111-8111-111111111109",
+            email: "gabriel@gozster.test",
+            nombre_completo: "Gabriel Sanchez",
+            rol: "ALUMNO",
+            estado_membresia: "ACTIVA",
+            profesor_asignado_id: null,
+            fecha_baja: null,
+            created_at: "2026-11-01T00:00:00Z",
+            updated_at: "2026-11-01T00:00:00Z",
+            onboarding_completado: true,
+          } as any,
+        ],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      });
+
+      await useAthleteStore.getState().cargarPlanAlumno();
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const state = useAthleteStore.getState();
+      expect(state.onboardingCompletado).toBe(true);
+      expect(state.currentSession.studentId).toBe("11111111-1111-4111-8111-111111111109");
+      expect(state.currentSession.studentName).toBe("Gabriel Sanchez");
+      expect(state.currentSession.ejercicios).toEqual([]);
+
+      const { container } = render(<OnboardingAlumno />);
+      expect(container.innerHTML).toBe("");
+    });
+
+    it("completarOnboarding() guarda pendiente offline y sincronizarOnboardingPendiente() reintenta al volver online", async () => {
+      useOfflineQueueStore.setState({ isOnline: false });
+      const rpc = vi
+        .spyOn(supabase, "rpc")
+        .mockResolvedValue({ data: true, error: null } as never);
+
+      const resOffline = await useAthleteStore.getState().completarOnboarding();
+      expect(resOffline).toEqual({ success: true, offline: true });
+      expect(rpc).not.toHaveBeenCalled();
+      expect(useAthleteStore.getState().onboardingCompletado).toBe(true);
+      expect(useAthleteStore.getState().onboardingCompletadoPendiente).toBe(true);
+
+      useOfflineQueueStore.setState({ isOnline: true });
+      const synced = await useAthleteStore.getState().sincronizarOnboardingPendiente();
+      expect(synced).toBe(true);
+      expect(rpc).toHaveBeenCalledWith("completar_onboarding_alumno");
+      expect(useAthleteStore.getState().onboardingCompletadoPendiente).toBe(false);
+
+      const shellCode = fs.readFileSync(
+        path.resolve(__dirname, "../components/athlete/athlete-shell.tsx"),
+        "utf8",
+      );
+      expect(shellCode).toContain("sincronizarOnboardingPendiente");
     });
   });
 
