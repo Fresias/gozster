@@ -33,6 +33,27 @@ function toDataUrlPng(filePath: string): string {
 }
 
 /**
+ * Valida que las dimensiones en píxeles de referencia y app coincidan antes de compararlas.
+ * Lanza Error si difieren en ancho o alto para evitar escalados silenciosos en canvas.
+ */
+export function validarDimensionesContraste(
+  refW: number,
+  refH: number,
+  appW: number,
+  appH: number,
+  contexto?: { clave?: string; tema?: string },
+): void {
+  if (refW !== appW || refH !== appH) {
+    const clave = contexto && contexto.clave ? contexto.clave : "";
+    const tema = contexto && contexto.tema ? contexto.tema : "";
+    const etiqueta = clave || tema ? ` [${[clave, tema].filter(Boolean).join(" · ")}]` : "";
+    throw new Error(
+      `Dimensiones incompatibles en contraste${etiqueta}: ref=${refW}×${refH}, app=${appW}×${appH}`,
+    );
+  }
+}
+
+/**
  * Compone una imagen "Referencia | App | Diferencia" usando Chromium + canvas.getImageData.
  * Un píxel cuenta como distinto si algún canal RGB/A difiere en más de 24.
  * Los píxeles distintos se pintan en rojo sobre la referencia atenuada al 30 %.
@@ -129,6 +150,7 @@ export async function generarContrastePar(
     </div>
   </div>
   <script>
+    const validarDimensionesContraste = ${validarDimensionesContraste.toString()};
     window.__procesarContraste = async ({ refUrl, appUrl, clave, tema, panelW, umbral }) => {
       const loadImg = (src) =>
         new Promise((resolve, reject) => {
@@ -139,6 +161,13 @@ export async function generarContrastePar(
         });
 
       const [refImg, appImg] = await Promise.all([loadImg(refUrl), loadImg(appUrl)]);
+      validarDimensionesContraste(
+        refImg.naturalWidth,
+        refImg.naturalHeight,
+        appImg.naturalWidth,
+        appImg.naturalHeight,
+        { clave, tema },
+      );
       const height = Math.max(refImg.naturalHeight || 844, appImg.naturalHeight || 844, 1);
 
       const cRef = document.getElementById("c-ref");

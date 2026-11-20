@@ -131,7 +131,7 @@ async function capturarAppYContraste(
   await page.waitForTimeout(150);
   mkdirSync(APP_OUT_DIR, { recursive: true });
   const appPngPath = join(APP_OUT_DIR, `${clave}-${tema}.png`);
-  await page.screenshot({ path: appPngPath });
+  await page.screenshot({ path: appPngPath, scale: "css" });
   await expect(page).toHaveScreenshot(`${clave}-${tema}.png`, { maxDiffPixelRatio: 0.01 });
 
   if (EVIDENCIA_DIR) {
