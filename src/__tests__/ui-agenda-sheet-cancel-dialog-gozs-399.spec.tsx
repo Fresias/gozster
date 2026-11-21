@@ -1,6 +1,16 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/store/use-clases-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-clases-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useClasesStore.getState()) : mod.useClasesStore.getState(),
+    mod.useClasesStore,
+  );
+  return { ...mod, useClasesStore: hook };
+});
 import { ClaseBlock, ClassAgenda } from "@/components/coach/class-agenda";
 import { useClasesStore, type ReservaAgenda } from "@/store/use-clases-store";
 import type { Clase } from "@/types/database.types";

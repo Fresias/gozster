@@ -51,7 +51,6 @@ function celdasDelMes(base: Date): Array<{ clave: string; numero: number } | nul
 
 // Athlete App v7 · Clases: semana (vista principal) o mes, cupo semanal y reservas con motivo.
 export function AthleteClasses() {
-  const clasesHookState = useClasesStore();
   const {
     clases,
     misReservas,
@@ -71,11 +70,9 @@ export function AthleteClasses() {
     reservar,
     cancelarReserva,
     limpiarMensajes,
-  } = typeof window === "undefined" ? useClasesStore.getState() : clasesHookState;
+  } = useClasesStore();
 
-  const isOnlineStore = useOfflineQueueStore((s) => s.isOnline);
-  const isOnline =
-    typeof window === "undefined" ? useOfflineQueueStore.getState().isOnline : isOnlineStore;
+  const isOnline = useOfflineQueueStore((s) => s.isOnline);
 
   const ahora = React.useMemo(() => new Date(), []);
   const hoy = claveDia(ahora);

@@ -3,6 +3,40 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/store/use-clases-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-clases-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useClasesStore.getState()) : mod.useClasesStore.getState(),
+    mod.useClasesStore,
+  );
+  return { ...mod, useClasesStore: hook };
+});
+
+vi.mock("@/store/use-offline-queue", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-offline-queue")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function"
+        ? sel(mod.useOfflineQueueStore.getState())
+        : mod.useOfflineQueueStore.getState(),
+    mod.useOfflineQueueStore,
+  );
+  return { ...mod, useOfflineQueueStore: hook };
+});
+
+vi.mock("@/store/use-coach-studio", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-coach-studio")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function"
+        ? sel(mod.useCoachStudioStore.getState())
+        : mod.useCoachStudioStore.getState(),
+    mod.useCoachStudioStore,
+  );
+  return { ...mod, useCoachStudioStore: hook };
+});
 import { AthleteClasses } from "@/components/athlete/athlete-classes";
 import { ClassAgenda } from "@/components/coach/class-agenda";
 import { MENSAJE_SIN_SENAL, claveDia } from "@/lib/clases";
