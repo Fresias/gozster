@@ -48,7 +48,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 ## QA & Review Rounds
 - **QA CHANGES_REQUESTED:** r1/2 → `in_progress` + blocker comment (round N/2) @assignee, QA `todo` until `in_review`; r2/2 → `blocked` + @Gabriel summary.
-- SSR specs (React 19): mock added Zustand stores; persist stores read `getState()` if `typeof window === 'undefined'`.
+- SSR specs (React 19): mock Zustand hooks to `getState()` in the spec; no `typeof window` in components.
 
 ## Harness² Flow (guard + merge check)
 - PR: `harness-learn.sh --lesson "..."`, `harness-gate.sh`, paste `--pr-block`.
