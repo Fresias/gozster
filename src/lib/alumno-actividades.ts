@@ -150,23 +150,24 @@ export function derivarLabelsActividadAlumno(params: {
       const planMem = c.plan_membresia_id
         ? planesMembresia?.find((pm) => pm.id === c.plan_membresia_id)
         : undefined;
-      const planNombre = (planMem?.nombre ?? c.plan_membresia_id ?? "").toLowerCase();
-      const actTipo = planMem?.actividad_tipo;
+      if (planMem) {
+        const planNombre = planMem.nombre.toLowerCase();
+        const actTipo = planMem.actividad_tipo;
 
-      if (
-        actTipo === "FUNCIONAL_BOXEO" ||
-        planMem?.cantidad_actividades === 2 ||
-        planNombre.includes("libre") ||
-        (c.plan_membresia_id && !c.actividad && c.tipo_servicio === "PRESENCIAL")
-      ) {
-        tieneFuncional = true;
-        tieneBoxeo = true;
-      } else if (actTipo === "BOXEO" || planNombre.includes("boxeo")) {
-        tieneBoxeo = true;
-      } else if (actTipo === "FUNCIONAL" || planNombre.includes("funcional")) {
-        tieneFuncional = true;
-      } else if (actTipo === "RUTINAS" || planNombre.includes("rutina")) {
-        tienePlan = true;
+        if (
+          actTipo === "FUNCIONAL_BOXEO" ||
+          planMem.cantidad_actividades === 2 ||
+          planNombre.includes("libre")
+        ) {
+          tieneFuncional = true;
+          tieneBoxeo = true;
+        } else if (actTipo === "BOXEO" || planNombre.includes("boxeo")) {
+          tieneBoxeo = true;
+        } else if (actTipo === "FUNCIONAL" || planNombre.includes("funcional")) {
+          tieneFuncional = true;
+        } else if (actTipo === "RUTINAS" || planNombre.includes("rutina")) {
+          tienePlan = true;
+        }
       }
     }
   }

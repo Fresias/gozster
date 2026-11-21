@@ -10,6 +10,28 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock("@/store/use-cobros-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-cobros-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useCobrosStore.getState()) : mod.useCobrosStore.getState(),
+    mod.useCobrosStore,
+  );
+  return { ...mod, useCobrosStore: hook };
+});
+
+vi.mock("@/store/use-coach-studio", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-coach-studio")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function"
+        ? sel(mod.useCoachStudioStore.getState())
+        : mod.useCoachStudioStore.getState(),
+    mod.useCoachStudioStore,
+  );
+  return { ...mod, useCoachStudioStore: hook };
+});
+
 import { ActivityLabels } from "@/components/coach/activity-labels";
 import { CoachStudioView } from "@/components/coach/coach-studio-view";
 import { CobrosPanel } from "@/components/coach/cobros-panel";
@@ -21,13 +43,14 @@ import { derivarLabelsActividadAlumno } from "@/lib/alumno-actividades";
 import { supabase } from "@/lib/supabase/client";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useCobrosStore, ultimaSuscripcionPorContrato } from "@/store/use-cobros-store";
-import type { AlumnoActividad, Contratacion, Perfil, PlanEntrenamiento } from "@/types/database.types";
+import type { AlumnoActividad, Contratacion, Perfil, PlanEntrenamiento, PlanMembresia } from "@/types/database.types";
 
 const ALU_1 = "11111111-1111-4111-8111-111111111111";
 const ALU_2 = "22222222-2222-4222-8222-222222222222";
 const COACH_ID = "33333333-3333-4333-8333-333333333333";
 const PLAN_FUNC_ID = "44444444-4444-4444-8444-444444444441";
 const PLAN_BOX_ID = "44444444-4444-4444-8444-444444444442";
+const PLAN_LIBRE_ID = "44444444-4444-4444-8444-444444444443";
 
 function makeAlumno(id: string, nombre: string, email: string): Perfil {
   return {
@@ -184,7 +207,7 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
       expect(cobrosCargados[0]!.servicioNombre).toBe("Funcional 2x");
       expect(cobrosCargados[0]!.monto).toBe(25000);
 
-      // syncWithLiveAlumnos con lista vacía o parcial no debe borrar cobros reales
+      // syncWithLiveAlumnos con lista parcial no debe borrar cobros reales
       useCobrosStore.getState().syncWithLiveAlumnos([{ id: ALU_2 }]);
       expect(useCobrosStore.getState().cobros).toHaveLength(1);
     });
@@ -332,8 +355,54 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
       });
     });
 
-    it("ModalAsignarPlan e InviteStudentModal prellenan precio editable y toggle Pendiente de cobro / Pagó sin PENDIENTE_PAGO", () => {
-      const htmlModal = renderToStaticMarkup(
+    it("registrarPago actualiza únicamente el cobro pagado (c.id === item.id) sin alterar otros meses con igual contratacionId", async () => {
+      useCobrosStore.setState({
+        isLiveMode: false,
+        cobros: [
+          {
+            id: "cobro-nov",
+            alumnoId: ALU_1,
+            alumnoNombre: "Ana Real",
+            alumnoEmail: "ana@real.local",
+            alumnoTelefono: null,
+            contratacionId: "cont-compartido",
+            servicioNombre: "Funcional 2x",
+            actividad: "FUNCIONAL",
+            monto: 25000,
+            diaVencimiento: 10,
+            fechaVencimiento: "2026-11-10",
+            estado: "PENDIENTE",
+          },
+          {
+            id: "cobro-dic",
+            alumnoId: ALU_1,
+            alumnoNombre: "Ana Real",
+            alumnoEmail: "ana@real.local",
+            alumnoTelefono: null,
+            contratacionId: "cont-compartido",
+            servicioNombre: "Funcional 2x",
+            actividad: "FUNCIONAL",
+            monto: 25000,
+            diaVencimiento: 10,
+            fechaVencimiento: "2026-12-10",
+            estado: "PENDIENTE",
+          },
+        ],
+      });
+
+      await useCobrosStore.getState().registrarPago({
+        contratacionId: "cobro-nov",
+        monto: 25000,
+        medioPago: "TRANSFERENCIA",
+      });
+
+      const actualizados = useCobrosStore.getState().cobros;
+      expect(actualizados.find((c) => c.id === "cobro-nov")?.estado).toBe("PAGADO");
+      expect(actualizados.find((c) => c.id === "cobro-dic")?.estado).toBe("PENDIENTE");
+    });
+
+    it("ModalAsignarPlan e InviteStudentModal prellenan desde planes reales y dejan monto vacío + submit bloqueado cuando no hay plan", () => {
+      const htmlModalConPlan = renderToStaticMarkup(
         <ModalAsignarPlan
           abierto={true}
           onCerrar={vi.fn()}
@@ -358,30 +427,55 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
         />,
       );
 
-      expect(htmlModal).toContain('data-testid="input-asignar-monto"');
-      expect(htmlModal).toContain('value="22000"');
-      expect(htmlModal).toContain('data-testid="toggle-asignar-pendiente"');
-      expect(htmlModal).toContain('data-testid="toggle-asignar-pago"');
-      expect(htmlModal).toContain("Pendiente de cobro");
-      expect(htmlModal).toContain(">Pagó<");
+      expect(htmlModalConPlan).toContain('data-testid="input-asignar-monto"');
+      expect(htmlModalConPlan).toContain('value="22000"');
+      expect(htmlModalConPlan).toContain('data-testid="toggle-asignar-pendiente"');
+      expect(htmlModalConPlan).toContain('data-testid="toggle-asignar-pago"');
+      expect(htmlModalConPlan).toContain("Pendiente de cobro");
+      expect(htmlModalConPlan).toContain(">Pagó<");
 
-      const htmlInvite = renderToStaticMarkup(
+      // Sin planes reales -> input vacío y botón confirmar deshabilitado (cero precios inventados)
+      const htmlModalSinPlan = renderToStaticMarkup(
+        <ModalAsignarPlan
+          abierto={true}
+          onCerrar={vi.fn()}
+          alumnoId={ALU_1}
+          alumnoNombre="Ana Real"
+          planesDisponibles={[]}
+          tienePlanesActivos={false}
+          onConfirmar={vi.fn()}
+        />,
+      );
+      expect(htmlModalSinPlan).toContain('data-testid="input-asignar-monto"');
+      expect(htmlModalSinPlan).toContain('value=""');
+      expect(htmlModalSinPlan).toMatch(/disabled=""[^>]*data-testid="btn-confirmar-asignar-plan"|data-testid="btn-confirmar-asignar-plan"[^>]*disabled=""/);
+      expect(htmlModalSinPlan).not.toContain("25000");
+      expect(htmlModalSinPlan).not.toContain("30000");
+      expect(htmlModalSinPlan).not.toContain("40000");
+
+      useCobrosStore.setState({ planes: [], isLiveMode: true });
+      const htmlInviteSinPlanes = renderToStaticMarkup(
         <InviteStudentModal isOpen={true} onClose={vi.fn()} onInvited={vi.fn()} />,
       );
-      expect(htmlInvite).toContain("Pendiente de cobro");
-      expect(htmlInvite).toContain("Pagó");
+      expect(htmlInviteSinPlanes).toContain("Pendiente de cobro");
+      expect(htmlInviteSinPlanes).toContain("Pagó");
+      expect(htmlInviteSinPlanes).toContain('data-testid="alta-monto-suscripcion"');
+      expect(htmlInviteSinPlanes).toContain('value=""');
+      expect(htmlInviteSinPlanes).not.toContain("25000");
+      expect(htmlInviteSinPlanes).not.toContain("40000");
 
       const inviteCode = fs.readFileSync(
         path.resolve(__dirname, "../components/coach/invite-student-modal.tsx"),
         "utf-8",
       );
       expect(inviteCode).not.toContain("PENDIENTE_PAGO");
+      expect(inviteCode).not.toContain("supabase as any");
       expect(inviteCode).toContain("asignarSuscripcionYCobro");
     });
   });
 
   describe("3. Labels monocromáticos sin color (B, F, P) en Dashboard y Ficha", () => {
-    it("derivarLabelsActividadAlumno devuelve B, F, P según actividades, contrataciones y planes reales", () => {
+    it("derivarLabelsActividadAlumno devuelve B, F, P solo de fuentes reales y nunca adivina si el plan no está resuelto", () => {
       const acts: AlumnoActividad[] = [
         {
           id: "aa-1",
@@ -428,7 +522,7 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
         {
           id: "c-libre",
           alumno_id: ALU_2,
-          plan_membresia_id: PLAN_FUNC_ID,
+          plan_membresia_id: PLAN_LIBRE_ID,
           actividad: null,
           tipo_servicio: "PRESENCIAL",
           precio_pactado: 40000,
@@ -441,11 +535,37 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
           updated_at: "2026-11-01T10:00:00Z",
         },
       ];
+
+      // Sin planesMembresia resueltos y con actividad: null -> NO adivina B ni F
+      const labelsPlanDesconocido = derivarLabelsActividadAlumno({
+        alumnoId: ALU_2,
+        alumnoActividades: [],
+        contrataciones: contratacionesPaseLibre,
+        planes: [],
+        planesMembresia: [],
+      });
+      expect(labelsPlanDesconocido).toEqual([]);
+
+      // Con planMembresia resuelto (cantidad_actividades = 2) -> B, F, P
+      const planesMembresiaReales: PlanMembresia[] = [
+        {
+          id: PLAN_LIBRE_ID,
+          nombre: "Pase Libre",
+          limite_semanal: null,
+          cantidad_actividades: 2,
+          duracion_meses: 1,
+          precio: 40000,
+          activo: true,
+          created_at: "2026-11-01T10:00:00Z",
+          updated_at: "2026-11-01T10:00:00Z",
+        },
+      ];
       const labelsBFP = derivarLabelsActividadAlumno({
         alumnoId: ALU_2,
         alumnoActividades: [],
         contrataciones: contratacionesPaseLibre,
         planes: [{ ...planes[0]!, alumno_id: ALU_2 }],
+        planesMembresia: planesMembresiaReales,
       });
       expect(labelsBFP.map((l) => l.codigo)).toEqual(["B", "F", "P"]);
     });

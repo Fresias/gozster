@@ -69,6 +69,7 @@ import { useCobrosStore } from "@/store/use-cobros-store";
 import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
 import { ActivityLabels } from "@/components/coach/activity-labels";
 import { derivarLabelsActividadAlumno } from "@/lib/alumno-actividades";
+import { esUuid } from "@/lib/athlete/uuid";
 import {
   IslaTimelineRibbon,
   IslaActivityFeed,
@@ -583,8 +584,7 @@ export function StudentDetail({
   const [isExtendiendoExc, setIsExtendiendoExc] = React.useState(false);
 
   // GOZS-247: Integración con Cobros Store y suscripción
-  const cobrosHook = useCobrosStore((s) => s.cobros);
-  const cobros = typeof window === "undefined" ? useCobrosStore.getState().cobros : cobrosHook;
+  const cobros = useCobrosStore((s) => s.cobros);
   const registrarPagoStore = useCobrosStore((s) => s.registrarPago);
 
   const cobroItem = React.useMemo(() => {
@@ -608,25 +608,11 @@ export function StudentDetail({
   const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
 
   // Multiactividad y asignación de planes (GOZS-362 / GOZS-642)
-  const contratacionesStudioHook = useCoachStudioStore((s) => s.contrataciones);
-  const contratacionesStudio =
-    typeof window === "undefined"
-      ? useCoachStudioStore.getState().contrataciones
-      : contratacionesStudioHook;
-  const alumnoActividadesStudioHook = useCoachStudioStore((s) => s.alumnoActividades);
-  const alumnoActividadesStudio =
-    typeof window === "undefined"
-      ? useCoachStudioStore.getState().alumnoActividades
-      : alumnoActividadesStudioHook;
-  const isLiveDatabaseHook = useCoachStudioStore((s) => s.isLiveDatabase);
-  const isLiveDatabase =
-    typeof window === "undefined"
-      ? useCoachStudioStore.getState().isLiveDatabase
-      : isLiveDatabaseHook;
+  const contratacionesStudio = useCoachStudioStore((s) => s.contrataciones);
+  const alumnoActividadesStudio = useCoachStudioStore((s) => s.alumnoActividades);
+  const isLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
   const vincularPlanMembresiaAlumno = useCoachStudioStore((s) => s.vincularPlanMembresiaAlumno);
-  const planesCobrosHook = useCobrosStore((s) => s.planes);
-  const planesCobros =
-    typeof window === "undefined" ? useCobrosStore.getState().planes : planesCobrosHook;
+  const planesCobros = useCobrosStore((s) => s.planes);
   const [modalAsignarPlanAbierto, setModalAsignarPlanAbierto] = React.useState(false);
 
   const contratacionesRealesAlumno = React.useMemo(
@@ -640,9 +626,9 @@ export function StudentDetail({
   const todasContratacionesAlumno = React.useMemo(() => {
     if (contratacionesRealesAlumno.length > 0) return contratacionesRealesAlumno;
     if (contratacionProp) return [contratacionProp];
-    if (isLiveDatabase) return [];
+    if (!isLiveDatabase && !esUuid(alumno.id)) return [contratacion];
     return [];
-  }, [contratacionesRealesAlumno, contratacionProp, isLiveDatabase]);
+  }, [contratacionesRealesAlumno, contratacionProp, isLiveDatabase, alumno.id, contratacion]);
 
   const tienePlanComercialReal = Boolean(
     cobroItem || contratacionProp || contratacionesRealesAlumno.length > 0,

@@ -16,6 +16,7 @@ import {
   validarVigenciaFutura,
 } from "@/lib/planes";
 import { supabase } from "@/lib/supabase/client";
+import { esUuid } from "@/lib/athlete/uuid";
 import {
   fetchCobrosDatasetFromSupabase,
   registrarPagoReal,
@@ -88,12 +89,6 @@ export function ultimaSuscripcionPorContrato(items: CobroItem[]): CobroItem[] {
     }
   }
   return [...porContrato.values()];
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isUuid(value?: string | null): boolean {
-  return Boolean(value && UUID_RE.test(value));
 }
 
 function isDemoCobro(c: CobroItem): boolean {
@@ -778,7 +773,7 @@ export const useCobrosStore = create<CobrosState>()(
         }
 
         let cobroRemoto: Cobro | null = null;
-        if (user && isUuid(item.id)) {
+        if (user && esUuid(item.id)) {
           try {
             cobroRemoto = await registrarPagoReal(
               {
@@ -826,7 +821,7 @@ export const useCobrosStore = create<CobrosState>()(
 
         // Actualización en memoria y estado local
         const cobrosActualizados = get().cobros.map((c) => {
-          if (c.id === item.id || c.contratacionId === contratacionId) {
+          if (c.id === item.id) {
             return {
               ...c,
               estado: (cobroRemoto?.estado ?? "PAGADO") as EstadoCobro,

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
+import { esUuid } from "@/lib/athlete/uuid";
 import type { PlanMembresiaConVigencia } from "@/lib/planes";
 
 export type ActividadTipo = "FUNCIONAL" | "BOXEO" | "RUTINAS";
@@ -164,16 +165,14 @@ export function InviteStudentModal({
   const [clasesFijasSeleccionadas, setClasesFijasSeleccionadas] = React.useState<string[]>([]);
 
   // Estado de cobro inicial y suscripción (GOZS-351 / GOZS-642)
-  const planesCobrosHook = useCobrosStore((s) => s.planes);
-  const planesCobros =
-    typeof window === "undefined" ? useCobrosStore.getState().planes : planesCobrosHook;
-  const [montoSuscripcion, setMontoSuscripcion] = React.useState<string>("25000");
+  const planesCobros = useCobrosStore((s) => s.planes);
+  const [montoSuscripcion, setMontoSuscripcion] = React.useState<string>("");
   const [montoEditadoManual, setMontoEditadoManual] = React.useState<boolean>(false);
   const [pagoInicialRealizado, setPagoInicialRealizado] = React.useState<boolean>(false);
   const [medioPagoInicial, setMedioPagoInicial] = React.useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [notaPagoInicial, setNotaPagoInicial] = React.useState<string>("");
 
-  const planSugerido = React.useMemo<{ plan: PlanMembresiaConVigencia | null; precio: number }>(() => {
+  const planSugerido = React.useMemo<{ plan: PlanMembresiaConVigencia | null; precio: number | null }>(() => {
     const planesActivos = planesCobros.filter((p) => p.activo !== false);
     const fOn = actividades.FUNCIONAL.habilitada;
     const bOn = actividades.BOXEO.habilitada;
@@ -183,32 +182,32 @@ export function InviteStudentModal({
       const combo = planesActivos.find(
         (p) => p.actividad_tipo === "FUNCIONAL_BOXEO" || p.cantidad_actividades === 2,
       );
-      return { plan: combo ?? null, precio: combo?.precio ?? 40000 };
+      return { plan: combo ?? null, precio: combo ? combo.precio : null };
     }
     if (fOn) {
       const freq = actividades.FUNCIONAL.pase_libre ? null : actividades.FUNCIONAL.veces_por_semana;
       const exacto =
         planesActivos.find((p) => p.actividad_tipo === "FUNCIONAL" && p.limite_semanal === freq) ??
         planesActivos.find((p) => p.actividad_tipo === "FUNCIONAL");
-      return { plan: exacto ?? null, precio: exacto?.precio ?? 25000 };
+      return { plan: exacto ?? null, precio: exacto ? exacto.precio : null };
     }
     if (bOn) {
       const freq = actividades.BOXEO.pase_libre ? null : actividades.BOXEO.veces_por_semana;
       const exacto =
         planesActivos.find((p) => p.actividad_tipo === "BOXEO" && p.limite_semanal === freq) ??
         planesActivos.find((p) => p.actividad_tipo === "BOXEO");
-      return { plan: exacto ?? null, precio: exacto?.precio ?? 30000 };
+      return { plan: exacto ?? null, precio: exacto ? exacto.precio : null };
     }
     if (rOn) {
       const exacto = planesActivos.find((p) => p.actividad_tipo === "RUTINAS");
-      return { plan: exacto ?? null, precio: exacto?.precio ?? 28000 };
+      return { plan: exacto ?? null, precio: exacto ? exacto.precio : null };
     }
-    return { plan: null, precio: 0 };
+    return { plan: null, precio: null };
   }, [planesCobros, actividades]);
 
   React.useEffect(() => {
     if (!montoEditadoManual) {
-      setMontoSuscripcion(planSugerido.precio > 0 ? String(planSugerido.precio) : "");
+      setMontoSuscripcion(planSugerido.precio !== null ? String(planSugerido.precio) : "");
     }
   }, [planSugerido.precio, montoEditadoManual]);
 
@@ -222,7 +221,7 @@ export function InviteStudentModal({
     setAlta(null);
     setCopiado(false);
     setLoading(false);
-    setMontoSuscripcion("25000");
+    setMontoSuscripcion("");
     setMontoEditadoManual(false);
     setPagoInicialRealizado(false);
     setMedioPagoInicial("TRANSFERENCIA");
@@ -287,6 +286,10 @@ export function InviteStudentModal({
   const nombreLimpio = nombreCompleto.trim();
   // El nombre es opcional: basta un email válido para dar de alta.
   const esValido = EMAIL_RE.test(emailLimpio);
+  const montoValido =
+    montoSuscripcion.trim() !== "" &&
+    !Number.isNaN(Number(montoSuscripcion)) &&
+    Number(montoSuscripcion) >= 0;
 
   // Filtrar horarios según las actividades presenciales habilitadas
   const horariosFiltrados = horariosDisponibles.filter(
@@ -299,6 +302,11 @@ export function InviteStudentModal({
 
     if (!esValido) {
       setError("Ingresá un email válido.");
+      return;
+    }
+
+    if (!montoValido) {
+      setError("Ingresá un monto de suscripción válido.");
       return;
     }
 
@@ -393,11 +401,9 @@ export function InviteStudentModal({
 
           // Registrar cobro inicial y suscripción vía RPC transaccional (GOZS-642)
           const montoNum = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
-          if (montoNum > 0 || actividadesConfiguradas.length > 0) {
+          if (montoNum >= 0 && (montoNum > 0 || actividadesConfiguradas.length > 0)) {
             try {
               const actividadPrincipal = actividadesConfiguradas[0] ?? null;
-              const esUuid = (v?: string | null) =>
-                Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
               const planIdReal = esUuid(planSugerido.plan?.id) ? planSugerido.plan!.id : null;
               const conceptoAlta =
                 planSugerido.plan?.nombre ??
@@ -434,7 +440,7 @@ export function InviteStudentModal({
                     paseLibre:
                       actividadesConfiguradas.length > 1 || Boolean(actividadPrincipal?.pase_libre),
                   },
-                  supabase as any,
+                  supabase,
                 );
 
                 await useCobrosStore.getState().cargarCobros();
@@ -1116,10 +1122,10 @@ export function InviteStudentModal({
                       setMontoEditadoManual(true);
                       setMontoSuscripcion(ev.target.value);
                     }}
-                    placeholder="Ej. 35000"
+                    placeholder="Ingresá un monto"
                     className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm font-mono text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                  {planSugerido.precio > 0 && (
+                  {planSugerido.precio !== null && (
                     <p className="text-[11px] text-muted-foreground">
                       Estándar sugerido: ${planSugerido.precio.toLocaleString("es-AR")} (editable)
                     </p>
@@ -1213,7 +1219,7 @@ export function InviteStudentModal({
               </Button>
               <Button
                 type="submit"
-                disabled={loading || !esValido}
+                disabled={loading || !esValido || !montoValido}
                 className="min-h-12 text-xs"
                 data-testid="invite-student-submit"
               >

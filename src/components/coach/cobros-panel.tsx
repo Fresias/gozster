@@ -66,8 +66,6 @@ export function CobrosPanel({
   initialRowMenuOpen,
   kpis: propKpis,
 }: CobrosPanelProps = {}): React.JSX.Element {
-  const cobrosStoreHook = useCobrosStore();
-  const cobrosStore = typeof window === "undefined" ? useCobrosStore.getState() : cobrosStoreHook;
   const {
     cobros,
     planes,
@@ -96,7 +94,7 @@ export function CobrosPanel({
     modificarPlan,
     eliminarPlan,
     tieneContratacionesActivas,
-  } = cobrosStore;
+  } = useCobrosStore();
   const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
 
   const [localFiltroEstado, setLocalFiltroEstado] = React.useState<FiltroCobros | undefined>(

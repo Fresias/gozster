@@ -6,12 +6,6 @@ import type { ActividadAlumno } from "@/types/database.types";
 
 export const ACTIVIDAD_DIRECTA_ID = "__actividad_directa__";
 
-const PRECIOS_ESTANDAR_ACTIVIDAD: Record<ActividadAlumno, number> = {
-  FUNCIONAL: 25000,
-  BOXEO: 30000,
-  RUTINAS: 28000,
-};
-
 export interface ModalAsignarPlanProps {
   abierto: boolean;
   onCerrar: () => void;
@@ -54,7 +48,7 @@ export function ModalAsignarPlan({
   const [actividadDirecta, setActividadDirecta] = React.useState<ActividadAlumno>("BOXEO");
   const [esAdicional, setEsAdicional] = React.useState<boolean>(true);
   const [montoEditable, setMontoEditable] = React.useState<string>(
-    String(planesActivos[0]?.precio ?? PRECIOS_ESTANDAR_ACTIVIDAD.BOXEO),
+    planesActivos[0]?.precio != null ? String(planesActivos[0].precio) : "",
   );
   const [montoEditadoManual, setMontoEditadoManual] = React.useState(false);
   const [pagado, setPagado] = React.useState<boolean>(false);
@@ -71,12 +65,12 @@ export function ModalAsignarPlan({
     [planesActivos, planSeleccionadoId],
   );
 
-  const precioEstandar = React.useMemo(() => {
+  const precioEstandar = React.useMemo<number | null>(() => {
     if (planSeleccionado && planSeleccionadoId !== ACTIVIDAD_DIRECTA_ID) {
       return planSeleccionado.precio;
     }
     const planPorAct = planesActivos.find((p) => p.actividad_tipo === actividadDirecta);
-    return planPorAct?.precio ?? PRECIOS_ESTANDAR_ACTIVIDAD[actividadDirecta];
+    return planPorAct ? planPorAct.precio : null;
   }, [planSeleccionado, planSeleccionadoId, planesActivos, actividadDirecta]);
 
   // Sincronizar apertura/cierre nativo del <dialog>
@@ -109,7 +103,7 @@ export function ModalAsignarPlan({
 
   React.useEffect(() => {
     if (abierto && !montoEditadoManual) {
-      setMontoEditable(String(precioEstandar));
+      setMontoEditable(precioEstandar !== null ? String(precioEstandar) : "");
     }
   }, [abierto, precioEstandar, montoEditadoManual]);
 
@@ -118,12 +112,10 @@ export function ModalAsignarPlan({
     setMontoEditadoManual(false);
     if (nextId !== ACTIVIDAD_DIRECTA_ID) {
       const elegido = planesActivos.find((p) => p.id === nextId);
-      if (elegido) {
-        setMontoEditable(String(elegido.precio));
-      }
+      setMontoEditable(elegido ? String(elegido.precio) : "");
     } else {
       const planPorAct = planesActivos.find((p) => p.actividad_tipo === actividadDirecta);
-      setMontoEditable(String(planPorAct?.precio ?? PRECIOS_ESTANDAR_ACTIVIDAD[actividadDirecta]));
+      setMontoEditable(planPorAct ? String(planPorAct.precio) : "");
     }
   };
 
@@ -131,8 +123,13 @@ export function ModalAsignarPlan({
     setActividadDirecta(act);
     setMontoEditadoManual(false);
     const planPorAct = planesActivos.find((p) => p.actividad_tipo === act);
-    setMontoEditable(String(planPorAct?.precio ?? PRECIOS_ESTANDAR_ACTIVIDAD[act]));
+    setMontoEditable(planPorAct ? String(planPorAct.precio) : "");
   };
+
+  const montoValido =
+    montoEditable.trim() !== "" &&
+    !Number.isNaN(Number(montoEditable)) &&
+    Number(montoEditable) >= 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,11 +139,11 @@ export function ModalAsignarPlan({
       return;
     }
 
-    const montoNum = montoEditable.trim() === "" ? 0 : Number(montoEditable);
-    if (Number.isNaN(montoNum) || montoNum < 0) {
+    if (!montoValido) {
       setError("Ingresá un monto válido mayor o igual a $0.");
       return;
     }
+    const montoNum = Number(montoEditable);
 
     const actividadParam: ActividadAlumno | null = esDirecta
       ? actividadDirecta
@@ -321,9 +318,11 @@ export function ModalAsignarPlan({
           <label className="block space-y-1.5 text-sm font-semibold">
             <span>
               Monto a cobrar ($){" "}
-              <span className="text-[11px] font-normal text-muted-foreground">
-                (estándar: ${precioEstandar.toLocaleString("es-AR")})
-              </span>
+              {precioEstandar !== null && (
+                <span className="text-[11px] font-normal text-muted-foreground">
+                  (estándar: ${precioEstandar.toLocaleString("es-AR")})
+                </span>
+              )}
             </span>
             <input
               type="number"
@@ -334,6 +333,7 @@ export function ModalAsignarPlan({
                 setMontoEditadoManual(true);
                 setMontoEditable(e.target.value);
               }}
+              placeholder="Ingresá un monto"
               className="w-full min-h-11 rounded-xl border border-border bg-background px-3 py-2 text-sm font-mono font-semibold focus:outline-hidden focus:ring-2 focus:ring-primary"
               data-testid="input-asignar-monto"
               required
@@ -472,7 +472,7 @@ export function ModalAsignarPlan({
           </Button>
           <Button
             type="submit"
-            disabled={guardando}
+            disabled={guardando || !montoValido}
             data-testid="btn-confirmar-asignar-plan"
             className="min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary/90"
           >

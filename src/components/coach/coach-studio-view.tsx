@@ -110,8 +110,7 @@ export function CoachStudioView({
   initialEstado?: string | null;
   openMenuAlumnoIdProp?: string | null;
 } = {}) {
-  const storeHook = useCoachStudioStore();
-  const store = typeof window === "undefined" ? useCoachStudioStore.getState() : storeHook;
+  const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
   const coachFirstName = (coachName || "Martín").trim().split(" ")[0];
 

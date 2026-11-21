@@ -38,6 +38,7 @@ import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
+import { esUuid } from "@/lib/athlete/uuid";
 import {
   DEMO_CONTRATACIONES_CLASES,
   DEMO_ALUMNO_ACTIVIDADES,
@@ -664,7 +665,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const alumnoNombre = alumnoEnStudio?.nombre_completo ?? cobroAlumno?.alumnoNombre ?? "Alumno";
       const alumnoEmail = alumnoEnStudio?.email ?? cobroAlumno?.alumnoEmail ?? "";
       const alumnoTelefono = alumnoEnStudio?.telefono ?? cobroAlumno?.alumnoTelefono ?? null;
-      if (!alumnoEnStudio && !cobroAlumno && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(alumnoId)) {
+      if (!alumnoEnStudio && !cobroAlumno && !esUuid(alumnoId)) {
         throw new Error(`Alumno con id ${alumnoId} no encontrado`);
       }
 
@@ -700,9 +701,6 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           : actividadFinal === "RUTINAS"
           ? "Rutinas Online"
           : "Plan Membresía");
-
-      const esUuid = (v?: string | null) =>
-        Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
 
       let userAuth: { id: string } | null = null;
       try {
