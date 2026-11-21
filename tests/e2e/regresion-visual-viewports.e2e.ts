@@ -24,13 +24,13 @@ import { generarDemoPlanesIniciales } from "@/store/use-cobros-store";
  *   1. Ausencia de scroll horizontal de ventana (scrollWidth - innerWidth === 0).
  *   2. Ausencia de excepciones de JavaScript en consola (0 errores).
  *   3. Ausencia de texto de desarrollo prohibido (NaN, Infinity, undefined, [object Object]).
- *   4. Generación y almacenamiento de capturas de evidencia en docs/qa/demo-evidencia/<proyecto>/UX-*.png.
+ *   4. Generación y almacenamiento de capturas de evidencia en test-results/evidencia/<proyecto>/UX-*.png (ignorada por git).
  */
 
 const STUB_URL = process.env.E2E_STUB_URL ?? "http://localhost:54321";
 const APP_URL = process.env.E2E_APP_URL ?? "http://localhost:3100";
 const COACH_ID = "00000000-0000-4000-8000-000000000001";
-const EVIDENCIA_BASE = "docs/qa/demo-evidencia";
+const EVIDENCIA_BASE = "test-results/evidencia";
 
 interface ResultadoEscenario {
   id: string;

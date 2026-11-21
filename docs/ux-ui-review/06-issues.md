@@ -229,7 +229,7 @@ Extender `obtener_kpis_negocio` con los campos de §1 y publicar `obtenerKpisNeg
 **Docs:** `05-qa.md §3`
 
 - GIVEN los 4 proyectos de Playwright THEN UX-S, UX-I, UX-D, UX-F, UX-C, UX-A, UX-R, UX-K pasan; UX-M pasa en `mobile`.
-- GIVEN cada vista THEN se guardan capturas en `docs/qa/demo-evidencia/<proyecto>/UX-*.png`.
+- GIVEN cada vista THEN se guardan capturas en `test-results/evidencia/<proyecto>/UX-*.png` (carpeta ignorada; evidencia adjunta al PR/issue o como artifact).
 
 ---
 

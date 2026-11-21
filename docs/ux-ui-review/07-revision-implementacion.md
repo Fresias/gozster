@@ -43,7 +43,7 @@
 | FE-14 Rutinas + Ranking | ✅ con detalles | Un solo "Guardar" por fila ✅. Emojis 🏆 🥇 y banner rosa de bajo contraste. |
 | FE-15 Ingresos + Métricas | ❌ | Ingresos siempre en demo; además fabrica el desglose presencial/online (`cobrado * 0.65`). |
 | QA-01 Coherencia | ❌ | Los tests comparan un seed contra sí mismo o corren solo en modo demo; no detectan lo que se ve con datos en vivo (P1-5). |
-| QA-02 Regresión visual | ✅ | Capturas en `docs/qa/demo-evidencia/*`. |
+| QA-02 Regresión visual | ✅ | Capturas en `test-results/evidencia/*` (histórico en git; nueva evidencia se adjunta al PR/issue o como artifact). |
 | QA-03 Accesibilidad | 🟡 | Hay spec, pero en Inicio quedan 149 elementos clickeables que no reciben foco. |
 
 ---

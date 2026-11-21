@@ -6,7 +6,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 // Lo ya cubierto por agenda-testeo.e2e.ts (GOZS-196) no se repite: acá solo recorrido y gaps.
 
 const GABI_ID = "0a7a4dfd-e040-4b92-ac29-9507cbb13215";
-const EVIDENCIA = "docs/qa/demo-evidencia";
+const EVIDENCIA = "test-results/evidencia";
 type Sev = "ROJO" | "NARANJA" | "AMARILLO";
 interface Resultado { id: string; viewport: string; estado: "PASS" | "FAIL"; sev: Sev; detalle: string; evidencia: string }
 

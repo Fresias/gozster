@@ -21,5 +21,5 @@
 
 ## Evidencia y restricciones respetadas
 
-- **No se regeneró** `docs/athlete-v7/evidencia/antes/`, `docs/athlete-v7/evidencia/final/` ni `tests/e2e/*-snapshots/**` en Windows.
+- **No se regeneró** evidencia visual (`antes` / `final`, archivada en historial git desde GOZS-648; la nueva evidencia se adjunta al PR/issue o como artifact) ni `tests/e2e/*-snapshots/**` en Windows.
 - **No se declaró aprobada** ninguna evidencia visual (queda para R3/R2 en `ubuntu-latest`).
