@@ -292,7 +292,7 @@ describe("GOZS-654 / GOZS-655: Labels B/F/P en /studio/dashboard, selector react
       created_at: "2026-11-01T10:00:00Z",
       updated_at: "2026-11-01T10:00:00Z",
     };
-    const planMembresiaReal: PlanMembresia & { actividad_tipo?: string } = {
+    const planMembresiaReal: PlanMembresia = {
       id: PLAN_LIBRE_UUID,
       nombre: "Pase Libre",
       limite_semanal: null,
@@ -326,7 +326,7 @@ describe("GOZS-654 / GOZS-655: Labels B/F/P en /studio/dashboard, selector react
 
     await new Promise((r) => setTimeout(r, 20));
     useCobrosStore.setState({
-      planes: [{ ...planMembresiaReal, contratacionesActivas: 1, vencidas: 0, estaVencido: false }],
+      planes: [planMembresiaReal],
     });
 
     expect(dashboard.container.innerHTML).toContain('data-testid="activity-label-B"');
@@ -364,7 +364,7 @@ describe("GOZS-654 / GOZS-655: Labels B/F/P en /studio/dashboard, selector react
     expect(studio.container.innerHTML).not.toContain('data-testid="activity-label-B"');
     await new Promise((r) => setTimeout(r, 20));
     useCobrosStore.setState({
-      planes: [{ ...planMembresiaReal, contratacionesActivas: 1, vencidas: 0, estaVencido: false }],
+      planes: [planMembresiaReal],
     });
 
     expect(studio.container.innerHTML).toContain('data-testid="activity-label-B"');
