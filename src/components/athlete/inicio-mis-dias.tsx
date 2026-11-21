@@ -18,7 +18,12 @@ import {
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
 import {
+  ACTIVIDAD_LABEL,
+  SENSACIONES_CLASE,
   clasesUsadas,
+  derivarAsistenciasLocal,
+  formatearFechaClaseAsistencia,
+  obtenerClasePendienteFeedback,
   obtenerProximaClaseReservada,
   resolverActividadesHabilitadas,
   semanaEnCurso,
@@ -155,8 +160,11 @@ export function InicioMisDias() {
   const contratacionesAlumno = useClasesStore((s) => s.contratacionesAlumno);
   const actividadesAlumno = useClasesStore((s) => s.actividadesAlumno);
   const actividadesHabilitadas = useClasesStore((s) => s.actividadesHabilitadas);
+  const resumenClases = useClasesStore((s) => s.resumenClases);
+  const feedbacksPorReserva = useClasesStore((s) => s.feedbacksPorReserva);
   const testAhoraClases = useClasesStore((s) => s.testAhora);
   const cargarClasesAlumno = useClasesStore((s) => s.cargarClasesAlumno);
+  const responderFeedbackClase = useClasesStore((s) => s.responderFeedbackClase);
   const subscribeClasesRealtime = useClasesStore((s) => s.subscribeToRealtime);
 
   const { getLatestUnreadPushStaffMessage, setAthleteChatOpen } = useChatStore();
@@ -439,7 +447,17 @@ export function InicioMisDias() {
         (a) => habilitadasSet.has(a.actividad as ActividadClase) && !a.pase_libre,
       )?.veces_por_semana ??
       null;
-    return { tieneMembresiaClases, usadas, limite };
+    return {
+      tieneMembresiaClases,
+      usadas:
+        !planClases && actividadesAlumno.length === 0 && resumenClases
+          ? resumenClases.usadas_semana
+          : usadas,
+      limite:
+        !planClases && actividadesAlumno.length === 0 && resumenClases
+          ? resumenClases.limite_semanal
+          : limite,
+    };
   }, [
     actividadesHabilitadas,
     contratacionesAlumno,
@@ -449,7 +467,56 @@ export function InicioMisDias() {
     ahoraClases,
     clases,
     misReservas,
+    resumenClases,
   ]);
+
+  const asistenciasClases = React.useMemo(() => {
+    const base =
+      resumenClases?.asistencias ??
+      derivarAsistenciasLocal(misReservas, clases, feedbacksPorReserva, ahoraClases);
+    return base.map((item) => ({
+      ...item,
+      sensacion: feedbacksPorReserva[item.reserva_id] ?? item.sensacion,
+    }));
+  }, [resumenClases, misReservas, clases, feedbacksPorReserva, ahoraClases]);
+
+  const rachaClases = React.useMemo(() => {
+    if (resumenClases) return resumenClases.racha_semanas;
+    return calcularRachaSemanas(
+      asistenciasClases.map((a) => a.inicio),
+      ahoraClases,
+    );
+  }, [resumenClases, asistenciasClases, ahoraClases]);
+
+  const pendienteFeedback = React.useMemo(
+    () => obtenerClasePendienteFeedback(asistenciasClases, ahoraClases),
+    [asistenciasClases, ahoraClases],
+  );
+
+  const [guardandoFeedback, setGuardandoFeedback] = React.useState(false);
+
+  const handleResponderFeedback = async (
+    reservaId: string,
+    sensacion: 1 | 2 | 3 | 4,
+  ) => {
+    if (guardandoFeedback) return;
+    setGuardandoFeedback(true);
+    try {
+      const res = await responderFeedbackClase(reservaId, sensacion);
+      if (!res.ok) {
+        showToast(res.error || "No pudimos guardar tu devolución.", "warn");
+      } else {
+        showToast(
+          res.queued
+            ? "Devolución guardada. Se sincroniza al volver la señal."
+            : "¡Gracias por tu devolución!",
+          "ok",
+        );
+      }
+    } finally {
+      setGuardandoFeedback(false);
+    }
+  };
 
   const diaHero = diaActivoHoy || diasConEstado[0];
   const sesionIniciada = Boolean(
@@ -595,8 +662,78 @@ export function InicioMisDias() {
           {proximaClaseReservada.actividadLabel}
         </h2>
         <small className="a-t-sec">{proximaClaseReservada.horarioLabel}</small>
+        {proximaClaseReservada.clase.nota?.trim() && (
+          <p className="a-t-sec mt-1.5" data-testid="clase-reservada-nota">
+            {proximaClaseReservada.clase.nota.trim()}
+          </p>
+        )}
       </div>
     </section>
+  ) : null;
+
+  const tarjetaFeedbackPostClase = pendienteFeedback ? (
+    <section
+      aria-label="Feedback post-clase"
+      className="a-card p-4 space-y-3 text-left"
+      data-testid="feedback-post-clase-card"
+    >
+      <div className="space-y-0.5">
+        <span className="a-t-label a-muted">
+          {ACTIVIDAD_LABEL[pendienteFeedback.actividad] || pendienteFeedback.actividad} ·{" "}
+          {formatearFechaClaseAsistencia(pendienteFeedback.inicio)}
+        </span>
+        <h2 className="a-t-title">¿Cómo te fue?</h2>
+      </div>
+      <div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+        role="group"
+        aria-label="Sensación de la clase"
+      >
+        {SENSACIONES_CLASE.map((opcion) => (
+          <button
+            key={opcion.valor}
+            type="button"
+            disabled={guardandoFeedback}
+            onClick={() => void handleResponderFeedback(pendienteFeedback.reserva_id, opcion.valor)}
+            className="a-btn a-ghost min-h-11"
+            data-testid={`feedback-opcion-${opcion.valor}`}
+          >
+            {opcion.etiqueta}
+          </button>
+        ))}
+      </div>
+    </section>
+  ) : null;
+
+  const toastBanner = toastState ? (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`a-toast ${toastState.variant === "warn" ? "a-warn" : "a-ok"} a-show justify-between max-w-[26rem] mx-auto`}
+      style={toastState.canUndo ? { pointerEvents: "auto" } : undefined}
+      data-testid={toastState.canUndo ? "toast-cambio-dia" : "toast-inicio"}
+    >
+      <div className="flex items-center gap-2.5 a-t-sec">
+        <span className="a-tic">
+          {toastState.variant === "warn" ? (
+            <TriangleAlert width={16} height={16} className="a-i" />
+          ) : (
+            <Check width={16} height={16} className="a-i" />
+          )}
+        </span>
+        <span>{toastState.message}</span>
+      </div>
+      {toastState.canUndo && (
+        <button
+          type="button"
+          onClick={handleUndo}
+          className="a-link min-h-[44px] px-2"
+          data-testid="deshacer-cambio-dia-btn"
+        >
+          Deshacer
+        </button>
+      )}
+    </div>
   ) : null;
 
   if (diasItems.length === 0) {
@@ -650,8 +787,13 @@ export function InicioMisDias() {
       const { usadas, limite } = resumenClasesInicio;
       return (
         <div className="a-view a-anim" data-testid="inicio-clases">
+          <div className="a-hello" data-testid="inicio-clases-cabecera">
+            <h1 className="a-hello-week uppercase">TUS CLASES</h1>
+            {rachaClases >= 1 && <IndicadorRachaSemanas semanas={rachaClases} />}
+          </div>
           {bannerMensajeNoLeido}
           {tarjetaRecordatorioPeso}
+          {tarjetaFeedbackPostClase}
           {tarjetaClaseReservada ?? (
             <section
               aria-label="Próxima clase"
@@ -698,6 +840,7 @@ export function InicioMisDias() {
               </>
             )}
           </section>
+          {toastBanner}
         </div>
       );
     }
@@ -706,6 +849,7 @@ export function InicioMisDias() {
       <div className="a-view a-anim" data-testid="inicio-sin-plan">
         {bannerMensajeNoLeido}
         {tarjetaRecordatorioPeso}
+        {tarjetaFeedbackPostClase}
         {tarjetaClaseReservada}
         <section className="a-card a-state">
           <span className="a-ic">
@@ -724,6 +868,7 @@ export function InicioMisDias() {
             Escribirle al coach
           </button>
         </section>
+        {toastBanner}
       </div>
     );
   }
@@ -746,6 +891,9 @@ export function InicioMisDias() {
 
       {/* Recordatorio Mensual de Peso Corporal (kg puro) (GOZS-345) */}
       {tarjetaRecordatorioPeso}
+
+      {/* Feedback post-clase en 1 toque si asistió recientemente */}
+      {tarjetaFeedbackPostClase}
 
       {/* Recordatorio de RPE obligatorio sin bloqueo */}
       {(rpeReminderNotification || pendingRpeExercise) && (
@@ -1006,36 +1154,7 @@ export function InicioMisDias() {
       )}
 
       {/* Toast */}
-      {toastState && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`a-toast ${toastState.variant === "warn" ? "a-warn" : "a-ok"} a-show justify-between max-w-[26rem] mx-auto`}
-          style={toastState.canUndo ? { pointerEvents: "auto" } : undefined}
-          data-testid={toastState.canUndo ? "toast-cambio-dia" : "toast-inicio"}
-        >
-          <div className="flex items-center gap-2.5 a-t-sec">
-            <span className="a-tic">
-              {toastState.variant === "warn" ? (
-                <TriangleAlert width={16} height={16} className="a-i" />
-              ) : (
-                <Check width={16} height={16} className="a-i" />
-              )}
-            </span>
-            <span>{toastState.message}</span>
-          </div>
-          {toastState.canUndo && (
-            <button
-              type="button"
-              onClick={handleUndo}
-              className="a-link min-h-[44px] px-2"
-              data-testid="deshacer-cambio-dia-btn"
-            >
-              Deshacer
-            </button>
-          )}
-        </div>
-      )}
+      {toastBanner}
     </div>
   );
 }

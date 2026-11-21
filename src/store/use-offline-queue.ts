@@ -144,6 +144,22 @@ async function sendChatEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   return toResult(res.error);
 }
 
+async function sendFeedbackClaseEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  const p = ev.payload as {
+    reservaId?: string;
+    sensacion?: 1 | 2 | 3 | 4;
+  };
+  if (!supabase) return "retry";
+  if (!p.reservaId || !UUID_REGEX.test(p.reservaId) || !p.sensacion) return "rejected";
+  const res = await supabase
+    .from("feedback_clase")
+    .upsert(
+      { reserva_id: p.reservaId, sensacion: p.sensacion },
+      { onConflict: "reserva_id" },
+    );
+  return toResult(res.error);
+}
+
 const memoryFallback: Record<string, string> = {};
 
 export const safeStorage: StateStorage = {
@@ -206,12 +222,23 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
             } catch {
               result = "retry";
             }
+          } else if (ev.action === "FEEDBACK_CLASE") {
+            try {
+              result = await sendFeedbackClaseEvent(ev);
+            } catch {
+              result = "retry";
+            }
           }
           // Orden preservado: ante un fallo transitorio se corta y se reintenta luego.
           if (result === "retry") return;
           // Rechazo permanente: se descarta ese evento para no bloquear la cola.
           if (result === "rejected") {
-            set({ syncError: "No pudimos guardar una serie. Avisá a tu coach." });
+            set({
+              syncError:
+                ev.action === "FEEDBACK_CLASE"
+                  ? "No pudimos guardar tu devolución de la clase."
+                  : "No pudimos guardar una serie. Avisá a tu coach.",
+            });
           }
           get().removeEvent(ev.id);
         }

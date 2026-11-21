@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/sheet";
 import { COLOR_ACTIVIDAD, DaysStrip, NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import {
+  ETIQUETA_SENSACION,
+  MAX_LARGO_NOTA_CLASE,
+  SENSACIONES_CLASE,
   buildCancelacionAvisoTexto,
   buildWhatsAppCancelacionUrl,
   calcularRangoHorarioUtil,
@@ -31,6 +34,7 @@ import {
   diasDelMes,
   horaLocal,
   ocupaCupo,
+  resumirSensacionesClase,
 } from "@/lib/clases";
 import { feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
 import {
@@ -42,7 +46,7 @@ import {
 import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { ActividadClase, Clase } from "@/types/database.types";
+import type { ActividadClase, Clase, SensacionClase } from "@/types/database.types";
 
 const MOTIVO_MINIMO = 5;
 
@@ -286,6 +290,7 @@ export function ClassAgenda({
     setVista,
     clases: clasesStore,
     agendaReservas,
+    feedbacksPorReserva,
     testAhora: testAhoraStore,
     cargando,
     accionEnCurso,
@@ -299,6 +304,7 @@ export function ClassAgenda({
     crearClase,
     crearClasesRecurrentes,
     actualizarClase,
+    guardarNotaClase,
     anotarAlumnoCoach,
     quitarAnotadoCoach,
     limpiarMensajes,
@@ -593,9 +599,26 @@ export function ClassAgenda({
 
   const solapesDia = React.useMemo(() => detectarSolapes(delDia), [delDia]);
 
+  const [guardandoNota, setGuardandoNota] = React.useState(false);
+
   const claseIniciada = seleccionada
     ? new Date(seleccionada.inicio).getTime() <= ahoraMs
     : false;
+
+  const [notaDraft, setNotaDraft] = React.useState(seleccionada?.nota ?? "");
+  React.useEffect(() => {
+    setNotaDraft(seleccionada?.nota ?? "");
+  }, [seleccionada?.id, seleccionada?.nota]);
+
+  const handleGuardarNota = React.useCallback(async () => {
+    if (!seleccionada || guardandoNota) return;
+    setGuardandoNota(true);
+    try {
+      await guardarNotaClase(seleccionada.id, notaDraft);
+    } finally {
+      setGuardandoNota(false);
+    }
+  }, [seleccionada, guardandoNota, guardarNotaClase, notaDraft]);
 
   const listaAlumnos = React.useMemo(() => {
     const tieneReales =
@@ -1292,7 +1315,14 @@ export function ClassAgenda({
                 handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
-                quitarAnotadoCoach
+                quitarAnotadoCoach,
+                {
+                  feedbacksPorReserva,
+                  notaDraft,
+                  onNotaChange: setNotaDraft,
+                  onGuardarNota: handleGuardarNota,
+                  guardandoNota,
+                }
               )}
             </div>
           )}
@@ -1453,7 +1483,14 @@ export function ClassAgenda({
                 handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
-                quitarAnotadoCoach
+                quitarAnotadoCoach,
+                {
+                  feedbacksPorReserva,
+                  notaDraft,
+                  onNotaChange: setNotaDraft,
+                  onGuardarNota: handleGuardarNota,
+                  guardandoNota,
+                }
               )
             ) : !seleccionada ? (
               <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-3">
@@ -1865,7 +1902,14 @@ export function ClassAgenda({
                 handleReactivarClase,
                 marcarAusente,
                 accionEnCurso,
-                quitarAnotadoCoach
+                quitarAnotadoCoach,
+                {
+                  feedbacksPorReserva,
+                  notaDraft,
+                  onNotaChange: setNotaDraft,
+                  onGuardarNota: handleGuardarNota,
+                  guardandoNota,
+                }
               )}
               {seleccionada.estado === "CANCELADA" &&
                 (() => {
@@ -2243,6 +2287,14 @@ export function ClassAgenda({
   );
 }
 
+interface DetalleClaseExtras {
+  feedbacksPorReserva?: Record<string, SensacionClase>;
+  notaDraft?: string;
+  onNotaChange?: (val: string) => void;
+  onGuardarNota?: () => void;
+  guardandoNota?: boolean;
+}
+
 // Subcomponente: Panel de detalle y gestión de clase seleccionada
 function renderDetalleClase(
   seleccionada: Clase,
@@ -2254,7 +2306,8 @@ function renderDetalleClase(
   onReactivarClase?: (claseId: string) => Promise<void>,
   marcarAusente?: (reservaId: string) => Promise<void | boolean>,
   accionEnCurso?: string | null,
-  quitarAnotadoCoach?: (reservaId: string) => Promise<void | boolean>
+  quitarAnotadoCoach?: (reservaId: string) => Promise<void | boolean>,
+  extras?: DetalleClaseExtras,
 ) {
   const ocupadosCount = anotados.filter((r) => ocupaCupo(r)).length;
   const capacidad = seleccionada.capacidad;
@@ -2267,6 +2320,11 @@ function renderDetalleClase(
 
   const finMs = new Date(seleccionada.inicio).getTime() + (seleccionada.duracion_minutos || 60) * 60_000;
   const enCurso = claseIniciada && Date.now() < finMs && seleccionada.estado === "PROGRAMADA";
+  const feedbacksMap = extras?.feedbacksPorReserva ?? {};
+  const resumenSensaciones = resumirSensacionesClase(anotados, feedbacksMap);
+  const notaActual = seleccionada.nota ?? "";
+  const notaDraft = extras?.notaDraft ?? notaActual;
+  const notaModificada = notaDraft.trim() !== notaActual.trim();
 
   return (
     <div
@@ -2388,6 +2446,43 @@ function renderDetalleClase(
         </div>
       )}
 
+      {/* Nota opcional del coach para los alumnos */}
+      {seleccionada.estado === "PROGRAMADA" && (
+        <div className="space-y-2 rounded-lg border border-border/80 bg-secondary/20 p-3" data-testid="class-detail-note-section">
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor={`clase-nota-${seleccionada.id}`} className="text-xs font-semibold text-foreground">
+              Nota para los alumnos (opcional)
+            </label>
+            <span className="text-[11px] text-muted-foreground">
+              {notaDraft.length}/{MAX_LARGO_NOTA_CLASE}
+            </span>
+          </div>
+          <textarea
+            id={`clase-nota-${seleccionada.id}`}
+            rows={2}
+            maxLength={MAX_LARGO_NOTA_CLASE}
+            value={notaDraft}
+            onChange={(e) => extras?.onNotaChange?.(e.target.value)}
+            placeholder="Ej: Hoy trabajamos circuito de piernas"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="class-note-input"
+          />
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={extras?.guardandoNota || !notaModificada}
+              onClick={() => extras?.onGuardarNota?.()}
+              data-testid="save-class-note-btn"
+              className="h-8 px-3 text-xs font-medium"
+            >
+              {extras?.guardandoNota ? "Guardando..." : "Guardar nota"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Listado de Anotados */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -2402,20 +2497,53 @@ function renderDetalleClase(
           )}
         </div>
 
+        {resumenSensaciones.total > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/80 bg-secondary/30 px-3 py-2"
+            data-testid="class-feedback-summary"
+          >
+            <span className="text-xs font-medium text-foreground mr-1">
+              Sensaciones ({resumenSensaciones.total}):
+            </span>
+            {SENSACIONES_CLASE.filter((s) => resumenSensaciones.conteo[s.valor] > 0).map((s) => (
+              <span
+                key={s.valor}
+                className="rounded-full border border-border bg-background px-2 py-0.5 text-[11px] font-medium text-foreground"
+                data-testid={`class-feedback-count-${s.valor}`}
+              >
+                {s.etiqueta}: {resumenSensaciones.conteo[s.valor]}
+              </span>
+            ))}
+          </div>
+        )}
+
         {anotados.length === 0 ? (
           <p className="m-0 rounded-lg border border-dashed border-border p-4 text-center text-[13px] text-neutral-soft-foreground">
             Nadie anotado todavía. Compartí el link de reserva o anotá a alguien.
           </p>
         ) : (
           <ul className="divide-y divide-border/60" aria-label="Anotados">
-            {anotados.map((r) => (
+            {anotados.map((r) => {
+              const sensacionAlumno =
+                r.estado === "ANOTADO" ? feedbacksMap[r.id] : undefined;
+              return (
               <li
                 key={r.id}
                 className="flex items-center justify-between gap-3 py-2.5"
                 data-testid="student-row"
               >
-                <div>
-                  <span className="text-sm font-semibold">{r.alumno_nombre}</span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-semibold">{r.alumno_nombre}</span>
+                    {sensacionAlumno && (
+                      <span
+                        className="rounded-full border border-border bg-secondary/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
+                        data-testid="student-feedback-badge"
+                      >
+                        {ETIQUETA_SENSACION[sensacionAlumno]}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-muted-foreground block">{r.estado}</span>
                 </div>
 
@@ -2471,7 +2599,8 @@ function renderDetalleClase(
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
