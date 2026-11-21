@@ -80,7 +80,7 @@
   - **CP4** · Recetas de Sesión y Ejercicio.
   - **CP5** · Recetas de Molestias, Historial y progreso, y Clases.
   - **CP6** · Aserciones de estilo de `05 §3` filtrables por pantalla (`--grep`).
-  - **CP7** · Evidencia "antes" de todas las claves en `docs/athlete-v7/evidencia/antes/`; PR.
+  - **CP7** · Evidencia "antes" de todas las claves en `test-results/evidencia/athlete-v7/antes/` (adjunta al issue/PR en Multica o como artifact, nunca commiteada); PR.
 - **Criterios:** una receta por clave de `PANTALLAS` (82); claves imposibles de alcanzar todavía en la app actual quedan listadas en `resumen.md` como "sin receta (falta FE-xx)".
 
 ## Ola 1 · Estructura
