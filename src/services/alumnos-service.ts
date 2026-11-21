@@ -10,12 +10,16 @@ import {
   REAL_EJERCICIOS_RUTINA,
 } from "@/services/real-mynter-data";
 import type {
+  AlumnoActividad,
+  Cobro,
+  Contratacion,
   Database,
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
   Perfil,
   PlanEntrenamiento,
+  PlanMembresia,
 } from "@/types/database.types";
 
 export interface LiveSupabaseDataset {
@@ -24,6 +28,10 @@ export interface LiveSupabaseDataset {
   dias: DiaRutina[];
   ejerciciosEnRutina: EjercicioEnRutina[];
   ejercicios: Ejercicio[];
+  alumnoActividades?: AlumnoActividad[];
+  contrataciones?: Contratacion[];
+  planesMembresia?: PlanMembresia[];
+  cobros?: Cobro[];
 }
 
 /**
@@ -49,12 +57,20 @@ export async function fetchLiveDatasetFromSupabase(
       diasRes,
       ejRutinaRes,
       ejerciciosRes,
+      alumnoActividadesRes,
+      contratacionesRes,
+      planesMembresiaRes,
+      cobrosRes,
     ] = await Promise.all([
       alumnosPromise,
       client.from("planes_entrenamiento").select("*").order("created_at", { ascending: false }),
       client.from("dias_rutina").select("*").order("orden", { ascending: true }),
       client.from("ejercicios_en_rutina").select("*").order("orden", { ascending: true }),
       client.from("ejercicios").select("*").order("nombre", { ascending: true }),
+      client.from("alumno_actividades").select("*").order("created_at", { ascending: true }),
+      client.from("contrataciones").select("*").order("created_at", { ascending: false }),
+      client.from("planes_membresia").select("*").order("precio", { ascending: true }),
+      client.from("cobros").select("*").order("fecha_vencimiento", { ascending: false }),
     ]);
 
     if (alumnosRes.error) {
@@ -65,6 +81,10 @@ export async function fetchLiveDatasetFromSupabase(
         dias: REAL_DIAS,
         ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
         ejercicios: REAL_EJERCICIOS,
+        alumnoActividades: [],
+        contrataciones: [],
+        planesMembresia: [],
+        cobros: [],
       };
     }
 
@@ -74,6 +94,16 @@ export async function fetchLiveDatasetFromSupabase(
       dias: (diasRes.data as DiaRutina[]) || [],
       ejerciciosEnRutina: (ejRutinaRes.data as EjercicioEnRutina[]) || [],
       ejercicios: (ejerciciosRes.data as Ejercicio[]) || [],
+      alumnoActividades: !alumnoActividadesRes?.error
+        ? ((alumnoActividadesRes?.data as AlumnoActividad[]) || [])
+        : [],
+      contrataciones: !contratacionesRes?.error
+        ? ((contratacionesRes?.data as Contratacion[]) || [])
+        : [],
+      planesMembresia: !planesMembresiaRes?.error
+        ? ((planesMembresiaRes?.data as PlanMembresia[]) || [])
+        : [],
+      cobros: !cobrosRes?.error ? ((cobrosRes?.data as Cobro[]) || []) : [],
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (usando dataset GOZS de respaldo):", err?.message || err);
@@ -83,6 +113,10 @@ export async function fetchLiveDatasetFromSupabase(
       dias: REAL_DIAS,
       ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
       ejercicios: REAL_EJERCICIOS,
+      alumnoActividades: [],
+      contrataciones: [],
+      planesMembresia: [],
+      cobros: [],
     };
   }
 }
