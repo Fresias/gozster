@@ -62,10 +62,21 @@ export function listarMigraciones(migrationsDir = MIGRATIONS_DIR): string[] {
     .sort();
 }
 
-/** Hash determinista de `STUBS` + todas las migraciones (nombre + contenido) para invalidar el snapshot. */
+/** Lee la versión instalada de `@electric-sql/pglite` para invalidar el snapshot al actualizarla. */
+function obtenerVersionPglite(): string {
+  try {
+    const pkgPath = path.resolve(__dirname, "../../../node_modules/@electric-sql/pglite/package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8")) as { version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Hash determinista de la versión de PGlite + `STUBS` + migraciones para invalidar el snapshot. */
 export function calcularHashSnapshot(migrationsDir = MIGRATIONS_DIR): string {
   const hash = createHash("sha256");
-  hash.update("pglite-v1\n");
+  hash.update(`pglite-${obtenerVersionPglite()}\n`);
   hash.update(STUBS);
   for (const archivo of listarMigraciones(migrationsDir)) {
     hash.update(`\n-- ${archivo}\n`);
@@ -97,10 +108,12 @@ let snapshotCache: { ruta: string; bytes: Uint8Array<ArrayBuffer> } | null = nul
  */
 export async function crearDbMigrada(): Promise<PGlite> {
   let rutaSnapshot: string | undefined;
+  let injectError: string | undefined;
   try {
     const { inject } = await import("vitest");
     rutaSnapshot = inject("pgliteSnapshotPath");
-  } catch {
+  } catch (err) {
+    injectError = err instanceof Error ? err.message : String(err);
     rutaSnapshot = undefined;
   }
 
@@ -117,5 +130,10 @@ export async function crearDbMigrada(): Promise<PGlite> {
     });
   }
 
+  console.warn(
+    injectError
+      ? `[pglite-migrada] inject("pgliteSnapshotPath") falló (${injectError}); reconstruyendo PGlite desde cero.`
+      : `[pglite-migrada] Snapshot no disponible (${rutaSnapshot ?? "sin ruta"}); reconstruyendo PGlite desde cero.`,
+  );
   return construirDbMigradaDesdeCero();
 }
