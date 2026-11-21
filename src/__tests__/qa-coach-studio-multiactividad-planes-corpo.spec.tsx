@@ -4,6 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
+vi.mock("@/store/use-cobros-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-cobros-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useCobrosStore.getState()) : mod.useCobrosStore.getState(),
+    mod.useCobrosStore,
+  );
+  return { ...mod, useCobrosStore: hook };
+});
+
 import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { CoachStudioView } from "@/components/coach/coach-studio-view";
 import { StudentDetail } from "@/components/coach/student-detail";

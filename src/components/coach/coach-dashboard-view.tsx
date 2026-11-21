@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useChatStore } from "@/store/use-chat-store";
+import { useCobrosStore } from "@/store/use-cobros-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { RetentionKpiCards } from "@/components/coach/retention-kpi-cards";
 import { AssignPlanModal } from "@/components/coach/assign-plan-modal";
@@ -13,14 +14,21 @@ import type { Perfil } from "@/types/database.types";
 import { ProgressiveOverloadFeed } from "@/components/coach/progressive-overload-feed";
 import { HistoricalLoadsDrawer } from "@/components/coach/historical-loads-drawer";
 import { ChatFab } from "@/components/coach/chat-fab";
+import { ActivityLabels } from "@/components/coach/activity-labels";
 import { Button } from "@/components/ui/button";
 import {
   ETIQUETAS_FILTRO_ACTIVIDAD,
   alumnoTieneActividad,
+  derivarLabelsActividadAlumno,
 } from "@/lib/alumno-actividades";
 
 import type { AlumnoEstancado, LiveSupabaseDataset } from "@/services/alumnos-service";
-import { DEMO_GIMNASIO, DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
+import {
+  DEMO_ALUMNO_ACTIVIDADES,
+  DEMO_CONTRATACIONES_CLASES,
+  DEMO_GIMNASIO,
+  DEMO_KPIS_NEGOCIO,
+} from "@/services/coach-demo-dataset";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
 
 export interface CoachDashboardViewProps {
@@ -51,6 +59,44 @@ export function CoachDashboardView({
   const planes = hasInitialData
     ? (store.isLiveDatabase && store.planes.length > 0 ? store.planes : initialDataset!.planes)
     : DEMO_GIMNASIO.planes;
+
+  const planesCobros = useCobrosStore((s) => s.planes);
+  const cobrosIsLiveMode = useCobrosStore((s) => s.isLiveMode);
+
+  const alumnoActividadesEfectivas = hasInitialData
+    ? (store.isLiveDatabase && store.alumnoActividades.length > 0
+        ? store.alumnoActividades
+        : (initialDataset?.alumnoActividades ?? []))
+    : store.isLiveDatabase
+    ? store.alumnoActividades
+    : (store.alumnoActividades.length > 0 ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES);
+
+  const contratacionesEfectivas = hasInitialData
+    ? (store.isLiveDatabase && store.contrataciones.length > 0
+        ? store.contrataciones
+        : (initialDataset?.contrataciones ?? []))
+    : store.isLiveDatabase
+    ? store.contrataciones
+    : (store.contrataciones.length > 0 ? store.contrataciones : DEMO_CONTRATACIONES_CLASES);
+
+  const planesMembresiaEfectivos =
+    hasInitialData && !cobrosIsLiveMode && Array.isArray(initialDataset?.planesMembresia)
+      ? (initialDataset.planesMembresia.length > 0
+          ? initialDataset.planesMembresia
+          : planesCobros.filter((p) => !p.id.startsWith("demo-")))
+      : planesCobros;
+
+  const getLabelsAlumno = React.useCallback(
+    (alumnoId: string) =>
+      derivarLabelsActividadAlumno({
+        alumnoId,
+        alumnoActividades: alumnoActividadesEfectivas,
+        contrataciones: contratacionesEfectivas,
+        planes,
+        planesMembresia: planesMembresiaEfectivos,
+      }),
+    [alumnoActividadesEfectivas, contratacionesEfectivas, planes, planesMembresiaEfectivos],
+  );
 
   const {
     toast,
@@ -83,8 +129,11 @@ export function CoachDashboardView({
           dias: initialDataset.dias,
           ejerciciosEnRutina: initialDataset.ejerciciosEnRutina,
           ejercicios: initialDataset.ejercicios,
+          contrataciones: initialDataset.contrataciones || [],
+          alumnoActividades: initialDataset.alumnoActividades || [],
           isLiveDatabase: true,
         });
+        useCobrosStore.getState().hydrateFromLiveDataset(initialDataset);
       }, 0);
       return () => clearTimeout(timer);
     } else {
@@ -119,8 +168,8 @@ export function CoachDashboardView({
       const tiene = alumnoTieneActividad({
         alumnoId: a.id,
         actividad: filtroActividad,
-        alumnoActividades: store.alumnoActividades,
-        contrataciones: store.contrataciones,
+        alumnoActividades: alumnoActividadesEfectivas,
+        contrataciones: contratacionesEfectivas,
         planes,
         alumno: a,
       });
@@ -228,8 +277,8 @@ export function CoachDashboardView({
                 alumnoTieneActividad({
                   alumnoId: a.id,
                   actividad: act,
-                  alumnoActividades: store.alumnoActividades,
-                  contrataciones: store.contrataciones,
+                  alumnoActividades: alumnoActividadesEfectivas,
+                  contrataciones: contratacionesEfectivas,
                   planes,
                   alumno: a,
                 })
@@ -269,10 +318,11 @@ export function CoachDashboardView({
           <h2 className="text-sm font-bold text-amber-800 dark:text-amber-300">Alumnos estancados (30+ días sin PR)</h2>
           <ul className="mt-2 space-y-1 text-sm">
             {estancados.map((e) => (
-              <li key={e.alumnoId}>
+              <li key={e.alumnoId} className="flex flex-wrap items-center gap-1.5">
                 <button type="button" onClick={() => handleSelectAlumno(e.alumnoId)} className="hover:underline">
                   {alumnos.find((a) => a.id === e.alumnoId)?.nombre_completo ?? "Alumno"}
-                </button>{" "}
+                </button>
+                <ActivityLabels labels={getLabelsAlumno(e.alumnoId)} />
                 <span className="text-muted-foreground">· {e.diasSinPR} días sin PR</span>
               </li>
             ))}
@@ -286,6 +336,7 @@ export function CoachDashboardView({
           alertas={alertas}
           onSelectAlumno={handleSelectAlumno}
           onOpenHistoricalLoads={handleOpenHistoricalLoadsFor}
+          getLabelsAlumno={getLabelsAlumno}
         />
       </div>
 
@@ -300,6 +351,7 @@ export function CoachDashboardView({
           setIsAssignModalOpen(false);
           setAssignRoutineTarget(alumno);
         }}
+        getLabelsAlumno={getLabelsAlumno}
       />
 
       {/* Modal de Previsualización y Confirmación de Rutinas Genéricas (GOZS-245) */}

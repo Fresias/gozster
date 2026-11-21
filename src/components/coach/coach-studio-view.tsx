@@ -461,6 +461,7 @@ export function CoachStudioView({
   const isLiveInicio = store.isLiveDatabase || hasInitialData;
   // Fuente única de "Para revisar hoy": molestias activas + cuotas vencidas del mismo store que Cobros.
   const cobrosInicio = useCobrosStore((s) => s.cobros);
+  const planesCobros = useCobrosStore((s) => s.planes);
   const cuotasVencidasInicio = React.useMemo(() => {
     if (isLiveInicio) {
       const alumnosIds = new Set(alumnos.map((a) => a.id));
@@ -830,7 +831,6 @@ export function CoachStudioView({
           : store.isLiveDatabase
           ? store.contrataciones
           : (store.contrataciones.length > 0 ? store.contrataciones : DEMO_CONTRATACIONES_CLASES);
-        const planesCobros = useCobrosStore.getState().planes;
         const actividades = obtenerActividadesAlumno({
           alumnoId: alumno.id,
           alumnoActividades: alumnoActividadesEfectivas,
@@ -912,7 +912,6 @@ export function CoachStudioView({
         const contratacionesAlumno = store.getContratacionesAlumno
           ? store.getContratacionesAlumno(alumno.id)
           : (store.contrataciones?.filter((c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA") ?? []);
-        const planesCobros = useCobrosStore.getState().planes;
         const badgesPlanes = contratacionesAlumno.map((c) => {
           const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
           const nombrePlan =
@@ -1301,6 +1300,7 @@ export function CoachStudioView({
     store.contrataciones,
     store.getContratacionesAlumno,
     planes,
+    planesCobros,
     getHistorialCargas,
     handleOpenQuickSwapFromBadge,
     handleOpenWhatsAppModal,

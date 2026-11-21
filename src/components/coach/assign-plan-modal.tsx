@@ -2,6 +2,8 @@ import * as React from "react";
 import type { Perfil } from "@/types/database.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActivityLabels } from "@/components/coach/activity-labels";
+import type { LabelActividadItem } from "@/lib/alumno-actividades";
 
 export interface AssignPlanModalProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ export interface AssignPlanModalProps {
   onAssignPlan: (alumnoId: string) => Promise<void>;
   onSelectAlumno: (alumnoId: string) => void;
   onOpenAssignRoutine?: (alumno: Perfil) => void;
+  getLabelsAlumno?: (alumnoId: string) => LabelActividadItem[];
 }
 
 export function AssignPlanModal({
@@ -19,6 +22,7 @@ export function AssignPlanModal({
   onAssignPlan,
   onSelectAlumno,
   onOpenAssignRoutine,
+  getLabelsAlumno,
 }: AssignPlanModalProps) {
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
 
@@ -115,9 +119,12 @@ export function AssignPlanModal({
                     {getInitials(alumno.nombre_completo)}
                   </div>
                   <div className="min-w-0">
-                    <h4 className="truncate text-sm font-semibold text-foreground">
-                      {alumno.nombre_completo}
-                    </h4>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h4 className="truncate text-sm font-semibold text-foreground">
+                        {alumno.nombre_completo}
+                      </h4>
+                      {getLabelsAlumno && <ActivityLabels labels={getLabelsAlumno(alumno.id)} />}
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {alumno.email ?? "Sin email registrado"}
                     </p>

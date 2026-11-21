@@ -91,11 +91,7 @@ export function obtenerActividadesAlumno(params: {
     }
   }
 
-  // 4. Fallback si no tiene actividad asignada aún: Rutina online
-  if (actividades.size === 0) {
-    actividades.add("RUTINAS");
-  }
-
+  // Sin identificador de actividad, contratación ni rutina activa = inactivo (devuelve [])
   return Array.from(actividades);
 }
 
