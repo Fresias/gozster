@@ -1,13 +1,12 @@
 ﻿import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 
 // Issue #66 (ADR-004 / GOZS-45): Asignación/transferencia de conversaciones
 // con RLS automático y auditoría de cambios de rutina en Supabase (PostgreSQL 15+).
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261022000000_chat_gozs_transferencia_auditoria_rutina.sql";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
@@ -19,22 +18,6 @@ const OTRO_ALUMNO = "00000000-0000-0000-0000-00000000000b";
 const EJERCICIO_ID = "00000000-0000-0000-0000-0000000000e1";
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const SEED_PERFILES = `
   INSERT INTO auth.users (id, email) VALUES
@@ -55,16 +38,6 @@ const SEED_PERFILES = `
 
 let db: PGlite;
 
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
-
 function como<T>(rol: Rol, sub: string | null, sql: string) {
   return db.transaction(async (tx: Transaction) => {
     await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -84,19 +57,11 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
   let ejercicioId: string;
 
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      if (archivo === "20261019000000_contrataciones_pagos_auditoria_backup.sql") {
-        await db.exec(SEED_PERFILES);
-      }
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-    }
+    db = await crearDbMigrada();
+    await db.exec(SEED_PERFILES);
 
     // Probar idempotencia de la nueva migración
-    await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
 
     // Crear conversación para el alumno (via RPC obtener_o_crear_conversacion)
     const convRes = await como<{ obtener_o_crear_conversacion: string }>(

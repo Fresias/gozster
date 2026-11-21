@@ -103,6 +103,7 @@ const DENEGADO = /row-level security|permission denied|Solo|No autorizado/;
 
 describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => {
   beforeAll(async () => {
+    // Bootstrap propio: inyecta DRIFT_EN_VIVO y captura políticas previas antes de la migración 20261018000000.
     db = new PGlite({ extensions: { pgcrypto } });
     await db.exec(SUPABASE_STUBS);
 

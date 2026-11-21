@@ -125,6 +125,7 @@ const DENEGADO = /row-level security|permission denied|Solo|No autorizado|perío
 
 describe("Issue #64: contrataciones, pagos y auditoría (PGlite)", () => {
   beforeAll(async () => {
+    // Bootstrap propio: siembra perfiles legados BAJA antes de la migración 20261019000000 para verificar su backfill.
     db = new PGlite({ extensions: { pgcrypto } });
     await db.exec(SUPABASE_STUBS);
     const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();

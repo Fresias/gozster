@@ -1,33 +1,16 @@
 ﻿import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 
 // GOZS-229: feriados de Argentina y flag de clases (PGlite, roles Supabase simulados).
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261030000700_feriados_argentina.sql";
 const COACH = "00000000-0000-0000-0000-0000000000a1";
 const ALUMNO = "00000000-0000-0000-0000-0000000000a2";
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 let db: PGlite;
 
@@ -43,19 +26,8 @@ function como<T>(rol: Rol, sub: string | null, sql: string) {
 
 describe("GOZS-229: feriados", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-    const aplicar = async (sql: string) => {
-      const i = sql.search(/^BEGIN;/m);
-      if (i > 0) {
-        await db.exec(sql.slice(0, i));
-        await db.exec(sql.slice(i));
-      } else await db.exec(sql);
-    };
-    for (const f of fs.readdirSync(MIGRATIONS_DIR).filter((x) => x.endsWith(".sql")).sort()) {
-      await aplicar(fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf-8"));
-    }
-    await aplicar(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    db = await crearDbMigrada();
+    await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
     const seedPath = path.resolve(__dirname, "../../supabase/seed_data/feriados_ar_2026.sql");
     await db.exec(fs.readFileSync(seedPath, "utf-8"));
     await db.exec(fs.readFileSync(seedPath, "utf-8")); // idempotente

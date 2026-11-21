@@ -1,14 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 
 // GOZS-335: Tests de verificación de Alta persistente de Gonzalo Salas,
 // trigger trg_on_auth_user_created y soporte RLS de autogestión de rutina para Admin.
-
-const SUPABASE_DIR = path.resolve(__dirname, "../../supabase");
-const MIGRATIONS_DIR = path.join(SUPABASE_DIR, "migrations");
 
 const GONZALO_ID = "f4819866-b758-424e-90b2-555b7887c601";
 const GONZALO_EMAIL = "gonzasalas2016@gmail.com";
@@ -16,34 +11,6 @@ const ADMIN_ID = GONZALO_ID;
 
 const OTRO_ALUMNO_ID = "00000000-0000-0000-0000-0000000000a1";
 const OTRO_ALUMNO_EMAIL = "alumno.otro@gozster.local";
-
-const STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (
-    id uuid PRIMARY KEY,
-    instance_id uuid,
-    aud text,
-    role text,
-    email text,
-    encrypted_password text,
-    email_confirmed_at timestamptz,
-    raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-  );
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 let db: PGlite;
 
@@ -61,20 +28,7 @@ function como<T>(rol: Rol, sub: string | null, sql: string, params: unknown[] = 
 
 describe("GOZS-335: Alta persistente de Gonzalo Salas (Admin), trigger on_auth_user_created y soporte de autogestión de rutina para Admin", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(STUBS);
-
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8");
-      const inicio = sql.search(/^BEGIN;/m);
-      if (inicio > 0) {
-        await db.exec(sql.slice(0, inicio));
-        await db.exec(sql.slice(inicio));
-      } else {
-        await db.exec(sql);
-      }
-    }
+    db = await crearDbMigrada();
   }, 120_000);
 
   describe("1. Alta persistente de Gonzalo Salas en public.perfiles", () => {

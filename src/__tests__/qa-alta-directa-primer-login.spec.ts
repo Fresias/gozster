@@ -14,8 +14,8 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 import { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { middleware } from "@/middleware";
@@ -31,43 +31,12 @@ vi.mock("@supabase/ssr", () => ({ createServerClient: vi.fn() }));
 // ----------------------------------------------------------------------------
 // Fixtures compartidos
 // ----------------------------------------------------------------------------
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261018100000_alta_alumno_directa_primer_login.sql";
-
 const COACH_A = "00000000-0000-0000-0000-00000000c0a1";
 const COACH_B = "00000000-0000-0000-0000-00000000c0b2";
 const ADMIN = "00000000-0000-0000-0000-0000000ad301";
 const ALUMNO_A = "00000000-0000-0000-0000-0000000a1001"; // alumno de COACH_A
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (
-    id uuid PRIMARY KEY,
-    instance_id uuid,
-    aud text,
-    role text,
-    email text,
-    encrypted_password text,
-    email_confirmed_at timestamptz,
-    raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-  );
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const SEED = `
   INSERT INTO auth.users (id, email, encrypted_password) VALUES
@@ -81,16 +50,6 @@ const SEED = `
 `;
 
 let db: PGlite;
-
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
 
 function como<T>(rol: Rol, sub: string | null, sql: string) {
   return db.transaction(async (tx: Transaction) => {
@@ -172,16 +131,8 @@ function req(url: string) {
 // SETUP: migra un Postgres real con todas las migraciones del repo
 // ============================================================================
 beforeAll(async () => {
-  db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(SUPABASE_STUBS);
-  const archivos = fs
-    .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-  for (const archivo of archivos) {
-    if (archivo === NEW_MIGRATION) await db.exec(SEED);
-    await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-  }
+  db = await crearDbMigrada();
+  await db.exec(SEED);
 }, 60_000);
 
 // ============================================================================

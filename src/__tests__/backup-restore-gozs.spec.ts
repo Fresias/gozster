@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 import {
   TABLAS,
   exportarSnapshot,
@@ -20,8 +18,6 @@ import {
 // una base GOZS real (PGlite + migraciones), lo restaura en una base vacía con
 // la RPC restaurar_filas_respaldo y comprueba integridad e idempotencia.
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-
 const COACH = "00000000-0000-0000-0000-00000000c0ac";
 const ALUMNO = "00000000-0000-0000-0000-00000000000a";
 const EJ = "20000000-0000-0000-0000-000000000001";
@@ -30,22 +26,6 @@ const DIA = "20000000-0000-0000-0000-000000000003";
 const SESION = "20000000-0000-0000-0000-000000000004";
 const CONV = "20000000-0000-0000-0000-000000000005";
 const CONTRATO = "20000000-0000-0000-0000-000000000006";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const AUTH_USERS = `INSERT INTO auth.users (id, email) VALUES ('${COACH}','coach@t'),('${ALUMNO}','a@t');`;
 
@@ -79,18 +59,7 @@ const SEED = `
 type Rol = "anon" | "authenticated" | "service_role";
 
 async function crearBase(): Promise<PGlite> {
-  const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(SUPABASE_STUBS);
-  for (const archivo of fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort()) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8");
-    const inicio = sql.search(/^BEGIN;/m);
-    if (inicio > 0) {
-      await db.exec(sql.slice(0, inicio));
-      await db.exec(sql.slice(inicio));
-    } else {
-      await db.exec(sql);
-    }
-  }
+  const db = await crearDbMigrada();
   await db.exec(AUTH_USERS);
   await db.exec("DELETE FROM public.perfiles;");
   return db;

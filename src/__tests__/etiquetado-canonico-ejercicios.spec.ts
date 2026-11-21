@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite } from "@electric-sql/pglite";
+import { aplicarMigracion, crearDbMigrada } from "./helpers/pglite-migrada";
 
 // GOZS-425: migración de etiquetas canónicas + coach renombrado, sobre PGlite.
 const SUPABASE_DIR = path.resolve(__dirname, "../../supabase");
@@ -10,36 +10,12 @@ const COACH = "20685bca-6304-4e55-abba-37a1cf8f6113";
 const CANON = ["Pecho", "Espalda", "Piernas", "Hombros", "Brazos", "Core"];
 const MIG = "20261108170000_etiquetado_canonico_ejercicios.sql";
 
-const STUBS = `
-  CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text,
-    encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb, created_at timestamptz, updated_at timestamptz);
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
-
 let db: PGlite;
-const exec = async (sql: string) => {
-  const i = sql.search(/^BEGIN;/m);
-  if (i > 0) { await db.exec(sql.slice(0, i)); await db.exec(sql.slice(i)); } else await db.exec(sql);
-};
+const exec = (sql: string) => aplicarMigracion(db, sql);
 
 describe("GOZS-425: etiquetado canónico", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(STUBS);
-    const dir = path.join(SUPABASE_DIR, "migrations");
-    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
-      await exec(fs.readFileSync(path.join(dir, f), "utf-8"));
-    }
+    db = await crearDbMigrada();
     await exec(fs.readFileSync(path.join(SUPABASE_DIR, "seed_gozs.sql"), "utf-8"));
     // Simula entorno legado: sin etiquetas, un valor legado y coach con nombre anterior.
     await db.exec(`UPDATE public.ejercicios SET musculos_principales = '{}';
