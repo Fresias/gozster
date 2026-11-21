@@ -55,6 +55,7 @@ export function ModalAsignarPlan({
   const [medioPago, setMedioPago] = React.useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [notas, setNotas] = React.useState<string>("");
   const [guardando, setGuardando] = React.useState(false);
+  const submittingRef = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const planSeleccionado = React.useMemo(
@@ -79,7 +80,7 @@ export function ModalAsignarPlan({
     if (!dialog) return;
     if (abierto) {
       if (!dialog.open) {
-        dialog.showModal();
+        dialog.showModal?.();
       }
       if (
         planesActivos.length > 0 &&
@@ -96,7 +97,7 @@ export function ModalAsignarPlan({
       setError(null);
     } else {
       if (dialog.open) {
-        dialog.close();
+        dialog.close?.();
       }
     }
   }, [abierto, planesActivos, planSeleccionadoId]);
@@ -133,6 +134,7 @@ export function ModalAsignarPlan({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardando || submittingRef.current) return;
     const esDirecta = planSeleccionadoId === ACTIVIDAD_DIRECTA_ID || !planSeleccionado;
     if (!esDirecta && !planSeleccionadoId) {
       setError("Por favor, seleccioná un plan o actividad.");
@@ -163,6 +165,7 @@ export function ModalAsignarPlan({
         : etiquetaAct
       : planSeleccionado?.nombre;
 
+    submittingRef.current = true;
     try {
       setGuardando(true);
       setError(null);
@@ -185,6 +188,7 @@ export function ModalAsignarPlan({
         setError("Error al asignar el plan.");
       }
     } finally {
+      submittingRef.current = false;
       setGuardando(false);
     }
   };

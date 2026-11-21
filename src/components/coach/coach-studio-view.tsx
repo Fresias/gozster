@@ -461,10 +461,6 @@ export function CoachStudioView({
   const isLiveInicio = store.isLiveDatabase || hasInitialData;
   // Fuente única de "Para revisar hoy": molestias activas + cuotas vencidas del mismo store que Cobros.
   const cobrosInicio = useCobrosStore((s) => s.cobros);
-  const cargarCobrosInicio = useCobrosStore((s) => s.cargarCobros);
-  React.useEffect(() => {
-    void cargarCobrosInicio();
-  }, [cargarCobrosInicio]);
   const cuotasVencidasInicio = React.useMemo(() => {
     if (isLiveInicio) {
       const alumnosIds = new Set(alumnos.map((a) => a.id));
@@ -651,13 +647,28 @@ export function CoachStudioView({
 
     const matchSinEntrenar = !sinEntrenarFilter || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id);
 
+    const alumnoActividadesEfectivas = hasInitialData
+      ? (store.isLiveDatabase && store.alumnoActividades.length > 0
+          ? store.alumnoActividades
+          : (initialDataset?.alumnoActividades ?? []))
+      : store.isLiveDatabase
+      ? store.alumnoActividades
+      : (store.alumnoActividades.length > 0 ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES);
+    const contratacionesEfectivas = hasInitialData
+      ? (store.isLiveDatabase && store.contrataciones.length > 0
+          ? store.contrataciones
+          : (initialDataset?.contrataciones ?? []))
+      : store.isLiveDatabase
+      ? store.contrataciones
+      : (store.contrataciones.length > 0 ? store.contrataciones : DEMO_CONTRATACIONES_CLASES);
+
     const matchActividad =
       filtroActividad === "TODAS" ||
       alumnoTieneActividad({
         alumnoId: a.id,
         actividad: filtroActividad,
-        alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
-        contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+        alumnoActividades: alumnoActividadesEfectivas,
+        contrataciones: contratacionesEfectivas,
         planes,
         alumno: a,
       });
@@ -809,11 +820,15 @@ export function CoachStudioView({
           ? (store.isLiveDatabase && store.alumnoActividades.length > 0
               ? store.alumnoActividades
               : (initialDataset?.alumnoActividades ?? []))
+          : store.isLiveDatabase
+          ? store.alumnoActividades
           : (store.alumnoActividades.length > 0 ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES);
         const contratacionesEfectivas = hasInitialData
           ? (store.isLiveDatabase && store.contrataciones.length > 0
               ? store.contrataciones
               : (initialDataset?.contrataciones ?? []))
+          : store.isLiveDatabase
+          ? store.contrataciones
           : (store.contrataciones.length > 0 ? store.contrataciones : DEMO_CONTRATACIONES_CLASES);
         const planesCobros = useCobrosStore.getState().planes;
         const actividades = obtenerActividadesAlumno({

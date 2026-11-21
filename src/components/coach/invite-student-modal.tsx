@@ -151,6 +151,7 @@ export function InviteStudentModal({
   const [alta, setAlta] = React.useState<AltaExitosa | null>(null);
   const [copiado, setCopiado] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const submittingRef = React.useRef(false);
 
   // Estado de actividades y frecuencias (GOZS-224 / GOZS-246)
   const [actividades, setActividades] = React.useState<
@@ -298,6 +299,7 @@ export function InviteStudentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || submittingRef.current) return;
     setError(null);
 
     if (!esValido) {
@@ -310,6 +312,7 @@ export function InviteStudentModal({
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
     try {
       const pesoNum = pesoCorporalKg.trim() ? parseFloat(pesoCorporalKg.trim()) : undefined;
@@ -496,10 +499,11 @@ export function InviteStudentModal({
               }
             : undefined,
       });
-      setLoading(false);
       await onInvited();
     } catch {
       setError("No pudimos conectar con el servidor. Revisá tu conexión e intentá otra vez.");
+    } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };

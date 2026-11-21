@@ -40,7 +40,9 @@ import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
 import { StudentDetail } from "@/components/coach/student-detail";
 import { IslaAdministrativa } from "@/components/coach/student-detail/islas/isla-administrativa";
 import { derivarLabelsActividadAlumno } from "@/lib/alumno-actividades";
+import * as supabaseBrowser from "@/lib/supabase/browser";
 import { supabase } from "@/lib/supabase/client";
+import { fireEvent, render } from "@/test-utils/no-demo-literals";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useCobrosStore, ultimaSuscripcionPorContrato } from "@/store/use-cobros-store";
 import type { AlumnoActividad, Contratacion, Perfil, PlanEntrenamiento, PlanMembresia } from "@/types/database.types";
@@ -81,6 +83,7 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
       ejercicios: [],
       contrataciones: [],
       alumnoActividades: [],
+      filtroActividad: "TODAS",
       isLiveDatabase: true,
     });
   });
@@ -180,7 +183,23 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
               updated_at: "2026-11-01T10:00:00Z",
             },
           ],
-          pagos: [],
+          pagos: [
+            {
+              id: "77777777-7777-4777-8777-777777777771",
+              contratacion_id: "66666666-6666-4666-8666-666666666661",
+              alumno_id: ALU_1,
+              cobro_id: "55555555-5555-4555-8555-555555555551",
+              monto: 20000,
+              monto_lista: 25000,
+              monto_cobrado: 20000,
+              medio_pago: "TRANSFERENCIA",
+              estado: "CONFIRMADO",
+              nota: "Descuento 20% acordado",
+              confirmado_at: "2026-11-05T10:00:00Z",
+              created_at: "2026-11-05T10:00:00Z",
+              updated_at: "2026-11-05T10:00:00Z",
+            },
+          ],
           alumno_actividades: [],
           perfiles: [
             { id: ALU_1, nombre_completo: "Ana Real", email: "ana@real.local", telefono: null },
@@ -206,10 +225,199 @@ describe("GOZS-642: Cobros reales Supabase, sin fallback Ficha, precio editable 
       expect(cobrosCargados[0]!.alumnoNombre).toBe("Ana Real");
       expect(cobrosCargados[0]!.servicioNombre).toBe("Funcional 2x");
       expect(cobrosCargados[0]!.monto).toBe(25000);
+      expect(cobrosCargados[0]!.montoLista).toBe(25000);
+      expect(cobrosCargados[0]!.ultimoPago?.monto).toBe(20000);
+      expect(cobrosCargados[0]!.ultimoPago?.montoLista).toBe(25000);
+      expect(cobrosCargados[0]!.ultimoPago?.descuento).toBe(5000);
+
+      const historial = useCobrosStore.getState().pagosHistorial ?? [];
+      expect(historial[0]?.monto).toBe(25000);
+      expect(historial[0]?.montoCobrado).toBe(20000);
 
       // syncWithLiveAlumnos con lista parcial no debe borrar cobros reales
       useCobrosStore.getState().syncWithLiveAlumnos([{ id: ALU_2 }]);
       expect(useCobrosStore.getState().cobros).toHaveLength(1);
+    });
+
+    it("CoachStudioView no duplica cargarCobros ni filtra con DEMO_* cuando isLiveDatabase es true y hay 0 filas", () => {
+      const cargarCobrosSpy = vi.fn().mockResolvedValue(undefined);
+      useCobrosStore.setState({ cargarCobros: cargarCobrosSpy, isLiveMode: true, cobros: [] });
+      const alumno = makeAlumno(ALU_1, "Ana Real", "ana@real.local");
+      useCoachStudioStore.setState({
+        alumnos: [alumno],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+        contrataciones: [],
+        alumnoActividades: [],
+        filtroActividad: "FUNCIONAL",
+        isLiveDatabase: true,
+      });
+
+      const ui = render(
+        <CoachStudioView
+          initialAlumnosExpanded={true}
+          initialDataset={{
+            alumnos: [alumno],
+            planes: [],
+            dias: [],
+            ejerciciosEnRutina: [],
+            ejercicios: [],
+            alumnoActividades: [],
+            contrataciones: [],
+            planesMembresia: [],
+            cobros: [],
+          }}
+        />,
+      );
+
+      expect(cargarCobrosSpy).not.toHaveBeenCalled();
+      expect(ui.container.textContent).toContain("Sin alumnos encontrados");
+      expect(ui.container.textContent).toContain("Mostrando 0 de 0");
+    });
+
+    it("ModalAsignarPlan e InviteStudentModal bloquean doble clic / doble submit mientras asignar_suscripcion_y_cobro está en curso", async () => {
+      let resolverModal!: () => void;
+      const onConfirmarSpy = vi.fn(
+        () =>
+          new Promise<void>((res) => {
+            resolverModal = res;
+          }),
+      );
+
+      const uiModal = render(
+        <ModalAsignarPlan
+          abierto={true}
+          onCerrar={vi.fn()}
+          alumnoId={ALU_1}
+          alumnoNombre="Ana Real"
+          planesDisponibles={[
+            {
+              id: PLAN_BOX_ID,
+              nombre: "Boxeo 2x",
+              limite_semanal: 2,
+              cantidad_actividades: 1,
+              duracion_meses: 1,
+              precio: 22000,
+              activo: true,
+              actividad_tipo: "BOXEO",
+              created_at: "2026-11-01T10:00:00Z",
+              updated_at: "2026-11-01T10:00:00Z",
+            },
+          ]}
+          tienePlanesActivos={true}
+          onConfirmar={onConfirmarSpy}
+        />,
+      );
+
+      const formModal = uiModal.container.querySelector("form") as any;
+      const btnSubmitModal = uiModal.getByTestId("btn-confirmar-asignar-plan") as HTMLButtonElement;
+      expect(btnSubmitModal.disabled).toBe(false);
+
+      const p1 = formModal.__reactProps.onSubmit({ preventDefault: () => {} });
+      // Segundo submit inmediato mientras la promesa sigue pendiente
+      const p2 = formModal.__reactProps.onSubmit({ preventDefault: () => {} });
+
+      expect(onConfirmarSpy).toHaveBeenCalledTimes(1);
+      // Esperar un microtask para que React aplique guardando=true al DOM
+      await Promise.resolve();
+      const btnDespues = uiModal.getByTestId("btn-confirmar-asignar-plan") as HTMLButtonElement;
+      expect(btnDespues.disabled).toBe(true);
+
+      resolverModal();
+      await Promise.all([p1, p2]);
+
+      // InviteStudentModal: doble submit bloqueado mientras asignar_suscripcion_y_cobro está en curso
+      useCobrosStore.setState({
+        isLiveMode: true,
+        planes: [
+          {
+            id: PLAN_FUNC_ID,
+            nombre: "Funcional 2x",
+            limite_semanal: 2,
+            cantidad_actividades: 1,
+            duracion_meses: 1,
+            precio: 25000,
+            activo: true,
+            actividad_tipo: "FUNCIONAL",
+            created_at: "2026-11-01T10:00:00Z",
+            updated_at: "2026-11-01T10:00:00Z",
+          },
+        ],
+      });
+
+      const uiInvite = render(
+        <InviteStudentModal isOpen={true} onClose={vi.fn()} onInvited={vi.fn()} />,
+      );
+      const emailInput = uiInvite.getByTestId("alta-email") as HTMLInputElement;
+      fireEvent.change(emailInput, { target: { value: "nuevo@test.local" } });
+
+      let resolverAlta!: () => void;
+      const invokeSpy = vi.fn(
+        () =>
+          new Promise<any>((res) => {
+            resolverAlta = () =>
+              res({
+                data: {
+                  alumno_id: ALU_1,
+                  email: "nuevo@test.local",
+                  password_temporal: "Temp1234!",
+                  email_enviado: false,
+                  mensaje: "ok",
+                },
+                error: null,
+              });
+          }),
+      );
+      const rpcSpy = vi.fn().mockResolvedValue({
+        data: [
+          {
+            contratacion_id: "66666666-6666-4666-8666-666666666669",
+            cobro_id: "55555555-5555-4555-8555-555555555559",
+            pago_id: null,
+            estado_cobro: "PENDIENTE",
+            monto: 25000,
+            concepto: "Funcional 2x",
+          },
+        ],
+        error: null,
+      });
+      vi.spyOn(supabaseBrowser, "createClient").mockReturnValue({
+        functions: { invoke: invokeSpy },
+        from: vi.fn().mockReturnValue({
+          update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+          select: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+            then: (resolve: (v: any) => void) => resolve({ data: [], error: null }),
+          }),
+        }),
+        rpc: rpcSpy,
+        auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: COACH_ID } }, error: null }) },
+      } as any);
+
+      const formInvite = uiInvite.container.querySelector("form") as any;
+      expect((uiInvite.getByTestId("invite-student-submit") as HTMLButtonElement).disabled).toBe(false);
+
+      const inv1 = formInvite.__reactProps.onSubmit({ preventDefault: () => {} });
+      const inv2 = formInvite.__reactProps.onSubmit({ preventDefault: () => {} });
+
+      expect(invokeSpy).toHaveBeenCalledTimes(1);
+      await Promise.resolve();
+      expect((uiInvite.getByTestId("invite-student-submit") as HTMLButtonElement).disabled).toBe(true);
+
+      resolverAlta();
+      await Promise.all([inv1, inv2]);
+      expect(rpcSpy).toHaveBeenCalledTimes(1);
+      expect(rpcSpy).toHaveBeenCalledWith(
+        "asignar_suscripcion_y_cobro",
+        expect.objectContaining({
+          p_alumno_id: ALU_1,
+          p_monto: 25000,
+          p_pagado: false,
+        }),
+      );
     });
 
     it("GIVEN un alumno con Funcional pago WHEN se agrega Boxeo adicional con monto editado ($10.000) como Pendiente THEN invoca asignar_suscripcion_y_cobro y aparece en /studio/cobros", async () => {

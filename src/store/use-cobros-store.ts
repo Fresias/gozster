@@ -164,12 +164,23 @@ export function mapearCobrosDataset(
         : "Membresía");
 
     const monto = Number(c.monto);
-    const montoLista = contratacion?.precio_pactado
-      ? Number(contratacion.precio_pactado)
-      : plan?.precio
-      ? Number(plan.precio)
-      : monto;
+    const pagoMontoLista =
+      pagoConfirmado?.monto_lista != null ? Number(pagoConfirmado.monto_lista) : null;
+    const montoLista =
+      pagoMontoLista ??
+      (contratacion?.precio_pactado
+        ? Number(contratacion.precio_pactado)
+        : plan?.precio
+        ? Number(plan.precio)
+        : monto);
     const descuento = montoLista > monto ? montoLista - monto : undefined;
+    const pagoCobrado = pagoConfirmado
+      ? Number(pagoConfirmado.monto_cobrado ?? pagoConfirmado.monto)
+      : 0;
+    const pagoLista = pagoConfirmado
+      ? Number(pagoConfirmado.monto_lista ?? pagoConfirmado.monto)
+      : 0;
+    const pagoDescuento = pagoLista > pagoCobrado ? pagoLista - pagoCobrado : undefined;
     const diaVencimiento =
       contratacion?.dia_vencimiento ??
       (Number.isNaN(new Date(`${c.fecha_vencimiento}T12:00:00Z`).getUTCDate())
@@ -196,12 +207,9 @@ export function mapearCobrosDataset(
       ultimoPago: pagoConfirmado
         ? {
             id: pagoConfirmado.id,
-            monto: Number(pagoConfirmado.monto_cobrado ?? pagoConfirmado.monto),
-            montoLista: Number(pagoConfirmado.monto),
-            descuento:
-              Number(pagoConfirmado.monto) > Number(pagoConfirmado.monto_cobrado ?? pagoConfirmado.monto)
-                ? Number(pagoConfirmado.monto) - Number(pagoConfirmado.monto_cobrado ?? pagoConfirmado.monto)
-                : undefined,
+            monto: pagoCobrado,
+            montoLista: pagoLista,
+            descuento: pagoDescuento,
             medioPago: pagoConfirmado.medio_pago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
             fechaPago: pagoConfirmado.confirmado_at ?? pagoConfirmado.created_at,
             confirmadoPor: "Coach",
@@ -215,9 +223,10 @@ export function mapearCobrosDataset(
     const contratacion = contratacionesMap.get(p.contratacion_id);
     const plan = contratacion?.plan_membresia_id ? planesMap.get(contratacion.plan_membresia_id) : undefined;
     const montoCobrado = Number(p.monto_cobrado ?? p.monto);
+    const montoListaPago = Number(p.monto_lista ?? p.monto);
     return {
       id: p.id,
-      monto: Number(p.monto),
+      monto: montoListaPago,
       montoCobrado,
       fechaPago: p.confirmado_at ?? p.created_at,
       actividad: contratacion?.actividad ?? (contratacion?.tipo_servicio === "ASESORIA_ONLINE" ? "RUTINAS" : null),
