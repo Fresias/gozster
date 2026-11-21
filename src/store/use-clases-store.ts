@@ -3,11 +3,17 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import {
   MENSAJES_ERROR,
   MENSAJE_SIN_SENAL,
+  MAX_LARGO_NOTA_CLASE,
+  actualizarNotaClase,
+  buildCancelacionAvisoTexto,
+  guardarFeedbackClase,
+  obtenerFeedbackDeReservas,
+  obtenerResumenClasesAlumno,
   ocupaCupo,
   resolverActividadesHabilitadas,
   semanaEnCurso,
   validarAnotacionCoach,
-  buildCancelacionAvisoTexto,
+  type ResumenClasesAlumno,
 } from "@/lib/clases";
 import { safeStorage, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore, STAFF_COACH_PRINCIPAL } from "@/store/use-chat-store";
@@ -26,8 +32,10 @@ import type {
   Clase,
   Contratacion,
   Database,
+  FeedbackClase,
   PlanMembresia,
   Reserva,
+  SensacionClase,
 } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
 
@@ -188,6 +196,8 @@ interface ClasesState {
   actividadesHabilitadas: ActividadClase[];
   sinCupo: string[];
   agendaReservas: ReservaAgenda[];
+  resumenClases: ResumenClasesAlumno | null;
+  feedbacksPorReserva: Record<string, SensacionClase>;
   actualizadoAt: string | null;
 
   // Dataset demo (GH #122)
@@ -204,6 +214,12 @@ interface ClasesState {
   aviso: string | null;
 
   cargarClasesAlumno: () => Promise<void>;
+  cargarResumenClases: () => Promise<void>;
+  responderFeedbackClase: (
+    reservaId: string,
+    sensacion: SensacionClase,
+  ) => Promise<{ ok: boolean; queued?: boolean; error?: string }>;
+  guardarNotaClase: (claseId: string, nota: string | null) => Promise<boolean>;
   subscribeToRealtime: (alumnoId?: string) => () => void;
   reservar: (claseId: string) => Promise<void>;
   cancelarReserva: (reservaId: string) => Promise<void>;
@@ -274,6 +290,8 @@ export const useClasesStore = create<ClasesState>()(
       actividadesHabilitadas: [],
       sinCupo: [],
       agendaReservas: [],
+      resumenClases: null,
+      feedbacksPorReserva: {},
       actualizadoAt: null,
 
       demoAlumnoId: "demo-alumno-valentina",
@@ -340,6 +358,8 @@ export const useClasesStore = create<ClasesState>()(
           actividadesAlumno: [],
           actividadesHabilitadas,
           sinCupo,
+          resumenClases: null,
+          feedbacksPorReserva: {},
           actualizadoAt: new Date().toISOString(),
           error: null,
           aviso: null,
@@ -441,6 +461,39 @@ export const useClasesStore = create<ClasesState>()(
                   alumno_nombre: "Vos",
                 }));
 
+                let resumenClases = get().resumenClases;
+                const feedbacksMerged: Record<string, SensacionClase> = {
+                  ...get().feedbacksPorReserva,
+                };
+                if (typeof supabase?.rpc === "function") {
+                  try {
+                    const resumen = await obtenerResumenClasesAlumno(null, supabase);
+                    for (const item of resumen.asistencias) {
+                      if (item.sensacion !== null) {
+                        feedbacksMerged[item.reserva_id] = item.sensacion;
+                      }
+                    }
+                    // Respetar respuestas encoladas offline aún no sincronizadas
+                    for (const ev of useOfflineQueueStore.getState().pendingEvents) {
+                      if (ev.action === "FEEDBACK_CLASE") {
+                        const p = ev.payload as { reservaId?: string; sensacion?: SensacionClase };
+                        if (p.reservaId && p.sensacion) {
+                          feedbacksMerged[p.reservaId] = p.sensacion;
+                        }
+                      }
+                    }
+                    resumenClases = {
+                      ...resumen,
+                      asistencias: resumen.asistencias.map((item) => ({
+                        ...item,
+                        sensacion: feedbacksMerged[item.reserva_id] ?? item.sensacion,
+                      })),
+                    };
+                  } catch {
+                    // Tolerar ausencia o error transitorio de RPC sin bloquear la vista
+                  }
+                }
+
                 set({
                   semanaInicio: inicio.toISOString(),
                   clases: clasesReales,
@@ -452,6 +505,8 @@ export const useClasesStore = create<ClasesState>()(
                   actividadesAlumno: actividadesReales,
                   actividadesHabilitadas,
                   sinCupo: [],
+                  resumenClases,
+                  feedbacksPorReserva: feedbacksMerged,
                   actualizadoAt: new Date().toISOString(),
                   cargando: false,
                   error: null,
@@ -503,6 +558,8 @@ export const useClasesStore = create<ClasesState>()(
           actividadesAlumno: [],
           actividadesHabilitadas,
           sinCupo,
+          resumenClases: null,
+          feedbacksPorReserva: {},
           actualizadoAt: new Date().toISOString(),
           cargando: false,
         });
@@ -590,6 +647,31 @@ export const useClasesStore = create<ClasesState>()(
               });
             },
           )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "feedback_clase" },
+            (payload: any) => {
+              const eventType = payload?.eventType as string | undefined;
+              const newRow = payload?.new as Partial<FeedbackClase> | undefined;
+              const oldRow = payload?.old as Partial<FeedbackClase> | undefined;
+              if (eventType === "DELETE" && oldRow?.reserva_id) {
+                set((state) => {
+                  const next = { ...state.feedbacksPorReserva };
+                  delete next[oldRow.reserva_id!];
+                  return { feedbacksPorReserva: next };
+                });
+                return;
+              }
+              if (newRow?.reserva_id && newRow.sensacion) {
+                set((state) => ({
+                  feedbacksPorReserva: {
+                    ...state.feedbacksPorReserva,
+                    [newRow.reserva_id!]: newRow.sensacion!,
+                  },
+                }));
+              }
+            },
+          )
           .subscribe();
 
         return () => {
@@ -597,6 +679,166 @@ export const useClasesStore = create<ClasesState>()(
             void supabase.removeChannel(channel);
           }
         };
+      },
+
+      cargarResumenClases: async () => {
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+        if (!isOnline || typeof supabase?.rpc !== "function") return;
+        const userId = await getAuthenticatedUserId();
+        if (!userId) return;
+        try {
+          const resumen = await obtenerResumenClasesAlumno(null, supabase);
+          const feedbacksMerged: Record<string, SensacionClase> = {
+            ...get().feedbacksPorReserva,
+          };
+          for (const item of resumen.asistencias) {
+            if (item.sensacion !== null) {
+              feedbacksMerged[item.reserva_id] = item.sensacion;
+            }
+          }
+          for (const ev of useOfflineQueueStore.getState().pendingEvents) {
+            if (ev.action === "FEEDBACK_CLASE") {
+              const p = ev.payload as { reservaId?: string; sensacion?: SensacionClase };
+              if (p.reservaId && p.sensacion) {
+                feedbacksMerged[p.reservaId] = p.sensacion;
+              }
+            }
+          }
+          set({
+            resumenClases: {
+              ...resumen,
+              asistencias: resumen.asistencias.map((item) => ({
+                ...item,
+                sensacion: feedbacksMerged[item.reserva_id] ?? item.sensacion,
+              })),
+            },
+            feedbacksPorReserva: feedbacksMerged,
+          });
+        } catch {
+          // Mantener resumen persistido offline
+        }
+      },
+
+      responderFeedbackClase: async (reservaId, sensacion) => {
+        const prevFeedback = get().feedbacksPorReserva[reservaId];
+        const prevResumen = get().resumenClases;
+
+        set((state) => ({
+          feedbacksPorReserva: {
+            ...state.feedbacksPorReserva,
+            [reservaId]: sensacion,
+          },
+          resumenClases: state.resumenClases
+            ? {
+                ...state.resumenClases,
+                asistencias: state.resumenClases.asistencias.map((a) =>
+                  a.reserva_id === reservaId ? { ...a, sensacion } : a,
+                ),
+              }
+            : null,
+        }));
+
+        if (!UUID_RE.test(reservaId)) {
+          return { ok: true };
+        }
+
+        const queue = useOfflineQueueStore.getState();
+        const encolar = () => {
+          const eventId = `feedback-${reservaId}`;
+          queue.removeEvent(eventId);
+          queue.enqueueEvent({
+            id: eventId,
+            action: "FEEDBACK_CLASE",
+            payload: { reservaId, sensacion },
+          });
+        };
+
+        if (!queue.isOnline || typeof supabase?.from !== "function") {
+          encolar();
+          return { ok: true, queued: true };
+        }
+
+        const userId = await getAuthenticatedUserId();
+        if (!userId) {
+          encolar();
+          return { ok: true, queued: true };
+        }
+
+        try {
+          await guardarFeedbackClase({ reservaId, sensacion }, supabase);
+          queue.removeEvent(`feedback-${reservaId}`);
+          return { ok: true };
+        } catch (err: any) {
+          const code = typeof err?.code === "string" ? err.code : "";
+          if (code === "23514" || code === "23503" || code === "42501") {
+            set((state) => {
+              const nextFeedbacks = { ...state.feedbacksPorReserva };
+              if (prevFeedback !== undefined) nextFeedbacks[reservaId] = prevFeedback;
+              else delete nextFeedbacks[reservaId];
+              return {
+                feedbacksPorReserva: nextFeedbacks,
+                resumenClases: prevResumen,
+              };
+            });
+            return {
+              ok: false,
+              error: extraerMensajeRpcError(err, "No pudimos guardar tu devolución."),
+            };
+          }
+          encolar();
+          return { ok: true, queued: true };
+        }
+      },
+
+      guardarNotaClase: async (claseId, nota) => {
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+        if (!isOnline) {
+          set({ error: MENSAJE_SIN_SENAL });
+          return false;
+        }
+
+        const claseExistente = get().clases.find((c) => c.id === claseId);
+        if (!claseExistente) {
+          set({ error: MENSAJES_ERROR.P0002 });
+          return false;
+        }
+
+        const notaLimpia = nota?.trim() ? nota.trim() : null;
+        if (notaLimpia && notaLimpia.length > MAX_LARGO_NOTA_CLASE) {
+          set({
+            error: `La nota no puede superar los ${MAX_LARGO_NOTA_CLASE} caracteres.`,
+          });
+          return false;
+        }
+
+        let claseActualizada: Clase = {
+          ...claseExistente,
+          nota: notaLimpia,
+          updated_at: new Date().toISOString(),
+        };
+
+        const userId = await getAuthenticatedUserId();
+        if (userId && UUID_RE.test(claseId) && typeof supabase?.from === "function") {
+          try {
+            claseActualizada = await actualizarNotaClase(
+              { claseId, nota: notaLimpia },
+              supabase,
+            );
+          } catch (err: any) {
+            set({
+              error: extraerMensajeRpcError(err, "No pudimos guardar la nota de la clase."),
+              aviso: null,
+            });
+            return false;
+          }
+        }
+
+        set({
+          clases: get().clases.map((c) => (c.id === claseId ? claseActualizada : c)),
+          aviso: notaLimpia ? "Nota guardada" : "Nota eliminada",
+          error: null,
+        });
+        return true;
       },
 
       reservar: async (claseId) => {
@@ -877,6 +1119,26 @@ export const useClasesStore = create<ClasesState>()(
                     alumno_nombre: resolverNombreAlumno(r.alumno_id, r.perfiles),
                   }));
 
+                const feedbacksPorReserva: Record<string, SensacionClase> = {
+                  ...get().feedbacksPorReserva,
+                };
+                const reservaIdsReales = agendaReservasReales
+                  .map((r) => r.id)
+                  .filter((id) => UUID_RE.test(id));
+                if (reservaIdsReales.length > 0 && typeof supabase?.from === "function") {
+                  try {
+                    const feedbacks = await obtenerFeedbackDeReservas(
+                      reservaIdsReales,
+                      supabase,
+                    );
+                    for (const fb of feedbacks) {
+                      feedbacksPorReserva[fb.reserva_id] = fb.sensacion;
+                    }
+                  } catch {
+                    // Tolerar mocks o fallo parcial de lectura de feedback_clase
+                  }
+                }
+
                 let fijasData = fijasJoinRes.data as any[] | null;
                 if (fijasJoinRes.error) {
                   const fallbackFijas = await supabase.from("clases_fijas").select("*");
@@ -904,6 +1166,7 @@ export const useClasesStore = create<ClasesState>()(
                   agendaReservas: agendaReservasReales,
                   clasesFijas: clasesFijasReales,
                   sinCupo: calcularSinCupo(clasesReales, agendaReservasReales),
+                  feedbacksPorReserva,
                   actualizadoAt: new Date().toISOString(),
                   cargando: false,
                   error: null,
@@ -1667,6 +1930,8 @@ export const useClasesStore = create<ClasesState>()(
         actividadesHabilitadas: s.actividadesHabilitadas,
         sinCupo: s.sinCupo,
         agendaReservas: s.agendaReservas,
+        resumenClases: s.resumenClases,
+        feedbacksPorReserva: s.feedbacksPorReserva,
         actualizadoAt: s.actualizadoAt,
       }),
     },

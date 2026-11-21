@@ -2,9 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CloudOff, History } from "@/components/athlete/icons";
+import { Calendar, CloudOff, History } from "@/components/athlete/icons";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { formatearFechaCorta } from "@/lib/historial-ejercicio";
+import {
+  ACTIVIDAD_LABEL,
+  ETIQUETA_SENSACION,
+  agruparAsistenciasPorSemana,
+  formatearFechaClaseAsistencia,
+  type AsistenciaClaseItem,
+} from "@/lib/clases";
 import {
   ariaProgreso,
   etiquetaEpley,
@@ -26,6 +33,7 @@ export interface MiProgresoProps {
   data: MiProgresoData | null;
   offline?: boolean; // hay datos guardados pero sin conexión
   fechaDescarga?: string | null; // ISO de la última descarga, para el aviso offline
+  asistenciasClases?: AsistenciaClaseItem[];
 }
 
 // 02-pantallas §6: gráfico SVG 300 × 96 (+18 de fechas), sin librerías. Misma geometría que la referencia.
@@ -138,6 +146,75 @@ function EstadoVacio() {
   );
 }
 
+function EstadoVacioClases() {
+  return (
+    <section className="a-card a-state" data-testid="historial-clases-vacio">
+      <span className="a-ic">
+        <Calendar width={24} height={24} aria-hidden="true" />
+      </span>
+      <h3 className="a-t-title">Todavía no registraste asistencias</h3>
+      <p className="a-t-sec">
+        Cuando asistas a una clase vas a ver acá tu historial semana a semana.
+      </p>
+      <Link href="/athlete/clases" className="a-btn">
+        Ver clases
+      </Link>
+    </section>
+  );
+}
+
+function SeccionHistorialClases({ asistencias }: { asistencias: AsistenciaClaseItem[] }) {
+  const semanas = React.useMemo(
+    () => agruparAsistenciasPorSemana(asistencias),
+    [asistencias],
+  );
+
+  return (
+    <section
+      className="grid gap-3"
+      aria-labelledby="historial-clases-titulo"
+      data-testid="historial-clases-section"
+    >
+      <h2 id="historial-clases-titulo" className="a-eb a-t-label">
+        Historial de clases
+      </h2>
+      {asistencias.length === 0 ? (
+        <EstadoVacioClases />
+      ) : (
+        semanas.map((sem) => (
+          <div key={sem.semanaInicioClave} className="grid gap-2" data-testid="historial-clases-semana">
+            <p className="a-t-label a-muted px-1">{sem.etiquetaSemana}</p>
+            <div className="a-card a-days">
+              {sem.items.map((item) => (
+                <div
+                  key={item.reserva_id}
+                  className="a-row"
+                  data-testid="historial-clase-item"
+                >
+                  <span className="a-rt">
+                    <b className="a-t-bs">{ACTIVIDAD_LABEL[item.actividad] || item.actividad}</b>
+                    <small className="a-t-sec">{formatearFechaClaseAsistencia(item.inicio)}</small>
+                    {item.nota?.trim() && (
+                      <small className="a-t-sec a-muted mt-1" data-testid="historial-clase-nota">
+                        {item.nota.trim()}
+                      </small>
+                    )}
+                  </span>
+                  {item.sensacion !== null && (
+                    <span className="a-chip a-t-label" data-testid="historial-clase-sensacion">
+                      {ETIQUETA_SENSACION[item.sensacion]}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
 function Esqueleto() {
   return (
     <div data-testid="mi-progreso-cargando" className="grid gap-4">
@@ -149,7 +226,14 @@ function Esqueleto() {
   );
 }
 
-export function MiProgreso({ estado, vista, data, offline, fechaDescarga }: MiProgresoProps) {
+export function MiProgreso({
+  estado,
+  vista,
+  data,
+  offline,
+  fechaDescarga,
+  asistenciasClases,
+}: MiProgresoProps) {
   if (estado === "cargando") return <Esqueleto />;
 
   if (estado === "offline-sin-datos") {
@@ -165,6 +249,8 @@ export function MiProgreso({ estado, vista, data, offline, fechaDescarga }: MiPr
 
   const sinHistorial =
     !data || (data.ejercicios.length === 0 && data.sesiones_mes === 0 && data.sesiones_mes_anterior === 0);
+  const mostrarClases = asistenciasClases !== undefined;
+  const tieneAsistenciasClases = Boolean(asistenciasClases && asistenciasClases.length > 0);
 
   return (
     <section className="grid gap-4" aria-labelledby="mi-progreso-titulo">
@@ -178,22 +264,30 @@ export function MiProgreso({ estado, vista, data, offline, fechaDescarga }: MiPr
         </p>
       )}
 
-      {sinHistorial ? (
+      {sinHistorial && !mostrarClases ? (
         <EstadoVacio />
       ) : (
         <>
-          <section className="a-hhero" aria-labelledby="sesiones-mes">
-            <span id="sesiones-mes" className="a-t-label" style={{ color: "var(--a-hero-2)" }}>
-              Sesiones este mes
-            </span>
-            <div className="a-t-ml">{data!.sesiones_mes}</div>
-            <small className="a-t-sec">el mes pasado: {data!.sesiones_mes_anterior}</small>
-            {vista === "TECNICA" && <small className="a-t-sec">{etiquetaVolumen(data!.volumen_mes_kg)}</small>}
-          </section>
+          {!sinHistorial && (
+            <>
+              <section className="a-hhero" aria-labelledby="sesiones-mes">
+                <span id="sesiones-mes" className="a-t-label" style={{ color: "var(--a-hero-2)" }}>
+                  Sesiones este mes
+                </span>
+                <div className="a-t-ml">{data!.sesiones_mes}</div>
+                <small className="a-t-sec">el mes pasado: {data!.sesiones_mes_anterior}</small>
+                {vista === "TECNICA" && <small className="a-t-sec">{etiquetaVolumen(data!.volumen_mes_kg)}</small>}
+              </section>
 
-          {data!.ejercicios.map((ej) => (
-            <TarjetaEjercicio key={ej.ejercicio_id} ejercicio={ej} vista={vista} />
-          ))}
+              {data!.ejercicios.map((ej) => (
+                <TarjetaEjercicio key={ej.ejercicio_id} ejercicio={ej} vista={vista} />
+              ))}
+            </>
+          )}
+
+          {mostrarClases && (!sinHistorial || tieneAsistenciasClases || asistenciasClases!.length === 0) && (
+            <SeccionHistorialClases asistencias={asistenciasClases!} />
+          )}
         </>
       )}
     </section>

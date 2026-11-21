@@ -547,7 +547,7 @@ export function calcularRangoHorarioUtil(
   };
 }
 
-const ACTIVIDAD_LABEL: Record<string, string> = {
+export const ACTIVIDAD_LABEL: Record<string, string> = {
   FUNCIONAL: "Funcional",
   BOXEO: "Boxeo",
 };
@@ -660,6 +660,20 @@ export function obtenerProximaClaseReservada(
 export const MAX_LARGO_NOTA_CLASE = 280;
 export const VENTANA_FEEDBACK_HORAS = 48;
 
+export const SENSACIONES_CLASE: Array<{ valor: SensacionClase; etiqueta: string }> = [
+  { valor: 1, etiqueta: "Fácil" },
+  { valor: 2, etiqueta: "Bien" },
+  { valor: 3, etiqueta: "Dura" },
+  { valor: 4, etiqueta: "Durísima" },
+];
+
+export const ETIQUETA_SENSACION: Record<SensacionClase, string> = {
+  1: "Fácil",
+  2: "Bien",
+  3: "Dura",
+  4: "Durísima",
+};
+
 export interface AsistenciaClaseItem {
   reserva_id: string;
   clase_id: string;
@@ -674,6 +688,158 @@ export interface ResumenClasesAlumno {
   limite_semanal: number | null;
   racha_semanas: number;
   asistencias: AsistenciaClaseItem[];
+}
+
+export interface SemanaAsistencias {
+  semanaInicioClave: string;
+  etiquetaSemana: string;
+  items: AsistenciaClaseItem[];
+}
+
+export interface ResumenSensacionesClase {
+  total: number;
+  conteo: Record<SensacionClase, number>;
+}
+
+const fmtFechaAsistencia = new Intl.DateTimeFormat("es-AR", {
+  timeZone: ZONA_GIMNASIO,
+  weekday: "short",
+  day: "2-digit",
+  month: "2-digit",
+});
+
+/** Formatea una clase asistida en hora argentina: ej. "Vie 20/11 · 18:00 hs". */
+export function formatearFechaClaseAsistencia(inicioIso: string): string {
+  const ms = Date.parse(inicioIso);
+  if (Number.isNaN(ms)) return "";
+  const crudo = fmtFechaAsistencia.format(new Date(ms)).replace(/\./g, "").replace(",", "");
+  const dia = crudo.charAt(0).toUpperCase() + crudo.slice(1);
+  return `${dia} · ${horaLocal(inicioIso)} hs`;
+}
+
+/**
+ * Construye la lista local de asistencias (`ANOTADO` en clase `PROGRAMADA` ya iniciada)
+ * ordenada de la más reciente a la más antigua, superponiendo feedbacks locales.
+ */
+export function derivarAsistenciasLocal(
+  reservas: Reserva[],
+  clases: Clase[],
+  feedbacksPorReserva: Record<string, SensacionClase | undefined> = {},
+  ahora: Date = new Date(),
+): AsistenciaClaseItem[] {
+  if (!reservas?.length || !clases?.length) return [];
+  const clasesPorId = new Map<string, Clase>();
+  for (const c of clases) {
+    if (c.estado === "PROGRAMADA") clasesPorId.set(c.id, c);
+  }
+  const ahoraMs = ahora.getTime();
+  const items: AsistenciaClaseItem[] = [];
+  for (const r of reservas) {
+    if (r.estado !== "ANOTADO") continue;
+    const clase = clasesPorId.get(r.clase_id);
+    if (!clase) continue;
+    const inicioMs = Date.parse(clase.inicio);
+    if (Number.isNaN(inicioMs) || inicioMs > ahoraMs) continue;
+    items.push({
+      reserva_id: r.id,
+      clase_id: clase.id,
+      actividad: clase.actividad,
+      inicio: clase.inicio,
+      sensacion: feedbacksPorReserva[r.id] ?? null,
+      nota: clase.nota?.trim() ? clase.nota.trim() : null,
+    });
+  }
+  return items.sort((a, b) => Date.parse(b.inicio) - Date.parse(a.inicio));
+}
+
+/**
+ * Devuelve la asistencia más reciente elegible para "¿Cómo te fue?":
+ * clase iniciada hace ≤ 48 h y sin feedback registrado.
+ */
+export function obtenerClasePendienteFeedback(
+  asistencias: AsistenciaClaseItem[],
+  ahora: Date = new Date(),
+): AsistenciaClaseItem | null {
+  if (!asistencias?.length) return null;
+  const ahoraMs = ahora.getTime();
+  const ventanaMs = VENTANA_FEEDBACK_HORAS * 3_600_000;
+
+  let mejor: { item: AsistenciaClaseItem; inicioMs: number } | null = null;
+  for (const item of asistencias) {
+    if (item.sensacion !== null) continue;
+    const inicioMs = Date.parse(item.inicio);
+    if (Number.isNaN(inicioMs)) continue;
+    if (inicioMs > ahoraMs) continue;
+    if (ahoraMs - inicioMs > ventanaMs) continue;
+    if (!mejor || inicioMs > mejor.inicioMs) {
+      mejor = { item, inicioMs };
+    }
+  }
+  return mejor?.item ?? null;
+}
+
+/**
+ * Agrupa asistencias por semana calendario (lunes–domingo ART, más reciente primero).
+ */
+export function agruparAsistenciasPorSemana(
+  asistencias: AsistenciaClaseItem[],
+  ahora: Date = new Date(),
+): SemanaAsistencias[] {
+  if (!asistencias?.length) return [];
+  const ordenadas = [...asistencias].sort(
+    (a, b) => Date.parse(b.inicio) - Date.parse(a.inicio),
+  );
+  const semanaActualInicio = semanaEnCurso(ahora).inicio;
+  const semanaActualClave = claveDia(semanaActualInicio);
+  const semanaPasadaClave = claveDia(
+    semanaEnCurso(new Date(semanaActualInicio.getTime() - 3 * 86_400_000)).inicio,
+  );
+
+  const grupos = new Map<string, AsistenciaClaseItem[]>();
+  for (const item of ordenadas) {
+    const ms = Date.parse(item.inicio);
+    if (Number.isNaN(ms)) continue;
+    const inicioSem = semanaEnCurso(new Date(ms)).inicio;
+    const semClave = claveDia(inicioSem);
+    const lista = grupos.get(semClave);
+    if (lista) lista.push(item);
+    else grupos.set(semClave, [item]);
+  }
+
+  return Array.from(grupos.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([semClave, items]) => {
+      let etiquetaSemana: string;
+      if (semClave === semanaActualClave) {
+        etiquetaSemana = "Esta semana";
+      } else if (semClave === semanaPasadaClave) {
+        etiquetaSemana = "Semana pasada";
+      } else {
+        const [, mm = "", dd = ""] = semClave.split("-");
+        etiquetaSemana = `Semana del ${dd}/${mm}`;
+      }
+      return { semanaInicioClave: semClave, etiquetaSemana, items };
+    });
+}
+
+/**
+ * Resume las sensaciones de los alumnos presentes (`estado === 'ANOTADO'`) en una clase.
+ */
+export function resumirSensacionesClase(
+  reservas: Pick<Reserva, "id" | "estado">[],
+  feedbacksPorReserva: Record<string, SensacionClase | undefined>,
+): ResumenSensacionesClase {
+  const conteo: Record<SensacionClase, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  let total = 0;
+  for (const r of reservas) {
+    if (r.estado !== "ANOTADO") continue;
+    const s = feedbacksPorReserva[r.id];
+    if (s === 1 || s === 2 || s === 3 || s === 4) {
+      conteo[s] += 1;
+      total += 1;
+    }
+  }
+  return { total, conteo };
 }
 
 /**

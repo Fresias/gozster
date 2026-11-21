@@ -367,6 +367,12 @@ export function AthleteClasses() {
               <span className="a-t-sec a-muted" data-testid="class-spots">
                 {clase.duracion_minutos} min · {textoCupo(clase.capacidad, libres)}
               </span>
+              {(estado === "RESERVADA" || estado === "RESERVADA_INICIADA") &&
+                Boolean(clase.nota?.trim()) && (
+                  <p className="a-t-sec" data-testid="clase-reservada-nota">
+                    {clase.nota!.trim()}
+                  </p>
+                )}
               {renovacion && estado === "DISPONIBLE" && (
                 <p className="a-info a-t-sec" data-testid="renewal-period-banner">
                   Esta clase corresponde a tu período de renovación a partir del {renovacion}.
