@@ -1,11 +1,16 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/client";
 import type {
   ActividadClase,
   AlumnoActividad,
   Clase,
   Contratacion,
+  Database,
+  FeedbackClase,
   Perfil,
   PlanMembresia,
   Reserva,
+  SensacionClase,
 } from "@/types/database.types";
 
 // Reglas de UI de clases presenciales (#113 / GH #122). Todo en hora argentina,
@@ -650,4 +655,103 @@ export function obtenerProximaClaseReservada(
     actividadLabel: ACTIVIDAD_LABEL[mejor.clase.actividad] || mejor.clase.actividad,
     horarioLabel: `${prefijoDia} · ${hora} hs`,
   };
+}
+
+export const MAX_LARGO_NOTA_CLASE = 280;
+export const VENTANA_FEEDBACK_HORAS = 48;
+
+export interface AsistenciaClaseItem {
+  reserva_id: string;
+  clase_id: string;
+  actividad: ActividadClase;
+  inicio: string;
+  sensacion: SensacionClase | null;
+  nota: string | null;
+}
+
+export interface ResumenClasesAlumno {
+  usadas_semana: number;
+  limite_semanal: number | null;
+  racha_semanas: number;
+  asistencias: AsistenciaClaseItem[];
+}
+
+/**
+ * Obtiene el resumen de clases del alumno autenticado (`resumen_clases_alumno`).
+ * @param pDesde Fecha local mínima (`YYYY-MM-DD`, hora argentina) para filtrar `asistencias`.
+ */
+export async function obtenerResumenClasesAlumno(
+  pDesde?: string | null,
+  client: SupabaseClient<Database> = supabase,
+): Promise<ResumenClasesAlumno> {
+  const { data, error } = await client.rpc("resumen_clases_alumno", {
+    p_desde: pDesde ?? null,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    usadas_semana: row?.usadas_semana ?? 0,
+    limite_semanal: row?.limite_semanal ?? null,
+    racha_semanas: row?.racha_semanas ?? 0,
+    asistencias: Array.isArray(row?.asistencias)
+      ? (row.asistencias as unknown as AsistenciaClaseItem[])
+      : [],
+  };
+}
+
+/**
+ * Registra o actualiza el feedback post-clase (1..4) del alumno para una reserva.
+ * Idempotente sobre `reserva_id` (no duplica en reenvíos dentro de la ventana de 48 h).
+ */
+export async function guardarFeedbackClase(
+  params: { reservaId: string; sensacion: SensacionClase },
+  client: SupabaseClient<Database> = supabase,
+): Promise<FeedbackClase> {
+  const { data, error } = await client
+    .from("feedback_clase")
+    .upsert(
+      { reserva_id: params.reservaId, sensacion: params.sensacion },
+      { onConflict: "reserva_id" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Actualiza (o limpia con `null`/vacío) la nota opcional del coach en una clase (máx. 280 caracteres).
+ */
+export async function actualizarNotaClase(
+  params: { claseId: string; nota: string | null },
+  client: SupabaseClient<Database> = supabase,
+): Promise<Clase> {
+  const notaLimpia = params.nota?.trim() ? params.nota.trim() : null;
+  if (notaLimpia && notaLimpia.length > MAX_LARGO_NOTA_CLASE) {
+    throw new Error(`La nota no puede superar los ${MAX_LARGO_NOTA_CLASE} caracteres`);
+  }
+  const { data, error } = await client
+    .from("clases")
+    .update({ nota: notaLimpia })
+    .eq("id", params.claseId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Lee los feedbacks asociados a un conjunto de reservas (para vista de detalle en Coach Studio).
+ */
+export async function obtenerFeedbackDeReservas(
+  reservaIds: string[],
+  client: SupabaseClient<Database> = supabase,
+): Promise<FeedbackClase[]> {
+  if (reservaIds.length === 0) return [];
+  const { data, error } = await client
+    .from("feedback_clase")
+    .select("*")
+    .in("reserva_id", reservaIds);
+  if (error) throw error;
+  return data ?? [];
 }
