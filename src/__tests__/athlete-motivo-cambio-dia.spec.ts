@@ -14,6 +14,11 @@ import {
 import { REAL_DIAS } from "@/services/real-mynter-data";
 import type { DiaRutina, MotivoCambioDia } from "@/types/database.types";
 
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return { supabase: createSupabaseClientMock() };
+});
+
 describe("GOZS-149: Athlete App motivo del cambio de día (chips + vista coach)", () => {
   const inicioMisDiasPath = path.resolve(__dirname, "../components/athlete/inicio-mis-dias.tsx");
   const historicalDrawerPath = path.resolve(__dirname, "../components/coach/historical-loads-drawer.tsx");

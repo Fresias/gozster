@@ -18,6 +18,11 @@ import {
   calculateTotalTonnage,
 } from "@/lib/strength-metrics";
 
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return { supabase: createSupabaseClientMock() };
+});
+
 const ADMIN = "00000000-0000-0000-0000-000000000001";
 const COACH = "00000000-0000-0000-0000-000000000002";
 const OTRO_COACH = "00000000-0000-0000-0000-000000000003";

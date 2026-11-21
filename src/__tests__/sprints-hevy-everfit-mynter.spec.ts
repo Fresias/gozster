@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   calculateEpley1RM,
   calculateBrzycki1RM,
@@ -10,6 +10,63 @@ import {
 } from "@/lib/strength-metrics";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { supabase } from "@/lib/supabase/client";
+
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return {
+    supabase: createSupabaseClientMock({
+      tables: {
+        perfiles: [
+          {
+            id: "00000000-0000-0000-0000-000000000004",
+            nombre_completo: "Fernando Rosales",
+            rol: "ALUMNO",
+            estado_membresia: "ACTIVA",
+            telefono: "+5491123456789",
+          },
+        ],
+        habitos_registros: [
+          {
+            id: "hab-1",
+            alumno_id: "00000000-0000-0000-0000-000000000004",
+            fecha: "2026-10-15",
+            agua_ml: 2000,
+            pasos: 8000,
+            sueno_horas: 7.5,
+            habitos_completados: [],
+          },
+        ],
+        nutricion_registros: [
+          {
+            id: "nut-1",
+            alumno_id: "00000000-0000-0000-0000-000000000004",
+            fecha: "2026-10-15",
+            calorias_consumidas: 2200,
+            proteinas_g: 150,
+            carbos_g: 220,
+            grasas_g: 70,
+          },
+        ],
+        ejercicios_en_rutina: [
+          {
+            id: "er-1",
+            tempo: "3-1-1-0",
+            force_rpe_required: false,
+          },
+        ],
+        registro_series: [
+          {
+            id: "rs-1",
+            set_type: "N",
+            pain_reported: false,
+            pain_notes: null,
+            video_url: null,
+          },
+        ],
+      },
+    }),
+  };
+});
 
 describe("GOZSter Sprints 1 a 4: Benchmark Hevy, Everfit, Mynter & Supabase Real", () => {
   beforeEach(() => {
