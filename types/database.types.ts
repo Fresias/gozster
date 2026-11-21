@@ -32,6 +32,7 @@ export type ActividadAlumno = ActividadClase | 'RUTINAS';
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
+export type SensacionClase = 'FACIL' | 'BIEN' | 'DURA' | 'DURISIMA';
 
 export interface Database {
   public: {
@@ -1659,6 +1660,7 @@ export interface Database {
           capacidad: number | null;
           estado: EstadoClase;
           motivo_cancelacion: string | null;
+          nota_coach?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1671,6 +1673,7 @@ export interface Database {
           capacidad?: number | null;
           estado?: EstadoClase;
           motivo_cancelacion?: string | null;
+          nota_coach?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1683,6 +1686,7 @@ export interface Database {
           capacidad?: number | null;
           estado?: EstadoClase;
           motivo_cancelacion?: string | null;
+          nota_coach?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1809,6 +1813,35 @@ export interface Database {
             columns: ['alumno_id'];
             isOneToOne: false;
             referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      clase_feedback: {
+        Row: {
+          reserva_id: string;
+          sensacion: SensacionClase;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          reserva_id: string;
+          sensacion: SensacionClase;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          reserva_id?: string;
+          sensacion?: SensacionClase;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'clase_feedback_reserva_id_fkey';
+            columns: ['reserva_id'];
+            isOneToOne: true;
+            referencedRelation: 'reservas';
             referencedColumns: ['id'];
           },
         ];
@@ -2287,6 +2320,30 @@ export interface Database {
         };
         Returns: Database['public']['Tables']['reservas']['Row'];
       };
+      registrar_feedback_clase: {
+        Args: {
+          p_reserva_id: string;
+          p_sensacion: SensacionClase;
+        };
+        Returns: Database['public']['Tables']['clase_feedback']['Row'];
+      };
+      guardar_nota_clase: {
+        Args: {
+          p_clase_id: string;
+          p_nota: string | null;
+        };
+        Returns: Database['public']['Tables']['clases']['Row'];
+      };
+      resumen_clases_alumno: {
+        Args: Record<PropertyKey, never>;
+        Returns: ResumenClasesAlumno;
+      };
+      historial_asistencias_alumno: {
+        Args: {
+          p_limit?: number;
+        };
+        Returns: HistorialAsistenciaAlumno[];
+      };
     };
     Enums: {
       rol_usuario: RolUsuario;
@@ -2445,6 +2502,30 @@ export type AlumnoCuestionarioInicialUpdate = TablesUpdate<'alumno_cuestionario_
 export type PlanMembresia = Tables<'planes_membresia'>;
 export type ClaseHorario = Tables<'clases_horario'>;
 export type Clase = Tables<'clases'>;
+export type ClaseFeedback = Tables<'clase_feedback'>;
+export type ClaseFeedbackInsert = TablesInsert<'clase_feedback'>;
+export type ClaseFeedbackUpdate = TablesUpdate<'clase_feedback'>;
+export type ProximaReservaResumen = {
+  reserva_id: string;
+  clase_id: string;
+  actividad: ActividadClase;
+  inicio: string;
+  duracion_minutos: number;
+};
+export type ResumenClasesAlumno = {
+  proxima_reserva: ProximaReservaResumen | null;
+  clases_semana_usadas: number;
+  limite_semanal: number | null;
+  racha_semanas: number;
+};
+export type HistorialAsistenciaAlumno = {
+  reserva_id: string;
+  clase_id: string;
+  actividad: ActividadClase;
+  inicio: string;
+  sensacion: SensacionClase | null;
+  nota_coach: string | null;
+};
 export type Feriado = Tables<'feriados'>;
 export type ClaseProfesor = Tables<'clases_profesores'>;
 export type Reserva = Tables<'reservas'>;

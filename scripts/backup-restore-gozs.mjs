@@ -103,6 +103,7 @@ export const TABLAS = [
   { nombre: "clases", fks: { horario_id: "clases_horario" } },
   { nombre: "clases_profesores", fks: { clase_id: "clases", profesor_id: "perfiles" } },
   { nombre: "reservas", fks: { alumno_id: "perfiles", clase_id: "clases" } },
+  { nombre: "clase_feedback", pk: "reserva_id", fks: { reserva_id: "reservas" } },
   { nombre: "ranking_prs", fks: { clase_id: "clases", alumno_id: "perfiles", ejercicio_id: "ejercicios", registrado_por: "perfiles" } },
 ];
 
@@ -116,29 +117,29 @@ export function canonico(valor) {
   return JSON.stringify(valor);
 }
 
-function porId(a, b) {
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+function porId(a, b, pk = "id") {
+  return a[pk] < b[pk] ? -1 : a[pk] > b[pk] ? 1 : 0;
 }
 
-export function hashFilas(filas) {
-  return createHash("sha256").update(canonico([...filas].sort(porId))).digest("hex");
+export function hashFilas(filas, pk = "id") {
+  return createHash("sha256").update(canonico([...filas].sort((a, b) => porId(a, b, pk)))).digest("hex");
 }
 
 /**
- * @param fuente { leerTabla(nombre) => Promise<filas[] | null> } — null si la tabla no existe.
+ * @param fuente { leerTabla(nombre, pk?) => Promise<filas[] | null> } — null si la tabla no existe.
  */
 export async function exportarSnapshot(fuente) {
   const tablas = {};
   const omitidas = [];
-  for (const { nombre, opcional } of TABLAS) {
-    const filas = await fuente.leerTabla(nombre);
+  for (const { nombre, opcional, pk = "id" } of TABLAS) {
+    const filas = await fuente.leerTabla(nombre, pk);
     if (filas === null) {
       if (!opcional) throw new Error(`La tabla ${nombre} no existe en el origen`);
       omitidas.push(nombre);
       continue;
     }
-    const ordenadas = [...filas].sort(porId);
-    tablas[nombre] = { total: ordenadas.length, sha256: hashFilas(ordenadas), filas: ordenadas };
+    const ordenadas = [...filas].sort((a, b) => porId(a, b, pk));
+    tablas[nombre] = { total: ordenadas.length, sha256: hashFilas(ordenadas, pk), filas: ordenadas };
   }
   return {
     formato: FORMATO_SNAPSHOT,
@@ -157,7 +158,7 @@ export function verificarSnapshot(snapshot) {
   }
 
   const ids = {};
-  for (const { nombre, opcional } of TABLAS) {
+  for (const { nombre, opcional, pk = "id" } of TABLAS) {
     const tabla = snapshot.tablas?.[nombre];
     if (!tabla) {
       if (!opcional) errores.push(`${nombre}: falta en el snapshot`);
@@ -166,12 +167,12 @@ export function verificarSnapshot(snapshot) {
     if (tabla.filas.length !== tabla.total) {
       errores.push(`${nombre}: ${tabla.filas.length} filas, se esperaban ${tabla.total}`);
     }
-    if (hashFilas(tabla.filas) !== tabla.sha256) errores.push(`${nombre}: sha256 no coincide`);
-    ids[nombre] = new Set(tabla.filas.map((f) => f.id));
+    if (hashFilas(tabla.filas, pk) !== tabla.sha256) errores.push(`${nombre}: sha256 no coincide`);
+    ids[nombre] = new Set(tabla.filas.map((f) => f[pk]));
     if (ids[nombre].size !== tabla.filas.length) errores.push(`${nombre}: ids duplicados`);
   }
 
-  for (const { nombre, fks } of TABLAS) {
+  for (const { nombre, fks, pk = "id" } of TABLAS) {
     const tabla = snapshot.tablas?.[nombre];
     if (!tabla) continue;
     for (const [columna, referida] of Object.entries(fks)) {
@@ -180,7 +181,7 @@ export function verificarSnapshot(snapshot) {
         const valor = fila[columna];
         if (valor === null || valor === undefined) continue;
         if (!destino?.has(valor)) {
-          errores.push(`${nombre}.${columna}=${valor} no existe en ${referida} (fila ${fila.id})`);
+          errores.push(`${nombre}.${columna}=${valor} no existe en ${referida} (fila ${fila[pk]})`);
         }
       }
     }
@@ -237,19 +238,19 @@ export async function restaurarSnapshot(destino, snapshot, { tamanoLote = 500 } 
 /** Relee el destino y confirma que cada fila del snapshot existe y es idéntica. */
 export async function verificarRestauracion(fuente, snapshot) {
   const errores = [];
-  for (const { nombre } of TABLAS) {
+  for (const { nombre, pk = "id" } of TABLAS) {
     const tabla = snapshot.tablas[nombre];
     if (!tabla) continue;
-    const actuales = await fuente.leerTabla(nombre);
+    const actuales = await fuente.leerTabla(nombre, pk);
     if (actuales === null) {
       errores.push(`${nombre}: no existe en el destino`);
       continue;
     }
-    const porIdActual = new Map(actuales.map((f) => [f.id, canonico(f)]));
+    const porIdActual = new Map(actuales.map((f) => [f[pk], canonico(f)]));
     for (const fila of tabla.filas) {
-      const actual = porIdActual.get(fila.id);
-      if (actual === undefined) errores.push(`${nombre}: falta la fila ${fila.id}`);
-      else if (actual !== canonico(fila)) errores.push(`${nombre}: la fila ${fila.id} difiere del snapshot`);
+      const actual = porIdActual.get(fila[pk]);
+      if (actual === undefined) errores.push(`${nombre}: falta la fila ${fila[pk]}`);
+      else if (actual !== canonico(fila)) errores.push(`${nombre}: la fila ${fila[pk]} difiere del snapshot`);
     }
   }
   return { ok: errores.length === 0, errores };
@@ -263,13 +264,13 @@ const TABLA_INEXISTENTE = new Set(["42P01", "PGRST205"]);
 
 export function crearAdaptadorSupabase(supabase, { tamanoPagina = 1000 } = {}) {
   return {
-    async leerTabla(nombre) {
+    async leerTabla(nombre, pk = "id") {
       const filas = [];
       for (let desde = 0; ; desde += tamanoPagina) {
         const { data, error } = await supabase
           .from(nombre)
           .select("*")
-          .order("id")
+          .order(pk)
           .range(desde, desde + tamanoPagina - 1);
         if (error) {
           if (TABLA_INEXISTENTE.has(error.code)) return null;

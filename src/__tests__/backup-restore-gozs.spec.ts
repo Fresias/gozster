@@ -78,10 +78,10 @@ function como<T>(db: PGlite, rol: Rol, sql: string, params: unknown[] = [], sub?
 /** Mismo contrato que el adaptador Supabase del script, sobre PGlite como service_role. */
 function adaptador(db: PGlite): FuenteRespaldo & DestinoRespaldo {
   return {
-    async leerTabla(nombre) {
+    async leerTabla(nombre, pk = "id") {
       const existe = await db.query<{ t: string | null }>(`SELECT to_regclass($1)::text AS t`, [`public.${nombre}`]);
       if (!existe.rows[0]?.t) return null;
-      const r = await como<{ fila: Fila }>(db, "service_role", `SELECT to_jsonb(t) AS fila FROM public.${nombre} t ORDER BY id`);
+      const r = await como<{ fila: Fila }>(db, "service_role", `SELECT to_jsonb(t) AS fila FROM public.${nombre} t ORDER BY ${pk}`);
       return r.rows.map((x) => x.fila);
     },
     async restaurarFilas(nombre, filas) {
