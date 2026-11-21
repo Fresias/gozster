@@ -55,8 +55,10 @@ import {
   ETIQUETAS_FILTRO_ACTIVIDAD,
   ETIQUETAS_ACTIVIDAD,
   alumnoTieneActividad,
+  derivarLabelsActividadAlumno,
   obtenerActividadesAlumno,
 } from "@/lib/alumno-actividades";
+import { ActivityLabels } from "@/components/coach/activity-labels";
 import { Eye, X, TriangleAlert } from "@/components/coach/icons";
 import {
   DropdownMenu,
@@ -108,7 +110,8 @@ export function CoachStudioView({
   initialEstado?: string | null;
   openMenuAlumnoIdProp?: string | null;
 } = {}) {
-  const store = useCoachStudioStore();
+  const storeHook = useCoachStudioStore();
+  const store = typeof window === "undefined" ? useCoachStudioStore.getState() : storeHook;
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
   const coachFirstName = (coachName || "Martín").trim().split(" ")[0];
 
@@ -237,10 +240,11 @@ export function CoachStudioView({
           dias: initialDataset.dias || [],
           ejerciciosEnRutina: initialDataset.ejerciciosEnRutina || [],
           ejercicios: initialDataset.ejercicios || [],
-          contrataciones: [],
+          contrataciones: initialDataset.contrataciones || [],
+          alumnoActividades: initialDataset.alumnoActividades || [],
           isLiveDatabase: true,
         });
-        useCobrosStore.getState().syncWithLiveAlumnos(initialDataset.alumnos || []);
+        useCobrosStore.getState().hydrateFromLiveDataset(initialDataset);
       }, 0);
       return () => clearTimeout(timer);
     } else {
@@ -802,13 +806,31 @@ export function CoachStudioView({
       className: `${rowPaddingClass} px-4`,
       sortable: true,
       cell: ({ row: alumno }) => {
+        const alumnoActividadesEfectivas = hasInitialData
+          ? (store.isLiveDatabase && store.alumnoActividades.length > 0
+              ? store.alumnoActividades
+              : (initialDataset?.alumnoActividades ?? []))
+          : (store.alumnoActividades.length > 0 ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES);
+        const contratacionesEfectivas = hasInitialData
+          ? (store.isLiveDatabase && store.contrataciones.length > 0
+              ? store.contrataciones
+              : (initialDataset?.contrataciones ?? []))
+          : (store.contrataciones.length > 0 ? store.contrataciones : DEMO_CONTRATACIONES_CLASES);
+        const planesCobros = useCobrosStore.getState().planes;
         const actividades = obtenerActividadesAlumno({
           alumnoId: alumno.id,
-          alumnoActividades: store.alumnoActividades?.length ? store.alumnoActividades : DEMO_ALUMNO_ACTIVIDADES,
-          contrataciones: store.contrataciones?.length ? store.contrataciones : DEMO_CONTRATACIONES_CLASES,
+          alumnoActividades: alumnoActividadesEfectivas,
+          contrataciones: contratacionesEfectivas,
           planes,
           alumno,
         }).map((act) => ETIQUETAS_ACTIVIDAD[act]);
+        const labels = derivarLabelsActividadAlumno({
+          alumnoId: alumno.id,
+          alumnoActividades: alumnoActividadesEfectivas,
+          contrataciones: contratacionesEfectivas,
+          planes,
+          planesMembresia: planesCobros,
+        });
         const subtitulo = [...actividades, ...(esAlumnoNuevo(alumno.created_at) ? ["Nuevo"] : [])].join(" · ");
         return (
           <button
@@ -821,7 +843,10 @@ export function CoachStudioView({
               {getInitials(alumno.nombre_completo)}
             </span>
             <span className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium text-foreground">{alumno.nombre_completo}</span>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="truncate text-sm font-medium text-foreground">{alumno.nombre_completo}</span>
+                <ActivityLabels labels={labels} />
+              </span>
               {subtitulo && <span className="truncate text-xs text-neutral-soft-foreground">{subtitulo}</span>}
             </span>
           </button>

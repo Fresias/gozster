@@ -36,6 +36,7 @@ import {
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
+import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
 import {
   DEMO_CONTRATACIONES_CLASES,
@@ -169,9 +170,16 @@ interface CoachStudioState {
   getContratacionesAlumno: (alumnoId: string) => Contratacion[];
   vincularPlanMembresiaAlumno: (input: {
     alumnoId: string;
-    planId: string;
+    planId?: string | null;
+    actividad?: ActividadAlumno | null;
+    monto?: number;
+    pagado?: boolean;
+    medioPago?: "TRANSFERENCIA" | "EFECTIVO";
     esAdicional?: boolean;
+    concepto?: string;
     notas?: string;
+    vecesPorSemana?: number | null;
+    paseLibre?: boolean;
   }) => Promise<Contratacion>;
   registrarRenovacionManual: (input: {
     contratacion: Contratacion;
@@ -282,10 +290,13 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           dias: dataset.dias,
           ejerciciosEnRutina: dataset.ejerciciosEnRutina,
           ejercicios: dataset.ejercicios,
+          contrataciones: dataset.contrataciones ?? [],
+          alumnoActividades: dataset.alumnoActividades ?? [],
           isLiveDatabase: true,
           isLoading: false,
           selectedAlumnoId: null,
         });
+        useCobrosStore.getState().hydrateFromLiveDataset(dataset);
       } else {
         set({ isLoading: false });
       }
@@ -610,8 +621,10 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         (c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA",
       );
       if (stored) return stored;
-      const demoMembresia = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumno.id);
-      if (demoMembresia) return demoMembresia;
+      if (!get().isLiveDatabase) {
+        const demoMembresia = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumno.id);
+        if (demoMembresia) return demoMembresia;
+      }
       return derivarContratacionDesdePerfil(alumno);
     },
 
@@ -620,6 +633,9 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         (c) => c.alumno_id === alumnoId && c.estado !== "VENCIDA",
       );
       if (stored.length > 0) return stored;
+      if (get().isLiveDatabase) {
+        return [];
+      }
       const demo = DEMO_CONTRATACIONES_CLASES.filter((c) => c.alumno_id === alumnoId);
       if (demo.length > 0) return demo;
       const alumno = get().alumnos.find((a) => a.id === alumnoId);
@@ -629,20 +645,111 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       return [];
     },
 
-    vincularPlanMembresiaAlumno: async ({ alumnoId, planId, esAdicional = true, notas }) => {
+    vincularPlanMembresiaAlumno: async ({
+      alumnoId,
+      planId = null,
+      actividad = null,
+      monto,
+      pagado,
+      medioPago = "TRANSFERENCIA",
+      esAdicional = true,
+      concepto,
+      notas,
+      vecesPorSemana,
+      paseLibre,
+    }) => {
       const nowIso = new Date().toISOString();
-      const alumno = get().alumnos.find((a) => a.id === alumnoId);
-      if (!alumno) throw new Error(`Alumno con id ${alumnoId} no encontrado`);
+      const alumnoEnStudio = get().alumnos.find((a) => a.id === alumnoId);
+      const cobroAlumno = useCobrosStore.getState().cobros.find((c) => c.alumnoId === alumnoId);
+      const alumnoNombre = alumnoEnStudio?.nombre_completo ?? cobroAlumno?.alumnoNombre ?? "Alumno";
+      const alumnoEmail = alumnoEnStudio?.email ?? cobroAlumno?.alumnoEmail ?? "";
+      const alumnoTelefono = alumnoEnStudio?.telefono ?? cobroAlumno?.alumnoTelefono ?? null;
+      if (!alumnoEnStudio && !cobroAlumno && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(alumnoId)) {
+        throw new Error(`Alumno con id ${alumnoId} no encontrado`);
+      }
 
       const planesCobros = useCobrosStore.getState().planes;
-      const planCobros = planesCobros.find((p) => p.id === planId);
-      const demoPlan = DEMO_PLANES_MEMBRESIA.find((p) => p.id === planId);
+      const planCobros = planId ? planesCobros.find((p) => p.id === planId) : undefined;
+      const demoPlan = planId && !get().isLiveDatabase ? DEMO_PLANES_MEMBRESIA.find((p) => p.id === planId) : undefined;
       const plan = planCobros ?? (demoPlan as PlanMembresiaConVigencia | undefined);
 
+      const esRutina =
+        actividad === "RUTINAS" ||
+        plan?.actividad_tipo === "RUTINAS" ||
+        /rutina|corpo/i.test(concepto ?? plan?.nombre ?? "");
+
+      const actividadFinal: ActividadAlumno | null =
+        actividad ??
+        (plan?.actividad_tipo === "FUNCIONAL_BOXEO"
+          ? null
+          : ((plan?.actividad_tipo as ActividadAlumno | undefined) ?? (esRutina ? "RUTINAS" : null)));
+
+      const precio = monto ?? plan?.precio ?? 0;
+      const estaPagado = pagado ?? precio === 0;
+      const servicioNombre =
+        concepto?.trim() ||
+        plan?.nombre ||
+        (actividadFinal === "BOXEO"
+          ? esAdicional
+            ? "Boxeo (adicional)"
+            : "Boxeo"
+          : actividadFinal === "FUNCIONAL"
+          ? esAdicional
+            ? "Funcional (adicional)"
+            : "Funcional"
+          : actividadFinal === "RUTINAS"
+          ? "Rutinas Online"
+          : "Plan Membresía");
+
+      const esUuid = (v?: string | null) =>
+        Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
+
+      let userAuth: { id: string } | null = null;
+      try {
+        const authRes = await supabase.auth.getUser();
+        userAuth = authRes.data?.user ?? null;
+      } catch {
+        userAuth = null;
+      }
+
+      let rpcContratacionId: string | null = null;
+      let rpcCobroId: string | null = null;
+      let rpcEstadoCobro: "PENDIENTE" | "PAGADO" | "VENCIDO" | null = null;
+      let rpcConcepto: string | null = null;
+      let rpcMonto: number | null = null;
+
+      if (userAuth && esUuid(alumnoId)) {
+        const resRpc = await asignarSuscripcionYCobro(
+          {
+            alumnoId,
+            planId: esUuid(planId) ? planId : null,
+            actividad: actividadFinal,
+            monto: precio,
+            pagado: estaPagado,
+            medioPago,
+            esAdicional,
+            concepto: servicioNombre,
+            nota: notas?.trim() || null,
+            vecesPorSemana: vecesPorSemana ?? plan?.limite_semanal ?? null,
+            paseLibre:
+              paseLibre ??
+              (plan?.actividad_tipo === "FUNCIONAL_BOXEO" ||
+                (!plan?.limite_semanal && actividadFinal !== "RUTINAS")),
+          },
+          supabase,
+        );
+        rpcContratacionId = resRpc.contratacion_id;
+        rpcCobroId = resRpc.cobro_id;
+        rpcEstadoCobro = resRpc.estado_cobro;
+        rpcConcepto = resRpc.concepto;
+        rpcMonto = Number(resRpc.monto);
+      }
+
       const nuevoId =
-        typeof crypto !== "undefined" && crypto.randomUUID
+        rpcContratacionId ??
+        (typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
-          : `contratacion-${Date.now()}`;
+          : `contratacion-${Date.now()}`);
 
       const hoy = new Date();
       const fechaFin = new Date(hoy);
@@ -650,22 +757,15 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       const fechaFinStr =
         fechaFin.toISOString().split("T")[0] ?? new Date().toISOString().slice(0, 10);
 
-      const esRutina =
-        plan?.actividad_tipo === "RUTINAS" || /rutina|corpo/i.test(plan?.nombre ?? "");
-      const precio = plan?.precio ?? 0;
-
       const nuevaContratacion: Contratacion = {
         id: nuevoId,
         alumno_id: alumnoId,
-        plan_membresia_id: planId,
-        actividad:
-          plan?.actividad_tipo === "FUNCIONAL_BOXEO"
-            ? null
-            : (plan?.actividad_tipo as any) ?? (esRutina ? null : "FUNCIONAL"),
+        plan_membresia_id: planId ?? null,
+        actividad: actividadFinal,
         tipo_servicio: esRutina ? "ASESORIA_ONLINE" : "PRESENCIAL",
-        precio_pactado: precio,
+        precio_pactado: rpcMonto ?? precio,
         estado: "VIGENTE",
-        dia_vencimiento: 10,
+        dia_vencimiento: hoy.getDate(),
         dias_aviso_previo: 5,
         fecha_inicio: nowIso.slice(0, 10),
         fecha_fin: fechaFinStr,
@@ -673,43 +773,72 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         updated_at: nowIso,
       };
 
+      const actividadesAAgregar: ActividadAlumno[] =
+        plan?.actividad_tipo === "FUNCIONAL_BOXEO"
+          ? ["FUNCIONAL", "BOXEO"]
+          : actividadFinal
+          ? [actividadFinal]
+          : [];
+
       set((state) => {
-        let contratacionesActualizadas: Contratacion[];
-        if (esAdicional) {
-          contratacionesActualizadas = [...state.contrataciones, nuevaContratacion];
-        } else {
-          contratacionesActualizadas = [
-            ...state.contrataciones.filter((c) => c.alumno_id !== alumnoId),
-            nuevaContratacion,
-          ];
+        const contratacionesActualizadas = esAdicional
+          ? [...state.contrataciones, nuevaContratacion]
+          : [
+              ...state.contrataciones.filter((c) => c.alumno_id !== alumnoId),
+              nuevaContratacion,
+            ];
+
+        let actividadesActualizadas = state.alumnoActividades;
+        for (const act of actividadesAAgregar) {
+          const yaExiste = actividadesActualizadas.some(
+            (aa) => aa.alumno_id === alumnoId && aa.actividad === act,
+          );
+          if (!yaExiste) {
+            actividadesActualizadas = [
+              ...actividadesActualizadas,
+              {
+                id: `aa-${alumnoId}-${act}`,
+                alumno_id: alumnoId,
+                actividad: act,
+                veces_por_semana: vecesPorSemana ?? plan?.limite_semanal ?? null,
+                pase_libre: Boolean(paseLibre ?? !plan?.limite_semanal),
+                created_at: nowIso,
+                updated_at: nowIso,
+              },
+            ];
+          }
         }
 
         return {
           contrataciones: contratacionesActualizadas,
+          alumnoActividades: actividadesActualizadas,
           toast: {
             id: `toast-${Date.now()}`,
             type: "success",
             title: esAdicional ? "Plan adicional vinculado" : "Plan actualizado",
-            message: `Plan '${plan?.nombre ?? planId}' asignado a ${alumno.nombre_completo}.`,
+            message: `'${rpcConcepto ?? servicioNombre}' asignado a ${alumnoNombre}.`,
           },
         };
       });
 
       // Sincronizar en useCobrosStore
       useCobrosStore.getState().vincularCobroPlan({
+        cobroId: rpcCobroId ?? undefined,
         contratacionId: nuevaContratacion.id,
-        alumnoId: alumno.id,
-        alumnoNombre: alumno.nombre_completo,
-        alumnoEmail: alumno.email ?? "",
-        alumnoTelefono: alumno.telefono ?? null,
-        servicioNombre: plan?.nombre ?? "Plan Membresía",
-        actividad: plan?.actividad_tipo ?? null,
-        monto: precio,
+        alumnoId,
+        alumnoNombre,
+        alumnoEmail,
+        alumnoTelefono,
+        servicioNombre: rpcConcepto ?? servicioNombre,
+        actividad: actividadFinal ?? plan?.actividad_tipo ?? null,
+        monto: rpcMonto ?? precio,
+        pagado: rpcEstadoCobro ? rpcEstadoCobro === "PAGADO" : estaPagado,
+        medioPago,
         diaVencimiento: nuevaContratacion.dia_vencimiento,
         fechaVencimiento: nuevaContratacion.fecha_fin,
         esAdicional,
         notas: notas ?? plan?.notas ?? null,
-        planId: plan?.id ?? planId,
+        planId: plan?.id ?? (planId ?? undefined),
       });
 
       return nuevaContratacion;

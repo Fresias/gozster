@@ -8,7 +8,7 @@ import {
   type CobroItem,
   type ComprobanteInterno,
   type FiltroCobros,
-  ultimaSuscripcionPorAlumno,
+  ultimaSuscripcionPorContrato,
 } from "@/store/use-cobros-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { type ActividadKpi } from "@/lib/kpi-anual";
@@ -66,6 +66,8 @@ export function CobrosPanel({
   initialRowMenuOpen,
   kpis: propKpis,
 }: CobrosPanelProps = {}): React.JSX.Element {
+  const cobrosStoreHook = useCobrosStore();
+  const cobrosStore = typeof window === "undefined" ? useCobrosStore.getState() : cobrosStoreHook;
   const {
     cobros,
     planes,
@@ -94,7 +96,7 @@ export function CobrosPanel({
     modificarPlan,
     eliminarPlan,
     tieneContratacionesActivas,
-  } = useCobrosStore();
+  } = cobrosStore;
   const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
 
   const [localFiltroEstado, setLocalFiltroEstado] = React.useState<FiltroCobros | undefined>(
@@ -396,7 +398,7 @@ export function CobrosPanel({
   }, [cobros]);
 
   const cobrosFiltrados = React.useMemo(() => {
-    return ultimaSuscripcionPorAlumno(cobros).filter((c) => {
+    return ultimaSuscripcionPorContrato(cobros).filter((c) => {
       // Filtro de estado
       if (filtroEstado === "PENDIENTES" && c.estado !== "PENDIENTE") return false;
       if (filtroEstado === "VENCIDOS") {
@@ -2118,11 +2120,16 @@ export function CobrosPanel({
           alumnoNombre={alumnoParaAsignar.alumnoNombre}
           planesDisponibles={planesActivos}
           tienePlanesActivos={true}
-          onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
+          onConfirmar={async ({ alumnoId, planId, actividad, esAdicional, monto, pagado, medioPago, concepto, notas }) => {
             await useCoachStudioStore.getState().vincularPlanMembresiaAlumno({
               alumnoId,
-              planId,
+              planId: planId || null,
+              actividad,
+              monto,
+              pagado,
+              medioPago,
               esAdicional,
+              concepto,
               notas,
             });
             setAlumnoParaAsignar(null);

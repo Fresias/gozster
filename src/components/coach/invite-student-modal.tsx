@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useCobrosStore } from "@/store/use-cobros-store";
+import { asignarSuscripcionYCobro } from "@/services/cobros-service";
+import type { PlanMembresiaConVigencia } from "@/lib/planes";
 
 export type ActividadTipo = "FUNCIONAL" | "BOXEO" | "RUTINAS";
 
@@ -161,11 +163,54 @@ export function InviteStudentModal({
   // Estado de clases fijas vinculadas (GOZS-225 / GOZS-246)
   const [clasesFijasSeleccionadas, setClasesFijasSeleccionadas] = React.useState<string[]>([]);
 
-  // Estado de cobro inicial y suscripción (GOZS-351)
-  const [montoSuscripcion, setMontoSuscripcion] = React.useState<string>("");
+  // Estado de cobro inicial y suscripción (GOZS-351 / GOZS-642)
+  const planesCobrosHook = useCobrosStore((s) => s.planes);
+  const planesCobros =
+    typeof window === "undefined" ? useCobrosStore.getState().planes : planesCobrosHook;
+  const [montoSuscripcion, setMontoSuscripcion] = React.useState<string>("25000");
+  const [montoEditadoManual, setMontoEditadoManual] = React.useState<boolean>(false);
   const [pagoInicialRealizado, setPagoInicialRealizado] = React.useState<boolean>(false);
   const [medioPagoInicial, setMedioPagoInicial] = React.useState<"TRANSFERENCIA" | "EFECTIVO">("TRANSFERENCIA");
   const [notaPagoInicial, setNotaPagoInicial] = React.useState<string>("");
+
+  const planSugerido = React.useMemo<{ plan: PlanMembresiaConVigencia | null; precio: number }>(() => {
+    const planesActivos = planesCobros.filter((p) => p.activo !== false);
+    const fOn = actividades.FUNCIONAL.habilitada;
+    const bOn = actividades.BOXEO.habilitada;
+    const rOn = actividades.RUTINAS.habilitada;
+
+    if (fOn && bOn) {
+      const combo = planesActivos.find(
+        (p) => p.actividad_tipo === "FUNCIONAL_BOXEO" || p.cantidad_actividades === 2,
+      );
+      return { plan: combo ?? null, precio: combo?.precio ?? 40000 };
+    }
+    if (fOn) {
+      const freq = actividades.FUNCIONAL.pase_libre ? null : actividades.FUNCIONAL.veces_por_semana;
+      const exacto =
+        planesActivos.find((p) => p.actividad_tipo === "FUNCIONAL" && p.limite_semanal === freq) ??
+        planesActivos.find((p) => p.actividad_tipo === "FUNCIONAL");
+      return { plan: exacto ?? null, precio: exacto?.precio ?? 25000 };
+    }
+    if (bOn) {
+      const freq = actividades.BOXEO.pase_libre ? null : actividades.BOXEO.veces_por_semana;
+      const exacto =
+        planesActivos.find((p) => p.actividad_tipo === "BOXEO" && p.limite_semanal === freq) ??
+        planesActivos.find((p) => p.actividad_tipo === "BOXEO");
+      return { plan: exacto ?? null, precio: exacto?.precio ?? 30000 };
+    }
+    if (rOn) {
+      const exacto = planesActivos.find((p) => p.actividad_tipo === "RUTINAS");
+      return { plan: exacto ?? null, precio: exacto?.precio ?? 28000 };
+    }
+    return { plan: null, precio: 0 };
+  }, [planesCobros, actividades]);
+
+  React.useEffect(() => {
+    if (!montoEditadoManual) {
+      setMontoSuscripcion(planSugerido.precio > 0 ? String(planSugerido.precio) : "");
+    }
+  }, [planSugerido.precio, montoEditadoManual]);
 
   const reset = React.useCallback(() => {
     setNombreCompleto("");
@@ -177,7 +222,8 @@ export function InviteStudentModal({
     setAlta(null);
     setCopiado(false);
     setLoading(false);
-    setMontoSuscripcion("");
+    setMontoSuscripcion("25000");
+    setMontoEditadoManual(false);
     setPagoInicialRealizado(false);
     setMedioPagoInicial("TRANSFERENCIA");
     setNotaPagoInicial("");
@@ -345,56 +391,77 @@ export function InviteStudentModal({
             await useClasesStore.getState().asignarClaseFija(cf.id, data.alumno_id);
           }
 
-          // Registrar cobro inicial y suscripción (GOZS-351)
+          // Registrar cobro inicial y suscripción vía RPC transaccional (GOZS-642)
           const montoNum = montoSuscripcion.trim() ? parseFloat(montoSuscripcion.trim()) : 0;
-          if (montoNum > 0) {
+          if (montoNum > 0 || actividadesConfiguradas.length > 0) {
             try {
-              // 1. Registrar en el store de cobros de Coach Studio
-              await useCobrosStore.getState().registrarCobroInicial({
-                alumnoId: data.alumno_id,
-                alumnoNombre: nombreLimpio || emailLimpio,
-                alumnoEmail: emailLimpio,
-                alumnoTelefono: telefono.trim() || null,
-                monto: montoNum,
-                pagado: pagoInicialRealizado,
-                medioPago: medioPagoInicial,
-                notas: notaPagoInicial.trim() || undefined,
-                actividad: actividadesConfiguradas[0]?.actividad,
-              });
+              const actividadPrincipal = actividadesConfiguradas[0] ?? null;
+              const esUuid = (v?: string | null) =>
+                Boolean(v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v));
+              const planIdReal = esUuid(planSugerido.plan?.id) ? planSugerido.plan!.id : null;
+              const conceptoAlta =
+                planSugerido.plan?.nombre ??
+                (actividadesConfiguradas.length > 1
+                  ? actividadesConfiguradas
+                      .map((a) =>
+                        a.actividad === "FUNCIONAL"
+                          ? "Funcional"
+                          : a.actividad === "BOXEO"
+                          ? "Boxeo"
+                          : "Rutinas Online",
+                      )
+                      .join(" + ")
+                  : actividadPrincipal?.actividad === "FUNCIONAL"
+                  ? "Funcional"
+                  : actividadPrincipal?.actividad === "BOXEO"
+                  ? "Boxeo"
+                  : "Rutinas Online");
 
-              // 2. Persistir en contrataciones y pagos en Supabase
-              const ahoraIso = new Date().toISOString();
-              const hoyStr = ahoraIso.split("T")[0];
-              const diaVenc = new Date().getDate();
-              const finStr = new Date(Date.now() + 30 * 86_400_000).toISOString().split("T")[0];
+              if (esUuid(data.alumno_id)) {
+                const resRpc = await asignarSuscripcionYCobro(
+                  {
+                    alumnoId: data.alumno_id,
+                    planId: planIdReal,
+                    actividad:
+                      actividadesConfiguradas.length > 1 ? null : (actividadPrincipal?.actividad ?? null),
+                    monto: montoNum,
+                    pagado: pagoInicialRealizado,
+                    medioPago: medioPagoInicial,
+                    esAdicional: false,
+                    concepto: conceptoAlta,
+                    nota: notaPagoInicial.trim() || null,
+                    vecesPorSemana: actividadPrincipal?.veces_por_semana ?? null,
+                    paseLibre:
+                      actividadesConfiguradas.length > 1 || Boolean(actividadPrincipal?.pase_libre),
+                  },
+                  supabase as any,
+                );
 
-              const { data: nuevaContratacion } = await (supabase.from("contrataciones" as any) as any)
-                .insert({
-                  alumno_id: data.alumno_id,
-                  tipo_servicio: actividadesConfiguradas.some(
-                    (a) => a.actividad === "FUNCIONAL" || a.actividad === "BOXEO",
-                  )
-                    ? "PRESENCIAL"
-                    : "ASESORIA_ONLINE",
-                  estado: pagoInicialRealizado ? "ACTIVA" : "PENDIENTE_PAGO",
-                  dia_vencimiento: diaVenc,
-                  fecha_inicio: hoyStr,
-                  fecha_fin: finStr,
-                  precio_pactado: montoNum,
-                })
-                .select("id")
-                .maybeSingle();
-
-              if ((nuevaContratacion as any)?.id && pagoInicialRealizado) {
-                await (supabase.from("pagos" as any) as any).insert({
-                  contratacion_id: (nuevaContratacion as any).id,
-                  alumno_id: data.alumno_id,
+                await useCobrosStore.getState().cargarCobros();
+                if (!useCobrosStore.getState().cobros.some((c) => c.id === resRpc.cobro_id)) {
+                  await useCobrosStore.getState().registrarCobroInicial({
+                    alumnoId: data.alumno_id,
+                    alumnoNombre: nombreLimpio || emailLimpio,
+                    alumnoEmail: emailLimpio,
+                    alumnoTelefono: telefono.trim() || null,
+                    monto: montoNum,
+                    pagado: pagoInicialRealizado,
+                    medioPago: medioPagoInicial,
+                    notas: notaPagoInicial.trim() || undefined,
+                    actividad: actividadPrincipal?.actividad,
+                  });
+                }
+              } else if (montoNum > 0) {
+                await useCobrosStore.getState().registrarCobroInicial({
+                  alumnoId: data.alumno_id,
+                  alumnoNombre: nombreLimpio || emailLimpio,
+                  alumnoEmail: emailLimpio,
+                  alumnoTelefono: telefono.trim() || null,
                   monto: montoNum,
-                  monto_cobrado: montoNum,
-                  medio_pago: medioPagoInicial,
-                  estado: "CONFIRMADO",
-                  nota: notaPagoInicial.trim() || undefined,
-                  idempotency_key: `alta-pago-${data.alumno_id}-${Date.now()}`,
+                  pagado: pagoInicialRealizado,
+                  medioPago: medioPagoInicial,
+                  notas: notaPagoInicial.trim() || undefined,
+                  actividad: actividadPrincipal?.actividad,
                 });
               }
             } catch (cobroErr) {
@@ -1043,12 +1110,20 @@ export function InviteStudentModal({
                     data-testid="alta-monto-suscripcion"
                     type="number"
                     min="0"
-                    step="500"
+                    step="100"
                     value={montoSuscripcion}
-                    onChange={(ev) => setMontoSuscripcion(ev.target.value)}
+                    onChange={(ev) => {
+                      setMontoEditadoManual(true);
+                      setMontoSuscripcion(ev.target.value);
+                    }}
                     placeholder="Ej. 35000"
                     className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm font-mono text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
                   />
+                  {planSugerido.precio > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Estándar sugerido: ${planSugerido.precio.toLocaleString("es-AR")} (editable)
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1059,6 +1134,7 @@ export function InviteStudentModal({
                     <button
                       type="button"
                       data-testid="alta-pago-pendiente"
+                      aria-pressed={!pagoInicialRealizado}
                       onClick={() => setPagoInicialRealizado(false)}
                       className={`h-9 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         !pagoInicialRealizado
@@ -1066,11 +1142,12 @@ export function InviteStudentModal({
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      Pendiente
+                      Pendiente de cobro
                     </button>
                     <button
                       type="button"
                       data-testid="alta-pago-realizado"
+                      aria-pressed={pagoInicialRealizado}
                       onClick={() => setPagoInicialRealizado(true)}
                       className={`h-9 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         pagoInicialRealizado
@@ -1078,7 +1155,7 @@ export function InviteStudentModal({
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      Liquidado
+                      Pagó<span className="sr-only"> Liquidado</span>
                     </button>
                   </div>
                 </div>

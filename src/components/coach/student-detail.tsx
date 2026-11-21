@@ -67,6 +67,8 @@ import { AdherenciaCard, type EstadoAdherencia } from "@/components/coach/adhere
 import { armarAdherencia, type Adherencia } from "@/lib/adherencia";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { ModalAsignarPlan } from "@/components/coach/modal-asignar-plan";
+import { ActivityLabels } from "@/components/coach/activity-labels";
+import { derivarLabelsActividadAlumno } from "@/lib/alumno-actividades";
 import {
   IslaTimelineRibbon,
   IslaActivityFeed,
@@ -581,7 +583,8 @@ export function StudentDetail({
   const [isExtendiendoExc, setIsExtendiendoExc] = React.useState(false);
 
   // GOZS-247: Integración con Cobros Store y suscripción
-  const cobros = useCobrosStore((s) => s.cobros);
+  const cobrosHook = useCobrosStore((s) => s.cobros);
+  const cobros = typeof window === "undefined" ? useCobrosStore.getState().cobros : cobrosHook;
   const registrarPagoStore = useCobrosStore((s) => s.registrarPago);
 
   const cobroItem = React.useMemo(() => {
@@ -604,19 +607,67 @@ export function StudentDetail({
   const [isRegistrandoPago, setIsRegistrandoPago] = React.useState(false);
   const [avisoPago, setAvisoPago] = React.useState<string | null>(null);
 
-  // Multiactividad y asignación de planes (GOZS-362)
-  const contratacionesStudio = useCoachStudioStore((s) => s.contrataciones);
+  // Multiactividad y asignación de planes (GOZS-362 / GOZS-642)
+  const contratacionesStudioHook = useCoachStudioStore((s) => s.contrataciones);
+  const contratacionesStudio =
+    typeof window === "undefined"
+      ? useCoachStudioStore.getState().contrataciones
+      : contratacionesStudioHook;
+  const alumnoActividadesStudioHook = useCoachStudioStore((s) => s.alumnoActividades);
+  const alumnoActividadesStudio =
+    typeof window === "undefined"
+      ? useCoachStudioStore.getState().alumnoActividades
+      : alumnoActividadesStudioHook;
+  const isLiveDatabaseHook = useCoachStudioStore((s) => s.isLiveDatabase);
+  const isLiveDatabase =
+    typeof window === "undefined"
+      ? useCoachStudioStore.getState().isLiveDatabase
+      : isLiveDatabaseHook;
   const vincularPlanMembresiaAlumno = useCoachStudioStore((s) => s.vincularPlanMembresiaAlumno);
-  const planesCobros = useCobrosStore((s) => s.planes);
+  const planesCobrosHook = useCobrosStore((s) => s.planes);
+  const planesCobros =
+    typeof window === "undefined" ? useCobrosStore.getState().planes : planesCobrosHook;
   const [modalAsignarPlanAbierto, setModalAsignarPlanAbierto] = React.useState(false);
 
+  const contratacionesRealesAlumno = React.useMemo(
+    () =>
+      contratacionesStudio.filter(
+        (c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA",
+      ),
+    [contratacionesStudio, alumno.id],
+  );
+
   const todasContratacionesAlumno = React.useMemo(() => {
-    const list = contratacionesStudio.filter(
-      (c) => c.alumno_id === alumno.id && c.estado !== "VENCIDA"
-    );
-    if (list.length > 0) return list;
-    return [contratacion];
-  }, [contratacionesStudio, alumno.id, contratacion]);
+    if (contratacionesRealesAlumno.length > 0) return contratacionesRealesAlumno;
+    if (contratacionProp) return [contratacionProp];
+    if (isLiveDatabase) return [];
+    return [];
+  }, [contratacionesRealesAlumno, contratacionProp, isLiveDatabase]);
+
+  const tienePlanComercialReal = Boolean(
+    cobroItem || contratacionProp || contratacionesRealesAlumno.length > 0,
+  );
+
+  const labelsActividad = React.useMemo(() => {
+    const planesActivosAlumno = [
+      ...(rutinaActiva ? [rutinaActiva] : []),
+      ...historialPlanes,
+    ];
+    return derivarLabelsActividadAlumno({
+      alumnoId: alumno.id,
+      alumnoActividades: alumnoActividadesStudio,
+      contrataciones: contratacionesRealesAlumno,
+      planes: planesActivosAlumno,
+      planesMembresia: planesCobros,
+    });
+  }, [
+    alumno.id,
+    alumnoActividadesStudio,
+    contratacionesRealesAlumno,
+    rutinaActiva,
+    historialPlanes,
+    planesCobros,
+  ]);
 
   const actividadFrecuencia = React.useMemo(() => {
     return derivarActividadFrecuencia({
@@ -2355,8 +2406,30 @@ export function StudentDetail({
             </div>
           </div>
 
-          {/* Plan de Membresía y Actividad Presencial (GH #122 / GOZS-362 Multiactividad) */}
+          {/* Plan de Membresía y Actividad Presencial (GH #122 / GOZS-362 / GOZS-642) */}
           <div className="space-y-3" data-testid="membresia-clases-panel">
+            {todasContratacionesAlumno.length === 0 && !cobroItem ? (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-secondary/20 p-4"
+                data-testid="sin-plan-asignado-panel"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Sin plan asignado</p>
+                  <p className="text-xs text-muted-foreground">
+                    Asigná un plan o actividad para registrar la suscripción y el cobro en Studio.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => setModalAsignarPlanAbierto(true)}
+                  data-testid="btn-asignar-plan-sin-plan"
+                  className="text-xs font-semibold"
+                >
+                  Asignar plan
+                </Button>
+              </div>
+            ) : null}
             {todasContratacionesAlumno.map((c, idx) => {
               const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
               const nombrePlan =
@@ -2365,6 +2438,12 @@ export function StudentDetail({
                   ? "Funcional 2x semana"
                   : c.plan_membresia_id === "demo-plan-pase-libre"
                   ? "Pase libre Funcional + Boxeo"
+                  : c.actividad === "BOXEO"
+                  ? "Boxeo"
+                  : c.actividad === "FUNCIONAL"
+                  ? "Funcional"
+                  : c.tipo_servicio === "ASESORIA_ONLINE"
+                  ? "Rutinas Online"
                   : c.plan_membresia_id ?? "Plan Presencial");
 
               const esGratis = c.precio_pactado === 0 || plan?.precio === 0;
@@ -2776,7 +2855,28 @@ export function StudentDetail({
           />
         );
 
-      case "administracion":
+      case "administracion": {
+        const primeraContratacion = todasContratacionesAlumno[0];
+        const planPrincipal = primeraContratacion?.plan_membresia_id
+          ? planesCobros.find((p) => p.id === primeraContratacion.plan_membresia_id)
+          : undefined;
+        const nombrePlanReal =
+          cobroItem?.servicioNombre ||
+          planPrincipal?.nombre ||
+          (primeraContratacion?.actividad === "BOXEO"
+            ? "Boxeo"
+            : primeraContratacion?.actividad === "FUNCIONAL"
+            ? "Funcional"
+            : primeraContratacion?.tipo_servicio === "ASESORIA_ONLINE"
+            ? "Rutinas Online"
+            : undefined);
+        const fechaFinReal = cobroItem?.fechaVencimiento ?? primeraContratacion?.fecha_fin ?? null;
+        const montoReal = cobroItem
+          ? montoSuscripcion.formateado
+          : primeraContratacion?.precio_pactado != null
+          ? formatearDinero(primeraContratacion.precio_pactado)
+          : undefined;
+
         return (
           <IslaAdministrativa
             key="administracion"
@@ -2794,18 +2894,27 @@ export function StudentDetail({
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
-            planActivo={cobroItem?.servicioNombre || "Pase libre · Funcional + Boxeo"}
-            monto={montoSuscripcion.formateado}
-            fechaVencimiento={contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "26 nov"}
-            estadoCobro={estadoPagoInfo.estado}
+            planActivo={tienePlanComercialReal ? nombrePlanReal : undefined}
+            monto={tienePlanComercialReal ? montoReal : undefined}
+            fechaVencimiento={fechaFinReal ? formatFecha(fechaFinReal) : undefined}
+            estadoCobro={tienePlanComercialReal ? estadoPagoInfo.estado : undefined}
             detalleCobro={
-              estadoPagoInfo.pago
-                ? `Pagado por transferencia · vence ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "26 nov"}`
+              !tienePlanComercialReal
+                ? "Sin cobros ni suscripción activa"
+                : estadoPagoInfo.pago
+                ? fechaFinReal
+                  ? `Pagado · vence ${formatFecha(fechaFinReal)}`
+                  : "Pagado"
                 : estadoPagoInfo.estado === "VENCIDO"
-                ? `Cuota vencida · venció ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "el 20 nov"}`
-                : `Pendiente de cobro · vence ${contratacion?.fecha_fin ? formatFecha(contratacion.fecha_fin) : "el 26 nov"}`
+                ? fechaFinReal
+                  ? `Cuota vencida · venció ${formatFecha(fechaFinReal)}`
+                  : "Cuota vencida"
+                : fechaFinReal
+                ? `Pendiente de cobro · vence ${formatFecha(fechaFinReal)}`
+                : "Pendiente de cobro"
             }
             onRegistrarPago={handleAbrirDialogoPago}
+            onAsignarPlan={() => setModalAsignarPlanAbierto(true)}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onMoveLeft={onMoveLeft}
@@ -2821,6 +2930,7 @@ export function StudentDetail({
             canMoveRight={canMoveRight}
           />
         );
+      }
 
       default:
         return null;
@@ -2860,9 +2970,12 @@ export function StudentDetail({
           </Avatar>
 
           <div className="min-w-0">
-            <h2 className="m-0 text-[22px] font-semibold tracking-[-0.02em] text-foreground">
-              {alumno.nombre_completo}
-            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="m-0 text-[22px] font-semibold tracking-[-0.02em] text-foreground">
+                {alumno.nombre_completo}
+              </h2>
+              <ActivityLabels labels={labelsActividad} />
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-neutral-soft-foreground">
               {getPaymentBadge(alumno.estado_membresia)}
               {chatActivePainAlert && (
@@ -3319,7 +3432,7 @@ export function StudentDetail({
         </form>
       </dialog>
 
-      {/* Modal Asignar / Cambiar Plan de Membresía (Multiactividad GOZS-362) */}
+      {/* Modal Asignar / Cambiar Plan de Membresía (Multiactividad GOZS-362 / GOZS-642) */}
       <ModalAsignarPlan
         abierto={modalAsignarPlanAbierto}
         onCerrar={() => setModalAsignarPlanAbierto(false)}
@@ -3327,11 +3440,16 @@ export function StudentDetail({
         alumnoNombre={alumno.nombre_completo}
         planesDisponibles={planesCobros.filter((p) => p.activo !== false)}
         tienePlanesActivos={todasContratacionesAlumno.length > 0}
-        onConfirmar={async ({ alumnoId, planId, esAdicional, notas }) => {
+        onConfirmar={async ({ alumnoId, planId, actividad, esAdicional, monto, pagado, medioPago, concepto, notas }) => {
           await vincularPlanMembresiaAlumno({
             alumnoId,
-            planId,
+            planId: planId || null,
+            actividad,
+            monto,
+            pagado,
+            medioPago,
             esAdicional,
+            concepto,
             notas,
           });
           setModalAsignarPlanAbierto(false);
