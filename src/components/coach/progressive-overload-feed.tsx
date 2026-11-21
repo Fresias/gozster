@@ -4,11 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ActivityLabels } from "@/components/coach/activity-labels";
+import type { LabelActividadItem } from "@/lib/alumno-actividades";
 
 export interface ProgressiveOverloadFeedProps {
   alertas: AlertaSobrecargaProgresiva[];
   onSelectAlumno: (alumnoId: string) => void;
   onOpenHistoricalLoads: (alumnoId: string) => void;
+  getLabelsAlumno?: (alumnoId: string) => LabelActividadItem[];
   className?: string;
 }
 
@@ -18,6 +21,7 @@ export function ProgressiveOverloadFeed({
   alertas,
   onSelectAlumno,
   onOpenHistoricalLoads,
+  getLabelsAlumno,
   className,
 }: ProgressiveOverloadFeedProps) {
   const [filter, setFilter] = React.useState<OverloadFilter>("ALL");
@@ -174,13 +178,16 @@ export function ProgressiveOverloadFeed({
                         {getInitials(alerta.alumnoNombre)}
                       </div>
                       <div className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => onSelectAlumno(alerta.alumnoId)}
-                          className="truncate text-left text-sm font-bold text-foreground hover:text-primary transition-colors focus:outline-none cursor-pointer"
-                        >
-                          {alerta.alumnoNombre}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => onSelectAlumno(alerta.alumnoId)}
+                            className="truncate text-left text-sm font-bold text-foreground hover:text-primary transition-colors focus:outline-none cursor-pointer"
+                          >
+                            {alerta.alumnoNombre}
+                          </button>
+                          {getLabelsAlumno && <ActivityLabels labels={getLabelsAlumno(alerta.alumnoId)} />}
+                        </div>
                         <p className="text-xs font-semibold text-primary">
                           {alerta.ejercicioNombre}
                         </p>
