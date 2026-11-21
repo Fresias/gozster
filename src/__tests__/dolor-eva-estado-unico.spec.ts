@@ -220,6 +220,7 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
     const idAgudo = '10000000-0000-0000-0000-000000000003';
 
     beforeAll(async () => {
+      // Bootstrap propio: siembra filas legadas sin `eva` antes de aplicar la migración 20261106110000 y probar su backfill.
       db = new PGlite({ extensions: { pgcrypto } });
       await db.exec(SUPABASE_STUBS);
 

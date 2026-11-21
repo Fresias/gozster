@@ -1,8 +1,6 @@
 ﻿import { describe, it, expect, beforeAll } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 
 // QA #113 (GOZS-100): verificación independiente de las RPC de reservas.
 // Complementa membresias-clases-reservas.spec.ts con lo que esa suite no cubre:
@@ -10,7 +8,6 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 // cupo, bordes de semana en America/Argentina/Buenos_Aires y autorización real
 // de profesores (asignación en clases_profesores).
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const TZ = "America/Argentina/Buenos_Aires";
 
 const ADMIN = "00000000-0000-0000-0000-0000000001ad";
@@ -25,22 +22,6 @@ const PLAN_2_1 = "20000000-0000-0000-0000-000000000101";
 const PLAN_LIBRE = "20000000-0000-0000-0000-000000000102";
 
 type Rol = "anon" | "authenticated";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const ALUMNOS = [DOS, LIBRE_1, LIBRE_2, LIBRE_3];
 
@@ -70,16 +51,6 @@ const FIN_SEMANA = `(${LUNES} + interval '7 days')`;
 const enSemana = (f: number) => `now() + (${FIN_SEMANA} - now()) * ${f}`;
 
 let db: PGlite;
-
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
 
 async function actuarComo(tx: Transaction, rol: Rol, sub: string | null) {
   await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -122,12 +93,7 @@ async function contar(sql: string): Promise<number> {
 
 describe("QA #113: reservas de clases (PGlite)", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-    }
+    db = await crearDbMigrada();
     await db.exec(SEED);
   }, 60_000);
 

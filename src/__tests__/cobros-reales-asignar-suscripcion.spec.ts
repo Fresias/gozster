@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import {
   asignarSuscripcionYCobro,
@@ -10,7 +10,6 @@ import {
   registrarPagoReal,
 } from "@/services/cobros-service";
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION = "20261120210000_cobros_reales_asignar_suscripcion_y_registrar_pago.sql";
 
 const ADMIN = "00000000-0000-0000-0000-000000000001";
@@ -27,34 +26,6 @@ const PLAN_PASE_LIBRE = "20000000-0000-0000-0000-000000000003";
 const PLAN_RUTINAS = "20000000-0000-0000-0000-000000000004";
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (
-    id uuid PRIMARY KEY,
-    instance_id uuid,
-    aud text,
-    role text,
-    email text,
-    encrypted_password text,
-    email_confirmed_at timestamptz,
-    raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-  );
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const SEED = `
   INSERT INTO auth.users (id, email) VALUES
@@ -90,16 +61,6 @@ const SEED = `
 
 let db: PGlite;
 
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
-
 function como<T>(rol: Rol, sub: string | null, sql: string, params: unknown[] = []) {
   return db.transaction(async (tx: Transaction) => {
     await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -112,14 +73,9 @@ function como<T>(rol: Rol, sub: string | null, sql: string, params: unknown[] = 
 
 describe("GOZS-641: Cobros reales Supabase, asignar_suscripcion_y_cobro y registrar_pago editable", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-    }
+    db = await crearDbMigrada();
     // Idempotencia de la migración nueva
-    await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
     await db.exec(SEED);
   }, 60_000);
 

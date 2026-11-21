@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as fs from "fs";
-import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 import {
   mapearRpcAKpis,
   obtenerKpisNegocio,
@@ -19,7 +18,6 @@ import {
 // GOZS-135 / GOZS-369: RPC kpis_negocio_v2. Probada sobre Postgres real (PGlite)
 // con roles de Supabase simulados.
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 const NEW_MIGRATION_V1 = "20261022120001_rpc_obtener_kpis_negocio.sql";
 const NEW_MIGRATION_V2 = "20261106100000_rpc_kpis_negocio_v2.sql";
 
@@ -32,22 +30,6 @@ const A_BAJA = "00000000-0000-0000-0000-0000000000ba";
 const PLAN = "20000000-0000-0000-0000-000000000001";
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 // Cuota mensual del plan = 30000 / 3 = 10000.
 // Alumnos activos: A_8D (entrenó hace 8d, contratación vencida hace 5d, 1ª contratación hace 60d),
@@ -122,19 +104,7 @@ type Kpis = {
 const KPIS = `SELECT * FROM public.obtener_kpis_negocio(${PERIODO})`;
 
 async function montarDb(): Promise<PGlite> {
-  const nueva = new PGlite({ extensions: { pgcrypto } });
-  await nueva.exec(SUPABASE_STUBS);
-  const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-  for (const archivo of archivos) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8");
-    const inicio = sql.search(/^BEGIN;/m);
-    if (inicio > 0) {
-      await nueva.exec(sql.slice(0, inicio));
-      await nueva.exec(sql.slice(inicio));
-    } else {
-      await nueva.exec(sql);
-    }
-  }
+  const nueva = await crearDbMigrada();
   await nueva.exec(SEED);
   return nueva;
 }
