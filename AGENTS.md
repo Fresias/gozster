@@ -42,15 +42,16 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 ## Database & UI Contracts
 - supabase/migrations/: append-only (`db.append-only`), explicit RLS, unique version > main/PRs.
 - Zero "Mynter" (ADR-005). Canonical UI: `docs/ux-ui-review/objetivo/html/*.html`; zero demo data (`assertNoDemoLiteralsInLiveMode`); keep old `data-testid` beside new.
-- Sheets (`useAtraparFocoEnHoja`): `Shift+Tab` first/title→last; capture trigger only if `!sheet.contains(activeElement)` (StrictMode).
+- Sheets (`useAtraparFocoEnHoja`): `Shift+Tab` first/title→last; capture trigger if `!sheet.contains(activeElement)` (StrictMode).
 - E2E: `E2E_STUB_URL` alt port if Windows blocks 54321; `page.screenshot({ scale: "css" })` on high-DPI.
-- PWA: SW prod-only (dev/Playwright); `sw.js` skips `/api/`, `/auth/`, `/rest/`, Supabase/cross-origin; iOS: `other` `apple-mobile-web-app-capable`.
+- PWA: SW prod-only; `sw.js` skips `/api/`, `/auth/`, `/rest/`, Supabase/cross-origin; iOS: `other` `apple-mobile-web-app-capable`.
 
 ## QA & Review Rounds
-- **QA CHANGES_REQUESTED:** r1/2 → stage `in_progress`, comment blocker + round N/2 @assignee, QA `todo` until `in_review`; r2/2 → `blocked` + @Gabriel summary.
+- **QA CHANGES_REQUESTED:** r1/2 → `in_progress` + blocker comment (round N/2) @assignee, QA `todo` until `in_review`; r2/2 → `blocked` + @Gabriel summary.
+- SSR specs (React 19): mock added Zustand stores; persist stores read `getState()` if `typeof window === 'undefined'`.
 
 ## Harness² Flow (guard + merge check)
-- PR: `harness-learn.sh --lesson "..."` → `harness/experience/<ISSUE>.jsonl`; `harness-gate.sh`; paste `--pr-block`.
+- PR: `harness-learn.sh --lesson "..."`, `harness-gate.sh`, paste `--pr-block`.
 - Harness: `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe` → `harness-compose --task <ISSUE>`; never hand-edit), `harness-authorized` by `Fresias` only (push revokes; re-request).
 - Encoding: UTF-8 no BOM; PowerShell: no backtick strings/`Set-Content` (Write/Edit).
 
@@ -61,7 +62,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 # LongTermMEMORY
 
-- [verified 2026-11-08 | src: GOZS-428] Lessons per issue live in `harness/experience/<ISSUE>.jsonl`; search them first: `rg -n <term> harness/experience`.
+- [verified 2026-11-08 | src: GOZS-428] Lessons: `harness/experience/<ISSUE>.jsonl`; search first: `rg -n <term> harness/experience`.
 
 - [verified 2026-11-09 | src: PPC] Rutas de memoria son escribibles y rechazan .. y %2e.
 
@@ -97,8 +98,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - **Hand-off, no start:** deliver state once to squad/leader; record goal, changes, evidence, risks, name ONE next action, end run.
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
 
-- **RPCs (GOZS-331):** Defaults ('DEFAULT NULL') en SQL, opcionales en TS.
-- **Modales (GOZS-321):** isSaving atómico + submit deshabilitado.
+- **RPCs:** SQL `DEFAULT NULL` = TS opcional. **Modales:** isSaving atómico + submit deshabilitado.
 
 # Helper scripts (run via bash)
 
