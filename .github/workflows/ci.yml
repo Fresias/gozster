@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
-    name: Typecheck, Lint & Test
+  typecheck:
+    name: Typecheck & Harness Audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -37,8 +37,25 @@ jobs:
       - name: Typecheck (TypeScript)
         run: npm run typecheck
 
-      - name: Run unit tests (Vitest)
-        run: npx vitest run
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Clean install dependencies
+        run: npm ci
 
       - name: Restore Next.js cache
         uses: actions/cache@v6
@@ -51,12 +68,97 @@ jobs:
       - name: Build Next.js application
         run: npm run build
 
+  test-db:
+    name: Tests (DB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Clean install dependencies
+        run: npm ci
+
+      - name: Run DB tests (Vitest)
+        run: npx vitest run --project db
+
+  test-rest:
+    name: Tests (Unit & Harness)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Clean install dependencies
+        run: npm ci
+
+      - name: Run unit & harness tests (Vitest)
+        run: npx vitest run --project unit --project harness
+
+  verify:
+    name: Typecheck, Lint & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [typecheck, build, test-db, test-rest]
+    if: always()
+    permissions:
+      contents: read
+
+    steps:
+      - name: Verify all required CI jobs succeeded
+        run: |
+          if [ "${{ needs.typecheck.result }}" != "success" ] || \
+             [ "${{ needs.build.result }}" != "success" ] || \
+             [ "${{ needs.test-db.result }}" != "success" ] || \
+             [ "${{ needs.test-rest.result }}" != "success" ]; then
+            echo "typecheck=${{ needs.typecheck.result }}"
+            echo "build=${{ needs.build.result }}"
+            echo "test-db=${{ needs.test-db.result }}"
+            echo "test-rest=${{ needs.test-rest.result }}"
+            exit 1
+          fi
+
+  post-merge:
+    name: Harness² post-merge propose
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
       - name: Harness² Post-Merge Propose & Consolidate
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node harness-kit/core/scripts/harness-propose.mjs --post-merge
 
       - name: Upload Harness² candidates artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: candidates
