@@ -285,12 +285,12 @@ export function ClassAgenda({
     vista,
     setVista,
     clases: clasesStore,
-    agendaReservas: agendaReservasStore,
+    agendaReservas,
     testAhora: testAhoraStore,
     cargando,
     accionEnCurso,
-    error: errorStore,
-    aviso: avisoStore,
+    error,
+    aviso,
     cargarAgenda,
     subscribeToRealtime,
     marcarAusente,
@@ -304,26 +304,9 @@ export function ClassAgenda({
     limpiarMensajes,
   } = useClasesStore();
 
-  const isOnlineStore = useOfflineQueueStore((s) => s.isOnline);
-  const isOnline =
-    typeof window === "undefined" ? useOfflineQueueStore.getState().isOnline : isOnlineStore;
-
-  const error =
-    typeof window === "undefined" ? useClasesStore.getState().error : errorStore;
-  const aviso =
-    typeof window === "undefined" ? useClasesStore.getState().aviso : avisoStore;
-  const testAhora =
-    testAhoraProp ??
-    (typeof window === "undefined" ? useClasesStore.getState().testAhora : testAhoraStore);
-
-  const clases =
-    clasesProp ??
-    (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
-
-  const agendaReservas =
-    typeof window === "undefined"
-      ? useClasesStore.getState().agendaReservas
-      : agendaReservasStore;
+  const isOnline = useOfflineQueueStore((s) => s.isOnline);
+  const testAhora = testAhoraProp ?? testAhoraStore;
+  const clases = clasesProp ?? clasesStore;
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
@@ -387,7 +370,7 @@ export function ClassAgenda({
   const [guardandoEdicion, setGuardandoEdicion] = React.useState(false);
   const [editarErrorLocal, setEditarErrorLocal] = React.useState<string | null>(null);
   const [claseAEditar, setClaseAEditar] = React.useState<Clase | null>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     if (initialClaseId) {
       return lista.find((c) => c.id === initialClaseId) ?? null;
     }
@@ -397,32 +380,32 @@ export function ClassAgenda({
     return null;
   });
   const [editActividad, setEditActividad] = React.useState<ActividadClase>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c?.actividad ?? "FUNCIONAL";
   });
   const [editFecha, setEditFecha] = React.useState<string>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c ? claveDia(c.inicio) : hoy;
   });
   const [editHora, setEditHora] = React.useState<string>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c ? horaLocal(c.inicio) : "18:00";
   });
   const [editDuracion, setEditDuracion] = React.useState<number>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c?.duracion_minutos || 60;
   });
   const [editSinLimite, setEditSinLimite] = React.useState<boolean>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c ? c.capacidad === null : false;
   });
   const [editCapacidad, setEditCapacidad] = React.useState<number | null>(() => {
-    const lista = clasesProp ?? (typeof window === "undefined" ? useClasesStore.getState().clases : clasesStore);
+    const lista = clases;
     const c = initialClaseId ? lista.find((item) => item.id === initialClaseId) : (initialEditDialogOpen ? lista[0] : null);
     return c ? (c.capacidad ?? 6) : 6;
   });
