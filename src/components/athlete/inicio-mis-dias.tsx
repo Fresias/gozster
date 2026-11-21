@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { DEFAULT_ATHLETE_ID, useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
 import { useClasesStore } from "@/store/use-clases-store";
@@ -16,10 +17,15 @@ import {
   type DiaConEstado,
   type DiaRutinaItem,
 } from "@/lib/athlete-dias";
-import { obtenerProximaClaseReservada } from "@/lib/clases";
+import {
+  clasesUsadas,
+  obtenerProximaClaseReservada,
+  resolverActividadesHabilitadas,
+  semanaEnCurso,
+} from "@/lib/clases";
 
 export { primerNombre, saludoAlumno };
-import type { MotivoCambioDia } from "@/types/database.types";
+import type { ActividadClase, MotivoCambioDia } from "@/types/database.types";
 
 export const CHIPS_MOTIVOS_CAMBIO: Array<{
   id: MotivoCambioDia;
@@ -33,6 +39,7 @@ export const CHIPS_MOTIVOS_CAMBIO: Array<{
 import {
   Play,
   ArrowRightLeft,
+  Calendar,
   ChevronRight,
   Check,
   X,
@@ -143,6 +150,11 @@ export function InicioMisDias() {
 
   const clases = useClasesStore((s) => s.clases);
   const misReservas = useClasesStore((s) => s.misReservas);
+  const membresiaClases = useClasesStore((s) => s.membresia);
+  const planClases = useClasesStore((s) => s.plan);
+  const contratacionesAlumno = useClasesStore((s) => s.contratacionesAlumno);
+  const actividadesAlumno = useClasesStore((s) => s.actividadesAlumno);
+  const actividadesHabilitadas = useClasesStore((s) => s.actividadesHabilitadas);
   const testAhoraClases = useClasesStore((s) => s.testAhora);
   const cargarClasesAlumno = useClasesStore((s) => s.cargarClasesAlumno);
   const subscribeClasesRealtime = useClasesStore((s) => s.subscribeToRealtime);
@@ -311,8 +323,6 @@ export function InicioMisDias() {
     diaTeTocaHoy,
     diaActivoHoy,
     cambioDeDia,
-    diasHechosCount,
-    totalDias,
   } = React.useMemo(() => {
     return calcularEstadosDias({
       dias: diasItems,
@@ -387,29 +397,65 @@ export function InicioMisDias() {
     () => calcularRachaSemanas(fechasSesiones),
     [fechasSesiones],
   );
-  const proximaClaseReservada = React.useMemo(
-    () =>
-      obtenerProximaClaseReservada(
-        misReservas,
-        clases,
-        testAhoraClases ? new Date(testAhoraClases) : new Date(),
-      ),
-    [misReservas, clases, testAhoraClases],
+  const ahoraClases = React.useMemo(
+    () => (testAhoraClases ? new Date(testAhoraClases) : new Date()),
+    [testAhoraClases],
   );
+  const proximaClaseReservada = React.useMemo(
+    () => obtenerProximaClaseReservada(misReservas, clases, ahoraClases),
+    [misReservas, clases, ahoraClases],
+  );
+  const resumenClasesInicio = React.useMemo(() => {
+    const habilitadas =
+      actividadesHabilitadas.length > 0
+        ? actividadesHabilitadas
+        : resolverActividadesHabilitadas({
+            contrataciones: contratacionesAlumno,
+            actividadesAlumno,
+            membresia: membresiaClases,
+            plan: planClases,
+            ahora: ahoraClases,
+          });
+    const tieneMembresiaClases =
+      habilitadas.length > 0 ||
+      Boolean(
+        planClases &&
+          (!membresiaClases ||
+            (membresiaClases.estado !== "VENCIDA" && membresiaClases.estado !== "EN_PAUSA")),
+      );
+    const habilitadasSet = new Set<ActividadClase>(habilitadas);
+    const { inicio, fin } = semanaEnCurso(ahoraClases);
+    const inicioMs = inicio.getTime();
+    const finMs = fin.getTime();
+    const clasesSemana = clases.filter((c) => {
+      if (habilitadasSet.size > 0 && !habilitadasSet.has(c.actividad)) return false;
+      const ms = Date.parse(c.inicio);
+      return !Number.isNaN(ms) && ms >= inicioMs && ms <= finMs;
+    });
+    const usadas = clasesUsadas(misReservas, clasesSemana);
+    const limite =
+      planClases?.limite_semanal ??
+      actividadesAlumno.find(
+        (a) => habilitadasSet.has(a.actividad as ActividadClase) && !a.pase_libre,
+      )?.veces_por_semana ??
+      null;
+    return { tieneMembresiaClases, usadas, limite };
+  }, [
+    actividadesHabilitadas,
+    contratacionesAlumno,
+    actividadesAlumno,
+    membresiaClases,
+    planClases,
+    ahoraClases,
+    clases,
+    misReservas,
+  ]);
 
   const diaHero = diaActivoHoy || diasConEstado[0];
   const sesionIniciada = Boolean(
     diaHero &&
       currentSession.dia_id === diaHero.id &&
       currentSession.ejercicios.some((ej) => ej.series.some((s) => s.completada)),
-  );
-  const hasSuperserie = Boolean(
-    diaHero &&
-      (planAlumno?.ejerciciosEnRutina.some(
-        (er) => er.dia_id === diaHero.id && Boolean(er.es_superserie),
-      ) ||
-        (currentSession.dia_id === diaHero.id &&
-          currentSession.ejercicios.some((e) => e.es_superserie))),
   );
 
   const handleOpenOtherDay = (preselectedId?: string) => {
@@ -421,7 +467,14 @@ export function InicioMisDias() {
   };
 
   const handlePickDay = (dia: DiaConEstado) => {
-    if (dia.estado === "DONE") return;
+    if (dia.estado === "DONE") {
+      if (sesionIniciada && diaHero && dia.id !== diaHero.id) {
+        showToast("Terminá la sesión actual antes de cambiar de día.", "warn");
+        return;
+      }
+      empezarDia(dia.id);
+      return;
+    }
     if (diaHero && dia.id === diaHero.id) {
       empezarDia(dia.id);
       return;
@@ -593,6 +646,62 @@ export function InicioMisDias() {
       );
     }
 
+    if (resumenClasesInicio.tieneMembresiaClases) {
+      const { usadas, limite } = resumenClasesInicio;
+      return (
+        <div className="a-view a-anim" data-testid="inicio-clases">
+          {bannerMensajeNoLeido}
+          {tarjetaRecordatorioPeso}
+          {tarjetaClaseReservada ?? (
+            <section
+              aria-label="Próxima clase"
+              className="a-hero"
+              data-testid="clases-reservar-cta-card"
+            >
+              <div className="a-hp">
+                <span className="a-t-label a-eh">Tus clases</span>
+                <h2 className="a-t-d mt-[6px]">Sin reserva próxima</h2>
+                <small className="a-t-sec">
+                  Elegí horario para entrenar esta semana
+                </small>
+              </div>
+              <Link
+                href="/athlete/clases"
+                className="a-btn a-hbtn a-gym"
+                data-testid="reservar-proxima-clase-cta"
+              >
+                <Calendar width={16} height={16} className="a-i" />
+                <span>Reservá tu próxima clase</span>
+              </Link>
+            </section>
+          )}
+          <section className="a-card a-quota" data-testid="clases-semana-contador">
+            {limite === null ? (
+              <div className="flex items-baseline justify-between gap-2">
+                <b className="a-t-bs">Pase libre</b>
+                <span className="a-t-label a-muted">Esta semana</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between gap-2">
+                  <b className="a-t-bs">
+                    {usadas} de {limite} clases esta semana
+                  </b>
+                </div>
+                <div className="a-segbar" aria-hidden="true">
+                  <span style={{ ["--n" as string]: 2 }}>
+                    {Array.from({ length: Math.max(limite, 1) }, (_, i) => (
+                      <i key={i} className={i < usadas ? "a-on" : ""} />
+                    ))}
+                  </span>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      );
+    }
+
     return (
       <div className="a-view a-anim" data-testid="inicio-sin-plan">
         {bannerMensajeNoLeido}
@@ -678,11 +787,6 @@ export function InicioMisDias() {
               ) : (
                 <span className="a-t-label a-eh">Te toca hoy</span>
               )}
-              {hasSuperserie && (
-                <span className="a-chip a-t-label" data-testid="hero-superserie-badge">
-                  Con biserie
-                </span>
-              )}
             </div>
 
             <h2 className="a-t-d mt-[6px]">Día {diaHero.orden}</h2>
@@ -716,12 +820,7 @@ export function InicioMisDias() {
       )}
 
       {/* Lista: Tus Días */}
-      <div className="flex items-baseline justify-between">
-        <p className="a-eb a-t-label">Tus días</p>
-        <span className="a-t-label a-muted">
-          {diasHechosCount}/{totalDias} esta semana
-        </span>
-      </div>
+      <p className="a-eb a-t-label">Tus días</p>
 
       <section className="a-card a-days" aria-label="Lista de días de rutina">
         {diasConEstado.map((dia: DiaConEstado) => {
@@ -741,22 +840,29 @@ export function InicioMisDias() {
               key={dia.id}
               type="button"
               onClick={() => handlePickDay(dia)}
-              className={`a-row ${isToday ? "a-today" : ""}`}
+              className={`a-row ${isToday ? "a-today" : ""} ${isDone ? "a-done" : ""}`}
+              aria-label={isDone ? `Día ${dia.orden}, hecho` : undefined}
               data-testid={`dia-row-${dia.id}`}
             >
-              <span className="a-num">{dia.orden}</span>
-              <span className="a-rt">
-                <b className="a-t-bs">{etiquetaDia(dia)}</b>
-                <small className="a-t-sec">{subtitle}</small>
+              <span
+                className="a-num"
+                data-testid={isDone ? "dia-hecho-check" : undefined}
+              >
+                {isDone ? (
+                  <Check width={16} height={16} className="a-i" />
+                ) : (
+                  dia.orden
+                )}
               </span>
-              {isDone ? (
-                <span className="a-chip a-ok a-t-label">
-                  <Check width={12} height={12} className="a-i" />
-                  Hecho
-                </span>
-              ) : (
-                <ChevronRight width={18} height={18} className="a-i" />
-              )}
+              <span className="a-rt">
+                <b className={`a-t-bs ${isDone ? "a-muted" : ""}`}>
+                  {etiquetaDia(dia)}
+                </b>
+                <small className={`a-t-sec ${isDone ? "a-muted" : ""}`}>
+                  {subtitle}
+                </small>
+              </span>
+              <ChevronRight width={18} height={18} className="a-i" />
             </button>
           );
         })}

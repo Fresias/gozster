@@ -152,7 +152,9 @@ describe("GOZS-495 Athlete App: Cronómetro de descanso + estructura responsive 
       expect(html).not.toContain("a-chev");
       expect(html).toContain("a-ahead");
 
-      // Logotipos bimodal día / noche
+      // Logotipos bimodal día / noche con enlace al inicio de Athlete App (/athlete)
+      expect(html).toContain('href="/athlete"');
+      expect(html).not.toContain('href="/" aria-label="GOZS Athlete');
       expect(html).toContain('src="/brand/gozs-logo-negro.png"');
       expect(html).toContain("dark:hidden");
       expect(html).toContain('src="/brand/gozs-logo-blanco.png"');
