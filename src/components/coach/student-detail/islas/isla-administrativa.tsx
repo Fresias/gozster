@@ -29,6 +29,7 @@ export interface IslaAdministrativaProps {
   detalleCobro?: string;
   kpisNegocio?: KpisNegocio;
   onRegistrarPago?: () => void;
+  onAsignarPlan?: () => void;
   onVerHistorialPagos?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -67,6 +68,7 @@ export function IslaAdministrativa({
   detalleCobro,
   kpisNegocio,
   onRegistrarPago,
+  onAsignarPlan,
   onVerHistorialPagos,
   onMoveUp,
   onMoveDown,
@@ -84,34 +86,47 @@ export function IslaAdministrativa({
 }: IslaAdministrativaProps) {
   const [activeTab, setActiveTab] = React.useState<"pagos" | "contratacion" | "atencion" | "config">("pagos");
 
-  // Derivación de plan activo y montos (fieles a Page 5 del PDF y KpisNegocio)
-  const displayPlanActivo = planActivo || "Pase libre · Funcional + Boxeo";
+  const tienePlan = Boolean(planActivo && planActivo.trim().length > 0 && planActivo !== "Sin plan asignado");
+  const displayPlanActivo = tienePlan ? planActivo! : "Sin plan asignado";
 
   const displayMonto = React.useMemo(() => {
     if (typeof monto === "number") {
       return `$${monto.toLocaleString("es-AR")}`;
     }
-    return monto || "$40.000";
-  }, [monto]);
+    if (monto && monto.trim().length > 0) {
+      return monto;
+    }
+    return tienePlan ? "" : "—";
+  }, [monto, tienePlan]);
 
-  // Alineación con KpisNegocio: verificar si es mora, al día o pendiente
-  const estadoNormalizado = (estadoCobro || "AL_DIA").toUpperCase();
+  // Alineación con KpisNegocio: verificar si es mora, al día, pendiente o sin plan
+  const estadoNormalizado = (estadoCobro || (tienePlan ? "PENDIENTE" : "SIN_PLAN")).toUpperCase();
+  const esSinPlan = !tienePlan && estadoNormalizado === "SIN_PLAN";
   const esVencido = estadoNormalizado === "VENCIDO" || estadoNormalizado === "MOROSO";
   const esPendiente = estadoNormalizado === "PENDIENTE" || estadoNormalizado === "POR_VENCER";
 
   const displayDetalleCobro = React.useMemo(() => {
     if (detalleCobro) return detalleCobro;
-    const vencStr = typeof fechaVencimiento === "string" ? fechaVencimiento : "26 nov";
+    if (esSinPlan) {
+      return "Sin cobros ni suscripción activa";
+    }
+    const vencStr = typeof fechaVencimiento === "string" && fechaVencimiento.trim().length > 0 ? fechaVencimiento : "";
     if (esVencido) {
-      return `Cuota vencida · venció ${vencStr}`;
+      return vencStr ? `Cuota vencida · venció ${vencStr}` : "Cuota vencida";
     }
     if (esPendiente) {
-      return `Pendiente de cobro · vence ${vencStr}`;
+      return vencStr ? `Pendiente de cobro · vence ${vencStr}` : "Pendiente de cobro";
     }
-    return `Pagado el 1 nov por transferencia · vence ${vencStr}`;
-  }, [detalleCobro, fechaVencimiento, esVencido, esPendiente]);
+    return vencStr ? `Pagado · vence ${vencStr}` : "Cuota al día";
+  }, [detalleCobro, fechaVencimiento, esSinPlan, esVencido, esPendiente]);
 
   const estadoBadge = React.useMemo(() => {
+    if (esSinPlan) {
+      return {
+        texto: "Sin plan",
+        className: "border-border text-muted-foreground bg-transparent",
+      };
+    }
     if (esVencido) {
       return {
         texto: "Vencido",
@@ -128,7 +143,7 @@ export function IslaAdministrativa({
       texto: "Al día",
       className: "border-success-soft-border text-success-soft-foreground bg-success-soft",
     };
-  }, [esVencido, esPendiente]);
+  }, [esSinPlan, esVencido, esPendiente]);
 
   return (
     <IslaCardShell
@@ -202,16 +217,29 @@ export function IslaAdministrativa({
           </div>
 
           <div className="grid grid-cols-2 items-center gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onRegistrarPago}
-              data-testid="btn-registrar-pago"
-              className="h-9 text-sm font-medium"
-            >
-              Registrar pago
-            </Button>
+            {esSinPlan && onAsignarPlan ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={onAsignarPlan}
+                data-testid="btn-asignar-plan-desde-membresia"
+                className="h-9 text-sm font-medium"
+              >
+                Asignar plan
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRegistrarPago}
+                data-testid="btn-registrar-pago"
+                className="h-9 text-sm font-medium"
+              >
+                Registrar pago
+              </Button>
+            )}
             <button
               type="button"
               onClick={() => {

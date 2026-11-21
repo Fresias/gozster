@@ -9,13 +9,19 @@ import {
   DEMO_PLANES_MEMBRESIA,
 } from "@/services/coach-demo-dataset";
 import { safeStorage } from "@/store/use-offline-queue";
-import type { Contratacion, MedioPago, Pago } from "@/types/database.types";
+import type { Cobro, Contratacion, MedioPago, Pago, Perfil, PlanMembresia } from "@/types/database.types";
 import {
   type ActividadPlanOpcion,
   type PlanMembresiaConVigencia,
   validarVigenciaFutura,
 } from "@/lib/planes";
 import { supabase } from "@/lib/supabase/client";
+import { esUuid } from "@/lib/athlete/uuid";
+import {
+  fetchCobrosDatasetFromSupabase,
+  registrarPagoReal,
+  type CobrosSupabaseDataset,
+} from "@/services/cobros-service";
 import {
   type ActividadKpi,
   type PagoMensualInput,
@@ -72,6 +78,167 @@ export function ultimaSuscripcionPorAlumno(items: CobroItem[]): CobroItem[] {
   return [...porAlumno.values()];
 }
 
+/** Una fila por contratación (último vencimiento), conservando adicionales del mismo alumno. */
+export function ultimaSuscripcionPorContrato(items: CobroItem[]): CobroItem[] {
+  const porContrato = new Map<string, CobroItem>();
+  for (const item of items) {
+    const clave = item.contratacionId || item.id;
+    const actual = porContrato.get(clave);
+    if (!actual || item.fechaVencimiento > actual.fechaVencimiento) {
+      porContrato.set(clave, item);
+    }
+  }
+  return [...porContrato.values()];
+}
+
+function isDemoCobro(c: CobroItem): boolean {
+  return (
+    c.id.startsWith("demo-") ||
+    c.id.startsWith("cobro-demo-") ||
+    c.alumnoId.startsWith("demo-") ||
+    c.contratacionId.startsWith("demo-")
+  );
+}
+
+function inferirActividadPlan(p: PlanMembresia): ActividadPlanOpcion {
+  const nombre = p.nombre.toLowerCase();
+  if (p.cantidad_actividades === 2 || (nombre.includes("funcional") && nombre.includes("boxeo")) || nombre.includes("libre")) {
+    return "FUNCIONAL_BOXEO";
+  }
+  if (nombre.includes("boxeo")) return "BOXEO";
+  if (nombre.includes("rutina") || nombre.includes("online") || nombre.includes("asesor")) return "RUTINAS";
+  return "FUNCIONAL";
+}
+
+export function mapearPlanesMembresia(planes: PlanMembresia[]): PlanMembresiaConVigencia[] {
+  return planes.map((p) => ({
+    ...p,
+    actividad_tipo: inferirActividadPlan(p),
+  }));
+}
+
+export function mapearCobrosDataset(
+  dataset: CobrosSupabaseDataset,
+  perfiles: Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">> = [],
+): {
+  cobros: CobroItem[];
+  planes: PlanMembresiaConVigencia[];
+  pagosHistorial: PagoMensualInput[];
+} {
+  const perfilesMap = new Map(perfiles.map((p) => [p.id, p]));
+  const contratacionesMap = new Map(dataset.contrataciones.map((c) => [c.id, c]));
+  const planesMapped = mapearPlanesMembresia(dataset.planesMembresia);
+  const planesMap = new Map(planesMapped.map((p) => [p.id, p]));
+
+  const pagosConfirmados = dataset.pagos.filter((p) => p.estado === "CONFIRMADO");
+  const pagosPorContratacion = new Map<string, Pago[]>();
+  for (const p of pagosConfirmados) {
+    const arr = pagosPorContratacion.get(p.contratacion_id) ?? [];
+    arr.push(p);
+    pagosPorContratacion.set(p.contratacion_id, arr);
+  }
+
+  const cobros: CobroItem[] = dataset.cobros.map((c: Cobro) => {
+    const perfil = perfilesMap.get(c.alumno_id);
+    const contratacion = contratacionesMap.get(c.contratacion_id);
+    const plan = contratacion?.plan_membresia_id ? planesMap.get(contratacion.plan_membresia_id) : undefined;
+    const pagosContrato = (pagosPorContratacion.get(c.contratacion_id) ?? []).sort((a, b) =>
+      (b.confirmado_at ?? b.created_at).localeCompare(a.confirmado_at ?? a.created_at),
+    );
+    const pagoConfirmado = c.estado === "PAGADO" ? pagosContrato[0] : undefined;
+
+    const actividad =
+      contratacion?.actividad ??
+      (plan?.actividad_tipo && plan.actividad_tipo !== "FUNCIONAL_BOXEO" ? plan.actividad_tipo : null) ??
+      (contratacion?.tipo_servicio === "ASESORIA_ONLINE" ? "RUTINAS" : null);
+
+    const servicioNombre =
+      c.concepto ||
+      plan?.nombre ||
+      (actividad === "FUNCIONAL"
+        ? "Funcional"
+        : actividad === "BOXEO"
+        ? "Boxeo"
+        : actividad === "RUTINAS" || contratacion?.tipo_servicio === "ASESORIA_ONLINE"
+        ? "Rutinas Online"
+        : "Membresía");
+
+    const monto = Number(c.monto);
+    const pagoMontoLista =
+      pagoConfirmado?.monto_lista != null ? Number(pagoConfirmado.monto_lista) : null;
+    const montoLista =
+      pagoMontoLista ??
+      (contratacion?.precio_pactado
+        ? Number(contratacion.precio_pactado)
+        : plan?.precio
+        ? Number(plan.precio)
+        : monto);
+    const descuento = montoLista > monto ? montoLista - monto : undefined;
+    const pagoCobrado = pagoConfirmado
+      ? Number(pagoConfirmado.monto_cobrado ?? pagoConfirmado.monto)
+      : 0;
+    const pagoLista = pagoConfirmado
+      ? Number(pagoConfirmado.monto_lista ?? pagoConfirmado.monto)
+      : 0;
+    const pagoDescuento = pagoLista > pagoCobrado ? pagoLista - pagoCobrado : undefined;
+    const diaVencimiento =
+      contratacion?.dia_vencimiento ??
+      (Number.isNaN(new Date(`${c.fecha_vencimiento}T12:00:00Z`).getUTCDate())
+        ? 10
+        : new Date(`${c.fecha_vencimiento}T12:00:00Z`).getUTCDate());
+
+    return {
+      id: c.id,
+      alumnoId: c.alumno_id,
+      alumnoNombre: perfil?.nombre_completo ?? "Alumno",
+      alumnoEmail: perfil?.email ?? "",
+      alumnoTelefono: perfil?.telefono ?? null,
+      contratacionId: c.contratacion_id,
+      planId: contratacion?.plan_membresia_id ?? plan?.id,
+      servicioNombre,
+      actividad,
+      monto,
+      montoLista,
+      descuento,
+      notaDescuento: c.notas ?? pagoConfirmado?.nota ?? undefined,
+      diaVencimiento,
+      fechaVencimiento: c.fecha_vencimiento,
+      estado: c.estado,
+      ultimoPago: pagoConfirmado
+        ? {
+            id: pagoConfirmado.id,
+            monto: pagoCobrado,
+            montoLista: pagoLista,
+            descuento: pagoDescuento,
+            medioPago: pagoConfirmado.medio_pago === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
+            fechaPago: pagoConfirmado.confirmado_at ?? pagoConfirmado.created_at,
+            confirmadoPor: "Coach",
+            notas: pagoConfirmado.nota ?? c.notas ?? undefined,
+          }
+        : undefined,
+    };
+  });
+
+  const pagosHistorial: PagoMensualInput[] = pagosConfirmados.map((p) => {
+    const contratacion = contratacionesMap.get(p.contratacion_id);
+    const plan = contratacion?.plan_membresia_id ? planesMap.get(contratacion.plan_membresia_id) : undefined;
+    const montoCobrado = Number(p.monto_cobrado ?? p.monto);
+    const montoListaPago = Number(p.monto_lista ?? p.monto);
+    return {
+      id: p.id,
+      monto: montoListaPago,
+      montoCobrado,
+      fechaPago: p.confirmado_at ?? p.created_at,
+      actividad: contratacion?.actividad ?? (contratacion?.tipo_servicio === "ASESORIA_ONLINE" ? "RUTINAS" : null),
+      servicioNombre: plan?.nombre ?? "Membresía",
+      tipoServicio: contratacion?.tipo_servicio ?? "PRESENCIAL",
+      notas: p.nota ?? undefined,
+    };
+  });
+
+  return { cobros, planes: planesMapped, pagosHistorial };
+}
+
 export interface CobrosMetricas {
   ingresosMes: number;
   ingresosPresencial?: number;
@@ -111,6 +278,7 @@ interface CobrosState {
   kpiAnualAbierto: boolean;
   busqueda: string;
   cargando: boolean;
+  isLiveMode: boolean;
   accionEnCurso: string | null;
   error: string | null;
   aviso: string | null;
@@ -123,6 +291,12 @@ interface CobrosState {
   setComprobanteActivo: (comprobante: ComprobanteInterno | null) => void;
   limpiarMensajes: () => void;
   syncWithLiveAlumnos: (alumnos: { id: string }[]) => void;
+  hydrateFromLiveDataset: (dataset: {
+    alumnos?: Perfil[];
+    cobros?: Cobro[];
+    contrataciones?: Contratacion[];
+    planesMembresia?: PlanMembresia[];
+  }) => void;
 
   cargarCobros: () => Promise<void>;
   registrarPago: (params: {
@@ -180,6 +354,7 @@ interface CobrosState {
   obtenerPlanesActivos: () => PlanMembresiaConVigencia[];
 
   vincularCobroPlan: (params: {
+    cobroId?: string;
     contratacionId: string;
     alumnoId: string;
     alumnoNombre: string;
@@ -188,6 +363,8 @@ interface CobrosState {
     servicioNombre: string;
     actividad?: string | null;
     monto: number;
+    pagado?: boolean;
+    medioPago?: "TRANSFERENCIA" | "EFECTIVO";
     diaVencimiento: number;
     fechaVencimiento: string;
     esAdicional?: boolean;
@@ -479,6 +656,7 @@ export const useCobrosStore = create<CobrosState>()(
       kpiAnualAbierto: false,
       busqueda: "",
       cargando: false,
+      isLiveMode: false,
       accionEnCurso: null,
       error: null,
       aviso: null,
@@ -492,8 +670,41 @@ export const useCobrosStore = create<CobrosState>()(
       limpiarMensajes: () => set({ error: null, aviso: null }),
       syncWithLiveAlumnos: (alumnos) => {
         const ids = new Set(alumnos.map((a) => a.id));
+        const tieneReales = alumnos.some((a) => !a.id.startsWith("demo-"));
         set((state) => ({
-          cobros: state.cobros.filter((c) => ids.has(c.alumnoId)),
+          isLiveMode: tieneReales ? true : state.isLiveMode,
+          cobros: state.cobros.filter((c) => {
+            if (!isDemoCobro(c)) return true;
+            return !tieneReales && ids.has(c.alumnoId);
+          }),
+        }));
+      },
+
+      hydrateFromLiveDataset: (dataset) => {
+        const alumnos = dataset.alumnos ?? [];
+        const hasLiveCobros = Array.isArray(dataset.cobros);
+        const hasLivePlanes = Array.isArray(dataset.planesMembresia);
+        if (!hasLiveCobros && !hasLivePlanes) {
+          get().syncWithLiveAlumnos(alumnos);
+          return;
+        }
+        const mapped = mapearCobrosDataset(
+          {
+            cobros: dataset.cobros ?? [],
+            contrataciones: dataset.contrataciones ?? [],
+            planesMembresia: dataset.planesMembresia ?? [],
+            pagos: [],
+            alumnoActividades: [],
+          },
+          alumnos,
+        );
+        set((state) => ({
+          isLiveMode: true,
+          cobros: hasLiveCobros ? mapped.cobros : state.cobros.filter((c) => !isDemoCobro(c)),
+          planes:
+            hasLivePlanes && (dataset.planesMembresia?.length ?? 0) > 0
+              ? mapped.planes
+              : state.planes.filter((p) => !p.id.startsWith("demo-")),
         }));
       },
 
@@ -505,6 +716,7 @@ export const useCobrosStore = create<CobrosState>()(
           cobros: demo,
           planes: demoPlanes,
           pagosHistorial: demoPagos,
+          isLiveMode: false,
           filtroEstado: "TODOS",
           filtroActividadKpiAnual: "TODAS",
           kpiAnualAbierto: false,
@@ -516,30 +728,90 @@ export const useCobrosStore = create<CobrosState>()(
       },
 
       cargarCobros: async () => {
-        if (get().cobros.length === 0) {
-          set({ cobros: generarDemoCobrosIniciales(), cargando: false });
+        let user: { id: string } | null = null;
+        try {
+          const authRes = await supabase.auth.getUser();
+          user = authRes.data?.user ?? null;
+        } catch {
+          user = null;
+        }
+
+        if (!user) {
+          if (!get().isLiveMode && get().cobros.length === 0) {
+            set({ cobros: generarDemoCobrosIniciales(), cargando: false });
+          }
+          return;
+        }
+
+        set({ cargando: true, error: null, isLiveMode: true });
+        try {
+          const [dataset, perfilesRes] = await Promise.all([
+            fetchCobrosDatasetFromSupabase(supabase),
+            supabase.from("perfiles").select("id, nombre_completo, email, telefono"),
+          ]);
+          const perfiles = (perfilesRes.data as Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">>) ?? [];
+          const mapped = mapearCobrosDataset(dataset, perfiles);
+          set({
+            cobros: mapped.cobros,
+            planes: mapped.planes,
+            pagosHistorial: mapped.pagosHistorial,
+            cargando: false,
+            isLiveMode: true,
+            error: null,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "No se pudieron cargar los cobros desde Supabase.";
+          set({ cargando: false, error: msg, isLiveMode: true });
         }
       },
 
       registrarPago: async ({ contratacionId, monto, montoLista, medioPago, notas, fechaPago }) => {
-        const item = get().cobros.find((c) => c.contratacionId === contratacionId);
+        const item = get().cobros.find((c) => c.contratacionId === contratacionId || c.id === contratacionId);
         if (!item) {
           throw new Error("Contratación no encontrada");
         }
 
         set({ accionEnCurso: contratacionId, error: null, aviso: null });
 
+        let user: { id: string } | null = null;
+        try {
+          const authRes = await supabase.auth.getUser();
+          user = authRes.data?.user ?? null;
+        } catch {
+          user = null;
+        }
+
+        let cobroRemoto: Cobro | null = null;
+        if (user && esUuid(item.id)) {
+          try {
+            cobroRemoto = await registrarPagoReal(
+              {
+                cobroId: item.id,
+                monto,
+                metodo: medioPago,
+                nota: notas?.trim() || null,
+              },
+              supabase,
+            );
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "No se pudo registrar el pago en Supabase.";
+            set({ accionEnCurso: null, error: msg });
+            throw err;
+          }
+        }
+
         const precioLista = montoLista ?? item.montoLista ?? item.monto;
         const descuento = precioLista > monto ? precioLista - monto : undefined;
 
         // Regla ADR-001: anclaje de fecha (vence 10/10, paga 18/10 -> vence 10/11)
-        const nuevaFechaFin = computeAnchoredRenewalDate(item.fechaVencimiento, item.diaVencimiento);
+        const nuevaFechaFin = cobroRemoto?.fecha_vencimiento ?? computeAnchoredRenewalDate(item.fechaVencimiento, item.diaVencimiento);
         const pagoId = `pago-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         const ahoraIso = fechaPago
           ? (fechaPago.includes("T") ? fechaPago : `${fechaPago}T12:00:00.000Z`)
           : new Date().toISOString();
         const reciboNumero = `REC-${pagoId.slice(-6).toUpperCase()}`;
 
+        const confirmadoPor = user ? "Coach" : "Lucía Ferraro";
         const comprobante: ComprobanteInterno = {
           reciboNumero,
           fechaEmision: ahoraIso,
@@ -551,21 +823,21 @@ export const useCobrosStore = create<CobrosState>()(
           descuento,
           medioPago,
           fechaPago: ahoraIso,
-          confirmadoPor: "Lucía Ferraro",
+          confirmadoPor,
           proximoVencimiento: nuevaFechaFin,
           notas,
         };
 
         // Actualización en memoria y estado local
         const cobrosActualizados = get().cobros.map((c) => {
-          if (c.contratacionId === contratacionId) {
+          if (c.id === item.id) {
             return {
               ...c,
-              estado: "PAGADO" as const,
-              monto,
+              estado: (cobroRemoto?.estado ?? "PAGADO") as EstadoCobro,
+              monto: cobroRemoto ? Number(cobroRemoto.monto) : monto,
               montoLista: precioLista,
               descuento,
-              notaDescuento: notas,
+              notaDescuento: notas ?? cobroRemoto?.notas ?? undefined,
               fechaVencimiento: nuevaFechaFin,
               ultimoPago: {
                 id: pagoId,
@@ -574,7 +846,7 @@ export const useCobrosStore = create<CobrosState>()(
                 descuento,
                 medioPago,
                 fechaPago: ahoraIso,
-                confirmadoPor: "Lucía Ferraro",
+                confirmadoPor,
                 notas,
               },
             };
@@ -1053,6 +1325,7 @@ export const useCobrosStore = create<CobrosState>()(
 
       vincularCobroPlan: (params) => {
         const {
+          cobroId,
           contratacionId,
           alumnoId,
           alumnoNombre,
@@ -1061,6 +1334,8 @@ export const useCobrosStore = create<CobrosState>()(
           servicioNombre,
           actividad,
           monto,
+          pagado = monto === 0,
+          medioPago = "TRANSFERENCIA",
           diaVencimiento,
           fechaVencimiento,
           esAdicional = true,
@@ -1068,8 +1343,13 @@ export const useCobrosStore = create<CobrosState>()(
           planId,
         } = params;
 
+        const estaPagado = pagado || monto === 0;
+        const ahoraIso = new Date().toISOString();
+        const pagoId = `pago-${contratacionId}`;
+        const nuevoCobroId = cobroId ?? `cobro-${contratacionId}`;
+
         const nuevoCobro: CobroItem = {
-          id: `cobro-${contratacionId}`,
+          id: nuevoCobroId,
           alumnoId,
           alumnoNombre,
           alumnoEmail,
@@ -1083,27 +1363,43 @@ export const useCobrosStore = create<CobrosState>()(
           notaDescuento: notas ?? undefined,
           diaVencimiento,
           fechaVencimiento,
-          estado: monto === 0 ? "PAGADO" : "PENDIENTE",
-          ultimoPago:
-            monto === 0
-              ? {
-                  id: `pago-${contratacionId}`,
-                  monto: 0,
-                  montoLista: 0,
-                  medioPago: "TRANSFERENCIA",
-                  fechaPago: new Date().toISOString(),
-                  confirmadoPor: "Convenio $0",
-                  notas: notas ?? "Plan $0",
-                }
-              : undefined,
+          estado: estaPagado ? "PAGADO" : "PENDIENTE",
+          ultimoPago: estaPagado
+            ? {
+                id: pagoId,
+                monto,
+                montoLista: monto,
+                medioPago,
+                fechaPago: ahoraIso,
+                confirmadoPor: monto === 0 ? "Convenio $0" : "Coach",
+                notas: notas ?? (monto === 0 ? "Plan $0" : undefined),
+              }
+            : undefined,
         };
 
+        const nuevoPago: PagoMensualInput | undefined = estaPagado
+          ? {
+              id: pagoId,
+              monto,
+              montoCobrado: monto,
+              fechaPago: ahoraIso,
+              actividad: actividad ?? null,
+              servicioNombre,
+              tipoServicio: actividad === "RUTINAS" ? "ASESORIA_ONLINE" : "PRESENCIAL",
+              notas: notas ?? undefined,
+            }
+          : undefined;
+
         set((state) => {
-          if (esAdicional) {
-            return { cobros: [nuevoCobro, ...state.cobros] };
-          }
-          const otros = state.cobros.filter((c) => c.alumnoId !== alumnoId);
-          return { cobros: [nuevoCobro, ...otros] };
+          const base = esAdicional
+            ? state.cobros.filter((c) => c.id !== nuevoCobroId && c.contratacionId !== contratacionId)
+            : state.cobros.filter((c) => c.alumnoId !== alumnoId);
+          return {
+            cobros: [nuevoCobro, ...base],
+            pagosHistorial: nuevoPago
+              ? [...(state.pagosHistorial ?? []), nuevoPago]
+              : state.pagosHistorial,
+          };
         });
       },
     }),
