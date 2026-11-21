@@ -10,6 +10,7 @@ export default defineConfig({
       "harness-kit/tests/**/*.spec.ts",
     ],
     globals: false,
+    globalSetup: ["./src/__tests__/helpers/pglite-global-setup.ts"],
     // Child processes inherit process.env, so the guard never writes real telemetry from tests.
     env: { HARNESS_TELEMETRY: "0" },
     maxWorkers: 4,

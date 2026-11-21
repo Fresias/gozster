@@ -1,8 +1,8 @@
 ﻿import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -28,9 +28,6 @@ import { ejercicioBloqueado } from "@/lib/athlete/molestias";
  * ============================================================================
  */
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-const NEW_MIGRATION = "20261019110000_molestias_red_flags_sustituciones.sql";
-
 // UUIDs canónicos para el entorno de test PostgreSQL (PGlite)
 const ADMIN_ID = "00000000-0000-0000-0000-0000000000ad";
 const COACH_ID = "00000000-0000-0000-0000-00000000c0ac";
@@ -49,22 +46,6 @@ const SESION_PASADA_ID = "50000000-0000-0000-0000-000000000001";
 const SERIE_PASADA_ID = "60000000-0000-0000-0000-000000000001";
 
 type RolDB = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const QA_SEED_SQL = `
   INSERT INTO auth.users (id, email) VALUES
@@ -109,16 +90,6 @@ const QA_SEED_SQL = `
 
 let db: PGlite;
 
-async function aplicarSqlMigracion(sql: string) {
-  const marker = sql.search(/^BEGIN;/m);
-  if (marker > 0) {
-    await db.exec(sql.slice(0, marker));
-    await db.exec(sql.slice(marker));
-  } else {
-    await db.exec(sql);
-  }
-}
-
 function queryAs<T>(rol: RolDB, sub: string | null, sql: string, params: unknown[] = []) {
   return db.transaction(async (tx: Transaction) => {
     await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -134,16 +105,8 @@ const readSourceFile = (relativePath: string) =>
 
 describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Sustituciones Trazables (#67 / PR #71)", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      if (archivo === NEW_MIGRATION) {
-        await db.exec(QA_SEED_SQL);
-      }
-      await aplicarSqlMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-    }
+    db = await crearDbMigrada();
+    await db.exec(QA_SEED_SQL);
   }, 60_000);
 
   beforeEach(() => {

@@ -1,13 +1,9 @@
 ﻿import { describe, it, expect, beforeAll } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 
 // GOZS-185 (QA): casos límite de cobros, veces por semana, pase libre, cupo flexible y RLS.
 // Complementa agenda-cobros-coach.spec.ts sobre la misma migración, en Postgres real (PGlite).
-
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
 
 const COACH_A = "00000000-0000-0000-0000-0000000000a1";
 const COACH_B = "00000000-0000-0000-0000-0000000000b1";
@@ -18,22 +14,6 @@ const PLAN_2X = "20000000-0000-0000-0000-0000000000a1";
 const PLAN_LIBRE = "20000000-0000-0000-0000-0000000000a2";
 
 type Rol = "anon" | "authenticated" | "service_role";
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const SEED = `
   INSERT INTO auth.users (id, email) VALUES
@@ -56,16 +36,6 @@ const SEED = `
 `;
 
 let db: PGlite;
-
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
 
 function como<T>(rol: Rol, sub: string | null, sql: string) {
   return db.transaction(async (tx: Transaction) => {
@@ -115,12 +85,7 @@ const pagar = (sub: string, cobro: string, monto: string, metodo: string) =>
 
 describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
   beforeAll(async () => {
-    db = new PGlite({ extensions: { pgcrypto } });
-    await db.exec(SUPABASE_STUBS);
-    const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-    for (const archivo of archivos) {
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
-    }
+    db = await crearDbMigrada();
     await db.exec(SEED);
   }, 60_000);
 

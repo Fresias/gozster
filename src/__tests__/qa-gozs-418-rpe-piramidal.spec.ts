@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite, type Transaction } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 import { validarRutina, repsValidas, claveEjercicio } from "@/lib/validar-rutina";
 import {
   parsePyramidSeriesCount,
@@ -105,41 +105,13 @@ describe("GOZS-418: Motor de Cargas - RPE Piramidal Escalonado con Guiones", () 
   });
 
   describe("3. Criterios de Aceptación: Migración SQL Append-Only y Persistencia en Base de Datos", () => {
-    const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
     const COACH = "00000000-0000-0000-0000-0000000000c1";
     const EJ = "10000000-0000-0000-0000-0000000000e1";
 
-    const STUBS = `
-      CREATE ROLE anon NOLOGIN;
-      CREATE ROLE authenticated NOLOGIN;
-      CREATE ROLE service_role NOLOGIN BYPASSRLS;
-      CREATE SCHEMA auth;
-      CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text, encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
-      CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-        SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-      CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-        SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-    `;
-
     let db: PGlite;
 
-    async function aplicar(sql: string) {
-      const inicio = sql.search(/^BEGIN;/m);
-      if (inicio > 0) {
-        await db.exec(sql.slice(0, inicio));
-        await db.exec(sql.slice(inicio));
-      } else {
-        await db.exec(sql);
-      }
-    }
-
     beforeAll(async () => {
-      db = new PGlite({ extensions: { pgcrypto } });
-      await db.exec(STUBS);
-      for (const f of fs.readdirSync(MIGRATIONS_DIR).filter((x) => x.endsWith(".sql")).sort()) {
-        await aplicar(fs.readFileSync(path.join(MIGRATIONS_DIR, f), "utf-8"));
-      }
+      db = await crearDbMigrada();
       await db.exec(`
         INSERT INTO auth.users (id, email) VALUES ('${COACH}','c@t');
         INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)

@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { PGlite, type Transaction } from '@electric-sql/pglite';
-import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
+import { type PGlite, type Transaction } from '@electric-sql/pglite';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from './helpers/pglite-migrada';
 import { formatearMedioPago, MEDIO_PAGO_LABEL, normalizarMedioPago } from '@/lib/cobros';
 import { formatearMedioPago as formatearDesdeFormat } from '@/lib/format-medio-pago';
 import { nivelDesdeEva, derivarSeveridadDesdeEva } from '@/lib/dolor';
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '../../supabase/migrations');
 const MIGRACION_OLA1 = '20261107000000_ola1_dolor_nivel_permisos_registrar_pago.sql';
 
 const ADMIN = '00000000-0000-0000-0000-0000000000ad';
@@ -20,34 +19,6 @@ const EJERCICIO_1 = '00000000-0000-0000-0000-0000000000e1';
 const CONTRATACION_1 = '30000000-0000-0000-0000-000000000001';
 
 type Rol = 'anon' | 'authenticated' | 'service_role';
-
-const SUPABASE_STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (
-    id uuid PRIMARY KEY,
-    instance_id uuid,
-    aud text,
-    role text,
-    email text,
-    encrypted_password text,
-    email_confirmed_at timestamptz,
-    raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
-  );
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
 
 const SEED = `
   INSERT INTO auth.users (id, email) VALUES
@@ -80,16 +51,6 @@ const SEED = `
 `;
 
 let db: PGlite;
-
-async function aplicarMigracion(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
 
 function como<T>(rol: Rol, sub: string | null, sql: string, params: unknown[] = []) {
   return db.transaction(async (tx: Transaction) => {
@@ -138,16 +99,10 @@ describe('GOZS-406: Ola 1 Base Backend — v_dolor_activo.nivel, permisos, actua
 
   describe('2. Criterios Gherkin en Base de Datos PGlite', () => {
     beforeAll(async () => {
-      db = new PGlite({ extensions: { pgcrypto } });
-      await db.exec(SUPABASE_STUBS);
-
-      const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
-      for (const archivo of archivos) {
-        await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8'));
-      }
+      db = await crearDbMigrada();
 
       // Verificar idempotencia de la migración de Ola 1
-      await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRACION_OLA1), 'utf-8'));
+      await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRACION_OLA1), 'utf-8'));
 
       await db.exec(SEED);
     }, 60_000);
