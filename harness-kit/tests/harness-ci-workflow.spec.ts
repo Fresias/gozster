@@ -169,5 +169,30 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(mergeContent).not.toMatch(/uses:\s*actions\/checkout@v4/);
       expect(mergeContent).not.toMatch(/uses:\s*actions\/setup-node@v4/);
     });
+
+    it("GIVEN ci.yml paralelizado (GOZS-651) THEN ejecuta typecheck, build, test-db y test-rest en paralelo, agrega en verify con if: always() y consolida post-merge en un solo job", () => {
+      const content = readFileSync(ciWorkflowPath, "utf8");
+
+      const jobsSection = content.slice(content.indexOf("jobs:"), content.indexOf("verify:"));
+      expect(jobsSection).toMatch(/^\s{2}typecheck:/m);
+      expect(jobsSection).toMatch(/^\s{2}build:/m);
+      expect(jobsSection).toMatch(/^\s{2}test-db:/m);
+      expect(jobsSection).toMatch(/^\s{2}test-rest:/m);
+      expect(jobsSection).toContain("npx vitest run --project db");
+      expect(jobsSection).toContain("npx vitest run --project unit --project harness");
+
+      const verifyBlock = content.slice(content.indexOf("verify:"), content.indexOf("post-merge:"));
+      expect(verifyBlock).toMatch(/needs:\s*\[typecheck,\s*build,\s*test-db,\s*test-rest\]/);
+      expect(verifyBlock).toMatch(/if:\s*always\(\)/);
+      expect(verifyBlock).toContain("needs.typecheck.result");
+      expect(verifyBlock).toContain("needs.build.result");
+      expect(verifyBlock).toContain("needs.test-db.result");
+      expect(verifyBlock).toContain("needs.test-rest.result");
+
+      const postMergeBlock = content.slice(content.indexOf("post-merge:"), content.indexOf("harness-debt:"));
+      expect(postMergeBlock).toContain("github.event_name == 'push' && github.ref == 'refs/heads/main'");
+      expect(postMergeBlock).toContain("node harness-kit/core/scripts/harness-propose.mjs --post-merge");
+      expect(postMergeBlock).toContain("uses: actions/upload-artifact@v7");
+    });
   });
 });
