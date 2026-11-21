@@ -5,15 +5,18 @@ import { NOMBRE_ACTIVIDAD } from "@/components/ui/days-strip";
 import { Check, CloudOff, X } from "@/components/athlete/icons";
 import {
   claveDia,
-  clasesUsadas,
+  clasesUsadasEstaSemana,
   diasDeLaSemana,
   estadoTarjetaClase,
   horaLocal,
   inicioPeriodoRenovacion,
+  obtenerLimiteSemanalClases,
   ocupaCupo,
   resolverActividadesHabilitadas,
+  textoRestantes,
   type EstadoTarjetaClase,
 } from "@/lib/clases";
+export { textoRestantes };
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { ActividadClase, Clase, Reserva } from "@/types/database.types";
@@ -29,12 +32,6 @@ export function textoCupo(capacidad: number | null, libres: number | null): stri
   if (capacidad === null || libres === null) return "Cupo libre";
   if (libres <= 0) return "Completa";
   return libres === 1 ? "Queda 1 lugar" : `Quedan ${libres} lugares`;
-}
-
-/** "Te queda 1 clase" · "Te quedan 2 clases" · "No te quedan clases". */
-export function textoRestantes(restantes: number): string {
-  if (restantes <= 0) return "No te quedan clases";
-  return restantes === 1 ? "Te queda 1 clase" : `Te quedan ${restantes} clases`;
 }
 
 /** Celdas del mes (lunes a domingo): `null` para los huecos previos al día 1. */
@@ -113,13 +110,8 @@ export function AthleteClasses() {
   const reservaPorClase = new Map(
     misReservas.filter((r) => r.estado !== "CANCELADO").map((r) => [r.clase_id, r]),
   );
-  const usadas = clasesUsadas(misReservas, visibles);
-  const limite =
-    plan?.limite_semanal ??
-    actividadesAlumno.find(
-      (a) => habilitadasSet.has(a.actividad as ActividadClase) && !a.pase_libre,
-    )?.veces_por_semana ??
-    null;
+  const usadas = clasesUsadasEstaSemana(misReservas, visibles, ahora);
+  const limite = obtenerLimiteSemanalClases({ plan, actividadesAlumno, habilitadas });
   const restantes = limite === null ? null : Math.max(limite - usadas, 0);
 
   const clasesPorDia = React.useMemo(() => {

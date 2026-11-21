@@ -1141,6 +1141,17 @@ body:has(.theme-athlete[data-v7]) {
   color: var(--a-on-sel);
 }
 
+.theme-athlete[data-v7] .a-days .a-row.a-done .a-num {
+  border-radius: 999px;
+  background: var(--a-sel);
+  color: var(--a-on-sel);
+}
+
+.theme-athlete[data-v7] .a-days .a-row.a-done .a-rt b,
+.theme-athlete[data-v7] .a-days .a-row.a-done .a-rt small {
+  color: var(--a-fg-2);
+}
+
 .theme-athlete[data-v7] .a-card .a-card {
   box-shadow: none;
 }

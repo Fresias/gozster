@@ -142,6 +142,8 @@ describe("Athlete v7 · FE-02 Shell (CP1–CP3)", () => {
     expect(html).not.toContain('data-testid="plane-icon-android"');
     expect(html).not.toContain(">Online<");
     expect(html).toContain("a-logo");
+    expect(html).toContain('href="/athlete"');
+    expect(html).not.toContain('href="/"');
     expect(html).toContain('aria-label="Cerrar sesión"');
     expect(html).not.toContain('data-testid="network-status-popover"');
   });

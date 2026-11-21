@@ -1,4 +1,5 @@
 import { semanaEnCurso } from "@/lib/clases";
+import type { Clase, Reserva } from "@/types/database.types";
 
 export interface DiaRutinaItem {
   id: string;
@@ -354,6 +355,38 @@ export function calcularRachaSemanas(
     cursor = semanaEnCurso(new Date(cursor - 3 * 86_400_000)).inicio.getTime();
   }
   return racha;
+}
+
+/**
+ * Calcula la racha semanal de asistencia a clases presenciales.
+ * Asistencia = reserva `ANOTADO` en clase `PROGRAMADA` cuyo `inicio` ya pasó (`<= ahora`).
+ * Excluye `AUSENTE`, `CANCELADO`, `ANULADO` y clases `CANCELADA` o futuras.
+ */
+export function calcularRachaAsistenciasClases(
+  reservas: Pick<Reserva, "clase_id" | "estado">[],
+  clases: Pick<Clase, "id" | "inicio" | "estado">[],
+  ahora: Date = new Date(),
+): number {
+  if (!reservas?.length || !clases?.length) return 0;
+  const ahoraMs = ahora.getTime();
+  const clasesProgramadas = new Map<string, Pick<Clase, "id" | "inicio" | "estado">>();
+  for (const c of clases) {
+    if (c.estado === "PROGRAMADA") {
+      clasesProgramadas.set(c.id, c);
+    }
+  }
+
+  const fechasAsistencia: string[] = [];
+  for (const r of reservas) {
+    if (r.estado !== "ANOTADO") continue;
+    const clase = clasesProgramadas.get(r.clase_id);
+    if (!clase) continue;
+    const inicioMs = Date.parse(clase.inicio);
+    if (Number.isNaN(inicioMs) || inicioMs > ahoraMs) continue;
+    fechasAsistencia.push(clase.inicio);
+  }
+
+  return calcularRachaSemanas(fechasAsistencia, ahora);
 }
 
 /** Etiqueta del día: antepone `Día {orden} ·` salvo que el coach ya nombró el día "Día N: ...". */

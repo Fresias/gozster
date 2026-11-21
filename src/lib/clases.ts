@@ -229,6 +229,90 @@ export function clasesUsadas(reservas: Reserva[], clasesSemana: Pick<Clase, "id"
   return new Set(reservas.filter((r) => ocupaCupo(r) && ids.has(r.clase_id)).map((r) => r.clase_id)).size;
 }
 
+/** Clases distintas consumidas dentro de la ventana semanal (`semanaEnCurso`) de `ahora`. */
+export function clasesUsadasEstaSemana(
+  reservas: Reserva[],
+  clases: Pick<Clase, "id" | "inicio">[],
+  ahora: Date = new Date(),
+): number {
+  const { inicio, fin } = semanaEnCurso(ahora);
+  const inicioMs = inicio.getTime();
+  const finMs = fin.getTime();
+  const clasesSemana = clases.filter((c) => {
+    const ms = Date.parse(c.inicio);
+    return !Number.isNaN(ms) && ms >= inicioMs && ms <= finMs;
+  });
+  return clasesUsadas(reservas, clasesSemana);
+}
+
+/** Límite semanal efectivo de clases del alumno (`null` = pase libre). */
+export function obtenerLimiteSemanalClases(params: {
+  plan?: Pick<PlanMembresia, "limite_semanal"> | null;
+  actividadesAlumno?: Pick<AlumnoActividad, "actividad" | "pase_libre" | "veces_por_semana">[];
+  habilitadas?: ActividadClase[];
+}): number | null {
+  const { plan, actividadesAlumno = [], habilitadas = [] } = params;
+  const habilitadasSet = new Set<ActividadClase>(habilitadas);
+  return (
+    plan?.limite_semanal ??
+    actividadesAlumno.find(
+      (a) =>
+        (habilitadasSet.size === 0 || habilitadasSet.has(a.actividad as ActividadClase)) &&
+        !a.pase_libre,
+    )?.veces_por_semana ??
+    null
+  );
+}
+
+/** "Te queda 1 clase" · "Te quedan 2 clases" · "No te quedan clases". */
+export function textoRestantes(restantes: number): string {
+  if (restantes <= 0) return "No te quedan clases";
+  return restantes === 1 ? "Te queda 1 clase" : `Te quedan ${restantes} clases`;
+}
+
+const esContratacionDeClases = (
+  c: Pick<Contratacion, "estado" | "plan_membresia_id" | "actividad"> | null | undefined,
+): boolean =>
+  Boolean(
+    c &&
+      c.estado !== "VENCIDA" &&
+      c.estado !== "EN_PAUSA" &&
+      (c.plan_membresia_id !== null ||
+        c.actividad === "FUNCIONAL" ||
+        c.actividad === "BOXEO"),
+  );
+
+/**
+ * Indica si el alumno posee membresía presencial vigente, actividades de clase o reservas activas,
+ * para diferenciar al alumno de clases del alumno completamente sin plan ni clases.
+ */
+export function tieneMembresiaOReservasClases(params: {
+  plan?: Pick<PlanMembresia, "id"> | null;
+  membresia?: Pick<Contratacion, "estado" | "plan_membresia_id" | "actividad"> | null;
+  contratacionesAlumno?: Pick<Contratacion, "estado" | "plan_membresia_id" | "actividad">[];
+  actividadesAlumno?: Pick<AlumnoActividad, "actividad">[];
+  actividadesHabilitadas?: ActividadClase[];
+  misReservas?: Pick<Reserva, "estado">[];
+}): boolean {
+  const {
+    plan,
+    membresia,
+    contratacionesAlumno = [],
+    actividadesAlumno = [],
+    actividadesHabilitadas = [],
+    misReservas = [],
+  } = params;
+
+  if (plan) return true;
+  if (actividadesHabilitadas.length > 0) return true;
+  if (esContratacionDeClases(membresia)) return true;
+  if (contratacionesAlumno.some(esContratacionDeClases)) return true;
+  if (actividadesAlumno.some((a) => a.actividad === "FUNCIONAL" || a.actividad === "BOXEO")) {
+    return true;
+  }
+  return misReservas.some((r) => r.estado === "ANOTADO");
+}
+
 export type EstadoTarjetaClase =
   | "CANCELADA"
   | "AUSENTE"

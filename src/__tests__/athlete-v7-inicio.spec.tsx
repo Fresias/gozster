@@ -109,6 +109,11 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       clases: [],
       misReservas: [],
       agendaReservas: [],
+      membresia: null,
+      plan: null,
+      contratacionesAlumno: [],
+      actividadesAlumno: [],
+      actividadesHabilitadas: [],
       testAhora: null,
     });
     useOfflineQueueStore.setState({ isOnline: true });
@@ -167,13 +172,15 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(html).toContain('data-testid="heroe-te-toca-hoy"');
     expect(html).toContain("a-hero");
     expect(html).toContain("Seguir Día 2");
-    expect(html).toContain("1/3 esta semana");
+    expect(html).not.toContain("1/3 esta semana");
     expect(html).toContain("Hecho");
+    expect(html).toContain("a-row a-done");
+    expect(html).not.toContain("a-chip a-ok");
 
-    // En Día 1 hay biserie y 0 series completadas: Empezar Día 1 + chip Con biserie
+    // En Día 1 sin series completadas: Empezar Día 1 y sin chip Con biserie
     useAthleteStore.setState({ sesionesCompletadas: [] });
     const htmlDia1 = renderToStaticMarkup(<InicioMisDias />);
-    expect(htmlDia1).toContain("Con biserie");
+    expect(htmlDia1).not.toContain("Con biserie");
     expect(htmlDia1).toContain("Empezar Día 1");
   });
 
@@ -610,5 +617,136 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       fetchPlanSpy.mockRestore();
       fromSpy.mockRestore();
     }
+  });
+
+  it("GIVEN alumno solo de clases con reserva futura WHEN abre inicio THEN ve próxima clase, X de N clases, racha, recordatorio de peso y NO 'Todavía no tenés un plan'", () => {
+    useAthleteStore.setState({
+      planAlumno: {
+        ...PLAN_BASE,
+        alumnos: [{ ...PLAN_BASE.alumnos[0]!, peso_corporal_kg: null }],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+      },
+    });
+    useClasesStore.setState({
+      testAhora: "2026-11-20T12:00:00-03:00",
+      plan: {
+        id: "pm-3x",
+        nombre: "Funcional 3x",
+        limite_semanal: 3,
+        cantidad_actividades: 1,
+        duracion_meses: 1,
+        precio: 25000,
+      } as any,
+      actividadesHabilitadas: ["FUNCIONAL"],
+      clases: [
+        {
+          id: "c-pasada-1",
+          horario_id: null,
+          actividad: "FUNCIONAL",
+          inicio: "2026-11-11T19:00:00-03:00",
+          duracion_minutos: 60,
+          capacidad: 12,
+          estado: "PROGRAMADA",
+          motivo_cancelacion: null,
+          created_at: "",
+          updated_at: "",
+        },
+        {
+          id: "c-pasada-2",
+          horario_id: null,
+          actividad: "FUNCIONAL",
+          inicio: "2026-11-18T19:00:00-03:00",
+          duracion_minutos: 60,
+          capacidad: 12,
+          estado: "PROGRAMADA",
+          motivo_cancelacion: null,
+          created_at: "",
+          updated_at: "",
+        },
+        {
+          id: "c-futura-1",
+          horario_id: null,
+          actividad: "FUNCIONAL",
+          inicio: "2026-11-20T19:00:00-03:00",
+          duracion_minutos: 60,
+          capacidad: 12,
+          estado: "PROGRAMADA",
+          motivo_cancelacion: null,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
+      misReservas: [
+        { id: "r1", clase_id: "c-pasada-1", alumno_id: "al-1", estado: "ANOTADO", created_at: "", updated_at: "" },
+        { id: "r2", clase_id: "c-pasada-2", alumno_id: "al-1", estado: "ANOTADO", created_at: "", updated_at: "" },
+        { id: "r3", clase_id: "c-futura-1", alumno_id: "al-1", estado: "ANOTADO", created_at: "", updated_at: "" },
+      ],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain('data-testid="inicio-clases-container"');
+    expect(html).not.toContain("Todavía no tenés un plan");
+    expect(html).toContain('data-testid="clase-reservada-card"');
+    expect(html).toContain("Funcional");
+    expect(html).toContain("Hoy · 19:00 hs");
+    expect(html).toContain("2 de 3 clases esta semana");
+    expect(html).toContain('data-testid="racha-semanas-chip"');
+    expect(html).toContain("2 SEM");
+    expect(html).toContain('data-testid="recordatorio-peso-card"');
+  });
+
+  it("GIVEN alumno solo de clases sin reservas futuras (pase libre) WHEN abre inicio THEN ve CTA 'Reservá tu próxima clase' y contador libre", () => {
+    useAthleteStore.setState({
+      planAlumno: {
+        ...PLAN_BASE,
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+      },
+    });
+    useClasesStore.setState({
+      testAhora: "2026-11-20T12:00:00-03:00",
+      plan: {
+        id: "pm-libre",
+        nombre: "Pase Libre",
+        limite_semanal: null,
+        cantidad_actividades: 2,
+        duracion_meses: 1,
+        precio: 35000,
+      } as any,
+      actividadesHabilitadas: ["FUNCIONAL", "BOXEO"],
+      clases: [],
+      misReservas: [],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain('data-testid="inicio-clases-container"');
+    expect(html).toContain('data-testid="reservar-proxima-clase-cta"');
+    expect(html).toContain("Reservá tu próxima clase");
+    expect(html).toContain('href="/athlete/clases"');
+    expect(html).toContain("0 clases esta semana");
+    expect(html).not.toContain("Todavía no tenés un plan");
+  });
+
+  it("GIVEN alumno con plan de musculación y clases WHEN abre inicio THEN mantiene inicio de musculación", () => {
+    useAthleteStore.setState({ planAlumno: PLAN_BASE });
+    useClasesStore.setState({
+      plan: {
+        id: "pm-3x",
+        nombre: "Funcional 3x",
+        limite_semanal: 3,
+        cantidad_actividades: 1,
+        duracion_meses: 1,
+        precio: 25000,
+      } as any,
+      actividadesHabilitadas: ["FUNCIONAL"],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain('data-testid="inicio-mis-dias-container"');
+    expect(html).not.toContain('data-testid="inicio-clases-container"');
+    expect(html).toContain('data-testid="heroe-te-toca-hoy"');
   });
 });
