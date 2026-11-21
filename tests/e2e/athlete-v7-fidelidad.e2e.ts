@@ -201,7 +201,8 @@ export const RECETAS_ACCESO_ENTRENAR: Record<string, RecetaRunner> = {
     });
     await page.goto("/athlete");
     await expect(page.getByTestId("inicio-mis-dias-container")).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByText(/1\/3 esta semana/i)).toBeVisible();
+    await expect(page.getByTestId("dia-hecho-check")).toBeVisible();
+    await expect(page.getByText(/1\/3 esta semana/i)).toHaveCount(0);
   },
   "inicio-dia": async (page, tema) => {
     await RECETAS_ACCESO_ENTRENAR.inicio!(page, tema);

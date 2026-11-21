@@ -109,6 +109,11 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       clases: [],
       misReservas: [],
       agendaReservas: [],
+      membresia: null,
+      plan: null,
+      contratacionesAlumno: [],
+      actividadesAlumno: [],
+      actividadesHabilitadas: [],
       testAhora: null,
     });
     useOfflineQueueStore.setState({ isOnline: true });
@@ -140,7 +145,7 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(htmlSinPlan).not.toContain('data-testid="ultimo-entreno-relativo"');
   });
 
-  it("renderiza el héroe Te toca hoy con biserie, CTA Seguir cuando la sesión inició y lista de días", () => {
+  it("renderiza el héroe Te toca hoy sin Con biserie, CTA Seguir cuando la sesión inició y lista de días con Hecho opción A", () => {
     const baseEx = useAthleteStore.getState().currentSession.ejercicios[0]!;
     useAthleteStore.setState({
       planAlumno: PLAN_BASE,
@@ -167,13 +172,18 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     expect(html).toContain('data-testid="heroe-te-toca-hoy"');
     expect(html).toContain("a-hero");
     expect(html).toContain("Seguir Día 2");
-    expect(html).toContain("1/3 esta semana");
-    expect(html).toContain("Hecho");
+    expect(html).not.toContain("1/3 esta semana");
+    expect(html).not.toContain("a-chip a-ok");
+    expect(html).not.toContain(">Hecho<");
+    expect(html).toContain('data-testid="dia-hecho-check"');
+    expect(html).toContain('aria-label="Día 1, hecho"');
+    expect(html).toContain("a-done");
 
-    // En Día 1 hay biserie y 0 series completadas: Empezar Día 1 + chip Con biserie
+    // En Día 1 con biserie y 0 series completadas: Empezar Día 1 sin chip Con biserie
     useAthleteStore.setState({ sesionesCompletadas: [] });
     const htmlDia1 = renderToStaticMarkup(<InicioMisDias />);
-    expect(htmlDia1).toContain("Con biserie");
+    expect(htmlDia1).not.toContain("Con biserie");
+    expect(htmlDia1).not.toContain('data-testid="hero-superserie-badge"');
     expect(htmlDia1).toContain("Empezar Día 1");
   });
 
@@ -610,5 +620,173 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       fetchPlanSpy.mockRestore();
       fromSpy.mockRestore();
     }
+  });
+
+  it("tocar una fila de día DONE inicia ese día para repetirlo (mantiene ChevronRight)", () => {
+    useAthleteStore.setState({
+      planAlumno: PLAN_BASE,
+      sesionesCompletadas: [{ id: "s-done", dia_id: "d1", fecha: new Date().toISOString() }],
+    });
+
+    const internals = (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+    const prevDispatcher = internals.H;
+    internals.H = {
+      useState: (init: unknown) => [typeof init === "function" ? (init as () => unknown)() : init, () => undefined],
+      useEffect: () => undefined,
+      useMemo: (fn: () => unknown) => fn(),
+      useCallback: (fn: unknown) => fn,
+      useRef: (v: unknown) => ({ current: v }),
+    };
+    try {
+      const findByTestId = (node: any, testId: string): any => {
+        if (!node || typeof node !== "object") return null;
+        if (Array.isArray(node)) return node.map((n) => findByTestId(n, testId)).find(Boolean) ?? null;
+        if (node.props?.["data-testid"] === testId) return node;
+        return findByTestId(node.props?.children, testId);
+      };
+      const rowDia1 = findByTestId((InicioMisDias as () => unknown)(), "dia-row-d1");
+      expect(rowDia1).not.toBeNull();
+      expect(rowDia1.props["aria-label"]).toBe("Día 1, hecho");
+      rowDia1.props.onClick();
+    } finally {
+      internals.H = prevDispatcher;
+    }
+
+    expect(useAthleteStore.getState().diaActivoId).toBe("d1");
+  });
+
+  it("GIVEN alumno solo de clases con reserva futura THEN muestra tarjeta de clase y contador X de N clases esta semana sin 'Todavía no tenés un plan'", () => {
+    const alumnoSinPeso = {
+      ...PLAN_BASE.alumnos[0]!,
+      peso_corporal_kg: null,
+    } as any;
+    useAthleteStore.setState({
+      planAlumno: {
+        alumnos: [alumnoSinPeso],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
+      },
+      cargandoPlan: false,
+      errorPlan: false,
+    });
+    useChatStore.getState().sendMessage({
+      alumnoId: alumnoSinPeso.id,
+      remitente: STAFF_COACH_PRINCIPAL,
+      contenido: "Hoy trabajamos técnica de boxeo",
+      requiereLecturaInicio: true,
+    });
+    useClasesStore.setState({
+      testAhora: "2026-11-20T12:00:00-03:00",
+      membresia: {
+        id: "cont-1",
+        alumno_id: alumnoSinPeso.id,
+        plan_membresia_id: "pm-3",
+        actividad: "BOXEO",
+        estado: "ACTIVA",
+        fecha_inicio: "2026-11-01",
+        fecha_fin: "2026-11-30",
+      } as any,
+      plan: {
+        id: "pm-3",
+        nombre: "Boxeo 3x",
+        cantidad_actividades: 1,
+        limite_semanal: 3,
+      } as any,
+      actividadesHabilitadas: ["BOXEO"],
+      clases: [
+        {
+          id: "clase-box-1",
+          horario_id: null,
+          actividad: "BOXEO",
+          inicio: "2026-11-20T19:00:00-03:00",
+          duracion_minutos: 60,
+          capacidad: 12,
+          estado: "PROGRAMADA",
+          motivo_cancelacion: null,
+          created_at: "2026-11-20T08:00:00Z",
+          updated_at: "2026-11-20T08:00:00Z",
+        },
+      ],
+      misReservas: [
+        {
+          id: "res-box-1",
+          clase_id: "clase-box-1",
+          alumno_id: alumnoSinPeso.id,
+          estado: "ANOTADO",
+          created_at: "2026-11-20T09:00:00Z",
+          updated_at: "2026-11-20T09:00:00Z",
+        },
+      ],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain('data-testid="inicio-clases"');
+    expect(html).not.toContain('data-testid="inicio-sin-plan"');
+    expect(html).not.toContain("Todavía no tenés un plan");
+    expect(html).toContain('data-testid="clase-reservada-card"');
+    expect(html).toContain("Boxeo");
+    expect(html).toContain("Hoy · 19:00 hs");
+    expect(html).toContain('data-testid="clases-semana-contador"');
+    expect(html).toContain("1 de 3 clases esta semana");
+    expect(html).not.toContain('data-testid="reservar-proxima-clase-cta"');
+    expect(html).toContain('data-testid="recordatorio-peso-card"');
+    expect(html).toContain('data-testid="unread-coach-message-banner"');
+    expect(html).not.toContain('data-testid="racha-semanas-chip"');
+  });
+
+  it("GIVEN alumno solo de clases sin reservas THEN muestra CTA 'Reservá tu próxima clase' hacia /athlete/clases y soporta Pase libre", () => {
+    useAthleteStore.setState({
+      planAlumno: {
+        ...PLAN_BASE,
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+      },
+      cargandoPlan: false,
+      errorPlan: false,
+    });
+    useClasesStore.setState({
+      testAhora: "2026-11-20T12:00:00-03:00",
+      membresia: {
+        id: "cont-2",
+        alumno_id: "al-1",
+        plan_membresia_id: "pm-2",
+        actividad: "FUNCIONAL",
+        estado: "ACTIVA",
+        fecha_inicio: "2026-11-01",
+        fecha_fin: "2026-11-30",
+      } as any,
+      plan: {
+        id: "pm-2",
+        nombre: "Funcional 2x",
+        cantidad_actividades: 1,
+        limite_semanal: 2,
+      } as any,
+      actividadesHabilitadas: ["FUNCIONAL"],
+      clases: [],
+      misReservas: [],
+    });
+
+    const html = renderToStaticMarkup(<InicioMisDias />);
+    expect(html).toContain('data-testid="inicio-clases"');
+    expect(html).not.toContain("Todavía no tenés un plan");
+    expect(html).toContain('data-testid="reservar-proxima-clase-cta"');
+    expect(html).toContain('href="/athlete/clases"');
+    expect(html).toContain("Reservá tu próxima clase");
+    expect(html).toContain("0 de 2 clases esta semana");
+
+    useClasesStore.setState({
+      plan: {
+        id: "pm-libre",
+        nombre: "Pase Libre",
+        cantidad_actividades: 2,
+        limite_semanal: null,
+      } as any,
+    });
+    const htmlLibre = renderToStaticMarkup(<InicioMisDias />);
+    expect(htmlLibre).toContain("Pase libre");
+    expect(htmlLibre).not.toContain("clases esta semana");
   });
 });

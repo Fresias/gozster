@@ -402,7 +402,7 @@ export function AthleteShell({ children }: { children: React.ReactNode }) {
       <div className="a-scroll">
         <header className="a-ahead">
           <Link
-            href="/"
+            href="/athlete"
             aria-label="GOZS Athlete, ir al inicio"
             className="inline-flex min-h-11 items-center"
           >

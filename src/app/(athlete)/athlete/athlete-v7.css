@@ -1136,7 +1136,8 @@ body:has(.theme-athlete[data-v7]) {
   font-size: 15px;
 }
 
-.theme-athlete[data-v7] .a-days .a-row.a-today .a-num {
+.theme-athlete[data-v7] .a-days .a-row.a-today .a-num,
+.theme-athlete[data-v7] .a-days .a-row.a-done .a-num {
   background: var(--a-sel);
   color: var(--a-on-sel);
 }
