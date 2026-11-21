@@ -24,9 +24,14 @@ vi.mock("@/lib/supabase/browser", () => ({
       }),
     },
   }),
-  SUPABASE_URL: "http://localhost",
-  SUPABASE_ANON_KEY: "x",
+  SUPABASE_URL: "http://127.0.0.1:9",
+  SUPABASE_ANON_KEY: "test-anon-key",
 }));
+
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return { supabase: createSupabaseClientMock({ rpcData: true }) };
+});
 
 vi.mock("@/store/use-athlete-store", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/store/use-athlete-store")>();

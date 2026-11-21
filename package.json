@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:mynter": "tsx scripts/seed_from_mynter_backup.ts"

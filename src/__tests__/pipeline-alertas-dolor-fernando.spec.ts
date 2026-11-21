@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fetchCriticalAlerts,
   getDemoCriticalAlerts,
@@ -16,6 +16,11 @@ import { getDemoAlumnoAlerts, DEMO_GIMNASIO } from "@/services/coach-demo-datase
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useAthleteStore, DEFAULT_ATHLETE_ID } from "@/store/use-athlete-store";
 import { supabase } from "@/lib/supabase/client";
+
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return { supabase: createSupabaseClientMock() };
+});
 
 describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso Fernando)", () => {
   beforeEach(() => {

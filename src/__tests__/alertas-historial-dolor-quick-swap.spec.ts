@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import type {
@@ -12,6 +12,22 @@ import type {
   Perfil,
 } from "@/types/database.types";
 import { supabase } from "@/lib/supabase/client";
+
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return {
+    supabase: createSupabaseClientMock({
+      tables: {
+        perfiles: [
+          {
+            id: "00000000-0000-0000-0000-000000000004",
+            nombre_completo: "Fernando Rosales",
+          },
+        ],
+      },
+    }),
+  };
+});
 
 describe("GOZS-26: Alertas de Entrenador, Historial de Dolor y Quick Swap RPC", () => {
   const migrationPath = path.resolve(
