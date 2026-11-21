@@ -97,6 +97,7 @@ function como<T = Record<string, unknown>>(
 
 describe("GOZS-577 (BE-03 CP1): bucket videos-series y políticas RLS", () => {
   beforeAll(async () => {
+    // Bootstrap propio: agrega schema `storage` (buckets, objects, foldername) ausente en el snapshot compartido.
     db = new PGlite({ extensions: { pgcrypto } });
     await db.exec(SUPABASE_AND_STORAGE_STUBS);
 

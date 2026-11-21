@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { PGlite } from "@electric-sql/pglite";
-import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { type PGlite } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
 
 // ============================================================================
 // GOZS-339: Verificación de aprovisionamiento de 94.gabriel.sanchez@gmail.com
@@ -16,43 +16,10 @@ const TESTER = "00000000-0000-4000-8000-0000000000a1";
 const COACH = "00000000-0000-4000-8000-0000000000c1";
 const ALU_B = "00000000-0000-4000-8000-0000000000b2";
 
-const STUBS = `
-  CREATE ROLE anon NOLOGIN;
-  CREATE ROLE authenticated NOLOGIN;
-  CREATE ROLE service_role NOLOGIN BYPASSRLS;
-  CREATE SCHEMA auth;
-  CREATE TABLE auth.users (id uuid PRIMARY KEY, instance_id uuid, aud text, role text, email text,
-    encrypted_password text, email_confirmed_at timestamptz, raw_app_meta_data jsonb,
-    raw_user_meta_data jsonb, created_at timestamptz, updated_at timestamptz);
-  CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-    SELECT (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid $$;
-  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-    SELECT nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' $$;
-  GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
-  GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated, service_role;
-`;
-
 let db: PGlite;
 
-async function aplicar(sql: string) {
-  const inicio = sql.search(/^BEGIN;/m);
-  if (inicio > 0) {
-    await db.exec(sql.slice(0, inicio));
-    await db.exec(sql.slice(inicio));
-  } else {
-    await db.exec(sql);
-  }
-}
-
 async function nuevaDb() {
-  db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(STUBS);
-  const dir = path.join(SUPABASE_DIR, "migrations");
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
-    await aplicar(fs.readFileSync(path.join(dir, f), "utf-8"));
-  }
+  db = await crearDbMigrada();
   return db;
 }
 
