@@ -1,5 +1,15 @@
 import * as React from "react";
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+
+vi.mock("@/store/use-clases-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-clases-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useClasesStore.getState()) : mod.useClasesStore.getState(),
+    mod.useClasesStore,
+  );
+  return { ...mod, useClasesStore: hook };
+});
 import { renderToString } from "react-dom/server";
 import { ClassAgenda } from "@/components/coach/class-agenda";
 import { calcularRangoHorarioUtil, claveDia, diasDeLaSemana } from "@/lib/clases";

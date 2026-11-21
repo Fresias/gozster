@@ -48,6 +48,15 @@ vi.mock("@/store/use-offline-queue", async (importOriginal) => {
   return { ...mod, useOfflineQueueStore: hook };
 });
 
+vi.mock("@/store/use-clases-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-clases-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) => (sel ? sel(mod.useClasesStore.getState()) : mod.useClasesStore.getState()),
+    mod.useClasesStore,
+  );
+  return { ...mod, useClasesStore: hook };
+});
+
 import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
 import { RutinaDelDia } from "@/components/athlete/rutina-del-dia";
 import { AthleteShell } from "@/components/athlete/athlete-shell";
