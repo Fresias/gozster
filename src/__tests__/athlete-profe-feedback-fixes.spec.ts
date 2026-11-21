@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import {
   calcularUltimoDiaRealizado,
@@ -6,6 +6,11 @@ import {
   type DiaRutinaItem,
   type RegistroSesionSimple,
 } from "@/lib/athlete-dias";
+
+vi.mock("@/lib/supabase/client", async () => {
+  const { createSupabaseClientMock } = await import("./helpers/supabase-client-mock");
+  return { supabase: createSupabaseClientMock() };
+});
 
 describe("Feedback del Profe: 3 Mejoras Críticas", () => {
   beforeEach(() => {
