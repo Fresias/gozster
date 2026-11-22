@@ -33,6 +33,7 @@ export type EstadoClase = 'PROGRAMADA' | 'CANCELADA';
 export type EstadoReserva = 'ANOTADO' | 'CANCELADO' | 'AUSENTE' | 'ANULADO' | 'EN_ESPERA';
 export type SensacionClase = 1 | 2 | 3 | 4;
 export type MotivoCambioDia = 'CANSANCIO_DEPORTE' | 'MOLESTIA' | 'POCO_TIEMPO' | 'EQUIPO_OCUPADO';
+export type TipoLogroRacha = 'diamante';
 
 export interface Database {
   public: {
@@ -1849,6 +1850,44 @@ export interface Database {
           },
         ];
       };
+      logros_racha: {
+        Row: {
+          id: string;
+          alumno_id: string;
+          numero_ciclo: number;
+          tipo: TipoLogroRacha;
+          fecha_logro: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          alumno_id?: string;
+          numero_ciclo: number;
+          tipo?: TipoLogroRacha;
+          fecha_logro?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          alumno_id?: string;
+          numero_ciclo?: number;
+          tipo?: TipoLogroRacha;
+          fecha_logro?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'logros_racha_alumno_id_fkey';
+            columns: ['alumno_id'];
+            isOneToOne: false;
+            referencedRelation: 'perfiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       v_dolor_activo: {
@@ -2334,6 +2373,13 @@ export interface Database {
           asistencias: Json;
         }[];
       };
+      registrar_logro_racha: {
+        Args: {
+          numero_ciclo: number;
+          tipo?: TipoLogroRacha;
+        };
+        Returns: Database['public']['Tables']['logros_racha']['Row'];
+      };
     };
     Enums: {
       rol_usuario: RolUsuario;
@@ -2502,6 +2548,9 @@ export type ClaseFija = Tables<'clases_fijas'>;
 export type RankingPR = Tables<'ranking_prs'>;
 export type RankingPRInsert = TablesInsert<'ranking_prs'>;
 export type RankingPRUpdate = TablesUpdate<'ranking_prs'>;
+export type LogroRacha = Tables<'logros_racha'>;
+export type LogroRachaInsert = TablesInsert<'logros_racha'>;
+export type LogroRachaUpdate = TablesUpdate<'logros_racha'>;
 
 export type TagPlanEntrenamiento =
   | 'Fuerza'
