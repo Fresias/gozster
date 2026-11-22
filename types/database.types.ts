@@ -1433,6 +1433,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"renovar_contratacion":
+{ Args: { "p_contratacion_id": string,"p_idempotency_key": string,"p_medio_pago": string,"p_monto": number }; Returns: {
+              "cobro_id": string,"contratacion_id": string,"estado": string,"fecha_fin": string,"pago_id": string,"periodo": string
+            }[]
+                           },
 "reservar_clase":
 { Args: { "p_clase_id": string }; Returns: {
               "aviso": string,"reserva_id": string
