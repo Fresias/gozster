@@ -1,5 +1,7 @@
 # Protocolo de Seguridad y Gobernanza Estricta: Token GOZSTER_DB
 
+> **Actualización E-3 / E-6:** Este protocolo aplica únicamente al token histórico de desarrollo `GOZSTER_DB` (en proceso de revocación). El **único camino autorizado** para aplicar migraciones es `supabase db push --remote` (CLI de Supabase) o el job de CI documentado en `docs/architecture/migraciones-supabase.md`, nunca scripts de Management API ni SQL Editor manual.
+
 **Documento:** `docs/security/TOKEN_GOVERNANCE_GOZSTER_DB.md`  
 **Clasificación:** Confidencial / Nivel Crítico (Infraestructura de Base de Datos)  
 **Custodio Exclusivo:** Product Manager & Tech Lead (`@PM-GOZster`)  

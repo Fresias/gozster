@@ -60,7 +60,8 @@ const QA_SEED_SQL = `
     ('${COACH_ID}','coach@gozster.test','Coach Asignado QA','ENTRENADOR',NULL,'ACTIVA'),
     ('${OTRO_COACH_ID}','otro_coach@gozster.test','Coach Ajeno QA','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNO_ID}','alumno@gozster.test','Alumno Principal QA','ALUMNO','${COACH_ID}','ACTIVA'),
-    ('${OTRO_ALUMNO_ID}','otro_alumno@gozster.test','Alumno Secundario QA','ALUMNO','${OTRO_COACH_ID}','ACTIVA');
+    ('${OTRO_ALUMNO_ID}','otro_alumno@gozster.test','Alumno Secundario QA','ALUMNO','${OTRO_COACH_ID}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES
     ('${COACH_ID}','${ALUMNO_ID}',true),

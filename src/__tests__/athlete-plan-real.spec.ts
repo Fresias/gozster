@@ -84,7 +84,7 @@ describe("GOZS-285: la Athlete App carga el plan real desde Supabase", () => {
   });
 
   it("el helper de seed sigue permitiendo tests con dataset demo", () => {
-    sembrarPlanAlumno("Fernando Rosales");
+    sembrarPlanAlumno("Alumno Sintetico 1");
     expect(useAthleteStore.getState().loadStudentSession()).toBe(true);
   });
 });

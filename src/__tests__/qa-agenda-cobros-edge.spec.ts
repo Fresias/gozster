@@ -5,6 +5,7 @@ import { crearDbMigrada } from "./helpers/pglite-migrada";
 // GOZS-185 (QA): casos límite de cobros, veces por semana, pase libre, cupo flexible y RLS.
 // Complementa agenda-cobros-coach.spec.ts sobre la misma migración, en Postgres real (PGlite).
 
+const ADMIN = "00000000-0000-0000-0000-000000000001";
 const COACH_A = "00000000-0000-0000-0000-0000000000a1";
 const COACH_B = "00000000-0000-0000-0000-0000000000b1";
 const ALU_2X = "00000000-0000-0000-0000-0000000000a2"; // 2 clases/semana, solo FUNCIONAL
@@ -17,14 +18,17 @@ type Rol = "anon" | "authenticated" | "service_role";
 
 const SEED = `
   INSERT INTO auth.users (id, email) VALUES
+    ('${ADMIN}','ad@t'),
     ('${COACH_A}','ca@t'),('${COACH_B}','cb@t'),
     ('${ALU_2X}','a2@t'),('${ALU_LIBRE}','al@t'),('${ALU_B}','b@t');
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
+    ('${ADMIN}','ad@t','Admin','ADMIN',NULL,'ACTIVA'),
     ('${COACH_A}','ca@t','Coach A','ENTRENADOR',NULL,'ACTIVA'),
     ('${COACH_B}','cb@t','Coach B','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALU_2X}','a2@t','Alumno 2x','ALUMNO','${COACH_A}','ACTIVA'),
     ('${ALU_LIBRE}','al@t','Alumno libre','ALUMNO','${COACH_A}','ACTIVA'),
-    ('${ALU_B}','b@t','Alumno B','ALUMNO','${COACH_B}','ACTIVA');
+    ('${ALU_B}','b@t','Alumno B','ALUMNO','${COACH_B}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
   INSERT INTO public.planes_membresia (id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio) VALUES
     ('${PLAN_2X}','2 por semana',2,1,1,20000),
     ('${PLAN_LIBRE}','Pase libre',NULL,2,1,35000);
@@ -69,18 +73,25 @@ async function crearCobro(alumno: string, monto: number, venceEnDias: number, pe
   return r.rows[0]!.id;
 }
 
-const anotar = (sub: string | null, clase: string, alumno: string) =>
-  como<{ reserva_id: string; sobrecupo: boolean; aviso: string | null }>(
+const anotar = (sub: string | null, clase: string, alumno: string, forzar = false) =>
+  como<{ reserva_id: string | null; requiere_confirmacion: boolean; tipo_aviso: string; sobrecupo: boolean; aviso: string | null }>(
     sub ? "authenticated" : "anon",
     sub,
-    `SELECT * FROM public.anotar_alumno('${clase}', '${alumno}')`
+    `SELECT * FROM public.anotar_alumno_coach('${clase}', '${alumno}', ${forzar})`
   );
 
-const pagar = (sub: string, cobro: string, monto: string, metodo: string) =>
+const reservar = (sub: string, clase: string) =>
+  como<{ reserva_id: string; aviso: string | null }>(
+    "authenticated",
+    sub,
+    `SELECT * FROM public.reservar_clase('${clase}')`
+  );
+
+const pagar = (sub: string, cobro: string, monto: string, metodo: string, nota = "NULL") =>
   como<{ estado: string }>(
     "authenticated",
     sub,
-    `SELECT * FROM public.registrar_pago('${cobro}', ${monto}, ${metodo})`
+    `SELECT * FROM public.registrar_pago('${cobro}', ${monto}, ${metodo}, ${nota})`
   );
 
 describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
@@ -90,7 +101,7 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
   }, 60_000);
 
   describe("veces por semana vs pase libre", () => {
-    it("plan 2x: anota 2 clases de la misma semana y rechaza la 3ra (GZ002)", async () => {
+    it("plan 2x: anota 2 clases de la misma semana y advierte límite semanal en la 3ra sin anotar", async () => {
       // 20 días adelante, a mediodía de gimnasio: las 3 clases caen el mismo día (misma semana)
       const base = `date_trunc('day', now() + interval '20 days') + interval '15 hours'`;
       const c = [
@@ -100,7 +111,14 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
       ];
       await anotar(COACH_A, c[0]!, ALU_2X);
       await anotar(COACH_A, c[1]!, ALU_2X);
-      await expect(anotar(COACH_A, c[2]!, ALU_2X)).rejects.toMatchObject({ code: "GZ002" });
+      const avisoCoach = await anotar(COACH_A, c[2]!, ALU_2X);
+      expect(avisoCoach.rows[0]!.requiere_confirmacion).toBe(true);
+      expect(avisoCoach.rows[0]!.tipo_aviso).toBe("LIMITE_SEMANAL");
+      expect(avisoCoach.rows[0]!.reserva_id).toBeNull();
+      const count = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.reservas WHERE clase_id = '${c[2]}' AND estado <> 'CANCELADO'`
+      );
+      expect(count.rows[0]!.n).toBe(0);
     });
 
     it("el límite se reinicia en otra semana (+7 días vuelve a permitir)", async () => {
@@ -140,18 +158,26 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
       await expect(anotar(COACH_A, id, ALU_LIBRE)).rejects.toMatchObject({ code: "GZ008" });
     });
 
-    it("plan de una sola actividad rechaza otra actividad (GZ003)", async () => {
+    it("plan de una sola actividad advierte actividad distinta sin anotar", async () => {
       const id = await crearClase("BOXEO", "now() + interval '121 days'");
-      await expect(anotar(COACH_A, id, ALU_2X)).rejects.toMatchObject({ code: "GZ003" });
+      const avisoCoach = await anotar(COACH_A, id, ALU_2X);
+      expect(avisoCoach.rows[0]!.requiere_confirmacion).toBe(true);
+      expect(avisoCoach.rows[0]!.tipo_aviso).toBe("ACTIVIDAD_DISTINTA");
+      expect(avisoCoach.rows[0]!.reserva_id).toBeNull();
+      const count = await db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.reservas WHERE clase_id = '${id}' AND estado <> 'CANCELADO'`
+      );
+      expect(count.rows[0]!.n).toBe(0);
     });
   });
 
   describe("estado de la clase y autenticación", () => {
-    it("clase cancelada (GZ007) y clase ya iniciada (GZ006) no admiten anotados", async () => {
+    it("clase cancelada (GZ007) y clase ya iniciada (GZ006) no admiten reservas", async () => {
       const cancelada = await crearClase("BOXEO", "now() + interval '3 days'", null, "CANCELADA");
       const pasada = await crearClase("BOXEO", "now() - interval '1 hour'");
       await expect(anotar(COACH_A, cancelada, ALU_LIBRE)).rejects.toMatchObject({ code: "GZ007" });
-      await expect(anotar(COACH_A, pasada, ALU_LIBRE)).rejects.toMatchObject({ code: "GZ006" });
+      await expect(reservar(ALU_LIBRE, cancelada)).rejects.toMatchObject({ code: "GZ007" });
+      await expect(reservar(ALU_LIBRE, pasada)).rejects.toMatchObject({ code: "GZ006" });
     });
 
     it("clase inexistente devuelve P0002", async () => {
@@ -167,12 +193,16 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
   });
 
   describe("cupo flexible", () => {
-    it("capacidad 1: el 2do alumno entra con sobrecupo y aviso, sin bloquear", async () => {
+    it("capacidad 1: el 2do alumno advierte sobrecupo y al confirmar entra con aviso", async () => {
       const id = await crearClase("BOXEO", "now() + interval '140 days'", 1);
       const p = await anotar(COACH_A, id, ALU_LIBRE);
       expect(p.rows[0]!.sobrecupo).toBe(false);
       expect(p.rows[0]!.aviso).toBeNull();
-      const q = await anotar(COACH_B, id, ALU_B);
+      const qPrev = await anotar(COACH_B, id, ALU_B, false);
+      expect(qPrev.rows[0]!.requiere_confirmacion).toBe(true);
+      expect(qPrev.rows[0]!.tipo_aviso).toBe("SOBRECUPO");
+      const q = await anotar(COACH_B, id, ALU_B, true);
+      expect(q.rows[0]!.reserva_id).toBeTruthy();
       expect(q.rows[0]!.sobrecupo).toBe(true);
       expect(q.rows[0]!.aviso).toContain("sobrecupo: 2/1");
     });
@@ -191,15 +221,22 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
   });
 
   describe("registrar_pago: casos límite", () => {
-    it("monto 0, negativo, NULL o menor al cobro se rechaza (22023) y el cobro sigue impago", async () => {
+    it("monto 0, negativo o NULL se rechaza (22023) y el cobro sigue impago; monto ajustado se registra con monto_lista", async () => {
       const cobro = await crearCobro(ALU_2X, 20000, 5, "2030-01-01");
-      for (const monto of ["0", "-100", "NULL", "19999.99"]) {
+      for (const monto of ["0", "-100", "NULL"]) {
         await expect(pagar(COACH_A, cobro, monto, "'EFECTIVO'")).rejects.toMatchObject({ code: "22023" });
       }
       const e = await db.query<{ estado: string }>(`SELECT estado FROM public.cobros WHERE id = '${cobro}'`);
       expect(e.rows[0]!.estado).toBe("PENDIENTE");
       const n = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.pagos WHERE cobro_id = '${cobro}'`);
       expect(n.rows[0]!.n).toBe(0);
+
+      await pagar(COACH_A, cobro, "19999.99", "'EFECTIVO'");
+      const pAjustado = await db.query<{ monto: string; monto_lista: string }>(
+        `SELECT monto::text, monto_lista::text FROM public.pagos WHERE cobro_id = '${cobro}'`
+      );
+      expect(Number(pAjustado.rows[0]!.monto)).toBe(19999.99);
+      expect(Number(pAjustado.rows[0]!.monto_lista)).toBe(20000);
     });
 
     it("método NULL, en minúscula o desconocido se rechaza (22023)", async () => {
@@ -262,18 +299,25 @@ describe("GOZS-185 QA: casos límite de agenda y cobros (PGlite)", () => {
       expect(ids).not.toContain(atrasadoPagado);
     });
 
-    it("ingresos_mes: mes sin pagos suma 0 y el mes actual coincide con la suma de pagos del coach", async () => {
-      const vacio = await como<{ t: string }>(
-        "authenticated", COACH_A, `SELECT public.ingresos_mes('2000-01-01')::text AS t`
+    it("obtener_kpis_negocio: mes sin pagos suma 0 y el mes actual coincide con la suma de pagos del coach", async () => {
+      const vacio = await como<{ ingresos: string }>(
+        "authenticated", ADMIN, `SELECT ingresos::text FROM public.obtener_kpis_negocio('2000-01-01', '2000-01-31')`
       );
-      expect(Number(vacio.rows[0]!.t)).toBe(0);
-      const hoy = await como<{ t: string }>("authenticated", COACH_A, `SELECT public.ingresos_mes()::text AS t`);
+      expect(Number(vacio.rows[0]!.ingresos)).toBe(0);
+      const hoy = await como<{ ingresos: string }>(
+        "authenticated",
+        ADMIN,
+        `SELECT ingresos::text FROM public.obtener_kpis_negocio(
+           date_trunc('month', now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date,
+           (date_trunc('month', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') + interval '1 month - 1 day')::date
+         )`
+      );
       const sumaDirecta = await db.query<{ t: string }>(
         `SELECT COALESCE(sum(p.monto),0)::text AS t FROM public.pagos p
          JOIN public.perfiles pe ON pe.id = p.alumno_id
          WHERE pe.profesor_asignado_id = '${COACH_A}' AND p.estado = 'CONFIRMADO'`
       );
-      expect(Number(hoy.rows[0]!.t)).toBe(Number(sumaDirecta.rows[0]!.t));
+      expect(Number(hoy.rows[0]!.ingresos)).toBe(Number(sumaDirecta.rows[0]!.t));
     });
   });
 

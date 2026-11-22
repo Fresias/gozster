@@ -40,7 +40,8 @@ const SEED_PERFILES = `
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
     ('${OTRO_COACH}','c2@t','Otro coach','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNO}','a@t','Alumno','ALUMNO','${COACH}','ACTIVA'),
-    ('${OTRO_ALUMNO}','b@t','Otro alumno','ALUMNO','${OTRO_COACH}','ACTIVA');
+    ('${OTRO_ALUMNO}','b@t','Otro alumno','ALUMNO','${OTRO_COACH}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 `;
 
 let db: PGlite;
@@ -275,7 +276,7 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
       const TEMP_USER = "00000000-0000-0000-0000-000000000099";
       await db.exec(`INSERT INTO auth.users (id, email) VALUES ('${TEMP_USER}', 'temp@t');`);
       await db.exec(
-        `INSERT INTO public.perfiles (id, email, nombre_completo, rol) VALUES ('${TEMP_USER}', 'temp@t', 'Temp', 'ALUMNO');`
+        `INSERT INTO public.perfiles (id, email, nombre_completo, rol) VALUES ('${TEMP_USER}', 'temp@t', 'Temp', 'ALUMNO') ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol;`
       );
       await como(
         "authenticated",

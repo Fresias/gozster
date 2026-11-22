@@ -49,7 +49,8 @@ describe("GOZS-339: DB & Seeds: Configurar Gabriel dual admin emails y rutina ac
       -- Perfil previo del tester o alumno original antes del seed
       INSERT INTO public.perfiles (id, email, nombre_completo, rol) VALUES
         ('${TESTER}','94.gabriel.sanchez@gmail.com','Gabriel Tester','ALUMNO'),
-        ('${COACH}','ds.gabriel.sanchez@gmail.com','Coach Tester','ADMIN');
+        ('${COACH}','ds.gabriel.sanchez@gmail.com','Coach Tester','ADMIN')
+      ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol;
 
       -- Preexistencia de GABI AGOSTO con sus días y ejercicios (representando la rutina real del usuario)
       INSERT INTO public.ejercicios (nombre, musculos_principales) VALUES

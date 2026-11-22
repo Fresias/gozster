@@ -19,21 +19,21 @@ import { AthletePreviewModal } from "@/components/coach/athlete-preview-modal";
 import { InicioMisDias } from "@/components/athlete/inicio-mis-dias";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import {
-  REAL_ALUMNOS,
-  REAL_PLANES,
-  REAL_DIAS,
-  REAL_EJERCICIOS,
-  REAL_EJERCICIOS_RUTINA,
-} from "@/services/real-mynter-data";
+  SINT_ALUMNOS,
+  SINT_PLANES,
+  SINT_DIAS,
+  SINT_EJERCICIOS,
+  SINT_EJERCICIOS_RUTINA,
+} from "@/__tests__/helpers/datos-sinteticos";
 import type { LiveSupabaseDataset } from "@/services/alumnos-service";
 import type { Perfil } from "@/types/database.types";
 
 const mockDataset: LiveSupabaseDataset = {
-  alumnos: REAL_ALUMNOS,
-  planes: REAL_PLANES,
-  dias: REAL_DIAS,
-  ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
-  ejercicios: REAL_EJERCICIOS,
+  alumnos: SINT_ALUMNOS,
+  planes: SINT_PLANES,
+  dias: SINT_DIAS,
+  ejerciciosEnRutina: SINT_EJERCICIOS_RUTINA,
+  ejercicios: SINT_EJERCICIOS,
 };
 
 describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordatorio de Peso", () => {
@@ -69,9 +69,9 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
   });
 
   describe("2. Modo Previsualización / Impersonación de Atleta para Coach", () => {
-    it("renderiza el simulador móvil con banner de modo entrenador para Miguel Sanchez", () => {
-      const miguel = REAL_ALUMNOS.find((a) =>
-        a.nombre_completo.toLowerCase().includes("miguel"),
+    it("renderiza el simulador móvil con banner de modo entrenador para un alumno", () => {
+      const miguel = SINT_ALUMNOS.find((a) =>
+        a.nombre_completo.includes("Sintetico 1"),
       )!;
 
       const html = renderToStaticMarkup(
@@ -87,7 +87,7 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
       // Banner superior con el texto exacto requerido
       expect(html).toContain('data-testid="banner-modo-entrenador"');
       expect(html).toContain("Modo Entrenador: Vista previa de");
-      expect(html).toContain("Miguel Sanchez");
+      expect(html).toContain("Alumno Sintetico 1");
       expect(html).toContain("Volver a Studio");
       expect(html).toContain('data-testid="return-to-studio-btn"');
 
@@ -96,8 +96,8 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
       expect(html).toContain("GOZSter");
       expect(html).toContain("Athlete");
 
-      // Rutina y días de Miguel
-      expect(html).toContain("FUERZA MIGUE");
+      // Rutina y días del alumno
+      expect(html).toContain("Plan sintetico 1");
       expect(html).toContain('data-testid="preview-dias-list"');
       expect(html).toContain("descanso");
     });

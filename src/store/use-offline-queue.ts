@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
+import { normalizeSerieTipo } from "@/lib/serie-tipo";
 
 export interface OfflineSyncEvent {
   id: string;
@@ -78,6 +79,10 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
     );
   if (sesion.error) return toResult(sesion.error);
   const completed = ev.action === "WORKOUT_SET_COMPLETED";
+  const rpeVal =
+    typeof p.rpe === "number" && Number.isFinite(p.rpe) && p.rpe >= 1 && p.rpe <= 10
+      ? p.rpe
+      : null;
   const serie = await supabase.from("registro_series").upsert(
     {
       sesion_id: p.sessionId,
@@ -87,9 +92,9 @@ async function sendSetEvent(ev: OfflineSyncEvent): Promise<SendResult> {
       reps_hechas: p.reps,
       ...(completed
         ? {
-            rpe_real: p.rpe ?? null,
+            rpe_real: rpeVal,
             completada: true,
-            set_type: (p.setType ?? "N") as "NORMAL", // la BD también acepta W/N/F/D
+            set_type: normalizeSerieTipo(p.setType),
             pain_reported: p.painReported ?? false,
             pain_notes: p.painNotes ?? null,
             video_url: p.videoUrl ?? null,

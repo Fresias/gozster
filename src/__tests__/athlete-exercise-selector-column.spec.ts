@@ -29,23 +29,23 @@ describe("Selector de Ejercicios en 1 Columna (Opción B / GH #172 / GOZS-168)",
     expect(rutinaCode).toContain("data-testid={`exercise-select-btn-${ej.id}`}");
   });
 
-  it("soporta fluidamente la rutina de Fernando Rosales (8 ejercicios en columna)", () => {
+  it("soporta fluidamente la rutina del Alumno Sintetico 1 (4 ejercicios en columna)", () => {
     const store = useAthleteStore.getState();
-    sembrarPlanAlumno("Fernando Rosales");
-    store.loadStudentSession("Fernando Rosales");
+    sembrarPlanAlumno("Alumno Sintetico 1");
+    store.loadStudentSession("Alumno Sintetico 1");
     const session = useAthleteStore.getState().currentSession;
 
-    expect(session.studentName).toContain("Fernando Rosales");
-    expect(session.ejercicios.length).toBe(8);
+    expect(session.studentName).toContain("Alumno Sintetico 1");
+    expect(session.ejercicios.length).toBe(4);
   });
 
-  it("soporta fluidamente la rutina de Gabriel Sánchez (Warm up de 2 ejercicios en columna)", () => {
+  it("soporta fluidamente la rutina del Alumno Sintetico 2 (4 ejercicios en columna)", () => {
     const store = useAthleteStore.getState();
-    sembrarPlanAlumno("Gabriel Sanchez");
-    store.loadStudentSession("Gabriel Sanchez");
+    sembrarPlanAlumno("Alumno Sintetico 2");
+    store.loadStudentSession("Alumno Sintetico 2");
     const session = useAthleteStore.getState().currentSession;
 
-    expect(session.studentName).toContain("Gabriel");
-    expect(session.ejercicios.length).toBe(2);
+    expect(session.studentName).toContain("Alumno Sintetico 2");
+    expect(session.ejercicios.length).toBe(4);
   });
 });

@@ -33,7 +33,8 @@ const SEED = `
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
     ('${COACH}', 'coach@test.local', 'Coach Principal', 'ENTRENADOR', NULL, 'ACTIVA'),
     ('${ALUMNO_A}', 'alumno-a@test.local', 'Alumno A', 'ALUMNO', '${COACH}', 'ACTIVA'),
-    ('${ALUMNO_B}', 'alumno-b@test.local', 'Alumno B', 'ALUMNO', '${COACH}', 'ACTIVA');
+    ('${ALUMNO_B}', 'alumno-b@test.local', 'Alumno B', 'ALUMNO', '${COACH}', 'ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES
     ('${COACH}', '${ALUMNO_A}'),

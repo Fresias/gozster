@@ -767,14 +767,12 @@ export function RutinaDelDia() {
         tonelajeKg={totalVolumeKg}
         seriesCompletadas={completedSetsCount}
         totalSeries={totalSets}
-        duracionMinutos={
-          Math.max(
-            1,
-            Math.round(
-              (Date.now() - (sessionStartedAt ?? sessionStartTimeRef.current)) / 60000,
-            ),
-          ) || 45
-        }
+        duracionMinutos={Math.max(
+          1,
+          Math.round(
+            (Date.now() - (sessionStartedAt ?? sessionStartTimeRef.current)) / 60000,
+          ),
+        )}
         rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 1)}
         rachaPrevia={Math.max(0, sesionesCompletadas?.length || 0)}
         metaDiasSemana={planAlumno?.dias?.length || 3}

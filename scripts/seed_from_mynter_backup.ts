@@ -27,7 +27,7 @@ import type {
   EjercicioEnRutina,
   Perfil,
   PlanEntrenamiento,
-} from '../types/database.types';
+} from '../types/domain.types';
 
 // ============================================================================
 // Tipos del Backup de Mynter (Raw Input Types)

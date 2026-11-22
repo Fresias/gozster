@@ -20,7 +20,7 @@ import {
   getYouTubeThumbnailUrl,
 } from "@/lib/youtube";
 import { useAthleteStore, type LiveWorkoutExercise } from "@/store/use-athlete-store";
-import { REAL_ALUMNOS } from "@/services/real-mynter-data";
+import { SINT_ALUMNOS } from "@/__tests__/helpers/datos-sinteticos";
 
 describe("Pilar C: Utilidades de Extracción de Video de YouTube", () => {
   it("debe extraer ID limpio cuando se proporciona un ID directo de 11 caracteres (formato Mynter)", () => {
@@ -114,9 +114,9 @@ describe("Pilar C: Integración en Athlete Store y Rutinas de Entrenamiento", ()
   });
 
   it("debe permitir cargar la rutina real de un alumno migrado desde Mynter", () => {
-    const alumno1 = REAL_ALUMNOS[0];
+    const alumno1 = SINT_ALUMNOS[0];
     expect(alumno1).toBeDefined();
-    if (!alumno1) throw new Error("No hay alumnos en REAL_ALUMNOS");
+    if (!alumno1) throw new Error("No hay alumnos en SINT_ALUMNOS");
 
     sembrarPlanAlumno(alumno1.id);
     const loaded = useAthleteStore.getState().loadStudentSession(alumno1.id);

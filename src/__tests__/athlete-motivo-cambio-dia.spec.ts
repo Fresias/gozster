@@ -11,7 +11,7 @@ import {
   formatCambioDia,
   MOTIVOS_CAMBIO_DIA_MAP,
 } from "@/components/coach/historical-loads-drawer";
-import { REAL_DIAS } from "@/services/real-mynter-data";
+import { SINT_DIAS } from "@/__tests__/helpers/datos-sinteticos";
 import type { DiaRutina, MotivoCambioDia } from "@/types/database.types";
 
 vi.mock("@/lib/supabase/client", async () => {
@@ -72,8 +72,8 @@ describe("GOZS-149: Athlete App motivo del cambio de día (chips + vista coach)"
     it("al empezar el día elegido con motivo, guarda dia_sugerido_id y motivo_cambio_dia en la cola offline", () => {
       const store = useAthleteStore.getState();
       const motivo: MotivoCambioDia = "CANSANCIO_DEPORTE";
-      const diaSugerido = REAL_DIAS[0]!.id;
-      const diaElegido = REAL_DIAS[1]!.id;
+      const diaSugerido = SINT_DIAS[0]!.id;
+      const diaElegido = SINT_DIAS[1]!.id;
 
       store.elegirOtroDia(diaElegido, motivo, diaSugerido);
       sembrarPlanAlumno(store.currentSession.studentId);

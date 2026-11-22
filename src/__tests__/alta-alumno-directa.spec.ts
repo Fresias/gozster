@@ -27,7 +27,8 @@ const SEED = `
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id) VALUES
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL),
     ('${OTRO_COACH}','c2@t','Otro coach','ENTRENADOR',NULL),
-    ('${ALUMNO}','a@t','Alumno','ALUMNO','${COACH}');
+    ('${ALUMNO}','a@t','Alumno','ALUMNO','${COACH}')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id;
 `;
 
 let db: PGlite;

@@ -16,20 +16,6 @@ import type { Clase, Ejercicio, Perfil, RankingPR } from "@/types/database.types
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, generarDemoReservasIniciales } from "@/services/coach-demo-dataset";
 import type { ReservaAgenda } from "@/store/use-clases-store";
 
-const DEMO_EJERCICIOS_RANKING: Ejercicio[] = [
-  {
-    id: "ej-dominadas-c-carga",
-    nombre: "Dominadas c/ Carga",
-    comentario: "Barra + Lastre",
-    url_video: null,
-    musculos_principales: ["Espalda"],
-    musculos_secundarios: ["Bíceps"],
-    creado_por: null,
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-  },
-];
-
 /**
  * Chip semántico neutro de categoría (Masculino / Femenino).
  * Garantiza contraste de color >= 4.5:1 (WCAG AA) en modo claro y oscuro,
@@ -159,11 +145,8 @@ export function RankingFuncional({
     if (ejerciciosDisponibles && ejerciciosDisponibles.length > 0) {
       return ejerciciosDisponibles;
     }
-    if (isLiveMode) {
-      return [];
-    }
-    return DEMO_EJERCICIOS_RANKING;
-  }, [ejerciciosDisponibles, isLiveMode]);
+    return [];
+  }, [ejerciciosDisponibles]);
 
   React.useEffect(() => {
     if (prsIniciales && prsIniciales.length > 0) {

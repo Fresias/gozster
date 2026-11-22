@@ -6,7 +6,7 @@ import type {
   EntrenadorAlumno,
   Mensaje,
   Perfil,
-} from '../types/database.types';
+} from '../types/domain.types';
 
 // ============================================================================
 // Dominio y Simulación de Lógica de Negocio y RLS para Mensajería Unificada (1:N)

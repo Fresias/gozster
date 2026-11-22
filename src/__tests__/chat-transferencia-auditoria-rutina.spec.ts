@@ -33,7 +33,8 @@ const SEED_PERFILES = `
     ('${COACH_NUEVO}','coach2@t','Coach Nuevo','ENTRENADOR',NULL,'ACTIVA'),
     ('${COACH_AJENO}','coach3@t','Coach Ajeno','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNO}','alumno@t','Alumno GOZS','ALUMNO','${COACH_ORIGINAL}','ACTIVA'),
-    ('${OTRO_ALUMNO}','otro@t','Otro Alumno','ALUMNO','${COACH_AJENO}','ACTIVA');
+    ('${OTRO_ALUMNO}','otro@t','Otro Alumno','ALUMNO','${COACH_AJENO}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 `;
 
 let db: PGlite;

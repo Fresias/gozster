@@ -20,7 +20,7 @@ import { RankingFuncional } from "@/components/coach/ranking-funcional";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { REAL_EJERCICIOS } from "@/services/real-mynter-data";
+import { SINT_EJERCICIOS } from "@/__tests__/helpers/datos-sinteticos";
 
 const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), "utf-8");
 
@@ -44,7 +44,7 @@ describe("GOZS-344: Combobox para Ejercicio de Prueba, Alta con Sexo/Peso y Cobr
 
     it("GIVEN el catálogo de ejercicios WHEN se busca 'Esto' THEN filtra estocadas en tiempo real", () => {
       const q = "Esto".toLowerCase().trim();
-      const estocadas = REAL_EJERCICIOS.filter((e) => e.nombre.toLowerCase().includes(q));
+      const estocadas = SINT_EJERCICIOS.filter((e) => e.nombre.toLowerCase().includes(q));
 
       expect(estocadas.length).toBeGreaterThan(0);
       const nombres = estocadas.map((e) => e.nombre);
@@ -58,6 +58,7 @@ describe("GOZS-344: Combobox para Ejercicio de Prueba, Alta con Sexo/Peso y Cobr
           initialClaseId="demo-clase-func-miercoles"
           initialEjercicioId="ej-dominadas-c-carga"
           alumnosDisponibles={[]}
+          ejerciciosDisponibles={SINT_EJERCICIOS}
         />
       );
       expect(html).toContain('data-testid="ejercicio-select"');
