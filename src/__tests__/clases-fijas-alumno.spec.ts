@@ -143,8 +143,9 @@ describe("GOZS-225: clases fijas del alumno (PGlite)", () => {
       `SELECT count(*)::int AS n FROM public.clases_fijas`
     );
     expect(staff.rows[0]!.n).toBeGreaterThan(2);
-    const anon = await como("anon", null, `SELECT * FROM public.clases_fijas`);
-    expect(anon.rows).toHaveLength(0);
+    await expect(como("anon", null, `SELECT * FROM public.clases_fijas`)).rejects.toMatchObject({
+      code: "42501",
+    });
     await expect(
       como(
         "authenticated",

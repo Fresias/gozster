@@ -178,8 +178,9 @@ describe("Issue #64: contrataciones, pagos y auditoría (PGlite)", () => {
 
       const ajenas = await como("authenticated", OTRO_COACH, `SELECT 1 FROM public.contrataciones WHERE alumno_id = '${ALUMNO}'`);
       expect(ajenas.rows).toHaveLength(0);
-      const anon = await como("anon", null, `SELECT 1 FROM public.contrataciones`);
-      expect(anon.rows).toHaveLength(0);
+      await expect(como("anon", null, `SELECT 1 FROM public.contrataciones`)).rejects.toMatchObject({
+        code: "42501",
+      });
     });
 
     it("solo el entrenador del alumno (o ADMIN) crea contrataciones", async () => {

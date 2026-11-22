@@ -182,7 +182,9 @@ describe("GOZS-141: planes_membresia_precios (PGlite)", () => {
   it("cualquier usuario autenticado puede leer el historial; anon no", async () => {
     const r = await como<{ n: string }>("authenticated", ALUMNO, `SELECT count(*)::text AS n FROM public.planes_membresia_precios`);
     expect(Number(r.rows[0]!.n)).toBeGreaterThan(0);
-    expect((await como("anon", null, `SELECT * FROM public.planes_membresia_precios`)).rows).toHaveLength(0);
+    await expect(como("anon", null, `SELECT * FROM public.planes_membresia_precios`)).rejects.toMatchObject({
+      code: "42501",
+    });
   });
 
   it("restaurar_filas_respaldo acepta la tabla nueva", async () => {
