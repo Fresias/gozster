@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { calcularRachaSemanas } from "@/lib/athlete-dias";
 import { derivarAsistenciasLocal, resolverActividadesHabilitadas } from "@/lib/clases";
 import { MiProgreso, type EstadoMiProgreso } from "@/components/athlete/mi-progreso";
 
@@ -13,6 +14,12 @@ export default function AthleteProgresoPage() {
   const miProgresoFecha = useAthleteStore((s) => s.miProgresoFecha);
   const cargando = useAthleteStore((s) => s.cargandoMiProgreso);
   const cargarMiProgreso = useAthleteStore((s) => s.cargarMiProgreso);
+  const diamantesRacha = useAthleteStore((s) => s.diamantesRacha);
+  const cargarLogrosRacha = useAthleteStore((s) => s.cargarLogrosRacha);
+  const planAlumno = useAthleteStore((s) => s.planAlumno);
+  const fechasSesionesServidor = useAthleteStore((s) => s.fechasSesionesServidor);
+  const sesionesCompletadas = useAthleteStore((s) => s.sesionesCompletadas);
+  const historialSesiones = useAthleteStore((s) => s.historialSesiones);
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
 
   const resumenClases = useClasesStore((s) => s.resumenClases);
@@ -31,8 +38,9 @@ export default function AthleteProgresoPage() {
     if (isOnline) {
       void cargarMiProgreso();
       void cargarClasesAlumno();
+      void cargarLogrosRacha();
     }
-  }, [isOnline, cargarMiProgreso, cargarClasesAlumno]);
+  }, [isOnline, cargarMiProgreso, cargarClasesAlumno, cargarLogrosRacha]);
 
   const tieneMembresiaClases = React.useMemo(() => {
     const habilitadas =
@@ -64,8 +72,19 @@ export default function AthleteProgresoPage() {
     }));
   }, [resumenClases, misReservas, clases, feedbacksPorReserva, tieneMembresiaClases]);
 
+  const rachaSemanas = React.useMemo(() => {
+    const rachaGym = calcularRachaSemanas([
+      planAlumno?.alumnos[0]?.ultimo_entreno_at,
+      ...(fechasSesionesServidor ?? []),
+      ...sesionesCompletadas.map((s) => s.fecha),
+      ...historialSesiones.map((h) => h.sesion?.fecha),
+    ]);
+    const rachaClases = resumenClases?.racha_semanas ?? 0;
+    return Math.max(rachaGym, rachaClases);
+  }, [planAlumno, fechasSesionesServidor, sesionesCompletadas, historialSesiones, resumenClases]);
+
   const tieneDatosLocales = Boolean(
-    miProgreso || (asistenciasClases && asistenciasClases.length > 0),
+    miProgreso || (asistenciasClases && asistenciasClases.length > 0) || diamantesRacha > 0,
   );
 
   const estado: EstadoMiProgreso = !isOnline && !tieneDatosLocales
@@ -82,6 +101,8 @@ export default function AthleteProgresoPage() {
       offline={!isOnline}
       fechaDescarga={miProgresoFecha}
       asistenciasClases={asistenciasClases}
+      diamantesRacha={diamantesRacha}
+      rachaSemanas={rachaSemanas}
     />
   );
 }

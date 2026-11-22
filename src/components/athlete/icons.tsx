@@ -479,33 +479,444 @@ export function PlaneAndroid({ className, ...props }: IconProps) {
   );
 }
 
-export type NivelRachaFlama = 1 | 2 | 3 | 4;
+import {
+  DIAMOND_KEYFRAMES,
+  DIAMOND_SPARK_PRESETS,
+  SVG_PATHS_FLAMA,
+  especificacionRacha,
+  type CategoriaRacha,
+  type NivelRachaFlama,
+} from "@/lib/racha-flama";
 
-/** Nivel visual progresivo según semanas consecutivas de racha. */
+export { especificacionRacha };
+export type { CategoriaRacha, NivelRachaFlama };
+
+/** Nivel visual de categoría (1=Hierro, 2=Bronce, 3=Oro, 4=Diamante) según semana de ciclo. */
 export function nivelRachaFlama(semanas: number): NivelRachaFlama {
-  if (semanas >= 8) return 4;
-  if (semanas >= 4) return 3;
-  if (semanas >= 2) return 2;
-  return 1;
+  return especificacionRacha(semanas).nivel;
 }
 
 export interface RachaFlamaProps extends IconProps {
   semanas: number;
+  diamantes?: number;
+  /** Cuando es true, renderiza el emblema Diamante fijo en máximo (52 sem · 12 chispas). */
+  permanente?: boolean;
+  /** Permite forzar el modo sin movimiento en SSR/tests. */
+  reducedMotion?: boolean;
+}
+
+function usePrefersReducedMotion(override?: boolean): boolean {
+  const [prefersReduced, setPrefersReduced] = React.useState(false);
+
+  React.useEffect(() => {
+    if (override !== undefined || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setPrefersReduced(mq.matches);
+    update();
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", update);
+      return () => mq.removeEventListener("change", update);
+    }
+    return undefined;
+  }, [override]);
+
+  return override ?? prefersReduced;
+}
+
+function BarritasRacha({
+  activas,
+  animada,
+  amplitud,
+  duracionSeg,
+  reduced,
+}: {
+  activas: number;
+  animada: boolean;
+  amplitud: number;
+  duracionSeg: number | null;
+  reduced: boolean;
+}) {
+  return (
+    <>
+      {[0, 1, 2, 3].map((i) => {
+        const on = i < activas;
+        const x0 = 2 + i * 5.25;
+        const y0 = 20.4;
+        const w0 = 4.25;
+        const h0 = 2.4;
+        const shouldBeat = !reduced && animada && on && i === activas - 1 && amplitud > 0 && duracionSeg !== null;
+
+        if (!shouldBeat) {
+          return (
+            <rect
+              key={i}
+              x={x0}
+              y={y0}
+              width={w0}
+              height={h0}
+              rx={1.2}
+              fill="currentColor"
+              opacity={on ? undefined : 0.25}
+            />
+          );
+        }
+
+        const effDur = `${duracionSeg!.toFixed(2)}s`;
+        const hPeak = Number((h0 + 1.3 * amplitud).toFixed(2));
+        const wPeak = Number((w0 + 0.55 * amplitud).toFixed(2));
+        const xPeak = Number((x0 - (wPeak - w0) / 2).toFixed(2));
+        const yPeak = Number((21.6 - hPeak / 2).toFixed(2));
+        const splineProps = {
+          calcMode: "spline" as const,
+          keyTimes: "0;0.5;1",
+          keySplines: "0.4 0 0.2 1;0.4 0 0.2 1",
+          dur: effDur,
+          repeatCount: "indefinite" as const,
+        };
+
+        return (
+          <rect key={i} x={x0} y={y0} width={w0} height={h0} rx={1.2} fill="currentColor">
+            <animate attributeName="x" values={`${x0};${xPeak};${x0}`} {...splineProps} />
+            <animate attributeName="y" values={`${y0};${yPeak};${y0}`} {...splineProps} />
+            <animate attributeName="width" values={`${w0};${wPeak};${w0}`} {...splineProps} />
+            <animate attributeName="height" values={`${h0};${hPeak};${h0}`} {...splineProps} />
+            <animate attributeName="opacity" values="0.65;1;0.65" {...splineProps} />
+          </rect>
+        );
+      })}
+    </>
+  );
+}
+
+function DiamanteCuerpo({
+  uid,
+  pct,
+  fillY,
+  reduced,
+}: {
+  uid: string;
+  pct: number;
+  fillY: number;
+  reduced: boolean;
+}) {
+  const { OUTER, CORE, D2_TONGUE_L, D2_TONGUE_R, WAVE } = SVG_PATHS_FLAMA;
+
+  if (reduced) {
+    if (pct >= 100) {
+      return (
+        <>
+          <path data-flame-part="left" d={D2_TONGUE_L} fill="var(--a-racha-tongue, #0284C7)" />
+          <path data-flame-part="right" d={D2_TONGUE_R} fill="var(--a-racha-tongue, #0284C7)" />
+          <path data-flame-part="main" d={OUTER} fill="currentColor" />
+          <path data-flame-part="core" d={CORE} fill="var(--a-racha-core, #FFFFFF)" opacity={0.92} />
+        </>
+      );
+    }
+    return (
+      <>
+        <defs>
+          <clipPath id={`${uid}-tl`}>
+            <path d={D2_TONGUE_L} />
+          </clipPath>
+          <clipPath id={`${uid}-tr`}>
+            <path d={D2_TONGUE_R} />
+          </clipPath>
+          <clipPath id={`${uid}-b`}>
+            <path d={OUTER} />
+          </clipPath>
+        </defs>
+        <path
+          data-flame-part="left"
+          d={D2_TONGUE_L}
+          stroke="var(--a-racha-tongue, #0284C7)"
+          strokeWidth={1.3}
+          strokeLinejoin="round"
+        />
+        <path
+          data-flame-part="right"
+          d={D2_TONGUE_R}
+          stroke="var(--a-racha-tongue, #0284C7)"
+          strokeWidth={1.3}
+          strokeLinejoin="round"
+        />
+        {pct > 0 && (
+          <>
+            <g clipPath={`url(#${uid}-tl)`}>
+              <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+                <rect x={-2} y={0} width={28} height={28} fill="var(--a-racha-tongue, #0284C7)" />
+              </g>
+            </g>
+            <g clipPath={`url(#${uid}-tr)`}>
+              <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+                <rect x={-2} y={0} width={28} height={28} fill="var(--a-racha-tongue, #0284C7)" />
+              </g>
+            </g>
+          </>
+        )}
+        <path
+          data-flame-part="main"
+          d={OUTER}
+          fill="var(--a-racha-bg, #FFFFFF)"
+          stroke="currentColor"
+          strokeWidth={1.65}
+          strokeLinejoin="round"
+        />
+        {pct > 0 && (
+          <g clipPath={`url(#${uid}-b)`}>
+            <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+              <rect x={-2} y={0} width={28} height={28} fill="currentColor" />
+            </g>
+            <path data-flame-part="core" d={CORE} fill="var(--a-racha-core, #FFFFFF)" opacity={0.58} />
+          </g>
+        )}
+      </>
+    );
+  }
+
+  if (pct >= 100) {
+    return (
+      <>
+        <path data-flame-part="left" d={D2_TONGUE_L} fill="var(--a-racha-tongue, #0284C7)">
+          <animate
+            attributeName="d"
+            dur={DIAMOND_KEYFRAMES.durLeft}
+            repeatCount="indefinite"
+            values={DIAMOND_KEYFRAMES.tongueL}
+          />
+        </path>
+        <path data-flame-part="right" d={D2_TONGUE_R} fill="var(--a-racha-tongue, #0284C7)">
+          <animate
+            attributeName="d"
+            dur={DIAMOND_KEYFRAMES.durRight}
+            repeatCount="indefinite"
+            values={DIAMOND_KEYFRAMES.tongueR}
+          />
+        </path>
+        <path data-flame-part="main" d={OUTER} fill="currentColor">
+          <animate
+            attributeName="d"
+            dur={DIAMOND_KEYFRAMES.durMain}
+            repeatCount="indefinite"
+            values={DIAMOND_KEYFRAMES.outer}
+          />
+        </path>
+        <path data-flame-part="core" d={CORE} fill="var(--a-racha-core, #FFFFFF)" opacity={0.92}>
+          <animate
+            attributeName="d"
+            dur={DIAMOND_KEYFRAMES.durMain}
+            repeatCount="indefinite"
+            values={DIAMOND_KEYFRAMES.core}
+          />
+        </path>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <defs>
+        <clipPath id={`${uid}-tl`}>
+          <path d={D2_TONGUE_L}>
+            <animate
+              attributeName="d"
+              dur={DIAMOND_KEYFRAMES.durLeft}
+              repeatCount="indefinite"
+              values={DIAMOND_KEYFRAMES.tongueL}
+            />
+          </path>
+        </clipPath>
+        <clipPath id={`${uid}-tr`}>
+          <path d={D2_TONGUE_R}>
+            <animate
+              attributeName="d"
+              dur={DIAMOND_KEYFRAMES.durRight}
+              repeatCount="indefinite"
+              values={DIAMOND_KEYFRAMES.tongueR}
+            />
+          </path>
+        </clipPath>
+        <clipPath id={`${uid}-b`}>
+          <path d={OUTER}>
+            <animate
+              attributeName="d"
+              dur={DIAMOND_KEYFRAMES.durMain}
+              repeatCount="indefinite"
+              values={DIAMOND_KEYFRAMES.outer}
+            />
+          </path>
+        </clipPath>
+      </defs>
+      <path
+        data-flame-part="left"
+        d={D2_TONGUE_L}
+        stroke="var(--a-racha-tongue, #0284C7)"
+        strokeWidth={1.3}
+        strokeLinejoin="round"
+      >
+        <animate
+          attributeName="d"
+          dur={DIAMOND_KEYFRAMES.durLeft}
+          repeatCount="indefinite"
+          values={DIAMOND_KEYFRAMES.tongueL}
+        />
+      </path>
+      <path
+        data-flame-part="right"
+        d={D2_TONGUE_R}
+        stroke="var(--a-racha-tongue, #0284C7)"
+        strokeWidth={1.3}
+        strokeLinejoin="round"
+      >
+        <animate
+          attributeName="d"
+          dur={DIAMOND_KEYFRAMES.durRight}
+          repeatCount="indefinite"
+          values={DIAMOND_KEYFRAMES.tongueR}
+        />
+      </path>
+      {pct > 0 && (
+        <>
+          <g clipPath={`url(#${uid}-tl)`}>
+            <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+              <path
+                className="a-racha-wave"
+                style={{ "--wd": "1.4s" } as React.CSSProperties}
+                d={WAVE}
+                fill="var(--a-racha-tongue, #0284C7)"
+              />
+            </g>
+          </g>
+          <g clipPath={`url(#${uid}-tr)`}>
+            <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+              <path
+                className="a-racha-wave"
+                style={{ "--wd": "1.4s" } as React.CSSProperties}
+                d={WAVE}
+                fill="var(--a-racha-tongue, #0284C7)"
+              />
+            </g>
+          </g>
+        </>
+      )}
+      <path
+        data-flame-part="main"
+        d={OUTER}
+        fill="var(--a-racha-bg, #FFFFFF)"
+        stroke="currentColor"
+        strokeWidth={1.65}
+        strokeLinejoin="round"
+      >
+        <animate
+          attributeName="d"
+          dur={DIAMOND_KEYFRAMES.durMain}
+          repeatCount="indefinite"
+          values={DIAMOND_KEYFRAMES.outer}
+        />
+      </path>
+      {pct > 0 && (
+        <g clipPath={`url(#${uid}-b)`}>
+          <g className="a-racha-rise" style={{ "--h": `${fillY}px` } as React.CSSProperties}>
+            <path
+              className="a-racha-wave"
+              style={{ "--wd": "1.4s" } as React.CSSProperties}
+              d={WAVE}
+              fill="currentColor"
+            />
+          </g>
+          <path data-flame-part="core" d={CORE} fill="var(--a-racha-core, #FFFFFF)" opacity={0.58}>
+            <animate
+              attributeName="d"
+              dur={DIAMOND_KEYFRAMES.durMain}
+              repeatCount="indefinite"
+              values={DIAMOND_KEYFRAMES.core}
+            />
+          </path>
+        </g>
+      )}
+    </>
+  );
+}
+
+function ChispasDiamante({
+  cantidad,
+  intensidad,
+  frecuencia,
+  reduced,
+}: {
+  cantidad: number;
+  intensidad: number;
+  frecuencia: number;
+  reduced: boolean;
+}) {
+  if (reduced) {
+    return (
+      <g className="a-racha-sparks" data-sparks={cantidad} data-static="1">
+        <circle cx={11.8} cy={1.8} r={1.1} fill="currentColor" opacity={0.75} />
+        <circle cx={8.2} cy={5.5} r={0.85} fill="var(--a-racha-tongue, #0284C7)" opacity={0.7} />
+        <circle cx={15.7} cy={5.2} r={0.9} fill="currentColor" opacity={0.7} />
+      </g>
+    );
+  }
+
+  const freqScale = Math.max(0.4, Math.min(2.0, frecuencia));
+  const ampScale = 0.5 + 0.35 * intensidad;
+
+  return (
+    <g className="a-racha-sparks" data-sparks={cantidad} data-static="0">
+      {DIAMOND_SPARK_PRESETS.slice(0, cantidad).map((sp, idx) => {
+        const dur = Number((sp.baseDur / (0.65 + 0.35 * freqScale)).toFixed(2));
+        const delay = Number((-sp.delayFactor * dur).toFixed(2));
+        return (
+          <circle
+            key={idx}
+            cx={sp.cx}
+            cy={sp.cy}
+            r={sp.r}
+            fill={sp.bright ? "var(--a-racha-core, #FFFFFF)" : "currentColor"}
+            className="a-racha-spark"
+            style={
+              {
+                "--sd": `${dur}s`,
+                "--sdelay": `${delay}s`,
+                "--sx": `${(sp.dx * ampScale).toFixed(2)}px`,
+                "--sy": `${(sp.dy * ampScale).toFixed(2)}px`,
+                "--skx": `${(sp.kinkX * ampScale).toFixed(2)}px`,
+                "--sky": `${(sp.kinkY * ampScale).toFixed(2)}px`,
+              } as React.CSSProperties
+            }
+          />
+        );
+      })}
+    </g>
+  );
 }
 
 /**
- * Opción B — Flama Geométrica Progresiva inline (sin dependencias externas).
- * Acompaña el peso stencil/angular de Archivo 800 y usa `React.useId()` para
- * evitar colisiones de gradientes en DOM/SSR.
+ * Flama de racha por categorías (Hierro → Bronce → Oro → Diamante) según `racha-config-final-v3.json`.
+ * Usa `React.useId()` para evitar colisiones de `<clipPath>` en DOM/SSR y respeta `prefers-reduced-motion`.
  */
-export function RachaFlama({ semanas, className, ...props }: RachaFlamaProps) {
+export function RachaFlama({
+  semanas,
+  diamantes = 0,
+  permanente = false,
+  reducedMotion,
+  className,
+  ...props
+}: RachaFlamaProps) {
   const rawId = React.useId();
-  const gradId = `racha-flama-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const nivel = nivelRachaFlama(semanas);
+  const uid = `racha-flama-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const reduced = usePrefersReducedMotion(reducedMotion);
+  const spec = especificacionRacha(permanente ? 52 : semanas, diamantes);
+  const { OUTER, WAVE } = SVG_PATHS_FLAMA;
 
-  const outerPath =
-    "M12.5 2L18 9.2L15.6 11.4L19.2 14.8L15.8 21.5H8.2L4.8 14.8L8.4 11.4L6.2 8.8L12.5 2Z";
-  const innerPath = "M12.1 10.6L14.9 14.6L13.5 19.5H10.5L9.1 14.6L12.1 10.6Z";
+  const isDiamond = permanente || spec.categoria === "diamante";
+  const pct = permanente ? 100 : spec.porcentajeLlenado;
+  const fillY = permanente ? -2.0 : spec.fillY;
+  const chispas = permanente
+    ? { cantidad: 12, intensidad: 2.5, frecuencia: 2.0 }
+    : spec.chispas;
 
   return (
     <svg
@@ -514,74 +925,95 @@ export function RachaFlama({ semanas, className, ...props }: RachaFlamaProps) {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
+      overflow="visible"
       aria-hidden="true"
       focusable="false"
-      data-level={nivel}
-      className={className}
+      data-category={isDiamond ? "diamante" : spec.categoria}
+      data-level={isDiamond ? 4 : spec.nivel}
+      data-fill-pct={pct}
+      data-bars={isDiamond ? 0 : spec.barras.activas}
+      data-bar-animated={isDiamond ? "false" : String(!reduced && spec.barras.animada)}
+      data-cycle-week={permanente ? 52 : spec.semanaCiclo}
+      data-gold-step={spec.escalonOro ? spec.escalonOro.escalon : undefined}
+      data-sparks={chispas ? chispas.cantidad : undefined}
+      className={className ? `a-racha-flama ${className}` : "a-racha-flama"}
       {...props}
     >
-      {(nivel === 3 || nivel === 4) && (
-        <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FDE047" />
-            <stop offset="55%" stopColor="#F97316" />
-            <stop offset="100%" stopColor="#DC2626" />
-          </linearGradient>
-        </defs>
-      )}
-
-      {nivel === 1 && (
+      {isDiamond ? (
         <>
-          <path
-            d={outerPath}
-            fill="none"
-            stroke="#F97316"
-            strokeWidth="1.9"
-            strokeLinejoin="miter"
-          />
-          <path d={innerPath} fill="#F97316" fillOpacity="0.35" />
+          <DiamanteCuerpo uid={uid} pct={pct} fillY={fillY} reduced={reduced} />
+          {chispas && (
+            <ChispasDiamante
+              cantidad={chispas.cantidad}
+              intensidad={chispas.intensidad}
+              frecuencia={chispas.frecuencia}
+              reduced={reduced}
+            />
+          )}
         </>
-      )}
-
-      {nivel === 2 && (
+      ) : (
         <>
-          <path
-            d={outerPath}
-            fill="#EA580C"
-            stroke="#FB923C"
-            strokeWidth="1.2"
-            strokeLinejoin="miter"
-          />
-          <path d={innerPath} fill="#FDE047" />
-        </>
-      )}
-
-      {nivel === 3 && (
-        <>
-          <path
-            d={outerPath}
-            fill={`url(#${gradId})`}
-            stroke="#F97316"
-            strokeWidth="0.9"
-            strokeLinejoin="miter"
-          />
-          <path d={innerPath} fill="#FEF08A" fillOpacity="0.9" />
-        </>
-      )}
-
-      {nivel === 4 && (
-        <>
-          <path
-            d={outerPath}
-            fill={`url(#${gradId})`}
-            stroke="var(--a-rec-ic, #D4A72C)"
-            strokeWidth="1.6"
-            strokeLinejoin="miter"
-          />
-          <path d={innerPath} fill="#FEF9C3" fillOpacity="0.95" />
-          <path
-            d="M19.5 3.2L20.3 5.2L22.3 6L20.3 6.8L19.5 8.8L18.7 6.8L16.7 6L18.7 5.2Z"
-            fill="var(--a-rec-ic, #D4A72C)"
+          <g transform="translate(12 2) scale(.84) translate(-12 -2)">
+            <g
+              className={
+                spec.flick && !reduced
+                  ? "a-racha-base a-racha-flick"
+                  : spec.flick
+                    ? "a-racha-base"
+                    : undefined
+              }
+              style={
+                spec.flick
+                  ? ({
+                      "--d": `${spec.flick.duracionSeg}s`,
+                      "--a": String(spec.flick.amplitud),
+                    } as React.CSSProperties)
+                  : undefined
+              }
+            >
+              {pct <= 0 ? (
+                <path
+                  d={OUTER}
+                  stroke="currentColor"
+                  strokeWidth={1.65}
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <>
+                  <defs>
+                    <clipPath id={`${uid}-clip`}>
+                      <path d={OUTER} />
+                    </clipPath>
+                  </defs>
+                  <path
+                    d={OUTER}
+                    stroke="currentColor"
+                    strokeWidth={1.65}
+                    strokeLinejoin="round"
+                  />
+                  <g clipPath={`url(#${uid}-clip)`}>
+                    <g
+                      className="a-racha-rise"
+                      style={{ "--h": `${fillY}px` } as React.CSSProperties}
+                    >
+                      <path
+                        className={reduced ? undefined : "a-racha-wave"}
+                        style={{ "--wd": `${spec.waveDurSeg}s` } as React.CSSProperties}
+                        d={WAVE}
+                        fill="currentColor"
+                      />
+                    </g>
+                  </g>
+                </>
+              )}
+            </g>
+          </g>
+          <BarritasRacha
+            activas={spec.barras.activas}
+            animada={spec.barras.animada}
+            amplitud={spec.barras.amplitud}
+            duracionSeg={spec.barras.duracionSeg}
+            reduced={reduced}
           />
         </>
       )}

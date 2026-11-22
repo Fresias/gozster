@@ -53,28 +53,30 @@ import {
   TrendingUp,
   ClipboardList,
   RachaFlama,
-  nivelRachaFlama,
+  especificacionRacha,
 } from "@/components/athlete/icons";
 import { InstalarAppCard } from "@/components/athlete/instalar-app-card";
 import { useAtraparFocoEnHoja } from "@/components/athlete/athlete-sheet";
 
 export interface IndicadorRachaSemanasProps {
   semanas: number;
+  diamantes?: number;
   initialPopoverOpen?: boolean;
 }
 
 /**
- * Indicador compacto de racha semanal con Flama Geométrica Progresiva (Opción B)
- * y popover accesible explicativo al tocar.
+ * Indicador compacto de racha semanal por categorías (Hierro → Bronce → Oro → Diamante)
+ * con chip dual desde la semana 53 y popover accesible explicativo al tocar.
  */
 export function IndicadorRachaSemanas({
   semanas,
+  diamantes = 0,
   initialPopoverOpen = false,
 }: IndicadorRachaSemanasProps) {
   const [popoverOpen, setPopoverOpen] = React.useState(initialPopoverOpen);
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
-  const nivel = nivelRachaFlama(semanas);
+  const spec = especificacionRacha(semanas, diamantes);
 
   React.useEffect(() => {
     if (!popoverOpen) return;
@@ -99,21 +101,59 @@ export function IndicadorRachaSemanas({
     };
   }, [popoverOpen]);
 
+  const semanasTexto = `${semanas} ${semanas === 1 ? "semana" : "semanas"}`;
+  const ariaLabel = spec.esChipDual
+    ? `Racha de ${semanasTexto} (semana ${spec.semanaCiclo} del ciclo, Categoría ${spec.etiquetaCategoria}) · Logro Llama Diamante ×${spec.diamantes}`
+    : `Racha de ${semanasTexto} · Categoría ${spec.etiquetaCategoria}`;
+
   return (
-    <div ref={wrapRef} className="a-racha-wrap">
+    <div
+      ref={wrapRef}
+      className="a-racha-wrap"
+      data-testid="racha-semanas-wrap"
+      data-dual={spec.esChipDual ? "true" : undefined}
+    >
+      {spec.esChipDual && (
+        <span
+          className="a-racha-perm-mini"
+          data-testid="racha-diamante-chip"
+          data-category="diamante"
+          data-level={4}
+          data-sparks={12}
+          title={`Logro permanente: Llama Diamante ×${spec.diamantes}`}
+          aria-label={`Logro permanente: Llama Diamante ×${spec.diamantes}`}
+        >
+          <RachaFlama semanas={52} permanente width={15} height={15} className="a-i" />
+          <span>×{spec.diamantes}</span>
+        </span>
+      )}
+
       <button
         ref={buttonRef}
         type="button"
         className="a-racha-btn"
         data-testid="racha-semanas-chip"
-        data-level={nivel}
-        aria-label={`Racha de ${semanas} ${semanas === 1 ? "semana" : "semanas"}`}
+        data-category={spec.categoria}
+        data-level={spec.nivel}
+        data-fill-pct={spec.porcentajeLlenado}
+        data-bars={spec.barras.activas}
+        data-bar-animated={String(spec.barras.animada)}
+        data-gold-step={spec.escalonOro ? spec.escalonOro.escalon : undefined}
+        data-sparks={spec.chispas ? spec.chispas.cantidad : undefined}
+        data-cycle-week={spec.semanaCiclo}
+        aria-label={ariaLabel}
         aria-expanded={popoverOpen}
         aria-haspopup="dialog"
         onClick={() => setPopoverOpen((prev) => !prev)}
       >
-        <RachaFlama semanas={semanas} width={15} height={15} className="a-i" />
-        <span>{semanas} SEM</span>
+        <RachaFlama
+          semanas={spec.semanaCiclo}
+          diamantes={spec.diamantes}
+          width={16}
+          height={16}
+          className="a-i"
+        />
+        <span>{spec.semanaCiclo} SEM</span>
       </button>
 
       {popoverOpen && (
@@ -126,6 +166,10 @@ export function IndicadorRachaSemanas({
           <b className="a-t-bs block">
             {semanas} {semanas === 1 ? "semana consecutiva" : "semanas consecutivas"}
           </b>
+          <span className="a-t-sec block" data-testid="racha-popover-categoria">
+            Categoría {spec.etiquetaCategoria} · {spec.porcentajeLlenado}%
+            {spec.diamantes >= 1 ? ` · Llama Diamante ×${spec.diamantes}` : ""}
+          </span>
           <small className="a-t-sec a-muted">
             Sumás racha completando al menos 1 sesión por semana. La semana en curso no corta tu racha mientras siga abierta.
           </small>
@@ -151,6 +195,8 @@ export function InicioMisDias() {
     errorPlan,
     cargarPlanAlumno,
     rpeReminderNotification,
+    diamantesRacha,
+    verificarYRegistrarLogroDiamante,
   } = useAthleteStore();
 
   const clases = useClasesStore((s) => s.clases);
@@ -488,6 +534,13 @@ export function InicioMisDias() {
     );
   }, [resumenClases, asistenciasClases, ahoraClases]);
 
+  const rachaParaLogro = Math.max(rachaSemanas, rachaClases);
+  React.useEffect(() => {
+    if (rachaParaLogro >= 52) {
+      void verificarYRegistrarLogroDiamante(rachaParaLogro, student?.id);
+    }
+  }, [rachaParaLogro, student?.id, verificarYRegistrarLogroDiamante]);
+
   const pendienteFeedback = React.useMemo(
     () => obtenerClasePendienteFeedback(asistenciasClases, ahoraClases),
     [asistenciasClases, ahoraClases],
@@ -789,7 +842,9 @@ export function InicioMisDias() {
         <div className="a-view a-anim" data-testid="inicio-clases">
           <div className="a-hello" data-testid="inicio-clases-cabecera">
             <h1 className="a-hello-week uppercase">TUS CLASES</h1>
-            {rachaClases >= 1 && <IndicadorRachaSemanas semanas={rachaClases} />}
+            {rachaClases >= 1 && (
+              <IndicadorRachaSemanas semanas={rachaClases} diamantes={diamantesRacha} />
+            )}
           </div>
           {bannerMensajeNoLeido}
           {tarjetaRecordatorioPeso}
@@ -880,7 +935,9 @@ export function InicioMisDias() {
         <h1 className="a-hello-week uppercase" data-testid="semana-plan-titulo">
           SEMANA {semanaPlan.actual}
         </h1>
-        {rachaSemanas >= 1 && <IndicadorRachaSemanas semanas={rachaSemanas} />}
+        {rachaSemanas >= 1 && (
+          <IndicadorRachaSemanas semanas={rachaSemanas} diamantes={diamantesRacha} />
+        )}
       </div>
 
       {/* Aviso prominente de mensaje no leído del Coach */}

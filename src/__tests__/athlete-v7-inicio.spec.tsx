@@ -30,7 +30,7 @@ vi.mock("@/store/use-clases-store", async (importOriginal) => {
 });
 
 import { IndicadorRachaSemanas, InicioMisDias } from "@/components/athlete/inicio-mis-dias";
-import { RachaFlama } from "@/components/athlete/icons";
+import { RachaFlama, especificacionRacha } from "@/components/athlete/icons";
 import { MembershipExpiredNotice } from "@/components/athlete/membership-paywall";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { DEFAULT_ATHLETE_SENDER, STAFF_COACH_PRINCIPAL, useChatStore } from "@/store/use-chat-store";
@@ -453,37 +453,51 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     }
   });
 
-  it("RachaFlama progresa visualmente por nivel (1, 2-3, 4-7, 8+) con IDs de gradiente únicos (useId)", () => {
+  it("RachaFlama progresa por categorías (Hierro 1-4, Bronce 5-24, Oro 25-48, Diamante 49-52) con IDs de clipPath únicos (useId)", () => {
     const svg1 = renderToStaticMarkup(<RachaFlama semanas={1} />);
+    expect(svg1).toContain('data-category="hierro"');
     expect(svg1).toContain('data-level="1"');
-    expect(svg1).toContain('fill="none"');
-    expect(svg1).toContain('stroke="#F97316"');
-    expect(svg1).not.toContain("<linearGradient");
+    expect(svg1).toContain('data-fill-pct="0"');
+    expect(svg1).toContain('data-bars="1"');
+    expect(svg1).not.toContain("<animate");
 
     const svg3 = renderToStaticMarkup(<RachaFlama semanas={3} />);
-    expect(svg3).toContain('data-level="2"');
-    expect(svg3).toContain('fill="#EA580C"');
-    expect(svg3).toContain('fill="#FDE047"');
+    expect(svg3).toContain('data-category="hierro"');
+    expect(svg3).toContain('data-level="1"');
+    expect(svg3).toContain('data-fill-pct="53"');
+    expect(svg3).toContain('data-bars="3"');
+    expect(svg3).toContain('dur="1.87s"');
 
-    const svg5 = renderToStaticMarkup(<RachaFlama semanas={5} />);
-    expect(svg5).toContain('data-level="3"');
-    expect(svg5).toContain("<linearGradient");
-    expect(svg5).toContain("#FDE047");
-    expect(svg5).toContain("#F97316");
-    expect(svg5).toContain("#DC2626");
+    const svg6 = renderToStaticMarkup(<RachaFlama semanas={6} />);
+    expect(svg6).toContain('data-category="bronce"');
+    expect(svg6).toContain('data-level="2"');
+    expect(svg6).toContain('data-bars="2"');
+    expect(svg6).not.toContain("<animate");
 
-    const svg8 = renderToStaticMarkup(<RachaFlama semanas={8} />);
-    expect(svg8).toContain('data-level="4"');
-    expect(svg8).toContain('stroke="var(--a-rec-ic, #D4A72C)"');
+    const svg28 = renderToStaticMarkup(<RachaFlama semanas={28} />);
+    expect(svg28).toContain('data-category="oro"');
+    expect(svg28).toContain('data-level="3"');
+    expect(svg28).toContain('data-gold-step="1"');
+    expect(svg28).toContain('dur="0.80s"');
 
-    // Dos flamas en un mismo árbol SSR producen IDs distintos (sin colisión)
+    const svg52 = renderToStaticMarkup(<RachaFlama semanas={52} />);
+    expect(svg52).toContain('data-category="diamante"');
+    expect(svg52).toContain('data-level="4"');
+    expect(svg52).toContain('data-sparks="12"');
+    expect(svg52).toContain('data-flame-part="left"');
+    expect(svg52).toContain('data-flame-part="right"');
+    expect(svg52).toContain('data-flame-part="main"');
+
+    expect(especificacionRacha(53).semanaCiclo).toBe(1);
+
+    // Dos flamas en un mismo árbol SSR producen IDs de clipPath distintos (sin colisión)
     const par = renderToStaticMarkup(
       <>
-        <RachaFlama semanas={5} />
+        <RachaFlama semanas={4} />
         <RachaFlama semanas={9} />
       </>,
     );
-    const ids = [...par.matchAll(/<linearGradient id="([^"]+)"/g)].map((m) => m[1]);
+    const ids = [...par.matchAll(/<clipPath id="([^"]+)"/g)].map((m) => m[1]);
     expect(ids).toHaveLength(2);
     expect(ids[0]).not.toBe(ids[1]);
   });
@@ -539,7 +553,7 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
     };
     try {
       const tree = IndicadorRachaSemanas({ semanas: 4, initialPopoverOpen: true }) as any;
-      const btn = tree.props.children[0];
+      const btn = tree.props.children.find((child: any) => child?.type === "button");
       btn.props.onClick();
       expect(setPopoverMock).toHaveBeenCalledTimes(1);
 
@@ -605,7 +619,8 @@ describe("Athlete v7 · FE-03 Inicio y sus estados", () => {
       const html = renderToStaticMarkup(<InicioMisDias />);
       expect(html).toContain('data-testid="racha-semanas-chip"');
       expect(html).toContain("4 SEM");
-      expect(html).toContain('data-level="3"');
+      expect(html).toContain('data-category="hierro"');
+      expect(html).toContain('data-level="1"');
 
       // En offline conserva fechas ya hidratadas y sesiones locales pendientes
       useOfflineQueueStore.setState({ isOnline: false });
