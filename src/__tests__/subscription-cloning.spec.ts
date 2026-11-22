@@ -8,7 +8,7 @@ import {
 import type { DiaRutina, EjercicioEnRutina, EntrenadorAlumno, PlanEntrenamiento } from '@/types/database.types';
 
 describe('Suite de Integración Vitest - Multi-Coach, Paywall y Clonación (src/__tests__)', () => {
-  it('valida que el paywall bloquee alumnos en EXPIRED_PAYMENT_PENDING y habilite a entrenadores multi-coach', () => {
+  it('valida que el paywall bloquee alumnos en VENCIDA y habilite a entrenadores multi-coach', () => {
     const multiCoach: EntrenadorAlumno[] = [
       {
         id: '1',
@@ -34,7 +34,7 @@ describe('Suite de Integración Vitest - Multi-Coach, Paywall y Clonación (src/
       canReadEjerciciosEnRutina({
         currentUserId: 'alumno-1',
         currentUserRol: 'ALUMNO',
-        currentUserMembresia: 'EXPIRED_PAYMENT_PENDING',
+        currentUserMembresia: 'VENCIDA',
         planAlumnoId: 'alumno-1',
         planProfesorId: 'coach-1',
         coachesAsignados: multiCoach,
@@ -45,7 +45,7 @@ describe('Suite de Integración Vitest - Multi-Coach, Paywall y Clonación (src/
       canReadEjerciciosEnRutina({
         currentUserId: 'alumno-1',
         currentUserRol: 'ALUMNO',
-        currentUserMembresia: 'ACTIVE',
+        currentUserMembresia: 'ACTIVA',
         planAlumnoId: 'alumno-1',
         planProfesorId: 'coach-1',
         coachesAsignados: multiCoach,

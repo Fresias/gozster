@@ -5,7 +5,7 @@ export function esSinEntrenar7d(
   a: { estado_membresia?: string | null; ultimo_entreno_at?: string | null },
   ahora: number = Date.now(),
 ): boolean {
-  if (a.estado_membresia !== "ACTIVA" && a.estado_membresia !== "ACTIVE") return false;
+  if (a.estado_membresia !== "ACTIVA") return false;
   if (!a.ultimo_entreno_at) return true;
   const t = Date.parse(a.ultimo_entreno_at);
   if (Number.isNaN(t)) return true;

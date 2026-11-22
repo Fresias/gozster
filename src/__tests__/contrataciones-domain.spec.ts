@@ -60,9 +60,9 @@ describe("Dominio de Contrataciones (ADR-001)", () => {
         ...overrides,
       }) as Perfil;
 
-    it("EXPIRED_PAYMENT_PENDING → contratación VENCIDA conservando el día de corte", () => {
+    it("VENCIDA → contratación VENCIDA conservando el día de corte", () => {
       const c = derivarContratacionDesdePerfil(
-        basePerfil({ estado_membresia: "EXPIRED_PAYMENT_PENDING" }),
+        basePerfil({ estado_membresia: "VENCIDA" }),
       );
       expect(c.estado).toBe("VENCIDA");
       expect(c.dia_vencimiento).toBe(10);

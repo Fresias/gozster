@@ -720,7 +720,7 @@ describe('Suite de Auditoría QA Sprint 3: RLS Chat Staff, Retención y Alertas 
         email: 'alu2@test.com',
         nombre_completo: 'Alumno Dos',
         rol: 'ALUMNO',
-        estado_membresia: 'ACTIVE',
+        estado_membresia: 'ACTIVA',
         profesor_asignado_id: coach1,
         fecha_baja: null,
         created_at: '2026-09-01T00:00:00Z',

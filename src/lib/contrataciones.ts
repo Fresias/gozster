@@ -88,7 +88,7 @@ export function derivarContratacionDesdePerfil(
 
   let estado: EstadoContratacion;
   switch (alumno.estado_membresia) {
-    case "EXPIRED_PAYMENT_PENDING":
+    case "VENCIDA":
       estado = "VENCIDA";
       break;
     case "PENDIENTE":

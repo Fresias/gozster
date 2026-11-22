@@ -74,6 +74,8 @@ Al inicializar una base de datos **nueva desde cero**, `supabase db push` ejecut
    ```
 3. Repetir `supabase db push --remote`: las migraciones restantes se aplican limpiamente por CLI.
 
+**Estado final del enum (`M-1 · GOZS-703`):** la migración `20261122200000_normalizar_estado_membresia.sql` recrea `estado_membresia` con un único juego de valores en español: `ACTIVA`, `INACTIVA`, `PENDIENTE`, `BAJA` y `VENCIDA`. Los datos se mapean así: `ACTIVE` → `ACTIVA`, `ARCHIVED` → `BAJA` y `EXPIRED_PAYMENT_PENDING` → `VENCIDA`. El paso 2 sigue siendo necesario porque la migración histórica es append-only y no se puede corregir. Los 3 valores en inglés son transitorios: el resultado final del `db push` no depende de ellos. Código, tests y RPCs usan solo los valores en español.
+
 ---
 
 ## 5. Tipos TypeScript generados (`E-5 · GOZS-698`)

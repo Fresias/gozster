@@ -1463,7 +1463,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "estado_membresia": "ACTIVA"|"INACTIVA"|"PENDIENTE"|"BAJA"|"ACTIVE"|"EXPIRED_PAYMENT_PENDING"|"ARCHIVED","estado_plan": "ACTIVO"|"INACTIVO"|"BORRADOR","rol_usuario": "ENTRENADOR"|"ALUMNO"|"ADMIN"
+            "estado_membresia": "ACTIVA"|"INACTIVA"|"PENDIENTE"|"BAJA"|"VENCIDA","estado_plan": "ACTIVO"|"INACTIVO"|"BORRADOR","rol_usuario": "ENTRENADOR"|"ALUMNO"|"ADMIN"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1579,7 +1579,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "estado_membresia": ["ACTIVA", "INACTIVA", "PENDIENTE", "BAJA", "ACTIVE", "EXPIRED_PAYMENT_PENDING", "ARCHIVED"],"estado_plan": ["ACTIVO", "INACTIVO", "BORRADOR"],"rol_usuario": ["ENTRENADOR", "ALUMNO", "ADMIN"]
+            "estado_membresia": ["ACTIVA", "INACTIVA", "PENDIENTE", "BAJA", "VENCIDA"],"estado_plan": ["ACTIVO", "INACTIVO", "BORRADOR"],"rol_usuario": ["ENTRENADOR", "ALUMNO", "ADMIN"]
           }
         }
 } as const

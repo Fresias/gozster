@@ -157,7 +157,7 @@ export function derivarEstadoPagoAlumno(params: {
   }
 
   // Sin cobroItem en el store de cobros, inferir desde contratación / perfil
-  if (contratacion?.estado === "VENCIDA" || alumno?.estado_membresia === "EXPIRED_PAYMENT_PENDING") {
+  if (contratacion?.estado === "VENCIDA" || alumno?.estado_membresia === "VENCIDA") {
     return {
       pago: false,
       estado: "VENCIDO",

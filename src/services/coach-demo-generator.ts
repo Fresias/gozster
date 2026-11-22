@@ -363,7 +363,7 @@ export function generarDemoGimnasio(base: DemoGimnasioBase, ahora: Date): DemoGi
     const plan = existente
       ? planesMembresia.find((p) => p.id === existente.plan_membresia_id) ?? planesMembresia[0]!
       : planesMembresia[entre(rng, 0, planesMembresia.length - 1)]!;
-    const activo = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
+    const activo = a.estado_membresia === "ACTIVA";
     let contrato = existente;
     if (!contrato) {
       const fin = a.fecha_vencimiento_cuota ?? ymd(diaDelMes(m.dia, 1));
@@ -606,7 +606,7 @@ export function derivarKpisNegocio(
   const inicioMes = ymd(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   const fechaDesde = rango ? rango.desde : inicioMes;
   const fechaHasta = rango ? rango.hasta : hoyIso;
-  const esActivo = (a: Perfil) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
+  const esActivo = (a: Perfil) => a.estado_membresia === "ACTIVA";
   const activos = new Set(g.alumnos.filter((a) => a.rol === "ALUMNO" && esActivo(a)).map((a) => a.id));
   const precioPlan = (id: string | null) => planesMembresia.find((p) => p.id === id);
 
@@ -662,7 +662,7 @@ export function derivarKpisNegocio(
   const bajas = g.alumnos.filter(
     (a) =>
       a.rol === "ALUMNO" &&
-      (a.estado_membresia === "INACTIVA" || a.estado_membresia === "BAJA" || a.estado_membresia === "ARCHIVED") &&
+      (a.estado_membresia === "INACTIVA" || a.estado_membresia === "BAJA") &&
       a.fecha_baja !== null &&
       a.fecha_baja >= fechaDesde &&
       a.fecha_baja <= fechaHasta,
