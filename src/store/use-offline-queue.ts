@@ -160,6 +160,38 @@ async function sendFeedbackClaseEvent(ev: OfflineSyncEvent): Promise<SendResult>
   return toResult(res.error);
 }
 
+async function sendLogroRachaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
+  const p = ev.payload as {
+    alumnoId?: string;
+    numeroCiclo?: number;
+    tipo?: string;
+  };
+  if (!supabase) return "retry";
+  const numeroCiclo = Number(p.numeroCiclo);
+  if (!Number.isInteger(numeroCiclo) || numeroCiclo < 1) return "rejected";
+  const authUserId = (await supabase.auth.getUser()).data.user?.id;
+  const alumnoId =
+    p.alumnoId && UUID_REGEX.test(p.alumnoId)
+      ? p.alumnoId
+      : authUserId && UUID_REGEX.test(authUserId)
+        ? authUserId
+        : null;
+  if (!alumnoId) return "retry";
+  const res = await (supabase as any).from("logros_racha").upsert(
+    {
+      alumno_id: alumnoId,
+      numero_ciclo: numeroCiclo,
+      tipo: p.tipo === "diamante" ? "diamante" : "diamante",
+    },
+    { onConflict: "alumno_id,numero_ciclo,tipo", ignoreDuplicates: true },
+  );
+  // Si el backend aún no desplegó logros_racha (42P01 / PGRST205), no bloqueamos la cola.
+  if (res.error && (res.error.code === "42P01" || res.error.code === "PGRST205")) {
+    return "retry";
+  }
+  return toResult(res.error);
+}
+
 const memoryFallback: Record<string, string> = {};
 
 export const safeStorage: StateStorage = {
@@ -228,11 +260,17 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
             } catch {
               result = "retry";
             }
+          } else if (ev.action === "REGISTRAR_LOGRO_RACHA") {
+            try {
+              result = await sendLogroRachaEvent(ev);
+            } catch {
+              result = "retry";
+            }
           }
           // Orden preservado: ante un fallo transitorio se corta y se reintenta luego.
           if (result === "retry") return;
           // Rechazo permanente: se descarta ese evento para no bloquear la cola.
-          if (result === "rejected") {
+          if (result === "rejected" && ev.action !== "REGISTRAR_LOGRO_RACHA") {
             set({
               syncError:
                 ev.action === "FEEDBACK_CLASE"
