@@ -33,7 +33,8 @@ const SEED = `
     ('${COACH_2}', 'coach2@test.local', 'Coach Dos', 'ENTRENADOR', NULL, 'ACTIVA'),
     ('${ALUMNO_A}', 'alumno-a@test.local', 'Alumno A', 'ALUMNO', '${COACH_1}', 'ACTIVA'),
     ('${ALUMNO_B}', 'alumno-b@test.local', 'Alumno B', 'ALUMNO', '${COACH_2}', 'ACTIVA'),
-    ('${ALUMNO_C}', 'alumno-c@test.local', 'Alumno C', 'ALUMNO', NULL, 'ACTIVA');
+    ('${ALUMNO_C}', 'alumno-c@test.local', 'Alumno C', 'ALUMNO', NULL, 'ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   -- Alumno C pertenece a Coach 1 por tabla puente multi-coach
   INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal)

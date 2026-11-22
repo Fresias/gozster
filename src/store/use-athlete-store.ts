@@ -44,6 +44,10 @@ import {
   validarArchivoVideo,
 } from "@/lib/athlete/video-serie";
 import {
+  leerCantidadDiamantes,
+  registrarLogroRachaIdempotente,
+} from "@/lib/racha-logros";
+import {
   eliminarVideoPendiente,
   encolarVideo,
   reintentarVideoPendiente,
@@ -178,6 +182,10 @@ interface AthleteStoreState {
   }>;
   /** Fechas reales de `registro_sesiones` hidratadas desde Supabase para racha multi-dispositivo. */
   fechasSesionesServidor: string[];
+  /** Cantidad de logros permanentes Llama Diamante (`logros_racha`, fallback 0). */
+  diamantesRacha: number;
+  /** Ciclos ya registrados/encolados localmente para evitar reenvíos duplicados. */
+  ciclosLogroRegistrados: number[];
   // "La última vez" por ejercicio_id (GOZS-159). null = sin historial; undefined = todavía no consultado.
   ultimaVez: Record<string, UltimaVezEjercicio | null>;
   cargandoUltimaVez: boolean;
@@ -327,6 +335,8 @@ interface AthleteStoreState {
   ) => boolean;
   resetSessionToDefaults: () => void;
   repararSesionesNoUuid: () => void;
+  cargarLogrosRacha: (alumnoId?: string) => Promise<void>;
+  verificarYRegistrarLogroDiamante: (semanas: number, alumnoId?: string) => Promise<void>;
 }
 
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
@@ -919,6 +929,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       motivoCambioDia: null,
       sesionesCompletadas: [],
       fechasSesionesServidor: [],
+      diamantesRacha: 0,
+      ciclosLogroRegistrados: [],
       planAlumno: null,
       cargandoPlan: false,
       errorPlan: false,
@@ -2675,6 +2687,77 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({ currentSession: session });
       },
 
+      cargarLogrosRacha: async (alumnoIdParam) => {
+        const alumnoId =
+          alumnoIdParam ||
+          get().planAlumno?.alumnos[0]?.id ||
+          (get().currentSession.studentId !== DEFAULT_ATHLETE_ID
+            ? get().currentSession.studentId
+            : undefined);
+        if (!alumnoId || !esUuid(alumnoId)) return;
+        const count = await leerCantidadDiamantes(alumnoId);
+        set((state) => ({
+          diamantesRacha: Math.max(count, state.ciclosLogroRegistrados.length),
+        }));
+      },
+
+      verificarYRegistrarLogroDiamante: async (semanas, alumnoIdParam) => {
+        if (!Number.isFinite(semanas) || semanas < 52) return;
+        const ciclosCompletados = Math.floor(semanas / 52);
+        const alumnoId =
+          alumnoIdParam ||
+          get().planAlumno?.alumnos[0]?.id ||
+          (get().currentSession.studentId !== DEFAULT_ATHLETE_ID
+            ? get().currentSession.studentId
+            : undefined);
+
+        const registrados = get().ciclosLogroRegistrados;
+        const pendientes: number[] = [];
+        for (let ciclo = 1; ciclo <= ciclosCompletados; ciclo++) {
+          if (!registrados.includes(ciclo)) {
+            pendientes.push(ciclo);
+          }
+        }
+        if (pendientes.length === 0) {
+          if (get().diamantesRacha < ciclosCompletados) {
+            set({ diamantesRacha: ciclosCompletados });
+          }
+          return;
+        }
+
+        set((state) => ({
+          diamantesRacha: Math.max(state.diamantesRacha, ciclosCompletados),
+          ciclosLogroRegistrados: Array.from(
+            new Set([...state.ciclosLogroRegistrados, ...pendientes]),
+          ).sort((a, b) => a - b),
+        }));
+
+        if (!alumnoId || !esUuid(alumnoId)) return;
+
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+        for (const numeroCiclo of pendientes) {
+          if (isOnline) {
+            const res = await registrarLogroRachaIdempotente({
+              alumnoId,
+              numeroCiclo,
+              tipo: "diamante",
+            });
+            if (res.ok) continue;
+          }
+          const eventId = `logro-racha-diamante-${alumnoId}-${numeroCiclo}`;
+          const yaEncolado = useOfflineQueueStore
+            .getState()
+            .pendingEvents.some((ev) => ev.id === eventId);
+          if (!yaEncolado) {
+            useOfflineQueueStore.getState().enqueueEvent({
+              id: eventId,
+              action: "REGISTRAR_LOGRO_RACHA",
+              payload: { alumnoId, numeroCiclo, tipo: "diamante" },
+            });
+          }
+        }
+      },
+
       cargarPlanAlumno: async () => {
         set({ cargandoPlan: true, errorPlan: false });
         try {
@@ -2765,6 +2848,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 ),
               }));
             }
+          }
+          if (studentId && useOfflineQueueStore.getState().isOnline) {
+            void get().cargarLogrosRacha(studentId);
           }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
@@ -2982,6 +3068,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
         sessionStartedAt: state.sessionStartedAt,
         sesionesCompletadas: state.sesionesCompletadas,
         fechasSesionesServidor: state.fechasSesionesServidor,
+        diamantesRacha: state.diamantesRacha,
+        ciclosLogroRegistrados: state.ciclosLogroRegistrados,
         ultimaVez: state.ultimaVez,
         marcas: state.marcas,
         seriesRecordIds: state.seriesRecordIds,

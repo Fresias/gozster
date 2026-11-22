@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Calendar, CloudOff, History } from "@/components/athlete/icons";
+import { TarjetaLogroDiamante } from "@/components/athlete/tarjeta-logro-diamante";
 import { Tooltip1RM } from "@/components/athlete/tooltip-1rm";
 import { formatearFechaCorta } from "@/lib/historial-ejercicio";
 import {
@@ -34,6 +35,8 @@ export interface MiProgresoProps {
   offline?: boolean; // hay datos guardados pero sin conexión
   fechaDescarga?: string | null; // ISO de la última descarga, para el aviso offline
   asistenciasClases?: AsistenciaClaseItem[];
+  diamantesRacha?: number;
+  rachaSemanas?: number;
 }
 
 // 02-pantallas §6: gráfico SVG 300 × 96 (+18 de fechas), sin librerías. Misma geometría que la referencia.
@@ -233,6 +236,8 @@ export function MiProgreso({
   offline,
   fechaDescarga,
   asistenciasClases,
+  diamantesRacha = 0,
+  rachaSemanas = 0,
 }: MiProgresoProps) {
   if (estado === "cargando") return <Esqueleto />;
 
@@ -251,6 +256,8 @@ export function MiProgreso({
     !data || (data.ejercicios.length === 0 && data.sesiones_mes === 0 && data.sesiones_mes_anterior === 0);
   const mostrarClases = asistenciasClases !== undefined;
   const tieneAsistenciasClases = Boolean(asistenciasClases && asistenciasClases.length > 0);
+  const ciclosCompletados = rachaSemanas >= 53 ? Math.floor((rachaSemanas - 1) / 52) : 0;
+  const diamantesVisibles = Math.max(diamantesRacha, ciclosCompletados);
 
   return (
     <section className="grid gap-4" aria-labelledby="mi-progreso-titulo">
@@ -262,6 +269,10 @@ export function MiProgreso({
           <CloudOff width={12} height={12} aria-hidden="true" />
           Sin conexión · datos del {formatearFechaCorta(fechaDescarga)}
         </p>
+      )}
+
+      {diamantesVisibles >= 1 && (
+        <TarjetaLogroDiamante diamantes={diamantesVisibles} semanas={rachaSemanas} />
       )}
 
       {sinHistorial && !mostrarClases ? (
