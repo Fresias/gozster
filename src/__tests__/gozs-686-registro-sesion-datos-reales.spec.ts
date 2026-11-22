@@ -328,8 +328,9 @@ describe("GOZS-686 · F-9/F-10/F-11: Registro de sesión con datos reales", () =
       expect(rowNormal?.set_type).toBe("NORMAL");
       expect(rowDrop?.set_type).toBe("DROPSET");
 
-      expect(sesionUpserts[0].volumen_total_kg).toBe(1020);
-      expect(sesionUpserts[0].effective_volume_kg).toBe(820);
+      // GOZS-701: el volumen lo calcula la base (trigger); el cliente no lo envía.
+      expect(sesionUpserts[0]).not.toHaveProperty("volumen_total_kg");
+      expect(sesionUpserts[0]).not.toHaveProperty("effective_volume_kg");
 
       useAthleteStore.getState().marcarDiaCompletado(DIA_ID);
       const hist = useAthleteStore.getState().historialSesiones[0]!;

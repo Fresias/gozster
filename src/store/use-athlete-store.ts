@@ -2511,13 +2511,6 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }))
           );
 
-          const totalVol = allSets.reduce((acc, s) => {
-            if (!s.completada) return acc;
-            return acc + s.peso_kg * s.reps_hechas;
-          }, 0);
-
-          const effVol = calculateEffectiveVolume(allSets);
-
           try {
             // Guardar registro_sesiones en Supabase
             const { error: sesErr } = await supabase.from("registro_sesiones").upsert(
@@ -2528,8 +2521,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 dia_sugerido_id: session.dia_sugerido_id || null,
                 motivo_cambio_dia: session.motivo_cambio_dia || null,
                 duracion_minutos: duracionMinutos,
-                volumen_total_kg: totalVol,
-                effective_volume_kg: effVol,
+                // volumen_total_kg / effective_volume_kg los calcula la base desde registro_series (GOZS-701).
               },
               { onConflict: "id" }
             );

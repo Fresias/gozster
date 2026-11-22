@@ -182,7 +182,9 @@ describe("GOZS-335: Alta persistente de Gonzalo Salas (Admin), trigger on_auth_u
         ADMIN_ID,
         `SELECT volumen_total_kg::text FROM public.registro_sesiones WHERE alumno_id = '${ADMIN_ID}'`
       );
-      expect(Number(ses.rows[0]?.volumen_total_kg)).toBe(1200);
+      // GOZS-701: la base ignora el volumen enviado y lo deriva de registro_series (aún sin series).
+      expect(ses.rows).toHaveLength(1);
+      expect(Number(ses.rows[0]?.volumen_total_kg)).toBe(0);
     });
 
     it("el ADMIN puede registrar y consultar sus series en registro_series", async () => {
