@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dumbbell, ArrowRightLeft, LinkIcon } from "@/components/coach/icons";
 import { QuickSwapModal } from "@/components/coach/quick-swap-modal";
 import { DEMO_CRITICAL_ALERTS } from "@/services/coach-demo-dataset";
+import { useCoachStudioStore } from "@/store/use-coach-studio";
 
 export interface IslaRoutineWorkbenchProps {
   rutinaActiva: PlanEntrenamiento | null;
@@ -223,8 +224,12 @@ export function IslaRoutineWorkbench({
     return ejerciciosEnRutina.filter((er) => er.dia_id === activeDiaId);
   }, [activeDiaId, ejerciciosEnRutina]);
 
-  const effectiveAlumnoNombre = alumnoNombre || alumno?.nombre_completo || "Lucas Giménez";
-  const effectiveAlumnoId = alumnoId || alumno?.id || "demo-alumno-01-lucas";
+  const isLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
+  const effectiveAlumnoNombre =
+    alumnoNombre || alumno?.nombre_completo || (isLiveDatabase ? "" : "Lucas Giménez");
+  const effectiveAlumnoId =
+    alumnoId || alumno?.id || (isLiveDatabase ? "" : "demo-alumno-01-lucas");
+  const isUuidAlumno = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(effectiveAlumnoId);
 
   // Identificador semántico de dolor activo por ejercicio
   const getExercisePainAlert = React.useCallback(
@@ -252,6 +257,10 @@ export function IslaRoutineWorkbench({
           return aName && eName && (aName.includes(eName) || eName.includes(aName));
         });
         if (found) return found;
+      }
+
+      if (isLiveDatabase || isUuidAlumno) {
+        return null;
       }
 
       const demoMatch = DEMO_CRITICAL_ALERTS.find((a) => {

@@ -648,9 +648,9 @@ function generarDemoPagosHistorial(): PagoMensualInput[] {
 export const useCobrosStore = create<CobrosState>()(
   persist(
     (set, get) => ({
-      cobros: generarDemoCobrosIniciales(),
-      planes: generarDemoPlanesIniciales(),
-      pagosHistorial: generarDemoPagosHistorial(),
+      cobros: [],
+      planes: [],
+      pagosHistorial: [],
       filtroEstado: "TODOS",
       filtroActividadKpiAnual: "TODAS",
       kpiAnualAbierto: false,
@@ -685,7 +685,11 @@ export const useCobrosStore = create<CobrosState>()(
         const hasLiveCobros = Array.isArray(dataset.cobros);
         const hasLivePlanes = Array.isArray(dataset.planesMembresia);
         if (!hasLiveCobros && !hasLivePlanes) {
-          get().syncWithLiveAlumnos(alumnos);
+          set((state) => ({
+            isLiveMode: true,
+            cobros: state.cobros.filter((c) => !isDemoCobro(c)),
+            planes: state.planes.filter((p) => !p.id.startsWith("demo-")),
+          }));
           return;
         }
         const mapped = mapearCobrosDataset(
@@ -701,10 +705,10 @@ export const useCobrosStore = create<CobrosState>()(
         set((state) => ({
           isLiveMode: true,
           cobros: hasLiveCobros ? mapped.cobros : state.cobros.filter((c) => !isDemoCobro(c)),
-          planes:
-            hasLivePlanes && (dataset.planesMembresia?.length ?? 0) > 0
-              ? mapped.planes
-              : state.planes.filter((p) => !p.id.startsWith("demo-")),
+          planes: hasLivePlanes
+            ? mapped.planes
+            : state.planes.filter((p) => !p.id.startsWith("demo-")),
+          pagosHistorial: [],
         }));
       },
 
@@ -737,9 +741,7 @@ export const useCobrosStore = create<CobrosState>()(
         }
 
         if (!user) {
-          if (!get().isLiveMode && get().cobros.length === 0) {
-            set({ cobros: generarDemoCobrosIniciales(), cargando: false });
-          }
+          set({ cargando: false });
           return;
         }
 
@@ -1268,17 +1270,19 @@ export const useCobrosStore = create<CobrosState>()(
         });
         if (enCobros) return true;
 
-        // 4. Fallback sobre DEMO_CONTRATACIONES_CLASES
-        const enDemoClases = DEMO_CONTRATACIONES_CLASES.some(
-          (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
-        );
-        if (enDemoClases) return true;
+        if (!get().isLiveMode) {
+          // 4. Fallback sobre DEMO_CONTRATACIONES_CLASES (solo modo demo)
+          const enDemoClases = DEMO_CONTRATACIONES_CLASES.some(
+            (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
+          );
+          if (enDemoClases) return true;
 
-        // 5. Fallback sobre DEMO_GIMNASIO
-        const enDemoGimnasio = DEMO_GIMNASIO.contrataciones.some(
-          (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
-        );
-        if (enDemoGimnasio) return true;
+          // 5. Fallback sobre DEMO_GIMNASIO (solo modo demo)
+          const enDemoGimnasio = DEMO_GIMNASIO.contrataciones.some(
+            (c) => c.plan_membresia_id === planId && c.estado === "VIGENTE"
+          );
+          if (enDemoGimnasio) return true;
+        }
 
         return false;
       },
@@ -1405,7 +1409,19 @@ export const useCobrosStore = create<CobrosState>()(
     }),
     {
       name: "gozster-cobros",
+      version: 2,
       storage: createJSONStorage(() => safeStorage),
+      migrate: (persistedState: unknown, version: number) => {
+        const state = (persistedState as Partial<CobrosState>) ?? {};
+        if (!version || version < 2) {
+          return {
+            ...state,
+            cobros: (state.cobros ?? []).filter((c) => !isDemoCobro(c)),
+            planes: (state.planes ?? []).filter((p) => !p.id.startsWith("demo-")),
+          };
+        }
+        return state;
+      },
       partialize: (s) => ({
         cobros: s.cobros,
         filtroEstado: s.filtroEstado,

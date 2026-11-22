@@ -4,12 +4,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
+  mapearCobrosDataset,
   useCobrosStore,
   type CobroItem,
   type ComprobanteInterno,
   type FiltroCobros,
   ultimaSuscripcionPorContrato,
 } from "@/store/use-cobros-store";
+import type { CobrosSupabaseDataset } from "@/services/cobros-service";
+import type { Perfil } from "@/types/database.types";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { type ActividadKpi } from "@/lib/kpi-anual";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
@@ -45,7 +48,6 @@ import {
 } from "@/components/ui/sheet";
 import { MoreHorizontal, Search } from "@/components/ui/icons";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
-import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
 
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
@@ -55,6 +57,9 @@ export interface CobrosPanelProps {
   initialCobroSeleccionado?: CobroItem;
   initialRowMenuOpen?: boolean;
   kpis?: KpisNegocio;
+  initialDataset?: CobrosSupabaseDataset;
+  initialPerfiles?: Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">>;
+  isLiveMode?: boolean;
 }
 
 export function CobrosPanel({
@@ -65,10 +70,14 @@ export function CobrosPanel({
   initialCobroSeleccionado,
   initialRowMenuOpen,
   kpis: propKpis,
+  initialDataset,
+  initialPerfiles,
+  isLiveMode = false,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
-    cobros,
-    planes,
+    cobros: storeCobros,
+    planes: storePlanes,
+    isLiveMode: storeIsLiveMode,
     filtroEstado: storeFiltroEstado,
     filtroActividadKpiAnual,
     kpiAnualAbierto: storeKpiAnualAbierto,
@@ -95,6 +104,14 @@ export function CobrosPanel({
     eliminarPlan,
     tieneContratacionesActivas,
   } = useCobrosStore();
+
+  const mappedInitial = React.useMemo(
+    () => (initialDataset ? mapearCobrosDataset(initialDataset, initialPerfiles ?? []) : null),
+    [initialDataset, initialPerfiles],
+  );
+  const cobros = storeIsLiveMode ? storeCobros : (mappedInitial?.cobros ?? storeCobros);
+  const planes = storeIsLiveMode ? storePlanes : (mappedInitial?.planes ?? storePlanes);
+
   const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
 
   const [localFiltroEstado, setLocalFiltroEstado] = React.useState<FiltroCobros | undefined>(
@@ -257,7 +274,7 @@ export function CobrosPanel({
   const [pagoMonto, setPagoMonto] = React.useState<number | "">(() => {
     if (initialCobroSeleccionado) return initialCobroSeleccionado.monto;
     const initialItem = cobros.find((c) => c.estado === "VENCIDO" || c.estado === "PENDIENTE") ?? cobros[0];
-    return initialItem?.monto ?? 25000;
+    return initialItem?.monto ?? 0;
   });
   const [pagoMedio, setPagoMedio] = React.useState<"TRANSFERENCIA" | "EFECTIVO" | "">("TRANSFERENCIA");
   const [pagoFecha, setPagoFecha] = React.useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -343,11 +360,70 @@ export function CobrosPanel({
   }, [kpiIngresosAnual, filtroActividad, cobros]);
 
   React.useEffect(() => {
-    void cargarCobros();
-  }, [cargarCobros]);
+    if (mappedInitial) {
+      useCobrosStore.setState({
+        cobros: mappedInitial.cobros,
+        planes: mappedInitial.planes,
+        pagosHistorial: mappedInitial.pagosHistorial,
+        isLiveMode: true,
+        cargando: false,
+      });
+    } else {
+      if (isLiveMode) {
+        useCobrosStore.setState({ isLiveMode: true });
+      }
+      void cargarCobros();
+    }
+  }, [mappedInitial, isLiveMode, cargarCobros]);
 
-  const kpis = metricas();
-  const kpisNegocio = propKpis ?? DEMO_KPIS_NEGOCIO;
+  const kpis = React.useMemo(() => {
+    if (storeIsLiveMode || !mappedInitial) {
+      return metricas();
+    }
+    let ingresosMes = 0;
+    let cobranzaPendiente = 0;
+    let cobranzaVencida = 0;
+    let alumnosMorosos = 0;
+    let alumnosAlDia = 0;
+    let totalDescuentos = 0;
+    let cobrosConDescuento = 0;
+    for (const item of mappedInitial.cobros) {
+      const monto = item.ultimoPago?.monto ?? item.monto;
+      const tieneDescuento =
+        (item.montoLista && item.monto < item.montoLista) ||
+        (item.ultimoPago?.montoLista && item.ultimoPago.monto < item.ultimoPago.montoLista) ||
+        Boolean(item.descuento && item.descuento > 0) ||
+        Boolean(item.ultimoPago?.descuento && item.ultimoPago.descuento > 0);
+      if (tieneDescuento) {
+        cobrosConDescuento++;
+        totalDescuentos +=
+          item.descuento ??
+          (item.montoLista && item.montoLista > item.monto ? item.montoLista - item.monto : (item.ultimoPago?.descuento ?? 0));
+      }
+      if (item.estado === "PAGADO") {
+        ingresosMes += monto;
+        alumnosAlDia++;
+      } else if (item.estado === "PENDIENTE") {
+        cobranzaPendiente += item.monto;
+        alumnosAlDia++;
+      } else if (item.estado === "VENCIDO") {
+        cobranzaVencida += item.monto;
+        alumnosMorosos++;
+      }
+    }
+    const totalEsperado = ingresosMes + cobranzaPendiente + cobranzaVencida;
+    return {
+      ingresosMes,
+      cobranzaPendiente,
+      cobranzaVencida,
+      alumnosMorosos,
+      alumnosAlDia,
+      totalCobros: mappedInitial.cobros.length,
+      tasaCobranzaPct: totalEsperado > 0 ? Math.round((ingresosMes / totalEsperado) * 100) : 0,
+      totalDescuentos,
+      cobrosConDescuento,
+    };
+  }, [storeIsLiveMode, mappedInitial, metricas]);
   const cobradoValor =
     (propKpis ? (propKpis.cobrado ?? 0) : kpis.ingresosMes) +
     (propKpis ? optimisticCobradoDelta : 0);

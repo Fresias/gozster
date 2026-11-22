@@ -36,17 +36,22 @@ import {
   ocupaCupo,
   resumirSensacionesClase,
 } from "@/lib/clases";
-import { feriadosDemo, type FeriadosPorDia } from "@/lib/feriados";
+import { cargarFeriados, type FeriadosPorDia } from "@/lib/feriados";
 import {
   DEMO_ALUMNOS,
   DEMO_ALUMNOS_CLASES,
   DEMO_COACH_LUCIA,
   DEMO_CONTRATACIONES_CLASES,
 } from "@/services/coach-demo-dataset";
-import { useClasesStore, type VistaAgenda } from "@/store/use-clases-store";
+import {
+  useClasesStore,
+  type ProfesorClaseInfo,
+  type ReservaAgenda,
+  type VistaAgenda,
+} from "@/store/use-clases-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { ActividadClase, Clase, SensacionClase } from "@/types/database.types";
+import type { ActividadClase, Clase, Perfil, SensacionClase } from "@/types/database.types";
 
 const MOTIVO_MINIMO = 5;
 
@@ -268,6 +273,11 @@ export function ClaseBlock({
 
 export interface ClassAgendaProps {
   clases?: Clase[];
+  initialClases?: Clase[];
+  initialReservas?: ReservaAgenda[];
+  initialProfesoresPorClase?: Record<string, ProfesorClaseInfo[]>;
+  alumnosDisponibles?: Perfil[];
+  isLiveMode?: boolean;
   testAhora?: string | Date;
   initialSheetOpen?: boolean;
   initialClaseId?: string;
@@ -279,6 +289,11 @@ export interface ClassAgendaProps {
 // Tokens de actividad, cabecera con navegación, atajos de teclado, grilla horaria y Sheet lateral.
 export function ClassAgenda({
   clases: clasesProp,
+  initialClases,
+  initialReservas,
+  initialProfesoresPorClase,
+  alumnosDisponibles,
+  isLiveMode: isLiveModeProp,
   testAhora: testAhoraProp,
   initialSheetOpen,
   initialClaseId,
@@ -289,7 +304,8 @@ export function ClassAgenda({
     vista,
     setVista,
     clases: clasesStore,
-    agendaReservas,
+    agendaReservas: agendaReservasStore,
+    profesoresPorClase: profesoresPorClaseStore,
     feedbacksPorReserva,
     testAhora: testAhoraStore,
     cargando,
@@ -312,7 +328,28 @@ export function ClassAgenda({
 
   const isOnline = useOfflineQueueStore((s) => s.isOnline);
   const testAhora = testAhoraProp ?? testAhoraStore;
-  const clases = clasesProp ?? clasesStore;
+  const clases = clasesProp ?? (clasesStore.length > 0 ? clasesStore : (initialClases ?? []));
+  const agendaReservas =
+    agendaReservasStore.length > 0 ? agendaReservasStore : (initialReservas ?? []);
+  const profesoresPorClase = React.useMemo(
+    () => ({ ...(initialProfesoresPorClase ?? {}), ...profesoresPorClaseStore }),
+    [initialProfesoresPorClase, profesoresPorClaseStore]
+  );
+
+  React.useEffect(() => {
+    if (!initialClases && !initialReservas && !initialProfesoresPorClase) return;
+    useClasesStore.setState((state) => ({
+      clases: state.clases.length > 0 ? state.clases : (initialClases ?? state.clases),
+      agendaReservas:
+        state.agendaReservas.length > 0
+          ? state.agendaReservas
+          : (initialReservas ?? state.agendaReservas),
+      profesoresPorClase:
+        Object.keys(state.profesoresPorClase).length > 0
+          ? state.profesoresPorClase
+          : (initialProfesoresPorClase ?? state.profesoresPorClase),
+    }));
+  }, [initialClases, initialReservas, initialProfesoresPorClase]);
 
   const ahoraMs = testAhora ? new Date(testAhora).getTime() : Date.now();
   const hoy = claveDia(new Date(ahoraMs));
@@ -320,8 +357,8 @@ export function ClassAgenda({
   const [fechaBase, setFechaBase] = React.useState<Date>(() => new Date(ahoraMs));
   const [feriados, setFeriados] = React.useState<FeriadosPorDia>({});
   React.useEffect(() => {
-    setFeriados(feriadosDemo());
-  }, []);
+    cargarFeriados(new Date(ahoraMs).getFullYear()).then(setFeriados).catch(() => {});
+  }, [ahoraMs]);
   const [dia, setDia] = React.useState(hoy);
   const [claseId, setClaseId] = React.useState<string | null>(initialClaseId ?? null);
   const [sheetDetalleAbierto, setSheetDetalleAbierto] = React.useState<boolean>(
@@ -621,18 +658,21 @@ export function ClassAgenda({
   }, [seleccionada, guardandoNota, guardarNotaClase, notaDraft]);
 
   const listaAlumnos = React.useMemo(() => {
+    const baseAlumnos =
+      alumnosDisponibles && alumnosDisponibles.length > 0 ? alumnosDisponibles : studioAlumnos;
     const tieneReales =
+      Boolean(isLiveModeProp) ||
       studioLiveDatabase ||
-      studioAlumnos.some((a) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(a.id));
+      baseAlumnos.some((a) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(a.id));
     const fuente = tieneReales
-      ? studioAlumnos
-      : [...studioAlumnos, ...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
+      ? baseAlumnos
+      : [...baseAlumnos, ...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
     const unicos = new Map<string, (typeof fuente)[0]>();
     for (const a of fuente) {
       if (!unicos.has(a.id)) unicos.set(a.id, a);
     }
     return [...unicos.values()].sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo));
-  }, [studioAlumnos, studioLiveDatabase]);
+  }, [alumnosDisponibles, isLiveModeProp, studioAlumnos, studioLiveDatabase]);
 
   const abrirDialogoCancelar = React.useCallback(() => {
     setPushearAvisoInicio(true);
@@ -1812,8 +1852,11 @@ export function ClassAgenda({
                   return;
                 }
                 const alumno = listaAlumnos.find((a) => a.id === nuevoId);
-                const contratacion = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === nuevoId);
-                if (alumno && (!contratacion || contratacion.estado === "VENCIDA")) {
+                const isLiveAgenda = Boolean(isLiveModeProp) || studioLiveDatabase;
+                const contratacion = isLiveAgenda
+                  ? undefined
+                  : DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === nuevoId);
+                if (!isLiveAgenda && alumno && (!contratacion || contratacion.estado === "VENCIDA")) {
                   setAdvertenciaAnotacion(
                     `${alumno.nombre_completo} no tiene una suscripción vigente (Estado: ${contratacion ? contratacion.estado : "SIN_SUSCRIPCION"}). Podés forzar la anotación con confirmación.`
                   );
@@ -1889,7 +1932,15 @@ export function ClassAgenda({
                   Detalle de sesión · {NOMBRE_ACTIVIDAD[seleccionada.actividad]} ({horaLocal(seleccionada.inicio)})
                 </SheetTitle>
                 <SheetDescription className="text-xs text-muted-foreground">
-                  Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo} · {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
+                  Entrenador a cargo:{" "}
+                  {(profesoresPorClase[seleccionada.id]?.length ?? 0) > 0
+                    ? (profesoresPorClase[seleccionada.id] ?? [])
+                        .map((p) => p.nombre_completo || "Entrenador asignado")
+                        .join(", ")
+                    : isLiveModeProp || studioLiveDatabase
+                      ? "Sin asignar"
+                      : DEMO_COACH_LUCIA.nombre_completo}{" "}
+                  · {seleccionada.duracion_minutos} min · {claveDia(seleccionada.inicio)}
                 </SheetDescription>
               </SheetHeader>
               {renderDetalleClase(
@@ -1909,6 +1960,14 @@ export function ClassAgenda({
                   onNotaChange: setNotaDraft,
                   onGuardarNota: handleGuardarNota,
                   guardandoNota,
+                  isLiveMode: isLiveModeProp || studioLiveDatabase,
+                  entrenadorNombre: (profesoresPorClase[seleccionada.id]?.length ?? 0) > 0
+                    ? (profesoresPorClase[seleccionada.id] ?? [])
+                        .map((p) => p.nombre_completo || "Entrenador asignado")
+                        .join(", ")
+                    : isLiveModeProp || studioLiveDatabase
+                      ? "Sin asignar"
+                      : DEMO_COACH_LUCIA.nombre_completo,
                 }
               )}
               {seleccionada.estado === "CANCELADA" &&
@@ -2293,6 +2352,8 @@ interface DetalleClaseExtras {
   onNotaChange?: (val: string) => void;
   onGuardarNota?: () => void;
   guardandoNota?: boolean;
+  entrenadorNombre?: string;
+  isLiveMode?: boolean;
 }
 
 // Subcomponente: Panel de detalle y gestión de clase seleccionada
@@ -2351,7 +2412,7 @@ function renderDetalleClase(
           {capacidad !== null ? `${ocupadosCount} de ${capacidad} cupos` : "cupo libre"}
         </p>
         <p className="m-0 text-[13px] text-neutral-soft-foreground" data-testid="class-detail-coach">
-          Entrenador a cargo: {DEMO_COACH_LUCIA.nombre_completo}
+          Entrenador a cargo: {extras?.entrenadorNombre ?? (extras?.isLiveMode ? "Sin asignar" : DEMO_COACH_LUCIA.nombre_completo)}
         </p>
       </div>
 

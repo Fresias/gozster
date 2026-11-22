@@ -11,7 +11,6 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useChatStore } from "@/store/use-chat-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { DEMO_GIMNASIO } from "@/services/coach-demo-dataset";
 import {
   Tooltip,
   TooltipContent,
@@ -46,7 +45,13 @@ import {
 import { cn } from "@/lib/utils";
 import type { Perfil } from "@/types/database.types";
 
-export function StudioShell({ children }: { children: React.ReactNode }) {
+export function StudioShell({
+  children,
+  isLiveMode = false,
+}: {
+  children: React.ReactNode;
+  isLiveMode?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -152,9 +157,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   const cuotasVencidasCount = useCobrosStore((s) => s.cobros.filter((c) => c.estado === "VENCIDO").length);
 
   const alumnosList = React.useMemo(() => {
-    return store.alumnos && store.alumnos.length > 0
-      ? store.alumnos
-      : (DEMO_GIMNASIO.alumnos as Perfil[]) || [];
+    return store.alumnos ?? [];
   }, [store.alumnos]);
 
   const searchResults = React.useMemo(() => {
@@ -239,8 +242,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     isDocumentacionActive,
   ]);
 
-  const userName = userEmail ? userEmail.split("@")[0] : "Lucía Ferraro";
-  const userInitials = (userName || "LF").slice(0, 2).toUpperCase();
+  const userName = userEmail ? userEmail.split("@")[0] : "Entrenador";
+  const userInitials = (userName || "GO").slice(0, 2).toUpperCase();
   const selectedAlumno = React.useMemo(
     () => alumnosList.find((a) => a.id === selectedAlumnoId) || null,
     [alumnosList, selectedAlumnoId]
@@ -878,6 +881,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
       {!isStudioActive && !isDashboardActive && (
         <ChatFab
           alumno={activeChatAlumno}
+          isLiveMode={isLiveMode || store.isLiveDatabase}
           isOpen={isChatOpen}
           onToggle={() => {
             if (isChatOpen) {

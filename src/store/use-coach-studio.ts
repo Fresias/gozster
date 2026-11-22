@@ -134,6 +134,7 @@ interface CoachStudioState {
   isLoading: boolean;
   isLiveDatabase: boolean;
   loadLiveSupabaseData: () => Promise<void>;
+  resetDemoDataset: () => void;
 
   // Actions
   selectAlumno: (alumnoId: string | null) => void;
@@ -241,28 +242,16 @@ interface CoachStudioState {
 
 export const useCoachStudioStore = create<CoachStudioState>()(
   (set, get) => ({
-    alumnos: MOCK_ALUMNOS,
-    planes: MOCK_PLANES,
-    dias: MOCK_DIAS,
-    ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
-    ejercicios: MOCK_EJERCICIOS,
-    historialCargas: MOCK_HISTORIAL_CARGAS,
-    contrataciones: DEMO_CONTRATACIONES_CLASES,
-    alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
+    alumnos: [],
+    planes: [],
+    dias: [],
+    ejerciciosEnRutina: [],
+    ejercicios: [],
+    historialCargas: {},
+    contrataciones: [],
+    alumnoActividades: [],
     filtroActividad: "TODAS",
-    sustituciones: [
-      {
-        id: "sust-demo-001",
-        plan_id: "plan-lucas-01",
-        ejercicio_en_rutina_id: "er-1",
-        ejercicio_original_id: "e2222222-2222-4222-8222-222222222202",
-        ejercicio_sustituto_id: "30000000-0000-0000-0000-000000000002",
-        reporte_dolor_id: null,
-        motivo: "Compresión subacromial en hombro",
-        responsable_id: MOCK_PROFESOR_ID,
-        created_at: "2026-10-18T14:30:00Z",
-      },
-    ],
+    sustituciones: [],
 
     selectedAlumnoId: null,
     chatAlumnoId: null,
@@ -281,10 +270,50 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     isLoading: false,
     isLiveDatabase: false,
 
+    resetDemoDataset: () => {
+      set({
+        alumnos: MOCK_ALUMNOS,
+        planes: MOCK_PLANES,
+        dias: MOCK_DIAS,
+        ejerciciosEnRutina: MOCK_EJERCICIOS_RUTINA,
+        ejercicios: MOCK_EJERCICIOS,
+        historialCargas: MOCK_HISTORIAL_CARGAS,
+        contrataciones: DEMO_CONTRATACIONES_CLASES,
+        alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
+        filtroActividad: "TODAS",
+        sustituciones: [
+          {
+            id: "sust-demo-001",
+            plan_id: "plan-lucas-01",
+            ejercicio_en_rutina_id: "er-1",
+            ejercicio_original_id: "e2222222-2222-4222-8222-222222222202",
+            ejercicio_sustituto_id: "30000000-0000-0000-0000-000000000002",
+            reporte_dolor_id: null,
+            motivo: "Compresión subacromial en hombro",
+            responsable_id: MOCK_PROFESOR_ID,
+            created_at: "2026-10-18T14:30:00Z",
+          },
+        ],
+        selectedAlumnoId: null,
+        chatAlumnoId: null,
+        activeTab: "rutina_actual",
+        isHistoricalLoadsOpen: false,
+        isChatOpen: false,
+        isWhatsAppEnabled: false,
+        isRoutineBuilderOpen: false,
+        routineBuilderMode: "modal",
+        isInviteModalOpen: false,
+        toast: null,
+        currentPage: 1,
+        isLoading: false,
+        isLiveDatabase: false,
+      });
+    },
+
     loadLiveSupabaseData: async () => {
       set({ isLoading: true });
       const dataset = await fetchLiveDatasetFromSupabase();
-      if (dataset && dataset.alumnos.length > 0) {
+      if (dataset) {
         set({
           alumnos: dataset.alumnos,
           planes: dataset.planes,
@@ -293,6 +322,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           ejercicios: dataset.ejercicios,
           contrataciones: dataset.contrataciones ?? [],
           alumnoActividades: dataset.alumnoActividades ?? [],
+          historialCargas: {},
+          sustituciones: [],
           isLiveDatabase: true,
           isLoading: false,
           selectedAlumnoId: null,

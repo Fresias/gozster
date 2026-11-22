@@ -212,13 +212,7 @@ describe("GOZS-373: Coach Studio — Sincronización de Planes y Días en Ficha 
     it("GIVEN initialDataset vacío WHEN se abre la ficha de Celeste THEN la isla de rutina muestra sus 4 días configurados", () => {
       const html = renderToStaticMarkup(
         <CoachStudioView
-          initialDataset={{
-            alumnos: [],
-            planes: [],
-            dias: [],
-            ejerciciosEnRutina: [],
-            ejercicios: [],
-          }}
+          initialDataset={null}
           initialSelectedAlumnoId="demo-alumno-02-celeste"
         />
       );
