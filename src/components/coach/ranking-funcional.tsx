@@ -932,6 +932,30 @@ export function RankingFuncional({
       {/* Tablas de Ranking Relativo por Sexo (Página 9) */}
       {claseActiva && ejercicioActivo && (
         <div className="space-y-6">
+          {ranking.hombres.length === 0 && ranking.mujeres.length === 0 && (
+            <div
+              role="status"
+              data-testid="ranking-estado-vacio"
+              className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground"
+            >
+              <p className="font-semibold text-foreground">Todavía no hay ranking para mostrar</p>
+              {ranking.sinClasificar.length > 0 ? (
+                <p className="mt-1">
+                  {ranking.sinClasificar.length === 1
+                    ? "Hay 1 alumno con marca, pero le falta"
+                    : `Hay ${ranking.sinClasificar.length} alumnos con marca, pero les falta`}{" "}
+                  cargar sexo y/o peso corporal. El ranking se calcula como carga ÷ peso corporal y
+                  separa por sexo. Completalos en la ficha del alumno o pedile que los cargue en su
+                  onboarding.
+                </p>
+              ) : (
+                <p className="mt-1">
+                  Nadie registró una marca para este ejercicio en esta clase. Cuando haya marcas de
+                  alumnos con sexo y peso corporal cargados, van a aparecer acá.
+                </p>
+              )}
+            </div>
+          )}
           <div className="grid gap-3 lg:grid-cols-2">
             {/* TABLA RANKING MASCULINO */}
             <Card className="border-border bg-card overflow-hidden shadow-none" data-testid="ranking-hombres-card">
