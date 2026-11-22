@@ -1,0 +1,20 @@
+{
+  "candidate_id": "baseline",
+  "probe_branch": "probe/baseline-mwrgcqno",
+  "probe_cmd": "npm run typecheck",
+  "passed": true,
+  "exit_code": 0,
+  "duration_ms": 3487,
+  "tests": {},
+  "target_components": [],
+  "timestamp": "2026-11-22T06:25:04.209Z",
+  "stdout_preview": "",
+  "stderr_preview": "npm notice run gozster@0.1.0 typecheck\nnpm notice run tsc --noEmit\n",
+  "files_touched": [],
+  "in_scope_files": [],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}
