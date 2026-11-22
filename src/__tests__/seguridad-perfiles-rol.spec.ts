@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type PGlite, type Transaction } from "@electric-sql/pglite";
-import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
+import { PGlite, type Transaction } from "@electric-sql/pglite";
+import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
+import { aplicarMigracion, crearDbMigrada, listarMigraciones, MIGRATIONS_DIR, STUBS } from "./helpers/pglite-migrada";
 
 const SUPABASE_DIR = path.resolve(__dirname, "../../supabase");
 const MIGRATION_FILE = "20261122020000_seguridad_perfiles_rol.sql";
@@ -60,7 +61,19 @@ describe("GOZS-683: seguridad de perfiles, handle_new_user y RPCs de planes (PGl
   it("la migración tiene versión posterior a 20261121223500 y es idempotente", async () => {
     expect(MIGRATION_FILE > "20261121223500_registrar_logro_racha_fix_conflict.sql").toBe(true);
     const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRATION_FILE), "utf-8");
-    await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
+
+    // Verificar idempotencia sobre el estado exacto hasta MIGRATION_FILE (antes de podas posteriores)
+    const dbIdemp = await PGlite.create({ extensions: { pgcrypto } });
+    try {
+      await dbIdemp.exec(STUBS);
+      for (const archivo of listarMigraciones()) {
+        if (archivo > MIGRATION_FILE) break;
+        await aplicarMigracion(dbIdemp, fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
+      }
+      await expect(aplicarMigracion(dbIdemp, sql)).resolves.toBeUndefined();
+    } finally {
+      await dbIdemp.close();
+    }
 
     const trg = await db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM pg_trigger WHERE tgname = 'trg_00_upsert_perfiles'`,
@@ -184,10 +197,14 @@ describe("GOZS-683: seguridad de perfiles, handle_new_user y RPCs de planes (PGl
     ).resolves.toBeDefined();
   });
 
-  it("restringe obtener_ranking_ejercicio y protege las RPCs de planes contra anon, alumno y profesor_id NULL", async () => {
+  it("restringe obtener_ranking_ejercicio (podada) y protege las RPCs de planes contra anon, alumno y profesor_id NULL", async () => {
+    const rankingFn = await db.query<{ oid: string | null }>(
+      `SELECT to_regprocedure('public.obtener_ranking_ejercicio(uuid)')::text AS oid`,
+    );
+    expect(rankingFn.rows[0]?.oid).toBeNull();
     await expect(
       como("authenticated", ALUMNO_2, `SELECT * FROM public.obtener_ranking_ejercicio(gen_random_uuid())`),
-    ).rejects.toThrow(/permission denied/i);
+    ).rejects.toThrow(/does not exist|permission denied/i);
 
     await expect(
       como("anon", null, `SELECT public.clonar_plan_entrenamiento($1, 'x')`, [PLANTILLA_GLOBAL]),
@@ -201,16 +218,14 @@ describe("GOZS-683: seguridad de perfiles, handle_new_user y RPCs de planes (PGl
       como("authenticated", ALUMNO_2, `SELECT public.extender_vigencia_plan($1, 365)`, [PLANTILLA_GLOBAL]),
     ).rejects.toThrow(/No autorizado/i);
 
+    const activarFn = await db.query<{ oid: string | null }>(
+      `SELECT to_regprocedure('public.activar_rutina(uuid)')::text AS oid`,
+    );
+    expect(activarFn.rows[0]?.oid).toBeNull();
     const planHuerfano = "33333333-3333-4333-8333-333333333333";
-    await db.exec(`
-      INSERT INTO public.planes_entrenamiento (id, alumno_id, profesor_id, nombre, estado)
-      VALUES ('${planHuerfano}', '${ALUMNO_1}', NULL, 'Plan Sin Profesor', 'INACTIVO')
-      ON CONFLICT (id) DO NOTHING;
-    `);
-
     await expect(
       como("authenticated", ALUMNO_2, `SELECT public.activar_rutina($1)`, [planHuerfano]),
-    ).rejects.toThrow(/No tienes permiso/i);
+    ).rejects.toThrow(/does not exist|No tienes permiso/i);
 
     await expect(
       como("authenticated", ADMIN, `SELECT public.clonar_plan_entrenamiento($1, 'copia admin')`, [PLANTILLA_GLOBAL]),
