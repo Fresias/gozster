@@ -267,18 +267,38 @@ describe('GOZS-370: Modelo Unificado de Dolor (EVA 0-10, Estado Único y Trigger
     });
 
     it('correr la migración una segunda vez es 100% idempotente y no produce cambios ni errores', async () => {
-      const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
-      for (const archivo of archivos) {
-        if (archivo < NUEVA_MIGRACION) continue;
-        await expect(
-          aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8'))
-        ).resolves.not.toThrow();
-      }
+      const dbIdemp = new PGlite({ extensions: { pgcrypto } });
+      try {
+        await dbIdemp.exec(SUPABASE_STUBS);
+        const archivos = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+        for (const archivo of archivos) {
+          if (archivo >= NUEVA_MIGRACION) continue;
+          const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), 'utf-8');
+          const inicio = sql.search(/^BEGIN;/m);
+          if (inicio > 0) {
+            await dbIdemp.exec(sql.slice(0, inicio));
+            await dbIdemp.exec(sql.slice(inicio));
+          } else {
+            await dbIdemp.exec(sql);
+          }
+        }
+        await dbIdemp.exec(SEED);
+        await dbIdemp.exec(`
+          INSERT INTO public.alumno_historial_dolor (id, alumno_id, ejercicio_id, zona_articular, severidad, estado)
+          VALUES ('${idAgudo}', '${ALUMNO}', '${EJERCICIO_1}', 'LUMBAR', 'AGUDO', 'CERRADO');
+        `);
 
-      const res = await db.query<{ id: string; eva: number }>(
-        `SELECT id, eva FROM public.alumno_historial_dolor WHERE id = '${idAgudo}'`
-      );
-      expect(res.rows[0]!.eva).toBe(8);
+        const sqlNueva = fs.readFileSync(path.join(MIGRATIONS_DIR, NUEVA_MIGRACION), 'utf-8');
+        await dbIdemp.exec(sqlNueva);
+        await expect(dbIdemp.exec(sqlNueva)).resolves.not.toThrow();
+
+        const res = await dbIdemp.query<{ id: string; eva: number }>(
+          `SELECT id, eva FROM public.alumno_historial_dolor WHERE id = '${idAgudo}'`
+        );
+        expect(res.rows[0]!.eva).toBe(8);
+      } finally {
+        await dbIdemp.close();
+      }
     });
 
     it('GIVEN un caso con eva = 7 THEN severidad = "AGUDO", v_dolor_activo.nivel = "alto" y la alerta en alertas_entrenador tiene severidad = "ALTA"', async () => {
