@@ -17,8 +17,8 @@ import type {
 /**
  * Evaluación de política RLS para lectura de ejercicios del día (ejercicios_en_rutina).
  * Regla:
- * - Un alumno en 'EXPIRED_PAYMENT_PENDING' tiene bloqueado el acceso a los ejercicios del día.
- * - Un alumno en 'ACTIVE' o 'ACTIVA' tiene acceso completo.
+ * - Un alumno en 'VENCIDA' tiene bloqueado el acceso a los ejercicios del día.
+ * - Un alumno en 'ACTIVA' tiene acceso completo.
  * - El entrenador asignado (directo o via entrenador_alumnos) o admin tienen visibilidad total siempre.
  */
 export function canReadEjerciciosEnRutina(params: {
@@ -59,9 +59,9 @@ export function canReadEjerciciosEnRutina(params: {
   }
 
   // 4. Si el usuario actual es el alumno dueño del plan:
-  // PAYWALL: Si su estado es EXPIRED_PAYMENT_PENDING, NO puede leer los ejercicios del día.
+  // PAYWALL: Si su estado es VENCIDA, NO puede leer los ejercicios del día.
   if (planAlumnoId && currentUserId === planAlumnoId) {
-    if (currentUserMembresia === 'EXPIRED_PAYMENT_PENDING') {
+    if (currentUserMembresia === 'VENCIDA') {
       return false;
     }
     return true;
@@ -168,7 +168,7 @@ export function simulateExtenderVigenciaPlan(
 
 /**
  * Simulación de transición de ciclo de vida del alumno
- * Muta estado a EXPIRED_PAYMENT_PENDING sin duplicar perfil.
+ * Muta estado a VENCIDA sin duplicar perfil.
  */
 export function mutateAlumnoSubscriptionStatus(
   perfil: Perfil,
@@ -208,11 +208,11 @@ describe('Pruebas Unitarias de Arquitectura de Base de Datos (Issue #9)', () => 
   ];
 
   describe('1. Paywall RLS para Alumno con Cuota Vencida vs Multi-Coach', () => {
-    it('bloquea la lectura de ejercicios del día cuando el alumno está en EXPIRED_PAYMENT_PENDING', () => {
+    it('bloquea la lectura de ejercicios del día cuando el alumno está en VENCIDA', () => {
       const allowed = canReadEjerciciosEnRutina({
         currentUserId: alumnoId,
         currentUserRol: 'ALUMNO',
-        currentUserMembresia: 'EXPIRED_PAYMENT_PENDING',
+        currentUserMembresia: 'VENCIDA',
         planAlumnoId: alumnoId,
         planProfesorId: coachPrincipalId,
         coachesAsignados: multiCoachRelations,
@@ -221,11 +221,11 @@ describe('Pruebas Unitarias de Arquitectura de Base de Datos (Issue #9)', () => 
       expect(allowed).toBe(false);
     });
 
-    it('permite la lectura de ejercicios del día cuando el alumno está en ACTIVE', () => {
+    it('permite la lectura de ejercicios del día cuando el alumno está en ACTIVA', () => {
       const allowed = canReadEjerciciosEnRutina({
         currentUserId: alumnoId,
         currentUserRol: 'ALUMNO',
-        currentUserMembresia: 'ACTIVE',
+        currentUserMembresia: 'ACTIVA',
         planAlumnoId: alumnoId,
         planProfesorId: coachPrincipalId,
         coachesAsignados: multiCoachRelations,
@@ -234,7 +234,7 @@ describe('Pruebas Unitarias de Arquitectura de Base de Datos (Issue #9)', () => 
       expect(allowed).toBe(true);
     });
 
-    it('permite a ambos entrenadores (Coach Principal y Coach Félix) ver la rutina aunque el alumno esté en EXPIRED_PAYMENT_PENDING', () => {
+    it('permite a ambos entrenadores (Coach Principal y Coach Félix) ver la rutina aunque el alumno esté en VENCIDA', () => {
       // Coach Principal
       const allowedPrincipal = canReadEjerciciosEnRutina({
         currentUserId: coachPrincipalId,
@@ -270,13 +270,13 @@ describe('Pruebas Unitarias de Arquitectura de Base de Datos (Issue #9)', () => 
   });
 
   describe('2. Unicidad del Cliente y Transición de Estados', () => {
-    it('muta el estado de membresía a EXPIRED_PAYMENT_PENDING sin duplicar ni eliminar el ID del alumno', () => {
+    it('muta el estado de membresía a VENCIDA sin duplicar ni eliminar el ID del alumno', () => {
       const alumnoPerfil: Perfil = {
         id: alumnoId,
         email: 'alumno@ejemplo.com',
         nombre_completo: 'Carlos Giménez',
         rol: 'ALUMNO',
-        estado_membresia: 'ACTIVE',
+        estado_membresia: 'ACTIVA',
         profesor_asignado_id: coachPrincipalId,
         fecha_baja: null,
         created_at: '2026-09-01T00:00:00Z',
@@ -285,12 +285,12 @@ describe('Pruebas Unitarias de Arquitectura de Base de Datos (Issue #9)', () => 
 
       const actualizado = mutateAlumnoSubscriptionStatus(
         alumnoPerfil,
-        'EXPIRED_PAYMENT_PENDING'
+        'VENCIDA'
       );
 
       expect(actualizado.id).toBe(alumnoPerfil.id);
       expect(actualizado.email).toBe(alumnoPerfil.email);
-      expect(actualizado.estado_membresia).toBe('EXPIRED_PAYMENT_PENDING');
+      expect(actualizado.estado_membresia).toBe('VENCIDA');
       expect(actualizado.nombre_completo).toBe(alumnoPerfil.nombre_completo);
     });
   });

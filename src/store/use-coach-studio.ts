@@ -1206,11 +1206,11 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         );
       }
 
-      // cantActivas: rol = 'ALUMNO' o alumno dual y estado_membresia IN ('ACTIVA', 'ACTIVE')
+      // cantActivas: rol = 'ALUMNO' o alumno dual y estado_membresia = 'ACTIVA'
       const activas = alumnosFiltrados.filter(
         (a) =>
           (a.rol === "ALUMNO" || a.profesor_asignado_id !== null) &&
-          (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE"),
+          a.estado_membresia === "ACTIVA",
       );
 
       // cantSinPlanEntrenamiento: activas sin plan con estado = 'ACTIVO'
@@ -1230,8 +1230,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         if (!esAlumno) return false;
         const isBaja =
           a.estado_membresia === "INACTIVA" ||
-          a.estado_membresia === "BAJA" ||
-          a.estado_membresia === "ARCHIVED";
+          a.estado_membresia === "BAJA";
         if (!isBaja) return false;
         if (!a.fecha_baja) return true;
         const fechaBaja = new Date(a.fecha_baja);

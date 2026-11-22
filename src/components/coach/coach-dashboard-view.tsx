@@ -170,7 +170,7 @@ export function CoachDashboardView({
   // Students requiring routine
   const alumnosSinPlan = alumnos.filter((a) => {
     if (a.rol !== "ALUMNO") return false;
-    const isActiva = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
+    const isActiva = a.estado_membresia === "ACTIVA";
     if (!isActiva) return false;
     if (filtroActividad !== "TODAS") {
       const tiene = alumnoTieneActividad({

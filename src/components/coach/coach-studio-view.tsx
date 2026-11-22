@@ -369,8 +369,7 @@ export function CoachStudioView({
 
   const esCuotaAlDia = React.useCallback((alumno: Perfil): boolean => {
     let isAlDia =
-      alumno.estado_membresia === "ACTIVA" ||
-      alumno.estado_membresia === "ACTIVE";
+      alumno.estado_membresia === "ACTIVA";
     if (alumno.fecha_vencimiento_cuota) {
       const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
       const diffDays = Math.ceil(
@@ -603,11 +602,11 @@ export function CoachStudioView({
   // Retention metrics (calculadas en vivo o para dataset demo)
   const metricas = {
         cantActivas: alumnos.filter(
-          (a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE",
+          (a) => a.estado_membresia === "ACTIVA",
         ).length,
         cantSinPlanEntrenamiento: alumnos.filter(
           (a) =>
-            (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE") &&
+            a.estado_membresia === "ACTIVA" &&
             !planes.some((p) => p.alumno_id === a.id && p.estado === "ACTIVO"),
         ).length,
         cantClientesPerdidosMes: alumnos.filter(
@@ -618,7 +617,7 @@ export function CoachStudioView({
   // Students requiring routine
   const alumnosSinPlan = alumnos.filter((a) => {
     if (a.rol !== "ALUMNO") return false;
-    const isActiva = a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE";
+    const isActiva = a.estado_membresia === "ACTIVA";
     if (!isActiva) return false;
     const planActivo = planes.find((p) => p.alumno_id === a.id && p.estado === "ACTIVO");
     return !planActivo;
@@ -1517,7 +1516,7 @@ export function CoachStudioView({
                           id: "ACTIVA",
                           testId: "chip-filtro-al-dia",
                           label: "Al día",
-                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE").length,
+                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
                         },
                         {
                           id: "PENDIENTE",

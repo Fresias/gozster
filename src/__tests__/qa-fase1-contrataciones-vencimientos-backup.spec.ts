@@ -311,7 +311,7 @@ describe("QA Suite — Certificación Fase 1: Contrataciones, Pagos, Purga de My
         email: "atleta.qa@gozster.fit",
         rol: "ALUMNO",
         estado_cuenta: "ACTIVO",
-        estado_membresia: "EXPIRED_PAYMENT_PENDING",
+        estado_membresia: "VENCIDA",
         fecha_vencimiento_cuota: "2026-10-10",
         profesor_asignado_id: "coach-01",
         created_at: "2026-09-10T12:00:00Z",

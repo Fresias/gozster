@@ -83,10 +83,10 @@ function construirCobrosSeedFijo(alteracionCobradoDelta = 0): CobroItem[] {
   const hoyIso = new Date().toISOString().slice(0, 10);
   const ahoraIso = new Date().toISOString();
   const activos = DEMO_GIMNASIO.alumnos.filter(
-    (a) => a.rol === "ALUMNO" && (a.estado_membresia === "ACTIVA" || a.estado_membresia === "ACTIVE")
+    (a) => a.rol === "ALUMNO" && a.estado_membresia === "ACTIVA"
   );
   const noActivos = DEMO_GIMNASIO.alumnos.filter(
-    (a) => a.rol === "ALUMNO" && a.estado_membresia !== "ACTIVA" && a.estado_membresia !== "ACTIVE"
+    (a) => a.rol === "ALUMNO" && a.estado_membresia !== "ACTIVA"
   );
 
   const items: CobroItem[] = [];

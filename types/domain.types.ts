@@ -19,9 +19,7 @@ export type EstadoMembresia =
   | "INACTIVA"
   | "PENDIENTE"
   | "BAJA"
-  | "ACTIVE"
-  | "EXPIRED_PAYMENT_PENDING"
-  | "ARCHIVED";
+  | "VENCIDA";
 export type EstadoPlan = "ACTIVO" | "INACTIVO" | "BORRADOR";
 export type EstadoCuenta = "ACTIVO" | "BAJA_ADMINISTRATIVA" | "SUSPENDIDO";
 export type TipoServicio = "ASESORIA_ONLINE" | "PRESENCIAL";

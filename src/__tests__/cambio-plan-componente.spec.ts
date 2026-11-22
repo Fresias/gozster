@@ -18,7 +18,7 @@ const ALUMNO_MOCK: Perfil = {
   email: "lucas.gimenez@test.com",
   nombre_completo: "Lucas Giménez",
   rol: "ALUMNO",
-  estado_membresia: "ACTIVE",
+  estado_membresia: "ACTIVA",
   profesor_asignado_id: "prof-1",
   fecha_baja: null,
   created_at: "2026-01-01T10:00:00Z",
