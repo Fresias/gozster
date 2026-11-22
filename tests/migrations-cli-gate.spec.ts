@@ -77,7 +77,7 @@ describe("GOZS-688 (E-3/E-4): Supabase CLI config, check de migraciones y docume
       expect(stream).toEqual([{ local: "20261016000000", remote: "" }]);
 
       const conBackticks = parsearSalidaMigrationList(
-        ["| `20261016000000` | `20261016000000` | 2026-10-16 00:00:00", "| `20261121223500` | | 2026-11-21"].join("\n")
+        ["`20261016000000` | `20261016000000` | 2026-10-16 00:00:00", "`20261121223500` | | 2026-11-21"].join("\n")
       );
       expect(conBackticks).toEqual([
         { local: "20261016000000", remote: "20261016000000" },
