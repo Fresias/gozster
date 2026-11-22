@@ -49,7 +49,8 @@ const SEED = `
     ('${A_8D}','a8@t','Ocho','ALUMNO','ACTIVA',NULL, now() - interval '8 days'),
     ('${A_6D}','a6@t','Seis','ALUMNO','ACTIVA',NULL, now() - interval '6 days'),
     ('${A_NUNCA}','a0@t','Nunca','ALUMNO','ACTIVA',NULL,NULL),
-    ('${A_BAJA}','ba@t','Baja','ALUMNO','BAJA', now(), NULL);
+    ('${A_BAJA}','ba@t','Baja','ALUMNO','BAJA', now(), NULL)
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia, fecha_baja = EXCLUDED.fecha_baja, ultimo_entreno_at = EXCLUDED.ultimo_entreno_at;
   INSERT INTO public.planes_membresia (id, nombre, cantidad_actividades, duracion_meses, precio)
     VALUES ('${PLAN}','Trimestral',1,3,30000);
   INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin, estado, plan_membresia_id, actividad) VALUES

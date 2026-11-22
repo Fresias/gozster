@@ -27,7 +27,8 @@ const SEED = `
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
     ('${ADMIN}','admin@t','Admin','ADMIN','ACTIVA'),
     ('${COACH}','coach@t','Coach','ENTRENADOR','ACTIVA'),
-    ('${ALUMNO}','al@t','Alumno','ALUMNO','ACTIVA');
+    ('${ALUMNO}','al@t','Alumno','ALUMNO','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia;
   INSERT INTO public.planes_membresia (id, nombre, cantidad_actividades, duracion_meses, precio)
     VALUES ('${PLAN}','Mensual',1,1,20000),('${PLAN_ANTIGUO}','Mensual viejo',1,1,20000);
   INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin, estado, plan_membresia_id, actividad)

@@ -1,0 +1,114 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      apply_migrations:
+        description: "Aplicar migraciones pendientes con supabase db push antes de verificar"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  check-migrations:
+    name: Migration Gate (supabase migration list)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Validate Supabase target configuration
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            exit 0
+          fi
+          if [ -n "${SUPABASE_PROJECT_REF:-}" ] && [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] && [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then
+            exit 0
+          fi
+          echo "::error::Faltan credenciales de Supabase en el entorno production."
+          exit 1
+
+      - name: Apply pending migrations (orden migración -> deploy)
+        if: github.event.inputs.apply_migrations == 'true' || vars.SUPABASE_AUTO_PUSH == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            supabase db push --remote="$SUPABASE_DB_URL" --yes
+          else
+            supabase db push --remote="$SUPABASE_PROJECT_REF" --yes
+          fi
+
+      - name: Verify zero pending migrations in target database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            node scripts/check-supabase-migrations.mjs --remote "$SUPABASE_DB_URL"
+          else
+            node scripts/check-supabase-migrations.mjs --remote "$SUPABASE_PROJECT_REF"
+          fi
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [check-migrations]
+    if: success() && (github.event_name == 'workflow_dispatch' || vars.PRODUCTION_DEPLOY_ENABLED == 'true')
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Deploy to Vercel Production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "${VERCEL_TOKEN:-}" ] && [ -n "${VERCEL_ORG_ID:-}" ] && [ -n "${VERCEL_PROJECT_ID:-}" ]; then
+            npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+            npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+            npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          elif [ -n "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
+            curl --fail --silent --show-error -X POST "$VERCEL_DEPLOY_HOOK_URL"
+          else
+            echo "::error::Faltan credenciales de deploy en el entorno production."
+            exit 1
+          fi

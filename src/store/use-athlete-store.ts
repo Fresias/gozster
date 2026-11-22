@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { calculateEpley1RM, calculateEffectiveVolume } from "@/lib/strength-metrics";
 import { isWarmup, isDropset, isWorkingSet, normalizeSerieTipo } from "@/lib/serie-tipo";
-import { parseDefaultReps, parseTargetRpe, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
+import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-helpers";
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
@@ -44,6 +44,10 @@ import {
   validarArchivoVideo,
 } from "@/lib/athlete/video-serie";
 import {
+  leerCantidadDiamantes,
+  registrarLogroRachaIdempotente,
+} from "@/lib/racha-logros";
+import {
   eliminarVideoPendiente,
   encolarVideo,
   reintentarVideoPendiente,
@@ -78,7 +82,7 @@ export interface LiveWorkoutSet {
   numero_serie: number;
   peso_kg: number;
   reps_hechas: number;
-  rpe_real: number;
+  rpe_real: number | null;
   completada: boolean;
   estimated1RM: number;
   completedAt?: string;
@@ -178,6 +182,10 @@ interface AthleteStoreState {
   }>;
   /** Fechas reales de `registro_sesiones` hidratadas desde Supabase para racha multi-dispositivo. */
   fechasSesionesServidor: string[];
+  /** Cantidad de logros permanentes Llama Diamante (`logros_racha`, fallback 0). */
+  diamantesRacha: number;
+  /** Ciclos ya registrados/encolados localmente para evitar reenvíos duplicados. */
+  ciclosLogroRegistrados: number[];
   // "La última vez" por ejercicio_id (GOZS-159). null = sin historial; undefined = todavía no consultado.
   ultimaVez: Record<string, UltimaVezEjercicio | null>;
   cargandoUltimaVez: boolean;
@@ -254,7 +262,7 @@ interface AthleteStoreState {
     exerciseId: string,
     setNumber: number,
     field: "peso_kg" | "reps_hechas" | "rpe_real",
-    value: number,
+    value: number | null,
   ) => void;
   updateSetType: (
     exerciseId: string,
@@ -327,6 +335,8 @@ interface AthleteStoreState {
   ) => boolean;
   resetSessionToDefaults: () => void;
   repararSesionesNoUuid: () => void;
+  cargarLogrosRacha: (alumnoId?: string) => Promise<void>;
+  verificarYRegistrarLogroDiamante: (semanas: number, alumnoId?: string) => Promise<void>;
 }
 
 export const DEFAULT_ATHLETE_ID = "66b92b9a-1ce7-4e2e-a47c-7c5600000000";
@@ -725,8 +735,8 @@ function reencolarSerieCompletadaConVideo(
       setNumber: s.numero_serie,
       pesoKg: s.peso_kg,
       reps: s.reps_hechas,
-      rpe: s.rpe_real,
-      setType: s.set_type || "N",
+      rpe: normalizarRpeReal(s.rpe_real),
+      setType: normalizeSerieTipo(s.set_type ?? ej.tipo_serie),
       painReported: s.pain_reported || false,
       painNotes: s.pain_notes || null,
       videoUrl,
@@ -735,6 +745,63 @@ function reencolarSerieCompletadaConVideo(
       atipica: Boolean(s.atipica),
     },
   });
+}
+
+const SIN_ALUMNO_ID_MSG =
+  "No pudimos identificar tu perfil de alumno para guardar los datos. Volvé a iniciar sesión.";
+
+function normalizarRpeReal(rpe: number | null | undefined): number | null {
+  if (typeof rpe !== "number" || !Number.isFinite(rpe) || rpe < 1 || rpe > 10) {
+    return null;
+  }
+  return rpe;
+}
+
+function resolverAlumnoIdParaEscritura(
+  state: AthleteStoreState,
+  session?: LiveWorkoutSession | null,
+): string | null {
+  const candidato =
+    session?.studentId ||
+    state.planAlumno?.alumnos[0]?.id ||
+    state.currentSession.studentId ||
+    getStorageUser() ||
+    "";
+  const trimmed = candidato.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function calcularDuracionMinutos(
+  sessionStartedAt: number | null | undefined,
+  session: LiveWorkoutSession,
+  endedAt: number = Date.now(),
+): number | null {
+  let startMs =
+    typeof sessionStartedAt === "number" &&
+    Number.isFinite(sessionStartedAt) &&
+    sessionStartedAt > 0
+      ? sessionStartedAt
+      : null;
+
+  if (startMs === null) {
+    let earliestCompleted = Infinity;
+    for (const ej of session.ejercicios) {
+      for (const s of ej.series) {
+        if (!s.completada || !s.completedAt) continue;
+        const ms = Date.parse(s.completedAt);
+        if (Number.isFinite(ms) && ms > 0 && ms < earliestCompleted) {
+          earliestCompleted = ms;
+        }
+      }
+    }
+    if (Number.isFinite(earliestCompleted)) {
+      startMs = earliestCompleted;
+    }
+  }
+
+  if (startMs === null) return null;
+  const elapsedMinutes = Math.round(Math.max(0, endedAt - startMs) / 60_000);
+  return Math.max(1, elapsedMinutes);
 }
 
 function construirOpcionesSubidaVideo(
@@ -862,6 +929,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
       motivoCambioDia: null,
       sesionesCompletadas: [],
       fechasSesionesServidor: [],
+      diamantesRacha: 0,
+      ciclosLogroRegistrados: [],
       planAlumno: null,
       cargandoPlan: false,
       errorPlan: false,
@@ -947,7 +1016,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
       },
       empezarDia: (diaId) => {
         const state = get();
-        const studentId = state.planAlumno?.alumnos[0]?.id || state.currentSession.studentId || DEFAULT_ATHLETE_ID;
+        const studentId = resolverAlumnoIdParaEscritura(state, state.currentSession);
+        if (!studentId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return;
+        }
         const motivo = state.motivoCambioDia;
         const diaSugeridoId = state.diaSugeridoId;
 
@@ -1046,10 +1120,21 @@ export const useAthleteStore = create<AthleteStoreState>()(
           motivoCambioDia: null,
           diaSugeridoId: null,
         }),
-      marcarDiaCompletado: (diaId) =>
+      marcarDiaCompletado: (diaId) => {
+        const currentState = get();
+        const studentId = resolverAlumnoIdParaEscritura(currentState, currentState.currentSession);
+        if (!studentId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return;
+        }
+        const duracionMinutos = calcularDuracionMinutos(
+          currentState.sessionStartedAt,
+          currentState.currentSession,
+        );
+
         set((state) => {
           const session = state.currentSession;
-          const studentId = session?.studentId || DEFAULT_ATHLETE_ID;
           const sessionId = session?.id || nuevoUuid();
           const fechaIso = new Date().toISOString();
 
@@ -1075,9 +1160,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 numero_serie: s.numero_serie,
                 peso_kg: s.peso_kg,
                 reps_hechas: s.reps_hechas,
-                rpe_real: s.rpe_real ?? null,
+                rpe_real: normalizarRpeReal(s.rpe_real),
                 completada: true,
-                set_type: normalizeSerieTipo(s.set_type) as any,
+                set_type: normalizeSerieTipo(s.set_type ?? e.tipo_serie) as any,
                 pain_reported: s.pain_reported || false,
                 pain_notes: s.pain_notes || null,
                 video_url: s.video_url || null,
@@ -1087,6 +1172,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
           );
 
           const volTotal = allCompletedSets.reduce((acc, s) => acc + s.peso_kg * s.reps_hechas, 0);
+          const volEfectivo = calculateEffectiveVolume(allCompletedSets);
 
           const nuevaEntradaHistorial: HistoricalLoadEntry = {
             sesion: {
@@ -1096,9 +1182,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
               dia_sugerido_id: session?.dia_sugerido_id || state.diaSugeridoId || null,
               motivo_cambio_dia: session?.motivo_cambio_dia || state.motivoCambioDia || null,
               fecha: fechaIso,
-              duracion_minutos: 45,
+              duracion_minutos: duracionMinutos,
               volumen_total_kg: volTotal,
-              effective_volume_kg: volTotal,
+              effective_volume_kg: volEfectivo,
               created_at: fechaIso,
               updated_at: fechaIso,
             },
@@ -1131,7 +1217,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
             void get().cargarMiProgreso();
           }, 0);
           return res;
-        }),
+        });
+      },
       setStopProtocolActive: (active) => set({ stopProtocolActive: active }),
       setNivelVistaAlumno: (nivel) =>
         set({
@@ -1184,8 +1271,13 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({ mostrarTimerDescanso: mostrar }),
       setCuestionarioInicial: (data) => set({ cuestionarioInicial: data }),
       saveCuestionarioInicial: async (data) => {
-        const studentId =
-          get().currentSession.studentId || DEFAULT_ATHLETE_ID;
+        const state = get();
+        const studentId = resolverAlumnoIdParaEscritura(state);
+        if (!studentId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return { success: false, error: SIN_ALUMNO_ID_MSG };
+        }
         const nowIso = new Date().toISOString();
         const prev = get().cuestionarioInicial;
         const fullRecord: AlumnoCuestionarioInicial = {
@@ -1264,11 +1356,17 @@ export const useAthleteStore = create<AthleteStoreState>()(
             if (ej.id !== exerciseId) return ej;
             const updatedSeries = ej.series.map((s) => {
               if (s.numero_serie !== setNumber) return s;
-              const updatedSet = { ...s, [field]: value };
+              const nextValue =
+                field === "rpe_real"
+                  ? normalizarRpeReal(value)
+                  : typeof value === "number"
+                    ? value
+                    : s[field];
+              const updatedSet: LiveWorkoutSet = { ...s, [field]: nextValue };
               // Recalcula 1RM en vivo cuando cambia peso o reps
               updatedSet.estimated1RM = calculateEpley1RM(
-                field === "peso_kg" ? value : updatedSet.peso_kg,
-                field === "reps_hechas" ? value : updatedSet.reps_hechas,
+                field === "peso_kg" && typeof nextValue === "number" ? nextValue : updatedSet.peso_kg,
+                field === "reps_hechas" && typeof nextValue === "number" ? nextValue : updatedSet.reps_hechas,
               );
               return updatedSet;
             });
@@ -1316,8 +1414,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     tipo_serie === "DROPSET"
                       ? "DROPSET"
                       : tipo_serie === "WARMUP"
-                      ? "W"
-                      : s.set_type,
+                      ? "WARMUP"
+                      : "NORMAL",
                 })),
               };
             }),
@@ -1593,7 +1691,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
         if (!targetExercise || !targetSet) return "invalido";
 
-        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const alumnoId = resolverAlumnoIdParaEscritura(state, session);
+        if (!alumnoId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return "invalido";
+        }
         const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
 
         if (origen.tipo === "enlace") {
@@ -1644,8 +1747,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
               exerciseName: targetExercise.nombre,
               pesoKg: targetSet.peso_kg,
               reps: targetSet.reps_hechas,
-              rpe: targetSet.rpe_real,
-              setType: targetSet.set_type || "N",
+              rpe: normalizarRpeReal(targetSet.rpe_real),
+              setType: normalizeSerieTipo(targetSet.set_type ?? targetExercise.tipo_serie),
               painReported: targetSet.pain_reported || false,
               painNotes: targetSet.pain_notes || null,
               estimated1RM:
@@ -1679,7 +1782,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
         if (!targetExercise || !targetSet) return;
 
-        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const alumnoId = resolverAlumnoIdParaEscritura(state, session);
+        if (!alumnoId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return;
+        }
         const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
 
         set((prev) => ({
@@ -1718,7 +1826,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const targetSet = targetExercise?.series.find((s) => s.numero_serie === numeroSerie);
         if (!targetExercise || !targetSet) return;
 
-        const alumnoId = session.studentId || getStorageUser() || DEFAULT_ATHLETE_ID;
+        const alumnoId = resolverAlumnoIdParaEscritura(state, session);
+        if (!alumnoId) {
+          useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+          set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+          return;
+        }
         const ejercicioId = targetExercise.ejercicio_id ?? targetExercise.id;
 
         await reintentarVideoPendiente(
@@ -1759,7 +1872,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 numero_serie: completedWarmups.length + idx + 1,
                 peso_kg: w.peso_kg,
                 reps_hechas: w.reps,
-                rpe_real: 6.0,
+                rpe_real: null,
                 completada: false,
                 estimated1RM: calculateEpley1RM(w.peso_kg, w.reps),
                 set_type: "W",
@@ -1789,7 +1902,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         if (!targetExercise) return;
 
         const completedAt = new Date().toISOString();
-        const rpeReal = warmup.rpe_real ?? 6.0;
+        const rpeReal = normalizarRpeReal(warmup.rpe_real);
         const estimated1RM = calculateEpley1RM(warmup.peso_kg, warmup.reps);
 
         const existingWarmups = targetExercise.series.filter(
@@ -1823,6 +1936,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const updatedSeries = [...allWarmups, ...renumberedEffective];
 
         set((prevState) => ({
+          sessionStartedAt: prevState.sessionStartedAt ?? Date.now(),
           currentSession: {
             ...prevState.currentSession,
             ejercicios: prevState.currentSession.ejercicios.map((ej) =>
@@ -1945,8 +2059,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
             setNumber,
             pesoKg: targetSet.peso_kg,
             reps: targetSet.reps_hechas,
-            rpe: targetSet.rpe_real,
-            setType: targetSet.set_type || "N",
+            rpe: normalizarRpeReal(targetSet.rpe_real),
+            setType:
+              targetSet.set_type === "W"
+                ? "W"
+                : normalizeSerieTipo(targetSet.set_type ?? targetExercise.tipo_serie),
             painReported: targetSet.pain_reported || false,
             painNotes: targetSet.pain_notes || null,
             videoUrl: targetSet.video_url || null,
@@ -2225,9 +2342,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
 
       cargarHistorialSesiones: async () => {
         if (!useOfflineQueueStore.getState().isOnline) return;
-        const session = get().currentSession;
-        const studentId = session.studentId || DEFAULT_ATHLETE_ID;
-        if (!esUuid(studentId)) return;
+        const state = get();
+        const session = state.currentSession;
+        const studentId = resolverAlumnoIdParaEscritura(state, session);
+        if (!studentId || !esUuid(studentId)) return;
 
         set({ cargandoHistorial: true });
         try {
@@ -2371,11 +2489,26 @@ export const useAthleteStore = create<AthleteStoreState>()(
         activeSyncSessionPromise = (async () => {
           const state = get();
           const session = state.currentSession;
-          const studentId = session.studentId || DEFAULT_ATHLETE_ID;
+          const studentId = resolverAlumnoIdParaEscritura(state, session);
+          if (!studentId) {
+            useOfflineQueueStore.getState().setSyncError(SIN_ALUMNO_ID_MSG);
+            set({ toastSesion: { mensaje: SIN_ALUMNO_ID_MSG, tipo: "neutral" } });
+            activeSyncSessionPromise = null;
+            return { success: false, error: SIN_ALUMNO_ID_MSG };
+          }
 
-          // Aplanar todas las series
+          const duracionMinutos =
+            calcularDuracionMinutos(state.sessionStartedAt, session) ??
+            state.historialSesiones.find((h) => h.sesion.id === session.id)?.sesion.duracion_minutos ??
+            null;
+
+          // Aplanar todas las series respetando el tipo_serie del plan si la serie no lo trae
           const allSets = session.ejercicios.flatMap((e) =>
-            e.series.map((s) => ({ ...s, exerciseId: e.ejercicio_id ?? e.id }))
+            e.series.map((s) => ({
+              ...s,
+              set_type: normalizeSerieTipo(s.set_type ?? e.tipo_serie),
+              exerciseId: e.ejercicio_id ?? e.id,
+            }))
           );
 
           const totalVol = allSets.reduce((acc, s) => {
@@ -2394,7 +2527,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                 dia_id: session.dia_id,
                 dia_sugerido_id: session.dia_sugerido_id || null,
                 motivo_cambio_dia: session.motivo_cambio_dia || null,
-                duracion_minutos: 45,
+                duracion_minutos: duracionMinutos,
                 volumen_total_kg: totalVol,
                 effective_volume_kg: effVol,
               },
@@ -2420,7 +2553,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                   numero_serie: s.numero_serie,
                   peso_kg: s.peso_kg,
                   reps_hechas: s.reps_hechas,
-                  rpe_real: s.rpe_real,
+                  rpe_real: normalizarRpeReal(s.rpe_real),
                   completada: true,
                   set_type: mappedType,
                   pain_reported: s.pain_reported || false,
@@ -2554,6 +2687,77 @@ export const useAthleteStore = create<AthleteStoreState>()(
         set({ currentSession: session });
       },
 
+      cargarLogrosRacha: async (alumnoIdParam) => {
+        const alumnoId =
+          alumnoIdParam ||
+          get().planAlumno?.alumnos[0]?.id ||
+          (get().currentSession.studentId !== DEFAULT_ATHLETE_ID
+            ? get().currentSession.studentId
+            : undefined);
+        if (!alumnoId || !esUuid(alumnoId)) return;
+        const count = await leerCantidadDiamantes(alumnoId);
+        set((state) => ({
+          diamantesRacha: Math.max(count, state.ciclosLogroRegistrados.length),
+        }));
+      },
+
+      verificarYRegistrarLogroDiamante: async (semanas, alumnoIdParam) => {
+        if (!Number.isFinite(semanas) || semanas < 52) return;
+        const ciclosCompletados = Math.floor(semanas / 52);
+        const alumnoId =
+          alumnoIdParam ||
+          get().planAlumno?.alumnos[0]?.id ||
+          (get().currentSession.studentId !== DEFAULT_ATHLETE_ID
+            ? get().currentSession.studentId
+            : undefined);
+
+        const registrados = get().ciclosLogroRegistrados;
+        const pendientes: number[] = [];
+        for (let ciclo = 1; ciclo <= ciclosCompletados; ciclo++) {
+          if (!registrados.includes(ciclo)) {
+            pendientes.push(ciclo);
+          }
+        }
+        if (pendientes.length === 0) {
+          if (get().diamantesRacha < ciclosCompletados) {
+            set({ diamantesRacha: ciclosCompletados });
+          }
+          return;
+        }
+
+        set((state) => ({
+          diamantesRacha: Math.max(state.diamantesRacha, ciclosCompletados),
+          ciclosLogroRegistrados: Array.from(
+            new Set([...state.ciclosLogroRegistrados, ...pendientes]),
+          ).sort((a, b) => a - b),
+        }));
+
+        if (!alumnoId || !esUuid(alumnoId)) return;
+
+        const isOnline = useOfflineQueueStore.getState().isOnline;
+        for (const numeroCiclo of pendientes) {
+          if (isOnline) {
+            const res = await registrarLogroRachaIdempotente({
+              alumnoId,
+              numeroCiclo,
+              tipo: "diamante",
+            });
+            if (res.ok) continue;
+          }
+          const eventId = `logro-racha-diamante-${alumnoId}-${numeroCiclo}`;
+          const yaEncolado = useOfflineQueueStore
+            .getState()
+            .pendingEvents.some((ev) => ev.id === eventId);
+          if (!yaEncolado) {
+            useOfflineQueueStore.getState().enqueueEvent({
+              id: eventId,
+              action: "REGISTRAR_LOGRO_RACHA",
+              payload: { alumnoId, numeroCiclo, tipo: "diamante" },
+            });
+          }
+        }
+      },
+
       cargarPlanAlumno: async () => {
         set({ cargandoPlan: true, errorPlan: false });
         try {
@@ -2645,6 +2849,9 @@ export const useAthleteStore = create<AthleteStoreState>()(
               }));
             }
           }
+          if (studentId && useOfflineQueueStore.getState().isOnline) {
+            void get().cargarLogrosRacha(studentId);
+          }
         } catch (err) {
           console.warn("No se pudo cargar el plan del alumno (se conserva el cacheado):", err);
           if (!get().planAlumno) {
@@ -2683,6 +2890,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
             ? (er as any).tiempo_objetivo_segundos
             : null;
           const esUnilateral = Boolean((er as any).es_unilateral);
+          const planSetType = normalizeSerieTipo((er as any).tipo_serie);
 
           const sets: LiveWorkoutSet[] = Array.from({ length: seriesCount }, (_, sIdx) => {
             const prevSet = ultimaVezEjercicio?.series?.[sIdx] ?? ultimaVezEjercicio?.series?.[0];
@@ -2694,9 +2902,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
               numero_serie: sIdx + 1,
               peso_kg: defaultPeso,
               reps_hechas: reps,
-              rpe_real: parseTargetRpe(er.rpe_objetivo, sIdx + 1) || (typeof er.rpe_objetivo === "number" ? er.rpe_objetivo : 7.5),
+              rpe_real: null,
               completada: false,
               estimated1RM: calculateEpley1RM(defaultPeso, reps),
+              set_type: planSetType,
             };
           });
 
@@ -2768,6 +2977,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
               ),
           currentSession: newSession,
           diaActivoId: prev.diaActivoId ? selectedDia.id : null,
+          sessionStartedAt: esMismaSesionEnCurso ? prev.sessionStartedAt : null,
           diaElegidoHoyId: null,
           vistaRecomendadaCoach: coachRecomendada,
           nivelVistaAlumno: vistaEfectiva,
@@ -2855,8 +3065,11 @@ export const useAthleteStore = create<AthleteStoreState>()(
         onboardingCompletado: state.onboardingCompletado,
         onboardingCompletadoPendiente: state.onboardingCompletadoPendiente,
         mostrarTimerDescanso: state.mostrarTimerDescanso,
+        sessionStartedAt: state.sessionStartedAt,
         sesionesCompletadas: state.sesionesCompletadas,
         fechasSesionesServidor: state.fechasSesionesServidor,
+        diamantesRacha: state.diamantesRacha,
+        ciclosLogroRegistrados: state.ciclosLogroRegistrados,
         ultimaVez: state.ultimaVez,
         marcas: state.marcas,
         seriesRecordIds: state.seriesRecordIds,

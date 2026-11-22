@@ -26,7 +26,8 @@ const SEED = `
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL),
     ('${OTRO_COACH}','c2@t','Otro coach','ENTRENADOR',NULL),
     ('${ALUMNO_A}','a@t','Alumno A','ALUMNO','${COACH}'),
-    ('${ALUMNO_B}','b@t','Alumno B','ALUMNO','${OTRO_COACH}');
+    ('${ALUMNO_B}','b@t','Alumno B','ALUMNO','${OTRO_COACH}')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id;
   INSERT INTO public.planes_entrenamiento (id, nombre, alumno_id, profesor_id)
     VALUES ('${PLAN}','Plan A','${ALUMNO_A}','${COACH}');
   INSERT INTO public.dias_rutina (id, plan_id, nombre, orden) VALUES

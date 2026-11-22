@@ -43,7 +43,8 @@ describe("GOZS-286: seed del tester como ALUMNO", () => {
         ('${TESTER}','94.gabriel.sanchez@gmail.com'),('${COACH}','ds.gabriel.sanchez@gmail.com'),
         ('${ALU_B}','alumno.b.tester@gozster.local'),('00000000-0000-0000-0000-0000000000d1','otro@t');
       INSERT INTO public.perfiles (id, email, nombre_completo, rol) VALUES
-        ('00000000-0000-0000-0000-0000000000d1','otro@t','Otro','ALUMNO');
+        ('00000000-0000-0000-0000-0000000000d1','otro@t','Otro','ALUMNO')
+      ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol;
       INSERT INTO public.planes_entrenamiento (id, alumno_id, nombre, estado)
         VALUES ('${GABI}','00000000-0000-0000-0000-0000000000d1','GABI AGOSTO','ACTIVO');
     `);

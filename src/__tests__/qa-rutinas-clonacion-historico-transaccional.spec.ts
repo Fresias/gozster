@@ -37,7 +37,8 @@ const SEED = `
     ('${ADMIN}','admin@t','Admin','ADMIN',NULL,'ACTIVA'),
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
     ('${JUAN}','juan@t','Juan','ALUMNO','${COACH}','ACTIVA'),
-    ('${ANA}','ana@t','Ana','ALUMNO','${COACH}','ACTIVA');
+    ('${ANA}','ana@t','Ana','ALUMNO','${COACH}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
   INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
     ('${PRESS}','QA Press pecho',ARRAY['PECHO']),
     ('${SENTADILLA}','QA Sentadilla',ARRAY['CUADRICEPS']),
@@ -400,7 +401,8 @@ describe("GOZS-294 QA Rutinas: clonación, histórico y guardado transaccional",
       await db.exec(`
         INSERT INTO auth.users (id, email) VALUES ('00000000-0000-0000-0000-0000000000c9','ajeno@t');
         INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia)
-        VALUES ('00000000-0000-0000-0000-0000000000c9','ajeno@t','Ajeno','ENTRENADOR',NULL,'ACTIVA');
+        VALUES ('00000000-0000-0000-0000-0000000000c9','ajeno@t','Ajeno','ENTRENADOR',NULL,'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
       `);
       const antes = await contar(`SELECT 1 FROM public.planes_entrenamiento WHERE alumno_id = '${ANA}'`);
       await expect(

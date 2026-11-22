@@ -34,7 +34,8 @@ describe("GOZS-229: feriados", () => {
     await db.exec(`
       INSERT INTO auth.users (id, email) VALUES ('${COACH}','c@t'),('${ALUMNO}','a@t');
       INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
-        ('${COACH}','c@t','Coach','ENTRENADOR','ACTIVA'),('${ALUMNO}','a@t','Alumno','ALUMNO','ACTIVA');
+        ('${COACH}','c@t','Coach','ENTRENADOR','ACTIVA'),('${ALUMNO}','a@t','Alumno','ALUMNO','ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia;
     `);
   }, 60_000);
 
