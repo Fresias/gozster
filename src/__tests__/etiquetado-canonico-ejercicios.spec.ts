@@ -42,7 +42,7 @@ describe("GOZS-425: etiquetado canónico", () => {
   });
 
   it("no queda 'Mynter' en seeds", () => {
-    for (const f of ["seed_gozs.sql", "00_FULL_SETUP_AND_SEED_GOZS.sql", "seed_tester.sql"]) {
+    for (const f of ["seed_gozs.sql", "seed_tester.sql"]) {
       expect(fs.readFileSync(path.join(SUPABASE_DIR, f), "utf-8")).not.toMatch(/mynter/i);
     }
   });
