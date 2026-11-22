@@ -66,10 +66,10 @@ jobs:
             next-cache-${{ hashFiles('package-lock.json') }}-
 
       - name: Build Next.js application
-        # Placeholders no secretos: el build solo exige que existan (GOZS-687, sin fallback a dev).
+        # GOZS-687: sin fallback a dev, el build exige estas variables (definidas en GitHub Actions).
         env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-anon-key
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm run build
 
   test-db:
