@@ -100,6 +100,8 @@ export function OnboardingAlumno({
 
   const [nombreInput, setNombreInput] = React.useState(nombreInicial);
   const [nombreTocado, setNombreTocado] = React.useState(false);
+  const [sexoInput, setSexoInput] = React.useState<"" | "F" | "M">("");
+  const [pesoInput, setPesoInput] = React.useState("");
 
   React.useEffect(() => {
     setMontado(true);
@@ -133,8 +135,19 @@ export function OnboardingAlumno({
 
   const continuarNombre = React.useCallback(() => {
     void guardarNombrePreferido(nombreInput);
+    const peso = parseFloat(pesoInput.replace(",", "."));
+    const update: { sexo?: "F" | "M"; peso_corporal_kg?: number } = {};
+    if (sexoInput) update.sexo = sexoInput;
+    if (Number.isFinite(peso) && peso > 0 && peso <= 500) update.peso_corporal_kg = peso;
+    const alumnoId = planAlumno?.alumnos?.[0]?.id;
+    if (alumnoId && Object.keys(update).length > 0) {
+      // Opcional y best-effort: si falla (offline), el alumno puede cargar el peso luego desde Inicio.
+      void import("@/lib/supabase/client")
+        .then(({ supabase }) => supabase.from("perfiles").update(update as never).eq("id", alumnoId))
+        .catch(() => undefined);
+    }
     setPaso(3);
-  }, [guardarNombrePreferido, nombreInput]);
+  }, [guardarNombrePreferido, nombreInput, sexoInput, pesoInput, planAlumno]);
 
   if (!montado || onboardingCompletado || (!nombreAlumno && planAlumno === null)) return null;
 
@@ -242,6 +255,41 @@ export function OnboardingAlumno({
               <p className="a-t-sec a-muted m-0">
                 Hasta 30 caracteres. Si lo dejás vacío, usamos tu primer nombre.
               </p>
+              <p className="a-t-label a-muted m-0" data-testid="onboarding-sexo-peso-ayuda">
+                Opcional · Tu sexo y peso corporal sirven para ubicarte en el ranking de fuerza
+                relativa (carga ÷ peso corporal). Sin estos datos no aparecés en el ranking. Solo los
+                ve tu coach.
+              </p>
+              <label className="a-flbl a-t-bs" htmlFor="onb-sexo-in">
+                Sexo (opcional)
+              </label>
+              <select
+                id="onb-sexo-in"
+                data-testid="onboarding-sexo"
+                className="a-fin a-t-body"
+                value={sexoInput}
+                onChange={(e) => setSexoInput(e.target.value as "" | "F" | "M")}
+              >
+                <option value="">Prefiero no decirlo</option>
+                <option value="F">Femenino</option>
+                <option value="M">Masculino</option>
+              </select>
+              <label className="a-flbl a-t-bs" htmlFor="onb-peso-in">
+                Peso corporal en kg (opcional)
+              </label>
+              <input
+                id="onb-peso-in"
+                data-testid="onboarding-peso"
+                className="a-fin a-t-body"
+                type="number"
+                inputMode="decimal"
+                min={20}
+                max={500}
+                step="0.1"
+                placeholder="Ej: 70.5"
+                value={pesoInput}
+                onChange={(e) => setPesoInput(e.target.value)}
+              />
               <div className="a-grow" />
               <button type="button" className="a-btn" onClick={continuarNombre}>
                 Continuar
