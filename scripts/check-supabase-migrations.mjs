@@ -50,7 +50,9 @@ export function parsearSalidaMigrationList(rawOutput) {
   if (texto.startsWith("[") || texto.startsWith("{")) {
     try {
       const parsed = JSON.parse(texto);
-      const items = Array.isArray(parsed) ? parsed : [parsed];
+      // CLI v3 emite { migrations: [...], message, target }; stream-json: { data: { migrations } }
+      const envuelto = parsed?.migrations ?? parsed?.data?.migrations;
+      const items = Array.isArray(envuelto) ? envuelto : Array.isArray(parsed) ? parsed : [parsed];
       const filas = items.map(normalizarFilaJson).filter(Boolean);
       if (filas.length > 0) return filas;
     } catch {
@@ -84,7 +86,7 @@ export function parsearSalidaMigrationList(rawOutput) {
   const versionRe = /^\d{8,}$/;
   for (const line of texto.split(/\r?\n/)) {
     if (!line.includes("|")) continue;
-    const cols = line.split("|").map((c) => c.trim());
+    const cols = line.split("|").map((c) => c.trim().replace(/`/g, ""));
     if (cols.length < 2) continue;
     const local = cols[0] ?? "";
     const remote = cols[1] ?? "";
@@ -123,12 +125,12 @@ export function formatearReporteError(resultado) {
     `DEPLOY BLOQUEADO: hay ${resultado.pendientes.length} migración(es) del repo sin aplicar en la base de datos destino (${resultado.aplicadas}/${resultado.totalLocales} aplicadas).`,
     "Migraciones pendientes:",
     ...resultado.pendientes.map((m) => `  - ${m.file} (versión ${m.version})`),
-    "Aplicá las migraciones con `supabase db push` antes de desplegar.",
+    "Aplicá las migraciones con `supabase db push --remote` antes de desplegar.",
   ];
 
   if (resultado.pendientes.some((m) => m.version === X1_MIGRATION_VERSION)) {
     lines.push(
-      `Nota X1 (${X1_MIGRATION_VERSION}): si \`supabase db push\` falla por \`ALTER TYPE ... ADD VALUE\` en una única transacción, ejecutá previamente los \`ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS ...\` según docs/architecture/migraciones-supabase.md y reintentá \`supabase db push\`.`
+      `Nota X1 (${X1_MIGRATION_VERSION}): si \`supabase db push\` falla por \`ALTER TYPE ... ADD VALUE\` en una única transacción, ejecutá previamente los \`ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS ...\` según docs/architecture/migraciones-supabase.md y reintentá \`supabase db push --remote\`.`
     );
   }
 

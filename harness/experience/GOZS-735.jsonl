@@ -1,0 +1,1 @@
+{"id":"exp-gozs-735-1","timestamp":"2026-11-22T05:59:32.206Z","task":"GOZS-735","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Supabase CLI v3 envuelve migration list en {migrations,message,target} y db push es local por defecto (--remote); verificar el JSON real de la CLI antes de dar por bueno un parser.","verified":true,"tags":["qa"]}
