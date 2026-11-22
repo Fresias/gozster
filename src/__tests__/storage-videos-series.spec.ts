@@ -128,7 +128,8 @@ describe("GOZS-577 (BE-03 CP1): bucket videos-series y políticas RLS", () => {
         ('${COACH_OTRO}', 'coach-b@t.test', 'Coach Otro', 'ENTRENADOR', 'ACTIVA', NULL),
         ('${ADMIN_ID}', 'admin@t.test', 'Admin', 'ADMIN', 'ACTIVA', NULL),
         ('${ALUMNO_A}', 'alumno-a@t.test', 'Alumno A', 'ALUMNO', 'ACTIVA', '${COACH_A}'),
-        ('${ALUMNO_B}', 'alumno-b@t.test', 'Alumno B', 'ALUMNO', 'ACTIVA', '${COACH_OTRO}');
+        ('${ALUMNO_B}', 'alumno-b@t.test', 'Alumno B', 'ALUMNO', 'ACTIVA', '${COACH_OTRO}')
+      ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia, profesor_asignado_id = EXCLUDED.profesor_asignado_id;
 
       INSERT INTO storage.buckets (id, name, public) VALUES ('otro-bucket', 'otro-bucket', true);
       INSERT INTO storage.objects (bucket_id, name) VALUES
