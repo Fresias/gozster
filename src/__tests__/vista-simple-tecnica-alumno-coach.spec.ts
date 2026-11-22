@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs Recomendación del Coach", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    useCoachStudioStore.getState().resetDemoDataset();
     useAthleteStore.getState().resetSessionToDefaults();
     useAthleteStore.setState({
       vistaElegidaPorAlumno: null,

@@ -6,6 +6,16 @@ import path from "node:path";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
+vi.mock("@/store/use-cobros-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-cobros-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useCobrosStore.getState()) : mod.useCobrosStore.getState(),
+    mod.useCobrosStore,
+  );
+  return { ...mod, useCobrosStore: hook };
+});
+
 import { RankingFuncional } from "@/components/coach/ranking-funcional";
 import { InviteStudentModal } from "@/components/coach/invite-student-modal";
 import { CobrosPanel } from "@/components/coach/cobros-panel";

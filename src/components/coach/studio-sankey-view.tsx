@@ -4,11 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { type SankeyFlowData } from "./studio-sankey-modal";
 import { DEMO_KPIS_NEGOCIO } from "@/services/coach-demo-dataset";
-import type { KpisNegocio, KpisNegocioDatos } from "@/lib/kpis-negocio";
+import { crearKpisNegocioVacios, type KpisNegocio, type KpisNegocioDatos } from "@/lib/kpis-negocio";
 
 export interface StudioSankeyViewProps {
   initialData?: SankeyFlowData;
   kpis?: KpisNegocio | KpisNegocioDatos;
+  isLiveMode?: boolean;
 }
 
 type FilterKey = "ALL" | "COBRADO" | "PENDIENTE" | "POR_COBRAR" | "VENCIDO" | "PRESENCIAL" | "ONLINE";
@@ -38,7 +39,7 @@ function createSankeyRibbon(
   ].join(" ");
 }
 
-export function StudioSankeyView({ initialData, kpis: propKpis }: StudioSankeyViewProps) {
+export function StudioSankeyView({ initialData, kpis: propKpis, isLiveMode = false }: StudioSankeyViewProps) {
   const [selectedFilter, setSelectedFilter] = React.useState<FilterKey>("ALL");
   const [activeNode, setActiveNode] = React.useState<string | null>(null);
   const [periodo, setPeriodo] = React.useState<"mes" | "trimestre">("mes");
@@ -51,7 +52,8 @@ export function StudioSankeyView({ initialData, kpis: propKpis }: StudioSankeyVi
   } | null>(null);
 
   const isLegacyInitialData = initialData !== undefined;
-  const kpis: KpisNegocio = (propKpis as KpisNegocio) ?? DEMO_KPIS_NEGOCIO;
+  const kpis: KpisNegocio =
+    (propKpis as KpisNegocio) ?? (isLiveMode ? crearKpisNegocioVacios() : DEMO_KPIS_NEGOCIO);
   const isTrimestre = periodo === "trimestre";
 
   // Factor de escala según período seleccionado (Mes actual vs Q4 FY26 derivado de histórico o dataset)
@@ -123,9 +125,9 @@ export function StudioSankeyView({ initialData, kpis: propKpis }: StudioSankeyVi
     const fact = cob + porCob + ven;
     const pen = porCob + ven;
 
-    const baseIngPres = kpis.ingresos_presencial ?? Math.round(baseCobrado * 0.65);
-    const ratioPres = baseCobrado > 0 ? baseIngPres / baseCobrado : 0.65;
-    const pres = Math.round(fact * ratioPres);
+    const baseIngPres = kpis.ingresos_presencial ?? 0;
+    const ratioPres = baseCobrado > 0 ? baseIngPres / baseCobrado : 0;
+    const pres = fact > 0 ? Math.round(fact * ratioPres) : 0;
     const onl = fact - pres;
 
     const presFunc = Math.round(pres * 0.75);
@@ -141,7 +143,7 @@ export function StudioSankeyView({ initialData, kpis: propKpis }: StudioSankeyVi
       totalPendiente: pen,
       presencialTotal: pres,
       onlineTotal: onl,
-      morososCount: kpis.cobranza_vencidas || kpis.alumnos_morosos || 6,
+      morososCount: kpis.cobranza_vencidas ?? kpis.alumnos_morosos ?? 0,
       presencialFuncional: presFunc,
       presencialBoxeo: presBox,
       onlineRutinas: onlRut,
@@ -155,7 +157,7 @@ export function StudioSankeyView({ initialData, kpis: propKpis }: StudioSankeyVi
   const pctPorCobrar = totalFacturado > 0 ? (totalPorCobrar / totalFacturado) * 100 : 0;
   const pctVencido = totalFacturado > 0 ? (totalVencido / totalFacturado) * 100 : 0;
   const pctPresencial = totalFacturado > 0 ? Math.round((presencialTotal / totalFacturado) * 100) : 0;
-  const pctOnline = 100 - pctPresencial;
+  const pctOnline = totalFacturado > 0 ? 100 - pctPresencial : 0;
 
   // Determinar si un ribbon está resaltado o atenuado según activeNode y selectedFilter
   const isRibbonActive = (tags: string[]): boolean => {

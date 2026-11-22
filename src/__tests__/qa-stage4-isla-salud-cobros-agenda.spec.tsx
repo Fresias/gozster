@@ -18,6 +18,16 @@ vi.mock("@/store/use-clases-store", async (importOriginal) => {
   return { ...mod, useClasesStore: hook };
 });
 
+vi.mock("@/store/use-cobros-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-cobros-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useCobrosStore.getState()) : mod.useCobrosStore.getState(),
+    mod.useCobrosStore,
+  );
+  return { ...mod, useCobrosStore: hook };
+});
+
 import { IslaSaludAnamnesis } from "@/components/coach/student-detail/islas/isla-salud-anamnesis";
 import { IslaMetricas1RM } from "@/components/coach/student-detail/islas/isla-metricas-1rm";
 import { CobrosPanel } from "@/components/coach/cobros-panel";

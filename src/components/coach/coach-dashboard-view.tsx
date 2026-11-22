@@ -29,7 +29,7 @@ import {
   DEMO_GIMNASIO,
   DEMO_KPIS_NEGOCIO,
 } from "@/services/coach-demo-dataset";
-import type { KpisNegocio } from "@/lib/kpis-negocio";
+import { crearKpisNegocioVacios, type KpisNegocio } from "@/lib/kpis-negocio";
 
 export interface CoachDashboardViewProps {
   initialDataset?: LiveSupabaseDataset | null;
@@ -44,20 +44,25 @@ export function CoachDashboardView({
 }: CoachDashboardViewProps = {}) {
   const router = useRouter();
   const store = useCoachStudioStore();
-  const kpis: KpisNegocio = propKpis ?? DEMO_KPIS_NEGOCIO;
 
-  const hasInitialData = Boolean(
-    initialDataset &&
-      ((initialDataset.alumnos && initialDataset.alumnos.length > 0) ||
-        (initialDataset.planes && initialDataset.planes.length > 0)),
+  const hasInitialData = Boolean(initialDataset);
+  const isLive = hasInitialData || store.isLiveDatabase;
+  const kpis: KpisNegocio = propKpis ?? (isLive ? crearKpisNegocioVacios() : DEMO_KPIS_NEGOCIO);
+  const [hydratedDataset, setHydratedDataset] = React.useState<CoachStudioInitialDataset | undefined>(
+    undefined,
   );
+  const useHydratedStore = hasInitialData && hydratedDataset === initialDataset && store.isLiveDatabase;
 
   const alumnos = hasInitialData
-    ? (store.isLiveDatabase && store.alumnos.length > 0 ? store.alumnos : initialDataset!.alumnos)
+    ? (useHydratedStore ? store.alumnos : initialDataset!.alumnos)
+    : isLive
+    ? store.alumnos
     : DEMO_GIMNASIO.alumnos;
 
   const planes = hasInitialData
-    ? (store.isLiveDatabase && store.planes.length > 0 ? store.planes : initialDataset!.planes)
+    ? (useHydratedStore ? store.planes : initialDataset!.planes)
+    : isLive
+    ? store.planes
     : DEMO_GIMNASIO.planes;
 
   const planesCobros = useCobrosStore((s) => s.planes);
@@ -121,7 +126,7 @@ export function CoachDashboardView({
   } = store;
 
   React.useEffect(() => {
-    if (initialDataset && initialDataset.alumnos.length > 0) {
+    if (initialDataset) {
       const timer = setTimeout(() => {
         useCoachStudioStore.setState({
           alumnos: initialDataset.alumnos,
@@ -131,9 +136,12 @@ export function CoachDashboardView({
           ejercicios: initialDataset.ejercicios,
           contrataciones: initialDataset.contrataciones || [],
           alumnoActividades: initialDataset.alumnoActividades || [],
+          historialCargas: {},
+          sustituciones: [],
           isLiveDatabase: true,
         });
         useCobrosStore.getState().hydrateFromLiveDataset(initialDataset);
+        setHydratedDataset(initialDataset);
       }, 0);
       return () => clearTimeout(timer);
     } else {

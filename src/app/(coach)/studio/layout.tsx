@@ -6,5 +6,5 @@ export default function CoachStudioLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <StudioShell>{children}</StudioShell>;
+  return <StudioShell isLiveMode>{children}</StudioShell>;
 }

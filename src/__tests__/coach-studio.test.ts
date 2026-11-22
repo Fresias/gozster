@@ -11,6 +11,7 @@ import { MOCK_ALUMNOS } from "@/services/coach-mock-data";
 describe("Coach Studio Mobile-First & Routine Cloning Suite (Issue #10 / GOZS-7)", () => {
   beforeEach(() => {
     // Reset stores before each test
+    useCoachStudioStore.getState().resetDemoDataset();
     useOfflineQueueStore.setState({
       isOnline: true,
       pendingEvents: [],

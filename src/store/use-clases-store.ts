@@ -21,6 +21,7 @@ import { useCoachStudioStore } from "@/store/use-coach-studio";
 import {
   DEMO_ALUMNOS,
   DEMO_ALUMNOS_CLASES,
+  DEMO_COACH_LUCIA,
   DEMO_CONTRATACIONES_CLASES,
   DEMO_PLANES_MEMBRESIA,
   generarDemoClasesSemana,
@@ -136,10 +137,13 @@ function resolverNombreAlumno(alumnoId: string, perfilJoin?: unknown): string {
     .getState()
     .alumnos.find((a) => a.id === alumnoId)?.nombre_completo;
   if (deStudio) return deStudio;
-  const deDemo = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES].find(
-    (a) => a.id === alumnoId,
-  )?.nombre_completo;
-  return deDemo ?? "Alumno";
+  if (!UUID_RE.test(alumnoId)) {
+    const deDemo = [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES].find(
+      (a) => a.id === alumnoId,
+    )?.nombre_completo;
+    if (deDemo) return deDemo;
+  }
+  return "Alumno";
 }
 
 function generarInstanciasRecurrentesDemo(datos: CrearClasesRecurrentesInput): Clase[] {
@@ -181,12 +185,18 @@ function generarInstanciasRecurrentesDemo(datos: CrearClasesRecurrentesInput): C
   return creadas;
 }
 
+export interface ProfesorClaseInfo {
+  id: string;
+  nombre_completo: string;
+}
+
 interface ClasesState {
   vista: VistaAgenda;
   setVista: (v: VistaAgenda) => void;
 
   semanaInicio: string | null;
   clases: Clase[];
+  profesoresPorClase: Record<string, ProfesorClaseInfo[]>;
   misReservas: Reserva[];
   clasesFijas: ClaseFijaItem[];
   membresia: Contratacion | null;
@@ -281,6 +291,7 @@ export const useClasesStore = create<ClasesState>()(
 
       semanaInicio: null,
       clases: [],
+      profesoresPorClase: {},
       misReservas: [],
       clasesFijas: [],
       membresia: null,
@@ -342,10 +353,18 @@ export const useClasesStore = create<ClasesState>()(
           ahora: fechaRef,
         });
 
+        const profesoresDemo: Record<string, ProfesorClaseInfo[]> = {};
+        for (const c of demoClases) {
+          profesoresDemo[c.id] = [
+            { id: DEMO_COACH_LUCIA.id, nombre_completo: DEMO_COACH_LUCIA.nombre_completo },
+          ];
+        }
+
         set({
           semanaInicio: inicio.toISOString(),
           testAhora: lunesMediodia,
           clases: demoClases,
+          profesoresPorClase: profesoresDemo,
           agendaReservas: demoReservas,
           misReservas,
           clasesFijas: [
@@ -528,38 +547,13 @@ export const useClasesStore = create<ClasesState>()(
           return;
         }
 
-        const clases = get().clases.length ? get().clases : generarDemoClasesSemana();
-        const agendaReservas = get().agendaReservas.length
-          ? get().agendaReservas
-          : generarDemoReservasIniciales();
-        const alumnoId = get().demoAlumnoId || "demo-alumno-valentina";
-        const contratacion = DEMO_CONTRATACIONES_CLASES.find((c) => c.alumno_id === alumnoId) ?? null;
-        const plan = contratacion?.plan_membresia_id
-          ? DEMO_PLANES_MEMBRESIA.find((p) => p.id === contratacion.plan_membresia_id) ?? null
-          : null;
-        const misReservas = agendaReservas.filter((r) => r.alumno_id === alumnoId);
-        const sinCupo = calcularSinCupo(clases, agendaReservas);
-        const refDate = get().testAhora ? new Date(get().testAhora!) : new Date();
-        const actividadesHabilitadas = resolverActividadesHabilitadas({
-          contrataciones: contratacion ? [contratacion] : [],
-          membresia: contratacion,
-          plan,
-          ahora: refDate,
-        });
-
+        const clases = get().clases;
+        const agendaReservas = get().agendaReservas;
         set({
           semanaInicio: inicio.toISOString(),
           clases,
           agendaReservas,
-          misReservas,
-          membresia: contratacion,
-          plan,
-          contratacionesAlumno: contratacion ? [contratacion] : [],
-          actividadesAlumno: [],
-          actividadesHabilitadas,
-          sinCupo,
-          resumenClases: null,
-          feedbacksPorReserva: {},
+          sinCupo: calcularSinCupo(clases, agendaReservas),
           actualizadoAt: new Date().toISOString(),
           cargando: false,
         });
@@ -1084,7 +1078,7 @@ export const useClasesStore = create<ClasesState>()(
           if (userId) {
             set({ cargando: true });
             try {
-              const [clasesRes, reservasJoinRes, fijasJoinRes] = await Promise.all([
+              const [clasesRes, reservasJoinRes, fijasJoinRes, profesoresJoinRes] = await Promise.all([
                 supabase.from("clases").select("*").order("inicio", { ascending: true }),
                 supabase
                   .from("reservas")
@@ -1093,6 +1087,9 @@ export const useClasesStore = create<ClasesState>()(
                 supabase
                   .from("clases_fijas")
                   .select("id, alumno_id, horario_id, created_at, clases_horario(actividad, dia_semana, hora_inicio)"),
+                supabase
+                  .from("clases_profesores")
+                  .select("clase_id, profesor_id, perfiles(nombre_completo)"),
               ]);
 
               if (!clasesRes.error && Array.isArray(clasesRes.data)) {
@@ -1160,9 +1157,27 @@ export const useClasesStore = create<ClasesState>()(
                   };
                 });
 
+                const profesoresPorClase: Record<string, ProfesorClaseInfo[]> = {};
+                if (profesoresJoinRes && !profesoresJoinRes.error && Array.isArray(profesoresJoinRes.data)) {
+                  for (const row of profesoresJoinRes.data as any[]) {
+                    if (!row?.clase_id || !row?.profesor_id) continue;
+                    const perfilJoin = Array.isArray(row.perfiles) ? row.perfiles[0] : row.perfiles;
+                    const nombre =
+                      perfilJoin && typeof perfilJoin.nombre_completo === "string" && perfilJoin.nombre_completo.trim()
+                        ? perfilJoin.nombre_completo.trim()
+                        : "Entrenador asignado";
+                    const lista = profesoresPorClase[row.clase_id] ?? [];
+                    if (!lista.some((p) => p.id === row.profesor_id)) {
+                      lista.push({ id: row.profesor_id, nombre_completo: nombre });
+                    }
+                    profesoresPorClase[row.clase_id] = lista;
+                  }
+                }
+
                 set({
                   semanaInicio: inicio.toISOString(),
                   clases: clasesReales,
+                  profesoresPorClase,
                   agendaReservas: agendaReservasReales,
                   clasesFijas: clasesFijasReales,
                   sinCupo: calcularSinCupo(clasesReales, agendaReservasReales),
@@ -1191,19 +1206,9 @@ export const useClasesStore = create<ClasesState>()(
           }
         }
 
-        // Offline o sin sesión autenticada: preservar caché real si existe, o fallback demo para tests
-        const tieneCacheReal =
-          get().clases.some((c) => UUID_RE.test(c.id)) ||
-          get().agendaReservas.some((r) => UUID_RE.test(r.id));
-        if (tieneCacheReal) {
-          set({ cargando: false });
-          return;
-        }
-
-        const clases = get().clases.length ? get().clases : generarDemoClasesSemana();
-        const agendaReservas = get().agendaReservas.length
-          ? get().agendaReservas
-          : generarDemoReservasIniciales();
+        // Offline o sin sesión autenticada: preservar caché existente sin inventar datos demo
+        const clases = get().clases;
+        const agendaReservas = get().agendaReservas;
         set({
           semanaInicio: inicio.toISOString(),
           clases,
@@ -1903,15 +1908,16 @@ export const useClasesStore = create<ClasesState>()(
     }),
     {
       name: "gozster-clases",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => safeStorage),
       migrate: (persistedState: any, version: number) => {
         const state = persistedState as Partial<ClasesState>;
-        if (!version || version < 2) {
+        if (!version || version < 3) {
           return {
             ...state,
-            clases: generarDemoClasesSemana(),
-            agendaReservas: generarDemoReservasIniciales(),
+            clases: (state.clases ?? []).filter((c) => !c.id.startsWith("demo-")),
+            agendaReservas: (state.agendaReservas ?? []).filter((r) => !r.id.startsWith("demo-")),
+            profesoresPorClase: {},
             sinCupo: [],
           };
         }

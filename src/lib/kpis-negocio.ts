@@ -360,3 +360,36 @@ export async function obtenerKpisNegocio(
   const row = Array.isArray(data) ? data[0] : data;
   return mapearRpcAKpis(row, mesAnteriorLabel, rol);
 }
+
+/**
+ * Devuelve una estructura canónica KpisNegocio en ceros (o null en montos para no-ADMIN)
+ * para inicializar o mostrar estado vacío real sin caer en datos demo.
+ */
+export function crearKpisNegocioVacios(
+  rol?: string | null,
+  mesAnteriorLabel?: string,
+): KpisNegocio {
+  const label = mesAnteriorLabel ?? calcularPeriodoMesEnCurso().mesAnteriorLabel;
+  return mapearRpcAKpis(
+    {
+      ingresos: puedeVerMontos(rol) ? 0 : null,
+      ingresos_6m: [],
+      ingresos_periodo_anterior: 0,
+      cobranza_esperada: 0,
+      cobranza_pendiente_monto: 0,
+      cobranza_vencidas_cant: 0,
+      sin_entrenar_7d_ids: [],
+      activos_fin: 0,
+      altas: 0,
+      bajas: 0,
+      ingresos_presencial: 0,
+      ingresos_online: 0,
+      cobranza_vencida_monto: 0,
+      cobranza_por_vencer_monto: 0,
+      alumnos_al_dia: 0,
+      alumnos_morosos: 0,
+    },
+    label,
+    rol ?? "ADMIN",
+  );
+}
