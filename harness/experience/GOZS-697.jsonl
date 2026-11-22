@@ -1,0 +1,1 @@
+{"id":"exp-gozs-697-1","timestamp":"2026-11-22T19:39:28.908Z","task":"GOZS-697","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"CSP en next.config.ts: Next App Router exige 'unsafe-inline' en script-src sin nonce; unsafe-eval solo en dev; origen Supabase se lee de NEXT_PUBLIC_SUPABASE_URL.","verified":true,"tags":["general"]}
