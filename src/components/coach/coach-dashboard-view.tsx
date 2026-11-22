@@ -48,7 +48,7 @@ export function CoachDashboardView({
   const hasInitialData = Boolean(initialDataset);
   const isLive = hasInitialData || store.isLiveDatabase;
   const kpis: KpisNegocio = propKpis ?? (isLive ? crearKpisNegocioVacios() : DEMO_KPIS_NEGOCIO);
-  const [hydratedDataset, setHydratedDataset] = React.useState<CoachStudioInitialDataset | undefined>(
+  const [hydratedDataset, setHydratedDataset] = React.useState<LiveSupabaseDataset | undefined>(
     undefined,
   );
   const useHydratedStore = hasInitialData && hydratedDataset === initialDataset && store.isLiveDatabase;

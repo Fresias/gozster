@@ -74,8 +74,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
       clases: [],
       agendaReservas: [],
       profesoresPorClase: {},
-      clasesAlumno: [],
-      reservasAlumno: [],
     });
     useRankingStore.setState({
       prs: [],
@@ -123,7 +121,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
           planesMembresia: [],
           cobros: [],
         }}
-        kpis={kpisVacios}
         initialAlumnosExpanded={true}
       />,
     );
@@ -149,7 +146,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
           planesMembresia: [],
           cobros: [],
         }}
-        kpis={kpisVacios}
       />,
     );
 
@@ -170,7 +166,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
           alumnoActividades: [],
         }}
         initialPerfiles={[]}
-        kpis={kpisVacios}
         isLiveMode={true}
       />,
     );
@@ -204,7 +199,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
       capacidad: 10,
       estado: "PROGRAMADA",
       motivo_cancelacion: null,
-      notas_coach: null,
       created_at: "2026-11-20T10:00:00Z",
       updated_at: "2026-11-20T10:00:00Z",
     };
@@ -217,8 +211,7 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
         initialProfesoresPorClase={{
           [claseReal.id]: [
             {
-              clase_id: claseReal.id,
-              profesor_id: "22222222-2222-4222-8222-222222222222",
+              id: "22222222-2222-4222-8222-222222222222",
               nombre_completo: "Martín Gómez",
             },
           ],
@@ -249,7 +242,7 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
     assertNoDemoLiteralsInLiveMode(htmlRanking, STUDIO_FORBIDDEN_LITERALS);
 
     const htmlChat = renderToStaticMarkup(
-      <ChatFab alumno={null} isOpen={true} isLiveMode={true} />,
+      <ChatFab alumno={null} isOpen={true} onToggle={() => {}} isLiveMode={true} />,
     );
     assertNoDemoLiteralsInLiveMode(htmlChat, STUDIO_FORBIDDEN_LITERALS);
 
@@ -270,8 +263,8 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
       nombre_completo: "Lucas Pérez",
       rol: "ALUMNO",
       telefono: null,
-      avatar_url: null,
       profesor_asignado_id: null,
+      fecha_baja: null,
       estado_membresia: "ACTIVA",
       nivel_vista_alumno: "SIMPLE",
       created_at: "2026-11-20T10:00:00Z",
@@ -308,8 +301,8 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
       nombre_completo: "Alumno Real",
       rol: "ALUMNO",
       telefono: null,
-      avatar_url: null,
       profesor_asignado_id: null,
+      fecha_baja: null,
       estado_membresia: "ACTIVA",
       nivel_vista_alumno: "SIMPLE",
       created_at: "2026-11-20T10:00:00Z",
@@ -317,8 +310,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
     };
     expect(
       derivarMontoSuscripcion({
-        alumno: lucasReal,
-        contrataciones: [],
         planesMembresia: [],
       }).monto,
     ).toBe(0);

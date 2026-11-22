@@ -123,7 +123,7 @@ export function CoachStudioView({
   // estamos en modo en vivo y nunca se cae al dataset DEMO_GIMNASIO.
   const hasInitialData = Boolean(initialDataset);
   const isLiveInicio = store.isLiveDatabase || hasInitialData;
-  const [hydratedDataset, setHydratedDataset] = React.useState<CoachStudioInitialDataset | undefined>(
+  const [hydratedDataset, setHydratedDataset] = React.useState<LiveSupabaseDataset | undefined>(
     undefined,
   );
   const useHydratedStore = hasInitialData && hydratedDataset === initialDataset && store.isLiveDatabase;
