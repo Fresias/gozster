@@ -8,7 +8,7 @@ import { CoachStudioView } from "@/components/coach/coach-studio-view";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
-import { REAL_HISTORIAL_CARGAS } from "@/services/real-mynter-data";
+import { SINT_HISTORIAL_CARGAS } from "@/__tests__/helpers/datos-sinteticos";
 import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 
 // Mock parcial para useAthleteStore en SSR estático
@@ -26,9 +26,9 @@ vi.mock("next/navigation", () => ({
 describe("GOZS-359: Corrección de MiProgreso, Poda de Tonelaje Kg y Fix Scroll Horizontal en Studio", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    sembrarPlanAlumno("Fernando Rosales");
+    sembrarPlanAlumno("Alumno Sintetico 1");
     useAthleteStore.setState({
-      historialSesiones: REAL_HISTORIAL_CARGAS["66b92b9a-1ce7-4e2e-a47c-7c5600000000"] || [],
+      historialSesiones: SINT_HISTORIAL_CARGAS["00000000-0000-4000-8000-000000000001"] || [],
     });
     useOfflineQueueStore.setState({
       isOnline: true,

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
 import { HistorialSesiones } from "@/components/athlete/historial-sesiones";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { REAL_HISTORIAL_CARGAS } from "@/services/real-mynter-data";
+import { SINT_HISTORIAL_CARGAS } from "@/__tests__/helpers/datos-sinteticos";
 import { fireEvent, render, TestHTMLElement } from "@/test-utils/no-demo-literals";
 import { sembrarPlanAlumno } from "./helpers/plan-alumno-seed";
 
@@ -17,9 +17,9 @@ vi.mock("@/store/use-athlete-store", async (importOriginal) => {
 
 describe("HistorialSesiones Componente y Flujo de Usuario (GH #181, GOZS-175)", () => {
   beforeEach(() => {
-    sembrarPlanAlumno("Fernando Rosales");
+    sembrarPlanAlumno("Alumno Sintetico 1");
     useAthleteStore.setState({
-      historialSesiones: REAL_HISTORIAL_CARGAS["66b92b9a-1ce7-4e2e-a47c-7c5600000000"] || [],
+      historialSesiones: SINT_HISTORIAL_CARGAS["00000000-0000-4000-8000-000000000001"] || [],
     });
     useOfflineQueueStore.setState({
       isOnline: true,

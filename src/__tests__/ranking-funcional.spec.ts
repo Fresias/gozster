@@ -8,6 +8,7 @@ import {
 } from "@/store/use-ranking-store";
 import { useClasesStore } from "@/store/use-clases-store";
 import { RankingFuncional, CategoryChip } from "@/components/coach/ranking-funcional";
+import { SINT_EJERCICIOS } from "./helpers/datos-sinteticos";
 import type { Perfil, RankingPR } from "@/types/database.types";
 
 describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH #262)", () => {
@@ -411,6 +412,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
           initialClaseId: "demo-clase-func-miercoles",
           initialEjercicioId: "ej-dominadas-c-carga",
           alumnosDisponibles: alumnosMock,
+          ejerciciosDisponibles: SINT_EJERCICIOS,
         }),
       );
 
@@ -511,6 +513,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
           initialClaseId: "demo-clase-func-miercoles",
           initialEjercicioId: "ej-dominadas-c-carga",
           alumnosDisponibles: alumnosMock,
+          ejerciciosDisponibles: SINT_EJERCICIOS,
         }),
       );
 
@@ -542,6 +545,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
           initialClaseId: "demo-clase-func-miercoles",
           initialEjercicioId: "ej-dominadas-c-carga",
           alumnosDisponibles: alumnosMock,
+          ejerciciosDisponibles: SINT_EJERCICIOS,
         }),
       );
 
@@ -595,6 +599,7 @@ describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH 
           initialClaseId: "demo-clase-func-miercoles",
           initialEjercicioId: "ej-dominadas-c-carga",
           alumnosDisponibles: alumnosMock,
+          ejerciciosDisponibles: SINT_EJERCICIOS,
         }),
       );
 

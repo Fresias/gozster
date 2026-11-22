@@ -3,7 +3,7 @@ import { type PGlite, type Transaction } from "@electric-sql/pglite";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
-import { REAL_ALUMNOS } from "@/services/real-mynter-data";
+import { SINT_ALUMNOS } from "@/__tests__/helpers/datos-sinteticos";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
 import { calcularRankingRelativo } from "@/store/use-ranking-store";
 import { crearHandler, type AltaAlumnoDeps } from "../../supabase/functions/alta-alumno-directa/handler";
@@ -26,19 +26,10 @@ function como(rol: "anon" | "authenticated" | "service_role", sub: string | null
 }
 
 describe("GOZS-343: DB & Seeds - Sexo biológico y peso corporal en perfiles", () => {
-  describe("1. Dataset REAL_ALUMNOS y Demostración", () => {
-    it("Camila Navarro está presente en REAL_ALUMNOS con sexo 'F' y peso_corporal_kg 55.0", () => {
-      const camila = REAL_ALUMNOS.find((a) => a.nombre_completo.toLowerCase() === "camila navarro");
-      expect(camila).toBeDefined();
-      expect(camila?.sexo).toBe("F");
-      expect(camila?.peso_corporal_kg).toBe(55.0);
-      expect(camila?.rol).toBe("ALUMNO");
-      expect(camila?.estado_membresia).toBe("ACTIVA");
-    });
-
-    it("todos los alumnos en REAL_ALUMNOS tienen sexo biológico ('M' | 'F') y peso corporal definido", () => {
-      expect(REAL_ALUMNOS.length).toBeGreaterThanOrEqual(14);
-      for (const alumno of REAL_ALUMNOS) {
+  describe("1. Dataset SINT_ALUMNOS y Demostración", () => {
+    it("todos los alumnos en SINT_ALUMNOS tienen sexo biológico ('M' | 'F') y peso corporal definido", () => {
+      expect(SINT_ALUMNOS.length).toBeGreaterThanOrEqual(3);
+      for (const alumno of SINT_ALUMNOS) {
         expect(["M", "F"]).toContain(alumno.sexo);
         expect(typeof alumno.peso_corporal_kg).toBe("number");
         expect(alumno.peso_corporal_kg).toBeGreaterThan(0);
@@ -54,7 +45,7 @@ describe("GOZS-343: DB & Seeds - Sexo biológico y peso corporal en perfiles", (
     });
 
     it("GIVEN la clase funcional con Camila Navarro, WHEN se calcula ranking, THEN clasifica automáticamente sin inputs manuales", () => {
-      const camila = REAL_ALUMNOS.find((a) => a.nombre_completo === "Camila Navarro")!;
+      const camila = DEMO_ALUMNOS.find((a) => a.nombre_completo === "Camila Navarro")!;
       const resultado = calcularRankingRelativo({
         prs: [
           {
