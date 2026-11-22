@@ -1969,22 +1969,6 @@ export interface Database {
         };
         Returns: Database['public']['Tables']['alumno_historial_dolor']['Row'];
       };
-      actualizar_peso_sexo_alumno: {
-        Args: {
-          p_alumno_id: string;
-          p_peso_corporal_kg: number;
-          p_sexo: string;
-        };
-        Returns: Json;
-      };
-      actualizar_perfil_alumno: {
-        Args: {
-          p_alumno_id: string;
-          p_peso_corporal_kg: number;
-          p_sexo: string;
-        };
-        Returns: Json;
-      };
       contar_mensajes_no_leidos: {
         Args: Record<PropertyKey, never>;
         Returns: number;
@@ -2011,10 +1995,6 @@ export interface Database {
       feriados_en_rango: {
         Args: { p_desde: string; p_hasta: string };
         Returns: Database['public']['Tables']['feriados']['Row'][];
-      };
-      fecha_habilita_clases: {
-        Args: { p_fecha: string };
-        Returns: boolean;
       };
       es_admin: {
         Args: Record<PropertyKey, never>;
@@ -2090,20 +2070,6 @@ export interface Database {
           mejor_1rm_brzycki: number;
         }[];
       };
-      obtener_ranking_ejercicio: {
-        Args: {
-          p_ejercicio_id: string;
-        };
-        Returns: {
-          alumno_id: string;
-          nombre_completo: string;
-          sexo: 'M' | 'F' | null;
-          pr_kg: number;
-          ratio_pr_peso_corporal: number | null;
-          posicion_en_sexo: number | null;
-          motivo_exclusion: string | null;
-        }[];
-      };
       detectar_sobrecarga_progresiva: {
         Args: {
           p_alumno_id: string;
@@ -2128,12 +2094,6 @@ export interface Database {
           p_plan_id: string;
           p_alumno_id: string;
           p_nombre?: string;
-        };
-        Returns: string;
-      };
-      activar_rutina: {
-        Args: {
-          p_plan_id: string;
         };
         Returns: string;
       };
@@ -2217,19 +2177,6 @@ export interface Database {
         };
         Returns: boolean;
       };
-      obtener_ficha_alumno_actividades: {
-        Args: { p_alumno_id: string };
-        Returns: FichaAlumnoActividades;
-      };
-      registrar_pago_con_descuento: {
-        Args: {
-          p_cobro_id: string;
-          p_monto_cobrado: number;
-          p_metodo: MedioPago | 'MERCADO_PAGO';
-          p_nota: string;
-        };
-        Returns: Database['public']['Tables']['cobros']['Row'];
-      };
       asignar_suscripcion_y_cobro: {
         Args: {
           p_alumno_id: string;
@@ -2261,23 +2208,6 @@ export interface Database {
           p_nota: string | null;
         };
         Returns: Database['public']['Tables']['cobros']['Row'];
-      };
-      anotar_alumno: {
-        Args: {
-          p_clase_id: string;
-          p_alumno_id: string;
-        };
-        Returns: {
-          reserva_id: string;
-          sobrecupo: boolean;
-          aviso: string | null;
-        }[];
-      };
-      ingresos_mes: {
-        Args: {
-          p_mes?: string;
-        };
-        Returns: number;
       };
       reservar_clase: {
         Args: {
