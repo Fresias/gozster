@@ -194,5 +194,14 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(postMergeBlock).toContain("node harness-kit/core/scripts/harness-propose.mjs --post-merge");
       expect(postMergeBlock).toContain("uses: actions/upload-artifact@v7");
     });
+
+    it("GIVEN ci.yml (GOZS-734) THEN el job build define placeholders locales inertes para NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY sin apuntar a supabase.co", () => {
+      const content = readFileSync(ciWorkflowPath, "utf8");
+      const buildBlock = content.slice(content.indexOf("  build:"), content.indexOf("  test-db:"));
+
+      expect(buildBlock).toMatch(/NEXT_PUBLIC_SUPABASE_URL:\s*http:\/\/127\.0\.0\.1:9\b/);
+      expect(buildBlock).toMatch(/NEXT_PUBLIC_SUPABASE_ANON_KEY:\s*test-anon-key\b/);
+      expect(buildBlock).not.toMatch(/supabase\.co/i);
+    });
   });
 });
