@@ -9,11 +9,11 @@ import {
   calculateTotalTonnage,
 } from "@/lib/strength-metrics";
 import {
-  REAL_ALUMNOS,
-  REAL_DIAS,
-  REAL_EJERCICIOS_RUTINA,
-  REAL_PLANES,
-} from "@/services/real-mynter-data";
+  SINT_ALUMNOS,
+  SINT_DIAS,
+  SINT_EJERCICIOS_RUTINA,
+  SINT_PLANES,
+} from "@/__tests__/helpers/datos-sinteticos";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 
@@ -52,14 +52,14 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
 
   describe("1. Auditoría Canónica: Sesión de Fernando Rosales (Día 1 con 26 series)", () => {
     it("identifica a Fernando Rosales como alumno activo con su plan y día canónico asignado", () => {
-      const fernando = REAL_ALUMNOS.find((a) => a.nombre_completo.includes("Fernando Rosales"));
+      const fernando = SINT_ALUMNOS.find((a) => a.nombre_completo.includes("Sintetico 1"));
       expect(fernando).toBeDefined();
-      expect(fernando?.nombre_completo).toBe("Fernando Rosales");
+      expect(fernando?.nombre_completo).toBe("Alumno Sintetico 1");
 
-      const planFer = REAL_PLANES.find((p) => p.alumno_id === fernando?.id);
+      const planFer = SINT_PLANES.find((p) => p.alumno_id === fernando?.id);
       expect(planFer).toBeDefined();
 
-      const dia1Fer = REAL_DIAS.find((d) => d.plan_id === planFer?.id && d.orden === 1);
+      const dia1Fer = SINT_DIAS.find((d) => d.plan_id === planFer?.id && d.orden === 1);
       expect(dia1Fer).toBeDefined();
       expect(dia1Fer?.nombre).toContain("DIA 1");
     });

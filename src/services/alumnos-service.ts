@@ -2,13 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { diasSinPR, estaEstancado } from "@/lib/estancamiento";
 import type { SerieHistorica } from "@/lib/historial-ejercicio";
 import { supabase } from "@/lib/supabase/client";
-import {
-  REAL_ALUMNOS,
-  REAL_PLANES,
-  REAL_DIAS,
-  REAL_EJERCICIOS,
-  REAL_EJERCICIOS_RUTINA,
-} from "@/services/real-mynter-data";
 import type {
   AlumnoActividad,
   Cobro,
@@ -47,7 +40,7 @@ export async function fetchLiveDatasetFromSupabase(
     const perfilesQuery = client.from("perfiles").select("*");
     const alumnosPromise = typeof (perfilesQuery as any).or === "function"
       ? (perfilesQuery as any)
-          .or("rol.eq.ALUMNO,profesor_asignado_id.not.is.null,email.in.(94.gabriel.sanchez@gmail.com,gonzasalas2016@gmail.com)")
+          .or("rol.eq.ALUMNO,profesor_asignado_id.not.is.null")
           .order("nombre_completo", { ascending: true })
       : perfilesQuery.eq("rol", "ALUMNO").order("nombre_completo", { ascending: true });
 
@@ -74,13 +67,13 @@ export async function fetchLiveDatasetFromSupabase(
     ]);
 
     if (alumnosRes.error) {
-      console.warn("Aviso cargando alumnos de Supabase (usando dataset GOZS de respaldo):", alumnosRes.error.message);
+      console.warn("Aviso cargando alumnos de Supabase (sin datos de respaldo):", alumnosRes.error.message);
       return {
-        alumnos: REAL_ALUMNOS,
-        planes: REAL_PLANES,
-        dias: REAL_DIAS,
-        ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
-        ejercicios: REAL_EJERCICIOS,
+        alumnos: [],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
         alumnoActividades: [],
         contrataciones: [],
         planesMembresia: [],
@@ -106,13 +99,13 @@ export async function fetchLiveDatasetFromSupabase(
       cobros: !cobrosRes?.error ? ((cobrosRes?.data as Cobro[]) || []) : [],
     };
   } catch (err: any) {
-    console.warn("Excepción al conectar con Supabase (usando dataset GOZS de respaldo):", err?.message || err);
+    console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);
     return {
-      alumnos: REAL_ALUMNOS,
-      planes: REAL_PLANES,
-      dias: REAL_DIAS,
-      ejerciciosEnRutina: REAL_EJERCICIOS_RUTINA,
-      ejercicios: REAL_EJERCICIOS,
+      alumnos: [],
+        planes: [],
+        dias: [],
+        ejerciciosEnRutina: [],
+        ejercicios: [],
       alumnoActividades: [],
       contrataciones: [],
       planesMembresia: [],

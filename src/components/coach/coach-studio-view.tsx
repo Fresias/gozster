@@ -75,14 +75,6 @@ import type { LiveSupabaseDataset, AlumnoEstancado } from "@/services/alumnos-se
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
 import type { HistoricalLoadEntry } from "@/services/coach-mock-data";
 import { MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
-import {
-  REAL_ALUMNOS,
-  REAL_PLANES,
-  REAL_DIAS,
-  REAL_EJERCICIOS,
-  REAL_EJERCICIOS_RUTINA,
-  REAL_HISTORIAL_CARGAS,
-} from "@/services/real-mynter-data";
 
 // Contract strings for studio-layout-testeo:
 // grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]

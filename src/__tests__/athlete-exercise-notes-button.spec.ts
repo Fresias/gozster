@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { ExerciseNotesModal } from "@/components/athlete/exercise-notes-modal";
 import { useAthleteStore, type LiveWorkoutExercise } from "@/store/use-athlete-store";
-import { REAL_ALUMNOS } from "@/services/real-mynter-data";
+import { SINT_ALUMNOS } from "@/__tests__/helpers/datos-sinteticos";
 
 describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", () => {
   beforeEach(() => {
@@ -212,7 +212,7 @@ describe("GOZS-280: Botón de notas del ejercicio junto a técnica y reporte", (
     });
 
     it("loadStudentSession debe preservar y mapear las notas del constructor y de biblioteca", () => {
-      const alumno = REAL_ALUMNOS[0];
+      const alumno = SINT_ALUMNOS[0];
       expect(alumno).toBeDefined();
       if (!alumno) return;
 
