@@ -78,7 +78,10 @@ function mmss(total: number): string {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-function textoRpe(x: number): string {
+function textoRpe(x: number | null): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) {
+    return "El RPE mide qué tan cerca estuviste del fallo (6 = podías hacer 4 más, 10 = ninguna más).";
+  }
   const r = 10 - x;
   if (r <= 0) return `RPE ${fmtAr.format(x)}: no te quedaba ninguna repetición.`;
   if (Number.isInteger(r)) return `RPE ${fmtAr.format(x)}: podías hacer ${r} ${r === 1 ? "repetición" : "repeticiones"} más.`;
@@ -474,7 +477,7 @@ export function EjercicioActivo() {
                 aria-pressed={aproxHechas[i]}
                 onClick={() => {
                   if (aproxHechas[i]) return;
-                  registerWarmupSet(ej.id, { peso_kg: a.peso_kg, reps: a.reps, rpe_real: 6.0 });
+                  registerWarmupSet(ej.id, { peso_kg: a.peso_kg, reps: a.reps });
                   setAproxHechasPorEj((prev) => {
                     const base = prev[ej.id] ?? [false, false, false, false];
                     return { ...prev, [ej.id]: base.map((v, j) => (j === i ? true : v)) };
@@ -1239,7 +1242,10 @@ export function EjercicioActivo() {
         tonelajeKg={totalVolumeKg}
         seriesCompletadas={completedSetsCount}
         totalSeries={totalSets}
-        duracionMinutos={Math.max(1, Math.round((Date.now() - sessionStartTimeRef.current) / 60000)) || 45}
+        duracionMinutos={Math.max(
+          1,
+          Math.round((Date.now() - (sessionStartedAt ?? sessionStartTimeRef.current)) / 60000),
+        )}
         rachaDias={Math.max(1, (sesionesCompletadas?.length || 0) + 1)}
         rachaPrevia={Math.max(0, sesionesCompletadas?.length || 0)}
         metaDiasSemana={planAlumno?.dias?.length || 3}
