@@ -8,7 +8,7 @@ import type {
   EstadoMembresia,
   Perfil,
   PlanEntrenamiento,
-} from '../types/database.types';
+} from '../types/domain.types';
 
 // ============================================================================
 // Dominio y Simulación de Lógica de Negocio y RLS (Issue #9)
