@@ -38,6 +38,10 @@ import { useChatStore } from "@/store/use-chat-store";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
+import {
+  extenderContratacionExcepcionalRpc,
+  renovarContratacionRpc,
+} from "@/services/contrataciones-service";
 import { esUuid } from "@/lib/athlete/uuid";
 import {
   DEMO_CONTRATACIONES_CLASES,
@@ -154,10 +158,6 @@ interface CoachStudioState {
   dismissToast: () => void;
 
   clonarUltimaRutina: (alumnoId: string) => Promise<PlanEntrenamiento | null>;
-  extenderVigenciaPlan: (
-    planId: string,
-    diasExtra?: number,
-  ) => Promise<PlanEntrenamiento | null>;
   asignarPlanUrgente: (
     alumnoId: string,
     nombrePlan?: string,
@@ -511,141 +511,12 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     },
 
     clonarUltimaRutina: async (alumnoId: string) => {
-      const planesAlumno = get().getPlanesAlumnoCronologico(alumnoId);
-      const planBase = planesAlumno[0];
-
-      const nombreBase = planBase ? planBase.nombre : "Plan de Entrenamiento";
-      const nowIso = new Date().toISOString();
-      const newPlanId = `plan-clone-${Date.now()}`;
-
-      // 1. Optimistic Update in State
-      const nuevoPlan: PlanEntrenamiento = {
-        id: newPlanId,
-        profesor_id: MOCK_PROFESOR_ID,
-        alumno_id: alumnoId,
-        nombre: `[Clon] ${nombreBase}`,
-        estado: "ACTIVO",
-        comentarios: `Clonado optimísticamente el ${new Date().toLocaleDateString("es-AR")}. Basado en ${planBase?.id ?? "plantilla"}.`,
-        fecha_inicio: nowIso,
-        fecha_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        tags: planBase?.tags ? [...planBase.tags] : [],
-        created_at: nowIso,
-        updated_at: nowIso,
-      };
-
-      // Si había un plan activo previo, pasarlo a INACTIVO
-      const updatedPlanes = get().planes.map((p) => {
-        if (p.alumno_id === alumnoId && p.estado === "ACTIVO") {
-          return { ...p, estado: "INACTIVO" as const, updated_at: nowIso };
-        }
-        return p;
-      });
-
-      // Copiar días y ejercicios si existían para el planBase
-      const nuevosDias: DiaRutina[] = [];
-      const nuevosEjercicios: EjercicioEnRutina[] = [];
-
-      if (planBase) {
-        const diasBase = get().dias.filter((d) => d.plan_id === planBase.id);
-        for (const dia of diasBase) {
-          const nuevoDiaId = `dia-clone-${Date.now()}-${dia.orden}`;
-          nuevosDias.push({
-            id: nuevoDiaId,
-            plan_id: newPlanId,
-            nombre: dia.nombre,
-            orden: dia.orden,
-            created_at: nowIso,
-            updated_at: nowIso,
-          });
-
-          const ejerciciosBase = get().ejerciciosEnRutina.filter(
-            (er) => er.dia_id === dia.id,
-          );
-          for (const ej of ejerciciosBase) {
-            nuevosEjercicios.push({
-              id: `er-clone-${Date.now()}-${ej.orden}`,
-              dia_id: nuevoDiaId,
-              ejercicio_id: ej.ejercicio_id,
-              orden: ej.orden,
-              series: ej.series,
-              repeticiones: ej.repeticiones,
-              descanso_segundos: ej.descanso_segundos,
-              rpe_objetivo: ej.rpe_objetivo,
-              notas: ej.notas,
-              es_superserie: ej.es_superserie,
-              grupo_superserie: ej.grupo_superserie,
-              created_at: nowIso,
-              updated_at: nowIso,
-            });
-          }
-        }
+      const planBase = get().getPlanesAlumnoCronologico(alumnoId)[0];
+      if (!planBase) {
+        throw new Error("El alumno no tiene una rutina para clonar.");
       }
-
-      set((state) => ({
-        planes: [nuevoPlan, ...updatedPlanes],
-        dias: [...state.dias, ...nuevosDias],
-        ejerciciosEnRutina: [...state.ejerciciosEnRutina, ...nuevosEjercicios],
-        toast: {
-          id: `toast-${Date.now()}`,
-          type: "success",
-          title: "¡Rutina Clonada Exitosamente!",
-          message: `Se ha creado "${nuevoPlan.nombre}" con feedback visual optimista.`,
-        },
-      }));
-
-      // 2. Offline Queue Enqueueing
-      useOfflineQueueStore.getState().enqueueEvent({
-        id: `rpc-clonar-${Date.now()}`,
-        action: "RPC_CLONAR_ULTIMA_RUTINA",
-        payload: {
-          alumnoId,
-          planBaseId: planBase?.id,
-          nuevoPlanId: nuevoPlan.id,
-          nombre: nuevoPlan.nombre,
-        },
-      });
-
-      return nuevoPlan;
-    },
-
-    extenderVigenciaPlan: async (planId: string, diasExtra: number = 30) => {
-      const nowIso = new Date().toISOString();
-      const plan = get().planes.find((p) => p.id === planId);
-      if (!plan) return null;
-
-      const notaExtension = ` | Vigencia extendida +${diasExtra} días (${new Date().toLocaleDateString("es-AR")})`;
-      const updatedComentarios = (plan.comentarios ?? "") + notaExtension;
-
-      // 1. Optimistic Update
-      const planActualizado: PlanEntrenamiento = {
-        ...plan,
-        estado: "ACTIVO",
-        comentarios: updatedComentarios,
-        updated_at: nowIso,
-      };
-
-      set((state) => ({
-        planes: state.planes.map((p) => (p.id === planId ? planActualizado : p)),
-        toast: {
-          id: `toast-${Date.now()}`,
-          type: "success",
-          title: "¡Vigencia Extendida!",
-          message: `Se extendió la vigencia de "${plan.nombre}" por ${diasExtra} días adicionales.`,
-        },
-      }));
-
-      // 2. Offline Queue Enqueueing
-      useOfflineQueueStore.getState().enqueueEvent({
-        id: `rpc-extender-${Date.now()}`,
-        action: "RPC_EXTENDER_VIGENCIA_PLAN",
-        payload: {
-          planId,
-          diasExtra,
-          updatedAt: nowIso,
-        },
-      });
-
-      return planActualizado;
+      // Persiste en Supabase (clona y archiva la ACTIVA); si la RPC falla, lanza y no se toca el estado.
+      return get().asignarPlanDesdePlantilla(alumnoId, planBase.id);
     },
 
     getContratacionAlumno: (alumno: Perfil) => {
@@ -874,57 +745,39 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     },
 
     registrarRenovacionManual: async ({ contratacion, monto, medioPago }) => {
-      const nowIso = new Date().toISOString();
-
-      // Regla de anclaje ADR-001: la nueva fecha de corte respeta el día de
-      // vencimiento original ("no se corre la fecha"), aunque el pago llegue tarde.
-      const nuevaFechaFin = computeAnchoredRenewalDate(
-        contratacion.fecha_fin,
-        contratacion.dia_vencimiento,
-      );
-
+      // Clave estable por contratación + vencimiento + medio: un reintento no duplica el pago.
       const idempotencyKey = `renov-${contratacion.id}-${contratacion.fecha_fin}-${medioPago}`;
+
+      // Si la RPC falla lanza y el estado local queda intacto.
+      const { fechaFin, estado } = await renovarContratacionRpc({
+        contratacionId: contratacion.id,
+        monto,
+        medioPago,
+        idempotencyKey,
+      });
 
       const actualizada: Contratacion = {
         ...contratacion,
-        estado: "VIGENTE",
-        fecha_fin: nuevaFechaFin,
-        updated_at: nowIso,
+        estado: estado as Contratacion["estado"],
+        fecha_fin: fechaFin,
+        updated_at: new Date().toISOString(),
       };
 
-      set((state) => {
-        const existe = state.contrataciones.some(
-          (c) => c.id === contratacion.id,
-        );
-        const contrataciones = existe
-          ? state.contrataciones.map((c) =>
-              c.id === contratacion.id ? actualizada : c,
-            )
-          : [...state.contrataciones, actualizada];
-
-        return {
-          contrataciones,
-          toast: {
-            id: `toast-${Date.now()}`,
-            type: "success",
-            title: "Renovación confirmada",
-            message: `Pago por ${medioPago === "TRANSFERENCIA" ? "transferencia" : "efectivo"} registrado. Próximo vencimiento: ${nuevaFechaFin} (día ${contratacion.dia_vencimiento} anclado).`,
-          },
-        };
-      });
-
-      useOfflineQueueStore.getState().enqueueEvent({
-        id: `rpc-renov-${Date.now()}`,
-        action: "RPC_REGISTRAR_Y_CONFIRMAR_RENOVACION",
-        payload: {
-          p_contratacion_id: contratacion.id,
-          p_monto: monto,
-          p_medio_pago: medioPago,
-          p_idempotency_key: idempotencyKey,
-          nuevaFechaFin,
-          updatedAt: nowIso,
+      set((state) => ({
+        contrataciones: state.contrataciones.map((c) =>
+          c.id === contratacion.id ? actualizada : c,
+        ),
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: "Renovación confirmada",
+          message: `Pago por ${medioPago === "TRANSFERENCIA" ? "transferencia" : "efectivo"} registrado. Próximo vencimiento: ${fechaFin}.`,
         },
-      });
+      }));
+
+      // La cuota pagada del período vive en Cobros: se vuelve a leer de Supabase.
+      const dataset = await fetchLiveDatasetFromSupabase();
+      if (dataset) useCobrosStore.getState().hydrateFromLiveDataset(dataset);
 
       return actualizada;
     },
@@ -941,45 +794,25 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         );
       }
 
-      const nowIso = new Date().toISOString();
-      const actualizada: Contratacion = {
-        ...contratacion,
-        estado: "VIGENTE",
-        fecha_fin: nuevaFechaFin,
-        updated_at: nowIso,
-      };
-
-      set((state) => {
-        const existe = state.contrataciones.some(
-          (c) => c.id === contratacion.id,
-        );
-        const contrataciones = existe
-          ? state.contrataciones.map((c) =>
-              c.id === contratacion.id ? actualizada : c,
-            )
-          : [...state.contrataciones, actualizada];
-
-        return {
-          contrataciones,
-          toast: {
-            id: `toast-${Date.now()}`,
-            type: "warning",
-            title: "Extensión excepcional aplicada",
-            message: `Vencimiento extendido a ${nuevaFechaFin}. Motivo registrado en auditoría.`,
-          },
-        };
+      // Si la RPC falla lanza y el estado local queda intacto.
+      const persistida = await extenderContratacionExcepcionalRpc({
+        contratacionId: contratacion.id,
+        nuevaFechaFin,
+        motivo: motivoLimpio,
       });
+      const actualizada: Contratacion = { ...contratacion, ...persistida };
 
-      useOfflineQueueStore.getState().enqueueEvent({
-        id: `rpc-extender-exc-${Date.now()}`,
-        action: "RPC_EXTENDER_CONTRATACION_EXCEPCIONAL",
-        payload: {
-          p_contratacion_id: contratacion.id,
-          p_nueva_fecha_fin: nuevaFechaFin,
-          p_motivo: motivoLimpio,
-          updatedAt: nowIso,
+      set((state) => ({
+        contrataciones: state.contrataciones.map((c) =>
+          c.id === contratacion.id ? actualizada : c,
+        ),
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "warning",
+          title: "Extensión excepcional aplicada",
+          message: `Vencimiento extendido a ${nuevaFechaFin}. Motivo registrado en auditoría.`,
         },
-      });
+      }));
 
       return actualizada;
     },
@@ -1146,8 +979,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
     ) => {
       const nuevoPlanId = await asignarRutinaAAlumno(plantillaId, alumnoId);
       const dataset = await fetchLiveDatasetFromSupabase();
-      const nuevoPlan = dataset.planes.find((p) => p.id === nuevoPlanId) ?? null;
-      const plantilla = dataset.planes.find((p) => p.id === plantillaId);
+      const nuevoPlan = dataset?.planes.find((p) => p.id === nuevoPlanId) ?? null;
+      const plantilla = dataset?.planes.find((p) => p.id === plantillaId);
       if (nuevoPlan && (!nuevoPlan.tags || nuevoPlan.tags.length === 0) && plantilla?.tags && plantilla.tags.length > 0) {
         nuevoPlan.tags = [...plantilla.tags];
       }

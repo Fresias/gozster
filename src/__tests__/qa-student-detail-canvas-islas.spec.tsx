@@ -94,7 +94,6 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           historialCargas={mockHistoricalLoads as any}
           onOpenHistoricalLoads={vi.fn()}
           onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-          onExtenderVigencia={vi.fn().mockResolvedValue(null)}
           isOffline={false}
         />
       );
@@ -137,7 +136,6 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           historialCargas={mockHistoricalLoads as any}
           onOpenHistoricalLoads={vi.fn()}
           onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-          onExtenderVigencia={vi.fn().mockResolvedValue(null)}
           isOffline={false}
         />
       );
@@ -394,7 +392,6 @@ describe("GOZS-367 / Issue #355: Vista Detallada de Alumno - Canvas Modular con 
           historialCargas={mockHistoricalLoads as any}
           onOpenHistoricalLoads={vi.fn()}
           onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-          onExtenderVigencia={vi.fn().mockResolvedValue(null)}
           isOffline={false}
           headerMenuOpen
         />

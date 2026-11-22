@@ -109,7 +109,6 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
     ejerciciosCatalogo: [],
     onOpenHistoricalLoads: vi.fn(),
     onClonarUltimaRutina: vi.fn().mockResolvedValue(null),
-    onExtenderVigencia: vi.fn().mockResolvedValue(null),
     isOffline: false,
     onOpenChat: vi.fn(),
   };

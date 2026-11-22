@@ -1,4 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+const asignarRutinaMock = vi.hoisted(() => vi.fn());
+const fetchDatasetMock = vi.hoisted(() => vi.fn());
+vi.mock("@/services/rutinas-service", () => ({ asignarRutinaAAlumno: asignarRutinaMock }));
+vi.mock("@/services/alumnos-service", async (orig) => ({
+  ...(await orig<object>()),
+  fetchLiveDatasetFromSupabase: fetchDatasetMock,
+}));
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -435,9 +443,24 @@ describe("QA Suite: GOZS-366 - Auditoría Integral Rangos con Barra, Tags de Bib
           updated_at: "2026-01-01T00:00:00Z",
         };
 
+        // La RPC asigna el clon en Supabase; la recarga lo trae sin tags y el store hereda los de la base.
+        const clonPersistido: PlanEntrenamiento = {
+          ...planBase,
+          id: "plan-clon-persistido",
+          nombre: "[Clon] Fuerza Explosiva",
+          tags: [],
+        };
+        asignarRutinaMock.mockResolvedValue(clonPersistido.id);
+        fetchDatasetMock.mockResolvedValue({
+          planes: [planBase, clonPersistido],
+          dias: [],
+          ejerciciosEnRutina: [],
+        });
+
         useCoachStudioStore.setState({ planes: [planBase] });
         const clon = await useCoachStudioStore.getState().clonarUltimaRutina("alumno-test-clone");
 
+        expect(asignarRutinaMock).toHaveBeenCalledWith("plan-original-123", "alumno-test-clone");
         expect(clon).not.toBeNull();
         expect(clon?.tags).toEqual(["Fuerza", "Potencia"]);
         expect(clon?.nombre).toContain("[Clon] Fuerza Explosiva");

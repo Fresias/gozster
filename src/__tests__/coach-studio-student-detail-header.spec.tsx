@@ -33,7 +33,6 @@ describe("GOZS-381: Coach Studio - Ficha de Alumno: Cabecera Limpia (Acción Pri
     ejerciciosCatalogo: [],
     onOpenHistoricalLoads: vi.fn(),
     onClonarUltimaRutina: vi.fn().mockResolvedValue(null),
-    onExtenderVigencia: vi.fn().mockResolvedValue(null),
     isOffline: false,
     onOpenChat: vi.fn(),
   };
