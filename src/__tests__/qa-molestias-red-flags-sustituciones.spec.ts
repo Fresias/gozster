@@ -86,7 +86,11 @@ const QA_SEED_SQL = `
     ('${SESION_PASADA_ID}', '${ALUMNO_ID}', '${DIA_PIERNA_ID}', '2026-10-15 09:30:00+00', 4800.00);
 
   INSERT INTO public.registro_series (id, sesion_id, ejercicio_id, numero_serie, peso_kg, reps_hechas, completada, pain_reported) VALUES
-    ('${SERIE_PASADA_ID}', '${SESION_PASADA_ID}', '${EJ_SENTADILLA}', 1, 120.0, 10, true, false);
+    ('${SERIE_PASADA_ID}', '${SESION_PASADA_ID}', '${EJ_SENTADILLA}', 1, 120.0, 10, true, false),
+    -- GOZS-701: el volumen (4800) se deriva de las series: 4 x 120 kg x 10.
+    (gen_random_uuid(), '${SESION_PASADA_ID}', '${EJ_SENTADILLA}', 2, 120.0, 10, true, false),
+    (gen_random_uuid(), '${SESION_PASADA_ID}', '${EJ_SENTADILLA}', 3, 120.0, 10, true, false),
+    (gen_random_uuid(), '${SESION_PASADA_ID}', '${EJ_SENTADILLA}', 4, 120.0, 10, true, false);
 `;
 
 let db: PGlite;
