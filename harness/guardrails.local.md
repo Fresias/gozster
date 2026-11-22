@@ -1,7 +1,7 @@
 # GOZSter Local Guardrails
 
 ## Database & UI Contracts
-- supabase/migrations/: append-only (`db.append-only`), explicit RLS, unique version > main/PRs.
+- supabase/migrations/: append-only (`db.append-only`), RLS, version > main/PRs; new tables: backup-restore-gozs.mjs + restaurar_filas_respaldo.
 - Zero "Mynter" (ADR-005). Canonical UI: `docs/ux-ui-review/objetivo/html/*.html`; zero demo data (`assertNoDemoLiteralsInLiveMode`); keep old `data-testid` beside new.
 - Sheets (`useAtraparFocoEnHoja`): `Shift+Tab` first/title→last; capture trigger if `!sheet.contains(activeElement)` (StrictMode).
 - E2E: `E2E_STUB_URL` alt port if Windows blocks 54321; `page.screenshot({ scale: "css" })` on high-DPI.
