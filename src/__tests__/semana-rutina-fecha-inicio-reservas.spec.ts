@@ -60,7 +60,8 @@ describe("GOZS-630: fecha_inicio en guardar_rutina y contrato RLS/Realtime reser
       INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
         ('${COACH}', 'coach@t', 'Coach', 'ENTRENADOR', NULL, 'ACTIVA'),
         ('${ALUMNO_1}', 'a1@t', 'Alumno Uno', 'ALUMNO', '${COACH}', 'ACTIVA'),
-        ('${ALUMNO_2}', 'a2@t', 'Alumno Dos', 'ALUMNO', '${COACH}', 'ACTIVA');
+        ('${ALUMNO_2}', 'a2@t', 'Alumno Dos', 'ALUMNO', '${COACH}', 'ACTIVA')
+      ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
       INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
         ('${EJ_PRESS}', 'Press Banca', ARRAY['PECHO']),

@@ -42,7 +42,8 @@ const SEED_DATA = `
     ('${COACH}','coach@t','Profesor Asignado','ENTRENADOR',NULL,'ACTIVA'),
     ('${OTRO_COACH}','c2@t','Otro Entrenador','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNO}','a@t','Alumno Activo','ALUMNO','${COACH}','ACTIVA'),
-    ('${OTRO_ALUMNO}','b@t','Otro Alumno','ALUMNO','${OTRO_COACH}','ACTIVA');
+    ('${OTRO_ALUMNO}','b@t','Otro Alumno','ALUMNO','${OTRO_COACH}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES
     ('${COACH}','${ALUMNO}',true),

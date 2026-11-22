@@ -24,7 +24,8 @@ const SEED = `
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
     ('${ADMIN}', 'admin@test.local', 'Admin General', 'ADMIN', NULL, 'ACTIVA'),
     ('${COACH}', 'coach@test.local', 'Coach Principal', 'ENTRENADOR', NULL, 'ACTIVA'),
-    ('${ALUMNO}', 'alumno@test.local', 'Alumno Test', 'ALUMNO', '${COACH}', 'ACTIVA');
+    ('${ALUMNO}', 'alumno@test.local', 'Alumno Test', 'ALUMNO', '${COACH}', 'ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
     ('${EJERCICIO_1}', 'Plancha isométrica', ARRAY['CORE']),

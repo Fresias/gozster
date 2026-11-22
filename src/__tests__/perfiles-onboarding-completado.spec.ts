@@ -15,7 +15,8 @@ const SEED_PERFILES = `
   INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia) VALUES
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNO}','a@t','Lucía Fernández','ALUMNO','${COACH}','ACTIVA'),
-    ('${OTRO_ALUMNO}','b@t','Marcos Díaz','ALUMNO','${COACH}','ACTIVA');
+    ('${OTRO_ALUMNO}','b@t','Marcos Díaz','ALUMNO','${COACH}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 `;
 
 let db: PGlite;
@@ -50,7 +51,8 @@ describe("GH #548: perfiles.onboarding_completado y RPC completar_onboarding_alu
     await db.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'nuevo@t')`, [ALUMNO_NUEVO]);
     await db.query(
       `INSERT INTO public.perfiles (id, email, nombre_completo, rol, profesor_asignado_id, estado_membresia)
-       VALUES ($1, 'nuevo@t', 'Nuevo Alumno', 'ALUMNO', $2, 'ACTIVA')`,
+       VALUES ($1, 'nuevo@t', 'Nuevo Alumno', 'ALUMNO', $2, 'ACTIVA')
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia`,
       [ALUMNO_NUEVO, COACH],
     );
     const nuevo = await db.query<{ onboarding_completado: boolean }>(
