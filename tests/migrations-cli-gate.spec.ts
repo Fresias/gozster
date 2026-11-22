@@ -46,6 +46,45 @@ describe("GOZS-688 (E-3/E-4): Supabase CLI config, check de migraciones y docume
   });
 
   describe("AC 2: scripts/check-supabase-migrations.mjs (gate de paridad)", () => {
+    it("interpreta el payload envolvente de Supabase CLI v3 (migrations / data.migrations) y tabla con backticks", () => {
+      const sincronizado = parsearSalidaMigrationList(
+        JSON.stringify({
+          migrations: [{ local: "20261016000000", remote: "20261016000000", time: "2026-10-16 00:00:00" }],
+          message: "Migrations listed",
+          target: { type: "remote" },
+        })
+      );
+      expect(sincronizado).toEqual([{ local: "20261016000000", remote: "20261016000000" }]);
+
+      const pendiente = parsearSalidaMigrationList(
+        JSON.stringify({
+          migrations: [
+            { local: "20261016000000", remote: "20261016000000" },
+            { local: "20261121223500", remote: "" },
+          ],
+          message: "Migrations listed",
+          target: {},
+        })
+      );
+      expect(pendiente).toEqual([
+        { local: "20261016000000", remote: "20261016000000" },
+        { local: "20261121223500", remote: "" },
+      ]);
+
+      const stream = parsearSalidaMigrationList(
+        JSON.stringify({ data: { migrations: [{ local: "20261016000000", remote: "" }] } })
+      );
+      expect(stream).toEqual([{ local: "20261016000000", remote: "" }]);
+
+      const conBackticks = parsearSalidaMigrationList(
+        ["| `20261016000000` | `20261016000000` | 2026-10-16 00:00:00", "| `20261121223500` | | 2026-11-21"].join("\n")
+      );
+      expect(conBackticks).toEqual([
+        { local: "20261016000000", remote: "20261016000000" },
+        { local: "20261121223500", remote: "" },
+      ]);
+    });
+
     it("interpreta salida JSON (array y NDJSON) y tabular de supabase migration list", () => {
       const desdeArray = parsearSalidaMigrationList(
         JSON.stringify([
@@ -141,7 +180,7 @@ describe("GOZS-688 (E-3/E-4): Supabase CLI config, check de migraciones y docume
       expect(exitCode).toBe(1);
       expect(stderr).toContain("DEPLOY BLOQUEADO");
       expect(stderr).toContain(faltante.file);
-      expect(stderr).toContain("supabase db push");
+      expect(stderr).toContain("supabase db push --remote");
     });
 
     it("incluye la guía X1 cuando 20261016100000 está pendiente y falla cerrado ante salida vacía", () => {

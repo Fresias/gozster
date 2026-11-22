@@ -27,9 +27,9 @@
 3. **Aplicar en el proyecto destino únicamente con Supabase CLI:**
    ```bash
    supabase link --project-ref <project-ref>
-   supabase db push
+   supabase db push --remote
    ```
-   También se puede disparar desde el job de CI (`.github/workflows/deploy-production.yml` con `apply_migrations=true` o `SUPABASE_AUTO_PUSH=true`).
+   (En CLI v3 `db push` es local por defecto; `--remote` apunta al proyecto enlazado.) También se puede disparar desde el job de CI (`.github/workflows/deploy-production.yml` con `apply_migrations=true` o `SUPABASE_AUTO_PUSH=true`).
 4. **Verificar paridad de migraciones:**
    ```bash
    supabase migration list --remote <project-ref>
@@ -65,11 +65,11 @@ La migración histórica `20261016100000_multicoach_subscription_cloning.sql` ej
 Al inicializar una base de datos **nueva desde cero**, `supabase db push` ejecuta cada archivo dentro de una única transacción y PostgreSQL puede rechazar ese archivo con `"unsafe use of new value"`.
 
 **Runbook para corte en base nueva (X1):**
-1. Ejecutar `supabase db push`.
+1. Ejecutar `supabase db push --remote`.
 2. Si se detiene en `20261016100000` por `"unsafe use of new value"`, aplicar fuera de transacción únicamente esas 3 sentencias de enum en la base destino:
    ```sql
    ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'ACTIVE';
    ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'EXPIRED_PAYMENT_PENDING';
    ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'ARCHIVED';
    ```
-3. Repetir `supabase db push`: las migraciones restantes se aplican limpiamente por CLI.
+3. Repetir `supabase db push --remote`: las migraciones restantes se aplican limpiamente por CLI.
