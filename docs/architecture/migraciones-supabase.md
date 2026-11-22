@@ -73,3 +73,19 @@ Al inicializar una base de datos **nueva desde cero**, `supabase db push` ejecut
    ALTER TYPE public.estado_membresia ADD VALUE IF NOT EXISTS 'ARCHIVED';
    ```
 3. Repetir `supabase db push --remote`: las migraciones restantes se aplican limpiamente por CLI.
+
+---
+
+## 5. Tipos TypeScript generados (`E-5 · GOZS-698`)
+
+- `types/database.types.ts` se genera exclusivamente con la CLI de Supabase (nunca se edita a mano):
+  ```bash
+  npx supabase start
+  npx supabase gen types typescript --local --schema public > types/database.types.ts
+  ```
+- Los alias y refinamientos de dominio de la aplicación viven en `types/domain.types.ts` (reexportados por `src/types/database.types.ts`).
+- Para verificar paridad entre el esquema de `supabase/migrations/` y `types/database.types.ts` (y en CI):
+  ```bash
+  node scripts/check-supabase-types.mjs
+  ```
+  Si una migración modifica el esquema sin regenerar `types/database.types.ts`, el check falla con código `1`.
