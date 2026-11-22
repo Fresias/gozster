@@ -411,8 +411,9 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       );
       expect(staff.rows[0]!.n).toBeGreaterThan(1);
 
-      const anon = await como("anon", null, `SELECT 1 FROM public.reservas`);
-      expect(anon.rows).toHaveLength(0);
+      await expect(como("anon", null, `SELECT 1 FROM public.reservas`)).rejects.toMatchObject({
+        code: "42501",
+      });
     });
 
     it("nadie escribe reservas directamente (solo vía RPC)", async () => {
@@ -431,8 +432,9 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
       await expect(
         como("authenticated", LIBRE, `INSERT INTO public.planes_membresia (nombre, cantidad_actividades, duracion_meses, precio) VALUES ('x', 2, 1, 1)`)
       ).rejects.toThrow(/row-level security/);
-      const anon = await como("anon", null, `SELECT 1 FROM public.clases`);
-      expect(anon.rows).toHaveLength(0);
+      await expect(como("anon", null, `SELECT 1 FROM public.clases`)).rejects.toMatchObject({
+        code: "42501",
+      });
     });
 
     it("el staff no cambia el estado de una clase sin cancelar_clase", async () => {

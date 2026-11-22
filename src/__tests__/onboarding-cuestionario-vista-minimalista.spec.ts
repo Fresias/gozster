@@ -256,12 +256,13 @@ describe("Issue #65 / ADR-004: Onboarding, Cuestionario Inicial y Vista Minimali
     });
 
     it("usuario anónimo (anon) no puede leer ni escribir en alumno_cuestionario_inicial", async () => {
-      const r = await como<{ alumno_id: string }>(
-        "anon",
-        null,
-        `SELECT alumno_id FROM public.alumno_cuestionario_inicial WHERE alumno_id = '${ALUMNO}'`
-      );
-      expect(r.rows.length).toBe(0);
+      await expect(
+        como<{ alumno_id: string }>(
+          "anon",
+          null,
+          `SELECT alumno_id FROM public.alumno_cuestionario_inicial WHERE alumno_id = '${ALUMNO}'`
+        )
+      ).rejects.toMatchObject({ code: "42501" });
 
       await expect(
         como(

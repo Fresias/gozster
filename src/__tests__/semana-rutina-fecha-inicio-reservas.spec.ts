@@ -347,11 +347,13 @@ describe("GOZS-630: fecha_inicio en guardar_rutina y contrato RLS/Realtime reser
       const todasA1 = await como<{ id: string }>("authenticated", ALUMNO_1, `SELECT id::text FROM public.reservas`);
       expect(todasA1.rows.map((r) => r.id)).toEqual([reservaA1Id]);
 
-      // anon no ve reservas ni clases
-      const anonReservas = await como("anon", null, `SELECT id FROM public.reservas`);
-      const anonClases = await como("anon", null, `SELECT id FROM public.clases`);
-      expect(anonReservas.rows).toHaveLength(0);
-      expect(anonClases.rows).toHaveLength(0);
+      // anon recibe permission denied (42501) en reservas y clases
+      await expect(como("anon", null, `SELECT id FROM public.reservas`)).rejects.toMatchObject({
+        code: "42501",
+      });
+      await expect(como("anon", null, `SELECT id FROM public.clases`)).rejects.toMatchObject({
+        code: "42501",
+      });
     });
 
     it("impide escritura directa del alumno en reservas (solo vía RPC)", async () => {

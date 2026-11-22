@@ -165,8 +165,8 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
       "mensajes",
       "alertas_entrenador",
       "alumno_historial_dolor",
-    ])("no ve filas en %s", async (tabla) => {
-      expect(await contar("anon", null, tabla)).toBe(0);
+    ])("no ve filas en %s (42501)", async (tabla) => {
+      await expect(contar("anon", null, tabla)).rejects.toMatchObject({ code: "42501" });
     });
 
     it("no puede escribir en habitos_registros", async () => {

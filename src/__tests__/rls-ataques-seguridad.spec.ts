@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { type PGlite, type Transaction } from "@electric-sql/pglite";
-import { crearDbMigrada } from "./helpers/pglite-migrada";
+import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 
 type Rol = "anon" | "authenticated" | "service_role";
 
@@ -179,7 +181,7 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
   }, 60_000);
 
   describe("1. Matriz de lectura por rol", () => {
-    it("anon no ve ninguna fila de tablas protegidas (0 filas o 42501)", async () => {
+    it("anon recibe 42501 en todas las tablas protegidas", async () => {
       const tablas = [
         "perfiles",
         "registro_sesiones",
@@ -198,7 +200,7 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       ];
       for (const tabla of tablas) {
         const res = await contarOCodigoPermiso("anon", null, tabla);
-        expect([0, "42501"], `anon en ${tabla}`).toContain(res);
+        expect(res, `anon en ${tabla}`).toBe("42501");
       }
     });
 
@@ -247,6 +249,8 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect(await contarComo("authenticated", C1, "conversaciones")).toBe(1);
       expect(await contarComo("authenticated", C1, "mensajes")).toBe(1);
       expect(await contarComo("authenticated", C1, "reservas")).toBe(1);
+      expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(1);
+      expect(await contarComo("authenticated", C1, "errores_app")).toBe(1);
       expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(1);
       expect(await contarComo("authenticated", C1, "auditoria_cambios", `entidad_id = '${CONTR_A1_ID}'`)).toBe(1);
     });
@@ -537,11 +541,11 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect(await contarComo("authenticated", C1, "registro_sesiones", `alumno_id = '${A2}'`)).toBe(0);
     });
 
-    it("anon no ve filas en perfiles, registro_series, planes_entrenamiento ni mensajes", async () => {
-      expect(await contarComo("anon", null, "perfiles")).toBe(0);
-      expect(await contarComo("anon", null, "registro_series")).toBe(0);
-      expect(await contarComo("anon", null, "planes_entrenamiento")).toBe(0);
-      expect(await contarComo("anon", null, "mensajes")).toBe(0);
+    it("anon recibe 42501 en perfiles, registro_series, planes_entrenamiento y mensajes", async () => {
+      expect(await contarOCodigoPermiso("anon", null, "perfiles")).toBe("42501");
+      expect(await contarOCodigoPermiso("anon", null, "registro_series")).toBe("42501");
+      expect(await contarOCodigoPermiso("anon", null, "planes_entrenamiento")).toBe("42501");
+      expect(await contarOCodigoPermiso("anon", null, "mensajes")).toBe("42501");
     });
 
     it("feedback_clase está publicado en supabase_realtime", async () => {
@@ -552,6 +556,305 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
          ) AS ok`,
       );
       expect(res.rows[0]?.ok).toBe(true);
+    });
+  });
+
+  describe("4. Revocación de permisos a anon y endurecimiento RLS", () => {
+    it("la migración es idempotente al volver a aplicarse", async () => {
+      const sql = fs.readFileSync(
+        path.join(MIGRATIONS_DIR, "20261122120000_revocar_anon_y_refinar_rls.sql"),
+        "utf-8",
+      );
+      await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
+    });
+
+    it("anon no tiene privilegios sobre ninguna tabla ni vista de public y recibe 42501", async () => {
+      const objetos = await db.query<{ relname: string; sel: boolean; ins: boolean; upd: boolean; del: boolean }>(
+        `SELECT c.relname,
+                has_table_privilege('anon', c.oid, 'SELECT') AS sel,
+                has_table_privilege('anon', c.oid, 'INSERT') AS ins,
+                has_table_privilege('anon', c.oid, 'UPDATE') AS upd,
+                has_table_privilege('anon', c.oid, 'DELETE') AS del
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v', 'm', 'p')
+         ORDER BY c.relname`,
+      );
+      expect(objetos.rows.length).toBeGreaterThan(20);
+      for (const obj of objetos.rows) {
+        expect(obj.sel, `SELECT anon en ${obj.relname}`).toBe(false);
+        expect(obj.ins, `INSERT anon en ${obj.relname}`).toBe(false);
+        expect(obj.upd, `UPDATE anon en ${obj.relname}`).toBe(false);
+        expect(obj.del, `DELETE anon en ${obj.relname}`).toBe(false);
+        expect(await contarOCodigoPermiso("anon", null, obj.relname), `query anon en ${obj.relname}`).toBe("42501");
+      }
+    });
+
+    it("anon no tiene EXECUTE sobre ninguna función de la app en public y recibe 42501", async () => {
+      const procs = await db.query<{ sig: string; anon_exec: boolean }>(
+        `SELECT p.oid::regprocedure::text AS sig,
+                has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_exec
+         FROM pg_proc p
+         JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname = 'public'
+           AND NOT EXISTS (
+             SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e'
+           )
+         ORDER BY sig`,
+      );
+      expect(procs.rows.length).toBeGreaterThan(20);
+      for (const fn of procs.rows) {
+        expect(fn.anon_exec, `EXECUTE anon en ${fn.sig}`).toBe(false);
+      }
+
+      const llamadasAnon = [
+        `SELECT public.actualizar_nombre_preferido('Anon')`,
+        `SELECT public.calcular_volumen_semanal('${A1}', now())`,
+        `SELECT * FROM public.detectar_sobrecarga_progresiva('${A1}', '${EJERCICIO_1}')`,
+        `SELECT * FROM public.obtener_metricas_retencion(NULL)`,
+        `SELECT * FROM public.obtener_records_historicos('${A1}', NULL)`,
+        `SELECT public.transferir_conversacion_gozs('${CONV_A1_ID}', '${C1}', 'x')`,
+        `SELECT public.contar_mensajes_no_leidos()`,
+        `SELECT public.registrar_molestia(gen_random_uuid(), gen_random_uuid(), '${EJERCICIO_1}', 'HOMBRO', 4)`,
+        `SELECT public.actualizar_estado_dolor(gen_random_uuid(), 'RESUELTO', NULL)`,
+      ];
+      for (const sql of llamadasAnon) {
+        await expect(como("anon", null, sql), sql).rejects.toMatchObject({ code: "42501" });
+      }
+    });
+
+    it("alumno no puede marcar como RESUELTO su reporte en alumno_historial_dolor ni editar notas_profesor", async () => {
+      const dolorA1 = await db.query<{ id: string }>(
+        `SELECT id FROM public.alumno_historial_dolor WHERE alumno_id = '${A1}' LIMIT 1`,
+      );
+      const dolorId = dolorA1.rows[0]!.id;
+
+      await expect(
+        como("authenticated", A1, `UPDATE public.alumno_historial_dolor SET estado = 'RESUELTO' WHERE id = $1`, [
+          dolorId,
+        ]),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `UPDATE public.alumno_historial_dolor SET estado_recuperacion = 'RESUELTO' WHERE id = $1`,
+          [dolorId],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `UPDATE public.alumno_historial_dolor SET notas_profesor = 'Alta médica' WHERE id = $1`,
+          [dolorId],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.alumno_historial_dolor (alumno_id, ejercicio_id, zona_articular, eva, estado)
+           VALUES ($1, $2, 'HOMBRO', 4, 'RESUELTO')`,
+          [A1, EJERCICIO_1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // El coach no asignado no puede resolver el dolor de A2
+      const dolorA2 = await db.query<{ id: string }>(
+        `SELECT id FROM public.alumno_historial_dolor WHERE alumno_id = '${A2}' LIMIT 1`,
+      );
+      await expect(
+        como("authenticated", C1, `SELECT public.actualizar_estado_dolor($1, 'RESUELTO', 'No mío')`, [
+          dolorA2.rows[0]!.id,
+        ]),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // El coach asignado sí puede resolver vía actualizar_estado_dolor
+      const res = await como<{ estado: string }>(
+        "authenticated",
+        C1,
+        `SELECT estado FROM public.actualizar_estado_dolor($1, 'RESUELTO', 'Evaluado en sesión')`,
+        [dolorId],
+      );
+      expect(res.rows[0]?.estado).toBe("RESUELTO");
+
+      // Sin regresión: alumno puede reportar molestia vía registrar_molestia (y EVA 8 genera alerta interna)
+      const reporteId = "99999999-9999-4999-8999-999999999901";
+      const sesionNueva = "99999999-9999-4999-8999-999999999902";
+      await como(
+        "authenticated",
+        A1,
+        `SELECT public.registrar_molestia($1, $2, $3, 'RODILLA', 8)`,
+        [reporteId, sesionNueva, EJERCICIO_1],
+      );
+      const alertaInterna = await db.query<{ severidad: string }>(
+        `SELECT severidad FROM public.alertas_entrenador WHERE reporte_dolor_id = $1`,
+        [reporteId],
+      );
+      expect(alertaInterna.rows[0]?.severidad).toBe("ALTA");
+    });
+
+    it("alertas_entrenador rechaza profesor_id no asignado o severidad no acotada para alumnos", async () => {
+      const coachAjeno = "00000000-0000-0000-0000-0000000000c2";
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${coachAjeno}', 'coach2@test.local', '{"rol":"ENTRENADOR"}')
+        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${coachAjeno}', 'coach2@test.local', 'Coach Dos', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+      `);
+
+      // Profesor no asignado (coachAjeno) u otro alumno (A2) rechazados con 42501
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+           VALUES ($1, $2, 'DOLOR_ARTICULAR', 'MEDIA', 'Coach ajeno')`,
+          [A1, coachAjeno],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+           VALUES ($1, $2, 'DOLOR_ARTICULAR', 'MEDIA', 'Otro alumno')`,
+          [A1, A2],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // Severidad CRITICA / ALTA o estado RESUELTO rechazados para alumno aunque sea su coach
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+           VALUES ($1, $2, 'DOLOR_ARTICULAR', 'CRITICA', 'Falsa crítica')`,
+          [A1, C1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+           VALUES ($1, $2, 'DOLOR_ARTICULAR', 'ALTA', 'Falsa alta')`,
+          [A1, C1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // Alumno sin coach asignado (A2) no puede insertar alerta dirigida a nadie
+      await expect(
+        como(
+          "authenticated",
+          A2,
+          `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+           VALUES ($1, $2, 'DOLOR_ARTICULAR', 'BAJA', 'Sin coach')`,
+          [A2, C1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // Caso válido: alumno con su profesor asignado y severidad acotada
+      const ok = await como<{ id: string }>(
+        "authenticated",
+        A1,
+        `INSERT INTO public.alertas_entrenador (alumno_id, profesor_id, tipo_alerta, severidad, titulo)
+         VALUES ($1, $2, 'DOLOR_ARTICULAR', 'MEDIA', 'Consulta válida')
+         RETURNING id`,
+        [A1, C1],
+      );
+      expect(ok.rows).toHaveLength(1);
+    });
+
+    it("conversaciones.responsable_id solo apunta a staff y el alumno no puede reasignarlo", async () => {
+      const coachAjeno = "00000000-0000-0000-0000-0000000000c2";
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `UPDATE public.conversaciones SET responsable_id = $1 WHERE id = $2`,
+          [A2, CONV_A1_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      await expect(
+        como(
+          "authenticated",
+          A1,
+          `UPDATE public.conversaciones SET responsable_id = $1 WHERE id = $2`,
+          [coachAjeno, CONV_A1_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // Incluso staff/admin no pueden asignar un ALUMNO como responsable_id
+      await expect(
+        como(
+          "authenticated",
+          ADMIN,
+          `UPDATE public.conversaciones SET responsable_id = $1 WHERE id = $2`,
+          [A2, CONV_A1_ID],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // Alumno creando conversación nueva tampoco puede fijar un responsable_id ajeno
+      const alumnoNuevo = "00000000-0000-0000-0000-0000000000a9";
+      await db.exec(`
+        INSERT INTO auth.users (id, email) VALUES ('${alumnoNuevo}', 'a9@test.local');
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
+        VALUES ('${alumnoNuevo}', 'a9@test.local', 'Alumno Nueve', 'ALUMNO', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+      `);
+      await expect(
+        como(
+          "authenticated",
+          alumnoNuevo,
+          `INSERT INTO public.conversaciones (alumno_id, responsable_id) VALUES ($1, $2)`,
+          [alumnoNuevo, A2],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+
+      // El coach asignado puede transferir a otro ENTRENADOR vía transferir_conversacion_gozs
+      const tr = await como<{ responsable_id: string }>(
+        "authenticated",
+        C1,
+        `SELECT responsable_id FROM public.transferir_conversacion_gozs($1, $2, 'Cobertura')`,
+        [CONV_A1_ID, coachAjeno],
+      );
+      expect(tr.rows[0]?.responsable_id).toBe(coachAjeno);
+    });
+
+    it("coach solo ve errores_app y feedback_clase de sus alumnos (o clases asignadas)", async () => {
+      // C1 ve el error de A1 pero no el de A2; además ve su propio error
+      expect(await contarComo("authenticated", C1, "errores_app")).toBe(1);
+      expect(await contarComo("authenticated", C1, "errores_app", `usuario_id = '${A2}'`)).toBe(0);
+
+      await como(
+        "authenticated",
+        C1,
+        `INSERT INTO public.errores_app (usuario_id, contexto, mensaje_humano) VALUES ($1, 'coach-ctx', 'Error propio')`,
+        [C1],
+      );
+      expect(await contarComo("authenticated", C1, "errores_app")).toBe(2);
+
+      // feedback_clase: C1 solo ve el de A1, no el de A2
+      expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(1);
+      expect(await contarComo("authenticated", C1, "feedback_clase", `reserva_id = '${RESERVA_A2_ID}'`)).toBe(0);
+
+      // Si C1 es profesor de la clase en clases_profesores, también ve el feedback de la clase
+      await db.query(
+        `INSERT INTO public.clases_profesores (clase_id, profesor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [CLASE_ID, C1],
+      );
+      expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(2);
     });
   });
 });
