@@ -92,12 +92,14 @@ interface ChatStoreState {
   conversations: Record<string, ChatConversation>;
   selectedAlumnoId: string | null;
   activeCoachSender: ChatSender;
+  staffCoaches: ChatSender[];
   isAthleteChatOpen: boolean;
 
   // Actions
   setAthleteChatOpen: (open: boolean) => void;
   setActiveCoachSender: (sender: ChatSender) => void;
   setSelectedAlumnoId: (alumnoId: string | null) => void;
+  loadStaffCoaches: () => Promise<void>;
   getConversation: (alumnoId: string, alumnoNombre?: string) => ChatConversation;
   sendMessage: (params: {
     alumnoId: string;
@@ -130,6 +132,7 @@ export const useChatStore = create<ChatStoreState>()(
       conversations: {},
       selectedAlumnoId: null,
       activeCoachSender: STAFF_COACH_PRINCIPAL,
+      staffCoaches: [],
       isAthleteChatOpen: false,
 
       setAthleteChatOpen: (isAthleteChatOpen) => set({ isAthleteChatOpen }),
@@ -138,25 +141,54 @@ export const useChatStore = create<ChatStoreState>()(
 
       setSelectedAlumnoId: (selectedAlumnoId) => set({ selectedAlumnoId }),
 
+      loadStaffCoaches: async () => {
+        if (typeof supabase?.from !== "function") return;
+        try {
+          const authRes = await supabase.auth.getUser();
+          if (!authRes.data?.user) return;
+          const { data, error } = await supabase
+            .from("perfiles")
+            .select("id, nombre_completo, rol")
+            .in("rol", ["ENTRENADOR", "ADMIN"]);
+          if (!error && Array.isArray(data)) {
+            const coaches: ChatSender[] = data.map((p: any) => ({
+              id: p.id,
+              nombre: p.nombre_completo || "Entrenador",
+              rol: p.rol === "ADMIN" ? "ADMIN" : "ENTRENADOR",
+              esStaff: true,
+            }));
+            const current = coaches.find((c) => c.id === authRes.data.user!.id);
+            set({
+              staffCoaches: coaches,
+              ...(current ? { activeCoachSender: current } : {}),
+            });
+          }
+        } catch {
+          // Tolerar fallos de red/RLS sin inyectar coaches demo
+        }
+      },
+
       getConversation: (alumnoId: string, alumnoNombre?: string) => {
         const { conversations } = get();
         if (conversations[alumnoId]) {
           return conversations[alumnoId];
         }
 
-        const alumno = MOCK_ALUMNOS.find((a) => a.id === alumnoId);
+        const esMockAlumno = MOCK_ALUMNOS.some((a) => a.id === alumnoId);
+        const esReal = !esMockAlumno && isUuid(alumnoId);
+        const alumno = !esReal ? MOCK_ALUMNOS.find((a) => a.id === alumnoId) : undefined;
         const resolvedNombre = alumnoNombre || alumno?.nombre_completo || "Atleta";
 
         const newConv: ChatConversation = {
-          id: isUuid(alumnoId) ? `conv-${alumnoId.slice(0, 8)}` : `conv-${alumnoId}`,
+          id: esReal ? `conv-${alumnoId.slice(0, 8)}` : `conv-${alumnoId}`,
           alumno_id: alumnoId,
           alumno_nombre: resolvedNombre,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           mensajes: [],
           unreadCount: 0,
-          responsable_id: MOCK_COACH_PRINCIPAL_ID,
-          responsable_nombre: "Coach Principal",
+          responsable_id: esReal ? null : MOCK_COACH_PRINCIPAL_ID,
+          responsable_nombre: esReal ? null : "Coach Principal",
           estado: "ABIERTA",
         };
 
@@ -337,6 +369,7 @@ export const useChatStore = create<ChatStoreState>()(
         const isOnline = useOfflineQueueStore.getState().isOnline;
 
         const targetCoach =
+          get().staffCoaches.find((c) => c.id === nuevoResponsableId) ||
           AVAILABLE_COACH_SENDERS.find((c) => c.id === nuevoResponsableId) ||
           MOCK_STAFF_COACHES.find((c) => c.id === nuevoResponsableId);
         const nuevoNombre = targetCoach

@@ -12,8 +12,9 @@ import {
   useRankingStore,
 } from "@/store/use-ranking-store";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import type { Ejercicio, Perfil } from "@/types/database.types";
+import type { Clase, Ejercicio, Perfil, RankingPR } from "@/types/database.types";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, generarDemoReservasIniciales } from "@/services/coach-demo-dataset";
+import type { ReservaAgenda } from "@/store/use-clases-store";
 
 /**
  * Chip semántico neutro de categoría (Masculino / Femenino).
@@ -48,6 +49,10 @@ interface RankingFuncionalProps {
   initialEjercicioId?: string | null;
   alumnosDisponibles?: Perfil[];
   ejerciciosDisponibles?: Ejercicio[];
+  clasesDisponibles?: Clase[];
+  reservasDisponibles?: ReservaAgenda[];
+  prsIniciales?: RankingPR[];
+  isLiveMode?: boolean;
 }
 
 type SortCol = "posicion" | "atleta" | "carga" | "peso_corporal" | "ratio";
@@ -94,6 +99,10 @@ export function RankingFuncional({
   initialEjercicioId,
   alumnosDisponibles,
   ejerciciosDisponibles,
+  clasesDisponibles,
+  reservasDisponibles,
+  prsIniciales,
+  isLiveMode = false,
 }: RankingFuncionalProps) {
   const { isOnline } = useOfflineQueueStore();
 
@@ -126,8 +135,11 @@ export function RankingFuncional({
     if (alumnosDisponibles && alumnosDisponibles.length > 0) {
       return alumnosDisponibles;
     }
+    if (isLiveMode) {
+      return [];
+    }
     return [...DEMO_ALUMNOS, ...DEMO_ALUMNOS_CLASES];
-  }, [alumnosDisponibles]);
+  }, [alumnosDisponibles, isLiveMode]);
 
   const listaEjercicios: Ejercicio[] = React.useMemo(() => {
     if (ejerciciosDisponibles && ejerciciosDisponibles.length > 0) {
@@ -136,9 +148,24 @@ export function RankingFuncional({
     return [];
   }, [ejerciciosDisponibles]);
 
+  React.useEffect(() => {
+    if (prsIniciales && prsIniciales.length > 0) {
+      useRankingStore.setState((state) => {
+        if (state.prs.length > 0) return state;
+        return { prs: prsIniciales };
+      });
+    }
+  }, [prsIniciales]);
+
   const listaClases = React.useMemo(() => {
+    if (clasesDisponibles && clasesDisponibles.length > 0) {
+      return clasesDisponibles;
+    }
     if (clases && clases.length > 0) {
       return clases;
+    }
+    if (isLiveMode) {
+      return [];
     }
     return [
       {
@@ -154,7 +181,7 @@ export function RankingFuncional({
         updated_at: new Date().toISOString(),
       },
     ];
-  }, [clases]);
+  }, [clasesDisponibles, clases, isLiveMode]);
 
   // Selección de IDs activos (con fallback para SSR y primer render)
   const activeClaseId =
@@ -207,11 +234,17 @@ export function RankingFuncional({
   }, [listaEjercicios, activeEjercicioId]);
 
   const reservasClase = React.useMemo(() => {
+    if (reservasDisponibles && reservasDisponibles.length > 0) {
+      return reservasDisponibles;
+    }
     if (agendaReservas && agendaReservas.length > 0) {
       return agendaReservas;
     }
+    if (isLiveMode) {
+      return [];
+    }
     return generarDemoReservasIniciales();
-  }, [agendaReservas]);
+  }, [reservasDisponibles, agendaReservas, isLiveMode]);
 
   // Participantes anotados en la clase seleccionada
   const participantes = React.useMemo(() => {
@@ -258,7 +291,7 @@ export function RankingFuncional({
           p.ejercicio_id === activeEjercicioId,
       );
 
-      const prefill = DEMO_PREFILL_DATA[part.alumno_id];
+      const prefill = isLiveMode ? undefined : DEMO_PREFILL_DATA[part.alumno_id];
       const alumno = todosAlumnos.find((a) => a.id === part.alumno_id);
       const perfilStore = perfilesActualizados[part.alumno_id];
 
@@ -517,7 +550,7 @@ export function RankingFuncional({
             {listaClases.map((c) => {
               const fecha = claveDia(c.inicio);
               const hora = horaLocal(c.inicio);
-              const insc = agendaReservas.filter((r) => r.clase_id === c.id && r.estado === "ANOTADO").length;
+              const insc = reservasClase.filter((r) => r.clase_id === c.id && r.estado === "ANOTADO").length;
               return (
                 <option key={c.id} value={c.id}>
                   {(() => {

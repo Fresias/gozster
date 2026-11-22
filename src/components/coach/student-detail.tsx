@@ -192,18 +192,45 @@ export function StudentDetail({
   };
 
   // Integración Chat GOZS (ADR-004)
-  const { getConversation, transferirConversacion } = useChatStore();
+  const { getConversation, transferirConversacion, staffCoaches, loadStaffCoaches } = useChatStore();
+  const isLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
+  const isLiveStudent = React.useMemo(
+    () => isLiveDatabase || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(alumno.id),
+    [isLiveDatabase, alumno.id],
+  );
   const chatConv = getConversation(alumno.id, alumno.nombre_completo);
 
-  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>(
-    AVAILABLE_COACH_SENDERS[1]?.id || STAFF_COACH_FELIX.id,
-  );
+  React.useEffect(() => {
+    if (isLiveStudent && staffCoaches.length === 0) {
+      void loadStaffCoaches();
+    }
+  }, [isLiveStudent, staffCoaches.length, loadStaffCoaches]);
+
+  const availableTransferCoaches = React.useMemo(() => {
+    if (isLiveStudent) {
+      return staffCoaches;
+    }
+    return AVAILABLE_COACH_SENDERS;
+  }, [isLiveStudent, staffCoaches]);
+
+  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>("");
+
+  React.useEffect(() => {
+    if (!transferTargetCoachId && availableTransferCoaches.length > 0) {
+      setTransferTargetCoachId(
+        availableTransferCoaches[1]?.id || availableTransferCoaches[0]?.id || "",
+      );
+    }
+  }, [availableTransferCoaches, transferTargetCoachId]);
   const [transferMotivo, setTransferMotivo] = React.useState("");
   const [isTransferring, setIsTransferring] = React.useState(false);
   const [transferSuccess, setTransferSuccess] = React.useState<string | null>(null);
   const [transferError, setTransferError] = React.useState<string | null>(null);
 
   const chatActivePainAlert = React.useMemo(() => {
+    if (isLiveStudent) {
+      return undefined;
+    }
     return DEMO_CRITICAL_ALERTS.find(
       (a) =>
         !a.resolved &&
@@ -211,14 +238,14 @@ export function StudentDetail({
           a.alumnoNombre.toLowerCase() ===
             alumno.nombre_completo.toLowerCase()),
     );
-  }, [alumno.id, alumno.nombre_completo]);
+  }, [isLiveStudent, alumno.id, alumno.nombre_completo]);
 
   const handleTransferirConversacion = async () => {
     setIsTransferring(true);
     setTransferSuccess(null);
     setTransferError(null);
 
-    const targetCoach = AVAILABLE_COACH_SENDERS.find(
+    const targetCoach = availableTransferCoaches.find(
       (c) => c.id === transferTargetCoachId,
     );
     const targetNombre = targetCoach?.nombre || "Coach Asignado";
@@ -270,20 +297,25 @@ export function StudentDetail({
   }), [alumno.id]);
 
   const isLucasStudent = React.useMemo(() => {
+    if (isLiveStudent) {
+      return false;
+    }
     return (
-      alumno.nombre_completo.toLowerCase().includes("lucas") ||
       alumno.id.includes("lucas") ||
       alumno.id === "a1111111-1111-4111-8111-111111111101"
     );
-  }, [alumno.id, alumno.nombre_completo]);
+  }, [isLiveStudent, alumno.id]);
 
   const effectiveHistorialCargas = React.useMemo(() => {
     if (historialCargas && historialCargas.length > 0) return historialCargas;
+    if (isLiveStudent) {
+      return [];
+    }
     if (isLucasStudent) {
       return LUCAS_2_MONTHS_HISTORIAL;
     }
     return MOCK_HISTORIAL_CARGAS[alumno.id] ?? [];
-  }, [historialCargas, isLucasStudent, alumno.id]);
+  }, [historialCargas, isLiveStudent, isLucasStudent, alumno.id]);
 
   // Feed de actividad con datos del alumno (sin eventos de ejemplo): sesiones registradas + dolor reportado
   const activityFeedItems = React.useMemo<ActivityFeedItem[]>(() => {
@@ -610,7 +642,6 @@ export function StudentDetail({
   // Multiactividad y asignación de planes (GOZS-362 / GOZS-642)
   const contratacionesStudio = useCoachStudioStore((s) => s.contrataciones);
   const alumnoActividadesStudio = useCoachStudioStore((s) => s.alumnoActividades);
-  const isLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
   const vincularPlanMembresiaAlumno = useCoachStudioStore((s) => s.vincularPlanMembresiaAlumno);
   const planesCobros = useCobrosStore((s) => s.planes);
   const [modalAsignarPlanAbierto, setModalAsignarPlanAbierto] = React.useState(false);
@@ -1514,11 +1545,15 @@ export function StudentDetail({
                   className="mt-1 min-h-11 w-full rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground"
                   data-testid="student-transfer-target-select"
                 >
-                  {AVAILABLE_COACH_SENDERS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} ({c.rol})
-                    </option>
-                  ))}
+                  {availableTransferCoaches.length === 0 ? (
+                    <option value="">Sin entrenadores disponibles</option>
+                  ) : (
+                    availableTransferCoaches.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} ({c.rol})
+                      </option>
+                    ))
+                  )}
                 </select>
               </label>
 
@@ -2420,9 +2455,9 @@ export function StudentDetail({
               const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
               const nombrePlan =
                 plan?.nombre ??
-                (c.plan_membresia_id === "demo-plan-funcional-2x"
+                (!isLiveStudent && c.plan_membresia_id === "demo-plan-funcional-2x"
                   ? "Funcional 2x semana"
-                  : c.plan_membresia_id === "demo-plan-pase-libre"
+                  : !isLiveStudent && c.plan_membresia_id === "demo-plan-pase-libre"
                   ? "Pase libre Funcional + Boxeo"
                   : c.actividad === "BOXEO"
                   ? "Boxeo"
@@ -2465,9 +2500,9 @@ export function StudentDetail({
                     <p className="text-xs text-muted-foreground" data-testid="plan-membresia-detalle">
                       {c.tipo_servicio === "ASESORIA_ONLINE" || plan?.actividad_tipo === "RUTINAS"
                         ? "Asesoría Online · Sin límite de clases"
-                        : c.plan_membresia_id === "demo-plan-funcional-2x"
+                        : !isLiveStudent && c.plan_membresia_id === "demo-plan-funcional-2x"
                         ? "Límite: 2 clases por semana · $25.000/mes"
-                        : c.plan_membresia_id === "demo-plan-pase-libre"
+                        : !isLiveStudent && c.plan_membresia_id === "demo-plan-pase-libre"
                         ? "Pase libre sin límite semanal · $40.000/mes"
                         : plan?.limite_semanal
                         ? `Límite: ${plan.limite_semanal} clases/sem`

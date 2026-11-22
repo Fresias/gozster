@@ -119,18 +119,19 @@ export function CoachStudioView({
     }
   }, []);
 
-  // Coherencia relacional: si initialDataset contiene datos (alumnos, planes o días),
-  // garantizamos que planes y días provengan de la misma entidad relacional.
-  // Si está vacío (modo demo puro), se deriva coherentemente de DEMO_GIMNASIO.
-  const hasInitialData = Boolean(
-    initialDataset &&
-      ((initialDataset.alumnos && initialDataset.alumnos.length > 0) ||
-        (initialDataset.planes && initialDataset.planes.length > 0) ||
-        (initialDataset.dias && initialDataset.dias.length > 0)),
+  // Coherencia relacional: si initialDataset proviene del servidor (incluso con 0 alumnos),
+  // estamos en modo en vivo y nunca se cae al dataset DEMO_GIMNASIO.
+  const hasInitialData = Boolean(initialDataset);
+  const isLiveInicio = store.isLiveDatabase || hasInitialData;
+  const [hydratedDataset, setHydratedDataset] = React.useState<LiveSupabaseDataset | undefined>(
+    undefined,
   );
+  const useHydratedStore = hasInitialData && hydratedDataset === initialDataset && store.isLiveDatabase;
 
   const alumnos = hasInitialData
-    ? (store.isLiveDatabase && store.alumnos.length > 0 ? store.alumnos : initialDataset!.alumnos)
+    ? (useHydratedStore ? store.alumnos : initialDataset!.alumnos)
+    : isLiveInicio
+    ? store.alumnos
     : DEMO_GIMNASIO.alumnos;
 
   // Mapa de alumnos estancados (+30 días sin PR) (GOZS-351)
@@ -139,7 +140,7 @@ export function CoachStudioView({
     for (const e of estancados) {
       map.set(e.alumnoId, e);
     }
-    if (estancados.length === 0) {
+    if (!isLiveInicio && estancados.length === 0) {
       const demoEstancado = alumnos.find(
         (a) =>
           a.nombre_completo.toLowerCase().includes("sofia") ||
@@ -150,28 +151,36 @@ export function CoachStudioView({
       }
     }
     return map;
-  }, [estancados, alumnos]);
+  }, [estancados, alumnos, isLiveInicio]);
 
   const planes = hasInitialData
-    ? (store.isLiveDatabase && store.planes.length > 0 ? store.planes : initialDataset!.planes)
+    ? (useHydratedStore ? store.planes : initialDataset!.planes)
+    : isLiveInicio
+    ? store.planes
     : DEMO_GIMNASIO.planes;
 
   const dias = hasInitialData
-    ? (store.isLiveDatabase && store.dias.length > 0 ? store.dias : initialDataset!.dias)
+    ? (useHydratedStore ? store.dias : initialDataset!.dias)
+    : isLiveInicio
+    ? store.dias
     : (DEMO_GIMNASIO.dias && DEMO_GIMNASIO.dias.length > 0 ? DEMO_GIMNASIO.dias : store.dias);
 
   const ejerciciosEnRutina = hasInitialData
-    ? (store.isLiveDatabase && store.ejerciciosEnRutina.length > 0
+    ? (useHydratedStore
         ? store.ejerciciosEnRutina
         : initialDataset!.ejerciciosEnRutina)
+    : isLiveInicio
+    ? store.ejerciciosEnRutina
     : (DEMO_GIMNASIO.ejerciciosEnRutina && DEMO_GIMNASIO.ejerciciosEnRutina.length > 0
         ? DEMO_GIMNASIO.ejerciciosEnRutina
         : store.ejerciciosEnRutina);
 
   const ejercicios = hasInitialData
-    ? (store.isLiveDatabase && store.ejercicios.length > 0
+    ? (useHydratedStore
         ? store.ejercicios
         : initialDataset!.ejercicios)
+    : isLiveInicio
+    ? store.ejercicios
     : (DEMO_GIMNASIO.ejercicios && DEMO_GIMNASIO.ejercicios.length > 0
         ? DEMO_GIMNASIO.ejercicios
         : store.ejercicios);
@@ -213,10 +222,10 @@ export function CoachStudioView({
   } = store;
 
   const getHistorialCargas = (alumnoId: string): HistoricalLoadEntry[] => {
-    if (
-      alumnoId === "demo-alumno-01-lucas" ||
-      alumnoId.includes("lucas")
-    ) {
+    if (isLiveInicio) {
+      return store.historialCargas[alumnoId] ?? [];
+    }
+    if (alumnoId === "demo-alumno-01-lucas") {
       return LUCAS_2_MONTHS_HISTORIAL;
     }
     return DEMO_GIMNASIO.historial[alumnoId] ?? MOCK_HISTORIAL_CARGAS[alumnoId] ?? [];
@@ -233,9 +242,12 @@ export function CoachStudioView({
           ejercicios: initialDataset.ejercicios || [],
           contrataciones: initialDataset.contrataciones || [],
           alumnoActividades: initialDataset.alumnoActividades || [],
+          historialCargas: {},
+          sustituciones: [],
           isLiveDatabase: true,
         });
         useCobrosStore.getState().hydrateFromLiveDataset(initialDataset);
+        setHydratedDataset(initialDataset);
       }, 0);
       return () => clearTimeout(timer);
     } else {
@@ -425,7 +437,7 @@ export function CoachStudioView({
     };
   }, [userRole]);
 
-  const isLiveInicioKpis = store.isLiveDatabase || hasInitialData;
+  const isLiveInicioKpis = isLiveInicio;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
     if (isLiveInicioKpis) {
       return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ADMIN");
@@ -438,11 +450,9 @@ export function CoachStudioView({
     return base;
   });
   const alumnosSinEntrenarInicio = React.useMemo(() => {
-    const ids = kpis.sin_entrenar_7d_ids?.length
-      ? kpis.sin_entrenar_7d_ids
-      : isLiveInicioKpis
-        ? []
-        : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids;
+    const ids = isLiveInicioKpis
+      ? (kpis.sin_entrenar_7d_ids ?? [])
+      : (kpis.sin_entrenar_7d_ids?.length ? kpis.sin_entrenar_7d_ids : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids);
     return alumnos
       .filter((a) => ids.includes(a.id))
       .map((a) => ({ id: a.id, nombreCompleto: a.nombre_completo || "Alumno" }));
@@ -450,7 +460,6 @@ export function CoachStudioView({
   const [kpisError, setKpisError] = React.useState(false);
   const [isKpisLoading, setIsKpisLoading] = React.useState(false);
   const [molestiasActivas, setMolestiasActivas] = React.useState<DolorActivo[]>([]);
-  const isLiveInicio = store.isLiveDatabase || hasInitialData;
   // Fuente única de "Para revisar hoy": molestias activas + cuotas vencidas del mismo store que Cobros.
   const cobrosInicio = useCobrosStore((s) => s.cobros);
   const planesCobros = useCobrosStore((s) => s.planes);
@@ -638,7 +647,9 @@ export function CoachStudioView({
       matchPayment = esAlumnoNuevo(a.created_at);
     }
 
-    const matchSinEntrenar = !sinEntrenarFilter || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id);
+    const matchSinEntrenar = isLiveInicio
+      ? !sinEntrenarFilter || (kpis.sin_entrenar_7d_ids ?? []).includes(a.id)
+      : !sinEntrenarFilter || DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids.includes(a.id);
 
     const alumnoActividadesEfectivas = hasInitialData
       ? (store.isLiveDatabase && store.alumnoActividades.length > 0
@@ -908,15 +919,21 @@ export function CoachStudioView({
           const plan = planesCobros.find((p) => p.id === c.plan_membresia_id);
           const nombrePlan =
             plan?.nombre ??
-            (c.plan_membresia_id === "demo-plan-funcional-2x"
+            (!isLiveInicio && c.plan_membresia_id === "demo-plan-funcional-2x"
               ? "Funcional 2x"
-              : c.plan_membresia_id === "demo-plan-pase-libre"
+              : !isLiveInicio && c.plan_membresia_id === "demo-plan-pase-libre"
               ? "Pase Libre"
-              : c.plan_membresia_id ?? "Plan");
+              : c.actividad === "BOXEO"
+              ? "Boxeo"
+              : c.actividad === "FUNCIONAL"
+              ? "Funcional"
+              : c.tipo_servicio === "ASESORIA_ONLINE"
+              ? "Rutinas Online"
+              : "Plan");
           const precio =
             c.precio_pactado ??
             plan?.precio ??
-            (c.plan_membresia_id === "demo-plan-pase-libre" ? 40000 : 25000);
+            (!isLiveInicio ? (c.plan_membresia_id === "demo-plan-pase-libre" ? 40000 : 25000) : 0);
           return derivarBadgePlan({
             nombrePlan,
             precio,
@@ -1411,9 +1428,7 @@ export function CoachStudioView({
               periodo={tipoPeriodo}
               onPeriodoChange={(p) => setTipoPeriodo(p)}
               totalAlumnos={alumnos.length}
-              sinEntrenarNombres={alumnos
-                .filter((a) => (kpis.sin_entrenar_7d_ids?.length ? kpis.sin_entrenar_7d_ids : DEMO_KPIS_NEGOCIO.sin_entrenar_7d_ids).includes(a.id))
-                .map((a) => a.nombre_completo)}
+              sinEntrenarNombres={alumnosSinEntrenarInicio.map((a) => a.nombreCompleto)}
               sinEntrenarAlDia={
                 alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && esCuotaAlDia(a)).length
               }
@@ -1841,10 +1856,12 @@ export function CoachStudioView({
       />
 
       {/* Modal de Diagrama de Sankey (GOZS-349) */}
-      <StudioSankeyModal
-        isOpen={isSankeyModalOpen}
-        onClose={() => setIsSankeyModalOpen(false)}
-      />
+      {!isLiveInicio && (
+        <StudioSankeyModal
+          isOpen={isSankeyModalOpen}
+          onClose={() => setIsSankeyModalOpen(false)}
+        />
+      )}
 
       {/* Lateral Panel / Modal: Historical Loads & RPE */}
       <HistoricalLoadsDrawer
@@ -1858,6 +1875,7 @@ export function CoachStudioView({
       <ChatFab
         alumno={chatAlumno}
         isOpen={isChatOpen}
+        isLiveMode={isLiveInicio}
         onToggle={() => {
           if (isChatOpen) {
             setChatAlumnoId(null);

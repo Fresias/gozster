@@ -1,6 +1,17 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { renderToString } from "react-dom/server";
+
+vi.mock("@/store/use-ranking-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-ranking-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useRankingStore.getState()) : mod.useRankingStore.getState(),
+    mod.useRankingStore,
+  );
+  return { ...mod, useRankingStore: hook };
+});
+
 import {
   calcularRankingRelativo,
   useRankingStore,
@@ -14,6 +25,7 @@ import type { Perfil, RankingPR } from "@/types/database.types";
 describe("FE Studio: Ranking Funcional Relativo al Peso Corporal (GOZS-262 / GH #262)", () => {
   beforeEach(() => {
     useClasesStore.getState().resetDemoDataset();
+    useRankingStore.getState().resetDemoDataset();
   });
 
   const claseIdMock = "clase-funcional-test-01";

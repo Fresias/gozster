@@ -22,6 +22,7 @@ describe("Coach Studio Analytics & Progressive Overload Suite (Issue #18 / GOZS-
       pendingEvents: [],
     });
 
+    useCoachStudioStore.getState().resetDemoDataset();
     useCoachStudioStore.setState({
       alumnos: [...MOCK_ALUMNOS],
       planes: [...MOCK_PLANES],

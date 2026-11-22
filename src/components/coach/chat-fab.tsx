@@ -20,6 +20,7 @@ export interface ChatFabProps {
   isOpen: boolean;
   onToggle: () => void;
   onSendMessage?: (text: string) => void;
+  isLiveMode?: boolean;
 }
 
 export type ChatFilterType = "TODOS" | "NUEVOS" | "PENDIENTES";
@@ -29,6 +30,7 @@ export function ChatFab({
   isOpen,
   onToggle,
   onSendMessage,
+  isLiveMode = false,
 }: ChatFabProps) {
   const [message, setMessage] = React.useState("");
   const [pushOnHome, setPushOnHome] = React.useState(false);
@@ -38,7 +40,9 @@ export function ChatFab({
   const {
     conversations,
     activeCoachSender,
+    staffCoaches,
     setActiveCoachSender,
+    loadStaffCoaches,
     getConversation,
     sendMessage,
     transferirConversacion,
@@ -47,6 +51,8 @@ export function ChatFab({
 
   const { isOnline } = useOfflineQueueStore();
   const studioAlumnos = useCoachStudioStore((s) => s.alumnos);
+  const studioLiveDatabase = useCoachStudioStore((s) => s.isLiveDatabase);
+  const isLive = isLiveMode || studioLiveDatabase;
 
   // Filtros del Inbox
   const [activeFilter, setActiveFilter] = React.useState<ChatFilterType>("TODOS");
@@ -77,11 +83,29 @@ export function ChatFab({
   const currentAlumno = alumno || selectedInboxAlumno;
   const currentAlumnoId = currentAlumno?.id || "";
 
+  React.useEffect(() => {
+    if (isLive && isOpen) {
+      void loadStaffCoaches();
+    }
+  }, [isLive, isOpen, loadStaffCoaches]);
+
+  const transferCoachOptions = React.useMemo(() => {
+    if (isLive) {
+      return staffCoaches;
+    }
+    return staffCoaches.length > 0 ? staffCoaches : AVAILABLE_COACH_SENDERS;
+  }, [isLive, staffCoaches]);
+
   // Estados de transferencia de responsable (disponible en modo no simplificado si se requiere)
   const [isTransferOpen, setIsTransferOpen] = React.useState(false);
-  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>(
-    AVAILABLE_COACH_SENDERS[1]?.id || STAFF_COACH_FELIX.id,
+  const [transferTargetCoachId, setTransferTargetCoachId] = React.useState<string>(() =>
+    isLive ? "" : (AVAILABLE_COACH_SENDERS[1]?.id || STAFF_COACH_FELIX.id),
   );
+  React.useEffect(() => {
+    if (!transferTargetCoachId && transferCoachOptions.length > 0) {
+      setTransferTargetCoachId(transferCoachOptions[0]!.id);
+    }
+  }, [transferTargetCoachId, transferCoachOptions]);
   const [transferMotivo, setTransferMotivo] = React.useState("");
   const [isTransferring, setIsTransferring] = React.useState(false);
   const [transferSuccessMsg, setTransferSuccessMsg] = React.useState<string | null>(null);
@@ -118,11 +142,12 @@ export function ChatFab({
     ).length;
   }, [conversations]);
 
-  // Lista unificada de alumnos para el Inbox (datos reales de Supabase o fallback MOCK)
+  // Lista unificada de alumnos para el Inbox (en modo live nunca cae a MOCK_ALUMNOS)
   const allAlumnos = React.useMemo(() => {
+    if (isLive) return studioAlumnos;
     if (studioAlumnos && studioAlumnos.length > 0) return studioAlumnos;
     return MOCK_ALUMNOS;
-  }, [studioAlumnos]);
+  }, [studioAlumnos, isLive]);
 
   // Conversaciones procesadas para el Inbox
   const inboxItems = React.useMemo(() => {
@@ -244,7 +269,7 @@ export function ChatFab({
     setTransferSuccessMsg(null);
     setTransferErrorMsg(null);
 
-    const targetCoach = AVAILABLE_COACH_SENDERS.find(
+    const targetCoach = transferCoachOptions.find(
       (c) => c.id === transferTargetCoachId,
     );
     const targetNombre = targetCoach?.nombre || "Coach Asignado";
@@ -551,7 +576,7 @@ export function ChatFab({
                           className="mt-1 min-h-8 w-full rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                           data-testid="transfer-target-select"
                         >
-                          {AVAILABLE_COACH_SENDERS.map((c) => (
+                          {transferCoachOptions.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.nombre} ({c.rol})
                             </option>

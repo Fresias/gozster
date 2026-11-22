@@ -1,6 +1,5 @@
-import type { Contratacion, Perfil, PlanEntrenamiento } from "@/types/database.types";
+import type { Contratacion, Perfil, PlanEntrenamiento, PlanMembresia } from "@/types/database.types";
 import type { CobroItem } from "@/store/use-cobros-store";
-import { DEMO_PLANES_MEMBRESIA } from "@/services/coach-demo-dataset";
 
 export interface ActividadFrecuenciaInfo {
   tipo: "FUNCIONAL" | "BOXEO" | "PASE_LIBRE" | "RUTINA";
@@ -195,8 +194,9 @@ export function derivarEstadoPagoAlumno(params: {
 export function derivarMontoSuscripcion(params: {
   cobroItem?: CobroItem | null;
   contratacion?: Contratacion | null;
+  planesMembresia?: PlanMembresia[];
 }): MontoSuscripcionInfo {
-  const { cobroItem, contratacion } = params;
+  const { cobroItem, contratacion, planesMembresia } = params;
 
   if (cobroItem) {
     return {
@@ -214,8 +214,8 @@ export function derivarMontoSuscripcion(params: {
     };
   }
 
-  if (contratacion?.plan_membresia_id) {
-    const plan = DEMO_PLANES_MEMBRESIA.find((p) => p.id === contratacion.plan_membresia_id);
+  if (contratacion?.plan_membresia_id && planesMembresia?.length) {
+    const plan = planesMembresia.find((p) => p.id === contratacion.plan_membresia_id);
     if (plan) {
       return {
         monto: plan.precio,
@@ -224,9 +224,8 @@ export function derivarMontoSuscripcion(params: {
     }
   }
 
-  const defaultMonto = contratacion?.tipo_servicio === "PRESENCIAL" ? 25000 : 20000;
   return {
-    monto: defaultMonto,
-    formateado: formatearDinero(defaultMonto),
+    monto: 0,
+    formateado: formatearDinero(0),
   };
 }

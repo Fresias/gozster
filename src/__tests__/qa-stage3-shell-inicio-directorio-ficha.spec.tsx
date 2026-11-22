@@ -19,6 +19,16 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock("@/store/use-cobros-store", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/store/use-cobros-store")>();
+  const hook = Object.assign(
+    (sel?: (s: any) => unknown) =>
+      typeof sel === "function" ? sel(mod.useCobrosStore.getState()) : mod.useCobrosStore.getState(),
+    mod.useCobrosStore,
+  );
+  return { ...mod, useCobrosStore: hook };
+});
+
 vi.mock("@/lib/supabase/browser", () => ({
   createClient: () => ({
     auth: {

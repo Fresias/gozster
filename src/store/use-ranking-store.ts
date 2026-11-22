@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
+import { supabase } from "@/lib/supabase/client";
+import { esUuid } from "@/lib/athlete/uuid";
 import type { Perfil, RankingPR, Reserva } from "@/types/database.types";
 
 export interface RankingCalculadoItem {
@@ -65,6 +67,7 @@ export interface RankingState {
     alumnos: Perfil[];
     reservas?: Reserva[];
   }) => ResultadoRanking;
+  resetDemoDataset: () => void;
   limpiarAviso: () => void;
 }
 
@@ -228,8 +231,8 @@ export const useRankingStore = create<RankingState>()(
     (set, get) => ({
       claseIdSeleccionada: null,
       ejercicioIdSeleccionado: null,
-      prs: DEMO_RANKING_PRS_INICIALES,
-      perfilesActualizados: DEMO_PERFILES_INICIALES,
+      prs: [],
+      perfilesActualizados: {},
       cargando: false,
       guardandoPrId: null,
       error: null,
@@ -238,10 +241,49 @@ export const useRankingStore = create<RankingState>()(
       setClaseId: (id) => set({ claseIdSeleccionada: id }),
       setEjercicioId: (id) => set({ ejercicioIdSeleccionado: id }),
 
+      resetDemoDataset: () =>
+        set({
+          claseIdSeleccionada: null,
+          ejercicioIdSeleccionado: null,
+          prs: DEMO_RANKING_PRS_INICIALES,
+          perfilesActualizados: DEMO_PERFILES_INICIALES,
+          cargando: false,
+          guardandoPrId: null,
+          error: null,
+          aviso: null,
+        }),
+
       limpiarAviso: () => set({ aviso: null, error: null }),
 
-      cargarPrsClase: async () => {
-        // Los PRs viven en la lista local persistida.
+      cargarPrsClase: async (claseId) => {
+        if (!claseId || !esUuid(claseId) || typeof supabase?.from !== "function") {
+          return;
+        }
+        try {
+          const authRes = await supabase.auth.getUser();
+          if (!authRes.data?.user) return;
+          set({ cargando: true });
+          const { data, error } = await supabase
+            .from("ranking_prs")
+            .select("*")
+            .eq("clase_id", claseId);
+          if (!error && Array.isArray(data)) {
+            const reales = data as RankingPR[];
+            set((state) => ({
+              prs: [
+                ...state.prs.filter(
+                  (p) => p.clase_id !== claseId && !p.id.startsWith("demo-"),
+                ),
+                ...reales,
+              ],
+              cargando: false,
+            }));
+          } else {
+            set({ cargando: false });
+          }
+        } catch {
+          set({ cargando: false });
+        }
       },
 
       registrarPr: async (datos) => {
@@ -449,7 +491,23 @@ export const useRankingStore = create<RankingState>()(
     }),
     {
       name: "gozster-ranking-store",
+      version: 2,
       storage: createJSONStorage(() => userScopedStorage),
+      migrate: (persistedState: unknown, version: number) => {
+        const state = (persistedState as Partial<RankingState>) ?? {};
+        if (!version || version < 2) {
+          const perfilesLimpios: Record<string, { peso_corporal_kg?: number; sexo?: "M" | "F" }> = {};
+          for (const [k, v] of Object.entries(state.perfilesActualizados ?? {})) {
+            if (!k.startsWith("demo-")) perfilesLimpios[k] = v;
+          }
+          return {
+            ...state,
+            prs: (state.prs ?? []).filter((p) => !p.id.startsWith("demo-")),
+            perfilesActualizados: perfilesLimpios,
+          };
+        }
+        return state;
+      },
       partialize: (state) => ({
         claseIdSeleccionada: state.claseIdSeleccionada,
         ejercicioIdSeleccionado: state.ejercicioIdSeleccionado,

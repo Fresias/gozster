@@ -98,7 +98,7 @@ export function IslaSaludAnamnesis({
   notaCoach,
   estadoInicial,
   onQuickSwap,
-  alumnoId = "demo-alumno-lucas",
+  alumnoId = "",
   anamnesisData,
   onEstadoChange,
   onSaveNota,
