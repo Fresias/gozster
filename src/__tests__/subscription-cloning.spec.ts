@@ -5,7 +5,7 @@ import {
   simulateClonarPlan,
   simulateExtenderVigenciaPlan,
 } from '../../tests/subscription-cloning.spec';
-import type { DiaRutina, EjercicioEnRutina, EntrenadorAlumno, PlanEntrenamiento } from '@/../types/database.types';
+import type { DiaRutina, EjercicioEnRutina, EntrenadorAlumno, PlanEntrenamiento } from '@/types/database.types';
 
 describe('Suite de Integración Vitest - Multi-Coach, Paywall y Clonación (src/__tests__)', () => {
   it('valida que el paywall bloquee alumnos en EXPIRED_PAYMENT_PENDING y habilite a entrenadores multi-coach', () => {

@@ -19,7 +19,7 @@ import type {
   Mensaje,
   Perfil,
   PlanEntrenamiento,
-} from '@/../types/database.types';
+} from '@/types/database.types';
 
 // ============================================================================
 // Dominio y Simulación de Métricas de Retención y Sobrecarga para QA
