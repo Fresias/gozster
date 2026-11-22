@@ -14,6 +14,7 @@ const auditScript = path.join(repoRoot, "scripts", "qa-harness-audit.mjs");
 const renderScript = path.join(kitDir, "core", "scripts", "harness-render.mjs");
 const ciWorkflowPath = path.join(repoRoot, ".github", "workflows", "ci.yml");
 const mergeCheckWorkflowPath = path.join(repoRoot, ".github", "workflows", "harness-merge-check.yml");
+const deployWorkflowPath = path.join(repoRoot, ".github", "workflows", "deploy-production.yml");
 
 describe("Harness² CI Workflows & Audit Debt Mode", () => {
   const createdTempDirs: string[] = [];
@@ -193,6 +194,25 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
       expect(postMergeBlock).toContain("github.event_name == 'push' && github.ref == 'refs/heads/main'");
       expect(postMergeBlock).toContain("node harness-kit/core/scripts/harness-propose.mjs --post-merge");
       expect(postMergeBlock).toContain("uses: actions/upload-artifact@v7");
+    });
+
+    it("GIVEN deploy-production.yml (GOZS-731 / GOZS-688) THEN exige check-migrations antes de deploy, usa CLI v3 y falla cerrado sin credenciales", () => {
+      expect(existsSync(deployWorkflowPath)).toBe(true);
+      const content = readFileSync(deployWorkflowPath, "utf8");
+
+      expect(content).toContain("uses: actions/checkout@v7");
+      expect(content).toContain("uses: actions/setup-node@v7");
+      expect(content).toContain("uses: supabase/setup-cli@v3");
+      expect(content).not.toMatch(/uses:\s*actions\/(checkout|setup-node)@v4/);
+      expect(content).toContain("vars.PRODUCTION_DEPLOY_ENABLED == 'true'");
+      expect(content).toContain("node scripts/check-supabase-migrations.mjs --remote");
+      expect(content).toContain("supabase db push --remote=");
+
+      const deployBlock = content.slice(content.indexOf("  deploy:"));
+      expect(deployBlock).toMatch(/needs:\s*\[check-migrations\]/);
+      expect(deployBlock).toMatch(/if:\s*success\(\)/);
+      expect(deployBlock).toMatch(/permissions:\s*\r?\n\s*contents:\s*read/);
+      expect(content).not.toMatch(/set\s+-x|echo\s+.*SUPABASE_(DB_URL|ACCESS_TOKEN|DB_PASSWORD)|echo\s+.*VERCEL_TOKEN/);
     });
   });
 });
