@@ -37,7 +37,8 @@ const SEED = `
     ('${COACH}','be-coach@t','Coach','ENTRENADOR',NULL,'ACTIVA'),
     ('${ALUMNA_3X}','be-3x@t','Alumna 3x','ALUMNO','${COACH}','ACTIVA'),
     ('${ALUMNA_LIBRE}','be-libre@t','Alumna Libre','ALUMNO','${COACH}','ACTIVA'),
-    ('${ALUMNA_ACT}','be-act@t','Alumna Act','ALUMNO','${COACH}','ACTIVA');
+    ('${ALUMNA_ACT}','be-act@t','Alumna Act','ALUMNO','${COACH}','ACTIVA')
+  ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
   INSERT INTO public.planes_membresia (id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio) VALUES
     ('${PLAN_3X}','3 por semana',3,1,1,25000),

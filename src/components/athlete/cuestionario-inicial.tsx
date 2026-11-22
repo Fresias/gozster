@@ -47,7 +47,11 @@ export function CuestionarioInicial({
   } = useAthleteStore();
 
   const effectiveAthleteId =
-    athleteId || currentSession.studentId || DEFAULT_ATHLETE_ID;
+    athleteId ||
+    planAlumno?.alumnos?.[0]?.id ||
+    (currentSession.studentId && currentSession.studentId !== DEFAULT_ATHLETE_ID
+      ? currentSession.studentId
+      : undefined);
   const effectiveAthleteName =
     athleteName ||
     planAlumno?.alumnos?.[0]?.nombre_completo ||
@@ -88,7 +92,7 @@ export function CuestionarioInicial({
 
     async function fetchCuestionario() {
       try {
-        if (!supabase) return;
+        if (!supabase || !effectiveAthleteId) return;
         const { data, error } = await supabase
           .from("alumno_cuestionario_inicial")
           .select("*")
@@ -127,6 +131,12 @@ export function CuestionarioInicial({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!effectiveAthleteId) {
+      setFeedbackMessage(
+        "No pudimos identificar tu perfil de alumno. Volvé a iniciar sesión para guardar.",
+      );
+      return;
+    }
     setIsSaving(true);
     setFeedbackMessage(null);
 
