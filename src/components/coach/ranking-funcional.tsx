@@ -14,7 +14,6 @@ import {
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import type { Ejercicio, Perfil } from "@/types/database.types";
 import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES, generarDemoReservasIniciales } from "@/services/coach-demo-dataset";
-import { REAL_EJERCICIOS } from "@/services/real-mynter-data";
 
 /**
  * Chip semántico neutro de categoría (Masculino / Femenino).
@@ -134,7 +133,7 @@ export function RankingFuncional({
     if (ejerciciosDisponibles && ejerciciosDisponibles.length > 0) {
       return ejerciciosDisponibles;
     }
-    return REAL_EJERCICIOS;
+    return [];
   }, [ejerciciosDisponibles]);
 
   const listaClases = React.useMemo(() => {

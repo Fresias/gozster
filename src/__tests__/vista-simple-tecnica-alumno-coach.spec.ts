@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { useAthleteStore } from "@/store/use-athlete-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
-import { REAL_ALUMNOS } from "@/services/real-mynter-data";
+import { SINT_ALUMNOS } from "@/__tests__/helpers/datos-sinteticos";
 import { supabase } from "@/lib/supabase/client";
 
 describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs Recomendación del Coach", () => {
@@ -26,7 +26,7 @@ describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs
 
       // Cargar rutina de alumno con nivel_vista_alumno = SIMPLE
       const mockStudent = {
-        ...REAL_ALUMNOS[0],
+        ...SINT_ALUMNOS[0],
         nivel_vista_alumno: "SIMPLE" as const,
       };
       store.loadStudentSession(mockStudent.id);
@@ -49,7 +49,7 @@ describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs
       expect(useAthleteStore.getState().nivelVistaAlumno).toBe("TECNICA");
 
       // Cargar otra rutina con recomendación coach = SIMPLE
-      const firstStudent = REAL_ALUMNOS[0];
+      const firstStudent = SINT_ALUMNOS[0];
       useAthleteStore.getState().loadStudentSession(firstStudent!.id);
 
       // Sigue en TECNICA a pesar de que la rutina sea cargada
@@ -73,7 +73,7 @@ describe("GH #123 / GOZS-111: Vista SIMPLE vs TÉCNICA - Elección del Alumno vs
       store.setNivelVistaAlumno("TECNICA");
 
       // Coach cambia la recomendación del alumno a SIMPLE en el backend/sesión
-      const alumnoId = REAL_ALUMNOS[0]!.id;
+      const alumnoId = SINT_ALUMNOS[0]!.id;
       useAthleteStore.getState().loadStudentSession(alumnoId);
 
       const state = useAthleteStore.getState();

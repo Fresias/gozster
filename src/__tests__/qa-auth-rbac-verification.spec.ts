@@ -485,9 +485,10 @@ describe("QA Suite: Autenticación SSR, Control de Acceso RBAC e Invitación (GO
       const fallbackDataset = await fetchLiveDatasetFromSupabase(errorClient);
 
       expect(fallbackDataset).toBeDefined();
-      expect(fallbackDataset.alumnos.length).toBeGreaterThan(0);
-      expect(fallbackDataset.planes.length).toBeGreaterThan(0);
-      expect(fallbackDataset.ejercicios.length).toBeGreaterThan(0);
+      // Sin datos de respaldo: ante error el dataset queda vacío (GOZS-684)
+      expect(fallbackDataset.alumnos).toEqual([]);
+      expect(fallbackDataset.planes).toEqual([]);
+      expect(fallbackDataset.ejercicios).toEqual([]);
     });
 
     it("debe verificar que /studio/page.tsx está configurado como dynamic = force-dynamic", () => {
