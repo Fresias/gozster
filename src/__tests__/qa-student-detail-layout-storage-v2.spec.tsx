@@ -39,7 +39,6 @@ describe("GOZS-395: Ficha de Alumno - Layout 2 Columnas Balanceado y Migración 
     ejerciciosCatalogo: [],
     onOpenHistoricalLoads: vi.fn(),
     onClonarUltimaRutina: vi.fn().mockResolvedValue(null),
-    onExtenderVigencia: vi.fn().mockResolvedValue(null),
     isOffline: false,
     onOpenChat: vi.fn(),
   };

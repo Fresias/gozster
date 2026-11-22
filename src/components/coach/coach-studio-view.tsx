@@ -207,7 +207,6 @@ export function CoachStudioView({
     setCurrentPage,
     dismissToast,
     clonarUltimaRutina,
-    extenderVigenciaPlan,
     asignarPlanUrgente,
     asignarPlanDesdePlantilla,
     isLoading,
@@ -1751,7 +1750,6 @@ export function CoachStudioView({
           ejerciciosCatalogo={ejercicios}
           onOpenHistoricalLoads={() => setHistoricalLoadsOpen(true)}
           onClonarUltimaRutina={clonarUltimaRutina}
-          onExtenderVigencia={extenderVigenciaPlan}
           isOffline={!isOnline}
           contratacion={contratacionAlumno}
           onRegistrarRenovacion={registrarRenovacionManual}
