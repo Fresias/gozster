@@ -300,4 +300,88 @@ describe("GOZS-758: entrenador de apoyo con bloqueo financiero", () => {
       expect(p.rows[0]).toEqual({ apoyo: null, fin: false });
     });
   });
+
+  describe("regresiones de auditoría QA", () => {
+    async function vincular(titular: string, apoyo: string | null, financiero: boolean) {
+      await db.query(
+        `UPDATE public.perfiles SET profesor_asignado_id = $2, profesor_apoyo_id = $3, apoyo_acceso_financiero = $4 WHERE id = $1`,
+        [ALUMNO, titular, apoyo, financiero],
+      );
+    }
+
+    async function codigo(sub: string, sql: string, params: unknown[]): Promise<string | null> {
+      return como(sub, sql, params).then(
+        () => null,
+        (e: { code?: string }) => e.code ?? "sin-codigo",
+      );
+    }
+
+    it("sin oráculo de rol: alumno y apoyo reciben 42501 para cualquier UUID destino", async () => {
+      await vincular(TITULAR, APOYO, false);
+      for (const destino of [OTRO_ALUMNO, AJENO, ADMIN]) {
+        expect(
+          await codigo(ALUMNO, `UPDATE public.perfiles SET profesor_apoyo_id = $1 WHERE id = auth.uid()`, [destino]),
+        ).toBe("42501");
+        expect(
+          await codigo(APOYO, `UPDATE public.perfiles SET profesor_apoyo_id = $2 WHERE id = $1`, [ALUMNO, destino]),
+        ).toBe("42501");
+      }
+    });
+
+    it("ADMIN asignado como apoyo sin permiso financiero sigue viendo v_estado_alumno", async () => {
+      await vincular(TITULAR, ADMIN, false);
+      expect(await contar(ADMIN, "v_estado_alumno", `alumno_id = '${ALUMNO}'`)).toBe(1);
+    });
+
+    it("auditoria_cambios de contrataciones sigue la regla financiera", async () => {
+      await db.query(
+        `INSERT INTO public.auditoria_cambios (entidad, entidad_id, accion, autorizado_por)
+         VALUES ('contrataciones', $1, 'CREACION', $2)`,
+        [CONTR_ID, ADMIN],
+      );
+      const filtro = `entidad = 'contrataciones' AND entidad_id = '${CONTR_ID}' AND autorizado_por = '${ADMIN}'`;
+      await vincular(TITULAR, APOYO, false);
+      expect(await contar(APOYO, "auditoria_cambios", filtro)).toBe(0);
+      await vincular(TITULAR, APOYO, true);
+      expect(await contar(APOYO, "auditoria_cambios", filtro)).toBe(1);
+    });
+
+    it("ON DELETE SET NULL al borrar el perfil del apoyo limpia el vínculo y el permiso", async () => {
+      const COACH_TMP = "00000000-0000-0000-0000-0000000758c9";
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES ('${COACH_TMP}', 'tmp@t758', '{"rol":"ENTRENADOR"}');
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
+        VALUES ('${COACH_TMP}', 'tmp@t758', 'Coach Tmp', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+      `);
+      await vincular(TITULAR, COACH_TMP, true);
+      const borrado = await como(ADMIN, `DELETE FROM public.perfiles WHERE id = $1`, [COACH_TMP]);
+      expect(borrado.affectedRows).toBe(1);
+      const p = await db.query<{ apoyo: string | null; fin: boolean }>(
+        `SELECT profesor_apoyo_id::text AS apoyo, apoyo_acceso_financiero AS fin FROM public.perfiles WHERE id = $1`,
+        [ALUMNO],
+      );
+      expect(p.rows[0]).toEqual({ apoyo: null, fin: false });
+    });
+
+    it("transferir_conversacion_gozs: el apoyo no se autopromueve (42501) y el titular sí lo promueve", async () => {
+      await vincular(TITULAR, APOYO, true);
+      expect(
+        await codigo(APOYO, `SELECT public.transferir_conversacion_gozs($1, $2, 'autopromocion')`, [CONV_ID, APOYO]),
+      ).toBe("42501");
+      const sinCambio = await db.query<{ titular: string }>(
+        `SELECT profesor_asignado_id::text AS titular FROM public.perfiles WHERE id = $1`,
+        [ALUMNO],
+      );
+      expect(sinCambio.rows[0]!.titular).toBe(TITULAR);
+
+      await como(TITULAR, `SELECT public.transferir_conversacion_gozs($1, $2, 'cobertura')`, [CONV_ID, APOYO]);
+      const p = await db.query<{ titular: string; apoyo: string | null; fin: boolean }>(
+        `SELECT profesor_asignado_id::text AS titular, profesor_apoyo_id::text AS apoyo, apoyo_acceso_financiero AS fin
+         FROM public.perfiles WHERE id = $1`,
+        [ALUMNO],
+      );
+      expect(p.rows[0]).toEqual({ titular: APOYO, apoyo: null, fin: false });
+    });
+  });
 });

@@ -25,7 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_perfiles_profesor_apoyo_id
   ON public.perfiles (profesor_apoyo_id)
   WHERE profesor_apoyo_id IS NOT NULL;
 
--- 2. Normalización del apoyo (corre antes que trg_perfiles_proteger_campos):
+-- 2. Normalización del apoyo (corre después de trg_perfiles_proteger_campos, así
+--    un actor no autorizado recibe 42501 antes de validar el rol del destino):
 --    sin apoyo no hay permiso financiero (también tras ON DELETE SET NULL);
 --    si el apoyo pasa a ser el titular, deja de ser apoyo;
 --    el apoyo debe ser ENTRENADOR o ADMIN.
@@ -59,7 +60,8 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_perfiles_apoyo_normalizar ON public.perfiles;
-CREATE TRIGGER trg_perfiles_apoyo_normalizar
+DROP TRIGGER IF EXISTS trg_perfiles_z_apoyo_normalizar ON public.perfiles;
+CREATE TRIGGER trg_perfiles_z_apoyo_normalizar
   BEFORE INSERT OR UPDATE ON public.perfiles
   FOR EACH ROW EXECUTE FUNCTION public.fn_normalizar_apoyo_perfil();
 
@@ -303,7 +305,7 @@ WITH hoy AS (
     LEFT JOIN referencia r ON ((r.alumno_id = p.id)))
     LEFT JOIN deuda d ON ((d.alumno_id = p.id)))
   WHERE ((p.rol = 'ALUMNO'::rol_usuario) OR (r.id IS NOT NULL))
-    AND NOT COALESCE(p.profesor_apoyo_id = (SELECT auth.uid()) AND NOT p.apoyo_acceso_financiero, false)
+    AND (public.es_admin() OR NOT COALESCE(p.profesor_apoyo_id = (SELECT auth.uid()) AND NOT p.apoyo_acceso_financiero, false))
 )
 SELECT alumno_id,
   profesor_asignado_id,
