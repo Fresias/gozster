@@ -103,14 +103,14 @@ isOneToOne: true
                   ]
                 },"alumno_historial_dolor": {
                   Row: {
-                    "alumno_id": string,"created_at": string,"ejercicio_en_rutina_id": string | null,"ejercicio_id": string,"es_sintoma_alarma": boolean,"estado": string,"estado_recuperacion": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"numero_serie": number | null,"sesion_id": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
+                    "alumno_id": string,"created_at": string,"ejercicio_en_rutina_id": string | null,"ejercicio_id": string,"es_sintoma_alarma": boolean,"estado": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"numero_serie": number | null,"sesion_id": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id": string,"es_sintoma_alarma"?: boolean,"estado"?: string,"estado_recuperacion"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular": string
+                    "alumno_id": string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id": string,"es_sintoma_alarma"?: boolean,"estado"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular": string
                   }
                   Update: {
-                    "alumno_id"?: string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id"?: string,"es_sintoma_alarma"?: boolean,"estado"?: string,"estado_recuperacion"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular"?: string
+                    "alumno_id"?: string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id"?: string,"es_sintoma_alarma"?: boolean,"estado"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular"?: string
                   }
                   Relationships: [
                     {
@@ -541,14 +541,14 @@ isOneToOne: false
                   ]
                 },"perfiles": {
                   Row: {
-                    "created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string,"whatsapp_habilitado": boolean
+                    "created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string,"whatsapp_habilitado"?: boolean
+                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string,"whatsapp_habilitado"?: boolean
+                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -705,14 +705,14 @@ isOneToOne: false
                   ]
                 },"registro_sesiones": {
                   Row: {
-                    "alumno_id": string,"athlete_feedback": string | null,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
+                    "alumno_id": string,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"athlete_feedback"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id": string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Update: {
-                    "alumno_id"?: string,"athlete_feedback"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id"?: string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Relationships: [
                     {
@@ -854,7 +854,7 @@ isOneToOne: false
                   ]
                 },"v_dolor_activo": {
                   Row: {
-                    "alumno_email": string | null,"alumno_id": string,"alumno_nombre": string | null,"created_at": string,"ejercicio_id": string,"ejercicio_nombre": string | null,"es_sintoma_alarma": boolean,"estado": string,"estado_recuperacion": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"nivel": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
+                    "alumno_email": string | null,"alumno_id": string,"alumno_nombre": string | null,"created_at": string,"ejercicio_id": string,"ejercicio_nombre": string | null,"es_sintoma_alarma": boolean,"estado": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"nivel": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -940,7 +940,6 @@ isOneToOne: false
 "ejercicio_id": string,
 "es_sintoma_alarma": boolean,
 "estado": string,
-"estado_recuperacion": string,
 "eva": number | null,
 "fecha_reporte": string,
 "id": string,
