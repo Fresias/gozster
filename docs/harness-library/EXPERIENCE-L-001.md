@@ -70,8 +70,9 @@ Medición ejecutada en `DESKTOP-S4P202B` el `2026-11-23` inmediatamente tras el 
 - **p90:** `726.729 ms` (~12 min 07 s; salida exacta CLI: `726729.0000000001`)
 - **Sesiones con > 3 bloqueos repetidos (`repeatedBlockSessions`):** `28` entradas (`16` por `read.oversize`, hasta `8` repeticiones; `12` por `pr.requires-seal`, hasta `7` repeticiones). Principales candidatos de reducción de fricción para futuros experimentos (`L-002+`).
 
-### 6. Limitación Conocida Documentada (`H-04`)
-Cuando en una sesión abierta dentro del repositorio coinciden el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de `origin/main` con `HARNESS_TELEMETRY=0` para evitar doble registro. En consecuencia, si una regla presente únicamente en `origin/main` bloquea una acción que el guard de la rama local permitiría, ese bloqueo no queda registrado en `events.jsonl`.
+### 6. Limitaciones Conocidas Documentadas (`H-04` y truncado de `cmd`)
+- **Deduplicación con `origin/main` (`H-04`):** Cuando en una sesión abierta dentro del repositorio coinciden el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de `origin/main` con `HARNESS_TELEMETRY=0` para evitar doble registro. En consecuencia, si una regla presente únicamente en `origin/main` bloquea una acción que el guard de la rama local permitiría, ese bloqueo no queda registrado en `events.jsonl`.
+- **Truncado de `cmd` (`H-05`):** `cmd` se trunca a 120 caracteres; con las rutas de workdir de Multica (~115 caracteres) quedan cortados el 64 % de los comandos de shell y el 96 % de las rutas de lectura. Las métricas agregadas (eventos, sesiones, bloqueos por regla, TTFE) no se ven afectadas; los análisis por archivo o por comando no son confiables en esta ventana.
 
 ## Método (Hardening Evaluado en esta Línea Base)
 

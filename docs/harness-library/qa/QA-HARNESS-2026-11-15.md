@@ -8,7 +8,7 @@
 
 1. **G3 (P0), E8 (P1), R13 (P1), R20 (P2) y QA-2:** cerrados por Gabriel el 16-nov con constancias escritas en `GOZS-528` / `GOZS-527` (ver Apéndice, secciones A.2 y A.3).
 2. **H-01 y H-02 (P1), junto con H-03, H-04 y H-08 (P2):** resueltos en `GOZS-538` (PR `#497`, mergeado `2026-11-16T17:48:54Z`).
-3. **T4 y T5 (P1):** verificados en verde el 23-nov sobre la ventana limpia de 7 días corridos (`2026-11-16T17:48:54Z` → `2026-11-23T17:48:54Z`; `24.376` eventos en `349` sesiones reales, `L-001` registrado en `completed` en `LEDGER.json`; ver Apéndice, sección A.4).
+3. **T4 y T5 (P1):** verificados en verde el 23-nov sobre la ventana limpia de 7 días corridos (`2026-11-16T17:48:54Z` → `2026-11-23T17:48:54Z`; `24.376` eventos en `349` sesiones (`348` UUID reales + `1` evento residual `unknown`), `L-001` registrado en `completed` en `LEDGER.json`; ver Apéndice, sección A.4).
 
 Lo demostrado en comportamiento real: el guard instalado bloquea los 10 canarios y permite los 6 controles en Antigravity y en Claude Code (simulados y en vivo); la telemetría persiste en el git common dir con sesiones por runtime, sin contaminación de canarios ni tokens reales filtrados.
 
