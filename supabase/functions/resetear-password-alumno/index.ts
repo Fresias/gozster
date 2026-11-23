@@ -13,6 +13,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { crearHandler } from "./handler.ts";
+import { generarPasswordTemporal } from "../alta-alumno-directa/handler.ts";
 
 const ALLOWED_ORIGIN = Deno.env.get("GOZSTER_ALLOWED_ORIGIN") ?? "https://gozster.vercel.app";
 
@@ -25,6 +26,8 @@ const admin = createClient(
 
 const handler = crearHandler(
   {
+    generarPassword: () => generarPasswordTemporal(),
+
     async usuarioDesdeToken(token) {
       const { data, error } = await admin.auth.getUser(token);
       return error || !data.user ? null : data.user.id;

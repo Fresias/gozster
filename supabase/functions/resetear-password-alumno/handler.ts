@@ -1,10 +1,8 @@
 // ============================================================================
 // GOZSter: lógica de la Edge Function resetear-password-alumno (GOZS-692)
-// Sin imports de runtime: la usan index.ts (Deno) y los tests de Vitest (Node)
-// con dependencias inyectadas. Mismo patrón que alta-alumno-directa.
+// Sin imports: la usan index.ts (Deno) y los tests de Vitest (Node) con
+// dependencias inyectadas. Mismo patrón que alta-alumno-directa.
 // ============================================================================
-
-import { generarPasswordTemporal } from "../alta-alumno-directa/handler.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,6 +12,8 @@ export interface PerfilResumen {
 }
 
 export interface ResetearPasswordDeps {
+  /** Clave temporal segura (index.ts inyecta generarPasswordTemporal de alta-alumno-directa). */
+  generarPassword(): string;
   /** id del usuario dueño del JWT, o null si es inválido/expirado. */
   usuarioDesdeToken(token: string): Promise<string | null>;
   /** rol y coach asignado desde public.perfiles (nunca de metadata); lanza si falla la consulta. */
@@ -79,7 +79,7 @@ export function crearHandler(deps: ResetearPasswordDeps, allowedOrigin: string) 
     if (alumno?.rol !== "ALUMNO") return json(404, { error: "Alumno no encontrado" });
 
     // 4. Clave temporal y, después, la marca de cambio obligatorio
-    const passwordTemporal = generarPasswordTemporal();
+    const passwordTemporal = deps.generarPassword();
     if (!(await deps.cambiarPassword(alumnoId, passwordTemporal))) {
       return json(502, { error: "No se pudo resetear la contraseña" });
     }

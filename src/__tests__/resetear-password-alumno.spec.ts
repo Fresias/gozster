@@ -9,6 +9,7 @@ import {
   type PerfilResumen,
   type ResetearPasswordDeps,
 } from "../../supabase/functions/resetear-password-alumno/handler";
+import { generarPasswordTemporal } from "../../supabase/functions/alta-alumno-directa/handler";
 
 // GOZS-692: el coach resetea la contraseña de su alumno y el cambio de clave
 // obligatorio vive en app_metadata (el usuario no puede apagarlo solo).
@@ -33,6 +34,7 @@ const PERFILES: Record<string, PerfilResumen> = {
 function deps(llamante: string | null, over: Partial<ResetearPasswordDeps> = {}) {
   const orden: string[] = [];
   const d: ResetearPasswordDeps = {
+    generarPassword: () => generarPasswordTemporal(),
     usuarioDesdeToken: vi.fn(async () => llamante),
     perfil: vi.fn(async (id: string) => PERFILES[id] ?? null),
     cambiarPassword: vi.fn(async () => {
