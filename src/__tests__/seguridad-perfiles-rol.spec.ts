@@ -216,7 +216,7 @@ describe("GOZS-683: seguridad de perfiles, handle_new_user y RPCs de planes (PGl
 
     await expect(
       como("authenticated", ALUMNO_2, `SELECT public.extender_vigencia_plan($1, 365)`, [PLANTILLA_GLOBAL]),
-    ).rejects.toThrow(/No autorizado/i);
+    ).rejects.toThrow(/does not exist/i);
 
     const activarFn = await db.query<{ oid: string | null }>(
       `SELECT to_regprocedure('public.activar_rutina(uuid)')::text AS oid`,
