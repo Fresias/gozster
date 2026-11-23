@@ -220,8 +220,10 @@ describe("Issue #113: membresías, clases y reservas (PGlite)", () => {
         code: "GZ006",
         message: expect.stringMatching(/todavía no comenzó/),
       });
-      // Simulamos que la clase ya comenzó
-      await db.query(`UPDATE public.clases SET inicio = now() - interval '10 minutes' WHERE id = '${b1}'`);
+      // Simulamos que la clase ya comenzó sin sacarla de la semana en curso (lunes 00:00-00:10 ART)
+      await db.query(
+        `UPDATE public.clases SET inicio = GREATEST(${LUNES}, now() - interval '10 minutes') WHERE id = '${b1}'`
+      );
       await marcarAusente(COACH, rB1);
       expect(await estadoReserva(rB1)).toBe("AUSENTE");
       await expect(marcarAusente(ADMIN, rB1)).rejects.toMatchObject({ code: "GZ009" });
