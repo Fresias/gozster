@@ -27,8 +27,49 @@ export interface LiveSupabaseDataset {
   cobros?: Cobro[];
 }
 
+const PERFILES_DATASET_COLUMNS =
+  "id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, fecha_baja, created_at, updated_at, telefono, fecha_vencimiento_cuota, ultimo_entreno_at, estado_cuenta, nivel_vista_alumno, peso_corporal_kg, sexo, nombre_preferido";
+
+const PLANES_DATASET_COLUMNS =
+  "id, profesor_id, alumno_id, nombre, estado, comentarios, created_at, updated_at, fecha_inicio, fecha_fin, tipo, etiqueta, plan_origen_id, tags";
+
+const DIAS_RUTINA_DATASET_COLUMNS = "id, plan_id, nombre, orden";
+
+const EJERCICIOS_EN_RUTINA_DATASET_COLUMNS =
+  "id, dia_id, ejercicio_id, orden, series, repeticiones, descanso_segundos, rpe_objetivo, notas, es_superserie, grupo_superserie, tempo, force_rpe_required, tempo_activo, tipo_serie, tipo_medicion, tiempo_objetivo_segundos, es_unilateral";
+
+const EJERCICIOS_DATASET_COLUMNS =
+  "id, nombre, comentario, url_video, musculos_principales, musculos_secundarios";
+
+const ALUMNO_ACTIVIDADES_DATASET_COLUMNS =
+  "id, alumno_id, actividad, veces_por_semana, pase_libre";
+
+const CONTRATACIONES_DATASET_COLUMNS =
+  "id, alumno_id, tipo_servicio, estado, dia_vencimiento, fecha_inicio, fecha_fin, plan_membresia_id, actividad, precio_pactado";
+
+const PLANES_MEMBRESIA_DATASET_COLUMNS =
+  "id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio, activo, notas";
+
+const COBROS_DATASET_COLUMNS =
+  "id, contratacion_id, alumno_id, monto, fecha_vencimiento, estado, concepto, notas";
+
+function emptyDataset(): LiveSupabaseDataset {
+  return {
+    alumnos: [],
+    planes: [],
+    dias: [],
+    ejerciciosEnRutina: [],
+    ejercicios: [],
+    alumnoActividades: [],
+    contrataciones: [],
+    planesMembresia: [],
+    cobros: [],
+  };
+}
+
 /**
- * Carga el dataset en vivo desde Supabase.
+ * Carga el dataset en vivo desde Supabase seleccionando solo columnas usadas
+ * y filtrando por el coach/alumno autenticado y los IDs relacionados.
  * Acepta un cliente explícito: desde un Server Component se pasa el cliente de servidor
  * autenticado (`@/lib/supabase/server`) para que PostgREST reciba el JWT del entrenador y
  * aplique RLS (solo sus alumnos). En el navegador usa por defecto el cliente con sesión por cookies.
@@ -37,54 +78,165 @@ export async function fetchLiveDatasetFromSupabase(
   client: SupabaseClient<Database> = supabase,
 ): Promise<LiveSupabaseDataset> {
   try {
-    const perfilesQuery = client.from("perfiles").select("*");
-    const alumnosPromise = typeof (perfilesQuery as any).or === "function"
-      ? (perfilesQuery as any)
-          .or("rol.eq.ALUMNO,profesor_asignado_id.not.is.null")
-          .order("nombre_completo", { ascending: true })
-      : perfilesQuery.eq("rol", "ALUMNO").order("nombre_completo", { ascending: true });
+    let currentUserId: string | null = null;
+    let currentUserRol: string | null = null;
+    let alumnosVinculadosIds: string[] = [];
+
+    if (typeof client.auth?.getUser === "function") {
+      const authRes = await client.auth.getUser();
+      currentUserId = authRes?.data?.user?.id ?? null;
+      if (currentUserId) {
+        const perfilPropioQuery = client.from("perfiles").select("id, rol");
+        const perfilPropioEq =
+          typeof (perfilPropioQuery as any).eq === "function"
+            ? (perfilPropioQuery as any).eq("id", currentUserId)
+            : null;
+        const perfilPropioRes =
+          perfilPropioEq && typeof perfilPropioEq.maybeSingle === "function"
+            ? await perfilPropioEq.maybeSingle()
+            : null;
+        currentUserRol = (perfilPropioRes?.data as { rol?: string } | null)?.rol ?? null;
+
+        if (currentUserRol === "ENTRENADOR") {
+          const eaQuery = client.from("entrenador_alumnos").select("alumno_id");
+          if (typeof (eaQuery as any).eq === "function") {
+            const eaRes = await (eaQuery as any).eq("entrenador_id", currentUserId);
+            if (!eaRes?.error && Array.isArray(eaRes?.data)) {
+              alumnosVinculadosIds = eaRes.data
+                .map((row: { alumno_id?: string }) => row.alumno_id)
+                .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+            }
+          }
+        }
+      }
+    }
+
+    const perfilesQuery = client.from("perfiles").select(PERFILES_DATASET_COLUMNS);
+    let alumnosRes: { data: unknown; error: { message?: string } | null };
+
+    if (currentUserRol === "ALUMNO" && currentUserId && typeof (perfilesQuery as any).eq === "function") {
+      alumnosRes = await (perfilesQuery as any)
+        .eq("id", currentUserId)
+        .order("nombre_completo", { ascending: true });
+    } else if (currentUserRol === "ENTRENADOR" && currentUserId) {
+      if (alumnosVinculadosIds.length > 0 && typeof (perfilesQuery as any).or === "function") {
+        alumnosRes = await (perfilesQuery as any)
+          .or(`profesor_asignado_id.eq.${currentUserId},id.in.(${alumnosVinculadosIds.join(",")})`)
+          .order("nombre_completo", { ascending: true });
+      } else if (typeof (perfilesQuery as any).eq === "function") {
+        alumnosRes = await (perfilesQuery as any)
+          .eq("profesor_asignado_id", currentUserId)
+          .order("nombre_completo", { ascending: true });
+      } else {
+        alumnosRes = await (perfilesQuery as any).order("nombre_completo", { ascending: true });
+      }
+    } else if (typeof (perfilesQuery as any).or === "function") {
+      alumnosRes = await (perfilesQuery as any)
+        .or("rol.eq.ALUMNO,profesor_asignado_id.not.is.null")
+        .order("nombre_completo", { ascending: true });
+    } else {
+      alumnosRes = await (perfilesQuery as any)
+        .eq("rol", "ALUMNO")
+        .order("nombre_completo", { ascending: true });
+    }
+
+    if (alumnosRes.error) {
+      console.warn("Aviso cargando alumnos de Supabase (sin datos de respaldo):", alumnosRes.error.message);
+      return emptyDataset();
+    }
+
+    const alumnos = (alumnosRes.data as Perfil[]) || [];
+    const alumnoIds = alumnos
+      .map((a) => a.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    const planesQuery = client.from("planes_entrenamiento").select(PLANES_DATASET_COLUMNS);
+    let planesPromise: Promise<{ data: unknown; error: unknown }>;
+    if (currentUserRol === "ALUMNO" && currentUserId && typeof (planesQuery as any).eq === "function") {
+      planesPromise = (planesQuery as any)
+        .eq("alumno_id", currentUserId)
+        .order("created_at", { ascending: false });
+    } else if (typeof (planesQuery as any).or === "function") {
+      const scopeParts = ["alumno_id.is.null"];
+      if (currentUserId) scopeParts.push(`profesor_id.eq.${currentUserId}`);
+      if (alumnoIds.length > 0) scopeParts.push(`alumno_id.in.(${alumnoIds.join(",")})`);
+      planesPromise = (planesQuery as any)
+        .or(scopeParts.join(","))
+        .order("created_at", { ascending: false });
+    } else {
+      planesPromise = (planesQuery as any).order("created_at", { ascending: false });
+    }
+
+    const scopedByAlumnos = (
+      table: "alumno_actividades" | "contrataciones" | "cobros",
+      columns: string,
+      orderColumn: string,
+      ascending: boolean,
+    ): Promise<{ data: unknown; error: unknown }> => {
+      if (alumnoIds.length === 0 && currentUserId) {
+        return Promise.resolve({ data: [], error: null });
+      }
+      const query = client.from(table).select(columns);
+      if (alumnoIds.length > 0 && typeof (query as any).in === "function") {
+        return (query as any).in("alumno_id", alumnoIds).order(orderColumn, { ascending });
+      }
+      return (query as any).order(orderColumn, { ascending });
+    };
 
     const [
-      alumnosRes,
       planesRes,
-      diasRes,
-      ejRutinaRes,
       ejerciciosRes,
       alumnoActividadesRes,
       contratacionesRes,
       planesMembresiaRes,
       cobrosRes,
     ] = await Promise.all([
-      alumnosPromise,
-      client.from("planes_entrenamiento").select("*").order("created_at", { ascending: false }),
-      client.from("dias_rutina").select("*").order("orden", { ascending: true }),
-      client.from("ejercicios_en_rutina").select("*").order("orden", { ascending: true }),
-      client.from("ejercicios").select("*").order("nombre", { ascending: true }),
-      client.from("alumno_actividades").select("*").order("created_at", { ascending: true }),
-      client.from("contrataciones").select("*").order("created_at", { ascending: false }),
-      client.from("planes_membresia").select("*").order("precio", { ascending: true }),
-      client.from("cobros").select("*").order("fecha_vencimiento", { ascending: false }),
+      planesPromise,
+      client.from("ejercicios").select(EJERCICIOS_DATASET_COLUMNS).order("nombre", { ascending: true }),
+      scopedByAlumnos("alumno_actividades", ALUMNO_ACTIVIDADES_DATASET_COLUMNS, "created_at", true),
+      scopedByAlumnos("contrataciones", CONTRATACIONES_DATASET_COLUMNS, "created_at", false),
+      client.from("planes_membresia").select(PLANES_MEMBRESIA_DATASET_COLUMNS).order("precio", { ascending: true }),
+      scopedByAlumnos("cobros", COBROS_DATASET_COLUMNS, "fecha_vencimiento", false),
     ]);
 
-    if (alumnosRes.error) {
-      console.warn("Aviso cargando alumnos de Supabase (sin datos de respaldo):", alumnosRes.error.message);
-      return {
-        alumnos: [],
-        planes: [],
-        dias: [],
-        ejerciciosEnRutina: [],
-        ejercicios: [],
-        alumnoActividades: [],
-        contrataciones: [],
-        planesMembresia: [],
-        cobros: [],
-      };
+    const planes = (planesRes.data as PlanEntrenamiento[]) || [];
+    const planIds = planes
+      .map((p) => p.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    let diasRes: { data: unknown; error: unknown };
+    if (planIds.length === 0 && currentUserId) {
+      diasRes = { data: [], error: null };
+    } else {
+      const diasQuery = client.from("dias_rutina").select(DIAS_RUTINA_DATASET_COLUMNS);
+      diasRes =
+        planIds.length > 0 && typeof (diasQuery as any).in === "function"
+          ? await (diasQuery as any).in("plan_id", planIds).order("orden", { ascending: true })
+          : await (diasQuery as any).order("orden", { ascending: true });
+    }
+
+    const dias = (diasRes.data as DiaRutina[]) || [];
+    const diaIds = dias
+      .map((d) => d.id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    let ejRutinaRes: { data: unknown; error: unknown };
+    if (diaIds.length === 0 && currentUserId) {
+      ejRutinaRes = { data: [], error: null };
+    } else {
+      const ejRutinaQuery = client
+        .from("ejercicios_en_rutina")
+        .select(EJERCICIOS_EN_RUTINA_DATASET_COLUMNS);
+      ejRutinaRes =
+        diaIds.length > 0 && typeof (ejRutinaQuery as any).in === "function"
+          ? await (ejRutinaQuery as any).in("dia_id", diaIds).order("orden", { ascending: true })
+          : await (ejRutinaQuery as any).order("orden", { ascending: true });
     }
 
     return {
-      alumnos: (alumnosRes.data as Perfil[]) || [],
-      planes: (planesRes.data as PlanEntrenamiento[]) || [],
-      dias: (diasRes.data as DiaRutina[]) || [],
+      alumnos,
+      planes,
+      dias,
       ejerciciosEnRutina: (ejRutinaRes.data as EjercicioEnRutina[]) || [],
       ejercicios: (ejerciciosRes.data as Ejercicio[]) || [],
       alumnoActividades: !alumnoActividadesRes?.error
@@ -100,17 +252,7 @@ export async function fetchLiveDatasetFromSupabase(
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);
-    return {
-      alumnos: [],
-        planes: [],
-        dias: [],
-        ejerciciosEnRutina: [],
-        ejercicios: [],
-      alumnoActividades: [],
-      contrataciones: [],
-      planesMembresia: [],
-      cobros: [],
-    };
+    return emptyDataset();
   }
 }
 
