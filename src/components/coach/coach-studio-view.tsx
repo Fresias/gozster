@@ -240,6 +240,7 @@ export function CoachStudioView({
           ejerciciosEnRutina: initialDataset.ejerciciosEnRutina || [],
           ejercicios: initialDataset.ejercicios || [],
           contrataciones: initialDataset.contrataciones || [],
+          estadosAlumno: initialDataset.estadosAlumno,
           alumnoActividades: initialDataset.alumnoActividades || [],
           historialCargas: {},
           sustituciones: [],
@@ -366,7 +367,20 @@ export function CoachStudioView({
     }
   };
 
+  // Fuente única de "al día" (GOZS-694): v_estado_alumno, derivada de contrataciones y cobros.
+  // Sin la vista (modo demo o error de lectura) se mantiene el criterio local previo.
+  const estadosAlumnoLive = hasInitialData
+    ? (useHydratedStore ? store.estadosAlumno : initialDataset!.estadosAlumno)
+    : isLiveInicio
+    ? store.estadosAlumno
+    : undefined;
+  const estadoAlumnoPorId = React.useMemo(
+    () => (estadosAlumnoLive ? new Map(estadosAlumnoLive.map((e) => [e.alumno_id, e])) : null),
+    [estadosAlumnoLive],
+  );
+
   const esCuotaAlDia = React.useCallback((alumno: Perfil): boolean => {
+    if (estadoAlumnoPorId) return estadoAlumnoPorId.get(alumno.id)?.al_dia === true;
     let isAlDia =
       alumno.estado_membresia === "ACTIVA";
     if (alumno.fecha_vencimiento_cuota) {
@@ -381,7 +395,7 @@ export function CoachStudioView({
       }
     }
     return isAlDia;
-  }, []);
+  }, [estadoAlumnoPorId]);
 
   const esCuotaVencida = React.useCallback((alumno: Perfil): boolean => {
     return !esCuotaAlDia(alumno);
@@ -879,7 +893,30 @@ export function CoachStudioView({
           ? "Vence en ≤ 3 días (Pago Pendiente)"
           : "Cuota vencida / Inactiva";
 
-        if (alumno.fecha_vencimiento_cuota) {
+        const filaEstado = estadoAlumnoPorId?.get(alumno.id);
+        // Etiqueta del badge cuando no está al día según v_estado_alumno (GOZS-694).
+        let etiquetaEstado: string | null = null;
+        if (estadoAlumnoPorId) {
+          isPendiente = filaEstado?.estado === "PENDIENTE" || filaEstado?.estado === "EN_PAUSA";
+          const vence = filaEstado?.fecha_vencimiento;
+          if (isAlDia) {
+            cuotaTooltip = vence ? `Cuota al día (vence el ${vence})` : "Cuota al día";
+          } else if (filaEstado?.estado === "PENDIENTE") {
+            etiquetaEstado = "Pendiente";
+            cuotaTooltip = "Renovación pendiente";
+          } else if (filaEstado?.estado === "EN_PAUSA") {
+            etiquetaEstado = "En pausa";
+            cuotaTooltip = "Contratación en pausa";
+          } else if (filaEstado?.estado === "VENCIDA") {
+            etiquetaEstado = "Vencida";
+            cuotaTooltip = filaEstado.cobros_vencidos
+              ? `Cuota vencida (${filaEstado.cobros_vencidos} cobro${filaEstado.cobros_vencidos > 1 ? "s" : ""} impago${filaEstado.cobros_vencidos > 1 ? "s" : ""})`
+              : "Cuota vencida";
+          } else {
+            etiquetaEstado = "Sin plan";
+            cuotaTooltip = "Sin contratación";
+          }
+        } else if (alumno.fecha_vencimiento_cuota) {
           const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
           const diffDays = Math.ceil(
             (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
@@ -935,17 +972,32 @@ export function CoachStudioView({
           });
         });
 
-        const diasParaVencer = alumno.fecha_vencimiento_cuota
+        const diasParaVencer = !estadoAlumnoPorId && alumno.fecha_vencimiento_cuota
           ? Math.ceil((new Date(alumno.fecha_vencimiento_cuota).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : null;
         const venceProntoTexto =
-          isPendiente && diasParaVencer !== null && diasParaVencer >= 0 ? `Vence en ${diasParaVencer} d` : null;
+          isPendiente && diasParaVencer !== null && diasParaVencer >= 0
+            ? `Vence en ${diasParaVencer} d`
+            : etiquetaEstado === "Vencida"
+            ? null
+            : etiquetaEstado;
+        const varianteCuota = isAlDia
+          ? "success"
+          : estadoAlumnoPorId
+          ? isPendiente
+            ? "warning"
+            : etiquetaEstado === "Sin plan"
+            ? "neutral"
+            : "destructive"
+          : venceProntoTexto
+          ? "warning"
+          : "destructive";
 
         return (
           <div className="flex flex-col items-start gap-1" data-testid="columna-cuota-actividad">
             <span className={`hidden ${cuotaDotColor}`} aria-hidden="true" />
             <StatusBadge
-              variant={isAlDia ? "success" : venceProntoTexto ? "warning" : "destructive"}
+              variant={varianteCuota}
               size="sm"
               title={cuotaTooltip}
               aria-label={cuotaTooltip}
@@ -1312,6 +1364,7 @@ export function CoachStudioView({
     setAssignRoutineTarget,
     openMenuAlumnoIdProp,
     esCuotaAlDia,
+    estadoAlumnoPorId,
   ]);
 
   return (
@@ -1421,6 +1474,7 @@ export function CoachStudioView({
               periodo={tipoPeriodo}
               onPeriodoChange={(p) => setTipoPeriodo(p)}
               totalAlumnos={alumnos.length}
+              alumnosAlDia={isLiveInicio ? alumnos.filter(esCuotaAlDia).length : undefined}
               sinEntrenarNombres={alumnosSinEntrenarInicio.map((a) => a.nombreCompleto)}
               sinEntrenarAlDia={
                 alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && esCuotaAlDia(a)).length
@@ -1510,13 +1564,18 @@ export function CoachStudioView({
                           id: "ACTIVA",
                           testId: "chip-filtro-al-dia",
                           label: "Al día",
-                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
+                          // Con v_estado_alumno, mismo predicado que KPI, Cuota y filtro (GOZS-694).
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaAlDia).length
+                            : alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
                         },
                         {
                           id: "PENDIENTE",
                           testId: "chip-filtro-pago-pendiente",
                           label: "Pago pendiente",
-                          count: alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaVencida).length
+                            : alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
                         },
                         {
                           id: "NUEVOS",
