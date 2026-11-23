@@ -225,7 +225,7 @@ Confirmado por escrito por Gabriel el **2026-11-16 (22:41 ART / `2026-11-17T01:4
   - `byRuntime`: únicamente los 2 runtimes productivos — `antigravity` (`20.612` eventos, `238` sesiones) y `claude-code` (`3.764` eventos, `111` sesiones); `0` eventos de `opencode` o `gemini-cli`.
   - `actionsByKind`: `shell: 13.739`, `read: 7.362`, `write: 3.214`.
   - `timeToFirstEdit`: `279` muestras · mediana `256.035 ms` · p90 `726.729 ms`.
-  - `repeatedBlockSessions`: `28` entradas (`15` por `read.oversize`, `13` por `pr.requires-seal`).
+  - `repeatedBlockSessions`: `28` entradas (`16` por `read.oversize`, `12` por `pr.requires-seal`).
 - **Re-verificación `T3` (P0 — sin secretos):** `0` coincidencias de tokens reales (`gh[pousr]_[A-Za-z0-9]{20,}` = `0`, `github_pat_[A-Za-z0-9_]{20,}` = `0`) en todo el directorio de telemetría (1 aparición de la cadena regex literal `github_pat_` sin secreto dentro de un comando `allow` el `2026-11-17T04:38Z`).
 - **Resultado `T4` (P1 — reglas nuevas sin falsos positivos masivos):** sobre `24.376` eventos reales en 7 días:
   - **`git.repo-rewire`: `13` bloqueos (`0,053%` — `8` `claude-code`, `5` `antigravity`).** Desglose: `8` bloqueos legítimos de `git branch -m` (intentos de renombrar ramas en lugar de `git checkout -b`), `1` bloqueo legítimo de `New-Item -ItemType Junction` y `4` comandos encadenados con patrón coincidente (limitación documentada `H-05`). Nivel muy bajo y 100% explicable.

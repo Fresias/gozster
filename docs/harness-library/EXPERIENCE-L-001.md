@@ -68,7 +68,7 @@ Medición ejecutada en `DESKTOP-S4P202B` el `2026-11-23` inmediatamente tras el 
 - **Muestras (`count`):** `279` sesiones con al menos una edición (`write`)
 - **Mediana:** `256.035 ms` (~4 min 16 s)
 - **p90:** `726.729 ms` (~12 min 07 s; salida exacta CLI: `726729.0000000001`)
-- **Sesiones con > 3 bloqueos repetidos (`repeatedBlockSessions`):** `28` entradas (`15` por `read.oversize`, hasta `8` repeticiones; `13` por `pr.requires-seal`, hasta `7` repeticiones). Principales candidatos de reducción de fricción para futuros experimentos (`L-002+`).
+- **Sesiones con > 3 bloqueos repetidos (`repeatedBlockSessions`):** `28` entradas (`16` por `read.oversize`, hasta `8` repeticiones; `12` por `pr.requires-seal`, hasta `7` repeticiones). Principales candidatos de reducción de fricción para futuros experimentos (`L-002+`).
 
 ### 6. Limitación Conocida Documentada (`H-04`)
 Cuando en una sesión abierta dentro del repositorio coinciden el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de `origin/main` con `HARNESS_TELEMETRY=0` para evitar doble registro. En consecuencia, si una regla presente únicamente en `origin/main` bloquea una acción que el guard de la rama local permitiría, ese bloqueo no queda registrado en `events.jsonl`.
