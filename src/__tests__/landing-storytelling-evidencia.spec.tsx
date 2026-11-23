@@ -196,7 +196,7 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
     });
 
     it("ninguna sección del relato llama a iniciar sesión ni a entrar a las apps", () => {
-      for (const user of [null, { id: "a", email: "a@example.com", displayName: "admin", rol: "ADMIN" as const }, { id: "b", email: "b@example.com", displayName: "Celeste", rol: "ALUMNO" as const }]) {
+      for (const user of [null, { id: "a", email: "a@example.com", displayName: "admin", rol: "ADMIN" as const }, { id: "b", email: "b@example.com", displayName: "Cecilia", rol: "ALUMNO" as const }]) {
         const m = principal(render(user));
         for (const destino of ['href="/login"', 'href="/studio"', 'href="/athlete"']) expect(m).not.toContain(destino);
         expect(texto(m)).not.toMatch(/Ya lo uso|Ya entreno|Abrir mi rutina|Ingresar/);
@@ -212,10 +212,10 @@ describe("Home (/) para alumnos: 'Entrenamiento basado en evidencia, no en tende
     });
 
     it("ALUMNO: el header abre su rutina", () => {
-      const h = render({ id: "alumno-1", email: "celeste@example.com", displayName: "Celeste Gerardi", rol: "ALUMNO" });
+      const h = render({ id: "alumno-1", email: "cecilia@example.com", displayName: "Cecilia Godoy", rol: "ALUMNO" });
       expect(cabecera(h)).toContain('href="/athlete"');
       expect(texto(cabecera(h))).toContain("Abrir mi rutina");
-      expect(texto(h)).toContain("Celeste Gerardi (Atleta)");
+      expect(texto(h)).toContain("Cecilia Godoy (Atleta)");
     });
   });
 

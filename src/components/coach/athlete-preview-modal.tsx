@@ -90,7 +90,7 @@ export function AthletePreviewModal({
     return dataset.ejercicios.find((e) => e.id === ejId);
   };
 
-  const nombreMostrado = alumno?.nombre_completo ?? alumnoNombre ?? "Miguel Sanchez";
+  const nombreMostrado = alumno?.nombre_completo ?? alumnoNombre ?? "Alumno Demo";
 
   const toggleSerie = (clave: string) => {
     setCompletedSeries((prev) => ({ ...prev, [clave]: !prev[clave] }));

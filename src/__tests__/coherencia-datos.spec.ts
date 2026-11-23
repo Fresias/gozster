@@ -307,13 +307,13 @@ describe("GOZS-377 — Coherencia Cruzada de KPIs, Estados de Dolor y Progresió
     expect(progresion.ejercicios[0]?.gananciaKg).toBe(5);
   });
 
-  it("C8: Alumno sin dolores (Esteban Papic) no registra alertas ni badges espurios", () => {
-    const estebanId = "demo-alumno-09-esteban";
-    const alertasCriticasEsteban = DEMO_CRITICAL_ALERTS.filter((a) => a.alumnoId === estebanId);
-    const badgesEsteban = getDemoAlumnoAlerts("Esteban Papic").filter((b) => b.type === "pain");
+  it("C8: Alumno sin dolores (Ezequiel Paredes) no registra alertas ni badges espurios", () => {
+    const ezequielId = "demo-alumno-09-ezequiel";
+    const alertasCriticasEzequiel = DEMO_CRITICAL_ALERTS.filter((a) => a.alumnoId === ezequielId);
+    const badgesEzequiel = getDemoAlumnoAlerts("Ezequiel Paredes").filter((b) => b.type === "pain");
 
-    expect(alertasCriticasEsteban).toHaveLength(0);
-    expect(badgesEsteban).toHaveLength(0);
+    expect(alertasCriticasEzequiel).toHaveLength(0);
+    expect(badgesEzequiel).toHaveLength(0);
   });
 
   it("C9: Separación de métricas de alumnos (sin montos $) para Rol ENTRENADOR y vista de Métricas", () => {

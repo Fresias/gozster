@@ -167,13 +167,13 @@ describe("Sprint Coach Studio v2 UI - Semáforos M3, Poda de Bloatware y Ergonom
     it("genera URL de WhatsApp wa.me con template de Cuota en tono de profesor argentino", () => {
       const { url, message } = generateWhatsAppArgentinoUrl({
         phone: "5491123456789",
-        studentName: "Celeste Gerardi",
+        studentName: "Cecilia Godoy",
         type: "cuota",
       });
 
       expect(url).toContain("https://wa.me/5491123456789?text=");
       expect(message).toBe(
-        "Hola Celeste Gerardi! Che, cómo andás? Te aviso que se te vence la cuota estos días. Te paso el alias así quedás al día?"
+        "Hola Cecilia Godoy! Che, cómo andás? Te aviso que se te vence la cuota estos días. Te paso el alias así quedás al día?"
       );
       expect(url).toContain(encodeURIComponent(message));
     });

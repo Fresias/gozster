@@ -15,10 +15,10 @@ describe("GOZS-126 & GOZS-407 (FIX-04 / P07): Alertas de dolor, vocabulario EVA 
 
   it("hay al menos un alumno demo con alertas, con detalle completo", () => {
     const alerts = getDemoCriticalAlerts();
-    const celeste = alerts.filter((a) => a.alumnoId === "demo-alumno-02-celeste");
-    expect(celeste.length).toBeGreaterThan(0);
-    expect(celeste[0]?.zona).toBeTruthy();
-    expect(celeste[0]?.detalle).toBeTruthy();
+    const cecilia = alerts.filter((a) => a.alumnoId === "demo-alumno-02-cecilia");
+    expect(cecilia.length).toBeGreaterThan(0);
+    expect(cecilia[0]?.zona).toBeTruthy();
+    expect(cecilia[0]?.detalle).toBeTruthy();
   });
 
   it("la sección solo se renderiza si el alumno tiene alertas", () => {

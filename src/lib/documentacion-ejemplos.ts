@@ -47,7 +47,7 @@ export function calcularEjemplosDocumentacion(ahora: number = Date.parse("2026-1
   ].filter((e) => e === "VENCIDA").length;
 
   // Actividad
-  const celeste = { estado_membresia: "ACTIVA", ultimo_entreno_at: new Date(ahora - 3 * 3_600_000).toISOString() };
+  const cecilia = { estado_membresia: "ACTIVA", ultimo_entreno_at: new Date(ahora - 3 * 3_600_000).toISOString() };
   const facundo = { estado_membresia: "ACTIVA", ultimo_entreno_at: new Date(ahora - 9 * DIA).toISOString() };
   const nuevo = esAlumnoNuevo(new Date(ahora - 30 * DIA).toISOString(), ahora);
   const noNuevo = esAlumnoNuevo(new Date(ahora - 120 * DIA).toISOString(), ahora);
@@ -77,7 +77,7 @@ export function calcularEjemplosDocumentacion(ahora: number = Date.parse("2026-1
       pendiente: formatoPesos(pendiente),
       vencidas,
     },
-    actividad: { celesteSinEntrenar: esSinEntrenar7d(celeste, ahora), facundoSinEntrenar: esSinEntrenar7d(facundo, ahora), nuevo, noNuevo },
+    actividad: { ceciliaSinEntrenar: esSinEntrenar7d(cecilia, ahora), facundoSinEntrenar: esSinEntrenar7d(facundo, ahora), nuevo, noNuevo },
     fuerza: {
       epley: un(epley),
       brzycki: un(brzycki),

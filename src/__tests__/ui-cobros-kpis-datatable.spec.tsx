@@ -59,19 +59,19 @@ describe("GOZS-384: Coach Studio - Vista de Cobros (KPIs Superiores y DataTable 
       const posTomas = html.indexOf("Tomás Ledesma");
       const posAgustin = html.indexOf("Agustín Molina");
       const posSantiago = html.indexOf("Santiago Ojeda");
-      const posCeleste = html.indexOf("Celeste Gerardi"); // Pagada en página 1
+      const posCecilia = html.indexOf("Cecilia Godoy"); // Pagada en página 1
       const posSofia = html.indexOf("Sofía Benítez"); // Pagada en página 1
 
       expect(posTomas).toBeGreaterThan(-1);
       expect(posAgustin).toBeGreaterThan(-1);
       expect(posSantiago).toBeGreaterThan(-1);
-      expect(posCeleste).toBeGreaterThan(-1);
+      expect(posCecilia).toBeGreaterThan(-1);
       expect(posSofia).toBeGreaterThan(-1);
 
       // Los vencidos deben preceder a los pagados en el DOM renderizado
-      expect(posSantiago).toBeLessThan(posCeleste);
-      expect(posAgustin).toBeLessThan(posCeleste);
-      expect(posTomas).toBeLessThan(posCeleste);
+      expect(posSantiago).toBeLessThan(posCecilia);
+      expect(posAgustin).toBeLessThan(posCecilia);
+      expect(posTomas).toBeLessThan(posCecilia);
       expect(posSantiago).toBeLessThan(posSofia);
       expect(posTomas).toBeLessThan(posSofia);
     });
@@ -166,7 +166,7 @@ describe("GOZS-384: Coach Studio - Vista de Cobros (KPIs Superiores y DataTable 
       expect(html).toContain("Pilar Sánchez");
 
       // Ningún alumno pagado o por vencer con fecha futura debe estar presente
-      expect(html).not.toContain("Celeste Gerardi");
+      expect(html).not.toContain("Cecilia Godoy");
       expect(html).not.toContain("Facundo Medina");
       expect(html).not.toContain("Lucas Giménez");
 
