@@ -185,7 +185,6 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
     function crearMockPostgrest(params: {
       userId: string;
       rol: "ENTRENADOR" | "ALUMNO" | "ADMIN";
-      alumnosVinculados?: Array<{ alumno_id: string }>;
       dataByTable: Record<string, unknown[]>;
     }) {
       const calls: QueryCall[] = [];
@@ -202,9 +201,6 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
             const resolveData = () => {
               if (table === "perfiles" && columns === "id, rol") {
                 return { data: { id: params.userId, rol: params.rol }, error: null };
-              }
-              if (table === "entrenador_alumnos") {
-                return { data: params.alumnosVinculados ?? [], error: null };
               }
               return { data: params.dataByTable[table] ?? [], error: null };
             };
