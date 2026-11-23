@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { type PGlite, type Transaction } from "@electric-sql/pglite";
 import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
 
-const NEW_MIGRATION = "20261123020000_vista_v_estado_alumno.sql";
+const NEW_MIGRATION = "20261123060000_vista_v_estado_alumno.sql";
 
 const COACH_A = "00000000-0000-0000-0000-0000000007a1";
 const COACH_B = "00000000-0000-0000-0000-0000000007b1";
