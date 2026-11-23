@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // @ts-expect-error - mjs module
-import { calculateDebt } from "../core/scripts/harness-propose.mjs";
+import { calculateDebt, consolidateLessons, markLessonsProcessed } from "../core/scripts/harness-propose.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.resolve(here, "..");
@@ -40,6 +40,11 @@ describe("Harness² CI Workflows & Audit Debt Mode", () => {
         cwd: tmpWorkdir,
         stdio: "pipe",
       });
+
+      // 0. Aislar de la deuda viva del repo: partir de 0 lecciones sin procesar en la copia temporal
+      consolidateLessons(tmpWorkdir, { write: true });
+      markLessonsProcessed(tmpWorkdir);
+      expect(calculateDebt(tmpWorkdir).unprocessed).toBe(0);
 
       // 1. Llevar deuda temporal exactamente a 14 sin procesar: no debe fallar (< 15)
       const initialDebt = calculateDebt(tmpWorkdir).unprocessed;
