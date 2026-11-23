@@ -2,7 +2,8 @@ import { RankingFuncional } from "@/components/coach/ranking-funcional";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
 import { createClient } from "@/lib/supabase/server";
 import type { ReservaAgenda } from "@/store/use-clases-store";
-import type { Clase, RankingPR } from "@/types/database.types";
+import { prsDeClasesDesdeVista } from "@/lib/ranking-prs";
+import type { Clase, PrView, RankingPR } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function StudioRankingFuncionalPage({
     const [clasesRes, reservasRes, prsRes] = await Promise.all([
       supabase.from("clases").select("*").order("inicio", { ascending: true }),
       supabase.from("reservas").select("*, perfiles(nombre_completo)").order("created_at", { ascending: true }),
-      supabase.from("ranking_prs").select("*"),
+      supabase.from("v_prs").select("*"),
     ]);
 
     if (!clasesRes.error && Array.isArray(clasesRes.data)) {
@@ -53,7 +54,7 @@ export default async function StudioRankingFuncionalPage({
         });
     }
     if (!prsRes.error && Array.isArray(prsRes.data)) {
-      prsIniciales = prsRes.data as RankingPR[];
+      prsIniciales = prsDeClasesDesdeVista(prsRes.data as PrView[], reservasDisponibles);
     }
   }
 

@@ -1034,6 +1034,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_prs": {
+                  Row: {
+                    "alumno_id": string,"ejercicio_id": string,"fecha": string,"peso_kg": number,"reps": number,"serie_id": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "registro_sesiones_alumno_id_fkey"
+      columns: ["alumno_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "registro_series_ejercicio_id_fkey"
+      columns: ["ejercicio_id"]
+isOneToOne: false
+      referencedRelation: "ejercicios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
