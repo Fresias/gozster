@@ -1,27 +1,29 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { PGlite, type Transaction } from "@electric-sql/pglite";
+import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
+import { aplicarMigracion, crearDbMigrada, listarMigraciones, MIGRATIONS_DIR, STUBS } from "./helpers/pglite-migrada";
 import { SINT_ALUMNOS } from "@/__tests__/helpers/datos-sinteticos";
-import { DEMO_ALUMNOS, DEMO_ALUMNOS_CLASES } from "@/services/coach-demo-dataset";
+import { DEMO_ALUMNOS } from "@/services/coach-demo-dataset";
 import { calcularRankingRelativo } from "@/store/use-ranking-store";
 import { crearHandler, type AltaAlumnoDeps } from "../../supabase/functions/alta-alumno-directa/handler";
 
 const NUEVA_MIGRACION = "20261103200000_perfiles_sexo_peso_camila_navarro.sql";
 
 const COACH_ID = "20685bca-6304-4e55-abba-37a1cf8f6113";
+const OTRO_COACH_ID = "20685bca-6304-4e55-abba-37a1cf8f6114";
 const ALUMNO_ID = "e8b1a08c-3430-4000-8000-000000000008"; // Camila Navarro
 
 let db: PGlite;
 
-function como(rol: "anon" | "authenticated" | "service_role", sub: string | null, sql: string) {
+function como<T = Record<string, unknown>>(rol: "anon" | "authenticated" | "service_role", sub: string | null, sql: string) {
   return db.transaction(async (tx: Transaction) => {
     await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
       JSON.stringify(sub ? { sub, role: rol } : { role: rol }),
     ]);
     await tx.query(`SET LOCAL ROLE ${rol}`);
-    return tx.query(sql);
+    return tx.query<T>(sql);
   });
 }
 
@@ -157,46 +159,57 @@ describe("GOZS-343: DB & Seeds - Sexo biológico y peso corporal en perfiles", (
     });
 
     it("rechaza peso corporal no plausible (<= 0 o > 500) con 400", async () => {
-      const deps = crearDepsMock();
-      const handler = crearHandler(deps, "https://test.local");
+      for (const pesoInvalido of [-10, 0, 500.01]) {
+        const deps = crearDepsMock();
+        const handler = crearHandler(deps, "https://test.local");
 
-      const req = new Request("https://test.local/alta-alumno-directa", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer coach-token",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: "alumno@test.com",
-          nombre_completo: "Alumno Test",
-          sexo: "M",
-          peso_corporal_kg: -10,
-        }),
-      });
+        const req = new Request("https://test.local/alta-alumno-directa", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer coach-token",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: "alumno@test.com",
+            nombre_completo: "Alumno Test",
+            sexo: "M",
+            peso_corporal_kg: pesoInvalido,
+          }),
+        });
 
-      const res = await handler(req);
-      expect(res.status).toBe(400);
-      const json = await res.json();
-      expect(json.error).toContain("peso corporal");
+        const res = await handler(req);
+        expect(res.status, `peso=${pesoInvalido}`).toBe(400);
+        const json = await res.json();
+        expect(json.error).toContain("peso corporal");
+      }
     });
   });
 
-  describe("3. Migración SQL PGlite e Idempotencia", () => {
+  describe("3. Migración SQL PGlite, RLS y Trigger handle_new_user", () => {
     beforeAll(async () => {
       db = await crearDbMigrada();
       await db.exec(`
-        INSERT INTO auth.users (id, email) VALUES ('${COACH_ID}', 'coach@gozster.local') ON CONFLICT DO NOTHING;
-        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
-        VALUES ('${COACH_ID}', 'coach@gozster.local', 'Coach Principal', 'ENTRENADOR', 'ACTIVA')
+        INSERT INTO auth.users (id, email) VALUES
+          ('${COACH_ID}', 'coach@gozster.local'),
+          ('${OTRO_COACH_ID}', 'otro.coach@gozster.local'),
+          ('${ALUMNO_ID}', 'camila.navarro@ficticio.ar')
         ON CONFLICT DO NOTHING;
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
+        VALUES
+          ('${COACH_ID}', 'coach@gozster.local', 'Coach Principal', 'ENTRENADOR', 'ACTIVA', NULL, NULL, NULL),
+          ('${OTRO_COACH_ID}', 'otro.coach@gozster.local', 'Otro Coach', 'ENTRENADOR', 'ACTIVA', NULL, NULL, NULL),
+          ('${ALUMNO_ID}', 'camila.navarro@ficticio.ar', 'Camila Navarro', 'ALUMNO', 'ACTIVA', '${COACH_ID}', 'F', 55.0)
+        ON CONFLICT (id) DO UPDATE SET
+          nombre_completo = EXCLUDED.nombre_completo,
+          rol = EXCLUDED.rol,
+          estado_membresia = EXCLUDED.estado_membresia,
+          profesor_asignado_id = EXCLUDED.profesor_asignado_id,
+          sexo = EXCLUDED.sexo,
+          peso_corporal_kg = EXCLUDED.peso_corporal_kg;
       `);
-
-      // Idempotencia: ejecutar la nueva migración una segunda vez
-      const migracionGozs343 = fs.readFileSync(path.join(MIGRATIONS_DIR, NUEVA_MIGRACION), "utf-8");
-      await aplicarMigracion(db, migracionGozs343);
     }, 60_000);
 
-    it("las columnas sexo y peso_corporal_kg existen en public.perfiles con restricciones activas", async () => {
+    it("las columnas sexo y peso_corporal_kg existen en public.perfiles con restricciones CHECK activas", async () => {
       const cols = await db.query<{ column_name: string; data_type: string }>(
         `SELECT column_name, data_type FROM information_schema.columns
          WHERE table_schema = 'public' AND table_name = 'perfiles'
@@ -206,67 +219,145 @@ describe("GOZS-343: DB & Seeds - Sexo biológico y peso corporal en perfiles", (
       expect(cols.rows).toHaveLength(2);
       expect(cols.rows.find((c) => c.column_name === "sexo")?.data_type).toBe("text");
       expect(cols.rows.find((c) => c.column_name === "peso_corporal_kg")?.data_type).toBe("numeric");
+
+      const checks = await db.query<{ conname: string; convalidated: boolean }>(
+        `SELECT conname, convalidated FROM pg_constraint
+         WHERE conrelid = 'public.perfiles'::regclass
+           AND contype = 'c'
+           AND conname IN ('chk_perfiles_sexo', 'chk_perfiles_peso_corporal_kg')
+         ORDER BY conname`
+      );
+      expect(checks.rows).toEqual([
+        { conname: "chk_perfiles_peso_corporal_kg", convalidated: true },
+        { conname: "chk_perfiles_sexo", convalidated: true },
+      ]);
     });
 
-    it("Camila Navarro figura en public.perfiles con sexo = 'F' y peso_corporal_kg = 55.0", async () => {
-      const res = await db.query<{ nombre_completo: string; sexo: string; peso_corporal_kg: string }>(
-        `SELECT nombre_completo, sexo, peso_corporal_kg FROM public.perfiles
-         WHERE lower(nombre_completo) = 'camila navarro'`
-      );
-      expect(res.rows.length).toBeGreaterThanOrEqual(1);
-      const camila = res.rows[0]!;
-      expect(camila.sexo).toBe("F");
-      expect(Number(camila.peso_corporal_kg)).toBe(55.0);
-    });
+    it("la migración 20261103200000 siembra a Camila Navarro (F, 55.0) cuando existe el coach y es idempotente", async () => {
+      // Aislado hasta NUEVA_MIGRACION para no resucitar RPCs podadas en db principal
+      const dbIdemp = await PGlite.create({ extensions: { pgcrypto } });
+      try {
+        await dbIdemp.exec(STUBS);
+        for (const archivo of listarMigraciones()) {
+          if (archivo >= NUEVA_MIGRACION) break;
+          await aplicarMigracion(dbIdemp, fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
+        }
+        await dbIdemp.exec(`
+          INSERT INTO auth.users (id, email) VALUES ('${COACH_ID}', 'coach@gozster.local') ON CONFLICT DO NOTHING;
+          INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
+          VALUES ('${COACH_ID}', 'coach@gozster.local', 'Coach Principal', 'ENTRENADOR', 'ACTIVA')
+          ON CONFLICT DO NOTHING;
+        `);
 
-    it("RPC actualizar_peso_sexo_alumno actualiza el perfil con validación de rango y sexo", async () => {
-      // Como service_role
-      const rpcOk = await como(
-        "service_role",
-        null,
-        `SELECT public.actualizar_peso_sexo_alumno('${ALUMNO_ID}'::uuid, 56.5, 'F') AS res`
-      );
-      const data = (rpcOk.rows[0] as any).res;
-      expect(data.ok).toBe(true);
-      expect(data.sexo).toBe("F");
-      expect(data.peso_corporal_kg).toBe(56.5);
+        const sqlNueva = fs.readFileSync(path.join(MIGRATIONS_DIR, NUEVA_MIGRACION), "utf-8");
+        await aplicarMigracion(dbIdemp, sqlNueva);
+        await expect(aplicarMigracion(dbIdemp, sqlNueva)).resolves.toBeUndefined();
 
-      const check = await db.query<{ peso_corporal_kg: string }>(
+        const res = await dbIdemp.query<{ nombre_completo: string; sexo: string; peso_corporal_kg: string }>(
+          `SELECT nombre_completo, sexo, peso_corporal_kg FROM public.perfiles
+           WHERE lower(nombre_completo) = 'camila navarro'`
+        );
+        expect(res.rows.length).toBeGreaterThanOrEqual(1);
+        expect(res.rows[0]!.sexo).toBe("F");
+        expect(Number(res.rows[0]!.peso_corporal_kg)).toBe(55.0);
+      } finally {
+        await dbIdemp.close();
+      }
+    }, 60_000);
+
+    it("UPDATE directo en public.perfiles actualiza sexo y peso_corporal_kg para alumno y entrenador asignado y bloquea a terceros", async () => {
+      // Verificar que las RPCs legadas podadas en S-2 no están presentes en el esquema actual
+      for (const sig of [
+        "public.actualizar_peso_sexo_alumno(uuid, numeric, text)",
+        "public.actualizar_perfil_alumno(uuid, numeric, text)",
+      ]) {
+        const fn = await db.query<{ oid: string | null }>(`SELECT to_regprocedure($1)::text AS oid`, [sig]);
+        expect(fn.rows[0]?.oid, sig).toBeNull();
+      }
+
+      // Alumno actualiza su propio perfil (onboarding / inicio)
+      await como(
+        "authenticated",
+        ALUMNO_ID,
+        `UPDATE public.perfiles SET peso_corporal_kg = 56.5, sexo = 'F' WHERE id = '${ALUMNO_ID}'`
+      );
+      const trasAlumno = await db.query<{ sexo: string; peso_corporal_kg: string }>(
+        `SELECT sexo, peso_corporal_kg FROM public.perfiles WHERE id = '${ALUMNO_ID}'`
+      );
+      expect(trasAlumno.rows[0]!.sexo).toBe("F");
+      expect(Number(trasAlumno.rows[0]!.peso_corporal_kg)).toBe(56.5);
+
+      // Entrenador asignado actualiza al alumno
+      await como(
+        "authenticated",
+        COACH_ID,
+        `UPDATE public.perfiles SET peso_corporal_kg = 57.0, sexo = 'F' WHERE id = '${ALUMNO_ID}'`
+      );
+      const trasCoach = await db.query<{ peso_corporal_kg: string }>(
         `SELECT peso_corporal_kg FROM public.perfiles WHERE id = '${ALUMNO_ID}'`
       );
-      expect(Number(check.rows[0]?.peso_corporal_kg)).toBe(56.5);
+      expect(Number(trasCoach.rows[0]!.peso_corporal_kg)).toBe(57.0);
+
+      // Entrenador ajeno no puede modificar el perfil (RLS bloquea el UPDATE)
+      await como(
+        "authenticated",
+        OTRO_COACH_ID,
+        `UPDATE public.perfiles SET peso_corporal_kg = 99.0 WHERE id = '${ALUMNO_ID}'`
+      );
+      const trasAjeno = await db.query<{ peso_corporal_kg: string }>(
+        `SELECT peso_corporal_kg FROM public.perfiles WHERE id = '${ALUMNO_ID}'`
+      );
+      expect(Number(trasAjeno.rows[0]!.peso_corporal_kg)).toBe(57.0);
     });
 
-    it("RPC actualizar_peso_sexo_alumno rechaza sexo inválido o peso fuera de rango", async () => {
-      const rpcInvalido = await como(
-        "service_role",
-        null,
-        `SELECT public.actualizar_peso_sexo_alumno('${ALUMNO_ID}'::uuid, -10, 'F') AS res`
-      );
-      expect((rpcInvalido.rows[0] as any).res.ok).toBe(false);
+    it("restricciones CHECK en public.perfiles rechazan sexo inválido o peso fuera de rango (<= 0 o > 500)", async () => {
+      for (const pesoInvalido of [-10, 0, 500.01]) {
+        await expect(
+          como(
+            "authenticated",
+            ALUMNO_ID,
+            `UPDATE public.perfiles SET peso_corporal_kg = ${pesoInvalido} WHERE id = '${ALUMNO_ID}'`
+          )
+        ).rejects.toMatchObject({ code: "23514" });
+      }
 
-      const rpcSexoInvalido = await como(
-        "service_role",
-        null,
-        `SELECT public.actualizar_peso_sexo_alumno('${ALUMNO_ID}'::uuid, 60, 'X') AS res`
+      await expect(
+        como("authenticated", ALUMNO_ID, `UPDATE public.perfiles SET sexo = 'X' WHERE id = '${ALUMNO_ID}'`)
+      ).rejects.toMatchObject({ code: "23514" });
+
+      const check = await db.query<{ sexo: string; peso_corporal_kg: string }>(
+        `SELECT sexo, peso_corporal_kg FROM public.perfiles WHERE id = '${ALUMNO_ID}'`
       );
-      expect((rpcSexoInvalido.rows[0] as any).res.ok).toBe(false);
+      expect(check.rows[0]!.sexo).toBe("F");
+      expect(Number(check.rows[0]!.peso_corporal_kg)).toBe(57.0);
     });
 
-    it("trigger handle_new_user() persiste sexo y peso_corporal_kg desde raw_user_meta_data", async () => {
+    it("trigger handle_new_user() actual persiste sexo y peso_corporal_kg desde raw_user_meta_data y sanitiza valores inválidos", async () => {
       const nuevoUserId = "33333333-3333-4333-8333-333333333333";
       await db.exec(`
         INSERT INTO auth.users (id, email, raw_user_meta_data)
-        VALUES ('${nuevoUserId}', 'nuevo.alumno@test.local', '{"nombre_completo":"Nuevo Alumno","sexo":"M","peso_corporal_kg":84.5}'::jsonb);
+        VALUES ('${nuevoUserId}', 'nuevo.alumno@test.local', '{"nombre_completo":"Nuevo Alumno","sexo":"M","peso_corporal_kg":84.5,"rol":"ADMIN"}'::jsonb);
       `);
 
-      const perfil = await db.query<{ nombre_completo: string; sexo: string; peso_corporal_kg: string }>(
-        `SELECT nombre_completo, sexo, peso_corporal_kg FROM public.perfiles WHERE id = '${nuevoUserId}'`
+      const perfil = await db.query<{ nombre_completo: string; sexo: string; peso_corporal_kg: string; rol: string }>(
+        `SELECT nombre_completo, sexo, peso_corporal_kg, rol FROM public.perfiles WHERE id = '${nuevoUserId}'`
       );
       expect(perfil.rows).toHaveLength(1);
       expect(perfil.rows[0]!.nombre_completo).toBe("Nuevo Alumno");
       expect(perfil.rows[0]!.sexo).toBe("M");
       expect(Number(perfil.rows[0]!.peso_corporal_kg)).toBe(84.5);
+      // Confirmar que corre el handle_new_user() actual (ignora rol en raw_user_meta_data)
+      expect(perfil.rows[0]!.rol).toBe("ALUMNO");
+
+      const invalidoUserId = "44444444-4444-4444-8444-444444444444";
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_user_meta_data)
+        VALUES ('${invalidoUserId}', 'invalido.alumno@test.local', '{"nombre_completo":"Invalido","sexo":"X","peso_corporal_kg":-5}'::jsonb);
+      `);
+      const perfilInv = await db.query<{ sexo: string | null; peso_corporal_kg: string | null }>(
+        `SELECT sexo, peso_corporal_kg FROM public.perfiles WHERE id = '${invalidoUserId}'`
+      );
+      expect(perfilInv.rows).toEqual([{ sexo: null, peso_corporal_kg: null }]);
     });
   });
 });
