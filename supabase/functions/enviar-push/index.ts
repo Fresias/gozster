@@ -1,7 +1,7 @@
 // ============================================================================
 // GOZSter Edge Function: enviar-push (GOZS-714, PL-1)
 // Procesa push_cola y envía Web Push con push_suscripciones. La invoca pg_cron
-// cada minuto (ver migración 20261123010000).
+// cada minuto (ver migración 20261123040000).
 //
 // POST (sin cuerpo) · Authorization: Bearer <service_role key>
 // 200 { procesados, enviados, sinSuscripcion, expiradas, fallidos } | 401
