@@ -10,6 +10,7 @@ const ADMIN = "00000000-0000-0000-0000-0000000000ad";
 const A1 = "00000000-0000-0000-0000-0000000000a1";
 const A2 = "00000000-0000-0000-0000-0000000000a2";
 const C1 = "00000000-0000-0000-0000-0000000000c1";
+const C2_APOYO = "00000000-0000-0000-0000-0000000758c2";
 
 const EJERCICIO_1 = "11111111-1111-4111-8111-111111111101";
 const PLANTILLA_ID = "22222222-2222-4222-8222-222222222201";
@@ -864,6 +865,59 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [CLASE_ID, C1],
       );
       expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(2);
+    });
+  });
+
+  describe("5. Entrenador de apoyo sin acceso financiero (GOZS-758)", () => {
+    beforeAll(async () => {
+      // La sección 4 re-aplica migraciones previas: se re-aplica la vigente (idempotente).
+      await aplicarMigracion(
+        db,
+        fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123160000_entrenador_apoyo_acceso_financiero.sql"), "utf-8"),
+      );
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', '{"rol":"ENTRENADOR"}');
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', 'Coach Apoyo', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+        UPDATE public.perfiles SET profesor_apoyo_id = '${C2_APOYO}', apoyo_acceso_financiero = false
+        WHERE id = '${A1}';
+      `);
+    });
+
+    it("apoyo ve el entrenamiento del alumno pero 0 filas financieras", async () => {
+      expect(await contarComo("authenticated", C2_APOYO, "registro_sesiones", `alumno_id = '${A1}'`)).toBeGreaterThan(0);
+      for (const tabla of ["contrataciones", "cobros", "pagos", "v_estado_alumno"]) {
+        expect(await contarComo("authenticated", C2_APOYO, tabla, `alumno_id = '${A1}'`)).toBe(0);
+      }
+    });
+
+    it("apoyo no puede ejecutar RPCs financieras (42501)", async () => {
+      const ataques: Array<[string, unknown[]]> = [
+        [`SELECT public.renovar_contratacion($1, 35000, 'EFECTIVO', 'atk-ren')`, [CONTR_A1_ID]],
+        [`SELECT public.extender_contratacion_excepcional($1, CURRENT_DATE + 90, 'atk')`, [CONTR_A1_ID]],
+        [`SELECT public.registrar_pago($1, 1, 'EFECTIVO', 'atk-pago')`, [COBRO_A1_ID]],
+        [`SELECT public.registrar_y_confirmar_renovacion($1, 1, 'EFECTIVO', 'atk-conf')`, [CONTR_A1_ID]],
+        [`SELECT * FROM public.asignar_suscripcion_y_cobro($1, $2, NULL, 1)`, [A1, MEMBRESIA_ID]],
+      ];
+      for (const [sql, params] of ataques) {
+        await expect(como("authenticated", C2_APOYO, sql, params)).rejects.toMatchObject({ code: "42501" });
+      }
+    });
+
+    it("apoyo no puede autoconcederse acceso financiero ni reasignarse (42501)", async () => {
+      for (const set of [
+        "apoyo_acceso_financiero = true",
+        `profesor_asignado_id = '${C2_APOYO}', profesor_apoyo_id = NULL`,
+        "profesor_apoyo_id = NULL",
+        "estado_membresia = 'VENCIDA'",
+      ]) {
+        await expect(
+          como("authenticated", C2_APOYO, `UPDATE public.perfiles SET ${set} WHERE id = $1`, [A1]),
+        ).rejects.toMatchObject({ code: "42501" });
+      }
+      expect((await obtenerPerfil(A1))?.profesor_asignado_id).toBe(C1);
     });
   });
 });
