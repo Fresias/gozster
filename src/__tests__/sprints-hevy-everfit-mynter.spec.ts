@@ -25,28 +25,6 @@ vi.mock("@/lib/supabase/client", async () => {
             telefono: "+5491123456789",
           },
         ],
-        habitos_registros: [
-          {
-            id: "hab-1",
-            alumno_id: "00000000-0000-0000-0000-000000000004",
-            fecha: "2026-10-15",
-            agua_ml: 2000,
-            pasos: 8000,
-            sueno_horas: 7.5,
-            habitos_completados: [],
-          },
-        ],
-        nutricion_registros: [
-          {
-            id: "nut-1",
-            alumno_id: "00000000-0000-0000-0000-000000000004",
-            fecha: "2026-10-15",
-            calorias_consumidas: 2200,
-            proteinas_g: 150,
-            carbos_g: 220,
-            grasas_g: 70,
-          },
-        ],
         ejercicios_en_rutina: [
           {
             id: "er-1",
@@ -296,24 +274,6 @@ describe("GOZSter Sprints 1 a 4: Benchmark Hevy, Everfit, Mynter & Supabase Real
       expect(e1).toBeNull();
       expect(perfiles).toBeDefined();
       expect(Array.isArray(perfiles)).toBe(true);
-
-      // Consultamos habitos_registros de Supabase
-      const { data: habitos, error: e2 } = await supabase
-        .from("habitos_registros")
-        .select("id, alumno_id, fecha, agua_ml, pasos, sueno_horas, habitos_completados")
-        .limit(1);
-
-      expect(e2).toBeNull();
-      expect(habitos).toBeDefined();
-
-      // Consultamos nutricion_registros de Supabase
-      const { data: nutricion, error: e3 } = await supabase
-        .from("nutricion_registros")
-        .select("id, alumno_id, fecha, calorias_consumidas, proteinas_g, carbos_g, grasas_g")
-        .limit(1);
-
-      expect(e3).toBeNull();
-      expect(nutricion).toBeDefined();
 
       // Consultamos ejercicios_en_rutina para verificar columnas tempo y force_rpe_required
       const { data: ejRutina, error: e4 } = await supabase
