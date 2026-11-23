@@ -1223,29 +1223,6 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"extender_vigencia_plan":
-{ Args: { "p_dias_adicionales": number,"p_plan_id": string }; Returns: {
-              "alumno_id": string | null,
-"comentarios": string | null,
-"created_at": string,
-"estado": Database["public"]['Enums']["estado_plan"],
-"etiqueta": string | null,
-"fecha_fin": string | null,
-"fecha_inicio": string,
-"id": string,
-"nombre": string,
-"plan_origen_id": string | null,
-"profesor_id": string | null,
-"tags": (string)[],
-"tipo": string,
-"updated_at": string
-            }
-                          SetofOptions: {
-        from: "*"
-        to: "planes_entrenamiento"
-        isOneToOne: true
-        isSetofReturn: false
-      } },
 "feriados_en_rango":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "created_at": string,

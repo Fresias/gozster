@@ -22,7 +22,6 @@ const FUNCIONES_PODADAS = [
 
 const FUNCIONES_CONSERVADAS = [
   "public.clonar_plan_entrenamiento(uuid, text)",
-  "public.extender_vigencia_plan(uuid, integer)",
   "public.transferir_conversacion_gozs(uuid, uuid, text)",
   "public.evaluar_vencimientos_contrataciones()",
   "public.registrar_y_confirmar_renovacion(uuid, numeric, text, text)",
