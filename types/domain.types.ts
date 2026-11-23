@@ -478,6 +478,7 @@ export type ClaseFija = Tables<"clases_fijas">;
 export type RankingPR = Tables<"ranking_prs">;
 export type RankingPRInsert = TablesInsert<"ranking_prs">;
 export type RankingPRUpdate = TablesUpdate<"ranking_prs">;
+export type PrView = Database["public"]["Views"]["v_prs"]["Row"];
 export type LogroRacha = Tables<"logros_racha">;
 export type LogroRachaInsert = TablesInsert<"logros_racha">;
 export type LogroRachaUpdate = TablesUpdate<"logros_racha">;
