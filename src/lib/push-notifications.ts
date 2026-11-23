@@ -28,6 +28,12 @@ function getStorage(): Storage | null {
   return null;
 }
 
+/** Clave pública VAPID (base64url) -> bytes para pushManager.subscribe. */
+export function urlBase64ToBytes(base64Url: string): Uint8Array {
+  const base64 = (base64Url + "=".repeat((4 - (base64Url.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
 export function isPushSupported(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -125,24 +131,22 @@ export async function subscribeToPush(
 
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      // Intentar suscripción nativa; si no hay applicationServerKey en entorno demo, generar credenciales seguras
-      try {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          // Llave demo fallback si no está configurada la VAPID del entorno
-          applicationServerKey: new Uint8Array([4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-        });
-      } catch {
-        // En ambientes sin backend VAPID activo, persistir identificador resiliente
-      }
+      const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        ...(vapid ? { applicationServerKey: urlBase64ToBytes(vapid) as BufferSource } : {}),
+      });
     }
 
-    const subJson = sub?.toJSON();
+    const subJson = sub.toJSON();
+    if (!subJson.endpoint || !subJson.keys?.p256dh || !subJson.keys?.auth) {
+      return { success: false, error: "El navegador no devolvió una suscripción push válida." };
+    }
     const subInfo: PushSubscriptionInfo = {
       usuario_id: usuarioId,
-      endpoint: subJson?.endpoint || `https://push.gozster.app/sub/${usuarioId}`,
-      p256dh: subJson?.keys?.p256dh || `p256dh-token-${usuarioId.slice(0, 8)}`,
-      auth: subJson?.keys?.auth || `auth-secret-${usuarioId.slice(0, 8)}`,
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth,
       created_at: new Date().toISOString(),
     };
 
