@@ -559,6 +559,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"planes_compartidos": {
+                  Row: {
+                    "compartido_por": string,"created_at": string,"id": string,"plan_id": string,"profesor_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "compartido_por": string,"created_at"?: string,"id"?: string,"plan_id": string,"profesor_id": string
+                  }
+                  Update: {
+                    "compartido_por"?: string,"created_at"?: string,"id"?: string,"plan_id"?: string,"profesor_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "planes_compartidos_compartido_por_fkey"
+      columns: ["compartido_por"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "planes_compartidos_plan_id_fkey"
+      columns: ["plan_id"]
+isOneToOne: false
+      referencedRelation: "planes_entrenamiento"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "planes_compartidos_profesor_id_fkey"
+      columns: ["profesor_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"planes_entrenamiento": {
                   Row: {
                     "alumno_id": string | null,"comentarios": string | null,"created_at": string,"estado": Database["public"]['Enums']["estado_plan"],"etiqueta": string | null,"fecha_fin": string | null,"fecha_inicio": string,"id": string,"nombre": string,"plan_origen_id": string | null,"profesor_id": string | null,"tags": (string)[],"tipo": string,"updated_at": string
@@ -1173,6 +1205,9 @@ isOneToOne: false
 { Args: { "p_alumno_id": string,"p_ejercicio_id"?: string }; Returns: {
               "ejercicio_id": string,"mejor_1rm_brzycki": number,"mejor_1rm_epley": number,"peso_max_kg": number
             }[]
+                           },
+"plan_compartido_conmigo":
+{ Args: { "p_plan_id": string }; Returns: boolean
                            },
 "precio_vigente":
 { Args: { "p_fecha": string,"p_plan_id": string }; Returns: number
