@@ -20,6 +20,11 @@ export interface PushStatus {
   subscription: PushSubscriptionInfo | null;
 }
 
+/** Push apagado en el lanzamiento; se reactiva con NEXT_PUBLIC_ENABLE_PUSH="true" (PL-1). */
+export function pushHabilitado(): boolean {
+  return process.env.NEXT_PUBLIC_ENABLE_PUSH === "true";
+}
+
 const STORAGE_KEY_PREFIX = "gozs_push_sub_";
 
 function getStorage(): Storage | null {
