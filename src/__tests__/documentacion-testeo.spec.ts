@@ -48,6 +48,6 @@ describe("GOZS-142: Documentación", () => {
     const e = calcularEjemplosDocumentacion();
     expect(e.ciclo.proximoVencimiento).toBe("2026-11-10");
     expect(e.estados).toEqual({ vigente: "VIGENTE", porVencer: "POR_VENCER", vencida: "VENCIDA" });
-    expect(e.actividad).toMatchObject({ celesteSinEntrenar: false, facundoSinEntrenar: true, nuevo: true, noNuevo: false });
+    expect(e.actividad).toMatchObject({ ceciliaSinEntrenar: false, facundoSinEntrenar: true, nuevo: true, noNuevo: false });
   });
 });

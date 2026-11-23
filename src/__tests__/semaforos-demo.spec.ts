@@ -36,9 +36,9 @@ describe("Sprint Demo INDEC: Semáforos M3 (Issue #47 / GOZS-29)", () => {
       expect(amarillos.length).toBeGreaterThanOrEqual(2);
       expect(rojos.length).toBeGreaterThanOrEqual(2);
 
-      // Lucas, Celeste, Mateo, Camila, Esteban -> VERDE
+      // Lucas, Cecilia, Mateo, Camila, Ezequiel -> VERDE
       expect(verdes.some((r) => r.nombre.includes("Lucas"))).toBe(true);
-      expect(verdes.some((r) => r.nombre.includes("Celeste"))).toBe(true);
+      expect(verdes.some((r) => r.nombre.includes("Cecilia"))).toBe(true);
 
       // Facundo (2d), Valentina (1d), Martina (0d) -> AMARILLO
       expect(amarillos.some((r) => r.nombre.includes("Facundo"))).toBe(true);
@@ -99,18 +99,18 @@ describe("Sprint Demo INDEC: Semáforos M3 (Issue #47 / GOZS-29)", () => {
       expect(rojos.some((r) => r.nombre.includes("Sofía"))).toBe(true);
       expect(rojos.some((r) => r.nombre.includes("Bautista"))).toBe(true);
 
-      // Lucas (1d), Celeste (0d), Mateo (0d) -> VERDE
+      // Lucas (1d), Cecilia (0d), Mateo (0d) -> VERDE
       expect(verdes.some((r) => r.nombre.includes("Lucas"))).toBe(true);
-      expect(verdes.some((r) => r.nombre.includes("Celeste"))).toBe(true);
+      expect(verdes.some((r) => r.nombre.includes("Cecilia"))).toBe(true);
     });
 
     it("cubre todos los rangos del Score Salud [SH] (Verde >=80, Amarillo 60-79, Rojo <60)", () => {
       const scores = [
         { nombre: "Mateo Rossi", score: 96 },
-        { nombre: "Esteban Papic", score: 91 },
+        { nombre: "Ezequiel Paredes", score: 91 },
         { nombre: "Lucas Giménez", score: 88 },
         { nombre: "Valentina Quiroga", score: 82 },
-        { nombre: "Celeste Gerardi", score: 76 },
+        { nombre: "Cecilia Godoy", score: 76 },
         { nombre: "Camila Navarro", score: 71 },
         { nombre: "Facundo Medina", score: 64 },
         { nombre: "Martina Gómez", score: 58 },
@@ -140,11 +140,11 @@ describe("Sprint Demo INDEC: Semáforos M3 (Issue #47 / GOZS-29)", () => {
       expect(martinaAlerts.some((a) => a.type === "pain" && a.zona === "Rodilla")).toBe(true);
       expect(martinaAlerts.some((a) => a.type === "pr" && a.label.includes("PR Prensa"))).toBe(true);
 
-      // Celeste Gerardi: dolor articular puro
-      const celesteAlerts = getDemoAlumnoAlerts("Celeste Gerardi");
-      expect(celesteAlerts.length).toBe(1);
-      expect(celesteAlerts[0]?.type).toBe("pain");
-      expect(celesteAlerts[0]?.zona).toBe("Rodilla");
+      // Cecilia Godoy: dolor articular puro
+      const ceciliaAlerts = getDemoAlumnoAlerts("Cecilia Godoy");
+      expect(ceciliaAlerts.length).toBe(1);
+      expect(ceciliaAlerts[0]?.type).toBe("pain");
+      expect(ceciliaAlerts[0]?.zona).toBe("Rodilla");
 
       // Facundo Medina: dolor lumbar
       const facundoAlerts = getDemoAlumnoAlerts("Facundo Medina");
@@ -166,7 +166,7 @@ describe("Sprint Demo INDEC: Semáforos M3 (Issue #47 / GOZS-29)", () => {
       expect(valentinaAlerts[0]?.type).toBe("pr");
 
       // Atletas sin alertas
-      expect(getDemoAlumnoAlerts("Esteban Papic").length).toBe(0);
+      expect(getDemoAlumnoAlerts("Ezequiel Paredes").length).toBe(0);
       expect(getDemoAlumnoAlerts("Sofía Albarracín").length).toBe(0);
       expect(getDemoAlumnoAlerts("Bautista Benítez").length).toBe(0);
     });

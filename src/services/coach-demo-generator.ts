@@ -93,7 +93,7 @@ interface FilaAlumno {
 }
 
 // 26 alumnos nuevos: 4 altas, 2 bajas, 6 sin entrenar (3 ausencias + 3 abandonos), 6 vencidos, 4 pagan tarde.
-// Los nombres evitan las claves de getDemoAlumnoAlerts (lucas, celeste, facundo, mateo, valentina, camila, martina).
+// Los nombres evitan las claves de getDemoAlumnoAlerts (lucas, cecilia, facundo, mateo, valentina, camila, martina).
 const FILAS: FilaAlumno[] = [
   { nombre: "Julieta Sosa", arquetipo: "CONSTANTE", altaHace: 0 },
   { nombre: "Ignacio Duarte", arquetipo: "CONSTANTE", altaHace: 1 },
