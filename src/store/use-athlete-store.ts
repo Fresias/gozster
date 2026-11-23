@@ -7,6 +7,7 @@ import { parseDefaultReps, sortExercisesWithWarmupFirst } from "@/lib/routine-he
 import { playRestTimerAlert, triggerHapticVibration } from "@/lib/sound";
 import { useOfflineQueueStore } from "./use-offline-queue";
 import { supabase } from "@/lib/supabase/client";
+import { crearBackoff } from "@/lib/sync-backoff";
 import {
   fetchPlanAlumno,
   fetchSesionesRecientesAlumno,
@@ -619,6 +620,14 @@ async function enviarMolestiaRpc(
 
 let activeSyncSessionPromise: Promise<{ success: boolean; error?: string }> | null = null;
 let activeFlushMolestiasPromise: Promise<void> | null = null;
+// GOZS-695: una molestia que falla de forma transitoria se reintenta con backoff;
+// al agotar los intentos el alumno ve el aviso y la molestia sigue guardada.
+const backoffMolestias = crearBackoff(
+  () => void useAthleteStore.getState().flushMolestiasPendientes(),
+  () => useAthleteStore.setState({ molestiaEnvioError: MOLESTIA_ENVIO_ERROR_MSG }),
+);
+/** Corta el reintento pendiente y el contador (cambio de usuario / logout). */
+export const resetBackoffMolestias = () => backoffMolestias.reset();
 let activeSyncNombrePromise: Promise<boolean> | null = null;
 let activeSyncOnboardingPromise: Promise<boolean> | null = null;
 
@@ -1523,7 +1532,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const haySenal =
           useOfflineQueueStore.getState().isOnline &&
           (typeof navigator === "undefined" || navigator.onLine !== false);
-        if (!haySenal || !supabase) return;
+        if (!haySenal || !supabase) {
+          backoffMolestias.reset();
+          return;
+        }
 
         const run = async () => {
           const snapshot = get();
@@ -1534,8 +1546,12 @@ export const useAthleteStore = create<AthleteStoreState>()(
             (m) => m.envio === "pendiente",
           );
           const cola = [...pendientesFuera, ...pendientesEnSesion];
-          if (cola.length === 0) return;
+          if (cola.length === 0) {
+            backoffMolestias.reset();
+            return;
+          }
 
+          let quedoPendiente = false;
           for (const m of cola) {
             const actual = get();
             const diaId =
@@ -1569,6 +1585,7 @@ export const useAthleteStore = create<AthleteStoreState>()(
                     : {}),
                 }));
               }
+              quedoPendiente = true;
               break;
             }
 
@@ -1609,6 +1626,8 @@ export const useAthleteStore = create<AthleteStoreState>()(
               };
             });
           }
+          if (quedoPendiente) backoffMolestias.programar();
+          else backoffMolestias.reset();
         };
 
         activeFlushMolestiasPromise = run().finally(() => {
