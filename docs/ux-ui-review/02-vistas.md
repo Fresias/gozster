@@ -77,7 +77,7 @@ Jueves 5 de noviembre · 3 clases hoy, 5 alertas para revisar.
 │ $105.000 por…  ││ +4 altas, −2 bajas ││ Asignales una… ││ 3 con cuota al día   │
 └────────────────┘└────────────────────┘└────────────────┘└──────────────────────┘
 ┌ Para revisar hoy ───────── Ordenado por prioridad ┐┌ Clases de hoy ── Ver agenda ┐
-│ [Alto]  Celeste Gerardi  Dolor alto · Rodilla · EVA 7  Hoy 10:45 › ││ 17:00 Funcional   1/12 │
+│ [Alto]  Cecilia Godoy  Dolor alto · Rodilla · EVA 7  Hoy 10:45 › ││ 17:00 Funcional   1/12 │
 │ [Alto]  Martina Gómez …                               ││ 18:00 Funcional [Ahora] │
 │ [Medio] Lucas Giménez  Dolor moderado · Hombro · EVA 5 ││ 19:30 Boxeo      0/10 │
 │ [Cuota] Tomás Ledesma  Cuota vencida hace 9 días       ││ (JP)(AM)(RH) 7 sin entrenar… Escribirles │
