@@ -1569,13 +1569,18 @@ export function CoachStudioView({
                           id: "ACTIVA",
                           testId: "chip-filtro-al-dia",
                           label: "Al día",
-                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
+                          // Con v_estado_alumno, mismo predicado que KPI, Cuota y filtro (GOZS-694).
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaAlDia).length
+                            : alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
                         },
                         {
                           id: "PENDIENTE",
                           testId: "chip-filtro-pago-pendiente",
                           label: "Pago pendiente",
-                          count: alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaVencida).length
+                            : alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
                         },
                         {
                           id: "NUEVOS",

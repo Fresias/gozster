@@ -258,13 +258,29 @@ export async function fetchLiveDatasetFromSupabase(
         ? ((planesMembresiaRes?.data as PlanMembresia[]) || [])
         : [],
       cobros: !cobrosRes?.error ? ((cobrosRes?.data as Cobro[]) || []) : [],
-      estadosAlumno: !estadosAlumnoRes?.error
-        ? ((estadosAlumnoRes?.data as EstadoAlumno[]) || [])
-        : undefined,
+      estadosAlumno:
+        !estadosAlumnoRes?.error && Array.isArray(estadosAlumnoRes?.data)
+          ? (estadosAlumnoRes.data as EstadoAlumno[])
+          : undefined,
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);
     return emptyDataset();
+  }
+}
+
+/**
+ * Relee v_estado_alumno (GOZS-694) tras una mutación de contrataciones o cobros.
+ * undefined si la lectura falla: quien llama conserva el estado previo.
+ */
+export async function fetchEstadosAlumno(
+  client: SupabaseClient<Database> = supabase,
+): Promise<EstadoAlumno[] | undefined> {
+  try {
+    const { data, error } = await client.from("v_estado_alumno").select(ESTADO_ALUMNO_DATASET_COLUMNS);
+    return !error && Array.isArray(data) ? (data as EstadoAlumno[]) : undefined;
+  } catch {
+    return undefined;
   }
 }
 

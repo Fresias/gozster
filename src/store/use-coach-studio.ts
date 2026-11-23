@@ -35,7 +35,7 @@ import {
 } from "@/lib/alumno-actividades";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
-import { fetchLiveDatasetFromSupabase, type EstadoAlumno } from "@/services/alumnos-service";
+import { fetchEstadosAlumno, fetchLiveDatasetFromSupabase, type EstadoAlumno } from "@/services/alumnos-service";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
 import {
@@ -745,6 +745,14 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         planId: plan?.id ?? (planId ?? undefined),
       });
 
+      // Fuente única de "al día" (GOZS-694): la nueva contratación cambia v_estado_alumno.
+      // No bloquea el retorno; si la lectura falla se conserva el estado previo.
+      if (rpcContratacionId) {
+        void fetchEstadosAlumno().then((estados) => {
+          if (estados) set({ estadosAlumno: estados });
+        });
+      }
+
       return nuevaContratacion;
     },
 
@@ -782,6 +790,8 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       // La cuota pagada del período vive en Cobros: se vuelve a leer de Supabase.
       const dataset = await fetchLiveDatasetFromSupabase();
       if (dataset) useCobrosStore.getState().hydrateFromLiveDataset(dataset);
+      // Si la vista no se pudo leer se conserva el estado previo (GOZS-694).
+      if (dataset?.estadosAlumno) set({ estadosAlumno: dataset.estadosAlumno });
 
       return actualizada;
     },
