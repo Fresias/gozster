@@ -7,7 +7,7 @@ import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pgli
 // GOZS-713 (PL-15): el job diario crea la cuota del período siguiente
 // (mes de fecha_fin, vence en fecha_fin) y convive con renovar_contratacion.
 
-const MIGRATION_FILE = "20261123030000_job_diario_generar_cuotas_mensuales.sql";
+const MIGRATION_FILE = "20261123050000_job_diario_generar_cuotas_mensuales.sql";
 const SQL = fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRATION_FILE), "utf-8");
 
 const COACH = "00000000-0000-0000-0000-0000000713c0";
@@ -92,7 +92,7 @@ describe("GOZS-713: generación automática de cuotas mensuales", () => {
   }, 120_000);
 
   it("la migración es posterior a las de main y PRs abiertos y no toca el schedule", () => {
-    expect(MIGRATION_FILE > "20261123020000").toBe(true);
+    expect(MIGRATION_FILE > "20261123040000").toBe(true);
     expect(SQL).not.toMatch(/cron\.schedule/);
   });
 
