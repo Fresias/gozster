@@ -31,7 +31,7 @@
 | Término de Dominio | Definición Estricta | Entidad / Tabla Técnica | Regla de Negocio Cerrada |
 | :--- | :--- | :--- | :--- |
 | **Identidad Equipo GOZS** | Presentación institucional unificada frente al alumno en la bandeja de mensajes. | `public.conversaciones` + `public.mensajes` | **Sin firma individual hacia el alumno ("Somos un equipo"):** el alumno ve siempre a **GOZS**. En base de datos y en el Coach Studio queda registrado el `remitente_id` real de cada mensaje. |
-| **Transferencia de Responsable** | Asignación o traspaso de una conversación a un profesor responsable dentro del Coach Studio. | `public.conversaciones.responsable_id` + `public.entrenador_alumnos` | Al transferir una conversación a un profesor, se lo vincula automáticamente en `entrenador_alumnos` para que RLS le habilite contexto completo (chat + rutina). |
+| **Transferencia de Responsable** | Asignación o traspaso de una conversación a un profesor responsable dentro del Coach Studio. | `public.conversaciones.responsable_id` + `public.perfiles.profesor_asignado_id` | Al transferir una conversación a un ENTRENADOR, pasa a ser el profesor asignado del alumno (vínculo único coach↔alumno), con contexto completo (chat + rutina). |
 
 ---
 

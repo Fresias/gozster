@@ -35,7 +35,6 @@ export const VERSION_SNAPSHOT = 1;
 export const TABLAS = [
   { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles" } },
   { nombre: "ejercicios", fks: { creado_por: "perfiles" } },
-  { nombre: "entrenador_alumnos", fks: { alumno_id: "perfiles", entrenador_id: "perfiles" } },
   {
     nombre: "planes_entrenamiento",
     fks: { alumno_id: "perfiles", plan_origen_id: "planes_entrenamiento", profesor_id: "perfiles" },

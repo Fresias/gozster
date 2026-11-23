@@ -87,7 +87,6 @@ export async function fetchLiveDatasetFromSupabase(
   try {
     let currentUserId: string | null = null;
     let currentUserRol: string | null = null;
-    let alumnosVinculadosIds: string[] = [];
 
     if (typeof client.auth?.getUser === "function") {
       const authRes = await client.auth.getUser();
@@ -103,18 +102,6 @@ export async function fetchLiveDatasetFromSupabase(
             ? await perfilPropioEq.maybeSingle()
             : null;
         currentUserRol = (perfilPropioRes?.data as { rol?: string } | null)?.rol ?? null;
-
-        if (currentUserRol === "ENTRENADOR") {
-          const eaQuery = client.from("entrenador_alumnos").select("alumno_id");
-          if (typeof (eaQuery as any).eq === "function") {
-            const eaRes = await (eaQuery as any).eq("entrenador_id", currentUserId);
-            if (!eaRes?.error && Array.isArray(eaRes?.data)) {
-              alumnosVinculadosIds = eaRes.data
-                .map((row: { alumno_id?: string }) => row.alumno_id)
-                .filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
-            }
-          }
-        }
       }
     }
 
@@ -126,11 +113,7 @@ export async function fetchLiveDatasetFromSupabase(
         .eq("id", currentUserId)
         .order("nombre_completo", { ascending: true });
     } else if (currentUserRol === "ENTRENADOR" && currentUserId) {
-      if (alumnosVinculadosIds.length > 0 && typeof (perfilesQuery as any).or === "function") {
-        alumnosRes = await (perfilesQuery as any)
-          .or(`profesor_asignado_id.eq.${currentUserId},id.in.(${alumnosVinculadosIds.join(",")})`)
-          .order("nombre_completo", { ascending: true });
-      } else if (typeof (perfilesQuery as any).eq === "function") {
+      if (typeof (perfilesQuery as any).eq === "function") {
         alumnosRes = await (perfilesQuery as any)
           .eq("profesor_asignado_id", currentUserId)
           .order("nombre_completo", { ascending: true });
