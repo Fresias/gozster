@@ -70,15 +70,15 @@ describe("GOZS-345: Rutinas 2x1 a Pantalla Completa, Simulador Atleta y Recordat
 
   describe("2. Modo Previsualización / Impersonación de Atleta para Coach", () => {
     it("renderiza el simulador móvil con banner de modo entrenador para un alumno", () => {
-      const miguel = SINT_ALUMNOS.find((a) =>
+      const alumnoSintetico = SINT_ALUMNOS.find((a) =>
         a.nombre_completo.includes("Sintetico 1"),
       )!;
 
       const html = renderToStaticMarkup(
         createElement(AthletePreviewModal, {
           isOpen: true,
-          alumnoId: miguel.id,
-          alumnoNombre: miguel.nombre_completo,
+          alumnoId: alumnoSintetico.id,
+          alumnoNombre: alumnoSintetico.nombre_completo,
           onClose: () => {},
           dataset: mockDataset,
         }),

@@ -28,7 +28,7 @@ export function AthletePreviewModal({
   dataset,
   onSelectAlumno,
 }: AthletePreviewModalProps) {
-  // Encontrar alumno por id o por nombre aproximado (ej: "Miguel")
+  // Encontrar alumno por id o por nombre aproximado (ej: "Alumno")
   const alumno: Perfil | undefined = React.useMemo(() => {
     if (alumnoId) {
       const found = dataset.alumnos.find((a) => a.id === alumnoId);
@@ -197,7 +197,7 @@ export function AthletePreviewModal({
             {/* Saludo al alumno */}
             <div className="pt-1">
               <p className="text-xs font-semibold text-muted-foreground">
-                Hola, {alumno?.nombre_completo?.split(" ")[0] ?? "Miguel"}
+                Hola, {nombreMostrado.split(" ")[0]}
               </p>
               <h2 className="text-xl font-black text-foreground mt-0.5">
                 {plan?.nombre ?? "Rutina de Entrenamiento"}
