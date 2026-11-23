@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json } from "@/types/database.types";
-import type { AuditoriaCambio } from "@/types/domain.types";
+import type { AuditoriaCambio, Database, Json } from "@/types/database.types";
 
 /**
  * Lectura de `public.auditoria_cambios` (GOZS-723 / PL-11).

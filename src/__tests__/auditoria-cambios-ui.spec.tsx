@@ -84,10 +84,9 @@ describe("Historial de cambios en Coach Studio (GOZS-723)", () => {
   });
 
   it("resumirCambio acota valores largos y tolera JSON no objeto", () => {
-    const [campo] = resumirCambio({ nota: "x".repeat(200) }, null);
-    expect(campo.campo).toBe("nota");
-    expect(campo.antes.length).toBe(60);
-    expect(campo.despues).toBe("—");
+    expect(resumirCambio({ nota: "x".repeat(200) }, null)).toEqual([
+      { campo: "nota", antes: `${"x".repeat(59)}…`, despues: "—" },
+    ]);
     expect(resumirCambio(null, ["a"])).toEqual([]);
   });
 
@@ -102,7 +101,8 @@ describe("Historial de cambios en Coach Studio (GOZS-723)", () => {
     expect(llamadas).toContainEqual(["eq", ["accion", "EXTENSION_EXCEPCIONAL"]]);
     expect(llamadas).toContainEqual(["order", ["created_at", { ascending: false }]]);
     expect(llamadas).toContainEqual(["limit", [LIMITE_AUDITORIA]]);
-    expect(filas[0].autor_nombre).toBe("Profe Ana");
+    expect(filas).toHaveLength(1);
+    expect(filas[0]?.autor_nombre).toBe("Profe Ana");
     expect(filas[0]).not.toHaveProperty("autor");
   });
 
