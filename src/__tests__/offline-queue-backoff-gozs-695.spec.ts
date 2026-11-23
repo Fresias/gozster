@@ -3,6 +3,7 @@ import { useOfflineQueueStore, SYNC_REINTENTOS_AGOTADOS_MSG } from "@/store/use-
 import { MOLESTIA_ENVIO_ERROR_MSG, useAthleteStore } from "@/store/use-athlete-store";
 import { supabase } from "@/lib/supabase/client";
 import { SYNC_MAX_REINTENTOS, crearBackoff, delayBackoff } from "@/lib/sync-backoff";
+import { activarUsuarioStorage } from "@/lib/session-scope";
 
 // GOZS-695 · Cola offline sin pérdidas silenciosas: un fallo transitorio
 // (PGRST202 o red) se reintenta con backoff y nunca se descarta.
@@ -105,6 +106,80 @@ describe("GOZS-695 · cola de series", () => {
   });
 });
 
+describe("GOZS-695 · QA r1: concurrencia, señal y ciclo de vida de timers", () => {
+  let upsert: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useOfflineQueueStore.setState({ isOnline: true, pendingEvents: [], syncError: null });
+    vi.spyOn(supabase.auth, "getUser").mockResolvedValue({ data: { user: { id: ALUMNO } as any }, error: null });
+    upsert = vi.fn().mockResolvedValue({ data: null, error: PGRST202 });
+    vi.spyOn(supabase, "from").mockImplementation(() => ({ upsert }) as any);
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** Encola, falla una vez y deja un reintento programado. */
+  async function fallarYProgramar() {
+    useOfflineQueueStore.getState().enqueueEvent(setEvent("e1"));
+    await useOfflineQueueStore.getState().flushQueue();
+    expect(upsert).toHaveBeenCalledTimes(1);
+  }
+
+  it("flushQueue concurrente no envía dos veces el mismo evento", async () => {
+    upsert.mockResolvedValue({ data: null, error: null });
+    useOfflineQueueStore.getState().enqueueEvent(setEvent("e1"));
+    const { flushQueue } = useOfflineQueueStore.getState();
+    await Promise.all([flushQueue(), flushQueue(), flushQueue()]);
+    expect(upsert).toHaveBeenCalledTimes(2); // una sesión + una serie
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
+  });
+
+  it("al perder la señal se corta el reintento sin gastar intentos ni avisar", async () => {
+    await fallarYProgramar();
+    useOfflineQueueStore.getState().setOnlineStatus(false);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(useOfflineQueueStore.getState().syncError).toBeNull();
+    expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(1);
+
+    // Al volver la señal el contador arranca de cero: el primer reintento es a los 2s.
+    useOfflineQueueStore.getState().setOnlineStatus(true);
+    await useOfflineQueueStore.getState().flushQueue();
+    await avanzarIntento(0);
+    expect(upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it("si el timer vence sin señal en el navegador no envía", async () => {
+    await fallarYProgramar();
+    vi.stubGlobal("navigator", { onLine: false });
+    try {
+      await avanzarIntento(0);
+      expect(upsert).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("clearQueue corta el reintento pendiente", async () => {
+    await fallarYProgramar();
+    useOfflineQueueStore.getState().clearQueue();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(useOfflineQueueStore.getState().syncError).toBeNull();
+  });
+
+  it("cambiar de usuario corta los reintentos del anterior", async () => {
+    await fallarYProgramar();
+    await activarUsuarioStorage("00000000-0000-0000-0000-0000000000b2");
+    useOfflineQueueStore.setState({ isOnline: true });
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(useOfflineQueueStore.getState().syncError).toBeNull();
+  });
+});
+
 describe("GOZS-695 · reporte de molestia", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -147,6 +222,19 @@ describe("GOZS-695 · reporte de molestia", () => {
     expect(rpc.mock.calls[1]![1]).toMatchObject({ p_id: molestia.id });
     expect(useAthleteStore.getState().currentSession.molestias?.[0]?.envio).toBe("enviada");
     expect(useAthleteStore.getState().molestiaEnvioError).toBeNull();
+  });
+
+  it("sin señal se corta el reintento de la molestia y queda pendiente", async () => {
+    const rpc = vi
+      .spyOn(supabase, "rpc")
+      .mockResolvedValue({ data: null, error: { message: "Failed to fetch" } } as any);
+    await reportar();
+    useOfflineQueueStore.getState().setOnlineStatus(false);
+    await useAthleteStore.getState().flushMolestiasPendientes();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(useAthleteStore.getState().molestiaEnvioError).toBeNull();
+    expect(useAthleteStore.getState().currentSession.molestias?.[0]?.envio).toBe("pendiente");
   });
 
   it("un error de red repetido agota los reintentos, avisa y la molestia sigue guardada", async () => {

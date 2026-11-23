@@ -626,6 +626,8 @@ const backoffMolestias = crearBackoff(
   () => void useAthleteStore.getState().flushMolestiasPendientes(),
   () => useAthleteStore.setState({ molestiaEnvioError: MOLESTIA_ENVIO_ERROR_MSG }),
 );
+/** Corta el reintento pendiente y el contador (cambio de usuario / logout). */
+export const resetBackoffMolestias = () => backoffMolestias.reset();
 let activeSyncNombrePromise: Promise<boolean> | null = null;
 let activeSyncOnboardingPromise: Promise<boolean> | null = null;
 
@@ -1530,7 +1532,10 @@ export const useAthleteStore = create<AthleteStoreState>()(
         const haySenal =
           useOfflineQueueStore.getState().isOnline &&
           (typeof navigator === "undefined" || navigator.onLine !== false);
-        if (!haySenal || !supabase) return;
+        if (!haySenal || !supabase) {
+          backoffMolestias.reset();
+          return;
+        }
 
         const run = async () => {
           const snapshot = get();
