@@ -89,7 +89,7 @@ export function CoachStudioView({
   estancados = [],
   initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
-  userRole = "ADMIN",
+  userRole = null,
   initialEstado = null,
   openMenuAlumnoIdProp = null,
 }: {
@@ -104,7 +104,7 @@ export function CoachStudioView({
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
-  const coachFirstName = (coachName || "Martín").trim().split(" ")[0];
+  const coachFirstName = (coachName ?? "").trim().split(" ")[0];
 
   const fechaSaludo = React.useMemo(() => {
     try {
@@ -399,7 +399,7 @@ export function CoachStudioView({
 
   // Selector de período reactivo ('semana', 'mes', 'trimestre') y KPIs únicos (GOZS-379)
   const [tipoPeriodo, setTipoPeriodo] = React.useState<TipoRangoPeriodo>("mes");
-  const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ADMIN");
+  const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ENTRENADOR");
 
   React.useEffect(() => {
     if (userRole) {
@@ -412,21 +412,16 @@ export function CoachStudioView({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!active || !user) return;
-        const metaRol = (user.user_metadata as Record<string, unknown> | undefined)?.rol;
-        if (typeof metaRol === "string" && metaRol) {
-          setActiveRole(metaRol);
-        } else {
-          const { data: perfil } = await supabase
-            .from("perfiles")
-            .select("rol")
-            .eq("id", user.id)
-            .maybeSingle();
-          if (active && perfil?.rol) {
-            setActiveRole(perfil.rol);
-          }
+        const { data: perfil } = await supabase
+          .from("perfiles")
+          .select("rol")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (active && perfil?.rol) {
+          setActiveRole(perfil.rol);
         }
       } catch {
-        // Fallback a ADMIN
+        // Sin perfil: queda ENTRENADOR (sin privilegios de admin)
       }
     }
     detectRole();
@@ -438,11 +433,11 @@ export function CoachStudioView({
   const isLiveInicioKpis = isLiveInicio;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
     if (isLiveInicioKpis) {
-      return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ADMIN");
+      return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ENTRENADOR");
     }
     const rango = rangoPeriodo("mes");
     const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
-    if (!puedeVerMontos(userRole ?? "ADMIN")) {
+    if (!puedeVerMontos(userRole ?? "ENTRENADOR")) {
       return mapearRpcAKpis({ ...base, ingresos: null }, "oct.", userRole ?? "ENTRENADOR");
     }
     return base;
@@ -1366,7 +1361,7 @@ export function CoachStudioView({
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground m-0">
-                  Hola, {coachFirstName}
+                  {coachFirstName ? `Hola, ${coachFirstName}` : "Hola"}
                 </h1>
                 {isLoading ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">

@@ -122,6 +122,7 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
           cobros: [],
         }}
         initialAlumnosExpanded={true}
+        userRole="ADMIN"
       />,
     );
 
