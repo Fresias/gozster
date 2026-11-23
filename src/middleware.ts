@@ -44,11 +44,12 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request, "/athlete");
   }
 
-  // Primer login con contraseña temporal: bloquear cualquier área protegida hasta
-  // que elija su clave definitiva. Se lee del metadata del JWT (ya validado por getUser),
-  // sin consultas extra; `alta-alumno-directa` lo setea y el cambio de clave lo baja.
+  // Contraseña temporal (alta o reset del coach): bloquear cualquier área protegida hasta
+  // que elija su clave definitiva. Se lee de app_metadata (solo service_role la escribe;
+  // user_metadata la edita el propio usuario), sin consultas extra. Las Edge Functions
+  // `alta-alumno-directa` y `resetear-password-alumno` la setean; el cambio de clave la baja.
   if (user && (isStudio || isAthlete)) {
-    const metadata = user.user_metadata as Record<string, unknown> | undefined;
+    const metadata = user.app_metadata as Record<string, unknown> | undefined;
     if (metadata?.must_change_password === true) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";

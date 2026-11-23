@@ -15,12 +15,19 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
 import { cerrarSesionAlumno } from "@/lib/session-scope";
 
-/** Un alumno recién dado de alta debe cambiar su contraseña temporal en el primer login. */
+/**
+ * Clave temporal (alta directa o reset del coach): bloquear hasta que elija una definitiva.
+ * `app_metadata` es la fuente de verdad del middleware; `user_metadata` queda por compatibilidad.
+ */
 function debeCambiarPassword(
   perfilFlag: boolean | null | undefined,
-  metadata: Record<string, unknown> | undefined,
+  user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> },
 ): boolean {
-  return perfilFlag === true || metadata?.must_change_password === true;
+  return (
+    perfilFlag === true ||
+    user.app_metadata?.must_change_password === true ||
+    user.user_metadata?.must_change_password === true
+  );
 }
 
 function LoginForm() {
@@ -122,7 +129,7 @@ function LoginForm() {
         .maybeSingle();
 
       // Primer login: si la clave es temporal, bloquear hasta que elija una definitiva.
-      if (debeCambiarPassword(perfil?.debe_cambiar_password, data.user.user_metadata)) {
+      if (debeCambiarPassword(perfil?.debe_cambiar_password, data.user)) {
         setCambioObligatorio({ email: data.user.email ?? null });
         setLoading(false);
         return;
