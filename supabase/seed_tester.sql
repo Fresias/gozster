@@ -1,7 +1,7 @@
 -- GOZS-199 / GOZS-286: alumno tester (ALUMNO del coach de pruebas) con "GABI AGOSTO" asignada,
 -- rutina de 3 días + antebrazos (inactiva) y un alumno B de pruebas para el IDOR.
 -- Idempotente. Requiere que los usuarios ya existan en Auth (no se crean credenciales aquí).
--- Orden: seed_gozs.sql (trae el plan GABI AGOSTO) y luego este archivo.
+-- Orden: seed_gozs.sql (trae el plan cab4ad3d…, que este archivo renombra a GABI AGOSTO) y luego este archivo.
 -- Solo escribe filas del tester, del alumno B y del plan GABI AGOSTO; no toca otros alumnos.
 DO $$
 DECLARE

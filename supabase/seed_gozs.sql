@@ -1,5 +1,5 @@
 -- ============================================================================
--- GOZSter: Carga de Datos Semilla desde Backup Histórico (13 Alumnos Reales)
+-- GOZSter: Carga de Datos Semilla desde Backup Histórico (13 Alumnos Ficticios)
 -- Script SQL idempotente para PostgreSQL 15+ / Supabase
 -- ============================================================================
 
@@ -720,11 +720,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno1@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Celeste Gerardi","sexo":"F","peso_corporal_kg":58.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 01","sexo":"F","peso_corporal_kg":58.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'alumno1@gozster.local', 'Celeste Gerardi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 58.0)
+VALUES ('f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'alumno1@gozster.local', 'Alumno Ficticio 01', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 58.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -732,11 +732,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '299665bc-7349-4c9d-a937-fcd0bed437bf', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno2@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Esteban Papic","sexo":"M","peso_corporal_kg":80.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 02","sexo":"M","peso_corporal_kg":80.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('299665bc-7349-4c9d-a937-fcd0bed437bf', 'alumno2@gozster.local', 'Esteban Papic', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 80.0)
+VALUES ('299665bc-7349-4c9d-a937-fcd0bed437bf', 'alumno2@gozster.local', 'Alumno Ficticio 02', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 80.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -744,11 +744,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '0a7a4dfd-e040-4b92-ac29-9507cbb13215', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno3@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Gabriel Sanchez","sexo":"M","peso_corporal_kg":75.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 03","sexo":"M","peso_corporal_kg":75.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'alumno3@gozster.local', 'Gabriel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 75.0)
+VALUES ('0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'alumno3@gozster.local', 'Alumno Ficticio 03', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 75.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -756,11 +756,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '9015b7d8-7118-4912-aa01-0fb6e62848c6', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno4@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Michelle Roach","sexo":"F","peso_corporal_kg":60.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 04","sexo":"F","peso_corporal_kg":60.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('9015b7d8-7118-4912-aa01-0fb6e62848c6', 'alumno4@gozster.local', 'Michelle Roach', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 60.0)
+VALUES ('9015b7d8-7118-4912-aa01-0fb6e62848c6', 'alumno4@gozster.local', 'Alumno Ficticio 04', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 60.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -768,11 +768,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '41d387a0-04e0-4b33-a47b-2bda95f53019', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno5@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Oriana Bongiovanni","sexo":"F","peso_corporal_kg":57.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 05","sexo":"F","peso_corporal_kg":57.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('41d387a0-04e0-4b33-a47b-2bda95f53019', 'alumno5@gozster.local', 'Oriana Bongiovanni', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 57.0)
+VALUES ('41d387a0-04e0-4b33-a47b-2bda95f53019', 'alumno5@gozster.local', 'Alumno Ficticio 05', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 57.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -780,11 +780,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'b952505b-3695-4daf-acf5-7f99b7844666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno6@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Miguel Sanchez","sexo":"M","peso_corporal_kg":74.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 06","sexo":"M","peso_corporal_kg":74.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('b952505b-3695-4daf-acf5-7f99b7844666', 'alumno6@gozster.local', 'Miguel Sanchez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 74.0)
+VALUES ('b952505b-3695-4daf-acf5-7f99b7844666', 'alumno6@gozster.local', 'Alumno Ficticio 06', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 74.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -792,11 +792,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '8f7949b8-49df-4f85-a4ff-c314e631eb11', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno7@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Artero","sexo":"M","peso_corporal_kg":82.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 07","sexo":"M","peso_corporal_kg":82.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('8f7949b8-49df-4f85-a4ff-c314e631eb11', 'alumno7@gozster.local', 'Agustin Artero', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 82.0)
+VALUES ('8f7949b8-49df-4f85-a4ff-c314e631eb11', 'alumno7@gozster.local', 'Alumno Ficticio 07', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 82.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -804,11 +804,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'bf34698b-114e-45ef-a97d-98396704cf8e', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno8@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Rosaschi","sexo":"F","peso_corporal_kg":54.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 08","sexo":"F","peso_corporal_kg":54.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('bf34698b-114e-45ef-a97d-98396704cf8e', 'alumno8@gozster.local', 'Camila Rosaschi', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 54.0)
+VALUES ('bf34698b-114e-45ef-a97d-98396704cf8e', 'alumno8@gozster.local', 'Alumno Ficticio 08', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 54.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -816,11 +816,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '97114142-d446-430e-a3eb-53c7960a670f', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno9@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Agustin Scarafioca","sexo":"M","peso_corporal_kg":85.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 09","sexo":"M","peso_corporal_kg":85.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('97114142-d446-430e-a3eb-53c7960a670f', 'alumno9@gozster.local', 'Agustin Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 85.0)
+VALUES ('97114142-d446-430e-a3eb-53c7960a670f', 'alumno9@gozster.local', 'Alumno Ficticio 09', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'M', 85.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -828,11 +828,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'effe6558-3937-479d-ae4c-6253c728b365', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno10@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Olivia Scarafioca","sexo":"F","peso_corporal_kg":53.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 10","sexo":"F","peso_corporal_kg":53.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('effe6558-3937-479d-ae4c-6253c728b365', 'alumno10@gozster.local', 'Olivia Scarafioca', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 53.0)
+VALUES ('effe6558-3937-479d-ae4c-6253c728b365', 'alumno10@gozster.local', 'Alumno Ficticio 10', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 53.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -840,11 +840,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'f45d21ae-ad2a-4a8a-ac28-a6080cc87000', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno11@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Camila Maza","sexo":"F","peso_corporal_kg":56.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 11","sexo":"F","peso_corporal_kg":56.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'alumno11@gozster.local', 'Camila Maza', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 56.0)
+VALUES ('f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'alumno11@gozster.local', 'Alumno Ficticio 11', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 56.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -852,11 +852,11 @@ INSERT INTO auth.users (
 ) VALUES (
   '1b9075d0-e34f-46ce-af26-556912be9436', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno12@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Romina Villalba","sexo":"F","peso_corporal_kg":59.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 12","sexo":"F","peso_corporal_kg":59.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('1b9075d0-e34f-46ce-af26-556912be9436', 'alumno12@gozster.local', 'Romina Villalba', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 59.0)
+VALUES ('1b9075d0-e34f-46ce-af26-556912be9436', 'alumno12@gozster.local', 'Alumno Ficticio 12', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 59.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -864,11 +864,11 @@ INSERT INTO auth.users (
 ) VALUES (
   'd957443f-674a-46da-a6b1-40cf367f40ad', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'alumno13@gozster.local', crypt('TempPasswordGozster2026!', gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Kiki Fernandez","sexo":"F","peso_corporal_kg":61.0}', now(), now()
+  '{"provider":"email","providers":["email"]}', '{"nombre_completo":"Alumno Ficticio 13","sexo":"F","peso_corporal_kg":61.0}', now(), now()
 ) ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, sexo, peso_corporal_kg)
-VALUES ('d957443f-674a-46da-a6b1-40cf367f40ad', 'alumno13@gozster.local', 'Kiki Fernandez', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 61.0)
+VALUES ('d957443f-674a-46da-a6b1-40cf367f40ad', 'alumno13@gozster.local', 'Alumno Ficticio 13', 'ALUMNO', 'ACTIVA', '20685bca-6304-4e55-abba-37a1cf8f6113', 'F', 61.0)
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = 'ALUMNO', estado_membresia = 'ACTIVA', profesor_asignado_id = EXCLUDED.profesor_asignado_id, sexo = EXCLUDED.sexo, peso_corporal_kg = EXCLUDED.peso_corporal_kg, updated_at = now();
 INSERT INTO auth.users (
@@ -886,31 +886,31 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- 4. Planes de Entrenamiento
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('a71c2d01-3dbe-4030-a984-6c015cd297e4', '20685bca-6304-4e55-abba-37a1cf8f6113', 'f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'CELES AGOSTO V.2', 'ACTIVO', 'RECOMENDACIONES:
+VALUES ('a71c2d01-3dbe-4030-a984-6c015cd297e4', '20685bca-6304-4e55-abba-37a1cf8f6113', 'f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7', 'ALUMNO 01 AGOSTO V.2', 'ACTIVO', 'RECOMENDACIONES:
 -El RPE (escala del esfuerzo percibido) como su nombre indica es una escala subjetiva del esfuerzo que refiere el ejercicio, se mide del 1 al 10 donde el número 1 seria algo de minima dificultad y el número 10 algo de máxima dificultad.
 -Las "superseries" indican que realices todos los ejercicios que la componen de manera seguida uno detras del otro, pudiendo descansar al finalizar el ultimo.
 -Los descansos pueden ser de 45'''' a 1'' 30''''', '2026-09-19T03:01:00+0000', '2026-10-19T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('c664e439-ec25-41e2-ac59-6468e4bb41e9', '20685bca-6304-4e55-abba-37a1cf8f6113', '299665bc-7349-4c9d-a937-fcd0bed437bf', 'TEFI AGOSTO', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
+VALUES ('c664e439-ec25-41e2-ac59-6468e4bb41e9', '20685bca-6304-4e55-abba-37a1cf8f6113', '299665bc-7349-4c9d-a937-fcd0bed437bf', 'ALUMNO 02 AGOSTO', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos dependiendo lo que tardes en recuperarte. 
 -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.', '2026-09-24T03:01:00+0000', '2026-10-24T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('cab4ad3d-8595-47be-a220-6dc52117048e', '20685bca-6304-4e55-abba-37a1cf8f6113', '0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'GABI AGOSTO', 'ACTIVO', 'RECOMENDACIONES: 
+VALUES ('cab4ad3d-8595-47be-a220-6dc52117048e', '20685bca-6304-4e55-abba-37a1cf8f6113', '0a7a4dfd-e040-4b92-ac29-9507cbb13215', 'ALUMNO 03 AGOSTO', 'ACTIVO', 'RECOMENDACIONES: 
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos.', '2026-09-25T03:01:00+0000', '2026-10-25T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('e75708d4-5548-474f-aa57-3dd0f05bad23', '20685bca-6304-4e55-abba-37a1cf8f6113', '9015b7d8-7118-4912-aa01-0fb6e62848c6', 'MICHELLE SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar.
+VALUES ('e75708d4-5548-474f-aa57-3dd0f05bad23', '20685bca-6304-4e55-abba-37a1cf8f6113', '9015b7d8-7118-4912-aa01-0fb6e62848c6', 'ALUMNO 04 SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar.
 - Los descansos entre series pueden ir de 3 a 5 minutos', '2026-09-27T03:01:00+0000', '2026-10-27T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('9a5e101e-6493-4c77-a011-9c46ca4366c9', '20685bca-6304-4e55-abba-37a1cf8f6113', '41d387a0-04e0-4b33-a47b-2bda95f53019', 'ORI 2 DÍAS', 'ACTIVO', 'RECOMENDACIONES: 
+VALUES ('9a5e101e-6493-4c77-a011-9c46ca4366c9', '20685bca-6304-4e55-abba-37a1cf8f6113', '41d387a0-04e0-4b33-a47b-2bda95f53019', 'ALUMNO 05 2 DÍAS', 'ACTIVO', 'RECOMENDACIONES: 
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios del bloque de fuerza pueden ser de 2 a 5 minutos.
 -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso. 
@@ -918,12 +918,12 @@ VALUES ('9a5e101e-6493-4c77-a011-9c46ca4366c9', '20685bca-6304-4e55-abba-37a1cf8
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('a9dfcbce-2457-4e0d-ac3f-effea124c6d4', '20685bca-6304-4e55-abba-37a1cf8f6113', 'b952505b-3695-4daf-acf5-7f99b7844666', 'FUERZA MIGUE', 'ACTIVO', 'RECOMENDACIONES: 
+VALUES ('a9dfcbce-2457-4e0d-ac3f-effea124c6d4', '20685bca-6304-4e55-abba-37a1cf8f6113', 'b952505b-3695-4daf-acf5-7f99b7844666', 'FUERZA ALUMNO 06', 'ACTIVO', 'RECOMENDACIONES: 
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos dependiendo lo que tardes en recuperarte. -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.', '2026-10-02T03:01:00+0000', '2026-11-02T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('dcdd2aef-47be-40ec-a431-f09906839372', '20685bca-6304-4e55-abba-37a1cf8f6113', '8f7949b8-49df-4f85-a4ff-c314e631eb11', 'A. ARTERO SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES:
+VALUES ('dcdd2aef-47be-40ec-a431-f09906839372', '20685bca-6304-4e55-abba-37a1cf8f6113', '8f7949b8-49df-4f85-a4ff-c314e631eb11', 'ALUMNO 07 SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES:
 -"Super serie" refiere a realizar ambos ejercicios consecutivamente sin descanso, solo se descansa entre series.
  -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sentis esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos.', '2026-10-06T03:01:00+0000', '2026-11-06T02:59:00+0000')
@@ -936,25 +936,25 @@ VALUES ('993c7f08-e9da-4d10-a503-e7417b7fd296', '20685bca-6304-4e55-abba-37a1cf8
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('032594a9-4a78-49ba-a75c-5ff28478c2d6', '20685bca-6304-4e55-abba-37a1cf8f6113', '97114142-d446-430e-a3eb-53c7960a670f', 'A.SCARAFIOCA AGOSTO', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
+VALUES ('032594a9-4a78-49ba-a75c-5ff28478c2d6', '20685bca-6304-4e55-abba-37a1cf8f6113', '97114142-d446-430e-a3eb-53c7960a670f', 'ALUMNO 09 AGOSTO', 'ACTIVO', 'RECOMENDACIONES: -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos dependiendo lo que tardes en recuperarte. 
 -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.', '2026-10-11T03:01:00+0000', '2026-11-11T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('d564bc92-ad8a-4330-ac64-e990d2036bd2', '20685bca-6304-4e55-abba-37a1cf8f6113', 'effe6558-3937-479d-ae4c-6253c728b365', 'OLIVIA AGOSTO', 'ACTIVO', 'RECOMENDACIONES:
+VALUES ('d564bc92-ad8a-4330-ac64-e990d2036bd2', '20685bca-6304-4e55-abba-37a1cf8f6113', 'effe6558-3937-479d-ae4c-6253c728b365', 'ALUMNO 10 AGOSTO', 'ACTIVO', 'RECOMENDACIONES:
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos dependiendo lo que tardes en recuperarte. 
 -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.', '2026-10-11T03:01:00+0000', '2026-11-11T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('1fe02d16-6f60-4584-a9d0-14d369ef3b56', '20685bca-6304-4e55-abba-37a1cf8f6113', 'f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'CAMI MAZA OCTUBRE', 'ACTIVO', 'RECOMENDACIONES: 
+VALUES ('1fe02d16-6f60-4584-a9d0-14d369ef3b56', '20685bca-6304-4e55-abba-37a1cf8f6113', 'f45d21ae-ad2a-4a8a-ac28-a6080cc87000', 'ALUMNO 11 OCTUBRE', 'ACTIVO', 'RECOMENDACIONES: 
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. -Los descansos entre series y ejercicios pueden ser de 1 a 3 minutos dependiendo lo que tardes en recuperarte. -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.', '2026-10-14T03:01:00+0000', '2026-11-14T02:59:00+0000')
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('b873d962-6b90-4f6a-ad0f-fb8e3570d8be', '20685bca-6304-4e55-abba-37a1cf8f6113', '1b9075d0-e34f-46ce-af26-556912be9436', 'FUERZA ROMI', 'ACTIVO', 'RECOMENDACIONES:
+VALUES ('b873d962-6b90-4f6a-ad0f-fb8e3570d8be', '20685bca-6304-4e55-abba-37a1cf8f6113', '1b9075d0-e34f-46ce-af26-556912be9436', 'FUERZA ALUMNO 12', 'ACTIVO', 'RECOMENDACIONES:
 -El RPE (Radio de esfuerzo percibido) es una escala que mide el esfuerzo físico que sientes durante una actividad. Va del 1 al 10, donde 1 significa que casi no sientes esfuerzo, y 10 es el máximo que podes dar. 
 -Los descansos entre series y ejercicios del bloque de fuerza pueden ser de 1 a 3 minutos. 
 -Los ejercicios que presentan sus repeticiones de forma descendente (10-8-6) tienen como objetivo que aumentes el peso utilizado, a menos repeticiones mayor peso.
@@ -963,7 +963,7 @@ VALUES ('b873d962-6b90-4f6a-ad0f-fb8e3570d8be', '20685bca-6304-4e55-abba-37a1cf8
 ON CONFLICT (id) DO UPDATE SET
   nombre = EXCLUDED.nombre, estado = 'ACTIVO', comentarios = EXCLUDED.comentarios, fecha_inicio = EXCLUDED.fecha_inicio, fecha_fin = EXCLUDED.fecha_fin, updated_at = now();
 INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre, estado, comentarios, fecha_inicio, fecha_fin)
-VALUES ('4ebc61af-6f71-4b04-a859-016c06e3718b', '20685bca-6304-4e55-abba-37a1cf8f6113', 'd957443f-674a-46da-a6b1-40cf367f40ad', 'KIKI FER SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES:
+VALUES ('4ebc61af-6f71-4b04-a859-016c06e3718b', '20685bca-6304-4e55-abba-37a1cf8f6113', 'd957443f-674a-46da-a6b1-40cf367f40ad', 'ALUMNO 13 SEPTIEMBRE', 'ACTIVO', 'RECOMENDACIONES:
 -El RPE (escala del esfuerzo percibido) como su nombre indica es una escala subjetiva del esfuerzo que refiere el ejercicio, se mide del 1 al 10 donde el número 1 seria algo de minima dificultad y el número 10 algo de máxima dificultad.
 -Las "superseries" indican que realices todos los ejercicios que la componen de manera seguida uno detras del otro, pudiendo descansar al finalizar el ultimo.
 -Los descansos pueden ser de 45'''' a 1'' 30''''', '2026-10-16T03:01:00+0000', '2026-11-16T02:59:00+0000')

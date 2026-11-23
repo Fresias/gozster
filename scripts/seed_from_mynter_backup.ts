@@ -575,7 +575,7 @@ export function generateMynterSeedSQL(seedData: ProcessedSeedData): string {
   const lines: string[] = [];
 
   lines.push('-- ============================================================================');
-  lines.push('-- GOZSter: Carga de Datos Semilla desde Backup Mynter (13 Alumnos Reales)');
+  lines.push('-- GOZSter: Carga de Datos Semilla desde Backup Mynter (13 Alumnos Ficticios)');
   lines.push('-- Script SQL idempotente para PostgreSQL 15+ / Supabase');
   lines.push('-- ============================================================================');
   lines.push('');

@@ -148,7 +148,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
           id: "alt-3",
           type: "DOLOR",
           alumnoId: "alumno-03",
-          alumnoNombre: "Celeste Gerardi",
+          alumnoNombre: "Cecilia Godoy",
           ejercicioNombre: "Peso Muerto",
           setNumber: 3,
           detalle: "Fatiga lumbar",
@@ -394,10 +394,10 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
         }
       }
 
-      manejarClickMensajeAlumno("alumno-celeste-01", true);
+      manejarClickMensajeAlumno("alumno-cecilia-01", true);
 
       expect(chatInAppAbierto).toBe(true);
-      expect(alumnoChatActivoId).toBe("alumno-celeste-01");
+      expect(alumnoChatActivoId).toBe("alumno-cecilia-01");
       expect(urlExternaInvocada).toBeNull();
     });
 

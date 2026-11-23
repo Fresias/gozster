@@ -209,16 +209,16 @@ describe("GOZS-373: Coach Studio — Sincronización de Planes y Días en Ficha 
       expect(html).not.toContain("Sin días configurados en este plan");
     });
 
-    it("GIVEN initialDataset vacío WHEN se abre la ficha de Celeste THEN la isla de rutina muestra sus 4 días configurados", () => {
+    it("GIVEN initialDataset vacío WHEN se abre la ficha de Cecilia THEN la isla de rutina muestra sus 4 días configurados", () => {
       const html = renderToStaticMarkup(
         <CoachStudioView
           initialDataset={null}
-          initialSelectedAlumnoId="demo-alumno-02-celeste"
+          initialSelectedAlumnoId="demo-alumno-02-cecilia"
         />
       );
 
-      // Celeste Gerardi en modo demo
-      expect(html).toContain("Celeste");
+      // Cecilia Godoy en modo demo
+      expect(html).toContain("Cecilia");
       expect(html).toContain("Fuerza Femenina &amp; Glúteos 4D");
 
       // Debe mostrar 4 días configurados derivados coherentemente del demo generator

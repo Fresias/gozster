@@ -649,38 +649,38 @@ test.describe("GOZS-377: Coherencia Cruzada de KPIs y Estados de Dolor (C1 a C9)
     expect(matchesInicio.length).toBeGreaterThanOrEqual(4);
   });
 
-  test("C8: Alumno sin dolores (Esteban Papic) no muestra badges espurios en Bandeja, Directorio ni Ficha", async ({
+  test("C8: Alumno sin dolores (Ezequiel Paredes) no muestra badges espurios en Bandeja, Directorio ni Ficha", async ({
     page,
   }) => {
     await prepararSeedFijo(page);
     await page.goto("/studio");
 
-    // 1. Bandeja: Esteban Papic no figura en alertas críticas
+    // 1. Bandeja: Ezequiel Paredes no figura en alertas críticas
     const bandeja = page.getByTestId("critical-alerts-inbox");
     await expect(bandeja).toBeVisible({ timeout: 60_000 });
     await bandeja.locator("button[aria-expanded]").first().click();
-    await expect(page.getByTestId("alerts-compact-list")).not.toContainText("Esteban Papic");
+    await expect(page.getByTestId("alerts-compact-list")).not.toContainText("Ezequiel Paredes");
 
-    // 2. Directorio: la fila de Esteban Papic no tiene ningún badge de dolor ni de alerta
+    // 2. Directorio: la fila de Ezequiel Paredes no tiene ningún badge de dolor ni de alerta
     await expandirDirectorioSiCerrado(page);
     const buscador = page
       .getByTestId("alumnos-directory")
       .locator('input[type="search"]')
       .first();
-    await buscador.fill("Esteban Papic");
+    await buscador.fill("Ezequiel Paredes");
 
-    const filaEsteban = page
+    const filaEzequiel = page
       .getByTestId("alumnos-directory")
       .locator("tbody tr")
-      .filter({ hasText: "Esteban Papic" });
-    await expect(filaEsteban).toBeVisible();
+      .filter({ hasText: "Ezequiel Paredes" });
+    await expect(filaEzequiel).toBeVisible();
     await expect(
-      filaEsteban.getByRole("button", { name: /Molestia articular/i })
+      filaEzequiel.getByRole("button", { name: /Molestia articular/i })
     ).toHaveCount(0);
-    await expect(filaEsteban).not.toContainText("🚨");
+    await expect(filaEzequiel).not.toContainText("🚨");
 
     // 3. Ficha de Alumno: sin sección de alertas de dolor ni badges destructivos
-    await filaEsteban.getByRole("button", { name: /Esteban Papic/i }).first().click();
+    await filaEzequiel.getByRole("button", { name: /Ezequiel Paredes/i }).first().click();
     await expect(page.getByTestId("isla-salud-anamnesis")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("student-pain-alerts")).toHaveCount(0);
     await expect(page.getByTestId("student-pain-alert-badge")).toHaveCount(0);
