@@ -9,6 +9,8 @@ export interface ForcePasswordChangeProps {
   email?: string | null;
   /** Se invoca tras guardar la nueva contraseña con éxito (p. ej. redirigir a /athlete). */
   onSuccess: () => void | Promise<void>;
+  /** Recuperación por email: cambia los textos (no es un primer login con clave temporal). */
+  recovery?: boolean;
 }
 
 const MIN_LEN = 8;
@@ -22,7 +24,7 @@ const MIN_LEN = 8;
  * Al guardar: `supabase.auth.updateUser({ password, data: { must_change_password: false } })`
  * y `perfiles.debe_cambiar_password = false`, luego `onSuccess()`.
  */
-export function ForcePasswordChange({ email, onSuccess }: ForcePasswordChangeProps) {
+export function ForcePasswordChange({ email, onSuccess, recovery = false }: ForcePasswordChangeProps) {
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
@@ -99,11 +101,13 @@ export function ForcePasswordChange({ email, onSuccess }: ForcePasswordChangePro
             id="force-password-title"
             className="flex items-center gap-2 text-lg font-bold tracking-tight text-foreground"
           >
-            <span aria-hidden="true">🔐</span> Primer inicio de sesión
+            <span aria-hidden="true">🔐</span>{" "}
+            {recovery ? "Restablecé tu contraseña" : "Primer inicio de sesión"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Elegí tu contraseña definitiva para seguir. No vas a poder entrenar hasta reemplazar la
-            contraseña temporal.
+            {recovery
+              ? "Elegí una contraseña nueva para volver a ingresar."
+              : "Elegí tu contraseña definitiva para seguir. No vas a poder entrenar hasta reemplazar la contraseña temporal."}
           </p>
           {email && (
             <p className="mt-2 text-xs text-muted-foreground">
