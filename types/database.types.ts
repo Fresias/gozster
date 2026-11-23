@@ -1002,6 +1002,12 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_estado_alumno": {
+                  Row: {
+                    "al_dia": boolean | null,"alumno_id": string | null,"cobros_vencidos": number | null,"contratacion_id": string | null,"estado": "AL_DIA"|"POR_VENCER"|"VENCIDA"|"PENDIENTE"|"EN_PAUSA"|"SIN_CONTRATACION" | null,"estado_contratacion": string | null,"fecha_vencimiento": string | null,"primer_vencimiento_impago": string | null,"profesor_asignado_id": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: []
                 },"v_morosos": {
                   Row: {
                     "alumno_id": string,"cobro_id": string,"contratacion_id": string,"dias_atraso": number | null,"fecha_vencimiento": string,"monto": number,"periodo": string
