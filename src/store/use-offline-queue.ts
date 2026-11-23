@@ -3,6 +3,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 import { normalizeSerieTipo } from "@/lib/serie-tipo";
+import { crearBackoff } from "@/lib/sync-backoff";
 
 export interface OfflineSyncEvent {
   id: string;
@@ -197,6 +198,15 @@ async function sendLogroRachaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   return toResult(res.error);
 }
 
+export const SYNC_REINTENTOS_AGOTADOS_MSG =
+  "No pudimos sincronizar tus datos. Quedan guardados en este teléfono y lo volvemos a intentar.";
+
+// Fallo transitorio (red, PGRST202…): se reintenta con backoff sin descartar nada.
+const backoffCola = crearBackoff(
+  () => void useOfflineQueueStore.getState().flushQueue(),
+  () => useOfflineQueueStore.setState({ syncError: SYNC_REINTENTOS_AGOTADOS_MSG }),
+);
+
 const memoryFallback: Record<string, string> = {};
 
 export const safeStorage: StateStorage = {
@@ -272,8 +282,11 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
               result = "retry";
             }
           }
-          // Orden preservado: ante un fallo transitorio se corta y se reintenta luego.
-          if (result === "retry") return;
+          // Orden preservado: ante un fallo transitorio se corta y se reintenta con backoff.
+          if (result === "retry") {
+            backoffCola.programar();
+            return;
+          }
           // Rechazo permanente: se descarta ese evento para no bloquear la cola.
           if (result === "rejected" && ev.action !== "REGISTRAR_LOGRO_RACHA") {
             set({
@@ -285,6 +298,7 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
           }
           get().removeEvent(ev.id);
         }
+        backoffCola.reset();
       },
       setSyncError: (message) => set({ syncError: message }),
       clearSyncError: () => set({ syncError: null }),
