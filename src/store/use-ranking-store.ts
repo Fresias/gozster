@@ -3,7 +3,8 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 import { esUuid } from "@/lib/athlete/uuid";
-import type { Perfil, RankingPR, Reserva } from "@/types/database.types";
+import { prsDeClasesDesdeVista } from "@/lib/ranking-prs";
+import type { Perfil, PrView, RankingPR, Reserva } from "@/types/database.types";
 
 export interface RankingCalculadoItem {
   alumno_id: string;
@@ -263,12 +264,20 @@ export const useRankingStore = create<RankingState>()(
           const authRes = await supabase.auth.getUser();
           if (!authRes.data?.user) return;
           set({ cargando: true });
-          const { data, error } = await supabase
-            .from("ranking_prs")
-            .select("*")
-            .eq("clase_id", claseId);
+          const reservasRes = await supabase
+            .from("reservas")
+            .select("clase_id, alumno_id")
+            .eq("clase_id", claseId)
+            .in("estado", ["ANOTADO", "AUSENTE"]);
+          const reservas = (reservasRes.data ?? []) as { clase_id: string; alumno_id: string }[];
+          const { data, error } = reservasRes.error
+            ? { data: null, error: reservasRes.error }
+            : await supabase
+                .from("v_prs")
+                .select("*")
+                .in("alumno_id", reservas.map((r) => r.alumno_id));
           if (!error && Array.isArray(data)) {
-            const reales = data as RankingPR[];
+            const reales = prsDeClasesDesdeVista(data as PrView[], reservas);
             set((state) => ({
               prs: [
                 ...state.prs.filter(
