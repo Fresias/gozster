@@ -1263,6 +1263,9 @@ isOneToOne: false
 "guardar_rutina":
 { Args: { "p_payload": Json }; Returns: string
                            },
+"job_diario_contrataciones":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "marcar_ausente":
 { Args: { "p_reserva_id": string }; Returns: {
               "alumno_id": string,
