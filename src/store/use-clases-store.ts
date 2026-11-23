@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { asignarClaseFijaRpc, quitarClaseFijaRpc } from "@/services/clases-fijas-service";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   MENSAJES_ERROR,
@@ -1877,6 +1878,22 @@ export const useClasesStore = create<ClasesState>()(
 
       asignarClaseFija: async (horarioId, alumnoId) => {
         if (!horarioId || !alumnoId) return false;
+        if (UUID_RE.test(horarioId) && UUID_RE.test(alumnoId)) {
+          try {
+            const id = await asignarClaseFijaRpc(horarioId, alumnoId);
+            set((state) => ({
+              clasesFijas: [
+                ...state.clasesFijas.filter((f) => !(f.alumno_id === alumnoId && f.horario_id === horarioId)),
+                { id, alumno_id: alumnoId, horario_id: horarioId, created_at: new Date().toISOString() },
+              ],
+              error: null,
+            }));
+            return true;
+          } catch (e) {
+            set({ error: e instanceof Error ? e.message : "No pudimos fijar la clase." });
+            return false;
+          }
+        }
         const nuevaFija: ClaseFijaItem = {
           id: `demo-fija-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           alumno_id: alumnoId,
@@ -1894,6 +1911,14 @@ export const useClasesStore = create<ClasesState>()(
       },
 
       quitarClaseFija: async (claseFijaId) => {
+        if (UUID_RE.test(claseFijaId)) {
+          try {
+            await quitarClaseFijaRpc(claseFijaId);
+          } catch (e) {
+            set({ error: e instanceof Error ? e.message : "No pudimos quitar la clase fija." });
+            return false;
+          }
+        }
         set((state) => ({
           clasesFijas: state.clasesFijas.filter((f) => f.id !== claseFijaId),
         }));
