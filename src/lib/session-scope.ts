@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/browser";
-import { useAthleteStore } from "@/store/use-athlete-store";
+import { resetBackoffMolestias, useAthleteStore } from "@/store/use-athlete-store";
 import { useChatStore } from "@/store/use-chat-store";
 import { useClasesStore } from "@/store/use-clases-store";
 import { useCoachStudioStore } from "@/store/use-coach-studio";
 import { useCobrosStore } from "@/store/use-cobros-store";
-import { useOfflineQueueStore } from "@/store/use-offline-queue";
+import { resetBackoffCola, useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useRankingStore } from "@/store/use-ranking-store";
 import { getStorageUser, purgeStoredUserData, setStorageUser } from "@/lib/user-storage";
 
@@ -25,6 +25,9 @@ const stores: ScopedStore[] = [
 ] as unknown as ScopedStore[];
 
 export function resetStores() {
+  // Un reintento pendiente del usuario anterior no debe correr sobre el próximo.
+  resetBackoffCola();
+  resetBackoffMolestias();
   for (const s of stores) {
     if (typeof s.getInitialState === "function") {
       s.setState(s.getInitialState() as never, true);

@@ -3,6 +3,7 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { userScopedStorage } from "@/lib/user-storage";
 import { supabase } from "@/lib/supabase/client";
 import { normalizeSerieTipo } from "@/lib/serie-tipo";
+import { crearBackoff } from "@/lib/sync-backoff";
 
 export interface OfflineSyncEvent {
   id: string;
@@ -197,6 +198,78 @@ async function sendLogroRachaEvent(ev: OfflineSyncEvent): Promise<SendResult> {
   return toResult(res.error);
 }
 
+export const SYNC_REINTENTOS_AGOTADOS_MSG =
+  "No pudimos sincronizar tus datos. Quedan guardados en este teléfono y lo volvemos a intentar.";
+
+const haySenal = () =>
+  useOfflineQueueStore.getState().isOnline &&
+  (typeof navigator === "undefined" || navigator.onLine !== false);
+
+// Fallo transitorio (red, PGRST202…): se reintenta con backoff sin descartar nada.
+// Sin señal no se gastan reintentos: el ciclo vuelve a empezar al reconectar.
+const backoffCola = crearBackoff(
+  () => {
+    if (haySenal()) void useOfflineQueueStore.getState().flushQueue();
+    else backoffCola.reset();
+  },
+  () => useOfflineQueueStore.setState({ syncError: SYNC_REINTENTOS_AGOTADOS_MSG }),
+);
+
+/** Corta el reintento pendiente y el contador (cambio de usuario / logout). */
+export const resetBackoffCola = () => backoffCola.reset();
+
+// Una sola corrida de flushQueue a la vez: evita envíos duplicados y carreras con el backoff.
+let activeFlushPromise: Promise<void> | null = null;
+
+async function flushUnaVez(): Promise<void> {
+  const { getState: get, setState: set } = useOfflineQueueStore;
+  set({ syncError: null });
+  for (const ev of get().pendingEvents) {
+    let result: SendResult = "ok";
+    if (SET_ACTIONS.includes(ev.action)) {
+      try {
+        result = await sendSetEvent(ev);
+      } catch {
+        result = "retry";
+      }
+    } else if (ev.action === "ENVIAR_MENSAJE_CHAT") {
+      try {
+        result = await sendChatEvent(ev);
+      } catch {
+        result = "retry";
+      }
+    } else if (ev.action === "FEEDBACK_CLASE") {
+      try {
+        result = await sendFeedbackClaseEvent(ev);
+      } catch {
+        result = "retry";
+      }
+    } else if (ev.action === "REGISTRAR_LOGRO_RACHA") {
+      try {
+        result = await sendLogroRachaEvent(ev);
+      } catch {
+        result = "retry";
+      }
+    }
+    // Orden preservado: ante un fallo transitorio se corta y se reintenta con backoff.
+    if (result === "retry") {
+      backoffCola.programar();
+      return;
+    }
+    // Rechazo permanente: se descarta ese evento para no bloquear la cola.
+    if (result === "rejected" && ev.action !== "REGISTRAR_LOGRO_RACHA") {
+      set({
+        syncError:
+          ev.action === "FEEDBACK_CLASE"
+            ? "No pudimos guardar tu devolución de la clase."
+            : "No pudimos guardar una serie. Avisá a tu coach.",
+      });
+    }
+    get().removeEvent(ev.id);
+  }
+  backoffCola.reset();
+}
+
 const memoryFallback: Record<string, string> = {};
 
 export const safeStorage: StateStorage = {
@@ -228,7 +301,10 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
       isOnline: true,
       pendingEvents: [],
       syncError: null,
-      setOnlineStatus: (isOnline) => set({ isOnline }),
+      setOnlineStatus: (isOnline) => {
+        if (!isOnline) backoffCola.reset();
+        set({ isOnline });
+      },
       enqueueEvent: (event) =>
         set((state) => ({
           pendingEvents: [
@@ -240,51 +316,18 @@ export const useOfflineQueueStore = create<OfflineQueueState>()(
         set((state) => ({
           pendingEvents: state.pendingEvents.filter((item) => item.id !== id),
         })),
-      clearQueue: () => set({ pendingEvents: [] }),
+      clearQueue: () => {
+        backoffCola.reset();
+        set({ pendingEvents: [] });
+      },
       flushQueue: async () => {
         // Sin cliente Supabase no hay servidor que confirme: nada se descarta.
         if (!supabase) return;
-        set({ syncError: null });
-        for (const ev of get().pendingEvents) {
-          let result: SendResult = "ok";
-          if (SET_ACTIONS.includes(ev.action)) {
-            try {
-              result = await sendSetEvent(ev);
-            } catch {
-              result = "retry";
-            }
-          } else if (ev.action === "ENVIAR_MENSAJE_CHAT") {
-            try {
-              result = await sendChatEvent(ev);
-            } catch {
-              result = "retry";
-            }
-          } else if (ev.action === "FEEDBACK_CLASE") {
-            try {
-              result = await sendFeedbackClaseEvent(ev);
-            } catch {
-              result = "retry";
-            }
-          } else if (ev.action === "REGISTRAR_LOGRO_RACHA") {
-            try {
-              result = await sendLogroRachaEvent(ev);
-            } catch {
-              result = "retry";
-            }
-          }
-          // Orden preservado: ante un fallo transitorio se corta y se reintenta luego.
-          if (result === "retry") return;
-          // Rechazo permanente: se descarta ese evento para no bloquear la cola.
-          if (result === "rejected" && ev.action !== "REGISTRAR_LOGRO_RACHA") {
-            set({
-              syncError:
-                ev.action === "FEEDBACK_CLASE"
-                  ? "No pudimos guardar tu devolución de la clase."
-                  : "No pudimos guardar una serie. Avisá a tu coach.",
-            });
-          }
-          get().removeEvent(ev.id);
-        }
+        while (activeFlushPromise) await activeFlushPromise;
+        activeFlushPromise = flushUnaVez().finally(() => {
+          activeFlushPromise = null;
+        });
+        await activeFlushPromise;
       },
       setSyncError: (message) => set({ syncError: message }),
       clearSyncError: () => set({ syncError: null }),
