@@ -64,6 +64,7 @@ const SEED = `
 
 let db: PGlite;
 let politicasAntes: string[] = [];
+let politicasDespues: string[] = [];
 let anonPerfilesAntes = 0;
 
 async function aplicarMigracion(sql: string) {
@@ -116,9 +117,13 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
         anonPerfilesAntes = await contar("anon", null, "perfiles");
       }
       await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
+      if (archivo === NEW_MIGRATION) {
+        // Idempotencia, y foto de políticas antes de que migraciones posteriores
+        // (p. ej. la poda de tablas de GOZS-720) cambien el esquema.
+        await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+        politicasDespues = await politicas();
+      }
     }
-    // Idempotencia
-    await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
   }, 60_000);
 
   describe("1. Limpieza de políticas inseguras (drift en vivo)", () => {
@@ -127,8 +132,7 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
     });
 
     it("elimina sólo el drift anónimo y las políticas USING (true) de habitos/nutricion", async () => {
-      const despues = await politicas();
-      const eliminadas = politicasAntes.filter((p) => !despues.includes(p)).sort();
+      const eliminadas = politicasAntes.filter((p) => !politicasDespues.includes(p)).sort();
       expect(eliminadas).toEqual([
         "ejercicios.drift_public_ejercicios",
         "habitos_registros.habitos_escritura_autenticada",
@@ -158,8 +162,6 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
       "ejercicios_en_rutina",
       "registro_sesiones",
       "registro_series",
-      "habitos_registros",
-      "nutricion_registros",
       "entrenador_alumnos",
       "conversaciones",
       "mensajes",
@@ -167,12 +169,6 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
       "alumno_historial_dolor",
     ])("no ve filas en %s (42501)", async (tabla) => {
       await expect(contar("anon", null, tabla)).rejects.toMatchObject({ code: "42501" });
-    });
-
-    it("no puede escribir en habitos_registros", async () => {
-      await expect(
-        como("anon", null, `INSERT INTO public.habitos_registros (alumno_id) VALUES ('${ALUMNO_A}')`)
-      ).rejects.toThrow(DENEGADO);
     });
 
     it("no puede ejecutar quick_swap_ejercicio (REVOKE)", async () => {
@@ -183,10 +179,9 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
   });
 
   describe("3. Alumno autenticado", () => {
-    it("ve sólo su perfil, su plan y sus hábitos", async () => {
+    it("ve sólo su perfil y su plan", async () => {
       expect(await contar("authenticated", ALUMNO_A, "perfiles")).toBe(1);
       expect(await contar("authenticated", ALUMNO_A, "planes_entrenamiento")).toBe(1);
-      expect(await contar("authenticated", ALUMNO_A, "habitos_registros")).toBe(1);
     });
 
     it("puede editar datos no privilegiados de su perfil", async () => {
@@ -204,15 +199,6 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
     ])("NO puede auto-modificar %s", async (cambio) => {
       await expect(
         como("authenticated", ALUMNO_A, `UPDATE public.perfiles SET ${cambio} WHERE id = '${ALUMNO_A}'`)
-      ).rejects.toThrow(DENEGADO);
-    });
-
-    it("registra sus hábitos pero no los de otro alumno", async () => {
-      await expect(
-        como("authenticated", ALUMNO_A, `INSERT INTO public.habitos_registros (alumno_id, fecha) VALUES ('${ALUMNO_A}', CURRENT_DATE + 1)`)
-      ).resolves.toBeDefined();
-      await expect(
-        como("authenticated", ALUMNO_A, `INSERT INTO public.habitos_registros (alumno_id, fecha) VALUES ('${ALUMNO_B}', CURRENT_DATE + 1)`)
       ).rejects.toThrow(DENEGADO);
     });
 

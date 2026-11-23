@@ -421,12 +421,6 @@ export type ConversacionInsert = TablesInsert<"conversaciones">;
 export type ConversacionUpdate = TablesUpdate<"conversaciones">;
 export type MensajeInsert = TablesInsert<"mensajes">;
 export type MensajeUpdate = TablesUpdate<"mensajes">;
-export type HabitoRegistro = Tables<"habitos_registros">;
-export type HabitoRegistroInsert = TablesInsert<"habitos_registros">;
-export type HabitoRegistroUpdate = TablesUpdate<"habitos_registros">;
-export type NutricionRegistro = Tables<"nutricion_registros">;
-export type NutricionRegistroInsert = TablesInsert<"nutricion_registros">;
-export type NutricionRegistroUpdate = TablesUpdate<"nutricion_registros">;
 export type AlertaEntrenador = Tables<"alertas_entrenador">;
 export type AlertaEntrenadorInsert = TablesInsert<"alertas_entrenador">;
 export type AlertaEntrenadorUpdate = TablesUpdate<"alertas_entrenador">;
@@ -456,9 +450,6 @@ export type AuditoriaCambio = Tables<"auditoria_cambios">;
 export type AuditoriaCambioInsert = TablesInsert<"auditoria_cambios">;
 export type AuditoriaCambioUpdate = TablesUpdate<"auditoria_cambios">;
 
-export type EjercicioAlternativa = Tables<"ejercicios_alternativas">;
-export type EjercicioAlternativaInsert = TablesInsert<"ejercicios_alternativas">;
-export type EjercicioAlternativaUpdate = TablesUpdate<"ejercicios_alternativas">;
 export type SustitucionEjercicio = Tables<"sustituciones_ejercicios">;
 export type SustitucionEjercicioInsert = TablesInsert<"sustituciones_ejercicios">;
 export type SustitucionEjercicioUpdate = TablesUpdate<"sustituciones_ejercicios">;
@@ -475,9 +466,19 @@ export type FeedbackClase = Tables<"feedback_clase">;
 export type FeedbackClaseInsert = TablesInsert<"feedback_clase">;
 export type FeedbackClaseUpdate = TablesUpdate<"feedback_clase">;
 export type ClaseFija = Tables<"clases_fijas">;
-export type RankingPR = Tables<"ranking_prs">;
-export type RankingPRInsert = TablesInsert<"ranking_prs">;
-export type RankingPRUpdate = TablesUpdate<"ranking_prs">;
+/** PR por clase que arma el ranking a partir de `v_prs` (ver src/lib/ranking-prs.ts). */
+export interface RankingPR {
+  id: string;
+  clase_id: string;
+  alumno_id: string;
+  ejercicio_id: string;
+  peso_kg: number;
+  reps: number;
+  fecha: string;
+  registrado_por: string;
+  created_at: string;
+  updated_at: string;
+}
 export type PrView = Database["public"]["Views"]["v_prs"]["Row"];
 export type LogroRacha = Tables<"logros_racha">;
 export type LogroRachaInsert = TablesInsert<"logros_racha">;

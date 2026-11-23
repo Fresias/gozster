@@ -13,13 +13,11 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     "historial-sesiones.tsx",
     "athlete-chat.tsx",
     "cierre-dia-modal.tsx",
-    "nutrition-tracker.tsx",
     "plate-calculator-modal.tsx",
     "pain-report-modal.tsx",
     "warmup-modal.tsx",
     "cuestionario-inicial.tsx",
     "athlete-classes.tsx",
-    "habit-tracker.tsx",
     "membership-paywall.tsx",
     "exercise-notes-modal.tsx",
     "exercise-video-modal.tsx",
@@ -101,7 +99,6 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     const onboarding = fs.readFileSync(path.join(baseDir, "onboarding-alumno.tsx"), "utf-8");
     const historial = fs.readFileSync(path.join(baseDir, "historial-sesiones.tsx"), "utf-8");
     const paywall = fs.readFileSync(path.join(baseDir, "membership-paywall.tsx"), "utf-8");
-    const habits = fs.readFileSync(path.join(baseDir, "habit-tracker.tsx"), "utf-8");
     const classes = fs.readFileSync(path.join(baseDir, "athlete-classes.tsx"), "utf-8");
 
     // Validar adopción de tokens semánticos (onboarding migrado a clases .a-* v7 en athlete-v7.css)
@@ -119,9 +116,6 @@ describe("GOZS-505: Deuda visual en componentes de Athlete (Lote 1: texto < 12px
     expect(paywall).toContain("a-banner");
     expect(paywall).toContain("a-sheet-wrap a-center");
     expect(paywall).not.toContain("bg-success");
-
-    expect(habits).toContain("bg-success-soft");
-    expect(habits).toContain("bg-warning-soft");
 
     // Clases v7 (FE-10): clases .a-* de athlete-v7.css, sin colores sueltos de Tailwind.
     expect(classes).toContain("a-ccl");
