@@ -421,7 +421,7 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
 
       const dummyHistorial: Partial<HistorialRow> = {
         zona_articular: "HOMBRO",
-        estado_recuperacion: "ACTIVO",
+        estado: "PENDIENTE",
       };
       expect(dummyHistorial.zona_articular).toBe("HOMBRO");
     });

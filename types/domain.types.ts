@@ -112,7 +112,6 @@ type RefinedTables = Omit<
       nivel_vista_alumno?: NivelVistaAlumno;
       debe_cambiar_password?: boolean;
       telefono?: string | null;
-      whatsapp_habilitado?: boolean;
       fecha_vencimiento_cuota?: string | null;
       ultimo_entreno_at?: string | null;
       peso_corporal_kg?: number | null;
@@ -147,7 +146,6 @@ type RefinedTables = Omit<
     RawTables["registro_sesiones"],
     {
       effective_volume_kg?: number;
-      athlete_feedback?: string | null;
       motivo_cambio_dia?: MotivoCambioDia | null;
       dia_sugerido_id?: string | null;
     }
@@ -199,7 +197,6 @@ type RefinedTables = Omit<
         | "OTRO";
       eva?: number | null;
       severidad: "LEVE" | "MODERADO" | "AGUDO" | "CRITICA";
-      estado_recuperacion: "ACTIVO" | "EN_RECUPERACION" | "RESUELTO";
       momento_aparicion: "CALENTAMIENTO" | "EN_SERIE" | "POST_EJERCICIO" | null;
       estado: "PENDIENTE" | "ATENDIDO" | "RESUELTO" | "CERRADO";
     }

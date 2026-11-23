@@ -87,9 +87,9 @@ const SEED = `
     ('${SESION_A1_ID}', '${EJERCICIO_1}', 1, 80, 10, true),
     ('${SESION_A2_ID}', '${EJERCICIO_1}', 1, 60, 10, true);
 
-  INSERT INTO public.alumno_historial_dolor (alumno_id, ejercicio_id, zona_articular, severidad, estado_recuperacion) VALUES
-    ('${A1}', '${EJERCICIO_1}', 'RODILLA', 'LEVE', 'ACTIVO'),
-    ('${A2}', '${EJERCICIO_1}', 'HOMBRO', 'LEVE', 'ACTIVO');
+  INSERT INTO public.alumno_historial_dolor (alumno_id, ejercicio_id, zona_articular, severidad) VALUES
+    ('${A1}', '${EJERCICIO_1}', 'RODILLA', 'LEVE'),
+    ('${A2}', '${EJERCICIO_1}', 'HOMBRO', 'LEVE');
 
   INSERT INTO public.conversaciones (id, alumno_id) VALUES
     ('${CONV_A1_ID}', '${A1}'),
@@ -549,6 +549,13 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         "utf-8",
       );
       await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
+      // GOZS-721 redefine fn_proteger_estado_historial_dolor sin la columna eliminada:
+      // se re-aplica para volver al esquema final (también es idempotente).
+      const limpieza = fs.readFileSync(
+        path.join(MIGRATIONS_DIR, "20261123130000_limpiar_columnas_sin_uso.sql"),
+        "utf-8",
+      );
+      await expect(aplicarMigracion(db, limpieza)).resolves.toBeUndefined();
     });
 
     it("anon no tiene privilegios sobre ninguna tabla ni vista de public y recibe 42501", async () => {
@@ -625,7 +632,8 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
           `UPDATE public.alumno_historial_dolor SET estado_recuperacion = 'RESUELTO' WHERE id = $1`,
           [dolorId],
         ),
-      ).rejects.toMatchObject({ code: "42501" });
+        // GOZS-721: la columna redundante ya no existe; el único estado es `estado`.
+      ).rejects.toMatchObject({ code: "42703" });
 
       await expect(
         como(
