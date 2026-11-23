@@ -36,13 +36,13 @@ describe('Seed from Mynter Backup - Migración Segura e Idempotente (Issue #26)'
 
     it('GIVEN los alumnos del backup WHEN se mapea su nombre THEN combina nombre y apellido limpiamente', () => {
       const seedData = extractSeedData(rawData);
-      const celeste = seedData.alumnos.find((a) => a.email === 'alumno1@gozster.local');
-      expect(celeste).toBeDefined();
-      expect(celeste?.nombre_completo).toBe('Celeste Gerardi');
+      const alumno01 = seedData.alumnos.find((a) => a.email === 'alumno1@gozster.local');
+      expect(alumno01).toBeDefined();
+      expect(alumno01?.nombre_completo).toBe('Alumno Ficticio 01');
 
-      const gabi = seedData.alumnos.find((a) => a.email === 'alumno3@gozster.local');
-      expect(gabi).toBeDefined();
-      expect(gabi?.nombre_completo).toBe('Gabriel Sanchez');
+      const alumno03 = seedData.alumnos.find((a) => a.email === 'alumno3@gozster.local');
+      expect(alumno03).toBeDefined();
+      expect(alumno03?.nombre_completo).toBe('Alumno Ficticio 03');
     });
 
     it('GIVEN los alumnos del backup WHEN se asigna el profesor THEN todos quedan vinculados a profesor_asignado_id', () => {
@@ -73,12 +73,12 @@ describe('Seed from Mynter Backup - Migración Segura e Idempotente (Issue #26)'
 
     it('GIVEN planes con vigencia y comentarios WHEN se extraen THEN preserva comentarios y fechas de asesoria', () => {
       const seedData = extractSeedData(rawData);
-      const planCeleste = seedData.planes.find((p) => p.alumno_id === seedData.alumnos[0]?.id);
-      expect(planCeleste).toBeDefined();
-      expect(planCeleste?.nombre).toBe('CELES AGOSTO V.2');
-      expect(planCeleste?.comentarios).toContain('RECOMENDACIONES:');
-      expect(planCeleste?.fecha_inicio).toBe('2026-09-19T03:01:00+0000');
-      expect(planCeleste?.fecha_fin).toBe('2026-10-19T02:59:00+0000');
+      const planAlumno01 = seedData.planes.find((p) => p.alumno_id === seedData.alumnos[0]?.id);
+      expect(planAlumno01).toBeDefined();
+      expect(planAlumno01?.nombre).toBe('ALUMNO 01 AGOSTO V.2');
+      expect(planAlumno01?.comentarios).toContain('RECOMENDACIONES:');
+      expect(planAlumno01?.fecha_inicio).toBe('2026-09-19T03:01:00+0000');
+      expect(planAlumno01?.fecha_fin).toBe('2026-10-19T02:59:00+0000');
     });
   });
 

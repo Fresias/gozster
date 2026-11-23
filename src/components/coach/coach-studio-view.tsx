@@ -89,7 +89,7 @@ export function CoachStudioView({
   estancados = [],
   initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
-  userRole = "ADMIN",
+  userRole = null,
   initialEstado = null,
   openMenuAlumnoIdProp = null,
 }: {
@@ -104,7 +104,7 @@ export function CoachStudioView({
 } = {}) {
   const store = useCoachStudioStore();
   const demoAlertEstados = useDemoAlertEstados((s) => s.estados);
-  const coachFirstName = (coachName || "Martín").trim().split(" ")[0];
+  const coachFirstName = (coachName ?? "").trim().split(" ")[0];
 
   const fechaSaludo = React.useMemo(() => {
     try {
@@ -240,6 +240,7 @@ export function CoachStudioView({
           ejerciciosEnRutina: initialDataset.ejerciciosEnRutina || [],
           ejercicios: initialDataset.ejercicios || [],
           contrataciones: initialDataset.contrataciones || [],
+          estadosAlumno: initialDataset.estadosAlumno,
           alumnoActividades: initialDataset.alumnoActividades || [],
           historialCargas: {},
           sustituciones: [],
@@ -366,7 +367,20 @@ export function CoachStudioView({
     }
   };
 
+  // Fuente única de "al día" (GOZS-694): v_estado_alumno, derivada de contrataciones y cobros.
+  // Sin la vista (modo demo o error de lectura) se mantiene el criterio local previo.
+  const estadosAlumnoLive = hasInitialData
+    ? (useHydratedStore ? store.estadosAlumno : initialDataset!.estadosAlumno)
+    : isLiveInicio
+    ? store.estadosAlumno
+    : undefined;
+  const estadoAlumnoPorId = React.useMemo(
+    () => (estadosAlumnoLive ? new Map(estadosAlumnoLive.map((e) => [e.alumno_id, e])) : null),
+    [estadosAlumnoLive],
+  );
+
   const esCuotaAlDia = React.useCallback((alumno: Perfil): boolean => {
+    if (estadoAlumnoPorId) return estadoAlumnoPorId.get(alumno.id)?.al_dia === true;
     let isAlDia =
       alumno.estado_membresia === "ACTIVA";
     if (alumno.fecha_vencimiento_cuota) {
@@ -381,7 +395,7 @@ export function CoachStudioView({
       }
     }
     return isAlDia;
-  }, []);
+  }, [estadoAlumnoPorId]);
 
   const esCuotaVencida = React.useCallback((alumno: Perfil): boolean => {
     return !esCuotaAlDia(alumno);
@@ -399,7 +413,7 @@ export function CoachStudioView({
 
   // Selector de período reactivo ('semana', 'mes', 'trimestre') y KPIs únicos (GOZS-379)
   const [tipoPeriodo, setTipoPeriodo] = React.useState<TipoRangoPeriodo>("mes");
-  const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ADMIN");
+  const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ENTRENADOR");
 
   React.useEffect(() => {
     if (userRole) {
@@ -412,21 +426,16 @@ export function CoachStudioView({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!active || !user) return;
-        const metaRol = (user.user_metadata as Record<string, unknown> | undefined)?.rol;
-        if (typeof metaRol === "string" && metaRol) {
-          setActiveRole(metaRol);
-        } else {
-          const { data: perfil } = await supabase
-            .from("perfiles")
-            .select("rol")
-            .eq("id", user.id)
-            .maybeSingle();
-          if (active && perfil?.rol) {
-            setActiveRole(perfil.rol);
-          }
+        const { data: perfil } = await supabase
+          .from("perfiles")
+          .select("rol")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (active && perfil?.rol) {
+          setActiveRole(perfil.rol);
         }
       } catch {
-        // Fallback a ADMIN
+        // Sin perfil: queda ENTRENADOR (sin privilegios de admin)
       }
     }
     detectRole();
@@ -438,11 +447,11 @@ export function CoachStudioView({
   const isLiveInicioKpis = isLiveInicio;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
     if (isLiveInicioKpis) {
-      return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ADMIN");
+      return mapearRpcAKpis({ alumnos_activos: initialDataset?.alumnos?.length ?? 0 }, "oct.", userRole ?? "ENTRENADOR");
     }
     const rango = rangoPeriodo("mes");
     const base = derivarKpisNegocio(DEMO_GIMNASIO, DEMO_PLANES_MEMBRESIA, new Date(), rango);
-    if (!puedeVerMontos(userRole ?? "ADMIN")) {
+    if (!puedeVerMontos(userRole ?? "ENTRENADOR")) {
       return mapearRpcAKpis({ ...base, ingresos: null }, "oct.", userRole ?? "ENTRENADOR");
     }
     return base;
@@ -884,7 +893,30 @@ export function CoachStudioView({
           ? "Vence en ≤ 3 días (Pago Pendiente)"
           : "Cuota vencida / Inactiva";
 
-        if (alumno.fecha_vencimiento_cuota) {
+        const filaEstado = estadoAlumnoPorId?.get(alumno.id);
+        // Etiqueta del badge cuando no está al día según v_estado_alumno (GOZS-694).
+        let etiquetaEstado: string | null = null;
+        if (estadoAlumnoPorId) {
+          isPendiente = filaEstado?.estado === "PENDIENTE" || filaEstado?.estado === "EN_PAUSA";
+          const vence = filaEstado?.fecha_vencimiento;
+          if (isAlDia) {
+            cuotaTooltip = vence ? `Cuota al día (vence el ${vence})` : "Cuota al día";
+          } else if (filaEstado?.estado === "PENDIENTE") {
+            etiquetaEstado = "Pendiente";
+            cuotaTooltip = "Renovación pendiente";
+          } else if (filaEstado?.estado === "EN_PAUSA") {
+            etiquetaEstado = "En pausa";
+            cuotaTooltip = "Contratación en pausa";
+          } else if (filaEstado?.estado === "VENCIDA") {
+            etiquetaEstado = "Vencida";
+            cuotaTooltip = filaEstado.cobros_vencidos
+              ? `Cuota vencida (${filaEstado.cobros_vencidos} cobro${filaEstado.cobros_vencidos > 1 ? "s" : ""} impago${filaEstado.cobros_vencidos > 1 ? "s" : ""})`
+              : "Cuota vencida";
+          } else {
+            etiquetaEstado = "Sin plan";
+            cuotaTooltip = "Sin contratación";
+          }
+        } else if (alumno.fecha_vencimiento_cuota) {
           const vencimiento = new Date(alumno.fecha_vencimiento_cuota);
           const diffDays = Math.ceil(
             (vencimiento.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
@@ -940,17 +972,32 @@ export function CoachStudioView({
           });
         });
 
-        const diasParaVencer = alumno.fecha_vencimiento_cuota
+        const diasParaVencer = !estadoAlumnoPorId && alumno.fecha_vencimiento_cuota
           ? Math.ceil((new Date(alumno.fecha_vencimiento_cuota).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : null;
         const venceProntoTexto =
-          isPendiente && diasParaVencer !== null && diasParaVencer >= 0 ? `Vence en ${diasParaVencer} d` : null;
+          isPendiente && diasParaVencer !== null && diasParaVencer >= 0
+            ? `Vence en ${diasParaVencer} d`
+            : etiquetaEstado === "Vencida"
+            ? null
+            : etiquetaEstado;
+        const varianteCuota = isAlDia
+          ? "success"
+          : estadoAlumnoPorId
+          ? isPendiente
+            ? "warning"
+            : etiquetaEstado === "Sin plan"
+            ? "neutral"
+            : "destructive"
+          : venceProntoTexto
+          ? "warning"
+          : "destructive";
 
         return (
           <div className="flex flex-col items-start gap-1" data-testid="columna-cuota-actividad">
             <span className={`hidden ${cuotaDotColor}`} aria-hidden="true" />
             <StatusBadge
-              variant={isAlDia ? "success" : venceProntoTexto ? "warning" : "destructive"}
+              variant={varianteCuota}
               size="sm"
               title={cuotaTooltip}
               aria-label={cuotaTooltip}
@@ -1317,6 +1364,7 @@ export function CoachStudioView({
     setAssignRoutineTarget,
     openMenuAlumnoIdProp,
     esCuotaAlDia,
+    estadoAlumnoPorId,
   ]);
 
   return (
@@ -1366,7 +1414,7 @@ export function CoachStudioView({
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground m-0">
-                  Hola, {coachFirstName}
+                  {coachFirstName ? `Hola, ${coachFirstName}` : "Hola"}
                 </h1>
                 {isLoading ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -1426,6 +1474,7 @@ export function CoachStudioView({
               periodo={tipoPeriodo}
               onPeriodoChange={(p) => setTipoPeriodo(p)}
               totalAlumnos={alumnos.length}
+              alumnosAlDia={isLiveInicio ? alumnos.filter(esCuotaAlDia).length : undefined}
               sinEntrenarNombres={alumnosSinEntrenarInicio.map((a) => a.nombreCompleto)}
               sinEntrenarAlDia={
                 alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && esCuotaAlDia(a)).length
@@ -1515,13 +1564,18 @@ export function CoachStudioView({
                           id: "ACTIVA",
                           testId: "chip-filtro-al-dia",
                           label: "Al día",
-                          count: alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
+                          // Con v_estado_alumno, mismo predicado que KPI, Cuota y filtro (GOZS-694).
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaAlDia).length
+                            : alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
                         },
                         {
                           id: "PENDIENTE",
                           testId: "chip-filtro-pago-pendiente",
                           label: "Pago pendiente",
-                          count: alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
+                          count: estadoAlumnoPorId
+                            ? alumnos.filter(esCuotaVencida).length
+                            : alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
                         },
                         {
                           id: "NUEVOS",

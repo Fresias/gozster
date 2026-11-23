@@ -10,6 +10,8 @@ export interface BusinessKpiStripProps {
   sinEntrenarNombres?: string[];
   /** Cuántos de los alumnos sin entrenar tienen la cuota al día (subtítulo "{n} con cuota al día"). */
   sinEntrenarAlDia?: number;
+  /** Alumnos al día según la misma fuente que la tabla (v_estado_alumno, GOZS-694). */
+  alumnosAlDia?: number;
   /** Alumnos activos sin rutina (línea de apoyo o tarjeta Sin rutina). */
   sinRutina?: number;
   onSinEntrenarClick?: () => void;
@@ -66,6 +68,7 @@ export function BusinessKpiStrip({
   kpis: propKpis,
   sinEntrenarNombres: propSinEntrenarNombres = [],
   sinEntrenarAlDia,
+  alumnosAlDia,
   sinRutina = 0,
   onSinEntrenarClick,
   onAsignarClick,
@@ -177,8 +180,9 @@ export function BusinessKpiStrip({
   const bajas = kpis.bajas_mes ?? 0;
   const activosCount = kpis.alumnos_activos ?? 0;
 
+  const alDiaCount = alumnosAlDia ?? activosCount;
   const displayActivos =
-    totalAlumnos && totalAlumnos > 0 ? `${activosCount} de ${totalAlumnos}` : `${activosCount}`;
+    totalAlumnos && totalAlumnos > 0 ? `${alDiaCount} de ${totalAlumnos}` : `${alDiaCount}`;
 
   return (
     <div

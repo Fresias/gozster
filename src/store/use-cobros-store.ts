@@ -9,6 +9,7 @@ import {
   DEMO_PLANES_MEMBRESIA,
 } from "@/services/coach-demo-dataset";
 import { safeStorage } from "@/store/use-offline-queue";
+import { claveDia } from "@/lib/clases";
 import type { Cobro, Contratacion, MedioPago, Pago, Perfil, PlanMembresia } from "@/types/database.types";
 import {
   type ActividadPlanOpcion,
@@ -138,6 +139,9 @@ export function mapearCobrosDataset(
     pagosPorContratacion.set(p.contratacion_id, arr);
   }
 
+  // Mismo criterio que v_estado_alumno (GOZS-694): impago con vencimiento pasado = VENCIDO.
+  const hoyGimnasio = claveDia(new Date());
+
   const cobros: CobroItem[] = dataset.cobros.map((c: Cobro) => {
     const perfil = perfilesMap.get(c.alumno_id);
     const contratacion = contratacionesMap.get(c.contratacion_id);
@@ -203,7 +207,7 @@ export function mapearCobrosDataset(
       notaDescuento: c.notas ?? pagoConfirmado?.nota ?? undefined,
       diaVencimiento,
       fechaVencimiento: c.fecha_vencimiento,
-      estado: c.estado,
+      estado: c.estado !== "PAGADO" && c.fecha_vencimiento < hoyGimnasio ? "VENCIDO" : c.estado,
       ultimoPago: pagoConfirmado
         ? {
             id: pagoConfirmado.id,

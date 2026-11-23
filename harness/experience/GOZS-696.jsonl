@@ -1,0 +1,1 @@
+{"id":"exp-gozs-696-1","timestamp":"2026-11-23T06:39:58.178Z","task":"GOZS-696","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Seeds: cambiar datos en la fuente (seed_data/*.json) y en el SQL generado a la vez, y cubrirlo con un spec de guarda; si no, la próxima regeneración los reintroduce.","verified":true,"tags":["seeds","datos"]}
