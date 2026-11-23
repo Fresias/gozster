@@ -549,6 +549,11 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         "utf-8",
       );
       await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
+      // GOZS-718: re-aplicar la versión vigente de las funciones que esa migración redefine
+      await aplicarMigracion(
+        db,
+        fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123120000_unificar_vinculo_coach_alumno.sql"), "utf-8"),
+      );
     });
 
     it("anon no tiene privilegios sobre ninguna tabla ni vista de public y recibe 42501", async () => {
@@ -813,6 +818,18 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [CONV_A1_ID, coachAjeno],
       );
       expect(tr.rows[0]?.responsable_id).toBe(coachAjeno);
+
+      // GOZS-718: vínculo único: la transferencia reasigna al alumno; C1 pierde el acceso
+      const asignado = await db.query<{ profesor_asignado_id: string }>(
+        `SELECT profesor_asignado_id FROM public.perfiles WHERE id = $1`,
+        [A1],
+      );
+      expect(asignado.rows[0]?.profesor_asignado_id).toBe(coachAjeno);
+      const c1Ve = await como<{ ok: boolean }>("authenticated", C1, `SELECT public.es_entrenador_de($1) AS ok`, [A1]);
+      expect(c1Ve.rows[0]?.ok).toBe(false);
+
+      // El nuevo coach asignado puede devolverla (restaura el fixture para el resto de la suite)
+      await como("authenticated", coachAjeno, `SELECT public.transferir_conversacion_gozs($1, $2, 'Fin cobertura')`, [CONV_A1_ID, C1]);
     });
 
     it("coach solo ve errores_app y feedback_clase de sus alumnos (o clases asignadas)", async () => {

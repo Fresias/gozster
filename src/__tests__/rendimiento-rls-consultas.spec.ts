@@ -157,8 +157,9 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
         ORDER BY tablename, policyname;
       `);
 
-      // 87: GOZS-720 podó 4 tablas sin uso y con ellas sus políticas (antes, >= 90).
-      expect(pols.rows.length).toBeGreaterThanOrEqual(87);
+      // 83: GOZS-720 podó 4 tablas sin uso (antes, >= 90) y GOZS-718 eliminó
+      // la tabla N:M coach-alumno con sus 4 políticas.
+      expect(pols.rows.length).toBeGreaterThanOrEqual(83);
 
       const sinInitPlan = pols.rows.filter(
         (p) => tieneAuthSinSelect(p.qual) || tieneAuthSinSelect(p.with_check),
@@ -245,11 +246,10 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
       const { client, calls } = crearMockPostgrest({
         userId: coachId,
         rol: "ENTRENADOR",
-        alumnosVinculados: [{ alumno_id: alu2 }],
         dataByTable: {
           perfiles: [
             { id: alu1, nombre_completo: "Ana", rol: "ALUMNO", profesor_asignado_id: coachId },
-            { id: alu2, nombre_completo: "Beto", rol: "ALUMNO", profesor_asignado_id: null },
+            { id: alu2, nombre_completo: "Beto", rol: "ALUMNO", profesor_asignado_id: coachId },
           ],
           planes_entrenamiento: [{ id: plan1, alumno_id: alu1, profesor_id: coachId, nombre: "Plan A", estado: "ACTIVO" }],
           dias_rutina: [{ id: dia1, plan_id: plan1, nombre: "Día 1", orden: 1 }],
@@ -278,12 +278,12 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
       const byTable = (t: string) =>
         calls.filter((c) => c.table === t && !(t === "perfiles" && c.select === "id, rol"))[0]!;
 
-      // Perfiles filtrados por profesor_asignado_id o entrenador_alumnos y sin columnas no usadas
+      // Perfiles filtrados por profesor_asignado_id (vínculo único, GOZS-718) y sin columnas no usadas
       expect(byTable("perfiles").select).not.toContain("debe_cambiar_password");
       expect(byTable("perfiles").select).not.toContain("onboarding_completado");
       expect(byTable("perfiles").filters).toContainEqual({
-        op: "or",
-        args: [`profesor_asignado_id.eq.${coachId},id.in.(${alu2})`],
+        op: "eq",
+        args: ["profesor_asignado_id", coachId],
       });
 
       // Planes filtrados por plantillas + profesor_id + alumnos del coach

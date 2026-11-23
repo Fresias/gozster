@@ -47,11 +47,6 @@ const SEED = `
     ('${ALU_B}', 'alub@test.local', 'Alumno Ajeno', 'ALUMNO', '${COACH_B}', 'ACTIVA')
   ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES
-    ('${COACH_A}', '${ALU_A1}'),
-    ('${COACH_A}', '${ALU_A2}'),
-    ('${COACH_A}', '${ALU_A3}'),
-    ('${COACH_B}', '${ALU_B}');
 
   INSERT INTO public.planes_membresia (id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio) VALUES
     ('${PLAN_FUNCIONAL_2X}', 'Funcional 2x', 2, 1, 1, 25000),

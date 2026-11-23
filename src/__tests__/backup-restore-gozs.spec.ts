@@ -37,7 +37,6 @@ const SEED = `
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL);
   INSERT INTO public.ejercicios (id, nombre, musculos_principales, creado_por)
     VALUES ('${EJ}','Sentadilla','{CUADRICEPS}','${COACH}');
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES ('${COACH}','${ALUMNO}',true);
   INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre) VALUES ('${PLAN}','${COACH}','${ALUMNO}','Fuerza');
   INSERT INTO public.dias_rutina (id, plan_id, nombre, orden) VALUES ('${DIA}','${PLAN}','Día A',1);
   INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones, rpe_objetivo)
