@@ -981,19 +981,34 @@ export function CoachStudioView({
           ? Math.ceil((new Date(alumno.fecha_vencimiento_cuota).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : null;
         const venceProntoTexto =
-          isPendiente && diasParaVencer !== null && diasParaVencer >= 0 ? `Vence en ${diasParaVencer} d` : null;
+          isPendiente && diasParaVencer !== null && diasParaVencer >= 0
+            ? `Vence en ${diasParaVencer} d`
+            : etiquetaEstado === "Vencida"
+            ? null
+            : etiquetaEstado;
+        const varianteCuota = isAlDia
+          ? "success"
+          : estadoAlumnoPorId
+          ? isPendiente
+            ? "warning"
+            : etiquetaEstado === "Sin plan"
+            ? "neutral"
+            : "destructive"
+          : venceProntoTexto
+          ? "warning"
+          : "destructive";
 
         return (
           <div className="flex flex-col items-start gap-1" data-testid="columna-cuota-actividad">
             <span className={`hidden ${cuotaDotColor}`} aria-hidden="true" />
             <StatusBadge
-              variant={isAlDia ? "success" : venceProntoTexto || isPendiente ? "warning" : "destructive"}
+              variant={varianteCuota}
               size="sm"
               title={cuotaTooltip}
               aria-label={cuotaTooltip}
               role="status"
             >
-              {isAlDia ? "Al día" : venceProntoTexto ?? etiquetaEstado ?? "Vencida"}
+              {isAlDia ? "Al día" : venceProntoTexto ?? "Vencida"}
             </StatusBadge>
             {/* Con más de un plan (multiactividad) se detalla el estado de cada uno */}
             {badgesPlanes.length > 1 && (
