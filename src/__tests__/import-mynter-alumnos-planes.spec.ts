@@ -46,7 +46,7 @@ describe('importador alumnos + planes', () => {
     const r = construirAlumnos([...entradas, entrada(1)], PROF, AHORA);
     expect(r.perfiles).toHaveLength(13);
     expect(new Set(r.perfiles.map((p) => p.id)).size).toBe(13);
-    expect(r.vinculos).toHaveLength(13);
+    expect(r.perfiles.every((p) => p.profesor_asignado_id === PROF)).toBe(true);
     expect(r.contrataciones).toHaveLength(13);
     expect(r.perfiles[0]).toMatchObject({ email: 'alumno1@test.com', nombre_completo: 'Ana Prueba1', rol: 'ALUMNO', profesor_asignado_id: PROF });
   });

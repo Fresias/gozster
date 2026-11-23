@@ -135,6 +135,10 @@ describe("Issue #64: contrataciones, pagos y auditoría (PGlite)", () => {
     }
     // Idempotencia
     await aplicarMigracion(fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    // GOZS-718: re-aplicar la versión vigente de evaluar_vencimientos_contrataciones (vínculo único)
+    await aplicarMigracion(
+      fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123120000_unificar_vinculo_coach_alumno.sql"), "utf-8")
+    );
     await db.exec(SEED_CONTRATACIONES);
   }, 60_000);
 

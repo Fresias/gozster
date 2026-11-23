@@ -505,14 +505,6 @@ export interface PerfilAlumno {
   profesor_asignado_id: string;
 }
 
-export interface VinculoAlumno {
-  id: string;
-  entrenador_id: string;
-  alumno_id: string;
-  rol_entrenador: 'PRINCIPAL';
-  es_principal: true;
-}
-
 export interface ContratacionAlumno {
   id: string;
   alumno_id: string;
@@ -533,7 +525,6 @@ export interface PlanAlumno extends PlanPlantilla {
 
 export interface AlumnosResultado {
   perfiles: PerfilAlumno[];
-  vinculos: VinculoAlumno[];
   contrataciones: ContratacionAlumno[];
   sinContratacion: number;
 }
@@ -556,7 +547,7 @@ const aIso = (v: unknown): string | null => {
  * `cuentasBancarias` y `domicilio` nunca se leen.
  */
 export function construirAlumnos(entradas: Raw[], profesorId: string, ahora: Date = new Date()): AlumnosResultado {
-  const res: AlumnosResultado = { perfiles: [], vinculos: [], contrataciones: [], sinContratacion: 0 };
+  const res: AlumnosResultado = { perfiles: [], contrataciones: [], sinContratacion: 0 };
   const vistos = new Set<string>();
   for (const e of entradas) {
     const a: Raw = e?.alumno ?? {};
@@ -574,13 +565,6 @@ export function construirAlumnos(entradas: Raw[], profesorId: string, ahora: Dat
       rol: 'ALUMNO',
       estado_membresia: 'ACTIVA',
       profesor_asignado_id: profesorId,
-    });
-    res.vinculos.push({
-      id: toUUID(`entrenador-alumno-${profesorId}-${id}`),
-      entrenador_id: profesorId,
-      alumno_id: id,
-      rol_entrenador: 'PRINCIPAL',
-      es_principal: true,
     });
     const ini = aIso(e?.inicioAsesoria)?.slice(0, 10);
     const fin = aIso(e?.finAsesoria)?.slice(0, 10);
@@ -998,7 +982,6 @@ export async function alumnosPlanes(args: string[]): Promise<void> {
       }
     };
     await subir('perfiles', al.perfiles);
-    await subir('entrenador_alumnos', al.vinculos, 'entrenador_id,alumno_id');
     await subir('contrataciones', al.contrataciones);
     await subir('planes_entrenamiento', pl.planes);
     await subir('dias_rutina', dias);

@@ -549,13 +549,19 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         "utf-8",
       );
       await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
-      // GOZS-721 redefine fn_proteger_estado_historial_dolor sin la columna eliminada:
-      // se re-aplica para volver al esquema final (también es idempotente).
-      const limpieza = fs.readFileSync(
-        path.join(MIGRATIONS_DIR, "20261123130000_limpiar_columnas_sin_uso.sql"),
-        "utf-8",
-      );
-      await expect(aplicarMigracion(db, limpieza)).resolves.toBeUndefined();
+      // GOZS-718 y GOZS-721: re-aplicar en orden cronológico las versiones vigentes (ambas idempotentes)
+      await expect(
+        aplicarMigracion(
+          db,
+          fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123120000_unificar_vinculo_coach_alumno.sql"), "utf-8"),
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        aplicarMigracion(
+          db,
+          fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123130000_limpiar_columnas_sin_uso.sql"), "utf-8"),
+        ),
+      ).resolves.toBeUndefined();
     });
 
     it("anon no tiene privilegios sobre ninguna tabla ni vista de public y recibe 42501", async () => {
@@ -821,6 +827,18 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [CONV_A1_ID, coachAjeno],
       );
       expect(tr.rows[0]?.responsable_id).toBe(coachAjeno);
+
+      // GOZS-718: vínculo único: la transferencia reasigna al alumno; C1 pierde el acceso
+      const asignado = await db.query<{ profesor_asignado_id: string }>(
+        `SELECT profesor_asignado_id FROM public.perfiles WHERE id = $1`,
+        [A1],
+      );
+      expect(asignado.rows[0]?.profesor_asignado_id).toBe(coachAjeno);
+      const c1Ve = await como<{ ok: boolean }>("authenticated", C1, `SELECT public.es_entrenador_de($1) AS ok`, [A1]);
+      expect(c1Ve.rows[0]?.ok).toBe(false);
+
+      // El nuevo coach asignado puede devolverla (restaura el fixture para el resto de la suite)
+      await como("authenticated", coachAjeno, `SELECT public.transferir_conversacion_gozs($1, $2, 'Fin cobertura')`, [CONV_A1_ID, C1]);
     });
 
     it("coach solo ve errores_app y feedback_clase de sus alumnos (o clases asignadas)", async () => {

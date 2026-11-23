@@ -162,7 +162,6 @@ describe("Issue #49: hardening de RLS y alta de alumnos por invitación", () => 
       "ejercicios_en_rutina",
       "registro_sesiones",
       "registro_series",
-      "entrenador_alumnos",
       "conversaciones",
       "mensajes",
       "alertas_entrenador",

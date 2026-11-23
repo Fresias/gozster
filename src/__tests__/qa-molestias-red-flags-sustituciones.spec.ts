@@ -63,9 +63,6 @@ const QA_SEED_SQL = `
     ('${OTRO_ALUMNO_ID}','otro_alumno@gozster.test','Alumno Secundario QA','ALUMNO','${OTRO_COACH_ID}','ACTIVA')
   ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES
-    ('${COACH_ID}','${ALUMNO_ID}',true),
-    ('${OTRO_COACH_ID}','${OTRO_ALUMNO_ID}',true);
 
   INSERT INTO public.ejercicios (id, nombre, musculos_principales, creado_por) VALUES
     ('${EJ_SENTADILLA}', 'Sentadilla Trasera con Barra', '{CUADRICEPS,GLUTEOS}', '${COACH_ID}'),

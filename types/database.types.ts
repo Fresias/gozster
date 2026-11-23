@@ -395,32 +395,6 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"entrenador_alumnos": {
-                  Row: {
-                    "alumno_id": string,"created_at": string,"entrenador_id": string,"es_principal": boolean,"id": string,"rol_entrenador": string,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"created_at"?: string,"entrenador_id": string,"es_principal"?: boolean,"id"?: string,"rol_entrenador"?: string,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"created_at"?: string,"entrenador_id"?: string,"es_principal"?: boolean,"id"?: string,"rol_entrenador"?: string,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "entrenador_alumnos_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "entrenador_alumnos_entrenador_id_fkey"
-      columns: ["entrenador_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"errores_app": {
                   Row: {
                     "contexto": string,"created_at": string,"detalle_tecnico": string | null,"id": string,"mensaje_humano": string,"payload_resumen": Json | null,"usuario_id": string

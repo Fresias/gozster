@@ -28,7 +28,6 @@ const SEED = `
     ('${ALUMNO}','a713@t','Alumno 713','ALUMNO','${COACH}','ACTIVA')
   ON CONFLICT (id) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol,
     profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES ('${COACH}','${ALUMNO}');
   INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin, estado, precio_pactado) VALUES
     ('${C_EN_VENTANA}','${ALUMNO}',5,CURRENT_DATE - 27,CURRENT_DATE + 3,'VIGENTE',25000),
     ('${C_LEJOS}','${ALUMNO}',5,CURRENT_DATE,CURRENT_DATE + 30,'VIGENTE',25000),

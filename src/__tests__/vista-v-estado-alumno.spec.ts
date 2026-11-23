@@ -56,10 +56,6 @@ const SEED = `
   ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id,
     estado_membresia = EXCLUDED.estado_membresia;
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES
-    ('${COACH_A}', '${AL_DIA}'), ('${COACH_A}', '${POR_VENCER}'), ('${COACH_A}', '${DEUDA}'),
-    ('${COACH_A}', '${FIN_PASADO}'), ('${COACH_A}', '${PAUSA}'), ('${COACH_A}', '${PENDIENTE}'),
-    ('${COACH_A}', '${SIN_CONTRATO}'), ('${COACH_B}', '${AJENO}');
 
   INSERT INTO public.contrataciones (id, alumno_id, estado, dia_vencimiento, fecha_inicio, fecha_fin) VALUES
     (gen_random_uuid(), '${AL_DIA}', 'VIGENTE', 1, ${dia(-10)}, ${dia(20)}),
