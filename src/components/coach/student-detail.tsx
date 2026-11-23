@@ -1,4 +1,5 @@
 import { type HistoricalLoadEntry, MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
+import { ClasesFijasPanel } from "@/components/coach/clases-fijas-panel";
 import { TrendingUp } from "@/components/athlete/icons";
 import {
   ClipboardList,
@@ -2909,6 +2910,7 @@ export function StudentDetail({
             suscripcionNode={suscripcionNode}
             historialPagosNode={historialPagosNode}
             contratacionNode={contratacionNode}
+            clasesFijasNode={isLiveStudent ? <ClasesFijasPanel alumnoId={alumno.id} /> : undefined}
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
