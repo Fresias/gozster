@@ -35,10 +35,6 @@ export const VERSION_SNAPSHOT = 1;
 export const TABLAS = [
   { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles" } },
   { nombre: "ejercicios", fks: { creado_por: "perfiles" } },
-  {
-    nombre: "ejercicios_alternativas",
-    fks: { ejercicio_alternativo_id: "ejercicios", ejercicio_origen_id: "ejercicios" },
-  },
   { nombre: "entrenador_alumnos", fks: { alumno_id: "perfiles", entrenador_id: "perfiles" } },
   {
     nombre: "planes_entrenamiento",
@@ -52,8 +48,6 @@ export const TABLAS = [
   { nombre: "mensajes", fks: { conversacion_id: "conversaciones", remitente_id: "perfiles" } },
   { nombre: "push_suscripciones", fks: { usuario_id: "perfiles" } },
   { nombre: "push_cola", fks: { destinatario_id: "perfiles", mensaje_id: "mensajes" } },
-  { nombre: "habitos_registros", fks: { alumno_id: "perfiles" } },
-  { nombre: "nutricion_registros", fks: { alumno_id: "perfiles" } },
   {
     nombre: "alumno_historial_dolor",
     fks: {
@@ -104,7 +98,6 @@ export const TABLAS = [
   { nombre: "clases_profesores", fks: { clase_id: "clases", profesor_id: "perfiles" } },
   { nombre: "reservas", fks: { alumno_id: "perfiles", clase_id: "clases" } },
   { nombre: "feedback_clase", fks: { reserva_id: "reservas" } },
-  { nombre: "ranking_prs", fks: { clase_id: "clases", alumno_id: "perfiles", ejercicio_id: "ejercicios", registrado_por: "perfiles" } },
   { nombre: "logros_racha", fks: { alumno_id: "perfiles" } },
 ];
 

@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { type PGlite } from "@electric-sql/pglite";
+import { PGlite } from "@electric-sql/pglite";
+import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
-import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pglite-migrada";
+import { aplicarMigracion, crearDbMigrada, listarMigraciones, MIGRATIONS_DIR, STUBS } from "./helpers/pglite-migrada";
 
 const IDX_MIGRATION = "20261123070000_indices_fks_dedup_y_v_estado_alumno.sql";
 const RLS_MIGRATION = "20261123080000_rls_policies_select_auth_uid.sql";
@@ -23,16 +24,23 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
 
     beforeAll(async () => {
       db = await crearDbMigrada();
-      // Verificar idempotencia re-aplicando ambas migraciones sobre el esquema ya migrado
-      await aplicarMigracion(
-        db,
-        fs.readFileSync(path.join(MIGRATIONS_DIR, IDX_MIGRATION), "utf-8"),
-      );
-      await aplicarMigracion(
-        db,
-        fs.readFileSync(path.join(MIGRATIONS_DIR, RLS_MIGRATION), "utf-8"),
-      );
     }, 120_000);
+
+    it("ambas migraciones son idempotentes (re-aplicadas sobre el esquema migrado hasta RLS_MIGRATION)", async () => {
+      // Se migra sólo hasta RLS_MIGRATION: migraciones posteriores (p. ej. la poda de
+      // tablas de GOZS-720) eliminan tablas que estas dos migraciones referencian.
+      const hasta = await PGlite.create({ extensions: { pgcrypto } });
+      await hasta.exec(STUBS);
+      for (const archivo of listarMigraciones().filter((f) => f <= RLS_MIGRATION)) {
+        await aplicarMigracion(hasta, fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8"));
+      }
+      for (const archivo of [IDX_MIGRATION, RLS_MIGRATION]) {
+        await expect(
+          aplicarMigracion(hasta, fs.readFileSync(path.join(MIGRATIONS_DIR, archivo), "utf-8")),
+        ).resolves.toBeUndefined();
+      }
+      await hasta.close();
+    }, 180_000);
 
     it("GIVEN todas las FK de public WHEN se aplica la migración de índices THEN ninguna FK queda sin índice de prefijo", async () => {
       const res = await db.query<{
@@ -149,7 +157,8 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
         ORDER BY tablename, policyname;
       `);
 
-      expect(pols.rows.length).toBeGreaterThanOrEqual(90);
+      // 87: GOZS-720 podó 4 tablas sin uso y con ellas sus políticas (antes, >= 90).
+      expect(pols.rows.length).toBeGreaterThanOrEqual(87);
 
       const sinInitPlan = pols.rows.filter(
         (p) => tieneAuthSinSelect(p.qual) || tieneAuthSinSelect(p.with_check),

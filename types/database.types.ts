@@ -369,32 +369,6 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"ejercicios_alternativas": {
-                  Row: {
-                    "created_at": string,"ejercicio_alternativo_id": string,"ejercicio_origen_id": string,"equipamiento": string | null,"explicacion_tecnica": string | null,"id": string,"nivel_exigencia": string | null,"patron_movimiento": string,"restricciones_articulares": (string)[],"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"ejercicio_alternativo_id": string,"ejercicio_origen_id": string,"equipamiento"?: string | null,"explicacion_tecnica"?: string | null,"id"?: string,"nivel_exigencia"?: string | null,"patron_movimiento": string,"restricciones_articulares"?: (string)[],"updated_at"?: string
-                  }
-                  Update: {
-                    "created_at"?: string,"ejercicio_alternativo_id"?: string,"ejercicio_origen_id"?: string,"equipamiento"?: string | null,"explicacion_tecnica"?: string | null,"id"?: string,"nivel_exigencia"?: string | null,"patron_movimiento"?: string,"restricciones_articulares"?: (string)[],"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "ejercicios_alternativas_ejercicio_alternativo_id_fkey"
-      columns: ["ejercicio_alternativo_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ejercicios_alternativas_ejercicio_origen_id_fkey"
-      columns: ["ejercicio_origen_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"ejercicios_en_rutina": {
                   Row: {
                     "created_at": string,"descanso_segundos": number,"dia_id": string,"ejercicio_id": string,"es_superserie": boolean,"es_unilateral": boolean,"force_rpe_required": boolean,"grupo_superserie": number | null,"id": string,"notas": string | null,"orden": number,"repeticiones": string,"rpe_objetivo": string | null,"series": number,"tempo": string | null,"tempo_activo": boolean,"tiempo_objetivo_segundos": number | null,"tipo_medicion": string,"tipo_serie": string,"updated_at": string
@@ -501,26 +475,6 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
-                },"habitos_registros": {
-                  Row: {
-                    "agua_ml": number,"alumno_id": string,"created_at": string,"fecha": string,"habitos_completados": boolean,"id": string,"pasos": number,"sueno_horas": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "agua_ml"?: number,"alumno_id": string,"created_at"?: string,"fecha"?: string,"habitos_completados"?: boolean,"id"?: string,"pasos"?: number,"sueno_horas"?: number,"updated_at"?: string
-                  }
-                  Update: {
-                    "agua_ml"?: number,"alumno_id"?: string,"created_at"?: string,"fecha"?: string,"habitos_completados"?: boolean,"id"?: string,"pasos"?: number,"sueno_horas"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "habitos_registros_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"logros_racha": {
                   Row: {
                     "alumno_id": string,"created_at": string,"fecha_logro": string,"id": string,"numero_ciclo": number,"tipo": string,"updated_at": string
@@ -562,26 +516,6 @@ isOneToOne: false
     },{
       foreignKeyName: "mensajes_remitente_id_fkey"
       columns: ["remitente_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"nutricion_registros": {
-                  Row: {
-                    "alumno_id": string,"calorias_consumidas": number,"calorias_meta": number,"carbos_g": number,"carbos_meta_g": number,"created_at": string,"fecha": string,"grasas_g": number,"grasas_meta_g": number,"id": string,"proteinas_g": number,"proteinas_meta_g": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"calorias_consumidas"?: number,"calorias_meta"?: number,"carbos_g"?: number,"carbos_meta_g"?: number,"created_at"?: string,"fecha"?: string,"grasas_g"?: number,"grasas_meta_g"?: number,"id"?: string,"proteinas_g"?: number,"proteinas_meta_g"?: number,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"calorias_consumidas"?: number,"calorias_meta"?: number,"carbos_g"?: number,"carbos_meta_g"?: number,"created_at"?: string,"fecha"?: string,"grasas_g"?: number,"grasas_meta_g"?: number,"id"?: string,"proteinas_g"?: number,"proteinas_meta_g"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "nutricion_registros_alumno_id_fkey"
-      columns: ["alumno_id"]
 isOneToOne: false
       referencedRelation: "perfiles"
       referencedColumns: ["id"]
@@ -764,44 +698,6 @@ isOneToOne: false
                     {
       foreignKeyName: "push_suscripciones_usuario_id_fkey"
       columns: ["usuario_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"ranking_prs": {
-                  Row: {
-                    "alumno_id": string,"clase_id": string,"created_at": string,"ejercicio_id": string,"fecha": string,"id": string,"peso_kg": number,"registrado_por": string,"reps": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"clase_id": string,"created_at"?: string,"ejercicio_id": string,"fecha"?: string,"id"?: string,"peso_kg": number,"registrado_por"?: string,"reps": number,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"clase_id"?: string,"created_at"?: string,"ejercicio_id"?: string,"fecha"?: string,"id"?: string,"peso_kg"?: number,"registrado_por"?: string,"reps"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "ranking_prs_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_clase_id_fkey"
-      columns: ["clase_id"]
-isOneToOne: false
-      referencedRelation: "clases"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_ejercicio_id_fkey"
-      columns: ["ejercicio_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_registrado_por_fkey"
-      columns: ["registrado_por"]
 isOneToOne: false
       referencedRelation: "perfiles"
       referencedColumns: ["id"]
