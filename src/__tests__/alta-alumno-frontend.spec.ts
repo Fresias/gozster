@@ -99,11 +99,11 @@ describe("GOZS-35: Login enruta primer login y poda el enlace muerto (login/page
 describe("GOZS-35: Middleware bloquea contraseña temporal", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("redirige a /login?forceChange=1 cuando el JWT tiene must_change_password", async () => {
+  it("redirige a /login?forceChange=1 cuando app_metadata tiene must_change_password", async () => {
     const user = {
       id: "alumno-temp",
       email: "temp@gozster.com",
-      user_metadata: { must_change_password: true, rol: "ALUMNO" },
+      app_metadata: { must_change_password: true }, user_metadata: { rol: "ALUMNO" },
     };
     (createServerClient as any).mockReturnValue({
       auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
