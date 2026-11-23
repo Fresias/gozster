@@ -211,7 +211,7 @@ BEGIN
     AND public.es_entrenador_o_admin()
     AND OLD.profesor_asignado_id = auth.uid()
   ) THEN
-    RAISE EXCEPTION 'Solo el entrenador titular puede modificar la asignación o el entrenador de apoyo del alumno'
+    RAISE EXCEPTION 'Solo el entrenador asignado puede modificar la asignación o el entrenador de apoyo del alumno'
       USING ERRCODE = '42501';
   END IF;
 
@@ -225,7 +225,7 @@ BEGIN
     AND public.es_entrenador_o_admin()
     AND public.es_entrenador_financiero_de(OLD.id)
   ) THEN
-    RAISE EXCEPTION 'Solo un entrenador con acceso financiero puede modificar cuenta, membresía o baja del alumno'
+    RAISE EXCEPTION 'Solo el entrenador asignado puede modificar cuenta, membresía o baja del alumno (o el de apoyo con acceso financiero)'
       USING ERRCODE = '42501';
   END IF;
 
@@ -235,7 +235,7 @@ BEGIN
        AND public.es_entrenador_o_admin()
        AND public.es_entrenador_de(OLD.id)
      ) THEN
-    RAISE EXCEPTION 'Solo un entrenador del alumno puede modificar su nivel de vista'
+    RAISE EXCEPTION 'Solo el entrenador asignado puede modificar el nivel de vista del alumno (o el de apoyo)'
       USING ERRCODE = '42501';
   END IF;
 
