@@ -118,6 +118,8 @@ type RefinedTables = Omit<
       sexo?: "M" | "F" | null;
       nombre_preferido?: string | null;
       onboarding_completado?: boolean;
+      profesor_apoyo_id?: string | null;
+      apoyo_acceso_financiero?: boolean;
     }
   >;
   planes_entrenamiento: RefineTable<
