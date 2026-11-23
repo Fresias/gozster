@@ -35,7 +35,7 @@ import {
 } from "@/lib/alumno-actividades";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import { useChatStore } from "@/store/use-chat-store";
-import { fetchLiveDatasetFromSupabase } from "@/services/alumnos-service";
+import { fetchLiveDatasetFromSupabase, type EstadoAlumno } from "@/services/alumnos-service";
 import { asignarSuscripcionYCobro } from "@/services/cobros-service";
 import { asignarRutinaAAlumno } from "@/services/rutinas-service";
 import {
@@ -117,6 +117,8 @@ interface CoachStudioState {
   ejercicios: Ejercicio[];
   historialCargas: Record<string, HistoricalLoadEntry[]>;
   contrataciones: Contratacion[];
+  /** Filas de v_estado_alumno (undefined = no disponible, se usa el criterio local). */
+  estadosAlumno?: EstadoAlumno[];
   sustituciones: SustitucionEjercicio[];
   alumnoActividades: AlumnoActividad[];
   filtroActividad: FiltroActividad;
@@ -279,6 +281,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
         ejercicios: MOCK_EJERCICIOS,
         historialCargas: MOCK_HISTORIAL_CARGAS,
         contrataciones: DEMO_CONTRATACIONES_CLASES,
+        estadosAlumno: undefined,
         alumnoActividades: [...MOCK_ALUMNO_ACTIVIDADES, ...DEMO_ALUMNO_ACTIVIDADES],
         filtroActividad: "TODAS",
         sustituciones: [
@@ -321,6 +324,7 @@ export const useCoachStudioStore = create<CoachStudioState>()(
           ejerciciosEnRutina: dataset.ejerciciosEnRutina,
           ejercicios: dataset.ejercicios,
           contrataciones: dataset.contrataciones ?? [],
+          estadosAlumno: dataset.estadosAlumno,
           alumnoActividades: dataset.alumnoActividades ?? [],
           historialCargas: {},
           sustituciones: [],

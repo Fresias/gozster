@@ -25,7 +25,11 @@ export interface LiveSupabaseDataset {
   contrataciones?: Contratacion[];
   planesMembresia?: PlanMembresia[];
   cobros?: Cobro[];
+  /** Fuente única de "alumno al día": vista v_estado_alumno (contrataciones + cobros). */
+  estadosAlumno?: EstadoAlumno[];
 }
+
+export type EstadoAlumno = Database["public"]["Views"]["v_estado_alumno"]["Row"];
 
 const PERFILES_DATASET_COLUMNS =
   "id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, fecha_baja, created_at, updated_at, telefono, fecha_vencimiento_cuota, ultimo_entreno_at, estado_cuenta, nivel_vista_alumno, peso_corporal_kg, sexo, nombre_preferido";
@@ -49,6 +53,9 @@ const CONTRATACIONES_DATASET_COLUMNS =
 
 const PLANES_MEMBRESIA_DATASET_COLUMNS =
   "id, nombre, limite_semanal, cantidad_actividades, duracion_meses, precio, activo, notas";
+
+const ESTADO_ALUMNO_DATASET_COLUMNS =
+  "alumno_id, estado, al_dia, fecha_vencimiento, cobros_vencidos";
 
 const COBROS_DATASET_COLUMNS =
   "id, contratacion_id, alumno_id, monto, fecha_vencimiento, estado, concepto, notas";
@@ -168,7 +175,7 @@ export async function fetchLiveDatasetFromSupabase(
     }
 
     const scopedByAlumnos = (
-      table: "alumno_actividades" | "contrataciones" | "cobros",
+      table: "alumno_actividades" | "contrataciones" | "cobros" | "v_estado_alumno",
       columns: string,
       orderColumn: string,
       ascending: boolean,
@@ -176,7 +183,7 @@ export async function fetchLiveDatasetFromSupabase(
       if (alumnoIds.length === 0 && currentUserId) {
         return Promise.resolve({ data: [], error: null });
       }
-      const query = client.from(table).select(columns);
+      const query = (client as any).from(table).select(columns);
       if (alumnoIds.length > 0 && typeof (query as any).in === "function") {
         return (query as any).in("alumno_id", alumnoIds).order(orderColumn, { ascending });
       }
@@ -190,6 +197,7 @@ export async function fetchLiveDatasetFromSupabase(
       contratacionesRes,
       planesMembresiaRes,
       cobrosRes,
+      estadosAlumnoRes,
     ] = await Promise.all([
       planesPromise,
       client.from("ejercicios").select(EJERCICIOS_DATASET_COLUMNS).order("nombre", { ascending: true }),
@@ -197,6 +205,7 @@ export async function fetchLiveDatasetFromSupabase(
       scopedByAlumnos("contrataciones", CONTRATACIONES_DATASET_COLUMNS, "created_at", false),
       client.from("planes_membresia").select(PLANES_MEMBRESIA_DATASET_COLUMNS).order("precio", { ascending: true }),
       scopedByAlumnos("cobros", COBROS_DATASET_COLUMNS, "fecha_vencimiento", false),
+      scopedByAlumnos("v_estado_alumno", ESTADO_ALUMNO_DATASET_COLUMNS, "alumno_id", true),
     ]);
 
     const planes = (planesRes.data as PlanEntrenamiento[]) || [];
@@ -249,6 +258,9 @@ export async function fetchLiveDatasetFromSupabase(
         ? ((planesMembresiaRes?.data as PlanMembresia[]) || [])
         : [],
       cobros: !cobrosRes?.error ? ((cobrosRes?.data as Cobro[]) || []) : [],
+      estadosAlumno: !estadosAlumnoRes?.error
+        ? ((estadosAlumnoRes?.data as EstadoAlumno[]) || [])
+        : undefined,
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);
