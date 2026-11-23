@@ -414,7 +414,20 @@ export type DiaRutina = Tables<"dias_rutina">;
 export type EjercicioEnRutina = Tables<"ejercicios_en_rutina">;
 export type RegistroSesion = Tables<"registro_sesiones">;
 export type RegistroSerie = Tables<"registro_series">;
-export type EntrenadorAlumno = Tables<"entrenador_alumnos">;
+/**
+ * @deprecated GOZS-718: la tabla N:M se eliminó; el vínculo coach↔alumno es
+ * perfiles.profesor_asignado_id. Se conserva la forma solo para mocks y
+ * simulaciones en memoria.
+ */
+export interface EntrenadorAlumno {
+  id: string;
+  entrenador_id: string;
+  alumno_id: string;
+  rol_entrenador: string;
+  es_principal: boolean;
+  created_at: string;
+  updated_at: string;
+}
 export type Conversacion = Tables<"conversaciones">;
 export type Mensaje = Tables<"mensajes">;
 export type ConversacionInsert = TablesInsert<"conversaciones">;
