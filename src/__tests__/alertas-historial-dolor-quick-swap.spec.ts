@@ -200,7 +200,6 @@ describe("GOZS-26: Alertas de Entrenador, Historial de Dolor y Quick Swap RPC", 
         severidad: "MODERADO",
         notas_alumno: "Molestia en articulación glenohumeral",
         notas_profesor: "Sustituido por Press Banca Mancuernas neutro",
-        estado_recuperacion: "ACTIVO",
         fecha_reporte: "2026-10-17",
         momento_aparicion: null,
         es_sintoma_alarma: false,
@@ -211,7 +210,7 @@ describe("GOZS-26: Alertas de Entrenador, Historial de Dolor y Quick Swap RPC", 
       };
 
       expect(dummyHistorial.zona_articular).toBe("HOMBRO");
-      expect(dummyHistorial.estado_recuperacion).toBe("ACTIVO");
+      expect(dummyHistorial.estado).toBe("PENDIENTE");
     });
 
     it("debe incluir fecha_vencimiento_cuota y ultimo_entreno_at en Perfil", () => {
