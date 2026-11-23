@@ -21,17 +21,10 @@ export default async function CoachStudioPage({
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
   ]);
 
-  let userRole: string = "ADMIN";
-  let coachName = "Martín";
+  // El rol sale solo de perfiles.rol; sin perfil se degrada a ENTRENADOR (sin privilegios de admin).
+  let userRole: string = "ENTRENADOR";
+  let coachName = "";
   if (authUser?.data?.user) {
-    const metaRol = (authUser.data.user.user_metadata as Record<string, unknown> | undefined)?.rol;
-    const metaNombre = (authUser.data.user.user_metadata as Record<string, unknown> | undefined)?.nombre_completo;
-    if (typeof metaRol === "string" && metaRol) {
-      userRole = metaRol;
-    }
-    if (typeof metaNombre === "string" && metaNombre) {
-      coachName = metaNombre;
-    }
     const { data: perfil } = await supabase
       .from("perfiles")
       .select("rol, nombre_completo")

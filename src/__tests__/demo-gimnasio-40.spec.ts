@@ -155,7 +155,7 @@ describe("GOZS-139: dataset demo de ~40 alumnos con un mes de historia", () => {
   });
 
   it("conserva los alumnos base de los que dependen las alertas", () => {
-    expect(DEMO_GIMNASIO.alumnos.some((a) => a.id === "demo-alumno-02-celeste")).toBe(true);
+    expect(DEMO_GIMNASIO.alumnos.some((a) => a.id === "demo-alumno-02-cecilia")).toBe(true);
     expect(DEMO_ALUMNOS.length).toBe(10);
   });
 });

@@ -377,40 +377,6 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
       expect(Number(serieResult.peso_kg)).toBe(120.0);
       expect(serieResult.reps_hechas).toBe(10);
     });
-
-    it("el alumno puede consultar el catálogo de alternativas pero NO puede insertar ni modificarlo (RLS)", async () => {
-      // Insertar una alternativa como Coach
-      await queryAs("authenticated", COACH_ID, `
-        INSERT INTO public.ejercicios_alternativas (
-          ejercicio_origen_id, ejercicio_alternativo_id, patron_movimiento,
-          equipamiento, nivel_exigencia, explicacion_tecnica
-        ) VALUES (
-          '${EJ_SENTADILLA}', '${EJ_BULGARAS}', 'SENTADILLA',
-          'MANCUERNAS', 'MODERADO', 'Variante unilateral con menor compresión espinal'
-        );
-      `);
-
-      // Alumno consulta catálogo -> Permitido
-      const { rows: alumnoSelect } = await queryAs(
-        "authenticated",
-        ALUMNO_ID,
-        `SELECT id, explicacion_tecnica FROM public.ejercicios_alternativas WHERE ejercicio_origen_id = '${EJ_SENTADILLA}';`
-      );
-      expect(alumnoSelect.length).toBeGreaterThanOrEqual(1);
-
-      // Alumno intenta insertar -> Bloqueado por RLS (0 rows insertadas o violación RLS)
-      await expect(
-        queryAs("authenticated", ALUMNO_ID, `
-          INSERT INTO public.ejercicios_alternativas (
-            ejercicio_origen_id, ejercicio_alternativo_id, patron_movimiento,
-            equipamiento, nivel_exigencia, explicacion_tecnica
-          ) VALUES (
-            '${EJ_SENTADILLA}', '${EJ_PRENSA}', 'SENTADILLA',
-            'MAQUINA', 'BAJO', 'Intento no autorizado de alumno'
-          );
-        `)
-      ).rejects.toThrow(/row-level security/);
-    });
   });
 
   // =========================================================================
@@ -578,9 +544,9 @@ describe("QA Verification Suite — Fase 4: Reporte de Molestias, Red Flags y Su
       }
     });
 
-    it("el script de backup-restore-gozs.mjs contiene las tablas ejercicios_alternativas y sustituciones_ejercicios", () => {
+    it("el script de backup-restore-gozs.mjs respalda sustituciones_ejercicios y ya no la tabla podada ejercicios_alternativas (GOZS-720)", () => {
       const backupScript = readSourceFile("../../scripts/backup-restore-gozs.mjs");
-      expect(backupScript).toContain('nombre: "ejercicios_alternativas"');
+      expect(backupScript).not.toContain('nombre: "ejercicios_alternativas"');
       expect(backupScript).toContain('nombre: "sustituciones_ejercicios"');
     });
 

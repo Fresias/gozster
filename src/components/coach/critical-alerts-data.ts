@@ -439,7 +439,7 @@ export async function fetchCriticalAlerts(): Promise<CriticalAlert[]> {
       id: "alert-demo-dolor-1",
       type: "DOLOR",
       alumnoId: "f973b719-6aac-4cbf-a3fa-b5e4d1f8f3e7",
-      alumnoNombre: "Celeste Gerardi",
+      alumnoNombre: "Cecilia Godoy",
       ejercicioNombre: "Sentadilla Trasera con Barra",
       ejercicioId: "e1111111-1111-4111-8111-111111111101",
       setNumber: 3,

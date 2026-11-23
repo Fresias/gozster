@@ -351,7 +351,7 @@ describe("QA Verification Suite - Coach Studio v2 (Issue #43 / GOZS-28)", () => 
     it("genera URL de reactivación por inactividad con formato argentino sin signo '¡'", () => {
       const { url, message } = generateWhatsAppArgentinoUrl({
         phone: "+54 9 11 1122-3344",
-        studentName: "Celeste",
+        studentName: "Cecilia",
         type: "inactividad",
       });
 

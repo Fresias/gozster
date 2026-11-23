@@ -1,5 +1,6 @@
 import { type HistoricalLoadEntry, MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
 import { ClasesFijasPanel } from "@/components/coach/clases-fijas-panel";
+import { ResetPasswordAlumno } from "@/components/coach/student-detail/reset-password-alumno";
 import { TrendingUp } from "@/components/athlete/icons";
 import {
   ClipboardList,
@@ -2914,6 +2915,11 @@ export function StudentDetail({
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
+            accesoNode={
+              isLiveStudent ? (
+                <ResetPasswordAlumno alumnoId={alumno.id} nombre={alumno.nombre_completo} />
+              ) : undefined
+            }
             planActivo={tienePlanComercialReal ? nombrePlanReal : undefined}
             monto={tienePlanComercialReal ? montoReal : undefined}
             fechaVencimiento={fechaFinReal ? formatFecha(fechaFinReal) : undefined}

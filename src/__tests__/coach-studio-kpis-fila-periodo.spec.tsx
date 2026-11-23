@@ -91,7 +91,7 @@ describe("GOZS-379: Coach Studio: Vista Inicio - Fila de 4 KPIs y Selector de Pe
           kpis={DEMO_KPIS_NEGOCIO}
           sinRutina={4}
           totalAlumnos={40}
-          sinEntrenarNombres={["Lucas Giménez", "Celeste Gerardi"]}
+          sinEntrenarNombres={["Lucas Giménez", "Cecilia Godoy"]}
         />,
       );
 

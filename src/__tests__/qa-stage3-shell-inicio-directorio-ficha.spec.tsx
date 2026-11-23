@@ -226,7 +226,7 @@ describe("GOZS-390: Auditoría Integral de Stage 3 (Shell, Inicio, Directorio y 
           kpis={DEMO_KPIS_NEGOCIO}
           sinRutina={4}
           totalAlumnos={40}
-          sinEntrenarNombres={["Lucas Giménez", "Celeste Gerardi"]}
+          sinEntrenarNombres={["Lucas Giménez", "Cecilia Godoy"]}
         />
       );
 

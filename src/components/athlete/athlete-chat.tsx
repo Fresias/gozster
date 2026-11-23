@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
 import {
   getPushSubscriptionStatus,
+  pushHabilitado,
   subscribeToPush,
   unsubscribeFromPush,
 } from "@/lib/push-notifications";
@@ -114,14 +115,14 @@ export function AthleteChat({
   });
 
   React.useEffect(() => {
-    if (!effectiveAthleteId) return;
+    if (!effectiveAthleteId || !pushHabilitado()) return;
     getPushSubscriptionStatus(effectiveAthleteId).then((st) => {
       setPushStatus((prev) => ({ ...prev, isSubscribed: st.isSubscribed }));
     });
   }, [effectiveAthleteId]);
 
   const handleTogglePush = async () => {
-    if (!effectiveAthleteId) return;
+    if (!effectiveAthleteId || !pushHabilitado()) return;
     setPushStatus((prev) => ({ ...prev, loading: true, message: undefined }));
     if (pushStatus.isSubscribed) {
       await unsubscribeFromPush(effectiveAthleteId);
@@ -233,7 +234,8 @@ export function AthleteChat({
           </button>
         </div>
 
-        {/* Avisos push (PWA) */}
+        {/* Avisos push (PWA): ocultos hasta PL-1 */}
+        {pushHabilitado() && (
         <div
           data-testid="push-subscription-container"
           className="a-card"
@@ -264,6 +266,7 @@ export function AthleteChat({
             )}
           </button>
         </div>
+        )}
 
         {!isOnline && (
           <p className="a-eb a-t-label a-offnote" role="status">
