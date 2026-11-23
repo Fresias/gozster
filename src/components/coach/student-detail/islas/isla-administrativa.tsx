@@ -22,6 +22,7 @@ export interface IslaAdministrativaProps {
   chatResponsableNode?: React.ReactNode;
   nivelVistaNode?: React.ReactNode;
   cuestionarioNode?: React.ReactNode;
+  accesoNode?: React.ReactNode;
   // Datos específicos de Membresía (alineados con KpisNegocio y visual del PDF pág. 5)
   planActivo?: string;
   monto?: number | string;
@@ -63,6 +64,7 @@ export function IslaAdministrativa({
   chatResponsableNode,
   nivelVistaNode,
   cuestionarioNode,
+  accesoNode,
   planActivo,
   monto,
   fechaVencimiento,
@@ -337,6 +339,7 @@ export function IslaAdministrativa({
         <div className={activeTab === "config" ? "space-y-4" : "hidden"}>
           {nivelVistaNode}
           {cuestionarioNode}
+          {accesoNode}
         </div>
         </details>
       </div>

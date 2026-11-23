@@ -215,6 +215,7 @@ describe("Issue #55: handler alta-alumno-directa", () => {
       password: body.password_temporal,
       email_confirm: true,
       user_metadata: { must_change_password: true, rol: "ALUMNO", nombre_completo: "nuevo" },
+      app_metadata: { must_change_password: true },
     });
     expect(d.upsertPerfil).toHaveBeenCalledWith({
       id: NUEVO_ID,
