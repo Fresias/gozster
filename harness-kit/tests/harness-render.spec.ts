@@ -184,23 +184,33 @@ describe("harness-render: carga y validación de contratos", () => {
       expect(l0.metrics.before.totalSessions).toBe(45);
     });
 
-    it("GIVEN LEDGER.json WHEN se lee L-001 en etapa A THEN status = 'blocked', metrics.before = null, existen synthetic_before, caveat y start_condition", () => {
+    it("GIVEN LEDGER.json WHEN se lee L-001 en etapa B THEN status = 'completed', ventana real de 7 días desde PR #497, metrics.before con byRuntime y campos históricos preservados", () => {
       const ledgerPath = path.resolve(here, "..", "..", "docs", "harness-library", "LEDGER.json");
       const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
       const l1 = ledger.entries.find((e: { id: string }) => e.id === "L-001");
       expect(l1).toBeDefined();
-      expect(l1.status).toBe("blocked");
-      expect(l1.metrics.before).toBeNull();
+      expect(l1.status).toBe("completed");
+      expect(l1.window.durationDays).toBe(7);
+      expect(l1.window.before).toEqual({
+        start: "2026-11-16T17:48:54Z",
+        end: "2026-11-23T17:48:54Z",
+      });
+      expect(l1.window.after).toBeNull();
+      expect(l1.metrics.before).toBeDefined();
+      expect(l1.metrics.before.totalSessions).toBeGreaterThanOrEqual(5);
+      expect(l1.metrics.before.byRuntime["antigravity"]).toBeDefined();
+      expect(l1.metrics.before.byRuntime["claude-code"]).toBeDefined();
+      expect(l1.metrics.after).toBeNull();
       expect(l1.metrics.synthetic_before).toBeDefined();
       expect(l1.metrics.synthetic_before.byRuntime["claude-code"]).toBeDefined();
       expect(l1.metrics.synthetic_before.byRuntime["antigravity"]).toBeDefined();
-      expect(l1.window.before).toBeNull();
-      expect(l1.window.after).toBeNull();
       expect(typeof l1.caveat).toBe("string");
       expect(l1.caveat).toContain("línea base sintética");
+      expect(l1.caveat).toContain("H-04");
       expect(typeof l1.start_condition).toBe("string");
       expect(l1.start_condition).toContain("7 días corridos de telemetría real");
       expect(l1.start_condition).toContain("GOZS-538");
+      expect(l1.start_condition).toContain("2026-11-16T17:48:54Z");
       expect(typeof l1.original_hypothesis).toBe("string");
       expect(l1.original_hypothesis.length).toBeGreaterThan(0);
     });
