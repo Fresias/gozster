@@ -541,19 +541,58 @@ isOneToOne: false
                   ]
                 },"perfiles": {
                   Row: {
-                    "created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string
+                    "apoyo_acceso_financiero": boolean,"created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"profesor_apoyo_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
+                    "apoyo_acceso_financiero"?: boolean,"created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"profesor_apoyo_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
+                    "apoyo_acceso_financiero"?: boolean,"created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"profesor_apoyo_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "perfiles_profesor_apoyo_id_fkey"
+      columns: ["profesor_apoyo_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },
+    {
       foreignKeyName: "perfiles_profesor_asignado_id_fkey"
       columns: ["profesor_asignado_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"planes_compartidos": {
+                  Row: {
+                    "compartido_por": string,"created_at": string,"id": string,"plan_id": string,"profesor_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "compartido_por": string,"created_at"?: string,"id"?: string,"plan_id": string,"profesor_id": string
+                  }
+                  Update: {
+                    "compartido_por"?: string,"created_at"?: string,"id"?: string,"plan_id"?: string,"profesor_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "planes_compartidos_compartido_por_fkey"
+      columns: ["compartido_por"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "planes_compartidos_plan_id_fkey"
+      columns: ["plan_id"]
+isOneToOne: false
+      referencedRelation: "planes_entrenamiento"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "planes_compartidos_profesor_id_fkey"
+      columns: ["profesor_id"]
 isOneToOne: false
       referencedRelation: "perfiles"
       referencedColumns: ["id"]
@@ -1079,6 +1118,9 @@ isOneToOne: false
 "es_entrenador_de":
 { Args: { "p_alumno_id": string }; Returns: boolean
                            },
+"es_entrenador_financiero_de":
+{ Args: { "p_alumno_id": string }; Returns: boolean
+                           },
 "es_entrenador_o_admin":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
@@ -1173,6 +1215,9 @@ isOneToOne: false
 { Args: { "p_alumno_id": string,"p_ejercicio_id"?: string }; Returns: {
               "ejercicio_id": string,"mejor_1rm_brzycki": number,"mejor_1rm_epley": number,"peso_max_kg": number
             }[]
+                           },
+"plan_compartido_conmigo":
+{ Args: { "p_plan_id": string }; Returns: boolean
                            },
 "precio_vigente":
 { Args: { "p_fecha": string,"p_plan_id": string }; Returns: number
