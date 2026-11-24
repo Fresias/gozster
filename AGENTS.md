@@ -65,7 +65,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Tool Guidance & Execution Rules
 
 ## File Exploration & Editing
-- **Scan-before-read:** Locate target range with `rg -n` before reading.
+- **Scan-before-read:** Claude Code: `Grep`/`Read`; else `rg -n` first.
 - **Bounded reading:** Files >300 lines require `offset`+`limit` (≤200) or `StartLine`+`EndLine` (≤300).
 - **Time-to-First-Edit (TTFE):** Read and edit within ≤5 tool calls.
 - **Quiet inspection:** Prefer `git diff --stat` or `git status -s`.
