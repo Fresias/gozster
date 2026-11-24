@@ -7,18 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import {
-  buildEvent,
-  CMD_MAX,
-  recordEvent,
-  redactCmd,
-  redactSecrets,
-  relativizeForTelemetry,
-  resolveSession,
-  resolveTelemetryDir,
-  sanitizePreview,
-  stripAnsi,
-} from "../core/guard/telemetry.mjs";
+import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
 import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
