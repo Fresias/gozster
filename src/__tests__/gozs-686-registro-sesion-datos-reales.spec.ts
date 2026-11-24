@@ -208,7 +208,10 @@ describe("GOZS-686 · F-9/F-10/F-11: Registro de sesión con datos reales", () =
       const seriesUpserts: any[] = [];
       vi.spyOn(supabase, "from").mockImplementation(((table: string) => ({
         upsert: vi.fn().mockImplementation(async (payload: any) => {
-          if (table === "registro_series") seriesUpserts.push(payload);
+          if (table === "registro_series") {
+            if (Array.isArray(payload)) seriesUpserts.push(...payload);
+            else seriesUpserts.push(payload);
+          }
           return { error: null };
         }),
         select: vi.fn().mockReturnValue({
@@ -276,7 +279,10 @@ describe("GOZS-686 · F-9/F-10/F-11: Registro de sesión con datos reales", () =
       vi.spyOn(supabase, "from").mockImplementation(((table: string) => ({
         upsert: vi.fn().mockImplementation(async (payload: any) => {
           if (table === "registro_sesiones") sesionUpserts.push(payload);
-          if (table === "registro_series") seriesUpserts.push(payload);
+          if (table === "registro_series") {
+            if (Array.isArray(payload)) seriesUpserts.push(...payload);
+            else seriesUpserts.push(payload);
+          }
           return { error: null };
         }),
         select: vi.fn().mockReturnValue({
@@ -342,7 +348,10 @@ describe("GOZS-686 · F-9/F-10/F-11: Registro de sesión con datos reales", () =
       const seriesUpserts: any[] = [];
       vi.spyOn(supabase, "from").mockImplementation(((table: string) => ({
         upsert: vi.fn().mockImplementation(async (payload: any) => {
-          if (table === "registro_series") seriesUpserts.push(payload);
+          if (table === "registro_series") {
+            if (Array.isArray(payload)) seriesUpserts.push(...payload);
+            else seriesUpserts.push(payload);
+          }
           return { error: null };
         }),
       })) as any);

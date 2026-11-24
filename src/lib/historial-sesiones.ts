@@ -151,7 +151,14 @@ export function obtenerNombreDiaRutina(diaId: string | null, dias?: DiaRutina[])
   if (dias && dias.length > 0) {
     const match = dias.find((d) => d.id === diaId);
     if (match) {
-      return `Día ${match.orden}: ${match.nombre}`;
+      const nombreLimpio = (match.nombre ?? "").trim();
+      if (!nombreLimpio || /^d[ií]a\s*\d+$/i.test(nombreLimpio)) {
+        return `Día ${match.orden}`;
+      }
+      if (/^d[ií]a\s*\d+\s*[:·.\-–]/i.test(nombreLimpio)) {
+        return nombreLimpio;
+      }
+      return `Día ${match.orden}: ${nombreLimpio}`;
     }
   }
 
