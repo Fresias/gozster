@@ -32,7 +32,7 @@ import { DEMO_ALUMNOS } from "@/services/coach-demo-dataset";
  * Reporta a: @pm-gozster
  *
  * Criterios de Aceptación Verificados:
- * 1. Pipeline reactivo de alertas de dolor en vivo (Fix Fernando Rosales) y alumno_historial_dolor (GOZS-348)
+ * 1. Pipeline reactivo de alertas de dolor en vivo (Fix Facundo Roldán) y alumno_historial_dolor (GOZS-348)
  * 2. Diagrama de Sankey interactivo ($100k -> $80k cobrado / $20k por cobrar) y filtros por actividad (GOZS-349)
  * 3. In-App Chat en fila de alumno, notificación al atleta en login y Drawer en Cobros (GOZS-350)
  * 4. Limpieza de W/N/F/D en vista técnica, toggle cascada en config y alta con cobro (GOZS-351)
@@ -40,15 +40,15 @@ import { DEMO_ALUMNOS } from "@/services/coach-demo-dataset";
  * ============================================================================
  */
 
-describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Fernando en Vivo, In-App Chat, Drawer Cobros y Vista Técnica", () => {
+describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Facundo en Vivo, In-App Chat, Drawer Cobros y Vista Técnica", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   // ==========================================================================
-  // 1. CRITERIO: PIPELINE REACTIVO DE DOLOR (CASO FERNANDO ROSALES) (GOZS-348)
+  // 1. CRITERIO: PIPELINE REACTIVO DE DOLOR (CASO FACUNDO ROLDÁN) (GOZS-348)
   // ==========================================================================
-  describe("1. Pipeline Reactivo de Alertas de Dolor en Vivo (Caso Fernando Rosales) y alumno_historial_dolor (GOZS-348)", () => {
+  describe("1. Pipeline Reactivo de Alertas de Dolor en Vivo (Caso Facundo Roldán) y alumno_historial_dolor (GOZS-348)", () => {
     interface ReporteDolorInput {
       alumno_id: string;
       alumno_nombre: string;
@@ -94,10 +94,10 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
       };
     }
 
-    it("GIVEN un reporte de dolor crítico emitido por Fernando Rosales WHEN ingresa al pipeline THEN genera una alerta de severidad CRITICA con red flags identificadas", () => {
-      const reporteFernando: ReporteDolorInput = {
-        alumno_id: "alumno-fernando-rosales-01",
-        alumno_nombre: "Fernando Rosales",
+    it("GIVEN un reporte de dolor crítico emitido por Facundo Roldán WHEN ingresa al pipeline THEN genera una alerta de severidad CRITICA con red flags identificadas", () => {
+      const reporteFacundo: ReporteDolorInput = {
+        alumno_id: "alumno-facundo-roldan-01",
+        alumno_nombre: "Facundo Roldán",
         zona_corporal: "Rodilla derecha",
         escala_dolor: 8,
         sintomas_alarma: ["Dolor punzante/súbito", "Inestabilidad articular"],
@@ -105,9 +105,9 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
         fecha_reporte: "2026-11-04T06:00:00Z",
       };
 
-      const alerta = transformarReporteDolorAAlerta(reporteFernando);
+      const alerta = transformarReporteDolorAAlerta(reporteFacundo);
 
-      expect(alerta.alumnoNombre).toBe("Fernando Rosales");
+      expect(alerta.alumnoNombre).toBe("Facundo Roldán");
       expect(alerta.zona).toBe("Rodilla derecha");
       expect(alerta.severidad).toBe("CRITICA");
       expect(alerta.esSintomaAlarma).toBe(true);
@@ -115,7 +115,7 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
       expect(prioridadAlerta(alerta)).toBe(0); // Máxima prioridad (roja)
     });
 
-    it("GIVEN alertas múltiples con Fernando Rosales WHEN se ordenan por prioridad THEN la alerta crítica de Fernando se ubica en el tope de la bandeja", () => {
+    it("GIVEN alertas múltiples con Facundo Roldán WHEN se ordenan por prioridad THEN la alerta crítica de Facundo se ubica en el tope de la bandeja", () => {
       const alertas: CriticalAlert[] = [
         {
           id: "alt-1",
@@ -133,8 +133,8 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
         {
           id: "alt-2",
           type: "DOLOR",
-          alumnoId: "alumno-fernando-01",
-          alumnoNombre: "Fernando Rosales",
+          alumnoId: "alumno-facundo-01",
+          alumnoNombre: "Facundo Roldán",
           ejercicioNombre: "Sentadilla Trasera",
           setNumber: 2,
           detalle: "Dolor agudo 8/10 en rodilla con inestabilidad",
@@ -161,13 +161,13 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
 
       const ordenadas = ordenarAlertasPorPrioridad(alertas);
 
-      expect(ordenadas[0]!.alumnoNombre).toBe("Fernando Rosales");
+      expect(ordenadas[0]!.alumnoNombre).toBe("Facundo Roldán");
       expect(ordenadas[0]!.severidad).toBe("CRITICA");
       expect(ordenadas[1]!.severidad).toBe("MEDIA");
       expect(ordenadas[2]!.severidad).toBe("BAJA");
     });
 
-    it("GIVEN la tabla de alumnos en CoachStudioView WHEN Fernando Rosales tiene dolor registrado THEN la UI expone el badge reactivo 🚨 [Zona] sin depender de listas fijas demo", () => {
+    it("GIVEN la tabla de alumnos en CoachStudioView WHEN Facundo Roldán tiene dolor registrado THEN la UI expone el badge reactivo 🚨 [Zona] sin depender de listas fijas demo", () => {
       interface AlumnoFila {
         id: string;
         nombre_completo: string;
@@ -186,13 +186,13 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
         };
       }
 
-      const alumnoFernando: AlumnoFila = {
+      const alumnoFacundo: AlumnoFila = {
         id: "alumno-fer-id",
-        nombre_completo: "Fernando Rosales",
+        nombre_completo: "Facundo Roldán",
         alertasActivas: [{ zona: "Rodilla", severidad: "CRITICA" }],
       };
 
-      const resultado = renderizarBadgeAlertaAlumno(alumnoFernando);
+      const resultado = renderizarBadgeAlertaAlumno(alumnoFacundo);
       expect(resultado.badgeVisible).toBe(true);
       expect(resultado.badgeTexto).toBe("🚨 Rodilla");
       expect(resultado.esCritico).toBe(true);
@@ -449,10 +449,10 @@ describe("QA Suite: GOZS-352 - Auditoría E2E Integral de Sankey, Dolor de Ferna
         }
       }
 
-      verHistorialEnDrawer("alumno-fernando-01", true);
+      verHistorialEnDrawer("alumno-facundo-01", true);
 
       expect(drawerHistorialAbierto).toBe(true);
-      expect(alumnoHistorialSeleccionado).toBe("alumno-fernando-01");
+      expect(alumnoHistorialSeleccionado).toBe("alumno-facundo-01");
       expect(rutaActual).toBe("/studio/cobros"); // Permanece en /studio/cobros
     });
 

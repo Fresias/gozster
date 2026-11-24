@@ -88,11 +88,11 @@ Estos specs leen el código fuente del alumno con `readFileSync` (entre corchete
 | Issue | Specs afectados |
 |---|---|
 | FE-01, FE-02 | `bimodal-theme-toggle` [8] (lee `globals.css`, que no cambia: debería seguir verde), `qa-visual-debt-epic-stage4-audit` [10], `qa-athlete-resto-visual-debt-tokens` [7], `qa-auth-rbac-verification` [12] (shell), `athlete-offline-silent-sync` [1] (hoy fija que no hay pendientes visibles: la v7 los muestra, D-25), `clases-reservas-ui` [1], `athlete-responsive-rest-timer` [3] |
-| FE-03 | `athlete-inicio-mis-dias` [3], `athlete-motivo-cambio-dia` [3], `qa-rutinas-2x1-previsualizacion-peso` [2], `fernando-rosales-alumnos-testeo` [5], `qa-fase1-contrataciones-vencimientos-backup` [7] |
+| FE-03 | `athlete-inicio-mis-dias` [3], `athlete-motivo-cambio-dia` [3], `qa-rutinas-2x1-previsualizacion-peso` [2], `facundo-roldan-alumnos-testeo` [5], `qa-fase1-contrataciones-vencimientos-backup` [7] |
 | FE-04, FE-05 | `athlete-exercise-selector-column` [1], `athlete-single-set-workout` [4], `athlete-autofinish-last-set` [1], `athlete-set-type-taxonomy-popover` [2], `qa-athlete-verificacion-integral-flujo-registro` [3], `qa-audit-gozs-351-edge-cases` [1], `qa-gozs-418-rpe-piramidal` [3], `qa-pulido-app-alta-cobro-rutinas-351` [1], `qa-rpe-objetivo-readonly` [3], `rpe-objetivo-readonly` [2], `vista-simple-tecnica-alumno-coach` [2], `aproximacion-pr` [2], `warmup-sets-w-registro` [2], `remove-plate-calculator` [2] (fijaba que la calculadora no estuviera montada: la v7 la pone en Técnica por D-21; actualizar citando D-21), `sugerencia-carga-componente` [2] |
 | FE-06 | `qa-historial-progreso-verification` [7], `aviso-record-componente`, `record-store` |
 | FE-07 | `athlete-exercise-notes-button` [1], `athlete-youtube-video` |
-| FE-08 (y BE-02) | `pain-report-banners-by-range` [1], `molestias-red-flags-ui` [1], `qa-molestias-red-flags-sustituciones` [2], `pipeline-alertas-dolor-fernando` [3] |
+| FE-08 (y BE-02) | `pain-report-banners-by-range` [1], `molestias-red-flags-ui` [1], `qa-molestias-red-flags-sustituciones` [2], `pipeline-alertas-dolor-historial` [3] |
 | FE-09 | `athlete-historial-sesiones`, `mi-progreso-componente` (texto "desde {mes}" → "+10 kg"), `qa-gozs-359-athlete-studio-fixes` [1] |
 | FE-10 | `chat-ui-gozs-transferencia` [5], `inapp-chat-athlete-notif-drawer-cobros` [1], `chat-ui-shared-messaging` |
 | FE-11 | `onboarding-alumno-preferencias`, `onboarding-cuestionario-vista-minimalista` [6], `athlete-celebracion-cierre-dia` [2] (ranking de constancia: quitar citando D-33) |

@@ -50,13 +50,13 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
     useAthleteStore.getState().resetSessionToDefaults();
   });
 
-  describe("1. Auditoría Canónica: Sesión de Fernando Rosales (Día 1 con 26 series)", () => {
-    it("identifica a Fernando Rosales como alumno activo con su plan y día canónico asignado", () => {
-      const fernando = SINT_ALUMNOS.find((a) => a.nombre_completo.includes("Sintetico 1"));
-      expect(fernando).toBeDefined();
-      expect(fernando?.nombre_completo).toBe("Alumno Sintetico 1");
+  describe("1. Auditoría Canónica: Sesión de Facundo Roldán (Día 1 con 26 series)", () => {
+    it("identifica a Facundo Roldán como alumno activo con su plan y día canónico asignado", () => {
+      const facundo = SINT_ALUMNOS.find((a) => a.nombre_completo.includes("Sintetico 1"));
+      expect(facundo).toBeDefined();
+      expect(facundo?.nombre_completo).toBe("Alumno Sintetico 1");
 
-      const planFer = SINT_PLANES.find((p) => p.alumno_id === fernando?.id);
+      const planFer = SINT_PLANES.find((p) => p.alumno_id === facundo?.id);
       expect(planFer).toBeDefined();
 
       const dia1Fer = SINT_DIAS.find((d) => d.plan_id === planFer?.id && d.orden === 1);
@@ -64,12 +64,12 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
       expect(dia1Fer?.nombre).toContain("DIA 1");
     });
 
-    it("GIVEN la sesión por defecto de Fernando Rosales, THEN contabiliza exactamente 26 series en 8 ejercicios", () => {
+    it("GIVEN la sesión por defecto de Facundo Roldán, THEN contabiliza exactamente 26 series en 8 ejercicios", () => {
       const store = useAthleteStore.getState();
       const session = store.currentSession;
 
-      expect(session.studentName).toBe("Fernando Rosales");
-      expect(session.nombre_rutina).toContain("DIA 1 (F Y H FER ROSALES)");
+      expect(session.studentName).toBe("Facundo Roldán");
+      expect(session.nombre_rutina).toContain("Día 1");
 
       // 8 ejercicios en Día 1
       expect(session.ejercicios).toHaveLength(8);
@@ -83,7 +83,7 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
       expect(totalSeries).toBe(26);
     });
 
-    it("calcula el tonelaje proyectado estricto para las 26 series de Fernando Rosales", () => {
+    it("calcula el tonelaje proyectado estricto para las 26 series de Facundo Roldán", () => {
       const store = useAthleteStore.getState();
       const session = store.currentSession;
 

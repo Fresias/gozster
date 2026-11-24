@@ -9,12 +9,12 @@ describe("BE-00 CP2 · src/lib/athlete/uuid.ts", () => {
   describe("esUuid", () => {
     it("acepta UUIDs válidos en minúsculas y mayúsculas", () => {
       expect(esUuid("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
-      expect(esUuid("66B92B9A-1CE7-4E2E-A47C-7C5600000000")).toBe(true);
+      expect(esUuid("00000000-0000-4000-8000-000000000001")).toBe(true);
     });
 
     it("rechaza ids heredados tipo session-*, vacíos o tipos no string", () => {
       expect(esUuid("session-today-001")).toBe(false);
-      expect(esUuid("session-66b92b9a-1ce7-4e2e-a47c-7c5600000000-d1")).toBe(false);
+      expect(esUuid("session-00000000-0000-4000-8000-000000000001-d1")).toBe(false);
       expect(esUuid("")).toBe(false);
       expect(esUuid(null)).toBe(false);
       expect(esUuid(undefined)).toBe(false);
