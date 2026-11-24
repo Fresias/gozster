@@ -1804,6 +1804,12 @@ export function resolveNoreplyEmail(output, repoRoot) {
   return null;
 }
 
+/** Lines a failed cd (bash/sh) or Set-Location (PowerShell 5.1 and 7) print. */
+const CWD_LOST_LINE = [
+  /^(?:\S*sh(?:: line \d+)?: )?cd: .+: No such file or directory$/,
+  /^Set-Location ?: Cannot find path '.+' because it does not exist\.?$/,
+];
+
 /**
  * Evaluate result (post-tool) rules.
  */
@@ -1827,6 +1833,13 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
         ruleId: "git.gh007-noreply",
         context: `GitHub Push Protection (GH007) violation detected. Configure your noreply email: ${instruction}`,
       };
+    }
+
+    // cwd lost: only real cd/Set-Location errors on their own output line, and only where post injection exists.
+    const cwdLost = output.split(/\r?\n/).some((line) => CWD_LOST_LINE.some((re) => re.test(line.trim())));
+    if (normalizedCall.runtime === "claude-code" && cwdLost) {
+      const rule = rules.find((r) => r.id === "remediate.cwd-lost");
+      if (rule) return { allowed: true, inject: true, ruleId: rule.id, context: rule.message || rule.description };
     }
   }
 

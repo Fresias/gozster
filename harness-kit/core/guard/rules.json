@@ -172,9 +172,8 @@
     "id": "remediate.cwd-lost",
     "phase": "post",
     "target": "shell",
-    "pattern": "cd: .*: No such file or directory",
-    "description": "Injects cwd remediation when a cd fails because the working directory changed",
-    "message": "cwd persists between Bash calls; run `pwd` and use absolute paths."
+    "description": "Injects cwd remediation when a cd/Set-Location fails (evaluated in code on output lines only, Claude Code only)",
+    "message": "El directorio de trabajo persiste entre llamadas en Claude Code. Trabajá desde la raíz del repo con rutas relativas (`git rev-parse --show-toplevel`) en lugar de rutas absolutas."
   },
   {
     "id": "remediate.oversize-output",
