@@ -1167,6 +1167,43 @@ describe("GOZS-795 B1/B2/C1/C6: esquema v3, cmdLen, compactación de heredocs de
     expect(evInterp.cmd).not.toContain("‹heredoc:");
   });
 
+  it("B2: compacta here-strings de PowerShell de datos (| Set-Content, | Out-File, asignación) y no los que van a un intérprete", () => {
+    const body200 = Array.from({ length: 200 }, (_, i) => `linea ${i + 1} del cuerpo de la PR`).join("\n");
+    const ev = (cmd: string) =>
+      buildEvent(normalize({ tool_name: "PowerShell", tool_input: { command: cmd }, session_id: "s-ps" }), { allowed: true });
+
+    for (const cmd of [
+      `@'\n${body200}\n'@ | Set-Content -Encoding utf8 ../pr.md`,
+      `@"\n${body200}\n"@ | Out-File ../pr.md`,
+      `$body = @'\n${body200}\n'@`,
+    ]) {
+      const e = ev(cmd);
+      expect(e.cmd).toContain("‹heredoc: 200 líneas›");
+      expect(e.cmd).not.toContain("linea 1 del cuerpo");
+      expect(e.cmdLen).toBe(e.cmd.length);
+      expect(e.cmd.length).toBeLessThan(CMD_MAX);
+    }
+
+    for (const cmd of [
+      `@'\nWrite-Output "hello-from-here-string"\n'@ | pwsh -Command -`,
+      `@'\nWrite-Output "hello-from-here-string"\n'@ | iex`,
+      `iex @'\nWrite-Output "hello-from-here-string"\n'@`,
+    ]) {
+      const e = ev(cmd);
+      expect(e.cmd).toContain("hello-from-here-string");
+      expect(e.cmd).not.toContain("‹heredoc:");
+    }
+  });
+
+  it("B2 nit: un cuerpo de una línea se compacta como ‹heredoc: 1 línea›", () => {
+    const e = buildEvent(
+      normalize({ tool_name: "Bash", tool_input: { command: "cat > ../n.md <<'EOF'\nuna sola\nEOF" }, session_id: "s-1l" }),
+      { allowed: true },
+    );
+    expect(e.cmd).toContain("‹heredoc: 1 línea›");
+    expect(e.cmd).not.toContain("1 líneas");
+  });
+
   it("C1: summarize usa la primera escritura permitida tanto para TTFE como para callsBeforeFirstEdit", () => {
     const t0 = Date.parse("2026-11-24T19:00:00.000Z");
     const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();

@@ -7,6 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // @ts-expect-error - mjs module
 import { checkGuard, classifyNativeRead, detectGhPrCommands, evaluateRules } from "../core/guard/guard-core.mjs";
+// @ts-expect-error - mjs module
+import { extractStdinInterpreterInvocations, parseHeredocs } from "../core/guard/heredoc.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..");
@@ -133,6 +135,29 @@ const A1_BLOCK_CASES: CorpusCase[] = [
   { label: "gh pr merge 12 --auto --squash", cmd: "gh pr merge 12 --auto --squash", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.merge-check" },
   { label: 'R="$(gh pr merge 12)"', cmd: 'R="$(gh pr merge 12 --squash)"', runtime: "cc-bash", expectAllowed: false, expectRule: "pr.merge-check" },
   { label: "gh api -X PUT pulls/12/merge", cmd: "gh api -X PUT repos/Fresias/gozster/pulls/12/merge", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.merge-check" },
+  // Ronda 2 — R1: heredoc dentro de `$(…)` usado como programa
+  { label: 'R1 bash -c "$(cat <<EOF gh pr create)"', cmd: "bash -c \"$(cat <<'EOF'\ngh pr create --fill\nEOF\n)\"", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: 'R1 sh -c "$(cat <<EOF gh pr merge)"', cmd: "sh -c \"$(cat <<'EOF'\ngh pr merge 12 --squash\nEOF\n)\"", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.merge-check" },
+  { label: 'R1 eval "$(cat <<EOF gh pr create)"', cmd: "eval \"$(cat <<'EOF'\ngh pr create --fill\nEOF\n)\"", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R1 $(cat <<EOF gh pr create) suelto", cmd: "$(cat <<'EOF'\ngh pr create --fill\nEOF\n)", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: 'R1 bash -c "$(cat <<-EOF con tabs)"', cmd: "bash -c \"$(cat <<-EOF\n\tgh pr create --fill\n\tEOF\n)\"", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  // Ronda 2 — R2: `<<` aritmético no abre heredoc
+  { label: "R2 x=$((1<<EOF)) + gh pr create", cmd: "x=$((1<<EOF))\ngh pr create --fill\nEOF", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R2 echo $((1<<EOF)) + gh pr create", cmd: "echo $((1<<EOF))\ngh pr create --fill\nEOF", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R2 (( y = 1<<EOF )) + gh pr create", cmd: "(( y = 1<<EOF ))\ngh pr create --fill\nEOF", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R2 aritmética antes de un heredoc real a bash", cmd: "echo $((1<<2)); cat <<'EOF' | bash\ngh pr create --fill\nEOF", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  // Ronda 2 — R3: here-strings y literales de PowerShell canalizados a un intérprete
+  { label: "R3 @'…'@ | pwsh -Command -", cmd: "@'\ngh pr create --fill\n'@ | pwsh -Command -", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R3 @'…'@ | pwsh -Command - (Antigravity)", cmd: "@'\ngh pr create --fill\n'@ | pwsh -Command -", runtime: "antigravity", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: 'R3 @"…"@ | iex', cmd: "@\"\ngh pr create --fill\n\"@ | iex", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R3 iex @'…'@", cmd: "iex @'\ngh pr create --fill\n'@", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R3 pwsh -Command @'…'@", cmd: "pwsh -Command @'\ngh pr create --fill\n'@", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: 'R3 "gh pr create" | pwsh -Command -', cmd: '"gh pr create --fill" | pwsh -Command -', runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  // Ronda 2 — recomendados de QA
+  { label: "gh pr new (alias de create)", cmd: "gh pr new --fill", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "start gh -ArgumentList (alias de Start-Process)", cmd: "start gh -ArgumentList 'pr','create','--fill'", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "Start-Process gh con -ArgumentList posicional", cmd: "Start-Process gh 'pr','create','--fill'", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: '"gh pr create" | iex', cmd: '"gh pr create --fill" | iex', runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
 ];
 
 const A1_ALLOW_CASES: CorpusCase[] = [
@@ -150,6 +175,16 @@ const A1_ALLOW_CASES: CorpusCase[] = [
   { label: "gh pr view 12", cmd: "gh pr view 12 --json state", runtime: "cc-bash", expectAllowed: true },
   { label: "gh api GET pulls/12", cmd: "gh api repos/Fresias/gozster/pulls/12", runtime: "cc-bash", expectAllowed: true },
   { label: "gh api GET pulls list", cmd: "gh api repos/Fresias/gozster/pulls", runtime: "cc-bash", expectAllowed: true },
+  // Ronda 2 — negativos que siguen permitidos
+  { label: 'R1 git commit -m "$(cat <<EOF … gh pr create … EOF)"', cmd: "git commit -m \"$(cat <<'EOF'\ndocs: usar harness-ship, no gh pr create --fill\nEOF\n)\"", runtime: "cc-bash", expectAllowed: true },
+  { label: "R1 x=$(cat <<EOF gh pr create) (asignación de datos)", cmd: "x=$(cat <<'EOF'\ngh pr create --fill\nEOF\n)", runtime: "cc-bash", expectAllowed: true },
+  { label: "R2 echo $((1<<2))", cmd: "echo $((1<<2))", runtime: "cc-bash", expectAllowed: true },
+  { label: 'R3 $body = @"…gh pr create…"@', cmd: '$body = @"\nUsar harness-ship, no gh pr create --fill\n"@', runtime: "cc-pwsh", expectAllowed: true },
+  { label: "R3 @'…'@ | Out-File (Antigravity)", cmd: "@'\nUsar harness-ship, no gh pr create --fill\n'@ | Out-File ../pr.md", runtime: "antigravity", expectAllowed: true },
+  { label: "R3 'gh pr create' | Out-File", cmd: "'gh pr create --fill' | Out-File ../x.txt", runtime: "cc-pwsh", expectAllowed: true },
+  { label: 'echo "gh pr new"', cmd: 'echo "no uses gh pr new"', runtime: "cc-bash", expectAllowed: true },
+  { label: "start notepad", cmd: "start notepad", runtime: "cc-pwsh", expectAllowed: true },
+  { label: "Start-Process notepad posicional", cmd: "Start-Process notepad 'a.txt'", runtime: "cc-pwsh", expectAllowed: true },
 ];
 
 // ───────────────────────────── A2: Intérpretes por stdin ─────────────────────────────
@@ -225,6 +260,95 @@ const A2_CASES: CorpusCase[] = [
     runtime: "cc-bash",
     expectAllowed: true,
   },
+  // Ronda 2 — R1/R2/R3 con fs.protected
+  {
+    label: 'R1 bash -c "$(cat <<EOF echo x > .claude)" -> fs.protected',
+    cmd: "bash -c \"$(cat <<'EOF'\necho x > .claude/settings.json\nEOF\n)\"",
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "R2 x=$((1<<EOF)) + echo x > .claude -> fs.protected",
+    cmd: "x=$((1<<EOF))\necho x > .claude/settings.json\nEOF",
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: 'R3 "Set-Content .claude…" | powershell -Command - -> fs.protected',
+    cmd: '"Set-Content .claude/settings.json x" | powershell -NoProfile -Command -',
+    runtime: "cc-pwsh",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "R3 'open(.claude, w)' | python - -> fs.protected",
+    cmd: `'open(".claude/settings.json","w").write("x")' | python -`,
+    runtime: "cc-pwsh",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "R3 Invoke-Expression @'Set-Content .claude'@ -> fs.protected",
+    cmd: "Invoke-Expression @'\nSet-Content .claude/settings.json x\n'@",
+    runtime: "antigravity",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: 'R1 bash -c "$(cat <<EOF echo hola > /tmp/x)" -> allow',
+    cmd: "bash -c \"$(cat <<'EOF'\necho hola > /tmp/x\nEOF\n)\"",
+    runtime: "cc-bash",
+    expectAllowed: true,
+  },
+  {
+    label: 'R3 "hola" | Set-Content ../x.txt -> allow',
+    cmd: '"hola" | Set-Content ../x.txt',
+    runtime: "cc-pwsh",
+    expectAllowed: true,
+  },
+  // Ronda 2 — FP de tool-results leído por argv
+  {
+    label: "python3 - tool-results por argv escribiendo /tmp -> allow",
+    cmd: `python3 - /root/.claude/projects/p/tool-results/x.txt <<'EOF'\nimport sys\nd=open(sys.argv[1]).read()\nopen("/tmp/o","w").write(d)\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: true,
+  },
+  {
+    label: "python3 - tool-results (~) por argv escribiendo /tmp -> allow",
+    cmd: `python3 - ${TOOL_RESULTS} <<'EOF'\nimport sys\nopen("/tmp/o","w").write(open(sys.argv[1]).read())\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: true,
+  },
+  {
+    label: "python3 - argv a .claude/settings.json -> fs.protected",
+    cmd: `python3 - .claude/settings.json <<'EOF'\nimport sys\nopen(sys.argv[1],"w").write("x")\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "python3 - argv tool-results + destino protegido -> fs.protected",
+    cmd: `python3 - /root/.claude/projects/p/tool-results/x.txt .claude/settings.json <<'EOF'\nimport sys\nopen(sys.argv[2],"w").write(open(sys.argv[1]).read())\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "python3 - argv tool-results/../.. -> fs.protected",
+    cmd: `python3 - /root/.claude/projects/p/tool-results/../../../settings.json <<'EOF'\nimport sys\nopen(sys.argv[1],"w").write("x")\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "python3 - argv tool-results/%2e%2e -> fs.protected",
+    cmd: `python3 - /root/.claude/projects/p/tool-results/%2e%2e/x <<'EOF'\nimport sys\nopen(sys.argv[1],"w").write("x")\nEOF`,
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
   {
     label: "cat > ../nota.md heredoc mentioning .claude/settings.json -> allow",
     cmd: "cat > ../nota.md <<'EOF'\nNo editar .claude/settings.json a mano.\nEOF",
@@ -267,6 +391,10 @@ const A2B_NON_REGRESSION_BLOCK: CorpusCase[] = [
   { label: "#655: Path.read_bytes(open(w))", cmd: `python3 -c 'from pathlib import Path; Path("a").read_bytes(open(".claude/settings.json","w").write("x"))'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
   { label: "#655: shelve.open", cmd: `python3 -c 'import shelve; shelve.open(".claude/db")'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
   { label: "#655: dbm.open", cmd: `python3 -c 'import dbm; dbm.open(".claude/db","c")'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
+  // Ronda 2 — R4: clave `flag` entre comillas
+  { label: "R4 readFileSync(p, {'flag':'w'})", cmd: `node -e "require('fs').readFileSync('.claude/settings.json',{'flag':'w'})"`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
+  { label: 'R4 readFileSync(p, {"flag":"w"})', cmd: `node -e 'require("fs").readFileSync(".claude/settings.json",{"flag":"w"})'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
+  { label: 'R4 readFileSync(p, {"flag":"a+"})', cmd: `node -e 'require("fs").readFileSync(".claude/settings.json",{"flag":"a+"})'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
 ];
 
 const FS_PROTECTED_READ_ALLOW: CorpusCase[] = [
@@ -281,6 +409,7 @@ const FS_PROTECTED_READ_ALLOW: CorpusCase[] = [
   { label: "cp tool-results /tmp/o", cmd: `cp ${TOOL_RESULTS} /tmp/o`, runtime: "cc-bash", expectAllowed: true },
   { label: "jq tool-results > /tmp/o", cmd: `jq '.items' ${TOOL_RESULTS} > /tmp/o`, runtime: "cc-bash", expectAllowed: true },
   { label: "Get-Content tool-results | Set-Content /tmp/o", cmd: `Get-Content ${TOOL_RESULTS} | Set-Content /tmp/o`, runtime: "cc-pwsh", expectAllowed: true },
+  { label: "R4 readFileSync(p, {'encoding':'utf8'}) -> /tmp", cmd: `node -e "const fs=require('fs'); fs.writeFileSync('/tmp/o', fs.readFileSync('${TOOL_RESULTS}',{'encoding':'utf8'}))"`, runtime: "cc-bash", expectAllowed: true },
 ];
 
 const FS_PROTECTED_WRITE_BLOCK: CorpusCase[] = [
@@ -420,6 +549,39 @@ describe("GOZS-795 A4: Corpus de regresión del guard", () => {
       "cat src/x.ts | head -10 > /tmp/out.txt",
     ])("no avisa: %s", (cmd) => {
       expect(classifyNativeRead(cmd, repoRoot, repoRoot)).toBeNull();
+    });
+  });
+
+  describe("Ronda 2 — latencia (margen holgado para CI en Windows)", () => {
+    const ids = Array.from({ length: 600 }, (_, i) => i);
+    const sameSegment = `cat ${ids.map((i) => `<<E${i}`).join(" ")}\n${ids.map((i) => `x\nE${i}`).join("\n")}`;
+    const manyClauses = `${ids.map((i) => `cat <<E${i}`).join("; ")}\n${ids.map((i) => `x\nE${i}`).join("\n")}`;
+
+    it.each([
+      ["600 << en un segmento", sameSegment],
+      ["600 << en 600 cláusulas", manyClauses],
+    ])("heredoc.mjs: %s se parsea en < 50 ms", (_label, cmd) => {
+      parseHeredocs("cat <<EOF\nx\nEOF");
+      const t0 = performance.now();
+      const parsed = parseHeredocs(cmd);
+      extractStdinInterpreterInvocations(cmd);
+      const ms = performance.now() - t0;
+      expect(parsed.records).toHaveLength(600);
+      expect(ms).toBeLessThan(50);
+    });
+
+    const big = "x".repeat(50 * 1024);
+    it.each([
+      ["palabra sin espacios", `gh api repos/o/r/issues/1/comments -f body=${big}`],
+      ["literal entre comillas", `gh api repos/o/r/issues/1/comments -f body='${big}'`],
+      ["con menciones a .claude/projects", `gh api repos/o/r/issues/1/comments -f body=${big}.claude/projects/p/memory/a${big.slice(0, 1024)}`],
+    ])("stripWritableAgentPaths: 50 KB (%s) se evalúa en < 200 ms", (_label, cmd) => {
+      checkGuard(makePayload("echo warm", "cc-bash"), { repoRoot: nonAuthRepo });
+      const t0 = performance.now();
+      const res = checkGuard(makePayload(cmd, "cc-bash"), { repoRoot: nonAuthRepo });
+      const ms = performance.now() - t0;
+      expect(res.allowed).toBe(true);
+      expect(ms).toBeLessThan(200);
     });
   });
 

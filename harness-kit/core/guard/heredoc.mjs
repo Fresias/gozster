@@ -399,47 +399,175 @@ function splitClausesOnLine(line) {
   return clauses;
 }
 
+const HEREDOC_OPEN_RE = /<<-?\s*(?:(["'])([A-Za-z_]\w*)\1|\\?([A-Za-z_]\w*))/y;
+
+/** `‹heredoc: N líneas›` placeholder (singular for one line). */
+export function heredocLabel(n) {
+  return `‹heredoc: ${n} ${n === 1 ? "línea" : "líneas"}›`;
+}
+
 /**
- * Given a header line and the character offset where `<<DELIM` starts, determine whether
+ * Split a header line once into clauses and pipe segments with their offsets, so every `<<` on the
+ * line is classified without re-tokenizing the line (linear in the number of `<<`).
+ */
+function buildHeaderLineIndex(headerLine) {
+  const clauses = [];
+  let pos = 0;
+  for (const c of splitClausesOnLine(headerLine)) {
+    const start = headerLine.indexOf(c, pos);
+    const end = start + c.length;
+    const parts = [];
+    let ppos = 0;
+    for (const p of splitPipesInClause(c)) {
+      const ps = c.indexOf(p, ppos);
+      parts.push({ text: p, start: start + ps, end: start + ps + p.length, kind: undefined });
+      ppos = ps + p.length;
+    }
+    clauses.push({ start, end, parts });
+    pos = end;
+  }
+  return clauses;
+}
+
+function cachedStdinKind(part) {
+  if (part.kind === undefined) part.kind = classifyStdinInterpreter(part.text);
+  return part.kind;
+}
+
+/**
+ * Given a header line index and the character offset where `<<DELIM` starts, determine whether
  * that heredoc feeds an interpreter directly (`python3 - <<EOF`, `bash <<EOF`) or via pipe
  * (`cat <<EOF | python3`, `cat <<EOF | sh`). Returns interpreter kind or null (data heredoc).
  */
-function classifyHeredocConsumer(headerLine, heredocOffset) {
-  // Find which `;`/`&&`/`||` clause contains heredocOffset
-  const clauses = splitClausesOnLine(headerLine);
-  let pos = 0;
-  let targetClause = headerLine;
-  for (const c of clauses) {
-    const start = headerLine.indexOf(c, pos);
-    const end = start + c.length;
-    if (heredocOffset >= start && heredocOffset <= end) {
-      targetClause = c;
-      break;
-    }
-    pos = end;
-  }
+function classifyHeredocConsumer(lineIndex, heredocOffset) {
+  const clause = lineIndex.find((c) => heredocOffset >= c.start && heredocOffset <= c.end) || lineIndex[0];
+  if (!clause || clause.parts.length === 0) return null;
+  let segIdx = clause.parts.findIndex((p) => heredocOffset >= p.start && heredocOffset < p.end);
+  if (segIdx < 0) segIdx = 0;
 
-  const pipeParts = splitPipesInClause(targetClause);
-  // Find the pipe segment containing the heredoc marker
-  let segIdx = 0;
-  for (let i = 0; i < pipeParts.length; i++) {
-    if (/<<-?\s*(?:["']?[A-Za-z_]\w*["']?|\\[A-Za-z_]\w*)/.test(pipeParts[i])) {
-      segIdx = i;
-      break;
-    }
-  }
-
-  const directKind = classifyStdinInterpreter(pipeParts[segIdx]);
+  const directKind = cachedStdinKind(clause.parts[segIdx]);
   if (directKind) return directKind;
 
-  // Check if piped to an interpreter (`cat <<EOF | python3`, `cat <<EOF | bash`)
-  if (pipeParts.length > segIdx + 1) {
-    // Only if this segment does not redirect stdout to a file (ignoring stderr 2>)
-    const nextKind = classifyStdinInterpreter(pipeParts[segIdx + 1]);
+  // Piped to an interpreter (`cat <<EOF | python3`, `cat <<EOF | bash`)
+  if (clause.parts.length > segIdx + 1) {
+    const nextKind = cachedStdinKind(clause.parts[segIdx + 1]);
     if (nextKind) return nextKind;
   }
 
   return null;
+}
+
+/**
+ * Index just past an arithmetic expansion/command (`$((…))` or `((…))`) starting at `i`, or -1 when
+ * `line[i]` does not open one. `<<` inside it is a shift operator, never a heredoc (R2).
+ */
+function skipArithmetic(line, i) {
+  let j;
+  if (line[i] === "$" && line[i + 1] === "(" && line[i + 2] === "(") j = i + 3;
+  else if (line[i] === "(" && line[i + 1] === "(" && (i === 0 || /[\s;&|(!]/.test(line[i - 1]))) j = i + 2;
+  else return -1;
+  let depth = 2;
+  for (; j < line.length; j++) {
+    if (line[j] === "(") depth++;
+    else if (line[j] === ")" && --depth === 0) return j + 1;
+  }
+  return line.length;
+}
+
+/**
+ * Kind of interpreter that receives a PowerShell here-string opened at the end of `prefix` as its
+ * code argument (`iex @'`, `Invoke-Expression @'`, `pwsh -Command @'`, `bash -c @'`, `python -c @'`,
+ * `node -e @'`, `cmd /c @'`), or null when the here-string is data.
+ */
+function classifyHereStringArgConsumer(prefix) {
+  const clauses = splitClausesOnLine(prefix);
+  const parts = splitPipesInClause(clauses[clauses.length - 1] || "");
+  const tokens = tokenizeSegment(parts[parts.length - 1] || "");
+  const idx = skipCommandWrappers(tokens);
+  if (idx >= tokens.length) return null;
+  const bin = tokens[idx].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
+  const last = tokens[tokens.length - 1];
+  if (bin === "iex" || bin === "invoke-expression") return "pwsh";
+  if (tokens.length - 1 === idx) return null;
+  if (bin === "cmd" && /^\/[ck]$/i.test(last)) return "shell";
+  if ((bin === "pwsh" || bin === "powershell") && /^-(?:c|command)$/i.test(last)) return "pwsh";
+  if (/^(ba|z|da)?sh$/.test(bin) && /^-[a-zA-Z]*c$/.test(last)) return "shell";
+  if ((/^python(\d+(\.\d+)*)?$/.test(bin) || bin === "py") && /^-[a-zA-Z]*c$/.test(last)) return "python";
+  if (/^(node(js)?|bun)$/.test(bin) && /^(?:-e|-p|--eval|--print)$/.test(last)) return "node";
+  if (bin === "perl" && /^-[a-zA-Z]*[eE]$/.test(last)) return "perl";
+  if (bin === "ruby" && /^-[a-zA-Z]*e$/.test(last)) return "ruby";
+  return null;
+}
+
+function escapeForDoubleQuotes(s) {
+  return s.replace(/[\\"$`]/g, (c) => `\\${c}`);
+}
+
+/**
+ * R1: inline `$(cat <<DELIM … DELIM)` command substitutions with their heredoc body, so the body is
+ * evaluated where the substitution is used: as the program of `bash -c "$(…)"` / `sh -c` / `eval`,
+ * or as a command when the substitution stands in command position. Inside double quotes the body
+ * stays a double-quoted literal (e.g. `git commit -m "$(cat <<'EOF' … EOF)"` is still data).
+ */
+export function inlineHeredocSubstitutions(cmd) {
+  const s = String(cmd || "");
+  if (!s.includes("$(") || !s.includes("<<")) return s;
+  const headRe = /^\s*cat\s*<<(-?)\s*(?:(["'])([A-Za-z_]\w*)\2|\\?([A-Za-z_]\w*))[ \t]*\r?\n/;
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      out += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < s.length) {
+      out += ch + s[++i];
+      continue;
+    }
+    if (quote === '"' && ch === '"') {
+      quote = null;
+      out += ch;
+      continue;
+    }
+    if (!quote && (ch === "'" || ch === '"')) {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === "$" && s[i + 1] === "(" && s[i + 2] !== "(") {
+      const rest = s.slice(i + 2);
+      const m = rest.match(headRe);
+      if (m) {
+        const delim = m[3] || m[4];
+        const lines = rest.slice(m[0].length).split("\n");
+        const body = [];
+        let consumed = m[0].length;
+        let closed = false;
+        for (const raw of lines) {
+          consumed += raw.length + 1;
+          const line = raw.replace(/\r$/, "");
+          if ((m[1] ? line.replace(/^\t+/, "") : line).trim() === delim) {
+            closed = true;
+            break;
+          }
+          body.push(line);
+        }
+        const after = closed ? rest.slice(consumed - 1).match(/^\n?\s*\)/) : null;
+        if (after) {
+          const escaped = escapeForDoubleQuotes(body.join("\n"));
+          if (quote === '"') out += escaped;
+          else if (/(^|[;&|(\n{]|\b(?:then|do|else))\s*$/.test(out)) out += `eval "${escaped}"`;
+          else out += `"${escaped}"`;
+          i = i + 2 + consumed - 1 + after[0].length - 1;
+          continue;
+        }
+      }
+    }
+    out += ch;
+  }
+  return out;
 }
 
 /**
@@ -467,7 +595,9 @@ export function parseHeredocs(cmd) {
         const trailing = cm[1] || "";
         let kind = null;
         const pipeParts = splitPipesInClause(trailing);
-        if (pipeParts.length > 1) {
+        if (psHere.argKind) {
+          kind = psHere.argKind;
+        } else if (pipeParts.length > 1) {
           kind = classifyStdinInterpreter(pipeParts[1]);
         }
         const isInterpreter = kind !== null;
@@ -477,7 +607,7 @@ export function parseHeredocs(cmd) {
         if (isInterpreter) {
           compactedLines.push(...psHere.bodyLines, line);
         } else {
-          compactedLines.push(`‹heredoc: ${lineCount} líneas›`, line);
+          compactedLines.push(heredocLabel(lineCount), line);
         }
         if (trailing.trim()) strippedAllLines.push(trailing.trim());
         psHere = null;
@@ -505,7 +635,7 @@ export function parseHeredocs(cmd) {
         if (cur.isInterpreter) {
           compactedLines.push(...cur.bodyLines, line);
         } else {
-          compactedLines.push(`‹heredoc: ${lineCount} líneas›`, line);
+          compactedLines.push(heredocLabel(lineCount), line);
         }
       } else {
         cur.bodyLines.push(line);
@@ -515,6 +645,8 @@ export function parseHeredocs(cmd) {
 
     // Scan header line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
     let quote = null;
+    let lineIndex = null;
+    let psOpen = null;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (quote === "'") {
@@ -533,28 +665,41 @@ export function parseHeredocs(cmd) {
         i++;
         continue;
       }
+      // PowerShell here-string opener `@'` / `@"` at the end of the line (B2/R3)
+      if (ch === "@" && (line[i + 1] === "'" || line[i + 1] === '"') && /^[ \t]*$/.test(line.slice(i + 2))) {
+        psOpen = { quote: line[i + 1], at: i };
+        break;
+      }
       if (ch === "'" || ch === '"') {
         quote = ch;
         continue;
       }
       if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
 
+      // R2: `<<` inside `$((…))` / `((…))` is a shift operator, not a heredoc.
+      if (ch === "$" || ch === "(") {
+        const end = skipArithmetic(line, i);
+        if (end >= 0) {
+          i = end - 1;
+          continue;
+        }
+      }
+
       if (ch === "<" && line[i + 1] === "<" && line[i + 2] !== "<") {
-        const m = line.slice(i).match(/^<<-?\s*(?:(["'])([A-Za-z_]\w*)\1|\\?([A-Za-z_]\w*))/);
+        HEREDOC_OPEN_RE.lastIndex = i;
+        const m = HEREDOC_OPEN_RE.exec(line);
         if (m) {
           const delim = m[2] || m[3];
-          const kind = classifyHeredocConsumer(line, i);
+          if (!lineIndex) lineIndex = buildHeaderLineIndex(line);
+          const kind = classifyHeredocConsumer(lineIndex, i);
           pending.push({ delim, kind, isInterpreter: kind !== null, bodyLines: [] });
           i += m[0].length - 1;
         }
       }
     }
 
-    if (!quote && pending.length === 0) {
-      const psMatch = line.match(/@(['"])[ \t]*$/);
-      if (psMatch) {
-        psHere = { quote: psMatch[1], bodyLines: [] };
-      }
+    if (psOpen && pending.length === 0) {
+      psHere = { quote: psOpen.quote, bodyLines: [], argKind: classifyHereStringArgConsumer(line.slice(0, psOpen.at)) };
     }
 
     strippedAllLines.push(line);
@@ -573,7 +718,7 @@ export function parseHeredocs(cmd) {
       closed: false,
       isPsHereString: true,
     });
-    compactedLines.push(`‹heredoc: ${lineCount} líneas›`);
+    compactedLines.push(heredocLabel(lineCount));
   }
   for (const cur of pending) {
     const lineCount = cur.bodyLines.length;
@@ -589,7 +734,7 @@ export function parseHeredocs(cmd) {
     if (cur.isInterpreter) {
       compactedLines.push(...cur.bodyLines);
     } else {
-      compactedLines.push(`‹heredoc: ${lineCount} líneas›`);
+      compactedLines.push(heredocLabel(lineCount));
     }
   }
 
@@ -613,6 +758,7 @@ export function compactDataHeredocs(cmd) {
  * 1. Heredocs / PowerShell here-strings feeding an interpreter (`python3 - <<EOF`, `node <<EOF`, `bash -s <<EOF`, `cat <<EOF | python3`).
  * 2. Pipes from `echo`/`printf`/`Write-Output` into an interpreter (`echo "gh pr create --fill" | bash`, `printf '...' | python3`, `Write-Output '...' | iex`).
  * 3. Bash here-strings (`bash <<< "gh pr create --fill"`).
+ * 4. Bare string literals piped into an interpreter (`"gh pr create" | pwsh -Command -`, `'…' | python -`, `"…" | iex`).
  * @returns {Array<{ kind: string, code: string }>}
  */
 export function extractStdinInterpreterInvocations(cmd) {
@@ -648,6 +794,11 @@ export function extractStdinInterpreterInvocations(cmd) {
           const nextKind = classifyStdinInterpreter(pipeParts[i + 1]);
           if (nextKind) {
             const producerTokens = tokenizeSegment(part);
+            // R3: a bare string literal is a PowerShell producer (`"gh pr create" | pwsh -Command -`, `'…' | python -`, `"…" | iex`)
+            if (producerTokens.length === 1 && /^\s*(["'])[\s\S]*\1\s*$/.test(part)) {
+              if (producerTokens[0].trim()) invocations.push({ kind: nextKind, code: producerTokens[0] });
+              continue;
+            }
             const pIdx = skipCommandWrappers(producerTokens);
             const pBin = (producerTokens[pIdx] || "").split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
             if (pBin === "echo" || pBin === "printf" || pBin === "write-output") {
