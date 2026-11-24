@@ -207,8 +207,10 @@ export async function main(argv, deps = {}) {
   } catch {}
   let url = "";
   if (existing) {
-    const edit = run("gh", ["pr", "edit", String(existing.number), "--body-file", bodyPath], { cwd: repoRoot });
-    if (edit.status !== 0) return fail(`gh pr edit falló:\n${tail(edit.stderr, 10)}`);
+    // REST instead of `gh pr edit`: the latter also queries org/project fields and fails without read:org.
+    const patch = ["api", "-X", "PATCH", `repos/{owner}/{repo}/pulls/${existing.number}`, "-F", `body=@${bodyPath}`, "--silent"];
+    const edit = run("gh", patch, { cwd: repoRoot });
+    if (edit.status !== 0) return fail(`gh api PATCH pulls/${existing.number} falló:\n${tail(edit.stderr, 10)}`);
     url = existing.url;
     log(`[harness-ship] PR #${existing.number} actualizada (cuerpo con el sello nuevo).`);
   } else {

@@ -76,7 +76,7 @@ function fakeEnv(over: Partial<{ behind: number; gateFails: boolean; prs: { numb
     }
     if (cmd === "gh") {
       if (args[1] === "list") return ok(JSON.stringify(st.prs));
-      if (args[1] === "edit") return ok();
+      if (args[0] === "api" && args[2] === "PATCH") return ok();
       if (args[1] === "create") {
         st.prs.push({ number: 900, url: "https://github.com/Fresias/gozster/pull/900" });
         return ok("https://github.com/Fresias/gozster/pull/900\n");
@@ -130,12 +130,13 @@ describe("GOZS-781: harness-ship.mjs", () => {
     expect(out.join("\n")).toContain(`Sello: ${res.fingerprint}`);
   });
 
-  it("GIVEN una PR existente para la rama WHEN corre THEN actualiza el cuerpo con gh pr edit y no crea otra", async () => {
+  it("GIVEN una PR existente para la rama WHEN corre THEN actualiza el cuerpo (PATCH REST, sin read:org) y no crea otra", async () => {
     const { st, deps } = fakeEnv({ prs: [{ number: 812, url: "https://github.com/Fresias/gozster/pull/812" }] });
     const res = await main(ARGS, deps);
     expect(res.exitCode).toBe(0);
     expect(st.calls.some((c) => c.startsWith("gh pr create"))).toBe(false);
-    expect(st.calls.some((c) => c.startsWith("gh pr edit 812 --body-file"))).toBe(true);
+    expect(st.calls.some((c) => c.startsWith("gh api -X PATCH repos/{owner}/{repo}/pulls/812 -F body=@") && c.includes("pr-body.md"))).toBe(true);
+    expect(st.calls.some((c) => c.startsWith("gh pr edit"))).toBe(false);
     expect(res.url).toBe("https://github.com/Fresias/gozster/pull/812");
   });
 
@@ -171,7 +172,7 @@ describe("GOZS-781: harness-ship.mjs", () => {
     expect(st.files.get(BODY)!.match(/harness-seal:/g)).toHaveLength(1);
     expect(st.files.get(BODY)!.match(/^Harness seal:/gm)).toHaveLength(1);
     expect(st.calls.filter((c) => c.startsWith("gh pr create"))).toHaveLength(1);
-    expect(st.calls.filter((c) => c.startsWith("gh pr edit"))).toHaveLength(1);
+    expect(st.calls.filter((c) => c.startsWith("gh api -X PATCH"))).toHaveLength(1);
   });
 
   it("GIVEN cambios sin commitear fuera de la lección WHEN corre THEN se detiene sin tocar nada", async () => {
