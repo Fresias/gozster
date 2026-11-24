@@ -6,17 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import {
-  analyzeDeep,
-  commandSignature,
-  compareDeepReports,
-  family,
-  isComparableBlock,
-  LEGACY_CMD_MAX,
-  looksLiteral,
-  mainOf,
-  runDeepDive,
-} from "../core/lib/telemetry-deep.mjs";
+import { analyzeDeep, commandSignature, compareDeepReports, family, isComparableBlock, LEGACY_CMD_MAX, looksLiteral, mainOf, runDeepDive } from "../core/lib/telemetry-deep.mjs";
 // @ts-expect-error - mjs module
 import { summarize } from "../core/scripts/harness-telemetry.mjs";
 
