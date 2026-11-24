@@ -1041,3 +1041,93 @@ describe("GOZS-768: normalize.mjs (cwd, startLine, search, toolUseId, post ok/er
     expect(exampleSearch.allowed).toBe(true);
   });
 });
+
+describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)", () => {
+  let telemetryDir: string;
+  const prevTelemetry = process.env.HARNESS_TELEMETRY_DIR;
+  const READ_MSG = "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob`";
+
+  beforeAll(() => {
+    telemetryDir = mkdtempSync(path.join(tmpdir(), "gozs-783-"));
+    process.env.HARNESS_TELEMETRY_DIR = telemetryDir;
+  });
+  afterAll(() => {
+    if (prevTelemetry === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+    else process.env.HARNESS_TELEMETRY_DIR = prevTelemetry;
+    rmSync(telemetryDir, { recursive: true, force: true });
+  });
+
+  const claudePost = (command: string, session: string, stdout = "") =>
+    checkGuard(
+      {
+        hook_event_name: "PostToolUse",
+        session_id: session,
+        cwd: repoRoot,
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_response: { stdout, stderr: "", interrupted: false },
+      },
+      { repoRoot },
+    );
+
+  it("inyecta una sola vez por sesión ante `cat` de un archivo del repo", () => {
+    const first = claudePost("cat src/components/x.tsx", "s-cat");
+    expect(first.inject).toBe(true);
+    expect(first.ruleId).toBe("remediate.native-read");
+    expect(first.context).toContain(READ_MSG);
+    expect(first.allowed).toBe(true);
+
+    const second = claudePost("cat src/components/y.tsx", "s-cat");
+    expect(second.inject).toBe(false);
+    expect(existsSync(path.join(telemetryDir, "native-read-s-cat.flag"))).toBe(true);
+  });
+
+  it.each(["head -n 40 src/x.ts", "tail -20 src/x.ts", "sed -n '1,80p' src/x.ts", "grep -n foo src/x.ts", "rg -n foo src"])(
+    "inyecta ante lectura/búsqueda por Bash: %s",
+    (command) => {
+      const r = claudePost(command, `s-${command}`);
+      expect(r.ruleId).toBe("remediate.native-read");
+      expect(r.context).toContain(READ_MSG);
+    },
+  );
+
+  it("`sed -i` sugiere `Edit`", () => {
+    const r = claudePost("sed -i 's/a/b/' src/x.ts", "s-sed-i");
+    expect(r.inject).toBe(true);
+    expect(r.ruleId).toBe("remediate.native-read");
+    expect(r.context).toBe("Usá `Edit`.");
+  });
+
+  it.each([
+    "git log --oneline | grep fix",
+    "grep -n foo src/x.ts | head -5",
+    "cat <<'EOF' > notes.md\nhola\nEOF",
+    "cat ~/.claude/settings.json",
+    "cat ../../outside.txt",
+    "sed 's/a/b/' src/x.ts",
+    "npm test",
+  ])("no inyecta: %s", (command) => {
+    const r = claudePost(command, `s-no-${command}`);
+    expect(r.ruleId).not.toBe("remediate.native-read");
+  });
+
+  it("evalúa el comando y no la salida (salida con «cat src/x.ts» literal)", () => {
+    const r = claudePost("git log -1", "s-output", "docs: cat src/x.ts\n");
+    expect(r.inject).toBe(false);
+  });
+
+  it("Antigravity no recibe inyección", () => {
+    const r = evaluateRules(
+      { phase: "post", kind: "shell", runtime: "antigravity", command: "cat src/x.ts", output: "", raw: {} },
+      { repoRoot },
+    );
+    expect(r.inject).toBe(false);
+  });
+
+  it("no pisa remediate.oversize-output ni consume la marca de sesión", () => {
+    const big = "x".repeat(20001);
+    const r = claudePost("cat src/big.ts", "s-oversize", big);
+    expect(r.ruleId).toBe("remediate.oversize-output");
+    expect(claudePost("cat src/big.ts", "s-oversize").ruleId).toBe("remediate.native-read");
+  });
+});
