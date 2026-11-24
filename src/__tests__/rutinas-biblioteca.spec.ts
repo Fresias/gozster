@@ -11,7 +11,16 @@ import {
   nombreUnico,
   separarBorradores,
 } from "@/lib/rutinas-biblioteca";
-import { activarRutina, archivarRutina, asignarRutinaAAlumno } from "@/services/rutinas-service";
+import {
+  activarRutina,
+  archivarRutina,
+  asignarRutinaAAlumno,
+  compartirPlantillaConEntrenador,
+  duplicarPlantillaAMisPlantillas,
+  eliminarPlantillaPropia,
+  listarEntrenadoresStaff,
+  revocarPlantillaCompartida,
+} from "@/services/rutinas-service";
 import type { PlanEntrenamiento } from "@/types/database.types";
 
 const plan = (over: Partial<PlanEntrenamiento>): PlanEntrenamiento => ({
@@ -269,5 +278,70 @@ describe("GOZS-365: filtros por tags, badges semánticos y herencia en asignaci�
     it("GIVEN una base vacía (0 plantillas y 0 alumnos), THEN devuelve 'plantillas'", () => {
       expect(determinarPestanaPorDefecto([])).toBe("plantillas");
     });
+  });
+});
+
+describe("GOZS-761: servicios de plantillas compartidas y staff", () => {
+  it("listarEntrenadoresStaff consulta la RPC y devuelve id y nombre_completo", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: "c1", nombre_completo: "Coach Uno" }],
+      error: null,
+    });
+    const res = await listarEntrenadoresStaff({ rpc } as never);
+    expect(rpc).toHaveBeenCalledWith("listar_entrenadores_staff");
+    expect(res).toEqual([{ id: "c1", nombre_completo: "Coach Uno" }]);
+  });
+
+  it("compartirPlantillaConEntrenador impide compartir consigo mismo e inserta en planes_compartidos", async () => {
+    await expect(
+      compartirPlantillaConEntrenador("p1", "c1", "c1", {} as never),
+    ).rejects.toThrow(/contigo mismo/);
+
+    const row = {
+      id: "pc1",
+      plan_id: "p1",
+      profesor_id: "c2",
+      compartido_por: "c1",
+      created_at: "2026-11-24T00:00:00Z",
+    };
+    const single = vi.fn().mockResolvedValue({ data: row, error: null });
+    const select = vi.fn(() => ({ single }));
+    const insert = vi.fn(() => ({ select }));
+    const client = { from: vi.fn(() => ({ insert })) } as never;
+
+    const saved = await compartirPlantillaConEntrenador("p1", "c2", "c1", client);
+    expect(insert).toHaveBeenCalledWith({
+      plan_id: "p1",
+      profesor_id: "c2",
+      compartido_por: "c1",
+    });
+    expect(saved).toEqual(row);
+  });
+
+  it("revocarPlantillaCompartida borra por (plan_id, profesor_id)", async () => {
+    const eq2 = vi.fn().mockResolvedValue({ error: null });
+    const eq1 = vi.fn(() => ({ eq: eq2 }));
+    const del = vi.fn(() => ({ eq: eq1 }));
+    const client = { from: vi.fn(() => ({ delete: del })) } as never;
+
+    await revocarPlantillaCompartida("p1", "c2", client);
+    expect(eq1).toHaveBeenCalledWith("plan_id", "p1");
+    expect(eq2).toHaveBeenCalledWith("profesor_id", "c2");
+  });
+
+  it("duplicarPlantillaAMisPlantillas invoca clonar_plan_entrenamiento y eliminarPlantillaPropia borra por id", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: "nuevo-plan-id", error: null });
+    await expect(duplicarPlantillaAMisPlantillas("p1", "Copia", { rpc } as never)).resolves.toBe(
+      "nuevo-plan-id",
+    );
+    expect(rpc).toHaveBeenCalledWith("clonar_plan_entrenamiento", {
+      p_plan_id: "p1",
+      p_nuevo_nombre: "Copia",
+    });
+
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const del = vi.fn(() => ({ eq }));
+    await eliminarPlantillaPropia("p1", { from: vi.fn(() => ({ delete: del })) } as never);
+    expect(eq).toHaveBeenCalledWith("id", "p1");
   });
 });
