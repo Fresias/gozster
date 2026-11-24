@@ -1131,3 +1131,64 @@ describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)
     expect(claudePost("cat src/big.ts", "s-oversize").ruleId).toBe("remediate.native-read");
   });
 });
+
+describe("GOZS-780: remediate.cwd-lost solo sobre la salida y solo en Claude Code", () => {
+  const post = (output: string, runtime = "claude-code", command = "cd foo") =>
+    evaluateRules({ phase: "post", kind: "shell", runtime, command, output }, { repoRoot });
+
+  it("GIVEN el texto del error dentro de un JSON o archivo mostrado WHEN evaluatePost THEN no inyecta remediate.cwd-lost", () => {
+    // Comandos que no disparan remediate.native-read: no inyectan nada
+    expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "git show HEAD:rules.json").inject).toBeFalsy();
+    expect(post("  - cd: x: No such file or directory en docs", "claude-code", "git show HEAD:notes.md").inject).toBeFalsy();
+    expect(post("", "claude-code", "git log -S 'cd: .*: No such file or directory' --oneline").inject).toBeFalsy();
+    // Incluso con cat/grep (que pueden sugerir remediate.native-read), nunca dispara remediate.cwd-lost
+    const prevDir = process.env.HARNESS_TELEMETRY_DIR;
+    const tmpDir = mkdtempSync(path.join(tmpdir(), "gozs-780-"));
+    process.env.HARNESS_TELEMETRY_DIR = tmpDir;
+    try {
+      expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "cat rules.json").ruleId).not.toBe("remediate.cwd-lost");
+      expect(post("", "claude-code", "grep -n 'cd: .*: No such file or directory' rules.json").ruleId).not.toBe("remediate.cwd-lost");
+    } finally {
+      if (prevDir === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+      else process.env.HARNESS_TELEMETRY_DIR = prevDir;
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("GIVEN un cd que falla en Bash en Claude Code WHEN evaluatePost THEN inyecta el mensaje nuevo sin rutas absolutas", () => {
+    for (const output of [
+      "bash: line 1: cd: foo: No such file or directory",
+      "/usr/bin/bash: line 3: cd: foo: No such file or directory",
+      "cd: foo: No such file or directory",
+    ]) {
+      const res = post(output);
+      expect(res.ruleId).toBe("remediate.cwd-lost");
+      expect(res.inject).toBe(true);
+      expect(res.context).toContain("rutas relativas");
+      expect(res.context).not.toMatch(/absolute paths/i);
+    }
+  });
+
+  it("GIVEN un Set-Location que falla en PowerShell 5.1 o 7 en Claude Code WHEN evaluatePost THEN inyecta el mensaje nuevo", () => {
+    for (const output of [
+      "Set-Location : Cannot find path 'C:\w\gozster' because it does not exist.\r\nAt line:1 char:1",
+      "Set-Location: Cannot find path 'C:\w\gozster' because it does not exist.",
+    ]) {
+      const res = post(output, "claude-code", "Set-Location gozster");
+      expect(res.ruleId).toBe("remediate.cwd-lost");
+      expect(res.inject).toBe(true);
+    }
+  });
+
+  it("GIVEN un fallo de Set-Location en Antigravity WHEN evaluatePost THEN no inyecta contexto", () => {
+    const res = post("Set-Location : Cannot find path 'C:\w\gozster' because it does not exist.", "antigravity", "Set-Location gozster");
+    expect(res.inject).toBeFalsy();
+  });
+
+  it("GIVEN rules.json WHEN se carga THEN remediate.cwd-lost no tiene pattern declarativo", () => {
+    const rule = loadRules({ repoRoot }).find((r: { id: string }) => r.id === "remediate.cwd-lost");
+    expect(rule).toBeDefined();
+    expect(rule.pattern).toBeUndefined();
+    expect(rule.message).not.toMatch(/absolute paths/i);
+  });
+});

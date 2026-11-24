@@ -120,6 +120,7 @@ const coverage: Record<string, Record<string, unknown>> = {
   "remediate.cwd-lost": {
     phase: "post",
     kind: "shell",
+    runtime: "claude-code",
     command: "cd gozster",
     output: "bash: cd: gozster: No such file or directory",
   },
