@@ -377,7 +377,7 @@ describe("harness-render: carga y validación de contratos", () => {
       let maxNum = -1;
       for (const e of ledger.entries) {
         const m = LEDGER_ID_RE.exec(String(e.id || ""));
-        if (m) maxNum = Math.max(maxNum, Number.parseInt(m[1], 10));
+        if (m?.[1]) maxNum = Math.max(maxNum, Number.parseInt(m[1], 10));
       }
       return `L-${String(maxNum + 1).padStart(3, "0")}`;
     }
