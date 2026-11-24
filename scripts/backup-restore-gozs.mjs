@@ -33,7 +33,7 @@ export const VERSION_SNAPSHOT = 1;
  * obliga a actualizar esta lista (y la de restaurar_filas_respaldo).
  */
 export const TABLAS = [
-  { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles" } },
+  { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles", profesor_apoyo_id: "perfiles" } },
   { nombre: "ejercicios", fks: { creado_por: "perfiles" } },
   {
     nombre: "planes_entrenamiento",
