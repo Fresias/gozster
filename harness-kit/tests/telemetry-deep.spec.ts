@@ -1,0 +1,223 @@
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// @ts-expect-error - mjs module
+import { analyzeDeep, commandSignature, family, LEGACY_CMD_MAX, looksLiteral, mainOf, runDeepDive } from "../core/lib/telemetry-deep.mjs";
+// @ts-expect-error - mjs module
+import { summarize } from "../core/scripts/harness-telemetry.mjs";
+
+let tempDirs: string[] = [];
+
+function makeTempDir(): string {
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), "telemetry-deep-")));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
+  tempDirs = [];
+});
+
+describe("GOZS-769: parser de firmas y clasificación en telemetry-deep.mjs", () => {
+  it("normaliza firmas de shell encadenadas, PowerShell, Multica, vitest y pipes", () => {
+    expect(mainOf('Set-Location "<repo>"; rg -n foo src | head -n 20')).toMatchObject({
+      main: "rg",
+      cdPrefix: true,
+      limited: true,
+    });
+    expect(mainOf('& "$env:MULTICA_CLI_PATH" issue comment list abc --roots-only')).toMatchObject({
+      main: "multica issue comment",
+    });
+    expect(mainOf("npx vitest run harness-kit/tests/harness-telemetry.spec.ts")).toMatchObject({
+      main: "npx vitest <archivo>",
+    });
+    expect(mainOf("npx vitest run")).toMatchObject({
+      main: "npx vitest (suite completa)",
+    });
+    expect(mainOf("git -C gozster push --force origin main")).toMatchObject({
+      main: "git push (forzado)",
+    });
+    expect(family("rg")).toBe("búsqueda");
+    expect(family("multica issue comment")).toBe("multica");
+    expect(family("bash harness-gate.sh")).toBe("arnés (harness-*)");
+    expect(family("npx vitest <archivo>")).toBe("tests");
+  });
+
+  it("identifica comandos truncados cuando solo se ve cd/entorno", () => {
+    const truncatedCd = `Set-Location "${"a".repeat(310)}"`;
+    expect(commandSignature(truncatedCd, { kind: "shell", cmdMax: 300 })).toBe("(cortado a 300 car.)");
+    expect(family("(cortado a 300 car.)")).toBe("comando cortado (solo cd/entorno visible)");
+    expect(commandSignature("src/app.ts", { kind: "read" })).toBe("read");
+  });
+
+  it("distingue posibles falsos positivos literales de bloqueos sobre acciones reales", () => {
+    expect(looksLiteral({ _kind: "shell", _fam: "búsqueda", _sig: "rg" }, "shell.rm-rf")).toBe(true);
+    expect(looksLiteral({ _kind: "shell", _fam: "búsqueda", _sig: "rg" }, "read.oversize")).toBe(false);
+    expect(looksLiteral({ _kind: "read", _fam: "read", _sig: "read" }, "read.oversize")).toBe(false);
+  });
+});
+
+describe("GOZS-769: analyzeDeep con campos v2 (GOZS-768) y cruce obligatorio con summarize", () => {
+  function buildV2Fixture() {
+    const t0 = Date.parse("2026-11-24T15:00:00.000Z");
+    const ts = (offsetMs: number) => new Date(t0 + offsetMs).toISOString();
+
+    return [
+      // Evento canario que debe quedar excluido por filterEvents
+      { ts: ts(0), session: "canary-1", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "block", rule: "shell.rm-rf", cmd: "rm -rf /" },
+      // Evento fuera de ventana (antes de since)
+      { ts: ts(-60_000), session: "s-old", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "AGENTS.md" },
+
+      // Sesión 1 (claude-code): search nativa, lecturas acotadas por rangos distintos + 1 relectura exacta, bloqueo read.oversize, escritura, gate + pr.requires-seal -> gh pr create
+      { ts: ts(1_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "summarize harness-kit/core", cwd: "<repo>", id: "u1" },
+      { ts: ts(1_400), session: "s1", runtime: "claude-code", phase: "post", kind: "search", tool: "Grep", decision: "allow", cmd: "summarize harness-kit/core", cwd: "<repo>", id: "u1", ok: true },
+
+      { ts: ts(5_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "block", rule: "read.oversize", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", bounded: false, cwd: "<repo>", id: "u2" },
+
+      // Lectura acotada rango 1..150
+      { ts: ts(10_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", start: 1, limit: 150, bounded: true, cwd: "<repo>", id: "u3" },
+      { ts: ts(10_300), session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", cwd: "<repo>", id: "u3", ok: true },
+
+      // Lectura acotada rango 151..300 (paginación -> rango distinto)
+      { ts: ts(15_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", start: 151, limit: 150, bounded: true, cwd: "<repo>", id: "u4" },
+      { ts: ts(15_250), session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", cwd: "<repo>", id: "u4", ok: true },
+
+      // Relectura exacta del rango 1..150
+      { ts: ts(20_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", start: 1, limit: 150, bounded: true, cwd: "<repo>", id: "u5" },
+      { ts: ts(20_200), session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", cwd: "<repo>", id: "u5", ok: true },
+
+      // Escritura permitida
+      { ts: ts(30_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", cwd: "<repo>", id: "u6" },
+      { ts: ts(30_600), session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "harness-kit/core/scripts/harness-telemetry.mjs", cwd: "<repo>", id: "u6", ok: true },
+
+      // Shell con falla (ok: false) y referencia a <workdir>
+      { ts: ts(40_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "Set-Location <workdir>/gozster; npx vitest run harness-kit/tests/harness-telemetry.spec.ts", cwd: "<workdir>", id: "u7" },
+      { ts: ts(44_000), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "Set-Location <workdir>/gozster; npx vitest run harness-kit/tests/harness-telemetry.spec.ts", cwd: "<workdir>", id: "u7", ok: false },
+
+      // pr.requires-seal -> harness-gate.sh -> gh pr create exitoso + inyección
+      { ts: ts(50_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "pr.requires-seal", cmd: "gh pr create --title test", cwd: "<repo>", id: "u8" },
+      { ts: ts(60_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "bash harness-kit/core/scripts/harness-gate.sh", cwd: "<repo>", id: "u9" },
+      { ts: ts(75_000), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "bash harness-kit/core/scripts/harness-gate.sh", cwd: "<repo>", id: "u9", ok: true },
+      { ts: ts(80_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "gh pr create --title test", cwd: "<repo>", id: "u10" },
+      { ts: ts(82_000), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "gh pr create --title test", cwd: "<repo>", id: "u10", ok: true, inject: true, rule: "remediate.cwd-lost" },
+
+      // Sesión 2 (antigravity): lectura externa relativizada (~/) y comando repetido de multica
+      { ts: ts(100_000), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "~/Documents/notes.md", bounded: false, cwd: "<workdir>", id: "a1" },
+      { ts: ts(100_100), session: "s2", runtime: "antigravity", phase: "post", kind: "read", tool: "read_file", decision: "allow", cmd: "~/Documents/notes.md", cwd: "<workdir>", id: "a1", ok: true },
+      { ts: ts(105_000), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: '& "$env:MULTICA_CLI_PATH" issue get 123 --output json', cwd: "<workdir>", id: "a2" },
+      { ts: ts(106_000), session: "s2", runtime: "antigravity", phase: "post", kind: "shell", tool: "run_command", decision: "allow", cmd: '& "$env:MULTICA_CLI_PATH" issue get 123 --output json', cwd: "<workdir>", id: "a2", ok: true },
+      { ts: ts(120_000), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: '& "$env:MULTICA_CLI_PATH" issue get 123 --output json', cwd: "<workdir>", id: "a3" },
+      { ts: ts(121_000), session: "s2", runtime: "antigravity", phase: "post", kind: "shell", tool: "run_command", decision: "allow", cmd: '& "$env:MULTICA_CLI_PATH" issue get 123 --output json', cwd: "<workdir>", id: "a3", ok: true },
+    ];
+  }
+
+  it("reutiliza filterEvents/summarize, aprovecha rutas completas, bounded/start/limit, cwd, search, ok y duraciones", () => {
+    const fixture = buildV2Fixture();
+    const since = "2026-11-24T15:00:00.000Z";
+    const until = "2026-11-24T16:00:00.000Z";
+
+    const report = analyzeDeep(fixture, { since, until, idleMin: 15, ledgerPath: null });
+    const official = summarize(fixture, { since, until, idleMin: 15 });
+
+    // Sin errores en ninguna sección
+    expect(report.json.errors).toBeUndefined();
+
+    // Cruce obligatorio con summarize coincide exactamente
+    expect(report.crossCheck.matches).toBe(true);
+    expect(report.json.coverage.crossCheck.matches).toBe(true);
+    expect(report.json.coverage.events).toBe(official.totalEvents);
+    expect(report.json.coverage.actions).toBe(official.totalActions);
+    expect(report.json.coverage.post).toBe(official.postEvents);
+    expect(report.json.coverage.sessions).toBe(official.totalSessions);
+    expect(report.json.coverage.excluded).toBe(1);
+    expect(report.json.coverage.outOfWindow).toBe(1);
+
+    // Campos de fidelidad v2
+    expect(report.json.hasV2Fields).toBe(true);
+    expect(report.json.cmdMax).toBe(300);
+    expect(report.json.coverage.byCwd).toEqual({ "<repo>": 9, "<workdir>": 4 });
+    expect(report.json.coverage.pairedDurations).toBe(11);
+    expect(report.json.coverage.outcomes.evaluated).toBe(11);
+    expect(report.json.coverage.outcomes.failed).toBe(1);
+    expect(report.json.coverage.outcomes.failureRate).toBeCloseTo(1 / 11, 5);
+
+    // Rutas completas sin heurística "(ruta cortada)"
+    expect(report.json.reads.truncatedPaths).toBe(0);
+    expect(report.markdown).not.toContain("(ruta cortada)");
+    expect(report.json.reads.files.some((f: { file: string }) => f.file === "harness-kit/core/scripts/harness-telemetry.mjs")).toBe(true);
+    expect(report.json.reads.files.some((f: { file: string }) => f.file === "~/Documents/notes.md")).toBe(true);
+    expect(report.json.reads.external).toBe(1);
+
+    // start / limit / bounded: 3 bounded, 2 unbounded (blocked + external), 1 exact reread, 1 distinct-range chunk
+    expect(report.json.reads.bounded).toBe(3);
+    expect(report.json.reads.unbounded).toBe(2);
+    expect(report.json.reads.rereads).toBe(2);
+    expect(report.json.reads.exactRangeRereads).toBe(1);
+    expect(report.json.reads.distinctRangeChunks).toBe(1);
+
+    // Búsqueda nativa kind: "search"
+    expect(report.json.search.nativeTotal).toBe(1);
+    expect(report.json.search.nativeByTool["claude-code\u0000Grep"]).toBe(1);
+    expect(report.markdown).toContain("búsqueda nativa (search)");
+
+    // Referencias a <workdir> en shell, repeticiones de Multica, pr.requires-seal y read.oversize
+    expect(report.json.shell.workdirRefs).toBe(1);
+    expect(report.json.repeats.allowedWithin10m).toBeGreaterThanOrEqual(1);
+    expect(report.json.readOversize.blocked).toBe(1);
+    expect(report.json.prSeal.sessions).toBe(1);
+    expect(report.json.prSeal.never).toBe(0);
+    expect(report.json.injections["remediate.cwd-lost"].count).toBe(1);
+    expect(report.json.timing.measuredDurations.pairedCount).toBe(11);
+  });
+
+  it("mantiene compatibilidad con eventos legacy L-001 (truncado a 120 car. y rutas absolutas)", () => {
+    const t0 = Date.parse("2026-11-18T10:00:00.000Z");
+    const longLegacyPath =
+      "C:\\Users\\user\\multica_workspaces_desktop-api.multica.ai\\gozster-384912dcdd71\\gozs-527\\workdir\\gozster\\src\\components\\coach\\coach-studio-view.tsx".slice(
+        0,
+        120,
+      );
+    expect(longLegacyPath.length).toBe(120);
+    const legacy = [
+      { ts: new Date(t0).toISOString(), session: "leg-1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: longLegacyPath },
+      { ts: new Date(t0 + 5_000).toISOString(), session: "leg-1", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "git status" },
+    ];
+
+    const report = analyzeDeep(legacy, { ledgerPath: null });
+    expect(report.json.hasV2Fields).toBe(false);
+    expect(report.json.cmdMax).toBe(LEGACY_CMD_MAX);
+    expect(report.json.reads.truncatedPaths).toBe(1);
+    expect(report.crossCheck.matches).toBe(true);
+  });
+});
+
+describe("GOZS-769: runDeepDive escritura en disco, ruta por defecto y --no-examples", () => {
+  it("escribe deep-dive.md y deep-dive.json en <HARNESS_TELEMETRY_DIR>/deep-dive por defecto (UTF-8 sin BOM) y respeta examples=false", () => {
+    const telemetryDir = makeTempDir();
+    vi.stubEnv("HARNESS_TELEMETRY_DIR", telemetryDir);
+
+    const eventsFile = path.join(telemetryDir, "events.jsonl");
+    const events = [
+      { ts: "2026-11-24T16:00:00.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "git.force-push", cmd: "git push --force origin secret-branch", cwd: "<repo>", id: "x1" },
+      { ts: "2026-11-24T16:00:05.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status", cwd: "<repo>", id: "x2" },
+    ];
+    writeFileSync(eventsFile, `${events.map((e) => JSON.stringify(e)).join("\n")}\nnot-json-line\n`, "utf8");
+
+    const res = runDeepDive({ examples: false });
+    expect(res.outDir).toBe(path.join(telemetryDir, "deep-dive"));
+    expect(existsSync(res.mdPath)).toBe(true);
+    expect(existsSync(res.jsonPath)).toBe(true);
+
+    const mdBuf = readFileSync(res.mdPath);
+    // Sin BOM UTF-8 (EF BB BF)
+    expect(mdBuf[0] === 0xef && mdBuf[1] === 0xbb && mdBuf[2] === 0xbf).toBe(false);
+    const mdText = mdBuf.toString("utf8");
+    expect(mdText).toContain("líneas JSON válidas: 2 · inválidas: 1");
+    expect(mdText).not.toContain("secret-branch");
+    expect(res.crossCheck.matches).toBe(true);
+  });
+});
