@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { checkGuard, evaluateRules, findRepoRoot, loadRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
+// @ts-expect-error - mjs module
+import { buildEvent } from "../core/guard/telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -604,6 +606,132 @@ describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas 
       expect(shellFeature(command).allowed).toBe(true);
     });
   }
+});
+
+describe("GOZS-773: regla estricta shell.polling (> 5 s) y registro shell.wait", () => {
+  const shell = (command: string) => evaluateRules({ kind: "shell", command });
+
+  it("GIVEN Start-Sleep 20; gh pr checks 636 WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("Start-Sleep 20; gh pr checks 636");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+    expect(res.reason).toContain("harness-pr-status.mjs");
+    expect(res.reason).toContain("--wait-checks");
+  });
+
+  it("GIVEN while ($true) { Start-Sleep 30; gh run view 123 } WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("while ($true) { Start-Sleep 30; gh run view 123 }");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+  });
+
+  it("GIVEN Start-Sleep 15 (solo, sin verificación local) WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("Start-Sleep 15");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+  });
+
+  for (const cmd of [
+    "Start-Sleep -Seconds 10",
+    "Start-Sleep -s 6",
+    "Start-Sleep -Milliseconds 6000",
+    "Start-Sleep -Milliseconds -100",
+    "Start-Sleep -Seconds:-5",
+    "Start-Sleep -Milliseconds:-100",
+    "sleep 10",
+    "sleep 1m",
+    "timeout /t 10",
+    "timeout /t -1",
+    "timeout /t:-1",
+    "timeout /T 15 /nobreak",
+    "ping -n 10 127.0.0.1",
+    "ping -n -1 127.0.0.1",
+    "Start-Sleep 3; gh pr view 636",
+    "sleep 2 && gh run list",
+    "Start-Sleep 2; gh run watch 999",
+    "Start-Sleep 2; multica issue get 01a20b11",
+    'Start-Sleep 2; & "$env:MULTICA_CLI_PATH" issue wakeup runs 01a20b11',
+    "sleep 3; multica issue list --limit 5",
+    "while true; do sleep 3; done",
+    "for i in 1 2 3; do sleep 2; done",
+    "until gh pr checks 1; do sleep 5; done",
+    "Start-Sleep 3; Start-Sleep 3",
+    "Start-Sleep 10; curl https://example.com",
+    "while ($true) { Start-Sleep 10; Invoke-WebRequest http://localhost:3000 }",
+  ]) {
+    it(`GIVEN espera prohibida '${cmd}' WHEN pre THEN se bloquea con shell.polling`, () => {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("shell.polling");
+    });
+  }
+
+  it("GIVEN Start-Sleep 10; Invoke-WebRequest http://localhost:3000 WHEN pre THEN se permite y registra shell.wait", () => {
+    const res = shell("Start-Sleep 10; Invoke-WebRequest http://localhost:3000");
+    expect(res.allowed).toBe(true);
+    expect(res.ruleId).toBe("shell.wait");
+  });
+
+  it("GIVEN Start-Sleep 5 (<= 5 s, sin polling ni bucle) WHEN pre THEN se permite y registra shell.wait", () => {
+    const res = shell("Start-Sleep 5");
+    expect(res.allowed).toBe(true);
+    expect(res.ruleId).toBe("shell.wait");
+  });
+
+  for (const cmd of [
+    "Start-Sleep -Seconds 5",
+    "Start-Sleep -Milliseconds 5000",
+    "sleep 3",
+    "timeout /t 5",
+    "ping -n 6 127.0.0.1",
+    "sleep 10 && curl -sf http://127.0.0.1:3000/api/health",
+    "Start-Sleep 8; Test-NetConnection -ComputerName localhost -Port 3000",
+    "Start-Sleep 8; Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 3000",
+    "Start-Sleep 10; $r = Invoke-WebRequest http://localhost:3000",
+  ]) {
+    it(`GIVEN espera permitida '${cmd}' WHEN pre THEN se permite con ruleId shell.wait`, () => {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(true);
+      expect(res.ruleId).toBe("shell.wait");
+    });
+  }
+
+  it("GIVEN rg -n \"Start-Sleep\" docs o timeout 60 npx vitest run x.spec.ts WHEN pre THEN se permiten sin ruleId", () => {
+    for (const cmd of [
+      'rg -n "Start-Sleep" docs',
+      "timeout 60 npx vitest run x.spec.ts",
+      'echo "Start-Sleep 20; gh pr checks 636"',
+      'git commit -m "chore: block Start-Sleep 30"',
+      "ping -n 10 8.8.8.8",
+    ]) {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(true);
+      expect(res.ruleId).toBeUndefined();
+    }
+  });
+
+  it("GIVEN Start-Sleep 2; rm -rf build WHEN pre THEN no saltea reglas destructivas previas", () => {
+    const res = shell("Start-Sleep 2; rm -rf build");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.rm-rf");
+  });
+
+  it("GIVEN telemetría buildEvent sobre shell.wait, shell.polling y allow sin espera THEN registra rule correctamente", () => {
+    const waitCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: "Start-Sleep 5" } } }, { runtime: "antigravity", phase: "pre" });
+    const waitEvt = buildEvent(waitCall, evaluateRules(waitCall));
+    expect(waitEvt.decision).toBe("allow");
+    expect(waitEvt.rule).toBe("shell.wait");
+
+    const pollCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: "Start-Sleep 15" } } }, { runtime: "antigravity", phase: "pre" });
+    const pollEvt = buildEvent(pollCall, evaluateRules(pollCall));
+    expect(pollEvt.decision).toBe("block");
+    expect(pollEvt.rule).toBe("shell.polling");
+
+    const plainCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: 'rg -n "Start-Sleep" docs' } } }, { runtime: "antigravity", phase: "pre" });
+    const plainEvt = buildEvent(plainCall, evaluateRules(plainCall));
+    expect(plainEvt.decision).toBe("allow");
+    expect(plainEvt.rule).toBeNull();
+  });
 });
 
 describe("GOZS-768: normalize.mjs (cwd, startLine, search, toolUseId, post ok/error) y evaluateSearch", () => {
