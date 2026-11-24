@@ -1,10 +1,12 @@
 ---
 name: harness-tools
-description: Auto-generated catalog of harness helper scripts.
+description: Catálogo de scripts del arnés y guía operativa de herramientas (el listado de scripts se inyecta automáticamente al renderizar).
 autotrigger: you need harness helper scripts or CLI tool guides
 ---
 
 # harness-tools
+
+Catálogo auto-generado de scripts del arnés (`harness-kit/core/scripts/` y `harness/scripts/`). Ejecutar vía `bash` o `node`.
 
 <!-- BEGIN GENERATED:HELPER_SCRIPTS -->
 ## Helper scripts (run via bash)
