@@ -131,7 +131,7 @@ const coverage: Record<string, Record<string, unknown>> = {
     kind: "shell",
     runtime: "claude-code",
     command: "cat src/x.ts",
-    raw: { session_id: "rules-coverage" },
+    raw: { session_id: `rules-coverage-${process.pid}-${Date.now()}` },
   },
 };
 

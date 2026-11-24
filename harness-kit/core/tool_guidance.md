@@ -3,7 +3,7 @@
 ## File Exploration & Editing
 - **Scan-before-read:** Claude Code: `Grep`/`Read`; else `rg -n`.
 - **Bounded reading:** Files >300 lines require `offset`+`limit` (≤200) or `StartLine`+`EndLine` (≤300).
-- **Al empezar:** `node harness-kit/core/scripts/harness-context.mjs` (TTFE ≤5).
+- **Al empezar:** `node harness-kit/core/scripts/harness-context.mjs` (una sola llamada antes de explorar).
 - **Quiet git:** `git diff --stat`, `git status -s`.
 
 ## Test & Gate Workflow

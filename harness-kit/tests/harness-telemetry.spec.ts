@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
+import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi, TELEMETRY_SCHEMA } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
 import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, pairPrePostEvents, parseCliArgs, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
@@ -114,14 +114,14 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(out).not.toContain("IUzI1NiIsInR5cCI6IkpXVCJ9");
   });
 
-  it("colapsa espacios y trunca a 300 caracteres (CMD_MAX)", () => {
-    expect(CMD_MAX).toBe(300);
+  it("colapsa espacios y trunca a 1000 caracteres (CMD_MAX)", () => {
+    expect(CMD_MAX).toBe(1000);
     expect(redactCmd("a\n   b")).toBe("a b");
     const ok250 = "x".repeat(250);
     expect(redactCmd(ok250)).toBe(ok250);
     expect(redactCmd(ok250).length).toBe(250);
-    const long = "x".repeat(400);
-    expect(redactCmd(long).length).toBe(300);
+    const long = "x".repeat(1500);
+    expect(redactCmd(long).length).toBe(1000);
   });
 
   it("recordEvent escribe la línea redactada en events.jsonl", () => {
@@ -191,20 +191,20 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
       expect(out).toContain("Authorization: token [REDACTED]");
     });
 
-    it("GIVEN un token ubicado en la posición 280 o más allá de 300 WHEN se redacta y trunca THEN el token sale redactado y nunca recortado a la mitad", () => {
-      const prefix280 = "echo " + "z".repeat(274) + " ";
+    it("GIVEN un token ubicado cerca o más allá de CMD_MAX (1000) WHEN se redacta y trunca THEN el token sale redactado y nunca recortado a la mitad", () => {
+      const prefix980 = "echo " + "z".repeat(974) + " ";
       const token = "ghp_VERYLONGSECRETTOKEN12345678901234";
-      const out280 = redactCmd(prefix280 + token);
-      expect(out280).toContain("gh*_[REDACTED]");
-      expect(out280).not.toContain("VERYLONG");
-      expect(out280).not.toContain("ghp_");
-      expect(out280.length).toBeLessThanOrEqual(300);
+      const out980 = redactCmd(prefix980 + token);
+      expect(out980).toContain("gh*_[REDACTED]");
+      expect(out980).not.toContain("VERYLONG");
+      expect(out980).not.toContain("ghp_");
+      expect(out980.length).toBeLessThanOrEqual(CMD_MAX);
 
-      const prefix305 = "echo " + "z".repeat(300) + " ";
-      const out305 = redactCmd(prefix305 + token);
-      expect(out305).not.toContain("VERYLONG");
-      expect(out305).not.toContain("ghp_");
-      expect(out305.length).toBeLessThanOrEqual(300);
+      const prefix1005 = "echo " + "z".repeat(1000) + " ";
+      const out1005 = redactCmd(prefix1005 + token);
+      expect(out1005).not.toContain("VERYLONG");
+      expect(out1005).not.toContain("ghp_");
+      expect(out1005.length).toBeLessThanOrEqual(CMD_MAX);
     });
 
     it("GIVEN un comando sin secretos WHEN se redacta THEN queda igual (salvo espacios normalizados)", () => {
@@ -1124,5 +1124,116 @@ describe("GOZS-791 B1 y B2: --exclude-kind, --exclude-rule y blocksPerSession", 
     expect(cliJson.blocksPerSession).toBe(1.5);
     expect(cliJson.totalActions).toBe(7);
     expect(cliJson.blocksByRule).toEqual({ "read.oversize": 3 });
+  });
+});
+
+describe("GOZS-795 B1/B2/C1/C6: esquema v3, cmdLen, compactación de heredocs de datos, primera edición unificada y --min-schema", () => {
+  it("B1 y B2: todo evento nuevo lleva v: 3 y los shell llevan cmdLen exacto; 1500 chars -> cmd.length=1000 y cmdLen=1500", () => {
+    expect(TELEMETRY_SCHEMA).toBe(3);
+    expect(CMD_MAX).toBe(1000);
+
+    const longCmd = "rg -n " + "a".repeat(1494);
+    expect(longCmd.length).toBe(1500);
+    const normShell = normalize({ tool_name: "Bash", tool_input: { command: longCmd }, session_id: "s-v3" });
+    const evShell = buildEvent(normShell, { allowed: true });
+    expect(evShell.v).toBe(3);
+    expect(evShell.cmd.length).toBe(1000);
+    expect(evShell.cmdLen).toBe(1500);
+
+    const normRead = normalize({ tool_name: "Read", tool_input: { file_path: "AGENTS.md" }, session_id: "s-v3" });
+    const evRead = buildEvent(normRead, { allowed: true });
+    expect(evRead.v).toBe(3);
+    expect(evRead.cmdLen).toBeUndefined();
+  });
+
+  it("B2: compacta heredocs de datos a ‹heredoc: N líneas› sin recortar, y conserva cuerpos de intérpretes por stdin", () => {
+    const body200 = Array.from({ length: 200 }, (_, i) => `linea ${i + 1}`).join("\n");
+    const dataHeredocCmd = `cat > ../pr.md <<'EOF'\n${body200}\nEOF`;
+    const evData = buildEvent(
+      normalize({ tool_name: "Bash", tool_input: { command: dataHeredocCmd }, session_id: "s-hd" }),
+      { allowed: true },
+    );
+    expect(evData.v).toBe(3);
+    expect(evData.cmd).toContain("‹heredoc: 200 líneas›");
+    expect(evData.cmdLen).toBe(evData.cmd.length);
+    expect(evData.cmd.length).toBeLessThan(CMD_MAX);
+
+    const interpCmd = `python3 - <<'EOF'\nprint("hello-from-stdin")\nEOF`;
+    const evInterp = buildEvent(
+      normalize({ tool_name: "Bash", tool_input: { command: interpCmd }, session_id: "s-hd" }),
+      { allowed: true },
+    );
+    expect(evInterp.cmd).toContain("hello-from-stdin");
+    expect(evInterp.cmd).not.toContain("‹heredoc:");
+  });
+
+  it("B2: compacta here-strings de PowerShell de datos (| Set-Content, | Out-File, asignación) y no los que van a un intérprete", () => {
+    const body200 = Array.from({ length: 200 }, (_, i) => `linea ${i + 1} del cuerpo de la PR`).join("\n");
+    const ev = (cmd: string) =>
+      buildEvent(normalize({ tool_name: "PowerShell", tool_input: { command: cmd }, session_id: "s-ps" }), { allowed: true });
+
+    for (const cmd of [
+      `@'\n${body200}\n'@ | Set-Content -Encoding utf8 ../pr.md`,
+      `@"\n${body200}\n"@ | Out-File ../pr.md`,
+      `$body = @'\n${body200}\n'@`,
+    ]) {
+      const e = ev(cmd);
+      expect(e.cmd).toContain("‹heredoc: 200 líneas›");
+      expect(e.cmd).not.toContain("linea 1 del cuerpo");
+      expect(e.cmdLen).toBe(e.cmd.length);
+      expect(e.cmd.length).toBeLessThan(CMD_MAX);
+    }
+
+    for (const cmd of [
+      `@'\nWrite-Output "hello-from-here-string"\n'@ | pwsh -Command -`,
+      `@'\nWrite-Output "hello-from-here-string"\n'@ | iex`,
+      `iex @'\nWrite-Output "hello-from-here-string"\n'@`,
+    ]) {
+      const e = ev(cmd);
+      expect(e.cmd).toContain("hello-from-here-string");
+      expect(e.cmd).not.toContain("‹heredoc:");
+    }
+  });
+
+  it("B2 nit: un cuerpo de una línea se compacta como ‹heredoc: 1 línea›", () => {
+    const e = buildEvent(
+      normalize({ tool_name: "Bash", tool_input: { command: "cat > ../n.md <<'EOF'\nuna sola\nEOF" }, session_id: "s-1l" }),
+      { allowed: true },
+    );
+    expect(e.cmd).toContain("‹heredoc: 1 línea›");
+    expect(e.cmd).not.toContain("1 líneas");
+  });
+
+  it("C1: summarize usa la primera escritura permitida tanto para TTFE como para callsBeforeFirstEdit", () => {
+    const t0 = Date.parse("2026-11-24T19:00:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+    const evs = [
+      { v: 3, ts: ts(0), session: "s-c1", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "a.ts" },
+      { v: 3, ts: ts(10), session: "s-c1", runtime: "claude-code", phase: "pre", kind: "write", decision: "block", rule: "fs.protected", cmd: ".claude/settings.json" },
+      { v: 3, ts: ts(50), session: "s-c1", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "b.ts" },
+      { v: 3, ts: ts(100), session: "s-c1", runtime: "claude-code", phase: "pre", kind: "write", decision: "allow", cmd: "src/ok.ts" },
+    ];
+    const sum = summarize(evs);
+    expect(sum.timeToFirstEdit.count).toBe(1);
+    expect(sum.timeToFirstEdit.medianMs).toBe(100_000);
+    expect(sum.callsBeforeFirstEdit.p50).toBe(3);
+  });
+
+  it("C6: --min-schema 3 conserva solo sesiones cuyos eventos tienen v >= 3", () => {
+    const t0 = Date.parse("2026-11-24T20:00:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+    const evs = [
+      { v: 2, ts: ts(0), session: "s-v2", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "a.ts" },
+      { v: 2, ts: ts(1), session: "s-mix", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "a.ts" },
+      { v: 3, ts: ts(2), session: "s-mix", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "b.ts" },
+      { v: 3, ts: ts(3), session: "s-v3", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow", cmd: "c.ts" },
+    ];
+    const sum = summarize(evs, { minSchema: 3 });
+    expect(sum.totalSessions).toBe(1);
+    expect(sum.totalActions).toBe(1);
+
+    const parsed = parseCliArgs(["--min-schema", "3", "--gate-min-sec", "45"]);
+    expect(parsed.minSchema).toBe(3);
+    expect(parsed.gateMinSec).toBe(45);
   });
 });

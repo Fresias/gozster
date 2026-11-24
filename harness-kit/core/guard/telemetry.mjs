@@ -12,8 +12,10 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { compactDataHeredocs } from "./heredoc.mjs";
 
-export const CMD_MAX = 300;
+export const TELEMETRY_SCHEMA = 3;
+export const CMD_MAX = 1000;
 
 /**
  * Strips ANSI escape sequences (colors, styles, cursor codes) from text.
@@ -234,19 +236,32 @@ function relativizeCwd(cwd, repoRoot = "") {
 }
 
 /**
- * Relativize paths, redact secrets, and bound the length of a command/path string.
- * Order is strictly: collapse whitespace -> relativize -> redactSecrets -> truncate
- * so a secret near the tail is always scrubbed before the cut, never leaked.
+ * Relativize paths, compact data heredoc bodies (`‹heredoc: N líneas›`), redact secrets,
+ * collapse whitespace, and bound length to `CMD_MAX`.
+ * Order is strictly: relativize -> compact data heredocs -> redactSecrets -> normalize whitespace -> truncate.
+ * Returns `{ cmd, cmdLen }` where `cmdLen` is the pre-truncation length.
+ * @param {string} raw
+ * @param {string} [repoRoot]
+ * @returns {{ cmd: string, cmdLen: number }}
+ */
+export function prepareCmd(raw, repoRoot = "") {
+  let s = relativizeForTelemetry(String(raw || ""), repoRoot);
+  s = compactDataHeredocs(s);
+  s = redactSecrets(s);
+  s = s.replace(/\s+/g, " ").trim();
+  const cmdLen = s.length;
+  const cmd = s.length > CMD_MAX ? s.slice(0, CMD_MAX) : s;
+  return { cmd, cmdLen };
+}
+
+/**
+ * Relativize paths, compact data heredocs, redact secrets, and bound the length of a command/path string.
  * @param {string} raw
  * @param {string} [repoRoot]
  * @returns {string}
  */
 export function redactCmd(raw, repoRoot = "") {
-  let s = String(raw || "").replace(/\s+/g, " ").trim();
-  s = relativizeForTelemetry(s, repoRoot);
-  s = redactSecrets(s);
-  if (s.length > CMD_MAX) s = s.slice(0, CMD_MAX);
-  return s;
+  return prepareCmd(raw, repoRoot).cmd;
 }
 
 /**
@@ -322,6 +337,7 @@ export function buildEvent(normalized, result, nowOrOptions = new Date(), maybeO
 
   const kind = normalized?.kind || "";
   let cmd = "";
+  let cmdLen = null;
   if (kind === "search") {
     const pat = redactSecrets(
       relativizeForTelemetry(String(normalized?.pattern || "").replace(/\s+/g, " ").trim(), repoRoot),
@@ -337,10 +353,13 @@ export function buildEvent(normalized, result, nowOrOptions = new Date(), maybeO
     if (relPath.length > CMD_MAX) relPath = relPath.slice(0, CMD_MAX);
     cmd = relPath;
   } else {
-    cmd = redactCmd(normalized?.command || normalized?.targetPath || normalized?.filePath || "", repoRoot);
+    const prepared = prepareCmd(normalized?.command || normalized?.targetPath || normalized?.filePath || "", repoRoot);
+    cmd = prepared.cmd;
+    if (kind === "shell") cmdLen = prepared.cmdLen;
   }
 
   const event = {
+    v: TELEMETRY_SCHEMA,
     ts: now.toISOString(),
     session: resolveSession(normalized?.raw),
     runtime: normalized?.runtime || "",
@@ -352,6 +371,7 @@ export function buildEvent(normalized, result, nowOrOptions = new Date(), maybeO
     inject: result?.inject === true,
     cmd,
   };
+  if (cmdLen !== null) event.cmdLen = cmdLen;
 
   if (kind === "read") {
     if (typeof normalized?.startLine === "number") event.start = normalized.startLine;

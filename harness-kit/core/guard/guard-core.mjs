@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalize } from "./normalize.mjs";
+import { extractStdinInterpreterInvocations, inlineHeredocSubstitutions, parseHeredocs, skipCommandWrappers } from "./heredoc.mjs";
 import { resolveSession, resolveTelemetryDir } from "./telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -406,10 +407,34 @@ export function isGeminiConfigPath(p) {
 const PROTECTED_SHELL_PATH_RE =
   /(?:(?:^|[/\\"'`\s>=:])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i;
 
+/** Claude Code tool-results files (~/.claude/projects/<project>/tool-results/...): read-only inputs. */
+export function isToolResultsPath(p) {
+  const raw = String(p || "").replace(/\\/g, "/");
+  if (/\.\.|%2e/i.test(raw)) return false;
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.claude\/projects\/[^/]+\/tool-results(\/.*)?$/i.test(norm);
+}
+
+/**
+ * Remove tool-results paths (outside quotes or as a whole quoted word) so they do not count as an
+ * `argv` destination; rejects `..` and `%2e` like isAgentMemoryPath. Linear: matches start only at
+ * token boundaries.
+ */
+function stripToolResultsPaths(cmd) {
+  const s = String(cmd || "");
+  if (!/tool-results/i.test(s)) return s;
+  return s.replace(
+    /(?:(["'])([^"'\s]*\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]tool-results[/\\][^"'\s]*)\1|(?<![^\s"'<>|&;=])([^\s"'<>|&;=]*\.claude[/\\]projects[/\\][^/\\\s"'<>|&;=]+[/\\]tool-results[/\\][^\s"'<>|&;=]*))/gi,
+    (match, q, pQuoted, pUnquoted) => (isToolResultsPath(pQuoted || pUnquoted) ? "" : match)
+  );
+}
+
 function stripWritableAgentPaths(cmd, repoRoot) {
-  return String(cmd || "")
-    .replace(
-      /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"'<>|&;=]*\.claude[/\\]projects[/\\][^/\\\s"'<>|&;=]+[/\\]memory[/\\][^\s"'<>|&;=]*))/gi,
+  let s = String(cmd || "");
+  // Shortcut + token-boundary anchors keep this linear on large payloads (`gh api -f body=…`, big JSON).
+  if (/\.claude[/\\]projects/i.test(s)) {
+    s = s.replace(
+      /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|(?<![^\s"'<>|&;=])([^\s"'<>|&;=]*\.claude[/\\]projects[/\\][^/\\\s"'<>|&;=]+[/\\]memory[/\\][^\s"'<>|&;=]*))/gi,
       (match, q, pQuoted, pUnquoted) => {
         const p = pQuoted || pUnquoted;
         if (/\.\.|%2e/i.test(p)) return match;
@@ -417,9 +442,12 @@ function stripWritableAgentPaths(cmd, repoRoot) {
         if (!isAgentMemoryPath(norm)) return match;
         return "";
       }
-    )
+    );
+  }
+  if (!/\.gemini[/\\]antigravity-cli/i.test(s)) return s;
+  return s
     .replace(
-      /(?:(["'])([^"']*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^"']*)\1|([^\s"'<>|&;=]*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^\s"'<>|&;=]*))/gi,
+      /(?:(["'])([^"']*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^"']*)\1|(?<![^\s"'<>|&;=])([^\s"'<>|&;=]*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^\s"'<>|&;=]*))/gi,
       (match, q, pQuoted, pUnquoted) => {
         const p = pQuoted || pUnquoted;
         if (/\.\.|%2e/i.test(p)) return match;
@@ -504,6 +532,193 @@ function hasUnquotedProtectedRedirect(seg) {
 }
 
 /**
+ * Read balanced parenthesized call arguments starting at the `(` index.
+ * Returns `{ inner, end }` (where `end` is the index just after `)`), or null if unclosed.
+ */
+function readBalancedParens(code, openIdx) {
+  let depth = 0;
+  let quote = null;
+  let triple = false;
+  for (let i = openIdx; i < code.length; i++) {
+    const ch = code[i];
+    if (quote) {
+      if (triple) {
+        if (code.slice(i, i + 3) === quote.repeat(3)) {
+          quote = null;
+          triple = false;
+          i += 2;
+        }
+        continue;
+      }
+      if (ch === "\\" && quote !== "`" && i + 1 < code.length) {
+        i++;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if ((ch === "'" || ch === '"') && code.slice(i, i + 3) === ch.repeat(3)) {
+      quote = ch;
+      triple = true;
+      i += 2;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) return { inner: code.slice(openIdx + 1, i), end: i + 1 };
+    }
+  }
+  return null;
+}
+
+/** Split top-level comma-separated arguments inside a call/list expression. */
+function splitTopLevelArgs(expr) {
+  const parts = [];
+  let cur = "";
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (quote) {
+      cur += ch;
+      if (ch === "\\" && i + 1 < expr.length) {
+        cur += expr[++i];
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") {
+      depth++;
+      cur += ch;
+      continue;
+    }
+    if (ch === ")" || ch === "]" || ch === "}") {
+      depth--;
+      cur += ch;
+      continue;
+    }
+    if (ch === "," && depth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  return parts;
+}
+
+/** Unquote a single Python/JS string literal (`"..."`, `'...'`, `` `...` ``, with optional Python prefix). */
+function unquoteCodeString(raw) {
+  const s = String(raw || "").trim();
+  const m = s.match(/^[rRuUbBfF]{0,2}(["'`])([\s\S]*)\1$/);
+  if (!m) return null;
+  const q = m[1];
+  const body = m[2];
+  if (q === "`") return body;
+  return body.replace(/\\(["'\\nrt])/g, (_, c) => {
+    if (c === "n") return "\n";
+    if (c === "r") return "\r";
+    if (c === "t") return "\t";
+    return c;
+  });
+}
+
+/** Quote a shell token when reconstructing a command from an argv array literal. */
+function shellQuoteArg(arg) {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(arg)) return arg;
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
+/** Extract a shell command string from a string literal or array-of-strings literal. */
+function parseShellArgExpr(expr) {
+  const s = String(expr || "").trim();
+  const str = unquoteCodeString(s);
+  if (str !== null) return str;
+  if ((s.startsWith("[") && s.endsWith("]")) || (s.startsWith("(") && s.endsWith(")"))) {
+    const items = splitTopLevelArgs(s.slice(1, -1));
+    const vals = [];
+    for (const item of items) {
+      const u = unquoteCodeString(item);
+      if (u !== null) vals.push(u);
+    }
+    if (vals.length > 0) return vals.map(shellQuoteArg).join(" ");
+  }
+  return null;
+}
+
+/**
+ * Extract shell commands launched from inline/stdin Python or Node code (A2b):
+ * - Python: `os.system(...)`, `os.popen(...)`, `subprocess.run/call/check_call/check_output/Popen(...)`
+ * - Node: `child_process.exec/execSync/execFile/execFileSync/spawn/spawnSync(...)`
+ */
+function extractInterpreterShellCommands(code, kind) {
+  const s = String(code || "");
+  const cmds = [];
+  if (kind === "python") {
+    const hasSubprocessImport = /\bfrom\s+subprocess\s+import\b/.test(s);
+    const hasOsImport = /\bfrom\s+os\s+import\b/.test(s);
+    const callRe =
+      /(?<![.\w])(?:os\.(?:system|popen)|subprocess\.(?:run|call|check_call|check_output|Popen))\s*\(|(?<![.\w])(system|popen|run|call|check_call|check_output|Popen)\s*\(/g;
+    let m;
+    while ((m = callRe.exec(s)) !== null) {
+      if (m[1]) {
+        const bare = m[1];
+        if ((bare === "system" || bare === "popen") && !hasOsImport) continue;
+        if (bare !== "system" && bare !== "popen" && !hasSubprocessImport) continue;
+      }
+      const openIdx = m.index + m[0].length - 1;
+      const balanced = readBalancedParens(s, openIdx);
+      if (!balanced) continue;
+      const args = splitTopLevelArgs(balanced.inner);
+      if (!args.length) continue;
+      let firstArg = args[0];
+      const kwMatch = firstArg.match(/^(?:args|cmd|command)\s*=\s*([\s\S]+)$/);
+      if (kwMatch) firstArg = kwMatch[1];
+      const extracted = parseShellArgExpr(firstArg);
+      if (extracted) cmds.push(extracted);
+    }
+  } else if (kind === "node") {
+    const hasCpRef = /\bchild_process\b/.test(s);
+    const callRe =
+      /(?:(?:\b(?:child_process|cp)|require\s*\(\s*["'](?:node:)?child_process["']\s*\))\s*\.\s*(execSync|execFileSync|spawnSync|execFile|exec|spawn)|(?<![.\w])(execSync|execFileSync|spawnSync|execFile|exec|spawn))\s*\(/g;
+    let m;
+    while ((m = callRe.exec(s)) !== null) {
+      const fnName = m[1] || m[2];
+      if (m[2] && (fnName === "exec" || fnName === "execFile" || fnName === "spawn") && !hasCpRef) continue;
+      const openIdx = m.index + m[0].length - 1;
+      const balanced = readBalancedParens(s, openIdx);
+      if (!balanced) continue;
+      const args = splitTopLevelArgs(balanced.inner);
+      if (!args.length) continue;
+      if (fnName === "exec" || fnName === "execSync") {
+        const extracted = parseShellArgExpr(args[0]);
+        if (extracted) cmds.push(extracted);
+      } else {
+        // execFile / execFileSync / spawn / spawnSync: (file, [args], ...)
+        const bin = unquoteCodeString(args[0]);
+        if (bin) {
+          const rest = args[1] ? parseShellArgExpr(args[1]) : "";
+          cmds.push(rest ? `${shellQuoteArg(bin)} ${rest}` : shellQuoteArg(bin));
+        }
+      }
+    }
+  }
+  return cmds;
+}
+
+/**
  * Strip path string literals that appear ONLY inside explicit read-only calls
  * in inline Python/Node scripts so reading a protected path while writing elsewhere
  * does not trigger `fs.protected`. Write-mode calls remain untouched.
@@ -517,6 +732,12 @@ function stripInlineReadOnlyLiterals(code, kind) {
       /(?<![.\w])((?:pathlib\.)?Path\s*\(\s*)[rRuUbB]?(["'])((?:\\.|(?!\2)[^\\])*)\2(\s*\)(?:\s*\.\s*(?:expanduser|resolve)\s*\(\s*\))*\s*\.\s*(?:read_text|read_bytes)\s*\()/g,
       '$1""$4'
     );
+    // Path("...").open() or Path("...").open("r"|"rb"|"rt", ...) with safe read-only kwargs (no nested calls).
+    // Never strip Path("...").open("w"|"a"|"x"|"r+"...).
+    s = s.replace(
+      /(?<![.\w])((?:pathlib\.)?Path\s*\(\s*)[rRuUbB]?(["'])((?:\\.|(?!\2)[^\\])*)\2(\s*\)(?:\s*\.\s*(?:expanduser|resolve)\s*\(\s*\))*\s*\.\s*open\s*\(\s*(?:(?:(?:mode\s*=\s*)?["'](?:r|rb|rt|br|tr)["']|(?:encoding|errors|newline|buffering)\s*=\s*(?:["'][^"']*["']|[^,()]+))(?:\s*,\s*(?:(?:mode\s*=\s*)?["'](?:r|rb|rt|br|tr)["']|(?:encoding|errors|newline|buffering)\s*=\s*(?:["'][^"']*["']|[^,()]+)))*)?\s*\))/g,
+      '$1""$4'
+    );
     // Builtin open("...") or builtins.open / io.open("...", "r"|"rb"|"rt") with optional os.path.expanduser(...) and safe kwargs.
     // Restrict strictly to builtin/builtins/io open so qualified calls like shelve.open(...), dbm.open(...), os.open(...) are never stripped.
     s = s.replace(
@@ -525,22 +746,63 @@ function stripInlineReadOnlyLiterals(code, kind) {
     );
   } else if (kind === "node") {
     // readFileSync("...", ...) / readFile("...", ...) — strip only the first (path) literal argument
-    s = s.replace(
-      /(\b(?:readFileSync|readFile)\s*\(\s*)(["'])((?:\\.|(?!\2)[^\\])*)\2/g,
-      '$1""'
-    );
-    s = s.replace(
-      /(\b(?:readFileSync|readFile)\s*\(\s*)`([^`$]*)`/g,
-      "$1``"
-    );
+    // ONLY when the options do NOT pass a mutating flag (`w`, `a`, `x`, `+`) (A2b).
+    const rfRe = /\b(?:readFileSync|readFile)\s*\(/g;
+    let out = "";
+    let last = 0;
+    let m;
+    while ((m = rfRe.exec(s)) !== null) {
+      const openIdx = s.indexOf("(", m.index);
+      const balanced = readBalancedParens(s, openIdx);
+      if (!balanced) continue;
+      if (/\bflag["']?\s*:\s*["'`][^"'`]*[wax+][^"'`]*["'`]/.test(balanced.inner)) {
+        continue;
+      }
+      const replacedInner = balanced.inner
+        .replace(/^(\s*)(["'])((?:\\.|(?!\2)[^\\])*)\2/, '$1""')
+        .replace(/^(\s*)`([^`$]*)`/, "$1``");
+      out += s.slice(last, openIdx + 1) + replacedInner + ")";
+      last = balanced.end;
+      rfRe.lastIndex = balanced.end;
+    }
+    s = out + s.slice(last);
   }
   return s;
 }
 
+/** Evaluate an inline/stdin interpreter invocation for writes to protected paths (.git/.claude/etc.). */
+function interpreterWritesProtected(inline, seg, repoRoot, depth) {
+  if (inline.kind === "shell" || inline.kind === "pwsh") {
+    return shellWritesProtected(inline.code, repoRoot, depth + 1);
+  }
+  const subShells = extractInterpreterShellCommands(inline.code, inline.kind);
+  for (const subCmd of subShells) {
+    if (shellWritesProtected(subCmd, repoRoot, depth + 1)) return true;
+  }
+  const codeSafe = stripInlineReadOnlyLiterals(stripWritableAgentPaths(inline.code, repoRoot), inline.kind);
+  const targetsProtected =
+    PROTECTED_SHELL_PATH_RE.test(codeSafe) ||
+    (/\bargv\b/i.test(inline.code) && PROTECTED_SHELL_PATH_RE.test(stripToolResultsPaths(stripWritableAgentPaths(seg, repoRoot))));
+  if (targetsProtected) {
+    if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
+  }
+  return false;
+}
+
 /** True if a shell command writes to a protected runtime/git path (.git, .claude, .agents, .gemini, .opencode). */
-function shellWritesProtected(cmd, repoRoot, depth = 0) {
+function shellWritesProtected(rawCmd, repoRoot, depth = 0) {
   if (depth > 5) return false;
-  const cleaned = stripWritableAgentPaths(stripHeredocBodies(cmd), repoRoot);
+  const cmd = inlineHeredocSubstitutions(rawCmd);
+
+  // A2: evaluate interpreter bodies fed via stdin (heredocs or `echo ... | bash`, `cat <<EOF | python3`, etc.)
+  for (const inv of extractStdinInterpreterInvocations(cmd)) {
+    if (interpreterWritesProtected(inv, cmd, repoRoot, depth)) return true;
+  }
+
+  const cleaned = stripWritableAgentPaths(parseHeredocs(cmd).strippedAll, repoRoot);
   if (!PROTECTED_SHELL_PATH_RE.test(cleaned)) return false;
 
   for (const seg of splitShellSegments(cleaned)) {
@@ -548,21 +810,7 @@ function shellWritesProtected(cmd, repoRoot, depth = 0) {
     if (hasUnquotedProtectedRedirect(seg)) return true;
 
     const inline = extractInlineInterpreter(seg);
-    if (inline) {
-      if (inline.kind === "shell" || inline.kind === "pwsh") {
-        if (shellWritesProtected(inline.code, repoRoot, depth + 1)) return true;
-      } else {
-        const codeSafe = stripInlineReadOnlyLiterals(stripWritableAgentPaths(inline.code, repoRoot), inline.kind);
-        const targetsProtected =
-          PROTECTED_SHELL_PATH_RE.test(codeSafe) || (/\bargv\b/i.test(inline.code) && PROTECTED_SHELL_PATH_RE.test(seg));
-        if (targetsProtected) {
-          if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
-        }
-      }
-    }
+    if (inline && interpreterWritesProtected(inline, seg, repoRoot, depth)) return true;
 
     const unquoted = stripQuotedLiterals(seg);
     if (/WriteAll(Text|Bytes|Lines)|\[IO\.File\]::(Write|Append|Delete|Move|Copy|Create|Replace)/i.test(unquoted)) {
@@ -661,6 +909,8 @@ const COMMAND_WRAPPERS = /^(node|npx|bun|env|xargs|command|&)$/i;
 const PYTHON_WRITE_API = new RegExp(
   [
     "\\bopen\\s*\\((?:[^;)]|\\([^)]*\\))*?(?:,\\s*(?:mode\\s*=\\s*)?|\\bmode\\s*=\\s*)[\"'][waxr+bt]*[wax+][waxr+bt]*[\"']",
+    "\\.open\\s*\\(\\s*(?:mode\\s*=\\s*)?[\"'][waxr+bt]*[wax+][waxr+bt]*[\"']",
+    "\\b(?:shelve|dbm)\\.open\\s*\\((?![^)]*,\\s*(?:flag\\s*=\\s*)?[\"']r[\"'])",
     "\\.(?:write_text|write_bytes|writelines|unlink|rename|replace|mkdir|rmdir|touch|symlink_to|hardlink_to|chmod)\\s*\\(",
     "\\b(?:os\\.(?:remove|unlink|rename|replace|rmdir|makedirs|mkdir|write|chmod|symlink|link|truncate|open)|shutil\\.(?:copy|copy2|copyfile|copytree|move|rmtree))\\s*\\(",
   ].join("|")
@@ -670,7 +920,8 @@ const NODE_WRITE_API = new RegExp(
     "\\b(?:writeFileSync|writeFile|appendFileSync|appendFile|writeSync|createWriteStream|renameSync|rename|unlinkSync|unlink|rmSync|rmdirSync|rmdir|copyFileSync|copyFile|cpSync|mkdirSync|mkdir|truncateSync|truncate|chmodSync|chmod|symlinkSync|symlink|linkSync|link)\\s*\\(",
     "(?:\\bfs(?:Promises)?|\\bpromises|\\bfsp|require\\s*\\(\\s*[\"'](?:node:)?fs(?:\\/promises)?[\"']\\s*\\))\\.(?:write|rm|cp)\\s*\\(",
     "(?:^|[^\\w.])rm\\s*\\(",
-    "\\b(?:openSync|fs\\.open|promises\\.open)\\s*\\((?:[^;)]|\\([^)]*\\))*?,\\s*[\"'][wax+]",
+    "\\b(?:openSync|fs\\.open|promises\\.open)\\s*\\((?:[^;)]|\\([^)]*\\))*?,\\s*[\"'][waxr+]*[wax+][waxr+]*[\"']",
+    "\\b(?:readFileSync|readFile)\\s*\\((?:[^;)]|\\([^)]*\\))*?\\bflag[\"']?\\s*:\\s*[\"'`][^\"'`]*[wax+][^\"'`]*[\"'`]",
   ].join("|")
 );
 const PERL_WRITE_API =
@@ -823,23 +1074,42 @@ function stripQuotedLiterals(seg) {
 }
 
 /** Extract inline interpreter invocation `{ kind, code }` from a segment, or null. */
-const INLINE_WRAPPERS = /^(npx|env|xargs|command|&)$/i;
-
 function extractInlineInterpreter(seg) {
   const tokens = tokenizeShellSegment(seg);
-  let i = 0;
-  while (
-    i < tokens.length &&
-    (INLINE_WRAPPERS.test(tokens[i]) || /^\w+=/.test(tokens[i]) || (i > 0 && tokens[i].startsWith("-")))
-  ) {
-    i++;
-  }
+  const i = skipCommandWrappers(tokens);
   if (i >= tokens.length) return null;
   const bin = tokens[i].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
 
+  // `eval "..."` / `eval gh pr create --fill`
+  if (bin === "eval") {
+    let j = i + 1;
+    if (tokens[j] === "--") j++;
+    if (j >= tokens.length) return null;
+    return { kind: "shell", code: tokens.length === j + 1 ? tokens[j] : tokens.slice(j).join(" ") };
+  }
+
+  // `cmd /c ...` / `cmd.exe /c "..."`
+  if (bin === "cmd") {
+    for (let j = i + 1; j < tokens.length; j++) {
+      if (/^\/[ck]$/i.test(tokens[j])) {
+        if (j + 1 >= tokens.length) return null;
+        return { kind: "shell", code: tokens.length === j + 2 ? tokens[j + 1] : tokens.slice(j + 1).join(" ") };
+      }
+    }
+    return null;
+  }
+
+  // `Invoke-Expression "..."` / `iex "..."`
+  if (bin === "invoke-expression" || bin === "iex") {
+    let j = i + 1;
+    if (tokens[j] && /^-(?:c|command)$/i.test(tokens[j])) j++;
+    if (j >= tokens.length) return null;
+    return { kind: "pwsh", code: tokens.length === j + 1 ? tokens[j] : tokens.slice(j).join(" ") };
+  }
+
   let kind = null;
   if (/^(ba|z|da)?sh$/.test(bin)) kind = "shell";
-  else if (/^python(\d+(\.\d+)*)?$/.test(bin)) kind = "python";
+  else if (/^python(\d+(\.\d+)*)?$/.test(bin) || bin === "py") kind = "python";
   else if (/^(node(js)?|bun)$/.test(bin)) kind = "node";
   else if (bin === "perl") kind = "perl";
   else if (bin === "ruby") kind = "ruby";
@@ -854,7 +1124,10 @@ function extractInlineInterpreter(seg) {
       continue;
     }
     if (kind === "pwsh") {
-      if (/^-(?:c|command)$/i.test(t)) return tokens[j + 1] ? { kind, code: tokens.slice(j + 1).join(" ") } : null;
+      if (/^-(?:c|command)$/i.test(t)) {
+        if (!tokens[j + 1] || tokens[j + 1] === "-") return null;
+        return { kind, code: tokens.slice(j + 1).join(" ") };
+      }
       continue;
     }
     if (kind === "python") {
@@ -974,30 +1247,45 @@ function harnessPathPattern(repoRoot) {
   return `(?:(?:^|[\\s"'=(\`])(?:\\.[/\\\\])?|(?:${abs})[/\\\\])${HARNESS_DIRS}`;
 }
 
+/** Evaluate an inline/stdin interpreter invocation for writes to protected harness sources. */
+function interpreterWritesHarness(inline, seg, ref, repoRoot, depth) {
+  if (inline.kind === "shell" || inline.kind === "pwsh") {
+    return shellWritesHarness(inline.code, repoRoot, depth + 1);
+  }
+  const subShells = extractInterpreterShellCommands(inline.code, inline.kind);
+  for (const subCmd of subShells) {
+    if (shellWritesHarness(subCmd, repoRoot, depth + 1)) return true;
+  }
+  const codeSafe = stripInlineReadOnlyLiterals(inline.code, inline.kind);
+  const targetsHarness = ref.test(codeSafe) || (/\bargv\b/i.test(inline.code) && ref.test(seg));
+  if (targetsHarness) {
+    if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
+    if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
+  }
+  return false;
+}
+
 /** True if the shell command writes a protected harness source of repoRoot. */
-function shellWritesHarness(cmd, repoRoot, depth = 0) {
+function shellWritesHarness(rawCmd, repoRoot, depth = 0) {
   if (depth > 5) return false;
-  const cleaned = stripHeredocBodies(cmd);
+  const cmd = inlineHeredocSubstitutions(rawCmd);
   const target = harnessPathPattern(repoRoot);
   const ref = new RegExp(target, "i");
+
+  // A2: evaluate interpreter bodies fed via stdin (heredocs or `cat <<EOF | python3`, etc.)
+  for (const inv of extractStdinInterpreterInvocations(cmd)) {
+    if (interpreterWritesHarness(inv, cmd, ref, repoRoot, depth)) return true;
+  }
+
+  const cleaned = parseHeredocs(cmd).strippedAll;
   if (!ref.test(cleaned)) return false;
   for (const seg of splitShellSegments(cleaned)) {
     if (!ref.test(seg)) continue;
     if (hasUnquotedHarnessRedirect(seg, ref)) return true;
     const inline = extractInlineInterpreter(seg);
-    if (inline) {
-      if (inline.kind === "shell" || inline.kind === "pwsh") {
-        if (shellWritesHarness(inline.code, repoRoot, depth + 1)) return true;
-      } else {
-        const targetsHarness = ref.test(inline.code) || (/\bargv\b/i.test(inline.code) && ref.test(seg));
-        if (targetsHarness) {
-          if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
-          if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
-        }
-      }
-    }
+    if (inline && interpreterWritesHarness(inline, seg, ref, repoRoot, depth)) return true;
     const unquoted = stripQuotedLiterals(seg);
     if (HARNESS_WRITE_VERB.test(unquoted)) return true;
     // cp/install/ln/Copy-Item: only the destination (last argument) matters.
@@ -1009,17 +1297,44 @@ function shellWritesHarness(cmd, repoRoot, depth = 0) {
   return false;
 }
 
-/** Body text a gh pr create will publish (inline --body or --body-file). */
+/** Read a file relative to cwd or repoRoot; returns "" on error. */
+function readBodyFileSafe(file, repoRoot) {
+  for (const f of [file, path.resolve(repoRoot, file)]) {
+    try {
+      return readFileSync(f, "utf8");
+    } catch {}
+  }
+  return "";
+}
+
+/** Body text a gh pr create or gh api POST .../pulls will publish (inline --body, --body-file, -f body=..., -F body=@file, --input). */
 function prBodyText(cmd, repoRoot) {
   const m = cmd.match(/--body-file[\s=]+(?:"([^"]+)"|'([^']+)'|(\S+))/);
   if (m) {
-    const file = m[1] || m[2] || m[3];
-    for (const f of [file, path.resolve(repoRoot, file)]) {
+    return readBodyFileSafe(m[1] || m[2] || m[3], repoRoot);
+  }
+  // gh api -F body=@file / --field body=@file
+  const apiFile = cmd.match(/(?:^|\s)(?:-F|--field)(?:[\s=]+)["']?body=@([^"'\s]+)["']?/);
+  if (apiFile) {
+    return readBodyFileSafe(apiFile[1], repoRoot);
+  }
+  // gh api -f body=... / -F body=... / --raw-field body=... / --field body=...
+  const apiInline = cmd.match(/(?:^|\s)(?:-[fF]|--(?:raw-)?field)(?:[\s=]+)(?:"body=([^"]*)"|'body=([^']*)'|body=("[^"]*"|'[^']*'|\S+))/);
+  if (apiInline) {
+    const val = apiInline[1] ?? apiInline[2] ?? apiInline[3] ?? "";
+    return val.replace(/^(["'])([\s\S]*)\1$/, "$2");
+  }
+  // gh api --input file.json
+  const apiInput = cmd.match(/(?:^|\s)--input[\s=]+(?:"([^"]+)"|'([^']+)'|(\S+))/);
+  if (apiInput) {
+    const raw = readBodyFileSafe(apiInput[1] || apiInput[2] || apiInput[3], repoRoot);
+    if (raw) {
       try {
-        return readFileSync(f, "utf8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.body === "string") return parsed.body;
       } catch {}
+      return raw;
     }
-    return "";
   }
   return cmd;
 }
@@ -1394,67 +1709,7 @@ export function evaluateShellPolling(cmd) {
  * line by line, respecting quotes on header lines.
  */
 function stripAllHeredocBodies(cmd) {
-  const lines = String(cmd || "").split(/\r?\n/);
-  const out = [];
-  const pendingDelims = [];
-  let psHereQuote = null;
-
-  for (const line of lines) {
-    if (psHereQuote !== null) {
-      if (line.startsWith(`${psHereQuote}@`)) {
-        psHereQuote = null;
-      }
-      continue;
-    }
-    if (pendingDelims.length > 0) {
-      if (line.trim() === pendingDelims[0]) {
-        pendingDelims.shift();
-      }
-      continue;
-    }
-
-    // Scan line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
-    let quote = null;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (quote === "'") {
-        if (ch === "'") quote = null;
-        continue;
-      }
-      if (quote === '"') {
-        if (ch === "\\" && i + 1 < line.length) {
-          i++;
-          continue;
-        }
-        if (ch === '"') quote = null;
-        continue;
-      }
-      if (ch === "\\" && i + 1 < line.length) {
-        i++;
-        continue;
-      }
-      if (ch === "'" || ch === '"') {
-        quote = ch;
-        continue;
-      }
-      if (ch === "#") {
-        if (i === 0 || /\s/.test(line[i - 1])) break;
-      }
-      if (ch === "<" && line[i + 1] === "<" && line[i + 2] !== "<") {
-        const m = line.slice(i).match(/^<<-?\s*(?:(["'])([A-Za-z_]\w*)\1|\\?([A-Za-z_]\w*))/);
-        if (m) {
-          pendingDelims.push(m[2] || m[3]);
-          i += m[0].length - 1;
-        }
-      }
-    }
-    if (!quote && pendingDelims.length === 0) {
-      const psMatch = line.match(/@(['"])[ \t]*$/);
-      if (psMatch) psHereQuote = psMatch[1];
-    }
-    out.push(line);
-  }
-  return out.join("\n");
+  return parseHeredocs(cmd).strippedAll;
 }
 
 /** Read a `$(...)` command substitution starting at `start` (pointing at `$`), returning `{ content, end }`. */
@@ -1654,14 +1909,243 @@ const GH_PR_MERGE_VALUE_FLAGS = new Set([
   "--repo",
 ]);
 
+const START_PROCESS_FLAGS = new Set([
+  "-wait",
+  "-nonewwindow",
+  "-passthru",
+  "-workingdirectory",
+  "-windowstyle",
+  "-verb",
+  "-credential",
+  "-redirectstandardinput",
+  "-redirectstandardoutput",
+  "-redirectstandarderror",
+  "-useNewEnvironment".toLowerCase(),
+  "-loaduserprofile",
+  "-environment",
+  "-filepath",
+  "-argumentlist",
+  "-args",
+]);
+
 /**
- * Detect `gh pr create`, `gh pr merge`, and `gh api .../pulls/<n>/merge` invocations
- * in real command position (ignoring single quotes, double-quoted literals outside
- * `$(...)`/backticks, and heredoc bodies; recursing into `bash -c`, `sh -c`, `pwsh -Command`).
+ * Unwrap PowerShell `Start-Process [-FilePath] <bin> [-ArgumentList <args>] ...`
+ * into an equivalent token array `[bin, ...args]`, or null if not a Start-Process call.
  */
-export function detectGhPrCommands(cmd, depth = 0) {
-  if (depth > 5 || !cmd) return [];
+function unwrapStartProcess(tokens, idx) {
+  const bin = tokens[idx].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
+  if (bin !== "start-process" && bin !== "saps" && bin !== "start") return null;
+  let filePath = "";
+  const argTokens = [];
+  for (let j = idx + 1; j < tokens.length; j++) {
+    const t = tokens[j];
+    const tl = t.toLowerCase();
+    if (tl === "-filepath") {
+      if (tokens[j + 1]) filePath = tokens[++j];
+      continue;
+    }
+    if (tl === "-argumentlist" || tl === "-args") {
+      j++;
+      while (j < tokens.length) {
+        const at = tokens[j];
+        if (START_PROCESS_FLAGS.has(at.toLowerCase())) {
+          j--;
+          break;
+        }
+        argTokens.push(at);
+        j++;
+      }
+      continue;
+    }
+    if (START_PROCESS_FLAGS.has(tl)) {
+      // Flags with a value argument
+      if (tl !== "-wait" && tl !== "-nonewwindow" && tl !== "-passthru" && tl !== "-usenewenvironment" && tl !== "-loaduserprofile") {
+        j++;
+      }
+      continue;
+    }
+    if (!filePath && !t.startsWith("-")) {
+      filePath = t;
+    } else if (filePath && !t.startsWith("-") && argTokens.length === 0) {
+      // Positional -ArgumentList (`Start-Process gh 'pr','create','--fill'` or `'pr', 'create', '--fill'`)
+      argTokens.push(t);
+      while (
+        j + 1 < tokens.length &&
+        (argTokens[argTokens.length - 1].endsWith(",") || tokens[j + 1] === "," || tokens[j + 1].startsWith(","))
+      ) {
+        const next = tokens[j + 1];
+        if (START_PROCESS_FLAGS.has(next.toLowerCase())) break;
+        argTokens.push(next);
+        j++;
+      }
+    }
+  }
+  if (!filePath) return null;
+  const flatArgs = [];
+  for (const raw of argTokens) {
+    const cleaned = raw.replace(/^@\(/, "").replace(/\)$/, "");
+    // Comma-separated PowerShell list (`'pr','create','--fill'` -> `pr,create,--fill`)
+    const parts = cleaned.includes(",") ? cleaned.split(",") : [cleaned];
+    for (const part of parts) {
+      const p = part.trim().replace(/^['"]|['"]$/g, "");
+      if (!p) continue;
+      if (/\s/.test(p) && parts.length === 1 && argTokens.length === 1) {
+        flatArgs.push(...tokenizeShellSegment(p));
+      } else {
+        flatArgs.push(p);
+      }
+    }
+  }
+  return [filePath, ...flatArgs];
+}
+
+/** Extract PR selector from `gh pr merge` arguments. */
+function extractGhMergeSelector(args) {
+  for (let a = 0; a < args.length; a++) {
+    const tok = args[a];
+    if (GH_PR_MERGE_VALUE_FLAGS.has(tok)) {
+      a++;
+      continue;
+    }
+    if (tok.startsWith("-")) continue;
+    return tok;
+  }
+  return "";
+}
+
+/** Inspect a `gh` token list (`tokens[idx]` is `gh`) and push any PR create/merge/API matches. */
+function matchGhTokens(tokens, idx, trimmed, matches) {
+  const bin = tokens[idx].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
+  if (bin !== "gh") return;
+
+  // Skip optional global flags before subcommand (`gh -R owner/repo pr create`)
+  let k = idx + 1;
+  while (k < tokens.length && tokens[k].startsWith("-")) {
+    if (tokens[k] === "-R" || tokens[k] === "--repo") k += 2;
+    else k += 1;
+  }
+
+  const subcmd = tokens[k]?.toLowerCase();
+  const action = tokens[k + 1]?.toLowerCase();
+  if (subcmd === "pr" && (action === "create" || action === "new")) {
+    matches.push({ action: "pr.create", segment: trimmed, args: tokens.slice(k + 2) });
+  } else if (subcmd === "pr" && action === "merge") {
+    const args = tokens.slice(k + 2);
+    matches.push({ action: "pr.merge", segment: trimmed, args, selector: extractGhMergeSelector(args) });
+  } else if (subcmd === "api") {
+    const apiArgs = tokens.slice(k + 1);
+    let foundMerge = false;
+    for (const a of apiArgs) {
+      const m = a.match(/pulls\/(\d+)\/merge/i);
+      if (m) {
+        matches.push({ action: "api.merge", segment: trimmed, args: apiArgs, selector: m[1] });
+        foundMerge = true;
+        break;
+      }
+    }
+    if (!foundMerge) {
+      // A1: REST PR creation: `gh api` on `repos/<o>/<r>/pulls` (no PR number) with explicit or implicit POST.
+      const hasPullsCreateEndpoint = apiArgs.some(
+        (a) => !a.startsWith("-") && /^\/?repos\/[^/\s]+\/[^/\s]+\/pulls\/?(?:\?.*)?$/i.test(a)
+      );
+      if (hasPullsCreateEndpoint) {
+        let explicitMethod = null;
+        let hasBodyField = false;
+        for (let i = 0; i < apiArgs.length; i++) {
+          const tok = apiArgs[i];
+          if (tok === "-X" || tok === "--method") {
+            explicitMethod = (apiArgs[i + 1] || "").toUpperCase();
+            i++;
+            continue;
+          }
+          const xm = tok.match(/^(?:-X=?|--method=)(.+)$/i);
+          if (xm) {
+            explicitMethod = xm[1].toUpperCase();
+            continue;
+          }
+          if (
+            tok === "-f" ||
+            tok === "-F" ||
+            tok === "--field" ||
+            tok === "--raw-field" ||
+            tok === "--input" ||
+            /^-[fF].+/.test(tok) ||
+            /^--(?:field|raw-field|input)=/.test(tok)
+          ) {
+            hasBodyField = true;
+          }
+        }
+        const isPost = explicitMethod ? explicitMethod === "POST" : hasBodyField;
+        if (isPost) {
+          matches.push({ action: "pr.create", viaApi: true, segment: trimmed, args: apiArgs });
+        }
+      }
+    }
+  }
+}
+
+/** Strip shell `#` comments outside quotes. */
+function stripUnquotedComments(str) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      out += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < str.length) {
+        out += ch + str[++i];
+        continue;
+      }
+      if (ch === '"') quote = null;
+      out += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < str.length) {
+      out += ch + str[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === "#" && (i === 0 || /[\s;|&(\n]/.test(str[i - 1]))) {
+      while (i < str.length && str[i] !== "\n") i++;
+      if (i < str.length) out += "\n";
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Detect `gh pr create`, `gh pr merge`, `gh api .../pulls` POST, and `gh api .../pulls/<n>/merge`
+ * invocations in real command position (ignoring single quotes, double-quoted literals outside
+ * `$(...)`/backticks, and data heredoc bodies; recursing into `bash -c`, `sh -c`, `pwsh -Command`,
+ * `eval`, `cmd /c`, `iex`, `Start-Process`, stdin-fed interpreters, and Python/Node shell calls).
+ */
+export function detectGhPrCommands(rawCmd, depth = 0) {
+  if (depth > 5 || !rawCmd) return [];
+  // R1: `bash -c "$(cat <<'EOF' … EOF)"`, `eval "$(cat <<EOF …)"` and a bare `$(cat <<EOF …)` run the heredoc body.
+  const cmd = inlineHeredocSubstitutions(rawCmd);
   const matches = [];
+
+  // A2: check stdin-fed interpreters (`bash <<EOF`, `cat <<EOF | sh`, `echo "..." | bash`, etc.)
+  for (const inv of extractStdinInterpreterInvocations(cmd)) {
+    if (inv.kind === "shell" || inv.kind === "pwsh") {
+      matches.push(...detectGhPrCommands(inv.code, depth + 1));
+    } else if (inv.kind === "python" || inv.kind === "node") {
+      for (const subCmd of extractInterpreterShellCommands(inv.code, inv.kind)) {
+        matches.push(...detectGhPrCommands(subCmd, depth + 1));
+      }
+    }
+  }
+
   const { segments, subs } = extractShellCommandsAndSubs(cmd);
 
   for (const sub of subs) {
@@ -1672,77 +2156,54 @@ export function detectGhPrCommands(cmd, depth = 0) {
     const trimmed = seg.trim().replace(/^[{(\s]+/, "").replace(/[})\s]+$/, "");
     if (!trimmed) continue;
 
-    // Recurse into `bash -c`, `sh -c`, `pwsh -Command`, etc.
+    // Recurse into `bash -c`, `sh -c`, `pwsh -Command`, `eval`, `cmd /c`, `iex`, and Python/Node shell calls.
     const inline = extractInlineInterpreter(trimmed);
-    if (inline && (inline.kind === "shell" || inline.kind === "pwsh")) {
-      matches.push(...detectGhPrCommands(inline.code, depth + 1));
-      continue;
+    if (inline) {
+      if (inline.kind === "shell" || inline.kind === "pwsh") {
+        matches.push(...detectGhPrCommands(inline.code, depth + 1));
+        continue;
+      }
+      if (inline.kind === "python" || inline.kind === "node") {
+        for (const subCmd of extractInterpreterShellCommands(inline.code, inline.kind)) {
+          matches.push(...detectGhPrCommands(subCmd, depth + 1));
+        }
+      }
     }
 
     const tokens = tokenizeShellSegment(trimmed);
-    let idx = 0;
-    while (idx < tokens.length) {
-      const t = tokens[idx];
-      const lower = t.toLowerCase();
-      if (GH_CMD_PREFIX_KEYWORDS.has(lower)) {
-        idx++;
-        // Skip flags belonging to `env`/`sudo`/`command`/`time`
-        if (lower === "env" || lower === "sudo" || lower === "command") {
-          while (idx < tokens.length && tokens[idx].startsWith("-")) idx++;
-        }
-        continue;
-      }
-      if (/^[A-Za-z_]\w*=/.test(t)) {
-        idx++;
-        continue;
-      }
-      if (/^\$[A-Za-z_][\w:]*$/.test(t) && tokens[idx + 1] === "=") {
-        idx += 2;
-        continue;
-      }
-      if (/^\d*[<>]/.test(t)) {
-        idx += /^\d*[<>]+$/.test(t) ? 2 : 1;
-        continue;
-      }
-      break;
-    }
-
+    const idx = skipCommandWrappers(tokens);
     if (idx >= tokens.length) continue;
-    const bin = tokens[idx].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
-    if (bin !== "gh") continue;
 
-    // Skip optional global flags before subcommand (`gh -R owner/repo pr create`)
-    let k = idx + 1;
-    while (k < tokens.length && tokens[k].startsWith("-")) {
-      if (tokens[k] === "-R" || tokens[k] === "--repo") k += 2;
-      else k += 1;
+    // PowerShell `Start-Process gh -ArgumentList 'pr','create',...`
+    const spTokens = unwrapStartProcess(tokens, idx);
+    if (spTokens) {
+      matchGhTokens(spTokens, 0, spTokens.join(" "), matches);
+      const spInline = extractInlineInterpreter(spTokens.join(" "));
+      if (spInline && (spInline.kind === "shell" || spInline.kind === "pwsh")) {
+        matches.push(...detectGhPrCommands(spInline.code, depth + 1));
+      }
+      continue;
     }
 
-    const subcmd = tokens[k]?.toLowerCase();
-    const action = tokens[k + 1]?.toLowerCase();
-    if (subcmd === "pr" && action === "create") {
-      matches.push({ action: "pr.create", segment: trimmed, args: tokens.slice(k + 2) });
-    } else if (subcmd === "pr" && action === "merge") {
-      const args = tokens.slice(k + 2);
-      let selector = "";
-      for (let a = 0; a < args.length; a++) {
-        const tok = args[a];
-        if (GH_PR_MERGE_VALUE_FLAGS.has(tok)) {
-          a++;
-          continue;
-        }
-        if (tok.startsWith("-")) continue;
-        selector = tok;
-        break;
-      }
-      matches.push({ action: "pr.merge", segment: trimmed, args, selector });
-    } else if (subcmd === "api") {
-      const apiArgs = tokens.slice(k + 1);
-      for (const a of apiArgs) {
-        const m = a.match(/pulls\/(\d+)\/merge/i);
-        if (m) {
-          matches.push({ action: "api.merge", segment: trimmed, args: apiArgs, selector: m[1] });
-          break;
+    matchGhTokens(tokens, idx, trimmed, matches);
+  }
+
+  // A1 safety net: if the structural detector found nothing at top level, run the legacy regex
+  // on the command stripped of data heredocs, comments, and quoted literals so an unknown wrapper
+  // cannot reopen the bypass.
+  if (depth === 0 && matches.length === 0) {
+    const safeText = stripQuotedLiterals(stripUnquotedComments(parseHeredocs(cmd).strippedAll));
+    if (/(^|[;&|(\s])gh(?:\s+(?:-R|--repo)\s+\S+)?\s+pr\s+(?:create|new)(\s|$)/i.test(safeText)) {
+      matches.push({ action: "pr.create", segment: cmd, args: [], safetyNet: true });
+    } else {
+      const mm = safeText.match(/(^|[;&|(\s])gh(?:\s+(?:-R|--repo)\s+\S+)?\s+pr\s+merge((?:\s+[^;&|\n]*)?)/i);
+      if (mm) {
+        const args = tokenizeShellSegment(mm[2] || "");
+        matches.push({ action: "pr.merge", segment: cmd, args, selector: extractGhMergeSelector(args), safetyNet: true });
+      } else {
+        const am = safeText.match(/(^|[;&|(\s])gh\s+api\s+[^;&|\n]*pulls\/(\d+)\/merge/i);
+        if (am) {
+          matches.push({ action: "api.merge", segment: cmd, args: [], selector: am[2], safetyNet: true });
         }
       }
     }
@@ -1752,7 +2213,7 @@ export function detectGhPrCommands(cmd, depth = 0) {
 }
 
 /** Evaluate shell commands. */
-function evaluateShell(call, repoRoot) {
+function evaluateShell(call, repoRoot, depth = 0) {
   const cmd = call.command || "";
   if (!cmd) return { allowed: true };
 
@@ -2039,7 +2500,7 @@ function evaluateShell(call, repoRoot) {
   const ghPrMatches = detectGhPrCommands(cmd).filter((m) => !targetsOtherRepo(m.segment, repoRoot));
   const createMatch = ghPrMatches.find((m) => m.action === "pr.create");
   if (createMatch) {
-    const bodyText = /--body-file\b/.test(createMatch.segment)
+    const bodyText = /--body-file\b|-F\s+["']?body=@|-f\s+["']?body=|--(?:raw-)?field\s+["']?body=|--input\b/.test(createMatch.segment)
       ? prBodyText(createMatch.segment, repoRoot)
       : prBodyText(cmd, repoRoot);
     const why = sealDiagnosis(repoRoot, bodyText);
@@ -2063,6 +2524,33 @@ function evaluateShell(call, repoRoot) {
         ruleId: "pr.merge-check",
         reason: `Merge blocked by harness-merge-check.mjs:\n${reasons}`,
       };
+    }
+  }
+
+  // A2 / A2b: evaluate shell commands embedded inside inline/stdin interpreters (os.system,
+  // subprocess.run, child_process.execSync, eval, cmd /c, iex, bash <<EOF, echo ... | bash)
+  // with the same shell rules as direct invocations.
+  if (depth < 5) {
+    const nestedShells = [];
+    const execCmd = inlineHeredocSubstitutions(cmd);
+    for (const inv of extractStdinInterpreterInvocations(execCmd)) {
+      if (inv.kind === "shell" || inv.kind === "pwsh") nestedShells.push(inv.code);
+      else if (inv.kind === "python" || inv.kind === "node") {
+        nestedShells.push(...extractInterpreterShellCommands(inv.code, inv.kind));
+      }
+    }
+    for (const seg of splitShellSegments(parseHeredocs(execCmd).strippedAll)) {
+      const inline = extractInlineInterpreter(seg);
+      if (!inline) continue;
+      if (inline.kind === "shell" || inline.kind === "pwsh") nestedShells.push(inline.code);
+      else if (inline.kind === "python" || inline.kind === "node") {
+        nestedShells.push(...extractInterpreterShellCommands(inline.code, inline.kind));
+      }
+    }
+    for (const subCmd of nestedShells) {
+      if (!subCmd || subCmd.trim() === cmd.trim()) continue;
+      const subRes = evaluateShell({ ...call, command: subCmd }, repoRoot, depth + 1);
+      if (subRes && subRes.allowed === false) return subRes;
     }
   }
 
@@ -2326,8 +2814,12 @@ const NATIVE_READ_MSG =
   "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob` en lugar de `cat`/`sed`/`grep` por Bash: es una llamada menos de shell y la lectura queda acotada.";
 const NATIVE_EDIT_MSG = "Usá `Edit`.";
 
-/** First command segment (quote-aware) and whether its stdout is piped to another command. */
-function firstSegmentOf(cmd) {
+const NATIVE_READ_LIMITERS = new Set(["head", "tail", "wc", "sort", "uniq", "less", "more"]);
+
+/** First pipeline (quote-aware) split by single `|` before `;`, `\n`, `&&`, `||`, `&`. */
+function firstPipelineOf(cmd) {
+  const segs = [];
+  let start = 0;
   let quote = null;
   for (let i = 0; i < cmd.length; i++) {
     const ch = cmd[i];
@@ -2344,31 +2836,61 @@ function firstSegmentOf(cmd) {
       quote = ch;
       continue;
     }
-    if (ch === ";" || ch === "\n") return { seg: cmd.slice(0, i), piped: false };
-    if (ch === "|") return { seg: cmd.slice(0, i), piped: cmd[i + 1] !== "|" };
+    if (ch === ";" || ch === "\n") {
+      segs.push(cmd.slice(start, i));
+      return segs;
+    }
+    if (ch === "|") {
+      if (cmd[i + 1] === "|") {
+        segs.push(cmd.slice(start, i));
+        return segs;
+      }
+      segs.push(cmd.slice(start, i));
+      if (cmd[i + 1] === "&") i++;
+      start = i + 1;
+      continue;
+    }
     if (ch === "&") {
       const prev = cmd[i - 1] || "";
       const next = cmd[i + 1] || "";
       if (prev === ">" || prev === "<" || next === ">") continue;
-      return { seg: cmd.slice(0, i), piped: false };
+      segs.push(cmd.slice(start, i));
+      return segs;
     }
   }
-  return { seg: cmd, piped: false };
+  segs.push(cmd.slice(start));
+  return segs;
+}
+
+/** True when a downstream piped segment is a pure output limiter (`head`, `tail`, `wc`, `sort`, `uniq`, `less`, `more`, `Select-Object -First/-Last`). */
+function isNativeReadLimiter(seg) {
+  const tokens = tokenizeShellSegment(seg);
+  if (!tokens.length) return false;
+  if (tokens.some((t) => /^(?:1?>|&>)/.test(t))) return false;
+  const bin = path.basename(tokens[0].replace(/\\/g, "/")).replace(/\.exe$/i, "").toLowerCase();
+  if (NATIVE_READ_LIMITERS.has(bin)) return true;
+  if (bin === "select-object" || bin === "select") {
+    return tokens.slice(1).some((t) => /^-(?:first|last)$/i.test(t));
+  }
+  return false;
 }
 
 /**
- * Classify the first segment of a shell command: "edit" (sed -i), "read" (cat/head/tail/sed -n/grep/rg
- * over repo files, stdout not piped nor redirected) or null. Evaluates the command only, never the output.
+ * Classify the first pipeline of a shell command: "edit" (sed -i), "read" (cat/head/tail/sed -n/grep/rg
+ * over repo files, either standalone or piped only to limiters like head/tail/wc/sort/uniq/less/more/
+ * Select-Object -First/-Last) or null. Evaluates the command only, never the output.
  */
 export function classifyNativeRead(command, repoRoot, cwd) {
-  const { seg, piped } = firstSegmentOf(String(command || ""));
+  const pipeSegs = firstPipelineOf(String(command || ""));
+  const seg = pipeSegs[0] || "";
+  const downstream = pipeSegs.slice(1);
   const tokens = tokenizeShellSegment(seg);
   if (!tokens.length) return null;
   const bin = path.basename(tokens[0].replace(/\\/g, "/")).replace(/\.exe$/i, "").toLowerCase();
   const args = tokens.slice(1);
 
   if (bin === "sed" && args.some((t) => /^-[a-zA-Z]*i/.test(t) || /^--in-place/.test(t))) return "edit";
-  if (piped) return null;
+  if (downstream.length > 0 && !downstream.every(isNativeReadLimiter)) return null;
   // stdout/stdin redirection or heredoc (writing a file, feeding stdin): not a read of repo files
   if (args.some((t) => /^(\d*<|1?>|&>)/.test(t) || t.includes("<<"))) return null;
 
