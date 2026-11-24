@@ -35,7 +35,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  *    - Actividad: 🟢 Reciente (hace 1 día, < 7d)
  *    - Alertas: [ 🚨 Hombro ] + [ ⚡ PR Banca ] (múltiples simultáneos)
  *
- * 2. Celeste Gerardi:
+ * 2. Cecilia Godoy:
  *    - Cuota: 🟢 AL DÍA (vence en 15 días)
  *    - Score Salud [SH]: 🟡 [ 76 ]
  *    - Vigencia Rutina: 🟢 Vigente (hace 14 días, < 30d)
@@ -84,7 +84,7 @@ function getRelativeIsoStr(daysOffset: number, hoursOffset: number = 0): string 
  *    - Actividad: 🟢 Reciente (hace 4 días, < 7d)
  *    - Alertas: [ 🚨 Codo ] (molestia en tríceps)
  *
- * 9. Esteban Papic:
+ * 9. Ezequiel Paredes:
  *    - Cuota: 🟢 AL DÍA (vence en 22 días)
  *    - Score Salud [SH]: 🟢 [ 91 ]
  *    - Vigencia Rutina: 🟢 Vigente (hace 15 días, < 30d)
@@ -117,9 +117,9 @@ export const DEMO_ALUMNOS: Perfil[] = [
     updated_at: getRelativeIsoStr(-1),
   },
   {
-    id: "demo-alumno-02-celeste",
-    nombre_completo: "Celeste Gerardi",
-    email: "celeste.gerardi@ficticio.ar",
+    id: "demo-alumno-02-cecilia",
+    nombre_completo: "Cecilia Godoy",
+    email: "cecilia.godoy@ficticio.ar",
     telefono: "+54 9 11 5123-4567",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
@@ -229,9 +229,9 @@ export const DEMO_ALUMNOS: Perfil[] = [
     updated_at: getRelativeIsoStr(-4),
   },
   {
-    id: "demo-alumno-09-esteban",
-    nombre_completo: "Esteban Papic",
-    email: "esteban.papic@ficticio.ar",
+    id: "demo-alumno-09-ezequiel",
+    nombre_completo: "Ezequiel Paredes",
+    email: "ezequiel.paredes@ficticio.ar",
     telefono: "+54 9 11 4567-8901",
     rol: "ALUMNO",
     estado_membresia: "ACTIVA",
@@ -276,9 +276,9 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     updated_at: getRelativeIsoStr(-10),
   },
   {
-    id: "demo-plan-celeste",
+    id: "demo-plan-cecilia",
     profesor_id: DEMO_PROFESOR_ID,
-    alumno_id: "demo-alumno-02-celeste",
+    alumno_id: "demo-alumno-02-cecilia",
     nombre: "Fuerza Femenina & Glúteos 4D",
     estado: "ACTIVO",
     fecha_inicio: getRelativeDateStr(-14),
@@ -349,9 +349,9 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
     updated_at: getRelativeIsoStr(-19),
   },
   {
-    id: "demo-plan-esteban",
+    id: "demo-plan-ezequiel",
     profesor_id: DEMO_PROFESOR_ID,
-    alumno_id: "demo-alumno-09-esteban",
+    alumno_id: "demo-alumno-09-ezequiel",
     nombre: "Full Body Fuerza Atlética 3x",
     estado: "ACTIVO",
     fecha_inicio: getRelativeDateStr(-15),
@@ -376,10 +376,10 @@ export const DEMO_PLANES: PlanEntrenamiento[] = [
 
 export const DEMO_CRITICAL_ALERTS: CriticalAlert[] = [
   {
-    id: "demo-alert-celeste-rodilla",
+    id: "demo-alert-cecilia-rodilla",
     type: "DOLOR",
-    alumnoId: "demo-alumno-02-celeste",
-    alumnoNombre: "Celeste Gerardi",
+    alumnoId: "demo-alumno-02-cecilia",
+    alumnoNombre: "Cecilia Godoy",
     ejercicioNombre: "Sentadilla Trasera con Barra",
     setNumber: 3,
     detalle: "[Dolor: MODERADO] Rodilla - Pinchazo en la fase concéntrica al subir",
@@ -472,7 +472,7 @@ export function getDemoAlumnoAlerts(alumnoIdOrName: string) {
     ];
   }
 
-  if (q.includes("celeste")) {
+  if (q.includes("cecilia")) {
     return [
       {
         type: "pain" as const,
@@ -794,8 +794,8 @@ export const DEMO_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
     updated_at: getRelativeIsoStr(-1),
   },
   {
-    id: "demo-act-celeste",
-    alumno_id: "demo-alumno-02-celeste",
+    id: "demo-act-cecilia",
+    alumno_id: "demo-alumno-02-cecilia",
     actividad: "RUTINAS",
     veces_por_semana: null,
     pase_libre: true,
@@ -866,8 +866,8 @@ export const DEMO_ALUMNO_ACTIVIDADES: AlumnoActividad[] = [
     updated_at: getRelativeIsoStr(-4),
   },
   {
-    id: "demo-act-esteban",
-    alumno_id: "demo-alumno-09-esteban",
+    id: "demo-act-ezequiel",
+    alumno_id: "demo-alumno-09-ezequiel",
     actividad: "FUNCIONAL",
     veces_por_semana: 3,
     pase_libre: false,

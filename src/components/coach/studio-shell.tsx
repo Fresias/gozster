@@ -40,6 +40,7 @@ import {
   Smartphone,
   ChevronUp,
   FileText,
+  History,
   X,
 } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export function StudioShell({
   const isRankingActive = pathname === "/studio/ranking-funcional";
   const isCobrosActive = pathname === "/studio/cobros";
   const isDocumentacionActive = pathname === "/studio/documentacion";
+  const isAuditoriaActive = pathname === "/studio/auditoria";
   const isAthleteActive = pathname?.startsWith("/athlete");
 
   const store = useCoachStudioStore();
@@ -565,6 +567,30 @@ export function StudioShell({
                 Documentación
               </TooltipContent>
             </Tooltip>
+
+            {/* 3.4 Historial de cambios (auditoría, solo lectura) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/studio/auditoria"
+                  data-testid="sidebar-auditoria-link"
+                  aria-label="Historial de cambios"
+                  className={cn(
+                    "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-2 text-sm transition-colors",
+                    isSidebarCollapsed ? "justify-center px-0" : "justify-center lg:justify-start",
+                    isAuditoriaActive
+                      ? "bg-muted text-foreground font-medium"
+                      : "text-neutral-soft-foreground hover:bg-muted/60 hover:text-foreground"
+                  )}
+                >
+                  <History className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {!isSidebarCollapsed && <span className="hidden lg:inline">Historial de cambios</span>}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Historial de cambios
+              </TooltipContent>
+            </Tooltip>
           </div>
         </nav>
 
@@ -1062,6 +1088,14 @@ export function StudioShell({
               >
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span>Documentación</span>
+              </Link>
+              <Link
+                href="/studio/auditoria"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center min-h-11 gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <History className="h-4 w-4 text-muted-foreground" />
+                <span>Historial de cambios</span>
               </Link>
             </div>
 

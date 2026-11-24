@@ -15,12 +15,19 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ForcePasswordChange } from "@/components/auth/force-password-change";
 import { cerrarSesionAlumno } from "@/lib/session-scope";
 
-/** Un alumno recién dado de alta debe cambiar su contraseña temporal en el primer login. */
+/**
+ * Clave temporal (alta directa o reset del coach): bloquear hasta que elija una definitiva.
+ * `app_metadata` es la fuente de verdad del middleware; `user_metadata` queda por compatibilidad.
+ */
 function debeCambiarPassword(
   perfilFlag: boolean | null | undefined,
-  metadata: Record<string, unknown> | undefined,
+  user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> },
 ): boolean {
-  return perfilFlag === true || metadata?.must_change_password === true;
+  return (
+    perfilFlag === true ||
+    user.app_metadata?.must_change_password === true ||
+    user.user_metadata?.must_change_password === true
+  );
 }
 
 function LoginForm() {
@@ -31,6 +38,8 @@ function LoginForm() {
   const forceChangeParam = searchParams.get("forceChange");
   // El middleware redirige a /login?roleMismatch=1 a un ALUMNO que intenta entrar a Coach Studio.
   const roleMismatchParam = searchParams.get("roleMismatch") === "1";
+  const recoveryParam = searchParams.get("recovery") === "1";
+  const recoveryErrorParam = searchParams.get("recoveryError") === "1";
   const [showRoleMismatch, setShowRoleMismatch] = React.useState(roleMismatchParam);
 
   React.useEffect(() => {
@@ -68,6 +77,32 @@ function LoginForm() {
     };
   }, [forceChangeParam]);
 
+  // Recuperación de contraseña: el enlace del email deja una sesión y pide la clave nueva.
+  const [modoOlvide, setModoOlvide] = React.useState(false);
+  const [resetEnviado, setResetEnviado] = React.useState(false);
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        { redirectTo: `${window.location.origin}/auth/callback` },
+      );
+      if (resetError) {
+        setError("No pudimos enviar el email. Intentá de nuevo en unos minutos.");
+      } else {
+        // Respuesta neutra: no revela si el email existe.
+        setResetEnviado(true);
+      }
+    } catch {
+      setError("No pudimos conectar con el servidor. Revisá tu conexión e intentá otra vez.");
+    }
+    setLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -94,7 +129,7 @@ function LoginForm() {
         .maybeSingle();
 
       // Primer login: si la clave es temporal, bloquear hasta que elija una definitiva.
-      if (debeCambiarPassword(perfil?.debe_cambiar_password, data.user.user_metadata)) {
+      if (debeCambiarPassword(perfil?.debe_cambiar_password, data.user)) {
         setCambioObligatorio({ email: data.user.email ?? null });
         setLoading(false);
         return;
@@ -110,6 +145,81 @@ function LoginForm() {
       setLoading(false);
     }
   };
+
+  if (recoveryParam) {
+    return (
+      <ForcePasswordChange
+        recovery
+        onSuccess={async () => {
+          const supabase = createClient();
+          const { data } = await supabase.auth.getUser();
+          const { data: perfil } = data.user
+            ? await supabase.from("perfiles").select("rol").eq("id", data.user.id).maybeSingle()
+            : { data: null };
+          window.location.assign(perfil?.rol === "ALUMNO" ? "/athlete" : "/studio");
+        }}
+      />
+    );
+  }
+
+  if (modoOlvide) {
+    return (
+      <form onSubmit={handleReset} className="space-y-4" noValidate data-testid="reset-form">
+        {resetEnviado ? (
+          <p role="status" className="text-sm text-foreground" data-testid="reset-enviado">
+            Si el email está registrado, te enviamos un enlace para restablecer tu contraseña.
+            Revisá tu bandeja de entrada.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <label htmlFor="reset-email" className="block text-xs font-semibold text-foreground">
+                Email
+              </label>
+              <input
+                id="reset-email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                className="min-h-12 w-full rounded-xl border border-input bg-background px-3.5 text-sm text-foreground placeholder:text-muted-foreground shadow-xs focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            {error && (
+              <div
+                role="alert"
+                className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+              >
+                {error}
+              </div>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              disabled={loading || !email}
+              className="w-full"
+              data-testid="reset-submit"
+            >
+              {loading ? "Enviando..." : "Enviar enlace"}
+            </Button>
+          </>
+        )}
+        <button
+          type="button"
+          className="min-h-11 w-full text-xs font-semibold text-primary underline-offset-4 hover:underline"
+          onClick={() => {
+            setModoOlvide(false);
+            setResetEnviado(false);
+            setError(null);
+          }}
+        >
+          Volver a iniciar sesión
+        </button>
+      </form>
+    );
+  }
 
   if (cambioObligatorio) {
     return (
@@ -220,12 +330,12 @@ function LoginForm() {
         />
       </div>
 
-      {error && (
+      {(error || recoveryErrorParam) && (
         <div
           role="alert"
           className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
         >
-          {error}
+          {error ?? "El enlace de recuperación venció o ya fue usado. Pedí uno nuevo."}
         </div>
       )}
 
@@ -238,6 +348,17 @@ function LoginForm() {
       >
         {loading ? "Ingresando..." : "Ingresar"}
       </Button>
+      <button
+        type="button"
+        className="min-h-11 w-full text-xs font-semibold text-primary underline-offset-4 hover:underline"
+        onClick={() => {
+          setError(null);
+          setModoOlvide(true);
+        }}
+        data-testid="olvide-password"
+      >
+        ¿Olvidaste tu contraseña?
+      </button>
     </form>
   );
 }

@@ -103,14 +103,14 @@ isOneToOne: true
                   ]
                 },"alumno_historial_dolor": {
                   Row: {
-                    "alumno_id": string,"created_at": string,"ejercicio_en_rutina_id": string | null,"ejercicio_id": string,"es_sintoma_alarma": boolean,"estado": string,"estado_recuperacion": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"numero_serie": number | null,"sesion_id": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
+                    "alumno_id": string,"created_at": string,"ejercicio_en_rutina_id": string | null,"ejercicio_id": string,"es_sintoma_alarma": boolean,"estado": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"numero_serie": number | null,"sesion_id": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id": string,"es_sintoma_alarma"?: boolean,"estado"?: string,"estado_recuperacion"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular": string
+                    "alumno_id": string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id": string,"es_sintoma_alarma"?: boolean,"estado"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular": string
                   }
                   Update: {
-                    "alumno_id"?: string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id"?: string,"es_sintoma_alarma"?: boolean,"estado"?: string,"estado_recuperacion"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular"?: string
+                    "alumno_id"?: string,"created_at"?: string,"ejercicio_en_rutina_id"?: string | null,"ejercicio_id"?: string,"es_sintoma_alarma"?: boolean,"estado"?: string,"eva"?: number | null,"fecha_reporte"?: string,"id"?: string,"momento_aparicion"?: string | null,"notas_alumno"?: string | null,"notas_profesor"?: string | null,"numero_serie"?: number | null,"sesion_id"?: string | null,"severidad"?: string,"sintomas_alarma"?: (string)[],"updated_at"?: string,"zona_articular"?: string
                   }
                   Relationships: [
                     {
@@ -369,32 +369,6 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"ejercicios_alternativas": {
-                  Row: {
-                    "created_at": string,"ejercicio_alternativo_id": string,"ejercicio_origen_id": string,"equipamiento": string | null,"explicacion_tecnica": string | null,"id": string,"nivel_exigencia": string | null,"patron_movimiento": string,"restricciones_articulares": (string)[],"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "created_at"?: string,"ejercicio_alternativo_id": string,"ejercicio_origen_id": string,"equipamiento"?: string | null,"explicacion_tecnica"?: string | null,"id"?: string,"nivel_exigencia"?: string | null,"patron_movimiento": string,"restricciones_articulares"?: (string)[],"updated_at"?: string
-                  }
-                  Update: {
-                    "created_at"?: string,"ejercicio_alternativo_id"?: string,"ejercicio_origen_id"?: string,"equipamiento"?: string | null,"explicacion_tecnica"?: string | null,"id"?: string,"nivel_exigencia"?: string | null,"patron_movimiento"?: string,"restricciones_articulares"?: (string)[],"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "ejercicios_alternativas_ejercicio_alternativo_id_fkey"
-      columns: ["ejercicio_alternativo_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ejercicios_alternativas_ejercicio_origen_id_fkey"
-      columns: ["ejercicio_origen_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"ejercicios_en_rutina": {
                   Row: {
                     "created_at": string,"descanso_segundos": number,"dia_id": string,"ejercicio_id": string,"es_superserie": boolean,"es_unilateral": boolean,"force_rpe_required": boolean,"grupo_superserie": number | null,"id": string,"notas": string | null,"orden": number,"repeticiones": string,"rpe_objetivo": string | null,"series": number,"tempo": string | null,"tempo_activo": boolean,"tiempo_objetivo_segundos": number | null,"tipo_medicion": string,"tipo_serie": string,"updated_at": string
@@ -418,32 +392,6 @@ isOneToOne: false
       columns: ["ejercicio_id"]
 isOneToOne: false
       referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"entrenador_alumnos": {
-                  Row: {
-                    "alumno_id": string,"created_at": string,"entrenador_id": string,"es_principal": boolean,"id": string,"rol_entrenador": string,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"created_at"?: string,"entrenador_id": string,"es_principal"?: boolean,"id"?: string,"rol_entrenador"?: string,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"created_at"?: string,"entrenador_id"?: string,"es_principal"?: boolean,"id"?: string,"rol_entrenador"?: string,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "entrenador_alumnos_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "entrenador_alumnos_entrenador_id_fkey"
-      columns: ["entrenador_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -501,26 +449,6 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
-                },"habitos_registros": {
-                  Row: {
-                    "agua_ml": number,"alumno_id": string,"created_at": string,"fecha": string,"habitos_completados": boolean,"id": string,"pasos": number,"sueno_horas": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "agua_ml"?: number,"alumno_id": string,"created_at"?: string,"fecha"?: string,"habitos_completados"?: boolean,"id"?: string,"pasos"?: number,"sueno_horas"?: number,"updated_at"?: string
-                  }
-                  Update: {
-                    "agua_ml"?: number,"alumno_id"?: string,"created_at"?: string,"fecha"?: string,"habitos_completados"?: boolean,"id"?: string,"pasos"?: number,"sueno_horas"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "habitos_registros_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"logros_racha": {
                   Row: {
                     "alumno_id": string,"created_at": string,"fecha_logro": string,"id": string,"numero_ciclo": number,"tipo": string,"updated_at": string
@@ -562,26 +490,6 @@ isOneToOne: false
     },{
       foreignKeyName: "mensajes_remitente_id_fkey"
       columns: ["remitente_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"nutricion_registros": {
-                  Row: {
-                    "alumno_id": string,"calorias_consumidas": number,"calorias_meta": number,"carbos_g": number,"carbos_meta_g": number,"created_at": string,"fecha": string,"grasas_g": number,"grasas_meta_g": number,"id": string,"proteinas_g": number,"proteinas_meta_g": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"calorias_consumidas"?: number,"calorias_meta"?: number,"carbos_g"?: number,"carbos_meta_g"?: number,"created_at"?: string,"fecha"?: string,"grasas_g"?: number,"grasas_meta_g"?: number,"id"?: string,"proteinas_g"?: number,"proteinas_meta_g"?: number,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"calorias_consumidas"?: number,"calorias_meta"?: number,"carbos_g"?: number,"carbos_meta_g"?: number,"created_at"?: string,"fecha"?: string,"grasas_g"?: number,"grasas_meta_g"?: number,"id"?: string,"proteinas_g"?: number,"proteinas_meta_g"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "nutricion_registros_alumno_id_fkey"
-      columns: ["alumno_id"]
 isOneToOne: false
       referencedRelation: "perfiles"
       referencedColumns: ["id"]
@@ -633,14 +541,14 @@ isOneToOne: false
                   ]
                 },"perfiles": {
                   Row: {
-                    "created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string,"whatsapp_habilitado": boolean
+                    "created_at": string,"debe_cambiar_password": boolean,"email": string | null,"estado_cuenta": string,"estado_membresia": Database["public"]['Enums']["estado_membresia"],"fecha_baja": string | null,"fecha_vencimiento_cuota": string | null,"id": string,"nivel_vista_alumno": string,"nombre_completo": string,"nombre_preferido": string | null,"onboarding_completado": boolean,"peso_corporal_kg": number | null,"profesor_asignado_id": string | null,"rol": Database["public"]['Enums']["rol_usuario"],"sexo": string | null,"telefono": string | null,"ultimo_entreno_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string,"whatsapp_habilitado"?: boolean
+                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id": string,"nivel_vista_alumno"?: string,"nombre_completo": string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string,"whatsapp_habilitado"?: boolean
+                    "created_at"?: string,"debe_cambiar_password"?: boolean,"email"?: string | null,"estado_cuenta"?: string,"estado_membresia"?: Database["public"]['Enums']["estado_membresia"],"fecha_baja"?: string | null,"fecha_vencimiento_cuota"?: string | null,"id"?: string,"nivel_vista_alumno"?: string,"nombre_completo"?: string,"nombre_preferido"?: string | null,"onboarding_completado"?: boolean,"peso_corporal_kg"?: number | null,"profesor_asignado_id"?: string | null,"rol"?: Database["public"]['Enums']["rol_usuario"],"sexo"?: string | null,"telefono"?: string | null,"ultimo_entreno_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -769,44 +677,6 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"ranking_prs": {
-                  Row: {
-                    "alumno_id": string,"clase_id": string,"created_at": string,"ejercicio_id": string,"fecha": string,"id": string,"peso_kg": number,"registrado_por": string,"reps": number,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "alumno_id": string,"clase_id": string,"created_at"?: string,"ejercicio_id": string,"fecha"?: string,"id"?: string,"peso_kg": number,"registrado_por"?: string,"reps": number,"updated_at"?: string
-                  }
-                  Update: {
-                    "alumno_id"?: string,"clase_id"?: string,"created_at"?: string,"ejercicio_id"?: string,"fecha"?: string,"id"?: string,"peso_kg"?: number,"registrado_por"?: string,"reps"?: number,"updated_at"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "ranking_prs_alumno_id_fkey"
-      columns: ["alumno_id"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_clase_id_fkey"
-      columns: ["clase_id"]
-isOneToOne: false
-      referencedRelation: "clases"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_ejercicio_id_fkey"
-      columns: ["ejercicio_id"]
-isOneToOne: false
-      referencedRelation: "ejercicios"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "ranking_prs_registrado_por_fkey"
-      columns: ["registrado_por"]
-isOneToOne: false
-      referencedRelation: "perfiles"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"registro_series": {
                   Row: {
                     "completada": boolean,"created_at": string,"ejercicio_id": string,"id": string,"notas": string | null,"numero_serie": number,"pain_notes": string | null,"pain_reported": boolean,"peso_kg": number,"reps_hechas": number,"rpe_real": number | null,"sesion_id": string,"set_type": string,"updated_at": string,"video_url": string | null
@@ -835,14 +705,14 @@ isOneToOne: false
                   ]
                 },"registro_sesiones": {
                   Row: {
-                    "alumno_id": string,"athlete_feedback": string | null,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
+                    "alumno_id": string,"created_at": string,"dia_id": string | null,"dia_sugerido_id": string | null,"duracion_minutos": number | null,"effective_volume_kg": number,"fecha": string,"id": string,"motivo_cambio_dia": string | null,"updated_at": string,"volumen_total_kg": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "alumno_id": string,"athlete_feedback"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id": string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Update: {
-                    "alumno_id"?: string,"athlete_feedback"?: string | null,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
+                    "alumno_id"?: string,"created_at"?: string,"dia_id"?: string | null,"dia_sugerido_id"?: string | null,"duracion_minutos"?: number | null,"effective_volume_kg"?: number,"fecha"?: string,"id"?: string,"motivo_cambio_dia"?: string | null,"updated_at"?: string,"volumen_total_kg"?: number
                   }
                   Relationships: [
                     {
@@ -984,7 +854,7 @@ isOneToOne: false
                   ]
                 },"v_dolor_activo": {
                   Row: {
-                    "alumno_email": string | null,"alumno_id": string,"alumno_nombre": string | null,"created_at": string,"ejercicio_id": string,"ejercicio_nombre": string | null,"es_sintoma_alarma": boolean,"estado": string,"estado_recuperacion": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"nivel": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
+                    "alumno_email": string | null,"alumno_id": string,"alumno_nombre": string | null,"created_at": string,"ejercicio_id": string,"ejercicio_nombre": string | null,"es_sintoma_alarma": boolean,"estado": string,"eva": number | null,"fecha_reporte": string,"id": string,"momento_aparicion": string | null,"nivel": string | null,"notas_alumno": string | null,"notas_profesor": string | null,"severidad": string,"sintomas_alarma": (string)[],"updated_at": string,"zona_articular": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -1002,6 +872,12 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_estado_alumno": {
+                  Row: {
+                    "al_dia": boolean | null,"alumno_id": string | null,"cobros_vencidos": number | null,"contratacion_id": string | null,"estado": "AL_DIA"|"POR_VENCER"|"VENCIDA"|"PENDIENTE"|"EN_PAUSA"|"SIN_CONTRATACION" | null,"estado_contratacion": string | null,"fecha_vencimiento": string | null,"primer_vencimiento_impago": string | null,"profesor_asignado_id": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: []
                 },"v_morosos": {
                   Row: {
                     "alumno_id": string,"cobro_id": string,"contratacion_id": string,"dias_atraso": number | null,"fecha_vencimiento": string,"monto": number,"periodo": string
@@ -1028,6 +904,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"v_prs": {
+                  Row: {
+                    "alumno_id": string,"ejercicio_id": string,"fecha": string,"peso_kg": number,"reps": number,"serie_id": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "registro_sesiones_alumno_id_fkey"
+      columns: ["alumno_id"]
+isOneToOne: false
+      referencedRelation: "perfiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "registro_series_ejercicio_id_fkey"
+      columns: ["ejercicio_id"]
+isOneToOne: false
+      referencedRelation: "ejercicios"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Functions: {
@@ -1044,7 +940,6 @@ isOneToOne: false
 "ejercicio_id": string,
 "es_sintoma_alarma": boolean,
 "estado": string,
-"estado_recuperacion": string,
 "eva": number | null,
 "fecha_reporte": string,
 "id": string,
@@ -1217,29 +1112,6 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
-"extender_vigencia_plan":
-{ Args: { "p_dias_adicionales": number,"p_plan_id": string }; Returns: {
-              "alumno_id": string | null,
-"comentarios": string | null,
-"created_at": string,
-"estado": Database["public"]['Enums']["estado_plan"],
-"etiqueta": string | null,
-"fecha_fin": string | null,
-"fecha_inicio": string,
-"id": string,
-"nombre": string,
-"plan_origen_id": string | null,
-"profesor_id": string | null,
-"tags": (string)[],
-"tipo": string,
-"updated_at": string
-            }
-                          SetofOptions: {
-        from: "*"
-        to: "planes_entrenamiento"
-        isOneToOne: true
-        isSetofReturn: false
-      } },
 "feriados_en_rango":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "created_at": string,
@@ -1262,6 +1134,9 @@ isOneToOne: false
                            },
 "guardar_rutina":
 { Args: { "p_payload": Json }; Returns: string
+                           },
+"job_diario_contrataciones":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "marcar_ausente":
 { Args: { "p_reserva_id": string }; Returns: {

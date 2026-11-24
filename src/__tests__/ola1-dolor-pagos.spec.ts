@@ -36,9 +36,6 @@ const SEED = `
     ('${ALUMNO_OTRO}', 'alumno2@test.local', 'Alumno Ajeno', 'ALUMNO', '${COACH_OTRO}', 'ACTIVA')
   ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES
-    ('${COACH}', '${ALUMNO}'),
-    ('${COACH_OTRO}', '${ALUMNO_OTRO}');
 
   INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
     ('${EJERCICIO_1}', 'Sentadilla Trasera con Barra', ARRAY['PIERNAS'])
@@ -102,8 +99,17 @@ describe('GOZS-406: Ola 1 Base Backend — v_dolor_activo.nivel, permisos, actua
     beforeAll(async () => {
       db = await crearDbMigrada();
 
-      // Verificar idempotencia de la migración de Ola 1
-      await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, MIGRACION_OLA1), 'utf-8'));
+      // Verificar idempotencia de la migración de Ola 1. GOZS-721 eliminó
+      // alumno_historial_dolor.estado_recuperacion: se quita de la vista al re-aplicarla.
+      const sqlOla1 = fs
+        .readFileSync(path.join(MIGRATIONS_DIR, MIGRACION_OLA1), 'utf-8')
+        .replace(/^  h\.estado_recuperacion,\r?\n/m, '');
+      await aplicarMigracion(db, sqlOla1);
+      // Re-aplicar GOZS-721 restaura actualizar_estado_dolor sin la columna eliminada.
+      await aplicarMigracion(
+        db,
+        fs.readFileSync(path.join(MIGRATIONS_DIR, '20261123130000_limpiar_columnas_sin_uso.sql'), 'utf-8'),
+      );
 
       await db.exec(SEED);
     }, 60_000);

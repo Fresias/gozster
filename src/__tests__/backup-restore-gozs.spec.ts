@@ -37,7 +37,6 @@ const SEED = `
     ('${COACH}','coach@t','Coach','ENTRENADOR',NULL);
   INSERT INTO public.ejercicios (id, nombre, musculos_principales, creado_por)
     VALUES ('${EJ}','Sentadilla','{CUADRICEPS}','${COACH}');
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES ('${COACH}','${ALUMNO}',true);
   INSERT INTO public.planes_entrenamiento (id, profesor_id, alumno_id, nombre) VALUES ('${PLAN}','${COACH}','${ALUMNO}','Fuerza');
   INSERT INTO public.dias_rutina (id, plan_id, nombre, orden) VALUES ('${DIA}','${PLAN}','Día A',1);
   INSERT INTO public.ejercicios_en_rutina (dia_id, ejercicio_id, orden, series, repeticiones, rpe_objetivo)
@@ -50,8 +49,6 @@ const SEED = `
   INSERT INTO public.conversaciones (id, alumno_id) VALUES ('${CONV}','${ALUMNO}');
   INSERT INTO public.mensajes (conversacion_id, remitente_id, contenido)
     VALUES ('${CONV}','${ALUMNO}','Hola equipo'),('${CONV}','${COACH}','Hola, ¿cómo va la rodilla?');
-  INSERT INTO public.habitos_registros (alumno_id, fecha, agua_ml) VALUES ('${ALUMNO}','2026-10-15',2000);
-  INSERT INTO public.nutricion_registros (alumno_id, fecha, proteinas_g) VALUES ('${ALUMNO}','2026-10-15',150);
   INSERT INTO public.contrataciones (id, alumno_id, dia_vencimiento, fecha_inicio, fecha_fin)
     VALUES ('${CONTRATO}','${ALUMNO}',10,'2026-09-10','2026-10-10');
 `;
@@ -208,10 +205,10 @@ describe("Issue #64: respaldo y restauración verificada (scripts/backup-restore
   });
 
   it("verificarRestauracion detecta filas faltantes o distintas en el destino", async () => {
-    await destino.exec(`UPDATE public.habitos_registros SET agua_ml = 1 WHERE alumno_id = '${ALUMNO}'`);
+    await destino.exec(`UPDATE public.registro_sesiones SET volumen_total_kg = 1 WHERE alumno_id = '${ALUMNO}'`);
     const { ok, errores } = await verificarRestauracion(adaptador(destino), snapshot);
     expect(ok).toBe(false);
-    expect(errores.some((e) => e.startsWith("habitos_registros: la fila"))).toBe(true);
+    expect(errores.some((e) => e.startsWith("registro_sesiones: la fila"))).toBe(true);
   });
 
   it("restaurar_filas_respaldo es exclusiva de service_role y de las tablas de GOZS", async () => {

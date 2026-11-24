@@ -8,6 +8,7 @@ import { aplicarMigracion, crearDbMigrada, MIGRATIONS_DIR } from "./helpers/pgli
 // con RLS automático y auditoría de cambios de rutina en Supabase (PostgreSQL 15+).
 
 const NEW_MIGRATION = "20261022000000_chat_gozs_transferencia_auditoria_rutina.sql";
+const VINCULO_UNICO_MIGRATION = "20261123120000_unificar_vinculo_coach_alumno.sql";
 
 const ADMIN = "00000000-0000-0000-0000-0000000000ad";
 const COACH_ORIGINAL = "00000000-0000-0000-0000-00000000c0ac";
@@ -63,6 +64,8 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
 
     // Probar idempotencia de la nueva migración
     await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    // GOZS-718: re-aplicar la versión vigente (vínculo único) sobre la recién re-aplicada
+    await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, VINCULO_UNICO_MIGRATION), "utf-8"));
 
     // Crear conversación para el alumno (via RPC obtener_o_crear_conversacion)
     const convRes = await como<{ obtener_o_crear_conversacion: string }>(
@@ -157,7 +160,7 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
       ).rejects.toThrow(/rol ENTRENADOR o ADMIN/);
     });
 
-    it("transfiere exitosamente: actualiza responsable_id, vincula en entrenador_alumnos y audita", async () => {
+    it("transfiere exitosamente: actualiza responsable_id, reasigna al alumno y audita", async () => {
       const res = await como<{ id: string; responsable_id: string; estado: string }>(
         "authenticated",
         COACH_ORIGINAL,
@@ -167,14 +170,19 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
 
       expect(res.rows[0]!.responsable_id).toBe(COACH_NUEVO);
 
-      // Verificar que el nuevo coach fue insertado en entrenador_alumnos
-      const vinculacion = await db.query<{ entrenador_id: string; alumno_id: string; rol_entrenador: string }>(
-        `SELECT entrenador_id, alumno_id, rol_entrenador
-         FROM public.entrenador_alumnos
-         WHERE entrenador_id = '${COACH_NUEVO}' AND alumno_id = '${ALUMNO}'`
+      // Verificar que el nuevo coach quedó como profesor asignado (vínculo único)
+      const vinculacion = await db.query<{ profesor_asignado_id: string }>(
+        `SELECT profesor_asignado_id FROM public.perfiles WHERE id = '${ALUMNO}'`
       );
-      expect(vinculacion.rows).toHaveLength(1);
-      expect(vinculacion.rows[0]!.rol_entrenador).toBe("COACH");
+      expect(vinculacion.rows[0]!.profesor_asignado_id).toBe(COACH_NUEVO);
+
+      // El coach anterior deja de tener acceso al alumno
+      const permisoAnterior = await como<{ es_entrenador_de: boolean }>(
+        "authenticated",
+        COACH_ORIGINAL,
+        `SELECT public.es_entrenador_de('${ALUMNO}')`
+      );
+      expect(permisoAnterior.rows[0]!.es_entrenador_de).toBe(false);
 
       // Verificar que ahora es_entrenador_de es true para COACH_NUEVO
       const permiso = await como<{ es_entrenador_de: boolean }>(
@@ -225,7 +233,7 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
 
       expect(res.rows[0]!.responsable_id).toBe(COACH_ORIGINAL);
 
-      // Repetir la misma transferencia (idempotente: no debe fallar con conflicto de unicidad en entrenador_alumnos)
+      // Repetir la misma transferencia (idempotente: no debe fallar al reasignar al mismo coach)
       const repeat = await como<{ responsable_id: string }>(
         "authenticated",
         ADMIN,
@@ -381,6 +389,10 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
 
   describe("4. Row Level Security en Conversaciones y Auditoría", () => {
     it("el nuevo responsable puede consultar y actualizar la conversación", async () => {
+      // GOZS-718: con vínculo único, el acceso sigue a la última transferencia
+      await como("authenticated", ADMIN,
+        `SELECT public.transferir_conversacion_gozs('${conversacionId}', '${COACH_NUEVO}', 'Prueba RLS')`);
+
       // COACH_NUEVO asignado como responsable puede consultar la conversación
       const r = await como<{ id: string; estado: string }>(
         "authenticated",
@@ -396,6 +408,10 @@ describe("Issue #66 (ADR-004): Asignación/Transferencia de Chat y Auditoría de
         `UPDATE public.conversaciones SET estado = 'ATENDIDA' WHERE id = '${conversacionId}' RETURNING id, estado`
       );
       expect(updated.rows[0]!.estado).toBe("ATENDIDA");
+
+      // Restaurar al coach original para el resto de la suite
+      await como("authenticated", ADMIN,
+        `SELECT public.transferir_conversacion_gozs('${conversacionId}', '${COACH_ORIGINAL}', 'Restaurar')`);
     });
 
     it("un entrenador ajeno sin vinculación no puede ver la conversación", async () => {

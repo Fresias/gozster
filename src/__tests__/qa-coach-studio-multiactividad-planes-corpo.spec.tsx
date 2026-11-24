@@ -127,7 +127,6 @@ describe("GOZS-362: Coach Studio: Alta de Planes $0 con Notas, Asignación Multi
           ejerciciosCatalogo={[]}
           onOpenHistoricalLoads={vi.fn()}
           onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-          onExtenderVigencia={vi.fn().mockResolvedValue(null)}
           isOffline={false}
         />
       );

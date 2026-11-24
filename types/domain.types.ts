@@ -112,7 +112,6 @@ type RefinedTables = Omit<
       nivel_vista_alumno?: NivelVistaAlumno;
       debe_cambiar_password?: boolean;
       telefono?: string | null;
-      whatsapp_habilitado?: boolean;
       fecha_vencimiento_cuota?: string | null;
       ultimo_entreno_at?: string | null;
       peso_corporal_kg?: number | null;
@@ -147,7 +146,6 @@ type RefinedTables = Omit<
     RawTables["registro_sesiones"],
     {
       effective_volume_kg?: number;
-      athlete_feedback?: string | null;
       motivo_cambio_dia?: MotivoCambioDia | null;
       dia_sugerido_id?: string | null;
     }
@@ -199,7 +197,6 @@ type RefinedTables = Omit<
         | "OTRO";
       eva?: number | null;
       severidad: "LEVE" | "MODERADO" | "AGUDO" | "CRITICA";
-      estado_recuperacion: "ACTIVO" | "EN_RECUPERACION" | "RESUELTO";
       momento_aparicion: "CALENTAMIENTO" | "EN_SERIE" | "POST_EJERCICIO" | null;
       estado: "PENDIENTE" | "ATENDIDO" | "RESUELTO" | "CERRADO";
     }
@@ -414,19 +411,26 @@ export type DiaRutina = Tables<"dias_rutina">;
 export type EjercicioEnRutina = Tables<"ejercicios_en_rutina">;
 export type RegistroSesion = Tables<"registro_sesiones">;
 export type RegistroSerie = Tables<"registro_series">;
-export type EntrenadorAlumno = Tables<"entrenador_alumnos">;
+/**
+ * @deprecated GOZS-718: la tabla N:M se eliminó; el vínculo coach↔alumno es
+ * perfiles.profesor_asignado_id. Se conserva la forma solo para mocks y
+ * simulaciones en memoria.
+ */
+export interface EntrenadorAlumno {
+  id: string;
+  entrenador_id: string;
+  alumno_id: string;
+  rol_entrenador: string;
+  es_principal: boolean;
+  created_at: string;
+  updated_at: string;
+}
 export type Conversacion = Tables<"conversaciones">;
 export type Mensaje = Tables<"mensajes">;
 export type ConversacionInsert = TablesInsert<"conversaciones">;
 export type ConversacionUpdate = TablesUpdate<"conversaciones">;
 export type MensajeInsert = TablesInsert<"mensajes">;
 export type MensajeUpdate = TablesUpdate<"mensajes">;
-export type HabitoRegistro = Tables<"habitos_registros">;
-export type HabitoRegistroInsert = TablesInsert<"habitos_registros">;
-export type HabitoRegistroUpdate = TablesUpdate<"habitos_registros">;
-export type NutricionRegistro = Tables<"nutricion_registros">;
-export type NutricionRegistroInsert = TablesInsert<"nutricion_registros">;
-export type NutricionRegistroUpdate = TablesUpdate<"nutricion_registros">;
 export type AlertaEntrenador = Tables<"alertas_entrenador">;
 export type AlertaEntrenadorInsert = TablesInsert<"alertas_entrenador">;
 export type AlertaEntrenadorUpdate = TablesUpdate<"alertas_entrenador">;
@@ -456,9 +460,6 @@ export type AuditoriaCambio = Tables<"auditoria_cambios">;
 export type AuditoriaCambioInsert = TablesInsert<"auditoria_cambios">;
 export type AuditoriaCambioUpdate = TablesUpdate<"auditoria_cambios">;
 
-export type EjercicioAlternativa = Tables<"ejercicios_alternativas">;
-export type EjercicioAlternativaInsert = TablesInsert<"ejercicios_alternativas">;
-export type EjercicioAlternativaUpdate = TablesUpdate<"ejercicios_alternativas">;
 export type SustitucionEjercicio = Tables<"sustituciones_ejercicios">;
 export type SustitucionEjercicioInsert = TablesInsert<"sustituciones_ejercicios">;
 export type SustitucionEjercicioUpdate = TablesUpdate<"sustituciones_ejercicios">;
@@ -475,9 +476,20 @@ export type FeedbackClase = Tables<"feedback_clase">;
 export type FeedbackClaseInsert = TablesInsert<"feedback_clase">;
 export type FeedbackClaseUpdate = TablesUpdate<"feedback_clase">;
 export type ClaseFija = Tables<"clases_fijas">;
-export type RankingPR = Tables<"ranking_prs">;
-export type RankingPRInsert = TablesInsert<"ranking_prs">;
-export type RankingPRUpdate = TablesUpdate<"ranking_prs">;
+/** PR por clase que arma el ranking a partir de `v_prs` (ver src/lib/ranking-prs.ts). */
+export interface RankingPR {
+  id: string;
+  clase_id: string;
+  alumno_id: string;
+  ejercicio_id: string;
+  peso_kg: number;
+  reps: number;
+  fecha: string;
+  registrado_por: string;
+  created_at: string;
+  updated_at: string;
+}
+export type PrView = Database["public"]["Views"]["v_prs"]["Row"];
 export type LogroRacha = Tables<"logros_racha">;
 export type LogroRachaInsert = TablesInsert<"logros_racha">;
 export type LogroRachaUpdate = TablesUpdate<"logros_racha">;

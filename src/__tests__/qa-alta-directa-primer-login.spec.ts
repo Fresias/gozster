@@ -278,7 +278,7 @@ describe("GOZS-36 · El primer login es inevitable (middleware)", () => {
   const alumnoTemp = {
     id: ALUMNO_A,
     email: "alumnoA@t",
-    user_metadata: { must_change_password: true, rol: "ALUMNO" },
+    app_metadata: { must_change_password: true }, user_metadata: { rol: "ALUMNO" },
   };
 
   it.each(["/athlete", "/athlete/workout/123", "/studio", "/studio/dashboard"])(
@@ -300,7 +300,7 @@ describe("GOZS-36 · El primer login es inevitable (middleware)", () => {
     const coachTemp = {
       id: COACH_A,
       email: "coachA@t",
-      user_metadata: { must_change_password: true, rol: "ENTRENADOR" },
+      app_metadata: { must_change_password: true }, user_metadata: { rol: "ENTRENADOR" },
     };
     clienteSSR(coachTemp, "ENTRENADOR");
     const res = await middleware(req("/studio"));

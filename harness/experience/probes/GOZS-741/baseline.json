@@ -1,0 +1,20 @@
+{
+  "candidate_id": "baseline",
+  "probe_branch": "probe/baseline-mwsabx43",
+  "probe_cmd": "npm run typecheck && npm run lint && npm run build",
+  "passed": true,
+  "exit_code": 0,
+  "duration_ms": 38798,
+  "tests": {},
+  "target_components": [],
+  "timestamp": "2026-11-22T20:24:49.616Z",
+  "stdout_preview": "   ▲ Next.js 15.5.28\n\n   Creating an optimized production build ...\n ✓ Compiled successfully in 10.5s\n   Linting and checking validity of types ...\n   Collecting page data ...\n   Generating static pages (0/12) ...\n   Generating static pages (3/12) \r\n   Generating static pages (6/12) \r\n   Generating static pages (9/12) \r\n ✓ Generating static pages (12/12)\n   Finalizing page optimization ...\n   Collecting build traces ...\n\nRoute (app)                                 Size  First Load JS\n┌ ○ /                                      11 kB         273 kB\n├ ○ /_not-found                             1 kB         104 kB\n├ ○ /athlete                             40.8 kB         300 kB\n├ ○ /athlete/clases                      4.63 kB         261 kB\n├ ○ /athlete/historial                   8.47 kB         224 kB\n├ ○ /athlete/progreso                    4.55 kB         264 kB\n├ ○ /entrenadores                        6.09 kB         268 kB\n├ ○ /invitacion                          3.84 kB         179 kB",
+  "stderr_preview": "npm notice run gozster@0.1.0 typecheck\nnpm notice run tsc --noEmit\nnpm notice run gozster@0.1.0 lint\nnpm notice run tsc --noEmit\nnpm notice run gozster@0.1.0 build\nnpm notice run next build\n<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (114kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)\n<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (268kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)\n",
+  "files_touched": [],
+  "in_scope_files": [],
+  "out_of_scope_files": [],
+  "strict_scope": false,
+  "strict_scope_violation": false,
+  "telemetry": null,
+  "branch_kept": false
+}

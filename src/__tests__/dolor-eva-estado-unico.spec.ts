@@ -68,9 +68,6 @@ const SEED = `
     ('${ALUMNO}', 'alumno@test.local', 'Alumno Fernando', 'ALUMNO', '${COACH}', 'ACTIVA'),
     ('${ALUMNO_OTRO}', 'alumno2@test.local', 'Alumno Ajeno', 'ALUMNO', '${COACH_OTRO}', 'ACTIVA');
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id) VALUES
-    ('${COACH}', '${ALUMNO}'),
-    ('${COACH_OTRO}', '${ALUMNO_OTRO}');
 
   INSERT INTO public.ejercicios (id, nombre, musculos_principales) VALUES
     ('${EJERCICIO_1}', 'Sentadilla Trasera con Barra', ARRAY['PIERNAS'])

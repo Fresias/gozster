@@ -1,0 +1,1 @@
+{"id":"exp-gozs-717-1","timestamp":"2026-11-23T02:12:50.338Z","task":"GOZS-717","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Las RPC de clases fijas usan UUID reales; los horarios demo (horario-*) no son UUID y el store los mantiene locales. El panel ClasesFijasPanel solo se monta para alumnos reales.","verified":true,"tags":["studio","ui","qa"]}

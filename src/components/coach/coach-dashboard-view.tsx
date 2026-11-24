@@ -1,5 +1,6 @@
 "use client";
 
+import { obtenerMetricasRetencionRpc, type MetricasRetencionRpc } from "@/services/analiticas-service";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -156,8 +157,22 @@ export function CoachDashboardView({
   // Retention metrics from RPC sincronizadas con KpisNegocio (GOZS-401)
   const baseMetricas = obtenerMetricasRetencion(null, filtroActividad);
   const valorKpisActivas = kpis.cantActivas ?? kpis.alumnos_activos;
+  // Métricas oficiales vía RPC (solo datos reales y sin filtro de actividad; si falla, queda el cálculo local)
+  const [metricasRpc, setMetricasRpc] = React.useState<MetricasRetencionRpc | null>(null);
+  React.useEffect(() => {
+    if (!isLive) return;
+    let cancelado = false;
+    obtenerMetricasRetencionRpc()
+      .then((m) => !cancelado && setMetricasRpc(m))
+      .catch(() => undefined);
+    return () => {
+      cancelado = true;
+    };
+  }, [isLive]);
+  const usarRpc = isLive && filtroActividad === "TODAS" && metricasRpc !== null;
   const metricas = {
     ...baseMetricas,
+    ...(usarRpc ? metricasRpc : {}),
     cantActivas:
       filtroActividad === "TODAS" && typeof valorKpisActivas === "number"
         ? valorKpisActivas

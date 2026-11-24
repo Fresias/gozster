@@ -122,6 +122,7 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
           cobros: [],
         }}
         initialAlumnosExpanded={true}
+        userRole="ADMIN"
       />,
     );
 
@@ -284,7 +285,6 @@ describe("GOZS-685 (F-1): Studio sin datos demo con DB vacía y profesores reale
         ejerciciosCatalogo={[]}
         onOpenHistoricalLoads={vi.fn()}
         onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-        onExtenderVigencia={vi.fn().mockResolvedValue(null)}
         isOffline={false}
       />,
     );

@@ -58,7 +58,6 @@ export interface DolorActivo {
   severidad: SeveridadDolor;
   nivel: NivelDolor;
   estado: EstadoDolor;
-  estado_recuperacion?: 'ACTIVO' | 'EN_RECUPERACION' | 'RESUELTO';
   momento_aparicion?: string | null;
   es_sintoma_alarma: boolean;
   sintomas_alarma: string[];

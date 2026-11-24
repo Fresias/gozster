@@ -5,7 +5,6 @@ import type {
   Database,
   AlertaEntrenador,
   AlumnoHistorialDolor,
-  EjercicioAlternativa,
   SustitucionEjercicio,
 } from "@/types/database.types";
 
@@ -45,9 +44,6 @@ const SEED_DATA = `
     ('${OTRO_ALUMNO}','b@t','Otro Alumno','ALUMNO','${OTRO_COACH}','ACTIVA')
   ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, nombre_completo = EXCLUDED.nombre_completo, rol = EXCLUDED.rol, profesor_asignado_id = EXCLUDED.profesor_asignado_id, estado_membresia = EXCLUDED.estado_membresia;
 
-  INSERT INTO public.entrenador_alumnos (entrenador_id, alumno_id, es_principal) VALUES
-    ('${COACH}','${ALUMNO}',true),
-    ('${OTRO_COACH}','${OTRO_ALUMNO}',true);
 
   INSERT INTO public.ejercicios (id, nombre, musculos_principales, creado_por) VALUES
     ('${EJ_BANCA}', 'Press Banca con Barra', '{PECHO,TRICEPS}', '${COACH}'),
@@ -168,53 +164,6 @@ describe("Issue #67 / GOZS-41: Molestias, Red Flags, Alternativas y Sustitucione
   });
 
   // ============================================================================
-  // 2. BIBLIOTECA DE ALTERNATIVAS (public.ejercicios_alternativas)
-  // ============================================================================
-  describe("2. Biblioteca de Alternativas (public.ejercicios_alternativas)", () => {
-    it("el entrenador puede registrar una alternativa biomecánica clasificada", async () => {
-      const altId = "a1000000-0000-0000-0000-000000000001";
-      await como(
-        "authenticated",
-        COACH,
-        `INSERT INTO public.ejercicios_alternativas (
-          id, ejercicio_origen_id, ejercicio_alternativo_id, patron_movimiento,
-          equipamiento, nivel_exigencia, restricciones_articulares, explicacion_tecnica
-        ) VALUES (
-          '${altId}', '${EJ_BANCA}', '${EJ_MANCUERNAS}', 'EMPUJE_HORIZONTAL',
-          'MANCUERNAS', 'MEDIO', ARRAY['HOMBRO'], 'Permite rotación neutra reduciendo estrés subacromial'
-        )`
-      );
-
-      const r = await db.query<{ patron_movimiento: string; restricciones_articulares: string[] }>(
-        `SELECT patron_movimiento, restricciones_articulares FROM public.ejercicios_alternativas WHERE id = '${altId}'`
-      );
-      expect(r.rows[0]!.patron_movimiento).toBe("EMPUJE_HORIZONTAL");
-      expect(r.rows[0]!.restricciones_articulares).toEqual(["HOMBRO"]);
-    });
-
-    it("el alumno autenticado puede leer el catálogo de alternativas", async () => {
-      const r = await como<{ id: string }>(
-        "authenticated",
-        ALUMNO,
-        `SELECT id FROM public.ejercicios_alternativas WHERE ejercicio_origen_id = '${EJ_BANCA}'`
-      );
-      expect(r.rows.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it("el alumno NO puede insertar ni modificar alternativas en la biblioteca (RLS)", async () => {
-      await expect(
-        como(
-          "authenticated",
-          ALUMNO,
-          `INSERT INTO public.ejercicios_alternativas (
-            ejercicio_origen_id, ejercicio_alternativo_id, patron_movimiento
-          ) VALUES ('${EJ_BANCA}', '${EJ_FLEXIONES}', 'EMPUJE_HORIZONTAL')`
-        )
-      ).rejects.toThrow(DENEGADO);
-    });
-  });
-
-  // ============================================================================
   // 3. SEGURIDAD ESTRICTA: BLOQUEO DE QUICK_SWAP AL ALUMNO
   // ============================================================================
   describe("3. Bloqueo RLS y Seguridad Estricta en RPC quick_swap_ejercicio", () => {
@@ -331,21 +280,7 @@ describe("Issue #67 / GOZS-41: Molestias, Red Flags, Alternativas y Sustitucione
   // 5. TIPOS TYPESCRIPT
   // ============================================================================
   describe("5. Tipos TypeScript Sincronizados", () => {
-    it("valida la compilación estática de EjercicioAlternativa y SustitucionEjercicio", () => {
-      const dummyAlt: EjercicioAlternativa = {
-        id: "a1",
-        ejercicio_origen_id: EJ_BANCA,
-        ejercicio_alternativo_id: EJ_MANCUERNAS,
-        patron_movimiento: "EMPUJE_HORIZONTAL",
-        equipamiento: "MANCUERNAS",
-        nivel_exigencia: "MEDIO",
-        restricciones_articulares: ["HOMBRO"],
-        explicacion_tecnica: "Prueba técnica",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      expect(dummyAlt.patron_movimiento).toBe("EMPUJE_HORIZONTAL");
-
+    it("valida la compilación estática de SustitucionEjercicio", () => {
       const dummySust: SustitucionEjercicio = {
         id: "s1",
         plan_id: PLAN_ID,

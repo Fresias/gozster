@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/services/rutinas-service", () => ({ asignarRutinaAAlumno: vi.fn().mockRejectedValue(new Error("sin red")) }));
 import {
   calculateBlockVolume,
   calculateBrzycki1RM,
@@ -95,58 +97,20 @@ describe("QA Verification & Mathematical Rigor - Coach Studio (GOZS-7 / Issue #1
     });
   });
 
-  describe("B. Robustez Offline & Encolado de Acciones RPC", () => {
-    it("encola RPC_CLONAR_ULTIMA_RUTINA correctamente cuando la red está desconectada", async () => {
-      // Simular desconexión
+  describe("B. Acciones del coach sin cola offline inventada", () => {
+    it("clonar sin red falla con error y no encola ni inventa planes", async () => {
       useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
       const store = useCoachStudioStore.getState();
-      const lucasId = "a1111111-1111-4111-8111-111111111101";
+      const planesAntes = store.planes;
 
-      const cloned = await store.clonarUltimaRutina(lucasId);
-      expect(cloned).not.toBeNull();
-      expect(cloned?.estado).toBe("ACTIVO");
+      await expect(store.clonarUltimaRutina("a1111111-1111-4111-8111-111111111101")).rejects.toThrow();
 
-      const queueState = useOfflineQueueStore.getState();
-      expect(queueState.pendingEvents.length).toBe(1);
-      expect(queueState.pendingEvents[0]?.action).toBe("RPC_CLONAR_ULTIMA_RUTINA");
-      expect(queueState.pendingEvents[0]?.payload.alumnoId).toBe(lucasId);
-      expect(queueState.pendingEvents[0]?.payload.nuevoPlanId).toBe(cloned?.id);
+      expect(useCoachStudioStore.getState().planes).toBe(planesAntes);
+      expect(useOfflineQueueStore.getState().pendingEvents).toHaveLength(0);
     });
 
-    it("encola RPC_EXTENDER_VIGENCIA_PLAN correctamente cuando la red está desconectada", async () => {
-      useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
-      const store = useCoachStudioStore.getState();
-      const planActivo = store.planes.find((p) => p.estado === "ACTIVO");
-      expect(planActivo).toBeDefined();
-
-      if (planActivo) {
-        const extended = await store.extenderVigenciaPlan(planActivo.id, 30);
-        expect(extended).not.toBeNull();
-        expect(extended?.estado).toBe("ACTIVO");
-        expect(extended?.comentarios).toContain("+30 días");
-
-        const queueState = useOfflineQueueStore.getState();
-        expect(queueState.pendingEvents.length).toBe(1);
-        expect(queueState.pendingEvents[0]?.action).toBe("RPC_EXTENDER_VIGENCIA_PLAN");
-        expect(queueState.pendingEvents[0]?.payload.planId).toBe(planActivo.id);
-        expect(queueState.pendingEvents[0]?.payload.diasExtra).toBe(30);
-      }
-    });
-
-    it("soporta acumulación secuencial de múltiples acciones offline sin pérdida de eventos", async () => {
-      useOfflineQueueStore.setState({ isOnline: false, pendingEvents: [] });
-      const store = useCoachStudioStore.getState();
-      const lucasId = "a1111111-1111-4111-8111-111111111101";
-
-      const clon1 = await store.clonarUltimaRutina(lucasId);
-      if (clon1) {
-        await store.extenderVigenciaPlan(clon1.id, 30);
-      }
-
-      const queueState = useOfflineQueueStore.getState();
-      expect(queueState.pendingEvents.length).toBe(2);
-      expect(queueState.pendingEvents[0]?.action).toBe("RPC_CLONAR_ULTIMA_RUTINA");
-      expect(queueState.pendingEvents[1]?.action).toBe("RPC_EXTENDER_VIGENCIA_PLAN");
+    it("ya no existe la acción de extender vigencia del plan", () => {
+      expect("extenderVigenciaPlan" in useCoachStudioStore.getState()).toBe(false);
     });
   });
 

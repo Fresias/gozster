@@ -1,4 +1,6 @@
 import { type HistoricalLoadEntry, MOCK_HISTORIAL_CARGAS, LUCAS_2_MONTHS_HISTORIAL } from "@/services/coach-mock-data";
+import { ClasesFijasPanel } from "@/components/coach/clases-fijas-panel";
+import { ResetPasswordAlumno } from "@/components/coach/student-detail/reset-password-alumno";
 import { TrendingUp } from "@/components/athlete/icons";
 import {
   ClipboardList,
@@ -99,7 +101,6 @@ export interface StudentDetailProps {
   historialCargas?: HistoricalLoadEntry[];
   onOpenHistoricalLoads: () => void;
   onClonarUltimaRutina: (alumnoId: string) => Promise<unknown>;
-  onExtenderVigencia: (planId: string) => Promise<unknown>;
   isOffline: boolean;
   contratacion?: Contratacion | null;
   onRegistrarRenovacion?: (input: {
@@ -141,7 +142,6 @@ export function StudentDetail({
   historialCargas,
   onOpenHistoricalLoads,
   onClonarUltimaRutina,
-  onExtenderVigencia,
   isOffline,
   contratacion: contratacionProp,
   onRegistrarRenovacion,
@@ -159,7 +159,7 @@ export function StudentDetail({
   onHeaderMenuOpenChange,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
-  const [isExtending, setIsExtending] = React.useState(false);
+  const [errorAccion, setErrorAccion] = React.useState<string | null>(null);
 
   const handleAsignarRutina = () => {
     if (onAssignRoutine) {
@@ -735,21 +735,20 @@ export function StudentDetail({
     setIsRegistrandoPago(true);
     setAvisoPago(null);
     try {
-      if (cobroItem) {
+      if (onRegistrarRenovacion) {
+        // La RPC renovar_contratacion crea la cuota, registra el pago y extiende, todo en una transacción.
+        await onRegistrarRenovacion({
+          contratacion,
+          monto: modalMonto,
+          medioPago: modalMedio,
+        });
+      } else if (cobroItem) {
         await registrarPagoStore({
           contratacionId: cobroItem.contratacionId,
           monto: modalMonto,
           montoLista: cobroItem.montoLista,
           medioPago: modalMedio === "EFECTIVO" ? "EFECTIVO" : "TRANSFERENCIA",
           notas: modalNota.trim() || undefined,
-        });
-      }
-
-      if (onRegistrarRenovacion) {
-        await onRegistrarRenovacion({
-          contratacion,
-          monto: modalMonto,
-          medioPago: modalMedio,
         });
       }
 
@@ -777,6 +776,7 @@ export function StudentDetail({
   const handleRegistrarRenovacion = async () => {
     if (!onRegistrarRenovacion) return;
     setIsRenovando(true);
+    setErrorAccion(null);
     try {
       const monto = Number.parseFloat(renovMonto);
       await onRegistrarRenovacion({
@@ -785,6 +785,8 @@ export function StudentDetail({
         medioPago: renovMedio,
       });
       setRenovMonto("");
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : "No se pudo completar la acción. Intenta de nuevo.");
     } finally {
       setIsRenovando(false);
     }
@@ -794,6 +796,7 @@ export function StudentDetail({
     if (!onExtenderExcepcional) return;
     if (!extFecha || !extMotivo.trim()) return;
     setIsExtendiendoExc(true);
+    setErrorAccion(null);
     try {
       await onExtenderExcepcional({
         contratacion,
@@ -802,6 +805,8 @@ export function StudentDetail({
       });
       setExtFecha("");
       setExtMotivo("");
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : "No se pudo completar la acción. Intenta de nuevo.");
     } finally {
       setIsExtendiendoExc(false);
     }
@@ -809,20 +814,13 @@ export function StudentDetail({
 
   const handleClonar = async () => {
     setIsCloning(true);
+    setErrorAccion(null);
     try {
       await onClonarUltimaRutina(alumno.id);
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : "No se pudo completar la acción. Intenta de nuevo.");
     } finally {
       setIsCloning(false);
-    }
-  };
-
-  const handleExtender = async () => {
-    if (!rutinaActiva) return;
-    setIsExtending(true);
-    try {
-      await onExtenderVigencia(rutinaActiva.id);
-    } finally {
-      setIsExtending(false);
     }
   };
 
@@ -1829,10 +1827,10 @@ export function StudentDetail({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border bg-card p-4">
             <div>
               <h3 className="text-sm font-bold text-foreground">
-                Acciones Rápidas de Planificación
+                Acciones rápidas de planificación
               </h3>
               <p className="text-xs text-muted-foreground">
-                Invocación RPC optimista con soporte offline-first.
+                Se guarda en Supabase.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1846,18 +1844,14 @@ export function StudentDetail({
               >
                 {isCloning ? "Clonando..." : "[Clonar última rutina]"}
               </Button>
-              <Button
-                variant="secondary"
-                size="default"
-                onClick={handleExtender}
-                disabled={isExtending || !rutinaActiva}
-                className="min-h-11 flex-1 sm:flex-none text-xs font-semibold"
-                aria-label="Extender vigencia"
-              >
-                {isExtending ? "Extendiendo..." : "[Extender vigencia]"}
-              </Button>
             </div>
           </div>
+
+          {errorAccion && (
+            <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs font-medium text-destructive" data-testid="error-accion-coach">
+              {errorAccion}
+            </p>
+          )}
 
           {/* Registro Histórico de Sustituciones Trazables */}
           <div className="space-y-3" data-testid="routine-substitutions-history-section">
@@ -2653,6 +2647,11 @@ export function StudentDetail({
                   ? "Aplicando…"
                   : "Aplicar extensión excepcional"}
               </Button>
+              {errorAccion && (
+                <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs font-medium text-destructive" data-testid="error-accion-coach">
+                  {errorAccion}
+                </p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -2912,9 +2911,15 @@ export function StudentDetail({
             suscripcionNode={suscripcionNode}
             historialPagosNode={historialPagosNode}
             contratacionNode={contratacionNode}
+            clasesFijasNode={isLiveStudent ? <ClasesFijasPanel alumnoId={alumno.id} /> : undefined}
             chatResponsableNode={chatPanelNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
+            accesoNode={
+              isLiveStudent ? (
+                <ResetPasswordAlumno alumnoId={alumno.id} nombre={alumno.nombre_completo} />
+              ) : undefined
+            }
             planActivo={tienePlanComercialReal ? nombrePlanReal : undefined}
             monto={tienePlanComercialReal ? montoReal : undefined}
             fechaVencimiento={fechaFinReal ? formatFecha(fechaFinReal) : undefined}

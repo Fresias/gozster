@@ -18,9 +18,11 @@ export interface IslaAdministrativaProps {
   suscripcionNode?: React.ReactNode;
   historialPagosNode?: React.ReactNode;
   contratacionNode?: React.ReactNode;
+  clasesFijasNode?: React.ReactNode;
   chatResponsableNode?: React.ReactNode;
   nivelVistaNode?: React.ReactNode;
   cuestionarioNode?: React.ReactNode;
+  accesoNode?: React.ReactNode;
   // Datos específicos de Membresía (alineados con KpisNegocio y visual del PDF pág. 5)
   planActivo?: string;
   monto?: number | string;
@@ -58,9 +60,11 @@ export function IslaAdministrativa({
   suscripcionNode,
   historialPagosNode,
   contratacionNode,
+  clasesFijasNode,
   chatResponsableNode,
   nivelVistaNode,
   cuestionarioNode,
+  accesoNode,
   planActivo,
   monto,
   fechaVencimiento,
@@ -323,6 +327,7 @@ export function IslaAdministrativa({
         {/* Tab 2: Contratación */}
         <div className={activeTab === "contratacion" ? "space-y-4" : "hidden"}>
           {contratacionNode}
+          {clasesFijasNode}
         </div>
 
         {/* Tab 3: Staff y Chat */}
@@ -334,6 +339,7 @@ export function IslaAdministrativa({
         <div className={activeTab === "config" ? "space-y-4" : "hidden"}>
           {nivelVistaNode}
           {cuestionarioNode}
+          {accesoNode}
         </div>
         </details>
       </div>

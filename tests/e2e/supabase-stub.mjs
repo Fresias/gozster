@@ -343,7 +343,6 @@ http
             severidad: eva >= 7 ? "AGUDO" : eva >= 4 ? "MODERADO" : "LEVE",
             notas_alumno: body?.p_notas ?? null,
             notas_profesor: null,
-            estado_recuperacion: "ACTIVO",
             fecha_reporte: new Date().toISOString().slice(0, 10),
             momento_aparicion: body?.p_momento ?? null,
             es_sintoma_alarma: sintomas.length > 0 || eva >= 10,

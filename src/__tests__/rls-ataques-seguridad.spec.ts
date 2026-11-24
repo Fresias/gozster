@@ -87,9 +87,9 @@ const SEED = `
     ('${SESION_A1_ID}', '${EJERCICIO_1}', 1, 80, 10, true),
     ('${SESION_A2_ID}', '${EJERCICIO_1}', 1, 60, 10, true);
 
-  INSERT INTO public.alumno_historial_dolor (alumno_id, ejercicio_id, zona_articular, severidad, estado_recuperacion) VALUES
-    ('${A1}', '${EJERCICIO_1}', 'RODILLA', 'LEVE', 'ACTIVO'),
-    ('${A2}', '${EJERCICIO_1}', 'HOMBRO', 'LEVE', 'ACTIVO');
+  INSERT INTO public.alumno_historial_dolor (alumno_id, ejercicio_id, zona_articular, severidad) VALUES
+    ('${A1}', '${EJERCICIO_1}', 'RODILLA', 'LEVE'),
+    ('${A2}', '${EJERCICIO_1}', 'HOMBRO', 'LEVE');
 
   INSERT INTO public.conversaciones (id, alumno_id) VALUES
     ('${CONV_A1_ID}', '${A1}'),
@@ -444,15 +444,10 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
   });
 
   describe("3. RPCs de planes, ranking, cobros, visibilidad y Realtime", () => {
-    it("anon no puede invocar extender_vigencia_plan (42501 o podada 42883)", async () => {
-      let caught: unknown;
-      try {
-        await como("anon", null, `SELECT public.extender_vigencia_plan($1, 1)`, [PLANTILLA_ID]);
-      } catch (err) {
-        caught = err;
-      }
-      expect(caught).toBeDefined();
-      expect(["42501", "42883"]).toContain((caught as { code?: string }).code);
+    it("anon no puede invocar extender_vigencia_plan (podada, 42883)", async () => {
+      await expect(
+        como("anon", null, `SELECT public.extender_vigencia_plan($1, 1)`, [PLANTILLA_ID]),
+      ).rejects.toMatchObject({ code: "42883" });
     });
 
     it("anon no puede invocar clonar_plan_entrenamiento (42501)", async () => {
@@ -467,13 +462,11 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       ).rejects.toThrow();
     });
 
-    it("alumno no puede extender vigencia de una plantilla (o RPC podada)", async () => {
-      if (!(await existeFuncion("public.extender_vigencia_plan(uuid,integer)"))) {
-        return;
-      }
+    it("extender_vigencia_plan está podada: alumno no puede invocarla (42883)", async () => {
+      expect(await existeFuncion("public.extender_vigencia_plan(uuid,integer)")).toBe(false);
       await expect(
         como("authenticated", A2, `SELECT public.extender_vigencia_plan($1, 365)`, [PLANTILLA_ID]),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({ code: "42883" });
     });
 
     it("alumno no puede activar el plan de otro alumno (o RPC podada)", async () => {
@@ -490,7 +483,7 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       ).rejects.toThrow();
     });
 
-    it("admin puede clonar (y extender si la RPC existe) una plantilla", async () => {
+    it("admin puede clonar una plantilla", async () => {
       const clon = await como<{ clonar_plan_entrenamiento: string }>(
         "authenticated",
         ADMIN,
@@ -498,16 +491,6 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [PLANTILLA_ID],
       );
       expect(clon.rows[0]?.clonar_plan_entrenamiento).toBeTruthy();
-
-      if (await existeFuncion("public.extender_vigencia_plan(uuid,integer)")) {
-        const ext = await como(
-          "authenticated",
-          ADMIN,
-          `SELECT public.extender_vigencia_plan($1, 30)`,
-          [PLANTILLA_ID],
-        );
-        expect(ext.rows).toHaveLength(1);
-      }
     });
 
     it("alumno no puede invocar obtener_ranking_ejercicio (o RPC podada)", async () => {
@@ -566,6 +549,19 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         "utf-8",
       );
       await expect(aplicarMigracion(db, sql)).resolves.toBeUndefined();
+      // GOZS-718 y GOZS-721: re-aplicar en orden cronológico las versiones vigentes (ambas idempotentes)
+      await expect(
+        aplicarMigracion(
+          db,
+          fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123120000_unificar_vinculo_coach_alumno.sql"), "utf-8"),
+        ),
+      ).resolves.toBeUndefined();
+      await expect(
+        aplicarMigracion(
+          db,
+          fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123130000_limpiar_columnas_sin_uso.sql"), "utf-8"),
+        ),
+      ).resolves.toBeUndefined();
     });
 
     it("anon no tiene privilegios sobre ninguna tabla ni vista de public y recibe 42501", async () => {
@@ -642,7 +638,8 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
           `UPDATE public.alumno_historial_dolor SET estado_recuperacion = 'RESUELTO' WHERE id = $1`,
           [dolorId],
         ),
-      ).rejects.toMatchObject({ code: "42501" });
+        // GOZS-721: la columna redundante ya no existe; el único estado es `estado`.
+      ).rejects.toMatchObject({ code: "42703" });
 
       await expect(
         como(
@@ -830,6 +827,18 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [CONV_A1_ID, coachAjeno],
       );
       expect(tr.rows[0]?.responsable_id).toBe(coachAjeno);
+
+      // GOZS-718: vínculo único: la transferencia reasigna al alumno; C1 pierde el acceso
+      const asignado = await db.query<{ profesor_asignado_id: string }>(
+        `SELECT profesor_asignado_id FROM public.perfiles WHERE id = $1`,
+        [A1],
+      );
+      expect(asignado.rows[0]?.profesor_asignado_id).toBe(coachAjeno);
+      const c1Ve = await como<{ ok: boolean }>("authenticated", C1, `SELECT public.es_entrenador_de($1) AS ok`, [A1]);
+      expect(c1Ve.rows[0]?.ok).toBe(false);
+
+      // El nuevo coach asignado puede devolverla (restaura el fixture para el resto de la suite)
+      await como("authenticated", coachAjeno, `SELECT public.transferir_conversacion_gozs($1, $2, 'Fin cobertura')`, [CONV_A1_ID, C1]);
     });
 
     it("coach solo ve errores_app y feedback_clase de sus alumnos (o clases asignadas)", async () => {

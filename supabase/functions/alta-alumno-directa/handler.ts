@@ -60,6 +60,8 @@ export interface AltaAlumnoDeps {
     password: string;
     email_confirm: true;
     user_metadata: Record<string, unknown>;
+    /** Solo service_role la escribe: es la marca que lee el middleware. */
+    app_metadata: { must_change_password: true };
   }): Promise<{ id: string } | { error: "email_existe" | "otro" }>;
   upsertPerfil(perfil: PerfilAlumno): Promise<boolean>;
   eliminarUsuario(id: string): Promise<void>;
@@ -154,6 +156,7 @@ export function crearHandler(deps: AltaAlumnoDeps, allowedOrigin: string) {
         ...(sexo ? { sexo } : {}),
         ...(pesoCorporalKg !== null ? { peso_corporal_kg: pesoCorporalKg } : {}),
       },
+      app_metadata: { must_change_password: true },
     });
     if ("error" in creado) {
       return creado.error === "email_existe"

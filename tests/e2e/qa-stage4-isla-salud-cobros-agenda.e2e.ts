@@ -135,17 +135,17 @@ test.describe("Stage 4 QA Suite: Auditoría E2E de Isla Salud, Cobros y Agenda (
     await expect(page.getByTestId("help-icon-brzycki")).toBeVisible();
   });
 
-  test("UX-F: Alumno sin dolor activo (Esteban Papic) muestra alert-salud-empty 'Sin dolores activos'", async ({
+  test("UX-F: Alumno sin dolor activo (Ezequiel Paredes) muestra alert-salud-empty 'Sin dolores activos'", async ({
     page,
   }) => {
     await abrirStudio(page, "/studio");
 
     await expandirDirectorioSiCerrado(page);
     const buscador = page.getByTestId("alumnos-directory").locator('input[type="search"]').first();
-    await buscador.fill("Esteban Papic");
-    const filaEsteban = page.getByTestId("alumnos-directory").locator("tbody tr").filter({ hasText: "Esteban Papic" });
-    await expect(filaEsteban).toBeVisible({ timeout: 15_000 });
-    await filaEsteban.getByRole("button", { name: /Esteban Papic/i }).first().click();
+    await buscador.fill("Ezequiel Paredes");
+    const filaEzequiel = page.getByTestId("alumnos-directory").locator("tbody tr").filter({ hasText: "Ezequiel Paredes" });
+    await expect(filaEzequiel).toBeVisible({ timeout: 15_000 });
+    await filaEzequiel.getByRole("button", { name: /Ezequiel Paredes/i }).first().click();
 
     const islaSalud = page.getByTestId("isla-salud-anamnesis");
     await expect(islaSalud).toBeVisible({ timeout: 30_000 });

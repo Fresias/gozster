@@ -154,7 +154,7 @@ describe("GOZS-391: Auditoría QA Stage 4 - Ficha de Alumno, Cobros y Agenda", (
           evaDolorActual={0}
           zonaDolorActual="Ninguna"
           dolorActivo={null}
-          alumnoId="alumno-esteban"
+          alumnoId="alumno-ezequiel"
         />
       );
 

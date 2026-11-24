@@ -1,0 +1,1 @@
+{"id":"exp-gozs-714-1","timestamp":"2026-11-23T02:31:23.411Z","task":"GOZS-714","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"El envío push vive en un handler sin imports inyectable (Deno + Vitest); la cola se reclama con FOR UPDATE SKIP LOCKED y se purga a 7 días.","verified":true,"tags":["push","edge-function"]}

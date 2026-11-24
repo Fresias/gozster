@@ -86,6 +86,8 @@ describe("GOZS-637: Agenda online, recurrencia, reactivar_clase, eliminar_clase_
     db = await crearDbMigrada();
     // Idempotencia de la nueva migración
     await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, NEW_MIGRATION), "utf-8"));
+    // Reaplicarla pisa eliminar_clase_vacia: se vuelve a la versión vigente (GOZS-720, idempotente).
+    await aplicarMigracion(db, fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123100000_podar_tablas_muertas.sql"), "utf-8"));
     await db.exec(SEED);
   }, 60_000);
 

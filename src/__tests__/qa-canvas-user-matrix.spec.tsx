@@ -83,7 +83,6 @@ describe("QA Matrix: Todas las Interacciones y Posibilidades del Usuario en el C
         historialCargas={mockHistoricalLoads as any}
         onOpenHistoricalLoads={vi.fn()}
         onClonarUltimaRutina={vi.fn().mockResolvedValue(null)}
-        onExtenderVigencia={vi.fn().mockResolvedValue(null)}
         isOffline={false}
         {...extraProps}
       />
