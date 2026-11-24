@@ -5,7 +5,7 @@
 //   - copies dispatch.mjs to <home>/.claude/hooks/harness-dispatch.mjs and the kit (core + adapters) to
 //     <home>/.claude/hooks/harness-kit/: the dispatcher runs THAT guard and then keeps it equal to origin/main
 //     on its own (shared/kit.mjs syncKit), so run install.mjs from main once
-//   - adds PreToolUse/PostToolUse hooks (Bash|PowerShell|Read|Write|Edit|NotebookEdit) to <home>/.claude/settings.json
+//   - adds PreToolUse/PostToolUse/PostToolUseFailure hooks (Bash|PowerShell|Read|Grep|Glob|Write|Edit|NotebookEdit) to <home>/.claude/settings.json
 //   - --check: exit 1 if not installed or out of date (no writes)
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -22,9 +22,11 @@ const hooksDir = path.join(home, ".claude", "hooks");
 const target = path.join(hooksDir, "harness-dispatch.mjs");
 const settingsPath = path.join(home, ".claude", "settings.json");
 const command = `node "${target.replace(/\\/g, "/")}"`;
+const ALL_TOOLS = "Bash|PowerShell|Read|Grep|Glob|Write|Edit|NotebookEdit";
 const MATCHERS = {
-  PreToolUse: "Bash|PowerShell|Read|Write|Edit|NotebookEdit",
-  PostToolUse: "Bash|PowerShell|Write|Edit|NotebookEdit",
+  PreToolUse: ALL_TOOLS,
+  PostToolUse: ALL_TOOLS,
+  PostToolUseFailure: ALL_TOOLS,
 };
 
 const settings = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf8")) : {};
@@ -37,7 +39,9 @@ function installed(event) {
 }
 
 if (check) {
-  const ok = isInstalled(hooksDir, kitDir, "harness-dispatch.mjs") && installed("PreToolUse") && installed("PostToolUse");
+  const ok =
+    isInstalled(hooksDir, kitDir, "harness-dispatch.mjs") &&
+    Object.keys(MATCHERS).every((event) => installed(event));
   process.stdout.write(
     ok ? "claude-code user guard: installed\n" : "claude-code user guard: MISSING or differs from this checkout (run install.mjs from main)\n",
   );
