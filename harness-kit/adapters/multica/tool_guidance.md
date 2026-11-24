@@ -1,19 +1,6 @@
-# Multica CLI Guidance (Anti-Token-Waste)
+# Multica CLI Guidance
 
-## Command Rules
-- **Bounded queries:** `multica issue list` with JSON requires `--limit` (≤15).
-- **Bounded search:** never run `multica issue search` without `--project <id>`.
-- **Scan-Then-Expand:** scan roots (`--roots-only --summary --compact`), expand (`--thread <id> --tail 10 --compact`).
-- **Payloads:** long text uses `--description-file`/`--content-file` in workdir, never `/tmp`.
-- **Streams:** never merge `stderr` into `stdout` (`2>&1`) with JSON.
-- **Multi-stage issues:** use template `harness-kit/core/templates/sub-issue.md.tmpl` and `--pr-auto-complete off` on `multica issue create` for multi-stage tasks to prevent premature close before QA audit.
-
-## Comment Discipline (No-Action, No-Reply)
-- **No action, no comment:** if wakeup needs no action (acks, thanks, echoes), end run without commenting.
-- **No ack mentions:** never @mention without needed action; no repeated mentions, sleeps, or polls.
-- **One hand-off:** deliver state once to squad/leader; native queue enqueues without task loss.
-
-## Terminal States (Stop the Loop)
-- **Retries (max 2):** 2 tries max; on 2nd failure, set `blocked` with evidence; no retry loops or polls.
-- **Hand-off, no start:** deliver state once to squad/leader; record goal, changes, evidence, risks, name ONE next action, end run.
-- **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
+- **CLI (`harness-tools` skill):** Use `multica-ctx.mjs` / `multica-post.mjs`; `--limit <=15`, `--project` on search, no `2>&1` with JSON.
+- **Multi-stage:** Use `sub-issue.md.tmpl` and `--pr-auto-complete off` for multi-stage issues.
+- **Native queue:** Hand off once (native queue); no repeated mentions, sleeps, or polls; condition wakeups only.
+- **Terminal states:** Max 2 retries → `blocked`; no-action wakeups end without comment.

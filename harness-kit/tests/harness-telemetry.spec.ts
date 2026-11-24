@@ -1,13 +1,15 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { buildEvent, recordEvent, redactCmd, redactSecrets, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
+import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
-import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
+import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
+// @ts-expect-error - mjs module
+import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, pairPrePostEvents, parseCliArgs, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
 // H-12 — Telemetría determinista del guard + agregador harness-telemetry.mjs.
 // Criterios de aceptación (Gherkin):
@@ -112,10 +114,14 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(out).not.toContain("IUzI1NiIsInR5cCI6IkpXVCJ9");
   });
 
-  it("colapsa espacios y trunca a 120 caracteres", () => {
+  it("colapsa espacios y trunca a 300 caracteres (CMD_MAX)", () => {
+    expect(CMD_MAX).toBe(300);
     expect(redactCmd("a\n   b")).toBe("a b");
-    const long = "x".repeat(200);
-    expect(redactCmd(long).length).toBe(120);
+    const ok250 = "x".repeat(250);
+    expect(redactCmd(ok250)).toBe(ok250);
+    expect(redactCmd(ok250).length).toBe(250);
+    const long = "x".repeat(400);
+    expect(redactCmd(long).length).toBe(300);
   });
 
   it("recordEvent escribe la línea redactada en events.jsonl", () => {
@@ -139,28 +145,35 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(line.session).toBe("sess-1");
   });
 
-  it("registra eventos post solo cuando inyectan contexto", () => {
+  it("registra eventos post con inyección conservando inject y rule", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
     tempDirs.push(dir);
     recordEvent(
-      { runtime: "claude-code", kind: "shell", tool: "Bash", phase: "post", command: "git push", raw: {} },
+      { runtime: "claude-code", kind: "shell", tool: "Bash", phase: "post", command: "git push", toolUseId: "toolu_1", ok: true, raw: {} },
       { allowed: true, inject: true, ruleId: "git.gh007-noreply" },
       { dir },
     );
     const line = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))[0] as Record<string, unknown>;
+    expect(line.phase).toBe("post");
     expect(line.inject).toBe(true);
     expect(line.rule).toBe("git.gh007-noreply");
+    expect(line.id).toBe("toolu_1");
+    expect(line.ok).toBe(true);
   });
 
-  it("no registra eventos de fase post sin inyección", () => {
+  it("registra siempre eventos de fase post sin inyección con id y ok (GOZS-768)", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
     tempDirs.push(dir);
     recordEvent(
-      { runtime: "claude-code", kind: "write", phase: "post", raw: {} },
+      { runtime: "claude-code", kind: "write", tool: "Write", phase: "post", targetPath: "src/a.ts", toolUseId: "toolu_2", ok: false, raw: {} },
       { allowed: true },
       { dir },
     );
-    expect(() => readFileSync(path.join(dir, "events.jsonl"), "utf8")).toThrow();
+    const line = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))[0] as Record<string, unknown>;
+    expect(line.phase).toBe("post");
+    expect(line.inject).toBe(false);
+    expect(line.id).toBe("toolu_2");
+    expect(line.ok).toBe(false);
   });
 
   describe("GOZS-530: redacción ampliada de secretos (tokens GitHub, URLs y Authorization)", () => {
@@ -178,13 +191,20 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
       expect(out).toContain("Authorization: token [REDACTED]");
     });
 
-    it("GIVEN un token ubicado después del carácter 120 WHEN se redacta y trunca THEN el resultado no contiene ningún fragmento del token", () => {
-      const prefix = "echo " + "z".repeat(125) + " ";
+    it("GIVEN un token ubicado en la posición 280 o más allá de 300 WHEN se redacta y trunca THEN el token sale redactado y nunca recortado a la mitad", () => {
+      const prefix280 = "echo " + "z".repeat(274) + " ";
       const token = "ghp_VERYLONGSECRETTOKEN12345678901234";
-      const out = redactCmd(prefix + token);
-      expect(out).not.toContain("VERYLONG");
-      expect(out).not.toContain("ghp_");
-      expect(out.length).toBeLessThanOrEqual(120);
+      const out280 = redactCmd(prefix280 + token);
+      expect(out280).toContain("gh*_[REDACTED]");
+      expect(out280).not.toContain("VERYLONG");
+      expect(out280).not.toContain("ghp_");
+      expect(out280.length).toBeLessThanOrEqual(300);
+
+      const prefix305 = "echo " + "z".repeat(300) + " ";
+      const out305 = redactCmd(prefix305 + token);
+      expect(out305).not.toContain("VERYLONG");
+      expect(out305).not.toContain("ghp_");
+      expect(out305.length).toBeLessThanOrEqual(300);
     });
 
     it("GIVEN un comando sin secretos WHEN se redacta THEN queda igual (salvo espacios normalizados)", () => {
@@ -617,5 +637,402 @@ describe("GOZS-538 H-03: --since / --until y validación de argumentos en harnes
       exitCode = (e as { status?: number }).status ?? 1;
     }
     expect(exitCode).not.toBe(0);
+  });
+});
+
+describe("GOZS-768: fidelidad de telemetría (CMD_MAX 300, rutas relativas, rango, cwd, post/ok y search)", () => {
+  beforeEach(() => vi.stubEnv("HARNESS_TELEMETRY", "1"));
+
+  const workdir = path.join(homedir(), "multica_workspaces_desktop-api.multica.ai", "gozster-ws", "gozs-768", "workdir");
+  const repoRoot = path.join(workdir, "gozster");
+
+  it("GIVEN un comando de shell de 250 caracteres sin secretos WHEN se registra THEN cmd conserva los 250 caracteres", () => {
+    const cmd250 = "rg -n " + "a".repeat(244);
+    expect(cmd250.length).toBe(250);
+    const norm = normalize({ tool_name: "Bash", cwd: repoRoot, tool_input: { command: cmd250 }, tool_use_id: "toolu_250" });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toBe(cmd250);
+    expect(ev.cmd.length).toBe(250);
+  });
+
+  it("GIVEN un comando con un token en la posición 280 WHEN se registra THEN el token sale redactado y nunca recortado a la mitad", () => {
+    const secret = "sk-SUPERSECRETTOKEN1234567890ABCDEF";
+    const cmd = "echo " + "a".repeat(275) + secret;
+    expect(cmd.indexOf(secret)).toBe(280);
+    const norm = normalize({ tool_name: "Bash", cwd: repoRoot, tool_input: { command: cmd } });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toContain("sk-[REDACTED]");
+    expect(ev.cmd).not.toContain("SUPERSECRET");
+    expect(ev.cmd.length).toBeLessThanOrEqual(300);
+  });
+
+  it("GIVEN una lectura de <repoRoot>\\src\\components\\coach\\coach-studio-view.tsx (Windows) WHEN se registra THEN cmd = src/components/coach/coach-studio-view.tsx", () => {
+    const winRepo = "C:\\Users\\user\\multica_workspaces\\ws\\workdir\\gozster";
+    const winFile = `${winRepo}\\src\\components\\coach\\coach-studio-view.tsx`;
+    const norm = normalize({
+      toolCall: { name: "read_file", args: { Path: winFile, StartLine: 10, EndLine: 50 } },
+      workspacePaths: ["C:\\Users\\user\\multica_workspaces\\ws\\workdir"],
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot: winRepo });
+    expect(ev.cmd).toBe("src/components/coach/coach-studio-view.tsx");
+    expect(ev.start).toBe(10);
+    expect(ev.limit).toBe(41);
+    expect(ev.bounded).toBe(true);
+    expect(ev.cwd).toBe("<workdir>");
+  });
+
+  it("GIVEN Set-Location \"<workdir>\\gozster\"; rg -n foo src WHEN se registra THEN cmd = Set-Location \"<repo>\"; rg -n foo src", () => {
+    const winWorkdir = "C:\\Users\\user\\multica_workspaces\\ws\\workdir";
+    const winRepo = `${winWorkdir}\\gozster`;
+    const rawCmd = `Set-Location "${winWorkdir}\\gozster"; rg -n foo src`;
+    const norm = normalize({
+      toolCall: { name: "run_command", args: { CommandLine: rawCmd } },
+      workspacePaths: [winWorkdir],
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot: winRepo });
+    expect(ev.cmd).toBe('Set-Location "<repo>"; rg -n foo src');
+    expect(ev.cwd).toBe("<workdir>");
+  });
+
+  it("GIVEN rutas estilo POSIX y Windows mezcladas WHEN relativizeForTelemetry/buildEvent corren en cualquier OS THEN resuelven <repo> y <workdir> de forma cross-platform", () => {
+    const posixWorkdir = "/srv/multica/ws/workdir";
+    const posixRepo = `${posixWorkdir}/gozster`;
+    expect(relativizeForTelemetry(`cd "${posixRepo}" && cat "${posixWorkdir}/notes.txt"`, posixRepo)).toBe(
+      'cd "<repo>" && cat "<workdir>/notes.txt"',
+    );
+    const posixNorm = normalize({
+      toolCall: { name: "run_command", args: { CommandLine: `rg foo ${posixRepo}/src` } },
+      workspacePaths: [posixWorkdir],
+    });
+    const posixEv = buildEvent(posixNorm, { allowed: true }, { repoRoot: posixRepo });
+    expect(posixEv.cmd).toBe("rg foo <repo>/src");
+    expect(posixEv.cwd).toBe("<workdir>");
+
+    const winWorkdir = "C:\\Users\\user\\multica_workspaces\\ws\\workdir";
+    const winRepo = `${winWorkdir}\\gozster`;
+    expect(relativizeForTelemetry(winWorkdir, winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir.replace(/\\/g, "/"), winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir, winRepo.replace(/\\/g, "/"))).toBe("<workdir>");
+  });
+
+  it("GIVEN una ruta bajo el home fuera del repo WHEN se registra THEN empieza con ~/ y no expone el usuario", () => {
+    const home = homedir();
+    const userFolder = path.basename(home);
+    const outsideFile = path.join(home, "Documents", "notes.md");
+    const norm = normalize({
+      tool_name: "Read",
+      cwd: repoRoot,
+      tool_input: { file_path: outsideFile },
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toMatch(/^~\//);
+    expect(ev.cmd).toBe("~/Documents/notes.md");
+    expect(ev.cmd).not.toContain(userFolder);
+    expect(relativizeForTelemetry(outsideFile, repoRoot)).toMatch(/^~\//);
+  });
+
+  it("GIVEN un Read de Claude Code con offset: 100 y limit: 200 WHEN se registra THEN el evento tiene start: 100, limit: 200 y bounded: true", () => {
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Read",
+      tool_input: { file_path: path.join(repoRoot, "src", "app.ts"), offset: 100, limit: 200 },
+      tool_use_id: "toolu_read_1",
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.kind).toBe("read");
+    expect(ev.cmd).toBe("src/app.ts");
+    expect(ev.start).toBe(100);
+    expect(ev.limit).toBe(200);
+    expect(ev.bounded).toBe(true);
+    expect(ev.cwd).toBe("<repo>");
+    expect(ev.id).toBe("toolu_read_1");
+  });
+
+  it("GIVEN un run_command de Antigravity con workspacePaths[0] = <workdir> WHEN se registra THEN cwd = <workdir>", () => {
+    const norm = normalize({
+      conversationId: "conv-1",
+      workspacePaths: [workdir],
+      toolCall: { id: "call_123", name: "run_command", args: { CommandLine: "git status" } },
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cwd).toBe("<workdir>");
+    expect(ev.id).toBe("call_123");
+    expect(ev.ok).toBeUndefined();
+  });
+
+  it("GIVEN Claude Code Grep con patrón con secreto y ruta dentro del repo WHEN se registra THEN kind='search', decision='allow', patrón redactado y ruta relativizada", () => {
+    const secret = "ghp_ABCDEFGHIJKLMNOPQRSTUVWX1234";
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Grep",
+      tool_input: { pattern: secret, path: path.join(repoRoot, "src", "lib", "api.ts") },
+      tool_use_id: "toolu_grep_1",
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.kind).toBe("search");
+    expect(ev.decision).toBe("allow");
+    expect(ev.cmd).toContain("gh*_[REDACTED]");
+    expect(ev.cmd).toContain("src/lib/api.ts");
+    expect(ev.cmd).not.toContain(secret);
+    expect(ev.id).toBe("toolu_grep_1");
+  });
+
+  it("GIVEN eventos pre y post registrados en events.jsonl WHEN summarize() corre THEN actionsByKind excluye phase='post'", () => {
+    const dir = tempDir();
+    const pre = normalize({
+      session_id: "s-post",
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Bash",
+      tool_input: { command: "echo hi" },
+      tool_use_id: "toolu_pair_1",
+    });
+    const post = normalize({
+      session_id: "s-post",
+      hook_event_name: "PostToolUse",
+      cwd: repoRoot,
+      tool_name: "Bash",
+      tool_input: { command: "echo hi" },
+      tool_response: { stdout: "hi", stderr: "", interrupted: false },
+      tool_use_id: "toolu_pair_1",
+    });
+    recordEvent(pre, { allowed: true }, { dir, repoRoot });
+    recordEvent(post, { allowed: true }, { dir, repoRoot });
+
+    const events = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8")) as Record<string, unknown>[];
+    expect(events).toHaveLength(2);
+    expect(events[0]!.phase).toBe("pre");
+    expect(events[0]!.id).toBe("toolu_pair_1");
+    expect(events[1]!.phase).toBe("post");
+    expect(events[1]!.id).toBe("toolu_pair_1");
+    expect(events[1]!.ok).toBe(true);
+
+    const summary = summarize(events);
+    expect(summary.totalEvents).toBe(2);
+    expect(summary.totalActions).toBe(1);
+    expect(summary.postEvents).toBe(1);
+    expect(summary.actionsByKind).toEqual({ shell: 1 });
+  });
+});
+
+describe("GOZS-769: agregador — totalActions/postEvents, tiempo activo, callsBeforeFirstEdit, duraciones y --deep", () => {
+  const script = path.resolve(__dirname, "../core/scripts/harness-telemetry.mjs");
+
+  it("GIVEN un fixture con eventos pre y post WHEN corre summarize THEN totalActions = suma de actionsByKind y totalEvents = acciones + posts", () => {
+    const fixture = [
+      { ts: "2026-11-24T10:00:00.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c1" },
+      { ts: "2026-11-24T10:00:00.500Z", session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c1", ok: true },
+      { ts: "2026-11-24T10:00:02.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c2" },
+      { ts: "2026-11-24T10:00:02.400Z", session: "s1", runtime: "claude-code", phase: "post", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c2", ok: true },
+      { ts: "2026-11-24T10:00:05.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "c3" },
+      { ts: "2026-11-24T10:00:05.200Z", session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "c3", ok: false },
+    ];
+    const s = summarize(fixture);
+    const actionsSum = Object.values(s.actionsByKind).reduce((acc: number, n: unknown) => acc + Number(n), 0);
+    expect(s.totalActions).toBe(3);
+    expect(s.postEvents).toBe(3);
+    expect(s.totalActions).toBe(actionsSum);
+    expect(s.totalEvents).toBe(s.totalActions + s.postEvents);
+    expect(s.totalEvents).toBe(6);
+  });
+
+  it("GIVEN dos acciones de una sesión separadas por 20 min, con --idle-min 15, WHEN corre summarize THEN ese hueco no suma a activeTimeMs", () => {
+    const base = Date.parse("2026-11-24T10:00:00.000Z");
+    const fixture = [
+      // Deliberadamente desordenados para validar ordenamiento por ts por sesión.
+      { ts: new Date(base + 20 * 60_000).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/b.ts" },
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/a.ts" },
+      // Segunda sesión con 2 huecos: 3 min (<= 15) y 35 min (> 15 y > 30)
+      { ts: new Date(base).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "git status" },
+      { ts: new Date(base + 3 * 60_000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "git diff" },
+      { ts: new Date(base + 38 * 60_000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "write", tool: "edit_file", decision: "allow", cmd: "src/a.ts" },
+    ];
+
+    const s15 = summarize(fixture, { idleMin: 15 });
+    expect(s15.activeTimeMs.idleThresholdMin).toBe(15);
+    // Solo el hueco de 3 min en s2 suma; los de 20 min y 35 min se excluyen.
+    expect(s15.activeTimeMs.totalMs).toBe(3 * 60_000);
+    expect(s15.activeTimeMs.p50Ms).toBe(1.5 * 60_000);
+    expect(s15.activeTimeMs.totalGaps).toBe(3);
+    expect(s15.activeTimeMs.gapsOverMin).toEqual({
+      2: 3, // 3m, 20m, 35m
+      5: 2, // 20m, 35m
+      10: 2,
+      15: 2,
+      30: 1, // 35m
+      60: 0,
+    });
+
+    // Con umbral de 25 min, el hueco de 20 min sí suma (20 + 3 = 23 min).
+    const s25 = summarize(fixture, { idleMin: 25 });
+    expect(s25.activeTimeMs.totalMs).toBe(23 * 60_000);
+
+    // Verificar vía CLI con --idle-min 15 --json
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+    const cliOut = JSON.parse(execFileSync(process.execPath, [script, file, "--idle-min", "15", "--json"], { encoding: "utf8" }));
+    expect(cliOut.activeTimeMs.totalMs).toBe(3 * 60_000);
+    expect(cliOut.activeTimeMs.gapsOverMin["15"]).toBe(2);
+  });
+
+  it("calcula callsBeforeFirstEdit (p50 y p90) contando acciones previas a la primera escritura permitida", () => {
+    const base = Date.parse("2026-11-24T11:00:00.000Z");
+    const fixture = [
+      // s1: 1 read, 1 write BLOQUEADA, 1 post, 1 write PERMITIDA -> 2 acciones previas (read + blocked write)
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 1000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", decision: "block", rule: "db.append-only" },
+      { ts: new Date(base + 1500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "read", decision: "allow" },
+      { ts: new Date(base + 2000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", decision: "allow" },
+      // s2: 4 acciones previas antes de la primera escritura permitida
+      { ts: new Date(base).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", decision: "allow" },
+      { ts: new Date(base + 1000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 2000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 3000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "search", decision: "allow" },
+      { ts: new Date(base + 4000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "write", decision: "allow" },
+      // s3: sin escritura permitida (no cuenta)
+      { ts: new Date(base).toISOString(), session: "s3", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+    ];
+
+    const s = summarize(fixture);
+    expect(s.callsBeforeFirstEdit.count).toBe(2);
+    expect(s.callsBeforeFirstEdit.p50).toBe(3); // median([2, 4]) = 3
+    expect(s.callsBeforeFirstEdit.p90).toBe(3.8); // percentile([2, 4], 90) = 3.8
+  });
+
+  it("GIVEN un pre y un post con el mismo id WHEN corre summarize THEN la duración es post.ts − pre.ts; y soporta fallback sin id y tasa de fallos", () => {
+    const base = Date.parse("2026-11-24T12:00:00.000Z");
+    const fixture = [
+      // Par por id (3500 ms, ok: true)
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "npm test", id: "toolu_1" },
+      { ts: new Date(base + 3500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "npm test", id: "toolu_1", ok: true },
+      // Par por id (1500 ms, ok: false)
+      { ts: new Date(base + 5000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git push", id: "toolu_2" },
+      { ts: new Date(base + 6500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "git push", id: "toolu_2", ok: false },
+      // Par fallback por (session, tool, cmd) sin id (800 ms, ok: true)
+      { ts: new Date(base + 10_000).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/app.ts" },
+      { ts: new Date(base + 10_800).toISOString(), session: "s1", runtime: "antigravity", phase: "post", kind: "read", tool: "read_file", decision: "allow", cmd: "src/app.ts", ok: true },
+      // Dos eventos con ids distintos NO deben cruzarse por fallback
+      { ts: new Date(base + 20_000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status", id: "id_A" },
+      { ts: new Date(base + 20_400).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status", id: "id_B", ok: true },
+    ];
+
+    const pairs = pairPrePostEvents(fixture);
+    expect(pairs).toHaveLength(3);
+    expect(pairs[0]!.durationMs).toBe(3500);
+    expect(pairs[0]!.matchedBy).toBe("id");
+    expect(pairs[1]!.durationMs).toBe(1500);
+    expect(pairs[1]!.matchedBy).toBe("id");
+    expect(pairs[1]!.ok).toBe(false);
+    expect(pairs[2]!.durationMs).toBe(800);
+    expect(pairs[2]!.matchedBy).toBe("fallback");
+
+    const s = summarize(fixture);
+    expect(s.durations.pairedCount).toBe(3);
+    expect(s.durations.pairedById).toBe(2);
+    expect(s.durations.pairedByFallback).toBe(1);
+    expect(s.durations.totalMs).toBe(5800);
+    expect(s.durations.byKind.shell).toEqual({
+      count: 2,
+      p50Ms: 2500,
+      p90Ms: 3300,
+      totalMs: 5000,
+    });
+    expect(s.durations.byKind.read).toEqual({
+      count: 1,
+      p50Ms: 800,
+      p90Ms: 800,
+      totalMs: 800,
+    });
+    expect(s.durations.topSignaturesByTotalMs[0]).toMatchObject({
+      signature: "npm test",
+      count: 1,
+      totalMs: 3500,
+      failed: 0,
+    });
+    expect(s.durations.topSignaturesByTotalMs[1]).toMatchObject({
+      signature: "git push",
+      count: 1,
+      totalMs: 1500,
+      failed: 1,
+    });
+    expect(s.durations.outcomes).toEqual({
+      evaluated: 4,
+      failed: 1,
+      failureRate: 0.25,
+    });
+  });
+
+  it("GIVEN --idle-min abc o una fecha inválida WHEN corre la CLI THEN termina con código != 0 y un mensaje claro", () => {
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, "");
+
+    for (const [badArgs, expectedFragment] of [
+      [[file, "--idle-min", "abc"], "--idle-min"],
+      [[file, "--idle-min=0"], "--idle-min"],
+      [[file, "--idle-min", "-5"], "--idle-min"],
+      [[file, "--idle-min"], "--idle-min"],
+      [[file, "--top", "abc"], "--top"],
+      [[file, "--top=0"], "--top"],
+      [[file, "--since", "fecha-invalida"], "--since"],
+      [[file, "--until=otra-invalida"], "--until"],
+    ] as Array<[string[], string]>) {
+      let exitCode = 0;
+      let stderr = "";
+      try {
+        execFileSync(process.execPath, [script, ...badArgs], { encoding: "utf8", stdio: "pipe" });
+      } catch (e) {
+        const err = e as { status?: number; stderr?: string };
+        exitCode = err.status ?? 1;
+        stderr = String(err.stderr ?? "");
+      }
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain(expectedFragment);
+    }
+
+    // --help termina con código 0 y muestra las opciones
+    const helpOut = execFileSync(process.execPath, [script, "--help"], { encoding: "utf8" });
+    expect(helpOut).toContain("--idle-min");
+    expect(helpOut).toContain("--deep");
+    expect(parseCliArgs(["--idle-min=20", "--deep"]).idleMin).toBe(20);
+  });
+
+  it("GIVEN --deep WHEN corre la CLI THEN delega a telemetry-deep.mjs, escribe deep-dive.md/json y el cruce con summarize coincide", () => {
+    const dir = tempDir();
+    const outDir = path.join(dir, "out");
+    const file = path.join(dir, "events.jsonl");
+    const fixture = [
+      { ts: "2026-11-24T14:00:00.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/app.ts", start: 1, limit: 100, bounded: true, cwd: "<repo>", id: "t1" },
+      { ts: "2026-11-24T14:00:00.200Z", session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t1", ok: true },
+      { ts: "2026-11-24T14:00:05.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t2" },
+      { ts: "2026-11-24T14:00:05.500Z", session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t2", ok: true },
+    ];
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+
+    const stdout = execFileSync(process.execPath, [script, file, "--deep", "--out", outDir], { encoding: "utf8" });
+    expect(stdout).toContain("4 eventos");
+    expect(stdout).toContain("2 acciones");
+    expect(stdout).toContain("1 sesiones");
+    expect(stdout).toContain("coincide con harness-telemetry");
+
+    const mdPath = path.join(outDir, "deep-dive.md");
+    const jsonPath = path.join(outDir, "deep-dive.json");
+    expect(existsSync(mdPath)).toBe(true);
+    expect(existsSync(jsonPath)).toBe(true);
+
+    const reportJson = JSON.parse(readFileSync(jsonPath, "utf8"));
+    expect(reportJson.coverage.events).toBe(4);
+    expect(reportJson.coverage.actions).toBe(2);
+    expect(reportJson.coverage.sessions).toBe(1);
+    expect(reportJson.coverage.crossCheck.matches).toBe(true);
+  });
+
+  it("GIVEN harness-kit/core/scripts/ THEN no existe ningún script separado de deep-dive (vive en harness-kit/core/lib/telemetry-deep.mjs)", () => {
+    const scriptsDir = path.resolve(__dirname, "../core/scripts");
+    const libModule = path.resolve(__dirname, "../core/lib/telemetry-deep.mjs");
+    expect(existsSync(libModule)).toBe(true);
+    const scriptFiles = readdirSync(scriptsDir);
+    expect(scriptFiles.filter((f) => /deep/i.test(f))).toEqual([]);
   });
 });

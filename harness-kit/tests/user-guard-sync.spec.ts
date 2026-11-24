@@ -261,16 +261,54 @@ describe("Antigravity: guard de usuario (~/.gemini/config/hooks.json)", () => {
     expect(d.decision).toBe("allow");
   });
 
-  it("install.mjs registra un hook propio con node (sin bash) y el dispatcher instalado aplica el kit instalado", () => {
+  it("install.mjs registra PreToolUse y PostToolUse (con --phase post) con node y el dispatcher instalado aplica el kit y responde {} en post", () => {
     const home = temp("gs-agy-home-");
     const hooks = install(home, "antigravity");
     const cfg = JSON.parse(readFileSync(path.join(home, ".gemini", "config", "hooks.json"), "utf8"));
     const entry = cfg["harness-kit-user-guard"].PreToolUse[0];
+    const postEntry = cfg["harness-kit-user-guard"].PostToolUse[0];
     expect(cfg["gozster-guard"]).toBeUndefined();
     expect(entry.hooks[0].command).toMatch(/^node ".*harness-dispatch-antigravity\.mjs"$/);
-    for (const t of ["run_command", "view_file", "read_file", "write_file", "edit_file"]) expect(t).toMatch(new RegExp(`^(?:${entry.matcher})$`));
+    expect(postEntry.hooks[0].command).toMatch(/^node ".*harness-dispatch-antigravity\.mjs" --phase post$/);
+    for (const t of ["run_command", "view_file", "read_file", "write_file", "edit_file"]) {
+      expect(t).toMatch(new RegExp(`^(?:${entry.matcher})$`));
+      expect(t).toMatch(new RegExp(`^(?:${postEntry.matcher})$`));
+    }
     execFileSync(process.execPath, [path.join(kitDir, "core", "plugins", "antigravity", "install.mjs"), "--home", home, "--check"], { stdio: "pipe" });
     const r = hook(path.join(hooks, "harness-dispatch-antigravity.mjs"), fixture("pre-shell", { name: "run_command", args: { CommandLine: "git reset --hard" } }));
     expect(JSON.parse(r.out).decision).toBe("deny");
+
+    const postRepo = consumer();
+    const postPayload = {
+      ...fixture("post-shell", { id: "call_post_1", name: "run_command", args: { CommandLine: "git status" } }),
+      workspacePaths: [postRepo.workdir],
+    };
+    const postHome = temp("gs-agy-post-home-");
+    const postHooks = install(postHome, "antigravity");
+    const postTelDir = temp("gs-agy-post-tel-");
+    const postRes = execFileSync(process.execPath, [path.join(postHooks, "harness-dispatch-antigravity.mjs"), "--phase", "post"], {
+      input: JSON.stringify(postPayload),
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: postTelDir },
+    });
+    expect(JSON.parse(postRes)).toEqual({});
+    const postLines = readFileSync(path.join(postTelDir, "events.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(postLines).toHaveLength(1);
+    expect(postLines[0]).toMatchObject({ runtime: "antigravity", phase: "post", id: "call_post_1", cwd: "<workdir>", ok: true });
+  });
+
+  it("claude-code install.mjs registra PreToolUse, PostToolUse y PostToolUseFailure incluyendo Grep, Glob y Read", () => {
+    const home = temp("gs-cc-home-");
+    install(home, "claude-code");
+    const cfg = JSON.parse(readFileSync(path.join(home, ".claude", "settings.json"), "utf8"));
+    for (const event of ["PreToolUse", "PostToolUse", "PostToolUseFailure"]) {
+      expect(cfg.hooks[event]).toBeDefined();
+      const matcher = cfg.hooks[event][0].matcher;
+      for (const t of ["Bash", "PowerShell", "Read", "Grep", "Glob", "Write", "Edit", "NotebookEdit"]) {
+        expect(t, `${event} matcher`).toMatch(new RegExp(`^(?:${matcher})$`));
+      }
+    }
+    execFileSync(process.execPath, [path.join(kitDir, "core", "plugins", "claude-code", "install.mjs"), "--home", home, "--check"], { stdio: "pipe" });
   });
 });

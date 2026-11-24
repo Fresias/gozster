@@ -79,16 +79,19 @@
     },
     {
       "id": "L-001",
-      "title": "Evaluación post-hardening del guard políglota y reducción de fricción",
-      "status": "blocked",
-      "hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
+      "title": "Línea base real de 7 días del harness endurecido (post-GOZS-538)",
+      "status": "completed",
+      "hypothesis": "Línea base descriptiva de 7 días de operación real del harness endurecido tras el merge de GOZS-538 (PR #497): registra volumen por runtime (antigravity y claude-code), bloqueos por regla, inyecciones, TTFE y sesiones con bloqueos repetidos como referencia determinista para medir experimentos futuros (L-002 en adelante). La hipótesis comparativa original no es contrastable porque toda la telemetría limpia del git common dir es posterior al hardening y L-000 combina sesiones reales con ejecuciones de tests.",
       "original_hypothesis": "El sync del guard, la cobertura de Antigravity y los arreglos de falsos positivos reducen los bloqueos repetidos por sesión y el TTFE, sin bajar los bloqueos legítimos.",
-      "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov. Limitación conocida H-04: cuando coinciden en una sesión abierta dentro del repo el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de origin/main con HARNESS_TELEMETRY=0; si una regla de origin/main bloquea algo que el guard de la rama permite, ese bloqueo no se escribe en events.jsonl.",
-      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde el timestamp ISO exacto de merged_at del PR #497 (GOZS-538, H-01 y H-02). Como los eventos sintéticos previos tienen session: 'unknown', se descartan pasando --since <ISO-timestamp-del-merge-de-GOZS-538>, cuyo valor exacto será estampado en start_condition y window.before.start por GOZS-527 al ejecutar la medición.",
+      "caveat": "línea base sintética de 10 min (13-nov 22:13–22:23Z, sesiones de prueba de los 4 runtimes); anulada en auditoría del 14-nov. Limitación conocida H-04: cuando coinciden en una sesión abierta dentro del repo el hook del proyecto y el dispatcher instalado, el dispatcher evalúa las reglas de origin/main con HARNESS_TELEMETRY=0; si una regla de origin/main bloquea algo que el guard de la rama permite, ese bloqueo no se escribe en events.jsonl. Limitación conocida de truncado (H-05): cmd se trunca a 120 caracteres; con las rutas de workdir de Multica (~115 caracteres) quedan cortados el 64 % de los comandos de shell y el 96 % de las rutas de lectura. Las métricas agregadas (eventos, sesiones, bloqueos por regla, TTFE) no se ven afectadas; los análisis por archivo o por comando no son confiables en esta ventana.",
+      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde el timestamp ISO exacto de merged_at del PR #497 (GOZS-538, H-01 y H-02): 2026-11-16T17:48:54Z. Medida con --since 2026-11-16T17:48:54Z --until 2026-11-23T17:48:54Z, descartando los eventos sintéticos previos con session: 'unknown'.",
       "experience": "EXPERIENCE-L-001.md",
       "window": {
-        "durationDays": 14,
-        "before": null,
+        "durationDays": 7,
+        "before": {
+          "start": "2026-11-16T17:48:54Z",
+          "end": "2026-11-23T17:48:54Z"
+        },
         "after": null
       },
       "metrics": {
@@ -152,17 +155,113 @@
           },
           "repeatedBlockSessions": []
         },
-        "before": null,
-        "after": {
-          "totalEvents": null,
-          "totalSessions": null,
-          "byRuntime": null,
-          "blocksByRule": null,
-          "timeToFirstEditMs": { "median": null, "p90": null },
-          "repeatedBlockSessions": null
-        }
+        "before": {
+          "totalEvents": 24376,
+          "totalSessions": 349,
+          "byRuntime": {
+            "antigravity": {
+              "events": 20612,
+              "sessions": 238,
+              "blocksByRule": {
+                "read.oversize": 166,
+                "pr.requires-seal": 113,
+                "fs.protected": 33,
+                "shell.rm-rf": 17,
+                "read.guard-installed": 16,
+                "harness.authorized-only": 8,
+                "db.append-only": 6,
+                "git.repo-rewire": 5,
+                "git.force-push": 3,
+                "git.reset-hard": 3,
+                "git.branch-force-delete": 3,
+                "shell.env-leak": 1,
+                "pr.merge-check": 1
+              }
+            },
+            "claude-code": {
+              "events": 3764,
+              "sessions": 111,
+              "blocksByRule": {
+                "pr.requires-seal": 93,
+                "read.guard-installed": 17,
+                "shell.oversize-cat": 9,
+                "git.repo-rewire": 8,
+                "shell.rm-rf": 7,
+                "git.force-push": 7,
+                "read.oversize": 6,
+                "harness.authorized-only": 4,
+                "git.branch-force-delete": 3,
+                "shell.env-leak": 2,
+                "pr.merge-check": 2,
+                "db.append-only": 1
+              }
+            }
+          },
+          "actionsByKind": {
+            "shell": 13739,
+            "read": 7362,
+            "write": 3214
+          },
+          "blocksByRule": {
+            "pr.requires-seal": 206,
+            "read.oversize": 172,
+            "fs.protected": 33,
+            "read.guard-installed": 33,
+            "shell.rm-rf": 24,
+            "git.repo-rewire": 13,
+            "harness.authorized-only": 12,
+            "git.force-push": 10,
+            "shell.oversize-cat": 9,
+            "db.append-only": 7,
+            "git.branch-force-delete": 6,
+            "shell.env-leak": 3,
+            "git.reset-hard": 3,
+            "pr.merge-check": 3
+          },
+          "injectionsByRule": {
+            "remediate.cwd-lost": 35,
+            "remediate.oversize-output": 17,
+            "db.migration-test-reminder": 9
+          },
+          "timeToFirstEditMs": {
+            "count": 279,
+            "median": 256035,
+            "p90": 726729
+          },
+          "repeatedBlockSessions": [
+            { "session": "4c96724a-fe0a-40ab-b692-96bf61259f69", "rule": "read.oversize", "count": 8 },
+            { "session": "7d2bbe88-6937-4533-8c6e-6f1b32468ef8", "rule": "read.oversize", "count": 8 },
+            { "session": "a5bb83b9-62c4-49af-a378-6bbb4acb6e68", "rule": "read.oversize", "count": 7 },
+            { "session": "b9005d62-d64f-4a16-9183-055c0e213e52", "rule": "pr.requires-seal", "count": 7 },
+            { "session": "e324af24-b05b-404d-8a6a-86a102b1a400", "rule": "read.oversize", "count": 6 },
+            { "session": "954406cc-4964-49a9-af0b-9d777fcaa1a2", "rule": "read.oversize", "count": 6 },
+            { "session": "739d2dda-5972-494c-940b-5a23aa44f58c", "rule": "read.oversize", "count": 6 },
+            { "session": "2614c702-7987-4e21-842d-5e274e8e93ac", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "599a5302-9cd7-4d5f-9fc9-51097d5285eb", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "009eec2f-73b0-476a-92eb-4a4bc2aaa34f", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "b12db806-ed14-406c-bdfa-187fb37350e7", "rule": "read.oversize", "count": 5 },
+            { "session": "be2488eb-a726-4bac-9677-3c6ea339886c", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "874a3645-ab3a-48f9-9622-364b8816cb39", "rule": "read.oversize", "count": 5 },
+            { "session": "6e433522-835c-401b-a19c-a76e7635d3cb", "rule": "read.oversize", "count": 5 },
+            { "session": "2c11c82b-d0f5-4bb0-9461-9f3448f746b4", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "8068369b-7e1e-4bc2-94ce-c5260f3df976", "rule": "read.oversize", "count": 5 },
+            { "session": "1d03615d-f1b7-45c8-a194-789884dd85ae", "rule": "pr.requires-seal", "count": 5 },
+            { "session": "ecbc3621-fc18-4b70-8ecc-598c6de21739", "rule": "pr.requires-seal", "count": 4 },
+            { "session": "f705861d-d16a-401b-8bce-de55e1dbe757", "rule": "read.oversize", "count": 4 },
+            { "session": "23dd8fd7-5b5b-4967-a733-5c6b6dd91de6", "rule": "read.oversize", "count": 4 },
+            { "session": "438b9f0c-9742-452f-a3ee-f8bc3a144b7d", "rule": "read.oversize", "count": 4 },
+            { "session": "5b330812-1183-45da-9708-e37850e74491", "rule": "read.oversize", "count": 4 },
+            { "session": "ecac33ad-dd0a-4403-a41e-959065f86799", "rule": "read.oversize", "count": 4 },
+            { "session": "55545647-ba1d-4ba9-8d12-de4e84d281f6", "rule": "read.oversize", "count": 4 },
+            { "session": "d48b662f-3906-48df-a6a7-f3c43064706b", "rule": "pr.requires-seal", "count": 4 },
+            { "session": "7dd362a8-c296-4eaa-b6e0-124142fac75c", "rule": "pr.requires-seal", "count": 4 },
+            { "session": "00019116-54c0-4f1e-bce8-39cba2051a1b", "rule": "pr.requires-seal", "count": 4 },
+            { "session": "6886bcdd-2b4a-431f-9e85-db23ac68ddca", "rule": "pr.requires-seal", "count": 4 }
+          ]
+        },
+        "after": null
       },
-      "notes": "Línea base sintética inicial anulada en auditoría técnica del 14-nov. Experimento bloqueado hasta acumular 7 días de telemetría real en DESKTOP-S4P202B (Etapa B)."
+      "notes": "Línea base real de 7 días consolidada en DESKTOP-S4P202B (2026-11-16T17:48:54Z → 2026-11-23T17:48:54Z) desde <git common dir>/harness/telemetry/events.jsonl tras GOZS-538 (#497): 24.376 eventos en 349 sesiones (238 antigravity —incluye 1 evento residual 'unknown' a las 17:54:26Z— y 111 claude-code). Los experimentos posteriores se registran como L-002 en adelante."
     }
   ]
 }

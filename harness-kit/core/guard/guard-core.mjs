@@ -6,10 +6,12 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalize } from "./normalize.mjs";
+import { resolveSession, resolveTelemetryDir } from "./telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -152,6 +154,39 @@ function countLines(fullPath) {
   }
 }
 
+/** Format runtime-specific read.oversize message with relative path and exact line count. */
+function formatOversizeReason(displayPath, lines, runtime) {
+  if (runtime === "antigravity") {
+    return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá \`read_file\` con \`StartLine\` y \`EndLine\` (máximo 300, rango inclusivo; recomendado 200) o buscá con contexto: \`rg -n -C 20 <patrón> ${displayPath}\`.`;
+  }
+  if (runtime === "claude-code") {
+    return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá \`Read\` con \`offset\` y \`limit\` (máximo 300; recomendado 200) o buscá primero con \`Grep\`.`;
+  }
+  return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá una lectura acotada por rango de líneas (máximo 300; recomendado 200) o buscá primero con contexto: \`rg -n -C 20 <patrón> ${displayPath}\`.`;
+}
+
+/** Evaluate native search requests (Grep/Glob): allowed unless targeting a sensitive path. */
+function evaluateSearch(call, repoRoot) {
+  const target = call.filePath || "";
+  if (!target) return { allowed: true };
+
+  if (isInstalledGuardPath(target)) {
+    return {
+      allowed: false,
+      ruleId: "read.guard-installed",
+      reason:
+        "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo.",
+    };
+  }
+
+  const sensitive = checkSensitivePath(target, repoRoot);
+  if (sensitive && (sensitive.ruleId === "fs.env-leak" || sensitive.ruleId === "read.sensitive")) {
+    return sensitive;
+  }
+
+  return { allowed: true };
+}
+
 /** Evaluate read requests. */
 function evaluateRead(call, options, repoRoot) {
   if (isInstalledGuardPath(call.filePath)) {
@@ -174,11 +209,15 @@ function evaluateRead(call, options, repoRoot) {
     if (existsSync(resolved)) {
       const lines = countLines(resolved);
       if (lines > 300 && !call.isBounded) {
+        const rel = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+        const displayPath =
+          rel && rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel)
+            ? rel
+            : call.filePath.replace(/\\/g, "/");
         return {
           allowed: false,
           ruleId: "read.oversize",
-          reason:
-            "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines).",
+          reason: formatOversizeReason(displayPath, lines, call.runtime),
         };
       }
     }
@@ -249,14 +288,48 @@ function oversizeCatLines(cmd, repoRoot) {
   return 0;
 }
 
-const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+export const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+
+/** Bash used for harness .sh scripts: Git Bash on Windows (never WSL `bash`), plain `bash` elsewhere. */
+export function resolveBash(platform = process.platform, exists = existsSync) {
+  return platform === "win32" && exists(gitBashWin) ? gitBashWin : "bash";
+}
 
 /** Reuses `harness-gate.sh --verify` (single seal_valid implementation). */
 function sealValid(repoRoot) {
   const script = path.join(here, "..", "scripts", "harness-gate.sh").replace(/\\/g, "/");
-  const bash = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
-  const res = spawnSync(bash, [script, "--verify"], { cwd: repoRoot, encoding: "utf8" });
+  const res = spawnSync(resolveBash(), [script, "--verify"], { cwd: repoRoot, encoding: "utf8" });
   return res.status === 0;
+}
+
+const SHIP_HINT = "`node harness-kit/core/scripts/harness-ship.mjs --lesson \"…\" --title \"…\" --body-file <ruta>`";
+
+/**
+ * Why `gh pr create` is blocked by pr.requires-seal (null = seal valid and body carries it).
+ * Cases: no seal, seal of another commit, same commit but tree/diff changed, body without the seal block.
+ */
+export function sealDiagnosis(repoRoot, body, valid = sealValid(repoRoot)) {
+  let seal = null;
+  try {
+    seal = JSON.parse(readFileSync(path.join(repoRoot, ".harness", "complete.json"), "utf8"));
+  } catch {}
+  if (!valid) {
+    if (!seal || !seal.fingerprint) {
+      return `No corriste el gate (.harness/complete.json no existe). Usá ${SHIP_HINT} (o bash harness-kit/core/scripts/harness-gate.sh).`;
+    }
+    const res = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" });
+    const head = res.status === 0 ? res.stdout.trim() : "";
+    const sealHead = String(seal.head || "");
+    if (head && sealHead && sealHead !== head) {
+      return `El sello es de ${sealHead.slice(0, 7)} y HEAD es ${head.slice(0, 7)}: hubo commits después del gate (por ejemplo, la lección). Usá ${SHIP_HINT} o volvé a correr bash harness-kit/core/scripts/harness-gate.sh.`;
+    }
+    return `Hay cambios sin commitear o el diff cambió desde el gate (sello de ${sealHead.slice(0, 7)} = HEAD). Commiteá y usá ${SHIP_HINT} o volvé a correr bash harness-kit/core/scripts/harness-gate.sh.`;
+  }
+  const fingerprint = (seal && seal.fingerprint) || "";
+  if (!fingerprint || !body.includes("harness-seal:") || !body.includes(fingerprint)) {
+    return "Agregá al --body-file la salida de `bash harness-kit/core/scripts/harness-gate.sh --pr-block` (harness-ship.mjs lo hace solo).";
+  }
+  return null;
 }
 
 /** Current git branch of the repo ("" if unknown). */
@@ -284,6 +357,254 @@ export function isInstalledGuardPath(p) {
   );
 }
 
+function expandHome(p) {
+  const s = String(p || "");
+  if (s === "~") return homedir();
+  if (s.startsWith("~/") || s.startsWith("~\\")) {
+    return path.join(homedir(), s.slice(2));
+  }
+  return s;
+}
+
+function isWindowsDrivePath(p) {
+  return /^[a-zA-Z]:[/\\]/.test(String(p || ""));
+}
+
+function isPathInsideRepo(target, repoRoot) {
+  const raw = String(target || "");
+  if (!raw) return false;
+  if (raw === "~" || raw.startsWith("~/") || raw.startsWith("~\\")) {
+    const expanded = path.resolve(expandHome(raw));
+    const rel = path.relative(path.resolve(repoRoot), expanded).replace(/\\/g, "/");
+    return rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel) && !isWindowsDrivePath(rel);
+  }
+  const fwd = raw.replace(/\\/g, "/");
+  if (isWindowsDrivePath(fwd) && !isWindowsDrivePath(repoRoot)) {
+    return false;
+  }
+  const resolved = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(repoRoot, raw);
+  const rel = path.relative(path.resolve(repoRoot), resolved).replace(/\\/g, "/");
+  return rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel) && !isWindowsDrivePath(rel);
+}
+
+/** Antigravity CLI scratch/artifacts dir (~/.gemini/antigravity-cli/brain/...). */
+export function isAntigravityBrainPath(p) {
+  const raw = String(p || "").replace(/\\/g, "/");
+  if (/\.\.|%2e/i.test(raw)) return false;
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.gemini\/antigravity-cli\/brain(\/|$)/i.test(norm);
+}
+
+/** User-level Gemini/Antigravity config dir (~/.gemini/config/**). */
+export function isGeminiConfigPath(p) {
+  if (!p) return false;
+  const raw = String(p).replace(/\\/g, "/");
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.gemini\/config(\/|$)/i.test(norm) || /(^|\/)\.gemini\/config(\/|$)/i.test(raw);
+}
+
+const PROTECTED_SHELL_PATH_RE =
+  /(?:(?:^|[/\\"'`\s>=:])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i;
+
+function stripWritableAgentPaths(cmd, repoRoot) {
+  return String(cmd || "")
+    .replace(
+      /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"'<>|&;=]*\.claude[/\\]projects[/\\][^/\\\s"'<>|&;=]+[/\\]memory[/\\][^\s"'<>|&;=]*))/gi,
+      (match, q, pQuoted, pUnquoted) => {
+        const p = pQuoted || pUnquoted;
+        if (/\.\.|%2e/i.test(p)) return match;
+        const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+        if (!isAgentMemoryPath(norm)) return match;
+        return "";
+      }
+    )
+    .replace(
+      /(?:(["'])([^"']*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^"']*)\1|([^\s"'<>|&;=]*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^\s"'<>|&;=]*))/gi,
+      (match, q, pQuoted, pUnquoted) => {
+        const p = pQuoted || pUnquoted;
+        if (/\.\.|%2e/i.test(p)) return match;
+        if (isPathInsideRepo(p, repoRoot)) return match;
+        const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+        if (!isAntigravityBrainPath(norm)) return match;
+        return "";
+      }
+    );
+}
+
+function isProtectedShellTarget(rawToken) {
+  let t = String(rawToken || "").trim().replace(/^["']|["']$/g, "");
+  if (!t) return false;
+  // Unwrap flag=value or PowerShell -Path:value (without splitting Windows drive C:\...)
+  const flagAssign = t.match(/^--?[a-zA-Z][\w-]*[:=](.+)$/);
+  if (flagAssign) {
+    t = flagAssign[1].replace(/^["']|["']$/g, "");
+  } else if (/^[a-zA-Z_]\w*=(.+)$/.test(t)) {
+    t = t.slice(t.indexOf("=") + 1).replace(/^["']|["']$/g, "");
+  }
+  if (!t || isAgentMemoryPath(t)) return false;
+  const fwd = t.replace(/\\/g, "/");
+  const norm = path.posix.normalize(fwd);
+  return (
+    /(^|\/)\.git(\/|$)/i.test(norm) ||
+    /(^|\/)\.git(\/|$)/i.test(fwd) ||
+    /(^|\/)\.(claude|agents|gemini|opencode)(\/|$)/i.test(norm) ||
+    /(^|\/)\.(claude|agents|gemini|opencode)\//i.test(fwd)
+  );
+}
+
+function hasUnquotedProtectedRedirect(seg) {
+  let quote = null;
+  for (let i = 0; i < seg.length; i++) {
+    const ch = seg[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < seg.length) {
+        i++;
+        continue;
+      }
+      if (ch === '"') quote = null;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < seg.length) {
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === ">") {
+      if (seg[i + 1] === ">") i++;
+      let j = i + 1;
+      while (j < seg.length && /\s/.test(seg[j])) j++;
+      let target = "";
+      let tq = null;
+      while (j < seg.length) {
+        const c = seg[j];
+        if (tq) {
+          if (tq === '"' && c === "\\" && j + 1 < seg.length) target += seg[++j];
+          else if (c === tq) tq = null;
+          else target += c;
+        } else if (c === "'" || c === '"') {
+          tq = c;
+        } else if (/[\s;|&<>]/.test(c)) {
+          break;
+        } else {
+          target += c;
+        }
+        j++;
+      }
+      if (target && isProtectedShellTarget(target)) return true;
+    }
+  }
+  return false;
+}
+
+/** True if a shell command writes to a protected runtime/git path (.git, .claude, .agents, .gemini, .opencode). */
+function shellWritesProtected(cmd, repoRoot, depth = 0) {
+  if (depth > 5) return false;
+  const cleaned = stripWritableAgentPaths(stripHeredocBodies(cmd), repoRoot);
+  if (!PROTECTED_SHELL_PATH_RE.test(cleaned)) return false;
+
+  for (const seg of splitShellSegments(cleaned)) {
+    if (!PROTECTED_SHELL_PATH_RE.test(seg)) continue;
+    if (hasUnquotedProtectedRedirect(seg)) return true;
+
+    const inline = extractInlineInterpreter(seg);
+    if (inline) {
+      if (inline.kind === "shell" || inline.kind === "pwsh") {
+        if (shellWritesProtected(inline.code, repoRoot, depth + 1)) return true;
+      } else {
+        const codeSafe = stripWritableAgentPaths(inline.code, repoRoot);
+        const targetsProtected =
+          PROTECTED_SHELL_PATH_RE.test(codeSafe) || (/\bargv\b/i.test(inline.code) && PROTECTED_SHELL_PATH_RE.test(seg));
+        if (targetsProtected) {
+          if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
+        }
+      }
+    }
+
+    const unquoted = stripQuotedLiterals(seg);
+    if (/WriteAll(Text|Bytes|Lines)|\[IO\.File\]::(Write|Append|Delete|Move|Copy|Create|Replace)/i.test(unquoted)) {
+      return true;
+    }
+
+    const tokens = tokenizeShellSegment(seg);
+
+    // Copy-like verbs: only the destination matters.
+    if (/(^|[\s;&|(])(cp|install|ln|Copy-Item)\s/i.test(unquoted)) {
+      const destFlags = /^(-t|--target-directory|-dest(ination)?)$/i;
+      let explicitDest = "";
+      for (let i = 0; i < tokens.length; i++) {
+        if (destFlags.test(tokens[i]) && tokens[i + 1]) {
+          explicitDest = tokens[i + 1];
+          break;
+        }
+        if (/^(--target-directory=|-dest(ination)?:)/i.test(tokens[i])) {
+          explicitDest = tokens[i];
+          break;
+        }
+      }
+      if (explicitDest) {
+        if (isProtectedShellTarget(explicitDest)) return true;
+      } else {
+        const last = tokens.filter((a) => !a.startsWith("-")).pop() || "";
+        if (isProtectedShellTarget(last)) return true;
+      }
+    }
+
+    // PowerShell mutating cmdlets: check path/target arguments (ignore -Value/-Encoding/-ItemType payloads).
+    if (
+      /(^|[\s;&|(])(Set-Content|Add-Content|Out-File|New-Item|Clear-Content|Remove-Item|Move-Item|Rename-Item)\b/i.test(
+        unquoted
+      )
+    ) {
+      const cmdIdx = tokens.findIndex((t) =>
+        /^(Set-Content|Add-Content|Out-File|New-Item|Clear-Content|Remove-Item|Move-Item|Rename-Item)$/i.test(t)
+      );
+      const start = cmdIdx >= 0 ? cmdIdx + 1 : 1;
+      for (let i = start; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (/^-(Value|Encoding|ItemType|Filter|Include|Exclude)$/i.test(t)) {
+          i++;
+          continue;
+        }
+        if (/^-(Value|Encoding|ItemType|Filter|Include|Exclude):/i.test(t)) continue;
+        if (/^-[a-zA-Z]+$/.test(t)) continue;
+        if (isProtectedShellTarget(t)) return true;
+      }
+    }
+
+    // dd: check of=<target>.
+    if (/(^|[\s;&|(])dd\s/i.test(unquoted)) {
+      for (const t of tokens) {
+        if (/^of=/i.test(t) && isProtectedShellTarget(t)) return true;
+      }
+    }
+
+    // Other mutating shell verbs: block if any target argument in this segment is protected.
+    if (
+      /(^|[\s;&|(])(mv|truncate|chmod|tee|rm|touch|patch)\s|sed\s+(?:-[a-zA-Z0-9]+\s+)*(?:-[a-zA-Z]*i|--in-place)\b|perl\s+(?:-[a-zA-Z0-9]+\s+)*-[a-zA-Z]*i\b|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)/i.test(
+        unquoted
+      )
+    ) {
+      for (let i = 1; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (/^-[a-zA-Z]+$/.test(t)) continue;
+        if (isProtectedShellTarget(t)) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 /** Harness mutations are allowed only on an authorized harness branch: <type>/<issue-#>-harness-<slug>. */
 export function harnessBranchAuthorized(branch) {
   return /^(feature|fix|chore)\/\d+-harness-/.test(String(branch || ""));
@@ -296,9 +617,7 @@ export function isProtectedHarnessPath(rel) {
   return /^(harness|harness-kit|\.github)\//.test(p);
 }
 
-const SHELL_WRITE_VERB =
-  /((^|[\s;&|(])(cp|mv|install|dd|truncate|chmod|tee|rm|touch|ln|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
-// Same verbs minus copy-like ones (cp/install/ln/Copy-Item): those only write their LAST argument.
+// Copy-like verbs (cp/install/ln/Copy-Item) are handled separately because they only write their destination.
 const HARNESS_WRITE_VERB =
   /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+(?:-[a-zA-Z0-9]+\s+)*(?:-[a-zA-Z]*i|--in-place)\b|perl\s+(?:-[a-zA-Z0-9]+\s+)*-[a-zA-Z]*i\b|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
 const HARNESS_GENERATORS = /^(harness-render\.mjs|harness-compose\.mjs|bootstrap\.mjs)$/i;
@@ -702,6 +1021,340 @@ function mergeCheck(selector, repoRoot) {
   return res.status === 0 ? "" : (res.stderr || res.stdout || "merge check failed").trim();
 }
 
+const SHELL_POLLING_MESSAGE =
+  "Polling prohibido. Para CI: `node harness-kit/core/scripts/harness-pr-status.mjs <n> --wait-checks` (una sola llamada) o `multica issue wakeup --until-pr checks`. Para hijos/estados: `--until-children-done` / `--until-status`. Para esperar un servidor local en E2E, juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost`) en un solo comando.";
+
+const LOOP_KEYWORDS = new Set(["while", "for", "do", "until", "foreach", "foreach-object"]);
+const CLAUSE_PREFIX_KEYWORDS = new Set([
+  "do",
+  "then",
+  "else",
+  "elif",
+  "try",
+  "catch",
+  "finally",
+  "!",
+  "time",
+  "command",
+  "builtin",
+  "exec",
+  "until",
+]);
+const LOCAL_CHECK_PROGRAMS = new Set([
+  "invoke-webrequest",
+  "curl",
+  "test-netconnection",
+  "get-nettcpconnection",
+]);
+const LOCAL_HOST_TOKEN_RE = /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/.*)?$/i;
+
+/** Split a shell command into clauses by operators and unquoted block braces `{` / `}` (ignoring `${...}`). */
+function splitPollingClauses(cmd) {
+  const clauses = [];
+  let cur = "";
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      cur += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < cmd.length) {
+        cur += ch + cmd[++i];
+        continue;
+      }
+      if (ch === '"') quote = null;
+      cur += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < cmd.length) {
+      cur += ch + cmd[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === ";" || ch === "\n" || ch === "}") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "{" && cmd[i - 1] !== "$") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "|") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      if (cmd[i + 1] === "|" || cmd[i + 1] === "&") i++;
+      continue;
+    }
+    if (ch === "&") {
+      const prev = cmd[i - 1] || "";
+      const next = cmd[i + 1] || "";
+      if (prev === ">" || prev === "<" || next === ">") {
+        cur += ch;
+        continue;
+      }
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      if (next === "&") i++;
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) clauses.push(cur);
+  return clauses;
+}
+
+function parseDurationSecondsToken(raw) {
+  const m = String(raw || "").trim().match(/^(\d+(?:\.\d+)?)(ms|s|m|h|d)?$/i);
+  if (!m) return null;
+  const val = Number(m[1]);
+  if (!Number.isFinite(val)) return null;
+  const unit = (m[2] || "s").toLowerCase();
+  if (unit === "ms") return val / 1000;
+  if (unit === "m") return val * 60;
+  if (unit === "h") return val * 3600;
+  if (unit === "d") return val * 86400;
+  return val;
+}
+
+function programBaseName(token) {
+  const cleaned = String(token || "").trim().replace(/^&/, "");
+  const base = cleaned.split(/[/\\]/).pop() || "";
+  return base.replace(/\.exe$/i, "").toLowerCase();
+}
+
+function parseNonNegativeNumber(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const num = Number(s);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
+/**
+ * Detect wait duration in seconds if a clause's program is a wait command, or null otherwise.
+ * Matches: Start-Sleep, sleep, cmd `timeout /t <n>`, and `ping -n <n> 127.0.0.1`.
+ */
+function parseWaitClauseSeconds(tokens) {
+  if (tokens.length === 0) return null;
+  const prog = programBaseName(tokens[0]);
+  const args = tokens.slice(1);
+
+  if (prog === "start-sleep" || prog === "sleep") {
+    if (args.length === 0) return null;
+    let total = 0;
+    let found = false;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      const lower = a.toLowerCase();
+      const colonMatch = lower.match(/^-(seconds?|sec|s|milliseconds?|millis?|ms|m):(.+)$/);
+      if (colonMatch) {
+        const isMs = colonMatch[1].startsWith("m");
+        const num = parseNonNegativeNumber(colonMatch[2]);
+        total += num !== null ? (isMs ? num / 1000 : num) : Infinity;
+        found = true;
+        continue;
+      }
+      if (/^-(seconds?|sec|s)$/i.test(a)) {
+        const next = args[++i];
+        const secs = parseDurationSecondsToken(next);
+        total += secs === null ? Infinity : secs;
+        found = true;
+        continue;
+      }
+      if (/^-(milliseconds?|millis?|ms|m)$/i.test(a)) {
+        const next = args[++i];
+        const num = parseNonNegativeNumber(next);
+        total += num !== null ? num / 1000 : Infinity;
+        found = true;
+        continue;
+      }
+      if (a.startsWith("-")) continue;
+      const secs = parseDurationSecondsToken(a);
+      total += secs === null ? Infinity : secs;
+      found = true;
+    }
+    return found ? total : null;
+  }
+
+  // cmd `timeout /t <n>` only; coreutils `timeout <n> <cmd>` does NOT count.
+  if (prog === "timeout") {
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (/^\/t$/i.test(a)) {
+        const next = args[++i];
+        const num = parseNonNegativeNumber(next);
+        return num !== null ? num : Infinity;
+      }
+      const inline = a.match(/^\/t:(.+)$/i);
+      if (inline) {
+        const num = parseNonNegativeNumber(inline[1]);
+        return num !== null ? num : Infinity;
+      }
+    }
+    return null;
+  }
+
+  // `ping -n <n> 127.0.0.1`
+  if (prog === "ping") {
+    const targetsLoopback = args.some((a) => a === "127.0.0.1");
+    if (!targetsLoopback) return null;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (/^[-/]n$/i.test(a)) {
+        const next = args[++i];
+        const count = parseNonNegativeNumber(next);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
+      }
+      const inline = a.match(/^[-/]n:?(.+)$/i);
+      if (inline) {
+        const count = parseNonNegativeNumber(inline[1]);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function isStatusPollClause(tokens) {
+  if (tokens.length === 0) return false;
+  const rawProg = tokens[0];
+  const prog = programBaseName(rawProg);
+  const args = tokens.slice(1);
+
+  if (prog === "gh") {
+    const pos = [];
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === "-R" || a === "--repo" || a === "--hostname") {
+        i++;
+        continue;
+      }
+      if (a.startsWith("-")) continue;
+      pos.push(a.toLowerCase());
+      if (pos.length >= 2) break;
+    }
+    if (pos[0] === "pr" && (pos[1] === "checks" || pos[1] === "view")) return true;
+    if (pos[0] === "run" && (pos[1] === "view" || pos[1] === "list" || pos[1] === "watch")) return true;
+    return false;
+  }
+
+  if (prog === "multica" || /MULTICA_CLI_PATH/i.test(rawProg)) {
+    for (const a of args) {
+      if (a.startsWith("-")) continue;
+      const lower = a.toLowerCase();
+      if (lower === "get" || lower === "status" || lower === "runs" || lower === "list") return true;
+    }
+  }
+
+  return false;
+}
+
+function isLocalCheckClause(tokens) {
+  if (tokens.length < 2) return false;
+  const prog = programBaseName(tokens[0]);
+  if (!LOCAL_CHECK_PROGRAMS.has(prog)) return false;
+  for (let i = 1; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (LOCAL_HOST_TOKEN_RE.test(tok)) return true;
+    const eqIdx = tok.search(/[=:]/);
+    if (eqIdx > 0 && tok.startsWith("-")) {
+      const val = tok.slice(eqIdx + 1);
+      if (LOCAL_HOST_TOKEN_RE.test(val)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Evaluate active waits and polling (`shell.polling` block vs `shell.wait` allow telemetry).
+ * Returns null if the command has no wait segment.
+ */
+function evaluateShellPolling(cmd) {
+  const clean = stripHeredocBodies(cmd);
+  const clauses = splitPollingClauses(clean);
+
+  let hasWait = false;
+  let totalWaitSeconds = 0;
+  let hasLoop = false;
+  let hasStatusPoll = false;
+  let hasLocalCheck = false;
+
+  for (const clause of clauses) {
+    let tokens = tokenizeShellSegment(clause);
+    if (tokens.length === 0) continue;
+
+    // Peel leading control keywords, variable assignments, and PowerShell `$x =` assignments.
+    let idx = 0;
+    while (idx < tokens.length) {
+      const t = tokens[idx];
+      const lower = t.toLowerCase();
+      if (LOOP_KEYWORDS.has(lower)) {
+        hasLoop = true;
+      }
+      if (CLAUSE_PREFIX_KEYWORDS.has(lower)) {
+        idx++;
+        continue;
+      }
+      if (/^[A-Za-z_]\w*=/.test(t)) {
+        idx++;
+        continue;
+      }
+      if (/^\$[A-Za-z_][\w:]*$/.test(t) && tokens[idx + 1] === "=") {
+        idx += 2;
+        continue;
+      }
+      break;
+    }
+
+    const effective = tokens.slice(idx);
+    if (effective.length === 0) continue;
+
+    const firstLower = effective[0].toLowerCase();
+    if (LOOP_KEYWORDS.has(firstLower)) {
+      hasLoop = true;
+    }
+
+    const waitSecs = parseWaitClauseSeconds(effective);
+    if (waitSecs !== null) {
+      hasWait = true;
+      totalWaitSeconds += waitSecs;
+      continue;
+    }
+
+    if (isStatusPollClause(effective)) {
+      hasStatusPoll = true;
+    }
+    if (isLocalCheckClause(effective)) {
+      hasLocalCheck = true;
+    }
+  }
+
+  if (!hasWait) return null;
+
+  if (hasStatusPoll || hasLoop || (totalWaitSeconds > 5 && !hasLocalCheck)) {
+    return {
+      allowed: false,
+      ruleId: "shell.polling",
+      reason: SHELL_POLLING_MESSAGE,
+    };
+  }
+
+  return {
+    allowed: true,
+    ruleId: "shell.wait",
+  };
+}
+
 /** Evaluate shell commands. */
 function evaluateShell(call, repoRoot) {
   const cmd = call.command || "";
@@ -963,32 +1616,14 @@ function evaluateShell(call, repoRoot) {
     }
   }
 
-  // Writing to harness hooks or runtime settings (the agent memory dir is not protected)
-  const cmdNoMemory = cmd.replace(
-    /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"']*\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]memory[/\\][^\s"']*))/gi,
-    (match, q, pQuoted, pUnquoted) => {
-      const p = pQuoted || pUnquoted;
-      if (/\.\.|%2e/i.test(p)) return match;
-      const norm = path.posix.normalize(p.replace(/\\/g, "/"));
-      if (!isAgentMemoryPath(norm)) return match;
-      return "";
-    }
-  );
-  if (
-    /(?:(?:^|[/\\"'`\s>])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory)
-  ) {
-    // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
-    if (
-      />>?\s*["']?[^\s|&;]*((?:^|[/\\"'`\s>])\.git([/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory) ||
-      SHELL_WRITE_VERB.test(cmdNoMemory)
-    ) {
-      return {
-        allowed: false,
-        ruleId: "fs.protected",
-        reason:
-          "Writing to .git, .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
-      };
-    }
+  // Writing to harness hooks or runtime settings (Claude memory and Antigravity brain outside repo are writable)
+  if (shellWritesProtected(cmd, repoRoot)) {
+    return {
+      allowed: false,
+      ruleId: "fs.protected",
+      reason:
+        "Writing to .git, .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+    };
   }
 
   // Harness sources (harness/, harness-kit/, .github/) and generators only on an authorized harness branch
@@ -1007,27 +1642,8 @@ function evaluateShell(call, repoRoot) {
   // the seal and merge rules apply to the remaining segments (a --repo elsewhere exempts nothing).
   const ownCmd = cmd.split(/;|&&|\|\||\||\n/).filter((seg) => !targetsOtherRepo(seg, repoRoot)).join(" ; ");
   if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(ownCmd)) {
-    if (!sealValid(repoRoot)) {
-      return {
-        allowed: false,
-        ruleId: "pr.requires-seal",
-        reason:
-          "No valid gate seal (.harness/complete.json missing or stale for HEAD + diff). Run harness-kit/core/scripts/harness-gate.sh before gh pr create.",
-      };
-    }
-    let fingerprint = "";
-    try {
-      fingerprint = JSON.parse(readFileSync(path.join(repoRoot, ".harness", "complete.json"), "utf8")).fingerprint || "";
-    } catch {}
-    const body = prBodyText(cmd, repoRoot);
-    if (!fingerprint || !body.includes("harness-seal:") || !body.includes(fingerprint)) {
-      return {
-        allowed: false,
-        ruleId: "pr.requires-seal",
-        reason:
-          "PR body must contain the seal block: run `bash harness-kit/core/scripts/harness-gate.sh --pr-block` and paste its output into the --body-file.",
-      };
-    }
+    const why = sealDiagnosis(repoRoot, prBodyText(cmd, repoRoot));
+    if (why) return { allowed: false, ruleId: "pr.requires-seal", reason: why };
   }
 
   // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
@@ -1054,6 +1670,10 @@ function evaluateShell(call, repoRoot) {
       };
     }
   }
+
+  // Active waits & polling (`shell.polling` block / `shell.wait` telemetry allow)
+  const pollingResult = evaluateShellPolling(cmd);
+  if (pollingResult) return pollingResult;
 
   return { allowed: true };
 }
@@ -1118,9 +1738,11 @@ function evaluateWrite(call, repoRoot) {
   }
 
   // Generated artifacts (single source: harness.lock written by the render)
-  const resolved = path.isAbsolute(target) ? target : path.resolve(repoRoot, target);
-  const rel = path.relative(repoRoot, resolved).replace(/\\/g, "/");
-  if (generatedArtifacts(repoRoot).has(rel)) {
+  const expanded = expandHome(target);
+  const resolved = path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(repoRoot, expanded);
+  const rel = path.relative(path.resolve(repoRoot), resolved).replace(/\\/g, "/");
+  const insideRepo = isPathInsideRepo(target, repoRoot);
+  if (insideRepo && generatedArtifacts(repoRoot).has(rel)) {
     return {
       allowed: false,
       ruleId: "write.generated",
@@ -1128,8 +1750,15 @@ function evaluateWrite(call, repoRoot) {
     };
   }
 
-  // Protect the remaining runtime harness directories
-  if (/(^|\/)\.(agents|gemini|opencode)\//.test(norm)) return tamper;
+  // Protect installed guard files and ~/.gemini/config/** everywhere (even outside the repo)
+  if (isInstalledGuardPath(target) || isGeminiConfigPath(target)) {
+    return tamper;
+  }
+
+  // Protect the remaining runtime harness directories inside the repo; outside the repo allow only ~/.gemini/antigravity-cli/brain/**
+  if (/(^|\/)\.(agents|gemini|opencode)\//i.test(norm)) {
+    if (insideRepo || !isAntigravityBrainPath(target)) return tamper;
+  }
 
   // Harness sources: only on an authorized harness branch
   if (isProtectedHarnessPath(rel) && !harnessBranchAuthorized(currentBranch(repoRoot))) {
@@ -1176,6 +1805,12 @@ export function resolveNoreplyEmail(output, repoRoot) {
   return null;
 }
 
+/** Lines a failed cd (bash/sh) or Set-Location (PowerShell 5.1 and 7) print. */
+const CWD_LOST_LINE = [
+  /^(?:\S*sh(?:: line \d+)?: )?cd: .+: No such file or directory$/,
+  /^Set-Location ?: Cannot find path '.+' because it does not exist\.?$/,
+];
+
 /**
  * Evaluate result (post-tool) rules.
  */
@@ -1199,6 +1834,13 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
         ruleId: "git.gh007-noreply",
         context: `GitHub Push Protection (GH007) violation detected. Configure your noreply email: ${instruction}`,
       };
+    }
+
+    // cwd lost: only real cd/Set-Location errors on their own output line, and only where post injection exists.
+    const cwdLost = output.split(/\r?\n/).some((line) => CWD_LOST_LINE.some((re) => re.test(line.trim())));
+    if (normalizedCall.runtime === "claude-code" && cwdLost) {
+      const rule = rules.find((r) => r.id === "remediate.cwd-lost");
+      if (rule) return { allowed: true, inject: true, ruleId: rule.id, context: rule.message || rule.description };
     }
   }
 
@@ -1278,7 +1920,113 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
     }
   }
 
+  // 4. Claude Code reading/searching/editing through Bash (after declarative rules: never shadows them)
+  const nativeRead = evaluateNativeRead(normalizedCall, repoRoot);
+  if (nativeRead) return nativeRead;
+
   return { allowed: true, inject: false };
+}
+
+const NATIVE_READ_MSG =
+  "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob` en lugar de `cat`/`sed`/`grep` por Bash: es una llamada menos de shell y la lectura queda acotada.";
+const NATIVE_EDIT_MSG = "Usá `Edit`.";
+
+/** First command segment (quote-aware) and whether its stdout is piped to another command. */
+function firstSegmentOf(cmd) {
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i++;
+      continue;
+    }
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === ";" || ch === "\n") return { seg: cmd.slice(0, i), piped: false };
+    if (ch === "|") return { seg: cmd.slice(0, i), piped: cmd[i + 1] !== "|" };
+    if (ch === "&") {
+      const prev = cmd[i - 1] || "";
+      const next = cmd[i + 1] || "";
+      if (prev === ">" || prev === "<" || next === ">") continue;
+      return { seg: cmd.slice(0, i), piped: false };
+    }
+  }
+  return { seg: cmd, piped: false };
+}
+
+/**
+ * Classify the first segment of a shell command: "edit" (sed -i), "read" (cat/head/tail/sed -n/grep/rg
+ * over repo files, stdout not piped nor redirected) or null. Evaluates the command only, never the output.
+ */
+export function classifyNativeRead(command, repoRoot, cwd) {
+  const { seg, piped } = firstSegmentOf(String(command || ""));
+  const tokens = tokenizeShellSegment(seg);
+  if (!tokens.length) return null;
+  const bin = path.basename(tokens[0].replace(/\\/g, "/")).replace(/\.exe$/i, "").toLowerCase();
+  const args = tokens.slice(1);
+
+  if (bin === "sed" && args.some((t) => /^-[a-zA-Z]*i/.test(t) || /^--in-place/.test(t))) return "edit";
+  if (piped) return null;
+  // stdout/stdin redirection or heredoc (writing a file, feeding stdin): not a read of repo files
+  if (args.some((t) => /^(\d*<|1?>|&>)/.test(t) || t.includes("<<"))) return null;
+
+  const operands = args.filter((t) => !t.startsWith("-") && !/^2>/.test(t));
+  let files;
+  if (bin === "cat" || bin === "head" || bin === "tail") {
+    files = operands.filter((t) => !/^\d+$/.test(t));
+    if (!files.length) return null;
+  } else if (bin === "sed") {
+    if (!args.some((t) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(t) || t === "--quiet" || t === "--silent")) return null;
+    files = operands.slice(1);
+    if (!files.length) return null;
+  } else if (bin === "grep" || bin === "rg") {
+    if (!operands.length) return null;
+    files = operands.slice(1);
+  } else {
+    return null;
+  }
+
+  const base = path.resolve(cwd || repoRoot);
+  const root = path.resolve(repoRoot);
+  const insideRepo = files.every((f) => {
+    if (/^~/.test(f)) return false;
+    const rel = path.relative(root, path.resolve(base, f));
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  });
+  return insideRepo ? "read" : null;
+}
+
+/** Atomically claim the once-per-session marker; false when already claimed (or not writable). */
+function claimSessionMarker(name, normalizedCall, repoRoot) {
+  try {
+    const dir = resolveTelemetryDir(repoRoot);
+    mkdirSync(dir, { recursive: true });
+    const session = resolveSession(normalizedCall.raw).replace(/[^\w.-]/g, "_").slice(0, 120);
+    writeFileSync(path.join(dir, `${name}-${session}.flag`), new Date().toISOString(), { flag: "wx" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** remediate.native-read: Claude Code only (post injection), at most once per session. */
+function evaluateNativeRead(normalizedCall, repoRoot) {
+  if (normalizedCall.kind !== "shell" || normalizedCall.runtime !== "claude-code") return null;
+  const kind = classifyNativeRead(normalizedCall.command, repoRoot, normalizedCall.cwd);
+  if (!kind || !claimSessionMarker("native-read", normalizedCall, repoRoot)) return null;
+  return {
+    allowed: true,
+    inject: true,
+    ruleId: "remediate.native-read",
+    context: kind === "edit" ? NATIVE_EDIT_MSG : NATIVE_READ_MSG,
+  };
 }
 
 /**
@@ -1301,6 +2049,8 @@ export function evaluateRules(normalizedCall, options = {}) {
       return evaluateRead(normalizedCall, options, repoRoot);
     case "read_many":
       return evaluateReadMany(normalizedCall, repoRoot);
+    case "search":
+      return evaluateSearch(normalizedCall, repoRoot);
     case "write":
       return evaluateWrite(normalizedCall, repoRoot);
     default:

@@ -119,10 +119,16 @@
     "message": "This would print >300 lines of a >300-line file. Search with rg -n first, then print a bounded range."
   },
   {
+    "id": "shell.polling",
+    "target": "shell",
+    "description": "Active waits/polling (>5s without local check, or any wait in a loop or paired with gh/multica status polling) are forbidden",
+    "message": "Polling prohibido. Para CI: `node harness-kit/core/scripts/harness-pr-status.mjs <n> --wait-checks` (una sola llamada) o `multica issue wakeup --until-pr checks`. Para hijos/estados: `--until-children-done` / `--until-status`. Para esperar un servidor local en E2E, juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost`) en un solo comando."
+  },
+  {
     "id": "pr.requires-seal",
     "target": "shell",
     "description": "gh pr create requires a valid .harness/complete.json seal (harness-gate.sh --verify)",
-    "message": "No valid gate seal. Run harness-kit/core/scripts/harness-gate.sh before gh pr create."
+    "message": "No valid gate seal (o falta el bloque en el body). Usá node harness-kit/core/scripts/harness-ship.mjs o harness-gate.sh antes de gh pr create."
   },
   {
     "id": "pr.merge-check",
@@ -166,9 +172,8 @@
     "id": "remediate.cwd-lost",
     "phase": "post",
     "target": "shell",
-    "pattern": "cd: .*: No such file or directory",
-    "description": "Injects cwd remediation when a cd fails because the working directory changed",
-    "message": "cwd persists between Bash calls; run `pwd` and use absolute paths."
+    "description": "Injects cwd remediation when a cd/Set-Location fails (evaluated in code on output lines only, Claude Code only)",
+    "message": "El directorio de trabajo persiste entre llamadas en Claude Code. Trabajá desde la raíz del repo con rutas relativas (`git rev-parse --show-toplevel`) en lugar de rutas absolutas."
   },
   {
     "id": "remediate.oversize-output",

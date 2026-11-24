@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,37 +172,449 @@ describe("harness-render: carga y validación de contratos", () => {
       const repoAgentsMd = readFileSync(path.resolve(here, "..", "..", "AGENTS.md"), "utf8");
       expect(repoAgentsMd).not.toContain("resolved task in");
     });
+  });
 
-    it("GIVEN LEDGER.json WHEN se lee L-000 THEN tiene caveat y métricas originales intactas", () => {
-      const ledgerPath = path.resolve(here, "..", "..", "docs", "harness-library", "LEDGER.json");
-      const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
-      const l0 = ledger.entries.find((e: { id: string }) => e.id === "L-000");
-      expect(l0).toBeDefined();
-      expect(typeof l0.caveat).toBe("string");
-      expect(l0.caveat.length).toBeGreaterThan(0);
-      expect(l0.metrics.before.totalEvents).toBe(4355);
-      expect(l0.metrics.before.totalSessions).toBe(45);
+  describe("GOZS-767: Invariantes de docs/harness-library/LEDGER.json", () => {
+    const ledgerLibraryDir = path.resolve(here, "..", "..", "docs", "harness-library");
+    const ledgerPath = path.join(ledgerLibraryDir, "LEDGER.json");
+    const LEDGER_ID_RE = /^L-(\d{3})$/;
+    const ISO_TS_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+    const ALLOWED_STATUSES = new Set(["blocked", "completed"]);
+    const MS_PER_DAY = 86_400_000;
+
+    function isPlainObject(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+
+    function isNonEmptyString(value: unknown): value is string {
+      return typeof value === "string" && value.trim().length > 0;
+    }
+
+    function parseStrictIsoMs(value: unknown): number | null {
+      if (typeof value !== "string" || !ISO_TS_RE.test(value)) return null;
+      const y = Number(value.slice(0, 4));
+      const m = Number(value.slice(5, 7));
+      const d = Number(value.slice(8, 10));
+      const check = new Date(Date.UTC(y, m - 1, d));
+      if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
+        return null;
+      }
+      const hh = Number(value.slice(11, 13));
+      const mm = Number(value.slice(14, 16));
+      const ss = Number(value.slice(17, 19));
+      if (hh > 23 || mm > 59 || ss > 59) return null;
+      const ms = Date.parse(value);
+      return Number.isFinite(ms) ? ms : null;
+    }
+
+    function validateLedger(ledger: unknown, libraryDir: string): string[] {
+      const errors: string[] = [];
+      if (!isPlainObject(ledger) || !Array.isArray(ledger.entries) || ledger.entries.length === 0) {
+        return ["LEDGER.json debe ser un objeto con un array 'entries' no vacío"];
+      }
+
+      const seenIds = new Set<string>();
+      let prevIdNum = -1;
+      const resolvedLibraryDir = path.resolve(libraryDir);
+
+      for (let idx = 0; idx < ledger.entries.length; idx++) {
+        const entry = ledger.entries[idx];
+        if (!isPlainObject(entry)) {
+          errors.push(`entries[${idx}]: cada entrada debe ser un objeto`);
+          continue;
+        }
+
+        const label = isNonEmptyString(entry.id) ? entry.id : `entries[${idx}]`;
+
+        // 1. Campos obligatorios en cada entrada + 6. id único y en orden creciente
+        const entryId = typeof entry.id === "string" ? entry.id : null;
+        const idMatch = entryId !== null ? LEDGER_ID_RE.exec(entryId) : null;
+        if (!idMatch || entryId === null) {
+          errors.push(`${label}: 'id' debe cumplir el patrón L-\\d{3}`);
+        } else {
+          if (seenIds.has(entryId)) {
+            errors.push(`${label}: 'id' duplicado`);
+          } else {
+            seenIds.add(entryId);
+          }
+          const idNum = Number(idMatch[1]);
+          if (prevIdNum >= 0 && idNum <= prevIdNum) {
+            errors.push(`${label}: 'id' fuera de orden creciente (previo L-${String(prevIdNum).padStart(3, "0")})`);
+          }
+          prevIdNum = idNum;
+        }
+
+        if (!isNonEmptyString(entry.title)) {
+          errors.push(`${label}: falta 'title' o está vacío`);
+        }
+        if (!isNonEmptyString(entry.status)) {
+          errors.push(`${label}: falta 'status' o está vacío`);
+        }
+        if (!isNonEmptyString(entry.hypothesis)) {
+          errors.push(`${label}: falta 'hypothesis' o está vacío`);
+        }
+        if (!isNonEmptyString(entry.experience)) {
+          errors.push(`${label}: falta 'experience' o está vacío`);
+        } else {
+          const expPath = path.resolve(resolvedLibraryDir, entry.experience);
+          const rel = path.relative(resolvedLibraryDir, expPath);
+          const isValidFile =
+            !rel.startsWith("..") && !path.isAbsolute(rel) && existsSync(expPath) && statSync(expPath).isFile();
+          if (!isValidFile) {
+            errors.push(`${label}: archivo de 'experience' inexistente en docs/harness-library/: ${entry.experience}`);
+          }
+        }
+
+        // 2. status ∈ {blocked, completed}
+        if (isNonEmptyString(entry.status) && !ALLOWED_STATUSES.has(entry.status)) {
+          errors.push(`${label}: 'status' inválido '${entry.status}' (permitidos: blocked, completed)`);
+        }
+
+        // 3. Si el estado es completed
+        if (entry.status === "completed") {
+          const win = entry.window;
+          if (!isPlainObject(win) || !isPlainObject(win.before)) {
+            errors.push(`${label}: entrada 'completed' requiere 'window.before'`);
+          } else {
+            const startMs = parseStrictIsoMs(win.before.start);
+            const endMs = parseStrictIsoMs(win.before.end);
+            if (startMs === null) {
+              errors.push(`${label}: 'window.before.start' no es un timestamp ISO válido`);
+            }
+            if (endMs === null) {
+              errors.push(`${label}: 'window.before.end' no es un timestamp ISO válido`);
+            }
+            if (startMs !== null && endMs !== null) {
+              if (endMs <= startMs) {
+                errors.push(`${label}: 'window.before.end' debe ser posterior a 'window.before.start'`);
+              }
+              const expectedDays = Math.round((endMs - startMs) / MS_PER_DAY);
+              if (typeof win.durationDays !== "number" || win.durationDays !== expectedDays) {
+                errors.push(`${label}: 'window.durationDays' (${String(win.durationDays)}) debe ser ${expectedDays}`);
+              }
+            }
+          }
+
+          const metrics = entry.metrics;
+          if (!isPlainObject(metrics) || !isPlainObject(metrics.before)) {
+            errors.push(`${label}: entrada 'completed' requiere 'metrics.before'`);
+          } else {
+            const before = metrics.before;
+            if (
+              typeof before.totalSessions !== "number" ||
+              !Number.isFinite(before.totalSessions) ||
+              before.totalSessions < 5
+            ) {
+              errors.push(`${label}: 'metrics.before.totalSessions' debe ser >= 5 (recibido: ${String(before.totalSessions)})`);
+            }
+            // L-000 es la línea base histórica anterior al desglose por runtime (GOZS-515/516);
+            // desde L-001 en adelante (o si L-000 declara byRuntime) debe incluir al menos un runtime.
+            const requireByRuntime = entry.id !== "L-000" || before.byRuntime !== undefined;
+            if (requireByRuntime) {
+              if (!isPlainObject(before.byRuntime) || Object.keys(before.byRuntime).length === 0) {
+                errors.push(`${label}: 'metrics.before.byRuntime' debe ser un objeto con al menos un runtime`);
+              }
+            }
+          }
+        }
+
+        // 4. Si el estado es blocked
+        if (entry.status === "blocked") {
+          if (!isNonEmptyString(entry.start_condition)) {
+            errors.push(`${label}: entrada 'blocked' requiere 'start_condition' no vacío`);
+          }
+        }
+
+        // 5. Si existen original_hypothesis, caveat o synthetic_before
+        if (entry.original_hypothesis !== undefined && !isNonEmptyString(entry.original_hypothesis)) {
+          errors.push(`${label}: 'original_hypothesis' presente pero vacío`);
+        }
+        if (entry.caveat !== undefined && !isNonEmptyString(entry.caveat)) {
+          errors.push(`${label}: 'caveat' presente pero vacío`);
+        }
+        if (isPlainObject(entry.metrics) && entry.metrics.synthetic_before !== undefined) {
+          if (
+            !isPlainObject(entry.metrics.synthetic_before) ||
+            !isPlainObject(entry.metrics.synthetic_before.byRuntime)
+          ) {
+            errors.push(`${label}: 'metrics.synthetic_before.byRuntime' debe ser un objeto`);
+          }
+        }
+        if (entry.synthetic_before !== undefined) {
+          if (!isPlainObject(entry.synthetic_before) || !isPlainObject(entry.synthetic_before.byRuntime)) {
+            errors.push(`${label}: 'synthetic_before.byRuntime' debe ser un objeto`);
+          }
+        }
+      }
+
+      return errors;
+    }
+
+    function assertValidLedger(ledger: unknown, libraryDir: string): void {
+      const errors = validateLedger(ledger, libraryDir);
+      if (errors.length > 0) {
+        throw new Error(`LEDGER.json inválido:\n- ${errors.join("\n- ")}`);
+      }
+    }
+
+    function loadRealLedger(): { entries: Record<string, unknown>[] } {
+      return JSON.parse(readFileSync(ledgerPath, "utf8")) as { entries: Record<string, unknown>[] };
+    }
+
+    function withTempLibrary(files: string[], run: (dir: string) => void): void {
+      const tmpDir = mkdtempSync(path.join(tmpdir(), "harness-ledger-"));
+      try {
+        for (const f of files) {
+          writeFileSync(path.join(tmpDir, f), `# ${f}\n`, "utf8");
+        }
+        run(tmpDir);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+
+    it("GIVEN el LEDGER.json actual (L-000 y L-001 completed) WHEN corre el test THEN pasa", () => {
+      const ledger = loadRealLedger();
+      expect(ledger.entries.length).toBeGreaterThanOrEqual(2);
+      expect(() => assertValidLedger(ledger, ledgerLibraryDir)).not.toThrow();
     });
 
-    it("GIVEN LEDGER.json WHEN se lee L-001 en etapa A THEN status = 'blocked', metrics.before = null, existen synthetic_before, caveat y start_condition", () => {
-      const ledgerPath = path.resolve(here, "..", "..", "docs", "harness-library", "LEDGER.json");
-      const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
-      const l1 = ledger.entries.find((e: { id: string }) => e.id === "L-001");
-      expect(l1).toBeDefined();
-      expect(l1.status).toBe("blocked");
-      expect(l1.metrics.before).toBeNull();
-      expect(l1.metrics.synthetic_before).toBeDefined();
-      expect(l1.metrics.synthetic_before.byRuntime["claude-code"]).toBeDefined();
-      expect(l1.metrics.synthetic_before.byRuntime["antigravity"]).toBeDefined();
-      expect(l1.window.before).toBeNull();
-      expect(l1.window.after).toBeNull();
-      expect(typeof l1.caveat).toBe("string");
-      expect(l1.caveat).toContain("línea base sintética");
-      expect(typeof l1.start_condition).toBe("string");
-      expect(l1.start_condition).toContain("7 días corridos de telemetría real");
-      expect(l1.start_condition).toContain("GOZS-538");
-      expect(typeof l1.original_hypothesis).toBe("string");
-      expect(l1.original_hypothesis.length).toBeGreaterThan(0);
+    it("GIVEN se agrega L-002 en blocked con start_condition WHEN corre el test THEN pasa sin tocar harness-kit/", () => {
+      const ledger = loadRealLedger();
+      const existingFiles = ledger.entries.map((e) => String(e.experience));
+      withTempLibrary([...existingFiles, "EXPERIENCE-L-002.md"], (tmpDir) => {
+        const extended = {
+          ...ledger,
+          entries: [
+            ...ledger.entries,
+            {
+              id: "L-002",
+              title: "Menos llamadas y menos fricción en el arnés",
+              status: "blocked",
+              hypothesis: "Reducir llamadas por sesión en >= 15% sin bajar bloqueos legítimos.",
+              start_condition: "Merge del último PR de Fase 1 en origin/main.",
+              experience: "EXPERIENCE-L-002.md",
+            },
+          ],
+        };
+        expect(() => assertValidLedger(extended, tmpDir)).not.toThrow();
+      });
+    });
+
+    it("GIVEN L-002 queda completed sin window.before WHEN corre el test THEN falla con un mensaje que nombra L-002", () => {
+      const ledger = loadRealLedger();
+      const existingFiles = ledger.entries.map((e) => String(e.experience));
+      withTempLibrary([...existingFiles, "EXPERIENCE-L-002.md"], (tmpDir) => {
+        const invalid = {
+          ...ledger,
+          entries: [
+            ...ledger.entries,
+            {
+              id: "L-002",
+              title: "Experimento incompleto",
+              status: "completed",
+              hypothesis: "Hipótesis de prueba",
+              experience: "EXPERIENCE-L-002.md",
+              window: { durationDays: 7 },
+              metrics: {
+                before: {
+                  totalSessions: 12,
+                  byRuntime: { antigravity: { sessions: 12 } },
+                },
+              },
+            },
+          ],
+        };
+        expect(() => assertValidLedger(invalid, tmpDir)).toThrow(/L-002.*window\.before/);
+      });
+    });
+
+    it("GIVEN una entrada con experience que apunta a un archivo inexistente WHEN corre el test THEN falla", () => {
+      const ledger = loadRealLedger();
+      const invalid = {
+        ...ledger,
+        entries: [
+          ...ledger.entries,
+          {
+            id: "L-002",
+            title: "Archivo faltante",
+            status: "blocked",
+            hypothesis: "Hipótesis de prueba",
+            start_condition: "Condición de inicio",
+            experience: "EXPERIENCE-L-999-inexistente.md",
+          },
+        ],
+      };
+      expect(() => assertValidLedger(invalid, ledgerLibraryDir)).toThrow(/L-002.*EXPERIENCE-L-999-inexistente\.md/);
+    });
+
+    it("GIVEN invariantes de estado, ventana, métricas, opcionales y orden de id WHEN se violan THEN falla nombrando la entrada", () => {
+      withTempLibrary(["EXPERIENCE-L-000.md", "EXPERIENCE-L-001.md", "EXPERIENCE-L-002.md"], (tmpDir) => {
+        const baseCompleted = {
+          id: "L-001",
+          title: "Base válida",
+          status: "completed",
+          hypothesis: "Hipótesis",
+          experience: "EXPERIENCE-L-001.md",
+          window: {
+            durationDays: 7,
+            before: { start: "2026-11-16T00:00:00Z", end: "2026-11-23T00:00:00Z" },
+          },
+          metrics: {
+            before: {
+              totalSessions: 10,
+              byRuntime: { antigravity: { sessions: 10 } },
+            },
+          },
+        };
+
+        // id inválido y campo obligatorio faltante
+        expect(() => assertValidLedger({ entries: [{ ...baseCompleted, id: "L-1" }] }, tmpDir)).toThrow(
+          /L-1.*L-\\d\{3\}/,
+        );
+        expect(() => assertValidLedger({ entries: [{ ...baseCompleted, hypothesis: "" }] }, tmpDir)).toThrow(
+          /L-001.*hypothesis/,
+        );
+
+        // status fuera de {blocked, completed}
+        expect(() => assertValidLedger({ entries: [{ ...baseCompleted, status: "running" }] }, tmpDir)).toThrow(
+          /L-001.*status.*running/,
+        );
+
+        // completed: end <= start y durationDays incorrecto
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  ...baseCompleted,
+                  window: {
+                    durationDays: 7,
+                    before: { start: "2026-11-23T00:00:00Z", end: "2026-11-16T00:00:00Z" },
+                  },
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*window\.before\.end/);
+
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  ...baseCompleted,
+                  window: {
+                    durationDays: 5,
+                    before: { start: "2026-11-16T00:00:00Z", end: "2026-11-23T00:00:00Z" },
+                  },
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*durationDays.*7/);
+
+        // completed: totalSessions < 5 y byRuntime vacío
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  ...baseCompleted,
+                  metrics: { before: { totalSessions: 4, byRuntime: { antigravity: { sessions: 4 } } } },
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*totalSessions/);
+
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  ...baseCompleted,
+                  metrics: { before: { totalSessions: 10, byRuntime: {} } },
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*byRuntime/);
+
+        // blocked sin start_condition
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  id: "L-002",
+                  title: "Bloqueado sin condición",
+                  status: "blocked",
+                  hypothesis: "Hipótesis",
+                  experience: "EXPERIENCE-L-002.md",
+                  start_condition: "   ",
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-002.*start_condition/);
+
+        // opcionales inválidos: original_hypothesis, caveat, synthetic_before.byRuntime
+        expect(() =>
+          assertValidLedger({ entries: [{ ...baseCompleted, original_hypothesis: "" }] }, tmpDir),
+        ).toThrow(/L-001.*original_hypothesis/);
+
+        expect(() =>
+          assertValidLedger({ entries: [{ ...baseCompleted, caveat: "  " }] }, tmpDir),
+        ).toThrow(/L-001.*caveat/);
+
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                {
+                  ...baseCompleted,
+                  metrics: {
+                    ...baseCompleted.metrics,
+                    synthetic_before: { byRuntime: null },
+                  },
+                },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*synthetic_before\.byRuntime/);
+
+        // ids duplicados y fuera de orden creciente
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                baseCompleted,
+                { ...baseCompleted, id: "L-001" },
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*duplicado/);
+
+        expect(() =>
+          assertValidLedger(
+            {
+              entries: [
+                { ...baseCompleted, id: "L-002", experience: "EXPERIENCE-L-002.md" },
+                baseCompleted,
+              ],
+            },
+            tmpDir,
+          ),
+        ).toThrow(/L-001.*orden creciente/);
+      });
     });
   });
 

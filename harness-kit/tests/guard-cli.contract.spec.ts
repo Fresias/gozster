@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,13 +30,16 @@ function runGuardCli(
   payload: unknown,
   args: string[] = [],
   cwd: string = repoRoot,
+  extraEnv?: Record<string, string>,
 ): { code: number; stdout: string; stderr: string } {
+  const env = extraEnv ? { ...process.env, ...extraEnv } : process.env;
   try {
     const stdout = execFileSync(process.execPath, [guardCliPath, ...args], {
       cwd,
-      input: JSON.stringify(payload),
+      input: typeof payload === "string" ? payload : JSON.stringify(payload),
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
     return { code: 0, stdout: stdout.trim(), stderr: "" };
   } catch (err) {
@@ -272,11 +275,12 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
       });
       expect(res.code).toBe(0);
       expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toBe(
-        "cwd persists between Bash calls; run `pwd` and use absolute paths.",
+        "El directorio de trabajo persiste entre llamadas en Claude Code. Trabajá desde la raíz del repo con rutas relativas (`git rev-parse --show-toplevel`) en lugar de rutas absolutas.",
       );
     });
 
-    it("THEN Gemini CLI AfterTool inyecta la remediación de cwd", () => {
+    // GOZS-780: remediate.cwd-lost es exclusiva de Claude Code (el mensaje describe su cwd persistente).
+    it("THEN Gemini CLI AfterTool no inyecta la remediación de cwd", () => {
       const res = runGuardCli(
         {
           hook_event_name: "AfterTool",
@@ -287,7 +291,8 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
         ["--runtime", "gemini-cli"],
       );
       expect(res.code).toBe(0);
-      expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toContain("cwd persists between Bash calls");
+      expect(res.stdout).not.toContain("directorio de trabajo persiste");
+      expect(res.stdout).not.toContain("cwd persists");
     });
 
     it("THEN Claude Code PostToolUse inyecta la remediación de salida acotada", () => {
@@ -353,6 +358,201 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
       expect(parsed.decision).toBe("deny");
       expect(parsed.reason).toContain("Blocked by .claude/hooks/guard.sh: [fs.bloatware]");
       expect(parsed.reason).toContain("Reading package-lock.json is forbidden");
+    });
+  });
+
+  describe("GOZS-768: telemetría pre/post con id, ok, cwd, rutas relativas, search y resiliencia de post", () => {
+    it("GIVEN Claude Code ejecuta Bash pre y post (PostToolUse y PostToolUseFailure) WHEN termina THEN registra pre y post con mismo id y ok", () => {
+      const telemetryDir = mkdtempSync(path.join(tmpdir(), "guard-cli-tel-cc-"));
+      try {
+        const env = { HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: telemetryDir };
+        const pre = runGuardCli(
+          {
+            session_id: "sess-cc-1",
+            cwd: repoRoot,
+            hook_event_name: "PreToolUse",
+            tool_name: "Bash",
+            tool_input: { command: "echo hi" },
+            tool_use_id: "toolu_cc_1",
+          },
+          ["--runtime", "claude-code"],
+          repoRoot,
+          env,
+        );
+        expect(pre.code).toBe(0);
+
+        const postOk = runGuardCli(
+          {
+            session_id: "sess-cc-1",
+            cwd: repoRoot,
+            hook_event_name: "PostToolUse",
+            tool_name: "Bash",
+            tool_input: { command: "echo hi" },
+            tool_response: { stdout: "hi", stderr: "", interrupted: false },
+            tool_use_id: "toolu_cc_1",
+          },
+          ["--runtime", "claude-code"],
+          repoRoot,
+          env,
+        );
+        expect(postOk.code).toBe(0);
+        expect(JSON.parse(postOk.stdout)).toEqual({});
+
+        const postFail = runGuardCli(
+          {
+            session_id: "sess-cc-1",
+            cwd: repoRoot,
+            hook_event_name: "PostToolUseFailure",
+            tool_name: "Bash",
+            tool_input: { command: "exit 1" },
+            error: "Exit code 1",
+            is_interrupt: false,
+            tool_use_id: "toolu_cc_2",
+          },
+          ["--runtime", "claude-code"],
+          repoRoot,
+          env,
+        );
+        expect(postFail.code).toBe(0);
+        expect(JSON.parse(postFail.stdout)).toEqual({});
+
+        const lines = readFileSync(path.join(telemetryDir, "events.jsonl"), "utf8")
+          .trim()
+          .split("\n")
+          .map((l) => JSON.parse(l));
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toMatchObject({ phase: "pre", id: "toolu_cc_1", cwd: "<repo>", cmd: "echo hi" });
+        expect(lines[1]).toMatchObject({ phase: "post", id: "toolu_cc_1", cwd: "<repo>", ok: true });
+        expect(lines[2]).toMatchObject({ phase: "post", id: "toolu_cc_2", cwd: "<repo>", ok: false });
+      } finally {
+        rmSync(telemetryDir, { recursive: true, force: true });
+      }
+    });
+
+    it("GIVEN Antigravity ejecuta run_command WHEN termina THEN registra post con id y ok y responde {} sin alterar resultado", () => {
+      const telemetryDir = mkdtempSync(path.join(tmpdir(), "guard-cli-tel-ag-"));
+      try {
+        const env = { HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: telemetryDir };
+        const workdir = path.dirname(repoRoot);
+        const okRes = runGuardCli(
+          {
+            conversationId: "conv-ag-1",
+            hookEventName: "PostToolUse",
+            workspacePaths: [workdir],
+            error: "",
+            toolCall: { id: "call_ag_1", name: "run_command", args: { CommandLine: "git status" } },
+          },
+          ["--runtime", "antigravity", "--phase", "post"],
+          repoRoot,
+          env,
+        );
+        expect(okRes.code).toBe(0);
+        expect(JSON.parse(okRes.stdout)).toEqual({});
+
+        const failRes = runGuardCli(
+          {
+            conversationId: "conv-ag-1",
+            hookEventName: "PostToolUse",
+            workspacePaths: [workdir],
+            error: "file does not exist",
+            toolCall: { id: "call_ag_2", name: "read_file", args: { Path: path.join(repoRoot, "missing.txt") } },
+          },
+          ["--runtime", "antigravity", "--phase", "post"],
+          repoRoot,
+          env,
+        );
+        expect(failRes.code).toBe(0);
+        expect(JSON.parse(failRes.stdout)).toEqual({});
+
+        const lines = readFileSync(path.join(telemetryDir, "events.jsonl"), "utf8")
+          .trim()
+          .split("\n")
+          .map((l) => JSON.parse(l));
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toMatchObject({ runtime: "antigravity", phase: "post", id: "call_ag_1", cwd: "<workdir>", ok: true });
+        expect(lines[1]).toMatchObject({ runtime: "antigravity", phase: "post", id: "call_ag_2", cmd: "missing.txt", ok: false });
+      } finally {
+        rmSync(telemetryDir, { recursive: true, force: true });
+      }
+    });
+
+    it("GIVEN Claude Code Grep sobre .env.local WHEN pre THEN bloquea con fs.env-leak y exit 2; Grep normal permite y registra kind='search'", () => {
+      const telemetryDir = mkdtempSync(path.join(tmpdir(), "guard-cli-tel-grep-"));
+      try {
+        const env = { HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: telemetryDir };
+        const allowed = runGuardCli(
+          {
+            session_id: "sess-grep",
+            cwd: repoRoot,
+            hook_event_name: "PreToolUse",
+            tool_name: "Grep",
+            tool_input: { pattern: "CMD_MAX", path: path.join(repoRoot, "harness-kit", "core", "guard", "telemetry.mjs") },
+            tool_use_id: "toolu_grep_ok",
+          },
+          ["--runtime", "claude-code"],
+          repoRoot,
+          env,
+        );
+        expect(allowed.code).toBe(0);
+
+        const blocked = runGuardCli(
+          {
+            session_id: "sess-grep",
+            cwd: repoRoot,
+            hook_event_name: "PreToolUse",
+            tool_name: "Grep",
+            tool_input: { pattern: "SECRET", path: path.join(repoRoot, ".env.local") },
+            tool_use_id: "toolu_grep_env",
+          },
+          ["--runtime", "claude-code"],
+          repoRoot,
+          env,
+        );
+        expect(blocked.code).toBe(2);
+        expect(blocked.stderr).toContain("[fs.env-leak]");
+
+        const lines = readFileSync(path.join(telemetryDir, "events.jsonl"), "utf8")
+          .trim()
+          .split("\n")
+          .map((l) => JSON.parse(l));
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toMatchObject({
+          kind: "search",
+          decision: "allow",
+          cmd: "CMD_MAX harness-kit/core/guard/telemetry.mjs",
+        });
+        expect(lines[1]).toMatchObject({
+          kind: "search",
+          decision: "block",
+          rule: "fs.env-leak",
+        });
+      } finally {
+        rmSync(telemetryDir, { recursive: true, force: true });
+      }
+    });
+
+    it("GIVEN el hook post falla (ruta de telemetría no escribible o stdin corrupto) WHEN se ejecuta THEN devuelve {} y exit 0 sin afectar la tool", () => {
+      const tmp = mkdtempSync(path.join(tmpdir(), "guard-cli-failpost-"));
+      try {
+        const blockingFile = path.join(tmp, "not-a-dir");
+        writeFileSync(blockingFile, "x");
+        const env = { HARNESS_TELEMETRY: "1", HARNESS_TELEMETRY_DIR: path.join(blockingFile, "nested") };
+
+        const res1 = runGuardCli("{invalid json", ["--runtime", "antigravity", "--phase", "post"], repoRoot, env);
+        expect(res1.code).toBe(0);
+        expect(JSON.parse(res1.stdout)).toEqual({});
+
+        const res2 = runGuardCli(
+          { hook_event_name: "PostToolUse", tool_name: "Bash", tool_input: { command: "echo ok" }, tool_response: { stdout: "ok" } },
+          ["--runtime", "claude-code", "--phase", "post"],
+          repoRoot,
+          env,
+        );
+        expect(res2.code).toBe(0);
+        expect(JSON.parse(res2.stdout)).toEqual({});
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
     });
   });
 });
