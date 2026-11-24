@@ -70,6 +70,7 @@ import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-bad
 import { User, MessageSquare, Plus, ChevronDown, MoreHorizontal, Search } from "@/components/ui/icons";
 import { useCobrosStore } from "@/store/use-cobros-store";
 import { derivarBadgePlan } from "@/lib/planes";
+import { esEntrenadorDeApoyo, puedeVerFinanzasAlumno } from "@/lib/entrenador-apoyo";
 
 import type { LiveSupabaseDataset, AlumnoEstancado } from "@/services/alumnos-service";
 import type { Perfil, PlanEntrenamiento } from "@/types/database.types";
@@ -90,6 +91,7 @@ export function CoachStudioView({
   initialAlumnosExpanded = true,
   initialSelectedAlumnoId = null,
   userRole = null,
+  userId = null,
   initialEstado = null,
   openMenuAlumnoIdProp = null,
 }: {
@@ -99,6 +101,7 @@ export function CoachStudioView({
   initialAlumnosExpanded?: boolean;
   initialSelectedAlumnoId?: string | null;
   userRole?: string | null;
+  userId?: string | null;
   initialEstado?: string | null;
   openMenuAlumnoIdProp?: string | null;
 } = {}) {
@@ -414,10 +417,16 @@ export function CoachStudioView({
   // Selector de período reactivo ('semana', 'mes', 'trimestre') y KPIs únicos (GOZS-379)
   const [tipoPeriodo, setTipoPeriodo] = React.useState<TipoRangoPeriodo>("mes");
   const [activeRole, setActiveRole] = React.useState<string>(userRole ?? "ENTRENADOR");
+  const [activeUserId, setActiveUserId] = React.useState<string | null>(userId ?? null);
 
   React.useEffect(() => {
     if (userRole) {
       setActiveRole(userRole);
+    }
+    if (userId !== undefined && userId !== null) {
+      setActiveUserId(userId);
+    }
+    if (userRole && userId) {
       return;
     }
     let active = true;
@@ -426,6 +435,10 @@ export function CoachStudioView({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!active || !user) return;
+        if (!userId) {
+          setActiveUserId(user.id);
+        }
+        if (userRole) return;
         const { data: perfil } = await supabase
           .from("perfiles")
           .select("rol")
@@ -442,7 +455,16 @@ export function CoachStudioView({
     return () => {
       active = false;
     };
-  }, [userRole]);
+  }, [userRole, userId]);
+
+  const viewerPermisos = React.useMemo(
+    () => ({ userId: activeUserId, rol: activeRole }),
+    [activeUserId, activeRole],
+  );
+  const puedeVerFinanzasDe = React.useCallback(
+    (alumno: Perfil) => puedeVerFinanzasAlumno(alumno, viewerPermisos),
+    [viewerPermisos],
+  );
 
   const isLiveInicioKpis = isLiveInicio;
   const [kpis, setKpis] = React.useState<KpisNegocio>(() => {
@@ -471,12 +493,13 @@ export function CoachStudioView({
   const cobrosInicio = useCobrosStore((s) => s.cobros);
   const planesCobros = useCobrosStore((s) => s.planes);
   const cuotasVencidasInicio = React.useMemo(() => {
+    const permitidosIds = new Set(alumnos.filter(puedeVerFinanzasDe).map((a) => a.id));
     if (isLiveInicio) {
-      const alumnosIds = new Set(alumnos.map((a) => a.id));
-      return cobrosInicio.filter((c) => c.estado === "VENCIDO" && alumnosIds.has(c.alumnoId));
+      return cobrosInicio.filter((c) => c.estado === "VENCIDO" && permitidosIds.has(c.alumnoId));
     }
-    return cobrosInicio.filter((c) => c.estado === "VENCIDO");
-  }, [cobrosInicio, isLiveInicio, alumnos]);
+    const restringidosIds = new Set(alumnos.filter((a) => !puedeVerFinanzasDe(a)).map((a) => a.id));
+    return cobrosInicio.filter((c) => c.estado === "VENCIDO" && !restringidosIds.has(c.alumnoId));
+  }, [cobrosInicio, isLiveInicio, alumnos, puedeVerFinanzasDe]);
   const { clasesHoy: clasesHoyInicio } = useClasesDeHoy({ isLiveMode: isLiveInicio });
   const [totalParaRevisar, setTotalParaRevisar] = React.useState(0);
 
@@ -647,9 +670,9 @@ export function CoachStudioView({
 
     let matchPayment = true;
     if (paymentFilter === "ACTIVA") {
-      matchPayment = esCuotaAlDia(a);
+      matchPayment = puedeVerFinanzasDe(a) && esCuotaAlDia(a);
     } else if (paymentFilter === "PENDIENTE") {
-      matchPayment = esCuotaVencida(a);
+      matchPayment = puedeVerFinanzasDe(a) && esCuotaVencida(a);
     } else if (paymentFilter === "NUEVOS") {
       matchPayment = esAlumnoNuevo(a.created_at);
     }
@@ -869,6 +892,14 @@ export function CoachStudioView({
             <span className="flex min-w-0 flex-col">
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className="truncate text-sm font-medium text-foreground">{alumno.nombre_completo}</span>
+                {esEntrenadorDeApoyo(alumno, viewerPermisos) && (
+                  <span
+                    data-testid={`badge-apoyo-tabla-${alumno.id}`}
+                    className="inline-flex shrink-0 items-center rounded-md border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
+                  >
+                    Apoyo
+                  </span>
+                )}
                 <ActivityLabels labels={labels} />
               </span>
               {subtitulo && <span className="truncate text-xs text-neutral-soft-foreground">{subtitulo}</span>}
@@ -885,6 +916,20 @@ export function CoachStudioView({
       className: `${rowPaddingClass} px-4 text-left`,
       cellProps: { "data-testid": "columna-cuota-actividad" },
       cell: ({ row: alumno }) => {
+        if (!puedeVerFinanzasDe(alumno)) {
+          return (
+            <div className="flex flex-col items-start gap-1" data-testid="columna-cuota-actividad">
+              <span
+                className="text-xs text-muted-foreground"
+                data-testid={`cuota-oculta-apoyo-${alumno.id}`}
+                aria-label="Sin acceso financiero"
+              >
+                Solo entrenamiento
+              </span>
+            </div>
+          );
+        }
+
         const isAlDia = esCuotaAlDia(alumno);
         let isPendiente = alumno.estado_membresia === "PENDIENTE";
         let cuotaTooltip = isAlDia
@@ -1474,10 +1519,10 @@ export function CoachStudioView({
               periodo={tipoPeriodo}
               onPeriodoChange={(p) => setTipoPeriodo(p)}
               totalAlumnos={alumnos.length}
-              alumnosAlDia={isLiveInicio ? alumnos.filter(esCuotaAlDia).length : undefined}
+              alumnosAlDia={isLiveInicio ? alumnos.filter((a) => puedeVerFinanzasDe(a) && esCuotaAlDia(a)).length : undefined}
               sinEntrenarNombres={alumnosSinEntrenarInicio.map((a) => a.nombreCompleto)}
               sinEntrenarAlDia={
-                alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && esCuotaAlDia(a)).length
+                alumnos.filter((a) => alumnosSinEntrenarInicio.some((x) => x.id === a.id) && puedeVerFinanzasDe(a) && esCuotaAlDia(a)).length
               }
               sinRutina={metricas.cantSinPlanEntrenamiento}
               onAsignarClick={() => setIsAssignModalOpen(true)}
@@ -1566,16 +1611,16 @@ export function CoachStudioView({
                           label: "Al día",
                           // Con v_estado_alumno, mismo predicado que KPI, Cuota y filtro (GOZS-694).
                           count: estadoAlumnoPorId
-                            ? alumnos.filter(esCuotaAlDia).length
-                            : alumnos.filter((a) => a.estado_membresia === "ACTIVA").length,
+                            ? alumnos.filter((a) => puedeVerFinanzasDe(a) && esCuotaAlDia(a)).length
+                            : alumnos.filter((a) => puedeVerFinanzasDe(a) && a.estado_membresia === "ACTIVA").length,
                         },
                         {
                           id: "PENDIENTE",
                           testId: "chip-filtro-pago-pendiente",
                           label: "Pago pendiente",
                           count: estadoAlumnoPorId
-                            ? alumnos.filter(esCuotaVencida).length
-                            : alumnos.filter((a) => a.estado_membresia === "PENDIENTE").length,
+                            ? alumnos.filter((a) => puedeVerFinanzasDe(a) && esCuotaVencida(a)).length
+                            : alumnos.filter((a) => puedeVerFinanzasDe(a) && a.estado_membresia === "PENDIENTE").length,
                         },
                         {
                           id: "NUEVOS",
@@ -1813,6 +1858,8 @@ export function CoachStudioView({
           onPreviewAthlete={(a) => setPreviewAlumno(a)}
           onAssignRoutine={(a) => setAssignRoutineTarget(a)}
           onQuickSwap={handleOpenQuickSwapFromAlert}
+          currentUserId={activeUserId}
+          currentUserRole={activeRole}
         />
       )}
 

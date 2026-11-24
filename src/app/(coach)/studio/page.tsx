@@ -44,6 +44,7 @@ export default async function CoachStudioPage({
       initialDataset={initialDataset}
       estancados={estancados}
       userRole={userRole}
+      userId={authUser?.data?.user?.id ?? null}
       initialEstado={initialEstado}
     />
   );

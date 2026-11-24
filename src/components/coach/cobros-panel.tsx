@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/sheet";
 import { MoreHorizontal, Search } from "@/components/ui/icons";
 import type { KpisNegocio } from "@/lib/kpis-negocio";
+import { puedeVerFinanzasAlumno } from "@/lib/entrenador-apoyo";
 
 export interface CobrosPanelProps {
   initialKpiAnualAbierto?: boolean;
@@ -58,8 +59,13 @@ export interface CobrosPanelProps {
   initialRowMenuOpen?: boolean;
   kpis?: KpisNegocio;
   initialDataset?: CobrosSupabaseDataset;
-  initialPerfiles?: Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">>;
+  initialPerfiles?: Array<
+    Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono"> &
+      Partial<Pick<Perfil, "profesor_asignado_id" | "profesor_apoyo_id" | "apoyo_acceso_financiero">>
+  >;
   isLiveMode?: boolean;
+  currentUserId?: string | null;
+  userRole?: string | null;
 }
 
 export function CobrosPanel({
@@ -73,6 +79,8 @@ export function CobrosPanel({
   initialDataset,
   initialPerfiles,
   isLiveMode = false,
+  currentUserId = null,
+  userRole = null,
 }: CobrosPanelProps = {}): React.JSX.Element {
   const {
     cobros: storeCobros,
@@ -109,7 +117,37 @@ export function CobrosPanel({
     () => (initialDataset ? mapearCobrosDataset(initialDataset, initialPerfiles ?? []) : null),
     [initialDataset, initialPerfiles],
   );
-  const cobros = storeIsLiveMode ? storeCobros : (mappedInitial?.cobros ?? storeCobros);
+  const alumnosStudio = useCoachStudioStore((s) => s.alumnos);
+  const alumnosSinAccesoFinanciero = React.useMemo(() => {
+    if (!currentUserId) return new Set<string>();
+    const viewer = { userId: currentUserId, rol: userRole };
+    const bloqueados = new Set<string>();
+    for (const p of [...(initialPerfiles ?? []), ...alumnosStudio]) {
+      if (
+        "profesor_asignado_id" in p &&
+        !puedeVerFinanzasAlumno(
+          {
+            profesor_asignado_id: p.profesor_asignado_id ?? null,
+            profesor_apoyo_id: p.profesor_apoyo_id ?? null,
+            apoyo_acceso_financiero: p.apoyo_acceso_financiero ?? false,
+          },
+          viewer,
+        )
+      ) {
+        bloqueados.add(p.id);
+      }
+    }
+    return bloqueados;
+  }, [currentUserId, userRole, initialPerfiles, alumnosStudio]);
+
+  const cobrosRaw = storeIsLiveMode ? storeCobros : (mappedInitial?.cobros ?? storeCobros);
+  const cobros = React.useMemo(
+    () =>
+      alumnosSinAccesoFinanciero.size === 0
+        ? cobrosRaw
+        : cobrosRaw.filter((c) => !alumnosSinAccesoFinanciero.has(c.alumnoId)),
+    [cobrosRaw, alumnosSinAccesoFinanciero],
+  );
   const planes = storeIsLiveMode ? storePlanes : (mappedInitial?.planes ?? storePlanes);
 
   const cobrosSearchRef = React.useRef<HTMLInputElement>(null);
