@@ -9,7 +9,7 @@ import { normalize } from "../core/guard/normalize.mjs";
 // @ts-expect-error - mjs module
 import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
-import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
+import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, pairPrePostEvents, parseCliArgs, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
 // H-12 — Telemetría determinista del guard + agregador harness-telemetry.mjs.
 // Criterios de aceptación (Gherkin):
@@ -811,6 +811,228 @@ describe("GOZS-768: fidelidad de telemetría (CMD_MAX 300, rutas relativas, rang
 
     const summary = summarize(events);
     expect(summary.totalEvents).toBe(2);
+    expect(summary.totalActions).toBe(1);
+    expect(summary.postEvents).toBe(1);
     expect(summary.actionsByKind).toEqual({ shell: 1 });
+  });
+});
+
+describe("GOZS-769: agregador — totalActions/postEvents, tiempo activo, callsBeforeFirstEdit, duraciones y --deep", () => {
+  const script = path.resolve(__dirname, "../core/scripts/harness-telemetry.mjs");
+
+  it("GIVEN un fixture con eventos pre y post WHEN corre summarize THEN totalActions = suma de actionsByKind y totalEvents = acciones + posts", () => {
+    const fixture = [
+      { ts: "2026-11-24T10:00:00.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c1" },
+      { ts: "2026-11-24T10:00:00.500Z", session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c1", ok: true },
+      { ts: "2026-11-24T10:00:02.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c2" },
+      { ts: "2026-11-24T10:00:02.400Z", session: "s1", runtime: "claude-code", phase: "post", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c2", ok: true },
+      { ts: "2026-11-24T10:00:05.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "c3" },
+      { ts: "2026-11-24T10:00:05.200Z", session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "c3", ok: false },
+    ];
+    const s = summarize(fixture);
+    const actionsSum = Object.values(s.actionsByKind).reduce((acc: number, n: unknown) => acc + Number(n), 0);
+    expect(s.totalActions).toBe(3);
+    expect(s.postEvents).toBe(3);
+    expect(s.totalActions).toBe(actionsSum);
+    expect(s.totalEvents).toBe(s.totalActions + s.postEvents);
+    expect(s.totalEvents).toBe(6);
+  });
+
+  it("GIVEN dos acciones de una sesión separadas por 20 min, con --idle-min 15, WHEN corre summarize THEN ese hueco no suma a activeTimeMs", () => {
+    const base = Date.parse("2026-11-24T10:00:00.000Z");
+    const fixture = [
+      // Deliberadamente desordenados para validar ordenamiento por ts por sesión.
+      { ts: new Date(base + 20 * 60_000).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/b.ts" },
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/a.ts" },
+      // Segunda sesión con 2 huecos: 3 min (<= 15) y 35 min (> 15 y > 30)
+      { ts: new Date(base).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "git status" },
+      { ts: new Date(base + 3 * 60_000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "git diff" },
+      { ts: new Date(base + 38 * 60_000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "write", tool: "edit_file", decision: "allow", cmd: "src/a.ts" },
+    ];
+
+    const s15 = summarize(fixture, { idleMin: 15 });
+    expect(s15.activeTimeMs.idleThresholdMin).toBe(15);
+    // Solo el hueco de 3 min en s2 suma; los de 20 min y 35 min se excluyen.
+    expect(s15.activeTimeMs.totalMs).toBe(3 * 60_000);
+    expect(s15.activeTimeMs.p50Ms).toBe(1.5 * 60_000);
+    expect(s15.activeTimeMs.totalGaps).toBe(3);
+    expect(s15.activeTimeMs.gapsOverMin).toEqual({
+      2: 3, // 3m, 20m, 35m
+      5: 2, // 20m, 35m
+      10: 2,
+      15: 2,
+      30: 1, // 35m
+      60: 0,
+    });
+
+    // Con umbral de 25 min, el hueco de 20 min sí suma (20 + 3 = 23 min).
+    const s25 = summarize(fixture, { idleMin: 25 });
+    expect(s25.activeTimeMs.totalMs).toBe(23 * 60_000);
+
+    // Verificar vía CLI con --idle-min 15 --json
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+    const cliOut = JSON.parse(execFileSync(process.execPath, [script, file, "--idle-min", "15", "--json"], { encoding: "utf8" }));
+    expect(cliOut.activeTimeMs.totalMs).toBe(3 * 60_000);
+    expect(cliOut.activeTimeMs.gapsOverMin["15"]).toBe(2);
+  });
+
+  it("calcula callsBeforeFirstEdit (p50 y p90) contando acciones previas a la primera escritura permitida", () => {
+    const base = Date.parse("2026-11-24T11:00:00.000Z");
+    const fixture = [
+      // s1: 1 read, 1 write BLOQUEADA, 1 post, 1 write PERMITIDA -> 2 acciones previas (read + blocked write)
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 1000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", decision: "block", rule: "db.append-only" },
+      { ts: new Date(base + 1500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "read", decision: "allow" },
+      { ts: new Date(base + 2000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", decision: "allow" },
+      // s2: 4 acciones previas antes de la primera escritura permitida
+      { ts: new Date(base).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "shell", decision: "allow" },
+      { ts: new Date(base + 1000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 2000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+      { ts: new Date(base + 3000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "search", decision: "allow" },
+      { ts: new Date(base + 4000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "write", decision: "allow" },
+      // s3: sin escritura permitida (no cuenta)
+      { ts: new Date(base).toISOString(), session: "s3", runtime: "antigravity", phase: "pre", kind: "read", decision: "allow" },
+    ];
+
+    const s = summarize(fixture);
+    expect(s.callsBeforeFirstEdit.count).toBe(2);
+    expect(s.callsBeforeFirstEdit.p50).toBe(3); // median([2, 4]) = 3
+    expect(s.callsBeforeFirstEdit.p90).toBe(3.8); // percentile([2, 4], 90) = 3.8
+  });
+
+  it("GIVEN un pre y un post con el mismo id WHEN corre summarize THEN la duración es post.ts − pre.ts; y soporta fallback sin id y tasa de fallos", () => {
+    const base = Date.parse("2026-11-24T12:00:00.000Z");
+    const fixture = [
+      // Par por id (3500 ms, ok: true)
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "npm test", id: "toolu_1" },
+      { ts: new Date(base + 3500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "npm test", id: "toolu_1", ok: true },
+      // Par por id (1500 ms, ok: false)
+      { ts: new Date(base + 5000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git push", id: "toolu_2" },
+      { ts: new Date(base + 6500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "git push", id: "toolu_2", ok: false },
+      // Par fallback por (session, tool, cmd) sin id (800 ms, ok: true)
+      { ts: new Date(base + 10_000).toISOString(), session: "s1", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/app.ts" },
+      { ts: new Date(base + 10_800).toISOString(), session: "s1", runtime: "antigravity", phase: "post", kind: "read", tool: "read_file", decision: "allow", cmd: "src/app.ts", ok: true },
+      // Dos eventos con ids distintos NO deben cruzarse por fallback
+      { ts: new Date(base + 20_000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status", id: "id_A" },
+      { ts: new Date(base + 20_400).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status", id: "id_B", ok: true },
+    ];
+
+    const pairs = pairPrePostEvents(fixture);
+    expect(pairs).toHaveLength(3);
+    expect(pairs[0]!.durationMs).toBe(3500);
+    expect(pairs[0]!.matchedBy).toBe("id");
+    expect(pairs[1]!.durationMs).toBe(1500);
+    expect(pairs[1]!.matchedBy).toBe("id");
+    expect(pairs[1]!.ok).toBe(false);
+    expect(pairs[2]!.durationMs).toBe(800);
+    expect(pairs[2]!.matchedBy).toBe("fallback");
+
+    const s = summarize(fixture);
+    expect(s.durations.pairedCount).toBe(3);
+    expect(s.durations.pairedById).toBe(2);
+    expect(s.durations.pairedByFallback).toBe(1);
+    expect(s.durations.totalMs).toBe(5800);
+    expect(s.durations.byKind.shell).toEqual({
+      count: 2,
+      p50Ms: 2500,
+      p90Ms: 3300,
+      totalMs: 5000,
+    });
+    expect(s.durations.byKind.read).toEqual({
+      count: 1,
+      p50Ms: 800,
+      p90Ms: 800,
+      totalMs: 800,
+    });
+    expect(s.durations.topSignaturesByTotalMs[0]).toMatchObject({
+      signature: "npm test",
+      count: 1,
+      totalMs: 3500,
+      failed: 0,
+    });
+    expect(s.durations.topSignaturesByTotalMs[1]).toMatchObject({
+      signature: "git push",
+      count: 1,
+      totalMs: 1500,
+      failed: 1,
+    });
+    expect(s.durations.outcomes).toEqual({
+      evaluated: 4,
+      failed: 1,
+      failureRate: 0.25,
+    });
+  });
+
+  it("GIVEN --idle-min abc o una fecha inválida WHEN corre la CLI THEN termina con código != 0 y un mensaje claro", () => {
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, "");
+
+    for (const [badArgs, expectedFragment] of [
+      [[file, "--idle-min", "abc"], "--idle-min"],
+      [[file, "--idle-min=0"], "--idle-min"],
+      [[file, "--idle-min", "-5"], "--idle-min"],
+      [[file, "--idle-min"], "--idle-min"],
+      [[file, "--top", "abc"], "--top"],
+      [[file, "--top=0"], "--top"],
+      [[file, "--since", "fecha-invalida"], "--since"],
+      [[file, "--until=otra-invalida"], "--until"],
+    ] as Array<[string[], string]>) {
+      let exitCode = 0;
+      let stderr = "";
+      try {
+        execFileSync(process.execPath, [script, ...badArgs], { encoding: "utf8", stdio: "pipe" });
+      } catch (e) {
+        const err = e as { status?: number; stderr?: string };
+        exitCode = err.status ?? 1;
+        stderr = String(err.stderr ?? "");
+      }
+      expect(exitCode).not.toBe(0);
+      expect(stderr).toContain(expectedFragment);
+    }
+
+    // --help termina con código 0 y muestra las opciones
+    const helpOut = execFileSync(process.execPath, [script, "--help"], { encoding: "utf8" });
+    expect(helpOut).toContain("--idle-min");
+    expect(helpOut).toContain("--deep");
+    expect(parseCliArgs(["--idle-min=20", "--deep"]).idleMin).toBe(20);
+  });
+
+  it("GIVEN --deep WHEN corre la CLI THEN delega a telemetry-deep.mjs, escribe deep-dive.md/json y el cruce con summarize coincide", () => {
+    const dir = tempDir();
+    const outDir = path.join(dir, "out");
+    const file = path.join(dir, "events.jsonl");
+    const fixture = [
+      { ts: "2026-11-24T14:00:00.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/app.ts", start: 1, limit: 100, bounded: true, cwd: "<repo>", id: "t1" },
+      { ts: "2026-11-24T14:00:00.200Z", session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t1", ok: true },
+      { ts: "2026-11-24T14:00:05.000Z", session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t2" },
+      { ts: "2026-11-24T14:00:05.500Z", session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/app.ts", cwd: "<repo>", id: "t2", ok: true },
+    ];
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+
+    const stdout = execFileSync(process.execPath, [script, file, "--deep", "--out", outDir], { encoding: "utf8" });
+    expect(stdout).toContain("4 eventos");
+    expect(stdout).toContain("2 acciones");
+    expect(stdout).toContain("1 sesiones");
+    expect(stdout).toContain("coincide con harness-telemetry");
+
+    const mdPath = path.join(outDir, "deep-dive.md");
+    const jsonPath = path.join(outDir, "deep-dive.json");
+    expect(existsSync(mdPath)).toBe(true);
+    expect(existsSync(jsonPath)).toBe(true);
+
+    const reportJson = JSON.parse(readFileSync(jsonPath, "utf8"));
+    expect(reportJson.coverage.events).toBe(4);
+    expect(reportJson.coverage.actions).toBe(2);
+    expect(reportJson.coverage.sessions).toBe(1);
+    expect(reportJson.coverage.crossCheck.matches).toBe(true);
+  });
+
+  it("GIVEN harness-kit/core/scripts/ THEN no existe ningún script separado de deep-dive (vive en harness-kit/core/lib/telemetry-deep.mjs)", () => {
+    const scriptsDir = path.resolve(__dirname, "../core/scripts");
+    const libModule = path.resolve(__dirname, "../core/lib/telemetry-deep.mjs");
+    expect(existsSync(libModule)).toBe(true);
+    const scriptFiles = readdirSync(scriptsDir);
+    expect(scriptFiles.filter((f) => /deep/i.test(f))).toEqual([]);
   });
 });
