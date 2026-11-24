@@ -10,6 +10,7 @@ const ADMIN = "00000000-0000-0000-0000-0000000000ad";
 const A1 = "00000000-0000-0000-0000-0000000000a1";
 const A2 = "00000000-0000-0000-0000-0000000000a2";
 const C1 = "00000000-0000-0000-0000-0000000000c1";
+const C2_APOYO = "00000000-0000-0000-0000-0000000758c2";
 
 const EJERCICIO_1 = "11111111-1111-4111-8111-111111111101";
 const PLANTILLA_ID = "22222222-2222-4222-8222-222222222201";
@@ -251,7 +252,8 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect(await contarComo("authenticated", C1, "reservas")).toBe(1);
       expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(1);
       expect(await contarComo("authenticated", C1, "errores_app")).toBe(1);
-      expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(1);
+      // GOZS-759: las plantillas son privadas de su autor; un coach no ve plantillas ajenas no compartidas.
+      expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(0);
       expect(await contarComo("authenticated", C1, "auditoria_cambios", `entidad_id = '${CONTR_A1_ID}'`)).toBe(1);
     });
 
@@ -522,6 +524,57 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
     it("coach no ve alumno no asignado en perfiles ni registro_sesiones", async () => {
       expect(await contarComo("authenticated", C1, "perfiles", `id = '${A2}'`)).toBe(0);
       expect(await contarComo("authenticated", C1, "registro_sesiones", `alumno_id = '${A2}'`)).toBe(0);
+    });
+
+    it("GOZS-759: coach no lee, clona, asigna ni se auto-comparte una plantilla ajena no compartida", async () => {
+      expect(await contarComo("authenticated", C1, "dias_rutina", `plan_id = '${PLANTILLA_ID}'`)).toBe(0);
+      expect(await contarComo("authenticated", C1, "ejercicios_en_rutina", `dia_id = '${DIA_PLANTILLA_ID}'`)).toBe(0);
+      await expect(
+        como("authenticated", C1, `SELECT public.clonar_plan_entrenamiento($1, 'robada')`, [PLANTILLA_ID]),
+      ).rejects.toThrow();
+      await expect(
+        como("authenticated", C1, `SELECT public.asignar_rutina_a_alumno($1, $2)`, [PLANTILLA_ID, A1]),
+      ).rejects.toThrow();
+      await expect(
+        como(
+          "authenticated",
+          C1,
+          `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $2)`,
+          [PLANTILLA_ID, C1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como(
+          "authenticated",
+          C1,
+          `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $3)`,
+          [PLANTILLA_ID, C1, ADMIN],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+    });
+
+    it("GOZS-759: plantilla compartida con el coach es solo lectura y anon no accede a planes_compartidos", async () => {
+      await db.query(
+        `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $3)`,
+        [PLANTILLA_ID, C1, ADMIN],
+      );
+      try {
+        expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(1);
+        expect(await contarComo("authenticated", C1, "ejercicios_en_rutina", `dia_id = '${DIA_PLANTILLA_ID}'`)).toBe(1);
+        const upd = await como("authenticated", C1, `UPDATE public.planes_entrenamiento SET nombre = 'x' WHERE id = $1`, [
+          PLANTILLA_ID,
+        ]);
+        expect(upd.affectedRows).toBe(0);
+        const del = await como("authenticated", C1, `DELETE FROM public.dias_rutina WHERE plan_id = $1`, [PLANTILLA_ID]);
+        expect(del.affectedRows).toBe(0);
+        const revoca = await como("authenticated", C1, `DELETE FROM public.planes_compartidos WHERE plan_id = $1`, [
+          PLANTILLA_ID,
+        ]);
+        expect(revoca.affectedRows).toBe(0);
+        expect(await contarOCodigoPermiso("anon", null, "planes_compartidos")).toBe("42501");
+      } finally {
+        await db.query(`DELETE FROM public.planes_compartidos WHERE plan_id = $1`, [PLANTILLA_ID]);
+      }
     });
 
     it("anon recibe 42501 en perfiles, registro_series, planes_entrenamiento y mensajes", async () => {
@@ -864,6 +917,59 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
         [CLASE_ID, C1],
       );
       expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(2);
+    });
+  });
+
+  describe("5. Entrenador de apoyo sin acceso financiero (GOZS-758)", () => {
+    beforeAll(async () => {
+      // La sección 4 re-aplica migraciones previas: se re-aplica la vigente (idempotente).
+      await aplicarMigracion(
+        db,
+        fs.readFileSync(path.join(MIGRATIONS_DIR, "20261123160000_entrenador_apoyo_acceso_financiero.sql"), "utf-8"),
+      );
+      await db.exec(`
+        INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', '{"rol":"ENTRENADOR"}');
+        INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia) VALUES
+          ('${C2_APOYO}', 'apoyo@test.local', 'Coach Apoyo', 'ENTRENADOR', 'ACTIVA')
+        ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol;
+        UPDATE public.perfiles SET profesor_apoyo_id = '${C2_APOYO}', apoyo_acceso_financiero = false
+        WHERE id = '${A1}';
+      `);
+    });
+
+    it("apoyo ve el entrenamiento del alumno pero 0 filas financieras", async () => {
+      expect(await contarComo("authenticated", C2_APOYO, "registro_sesiones", `alumno_id = '${A1}'`)).toBeGreaterThan(0);
+      for (const tabla of ["contrataciones", "cobros", "pagos", "v_estado_alumno"]) {
+        expect(await contarComo("authenticated", C2_APOYO, tabla, `alumno_id = '${A1}'`)).toBe(0);
+      }
+    });
+
+    it("apoyo no puede ejecutar RPCs financieras (42501)", async () => {
+      const ataques: Array<[string, unknown[]]> = [
+        [`SELECT public.renovar_contratacion($1, 35000, 'EFECTIVO', 'atk-ren')`, [CONTR_A1_ID]],
+        [`SELECT public.extender_contratacion_excepcional($1, CURRENT_DATE + 90, 'atk')`, [CONTR_A1_ID]],
+        [`SELECT public.registrar_pago($1, 1, 'EFECTIVO', 'atk-pago')`, [COBRO_A1_ID]],
+        [`SELECT public.registrar_y_confirmar_renovacion($1, 1, 'EFECTIVO', 'atk-conf')`, [CONTR_A1_ID]],
+        [`SELECT * FROM public.asignar_suscripcion_y_cobro($1, $2, NULL, 1)`, [A1, MEMBRESIA_ID]],
+      ];
+      for (const [sql, params] of ataques) {
+        await expect(como("authenticated", C2_APOYO, sql, params)).rejects.toMatchObject({ code: "42501" });
+      }
+    });
+
+    it("apoyo no puede autoconcederse acceso financiero ni reasignarse (42501)", async () => {
+      for (const set of [
+        "apoyo_acceso_financiero = true",
+        `profesor_asignado_id = '${C2_APOYO}', profesor_apoyo_id = NULL`,
+        "profesor_apoyo_id = NULL",
+        "estado_membresia = 'VENCIDA'",
+      ]) {
+        await expect(
+          como("authenticated", C2_APOYO, `UPDATE public.perfiles SET ${set} WHERE id = $1`, [A1]),
+        ).rejects.toMatchObject({ code: "42501" });
+      }
+      expect((await obtenerPerfil(A1))?.profesor_asignado_id).toBe(C1);
     });
   });
 });

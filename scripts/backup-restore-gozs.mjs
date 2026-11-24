@@ -33,7 +33,7 @@ export const VERSION_SNAPSHOT = 1;
  * obliga a actualizar esta lista (y la de restaurar_filas_respaldo).
  */
 export const TABLAS = [
-  { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles" } },
+  { nombre: "perfiles", fks: { profesor_asignado_id: "perfiles", profesor_apoyo_id: "perfiles" } },
   { nombre: "ejercicios", fks: { creado_por: "perfiles" } },
   {
     nombre: "planes_entrenamiento",
@@ -98,6 +98,10 @@ export const TABLAS = [
   { nombre: "reservas", fks: { alumno_id: "perfiles", clase_id: "clases" } },
   { nombre: "feedback_clase", fks: { reserva_id: "reservas" } },
   { nombre: "logros_racha", fks: { alumno_id: "perfiles" } },
+  {
+    nombre: "planes_compartidos",
+    fks: { plan_id: "planes_entrenamiento", profesor_id: "perfiles", compartido_por: "perfiles" },
+  },
 ];
 
 /** JSON estable: claves ordenadas, para que el hash no dependa del orden de columnas. */
