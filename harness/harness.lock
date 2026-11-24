@@ -10,7 +10,7 @@
     ".agents/rules/harness-antigravity.md": "sha256:2c15fb261be699e6c0360e7be2263510b6f1056ff8adc4a9787b74bbf3ce7e0a",
     ".agents/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
     ".agents/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
-    ".agents/skills/harness-tools/SKILL.md": "sha256:b4425e4251a5d205812fa20df9c456aa459793f0d9750e4c268505b082129390",
+    ".agents/skills/harness-tools/SKILL.md": "sha256:184c7974c2b649636bbf7ab2a790674a614fd421ab0dd112e44b0a5ef9dfc862",
     ".claude/agents/harness-composer.md": "sha256:aa730f4e5a687b8a3af22961a99435e5e7ba31a39bc3c7651fa5f7f21b3cf03a",
     ".claude/agents/harness-proposer.md": "sha256:2fd8f3a8ccf1c380f53269b17fd3cc029b9e1944387ebb74d518dec196e2216b",
     ".claude/agents/schema-inspector.md": "sha256:c99aabfba58549a399782efe779f5c8014bd57ae29da065b26bdb172614c2765",
@@ -18,7 +18,7 @@
     ".claude/settings.json": "sha256:9b17d88f211552fc9f57ae119afecda3c950f4c29087b629e11518a90105a108",
     ".claude/skills/gozster-domain/SKILL.md": "sha256:317e375191bc6260096009eafc7a1c5bb02909be1b0e3f15084ce6745c662edd",
     ".claude/skills/harness-bootstrap/SKILL.md": "sha256:a25deef5e2dbe6076e487a3d155a2178829955209c3c44a4df4da1b5e6057cbb",
-    ".claude/skills/harness-tools/SKILL.md": "sha256:b4425e4251a5d205812fa20df9c456aa459793f0d9750e4c268505b082129390",
+    ".claude/skills/harness-tools/SKILL.md": "sha256:184c7974c2b649636bbf7ab2a790674a614fd421ab0dd112e44b0a5ef9dfc862",
     ".gemini/agents/harness-composer.md": "sha256:aa730f4e5a687b8a3af22961a99435e5e7ba31a39bc3c7651fa5f7f21b3cf03a",
     ".gemini/agents/harness-proposer.md": "sha256:2fd8f3a8ccf1c380f53269b17fd3cc029b9e1944387ebb74d518dec196e2216b",
     ".gemini/agents/schema-inspector.md": "sha256:c99aabfba58549a399782efe779f5c8014bd57ae29da065b26bdb172614c2765",
@@ -29,7 +29,7 @@
     ".opencode/agents/schema-inspector.md": "sha256:e10eac7d8a59ad1221c4ba34d9dfa6b3a1254d7adf73b8f713ad614611414f3a",
     ".opencode/agents/trace-auditor.md": "sha256:43645e4579b0a24c8d2f33f0338a37f5425451158e5843b7f8ad17fcd64abe3f",
     ".opencode/plugins/harness-guard.ts": "sha256:67e51bc417743183b42513872eaa122094027d7d96e0fe256c1cdca5de8df182",
-    "AGENTS.md": "sha256:e23d172954b2b89966b39a402a3cd61f7dcdb7a87b2c122efd280a8341c462e3",
+    "AGENTS.md": "sha256:30522b16b68f0430c49fd30bd05f351ebedd5806b653c653d3343f4ffa6963cd",
     "CLAUDE.md": "sha256:336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
   }
 }
