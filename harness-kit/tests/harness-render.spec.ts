@@ -192,12 +192,16 @@ describe("harness-render: carga y validación de contratos", () => {
 
     function parseStrictIsoMs(value: unknown): number | null {
       if (typeof value !== "string" || !ISO_TS_RE.test(value)) return null;
-      const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+      const y = Number(value.slice(0, 4));
+      const m = Number(value.slice(5, 7));
+      const d = Number(value.slice(8, 10));
       const check = new Date(Date.UTC(y, m - 1, d));
       if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
         return null;
       }
-      const [hh, mm, ss] = value.slice(11, 19).split(":").map(Number);
+      const hh = Number(value.slice(11, 13));
+      const mm = Number(value.slice(14, 16));
+      const ss = Number(value.slice(17, 19));
       if (hh > 23 || mm > 59 || ss > 59) return null;
       const ms = Date.parse(value);
       return Number.isFinite(ms) ? ms : null;
@@ -223,14 +227,15 @@ describe("harness-render: carga y validación de contratos", () => {
         const label = isNonEmptyString(entry.id) ? entry.id : `entries[${idx}]`;
 
         // 1. Campos obligatorios en cada entrada + 6. id único y en orden creciente
-        const idMatch = typeof entry.id === "string" ? LEDGER_ID_RE.exec(entry.id) : null;
-        if (!idMatch) {
+        const entryId = typeof entry.id === "string" ? entry.id : null;
+        const idMatch = entryId !== null ? LEDGER_ID_RE.exec(entryId) : null;
+        if (!idMatch || entryId === null) {
           errors.push(`${label}: 'id' debe cumplir el patrón L-\\d{3}`);
         } else {
-          if (seenIds.has(entry.id)) {
+          if (seenIds.has(entryId)) {
             errors.push(`${label}: 'id' duplicado`);
           } else {
-            seenIds.add(entry.id);
+            seenIds.add(entryId);
           }
           const idNum = Number(idMatch[1]);
           if (prevIdNum >= 0 && idNum <= prevIdNum) {
