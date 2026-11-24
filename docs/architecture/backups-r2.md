@@ -2,7 +2,7 @@
 
 > **Estado:** Vigente (O-1 / G10 · GOZS-794)
 > **Script del pipeline y restore:** `scripts/backup-restore-verify.sh`
-> **Workflow de GitHub Actions:** `.github/workflows/backup-production.yml` *(alta protegida por `harness.authorized-only`: se publica en rama `chore/<#>-harness-*` autorizada por `@PM-GOZster` / `@Fresias`, siguiendo el mismo patrón GOZS-688 → GOZS-731).*
+> **Workflow de GitHub Actions:** `.github/workflows/backup-production.yml` *(publicado en GOZS-800 · O-1 / G10).*
 
 ---
 
