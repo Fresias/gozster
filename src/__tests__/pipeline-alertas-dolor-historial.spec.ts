@@ -14,7 +14,7 @@ import {
 } from "@/components/coach/critical-alerts-store";
 import { getDemoAlumnoAlerts, DEMO_GIMNASIO } from "@/services/coach-demo-dataset";
 import { useOfflineQueueStore } from "@/store/use-offline-queue";
-import { useAthleteStore, DEFAULT_ATHLETE_ID } from "@/store/use-athlete-store";
+import { useAthleteStore, DEFAULT_ATHLETE_ID, DEFAULT_ATHLETE_NAME } from "@/store/use-athlete-store";
 import { supabase } from "@/lib/supabase/client";
 
 vi.mock("@/lib/supabase/client", async () => {
@@ -96,7 +96,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
 
     it("GIVEN Facundo Roldán con dolor reportado THEN getDemoAlumnoAlerts emite el badge reactivo 🚨 [Zona]", async () => {
       // Estado inicial: Facundo Roldán no tiene alertas
-      expect(getDemoAlumnoAlerts("Facundo Roldán").length).toBe(0);
+      expect(getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME).length).toBe(0);
 
       // Facundo reporta dolor de Hombro en Press Inclinado
       await useAthleteStore.getState().reportarMolestia({
@@ -111,7 +111,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       });
 
       // El badge reactivo se genera para Facundo Roldán
-      const badges = getDemoAlumnoAlerts("Facundo Roldán");
+      const badges = getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME);
       expect(badges.length).toBeGreaterThan(0);
       const painBadge = badges.find((b) => b.type === "pain");
       expect(painBadge).toBeDefined();
@@ -139,7 +139,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Facundo Roldán",
+          studentName: DEFAULT_ATHLETE_NAME,
           exerciseId: "ej-peso-muerto",
           exerciseName: "Peso Muerto Rumano",
           zonaArticular: "LUMBAR",
@@ -155,7 +155,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       const offlineAlert = inboxAlerts.find((a) => a.id === "offline-pain-ev-101");
 
       expect(offlineAlert).toBeDefined();
-      expect(offlineAlert?.alumnoNombre).toBe("Facundo Roldán");
+      expect(offlineAlert?.alumnoNombre).toBe(DEFAULT_ATHLETE_NAME);
       expect(offlineAlert?.zona).toBe("Lumbar");
       expect(offlineAlert?.severidad).toBe("CRITICA");
       expect(offlineAlert?.esSintomaAlarma).toBe(true);
@@ -168,7 +168,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Facundo Roldán",
+          studentName: DEFAULT_ATHLETE_NAME,
           exerciseId: "ej-curl-biceps",
           exerciseName: "Curl de Bíceps en Polea",
           zonaArticular: "CODO",
@@ -186,7 +186,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       expect(alert?.severidad).toBe("ALTA");
       expect(alert?.esSintomaAlarma).toBe(false);
 
-      const badges = getDemoAlumnoAlerts("Facundo Roldán");
+      const badges = getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME);
       expect(badges.some((b) => b.label === "🚨 Codo")).toBe(true);
     });
 
@@ -197,7 +197,7 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
         action: "PAIN_REPORT_SUBMITTED",
         payload: {
           studentId: DEFAULT_ATHLETE_ID,
-          studentName: "Facundo Roldán",
+          studentName: DEFAULT_ATHLETE_NAME,
           exerciseId: "ej-sentadilla-1",
           exerciseName: "Sentadilla Trasera con Barra",
           zonaArticular: "RODILLA",
@@ -209,14 +209,14 @@ describe("GOZS-348: Pipeline Reactivo de Alertas de Dolor en Dashboard (Fix Caso
       });
 
       // El badge está activo
-      expect(getDemoAlumnoAlerts("Facundo Roldán").length).toBe(1);
+      expect(getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME).length).toBe(1);
 
       // El entrenador atiende o cierra el caso
       useDemoAlertEstados.getState().setEstado(alertId, "ATENDIDO");
       await persistAlertEstado(alertId, "ATENDIDO");
 
       // La alerta ya no figura como PENDIENTE y el badge se apaga
-      expect(getDemoAlumnoAlerts("Facundo Roldán").length).toBe(0);
+      expect(getDemoAlumnoAlerts(DEFAULT_ATHLETE_NAME).length).toBe(0);
     });
   });
 });

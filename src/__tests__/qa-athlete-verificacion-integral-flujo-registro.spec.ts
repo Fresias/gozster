@@ -64,11 +64,11 @@ describe("QA Verification: Verificación Integral de Flujo de Registro, Celebrac
       expect(dia1Fer?.nombre).toContain("DIA 1");
     });
 
-    it("GIVEN la sesión por defecto de Facundo Roldán, THEN contabiliza exactamente 26 series en 8 ejercicios", () => {
+    it("GIVEN la sesión por defecto del alumno sintético, THEN contabiliza exactamente 26 series en 8 ejercicios", () => {
       const store = useAthleteStore.getState();
       const session = store.currentSession;
 
-      expect(session.studentName).toBe("Facundo Roldán");
+      expect(session.studentName).toBe("Alumno GOZSter");
       expect(session.nombre_rutina).toContain("Día 1");
 
       // 8 ejercicios en Día 1
