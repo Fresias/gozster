@@ -47,6 +47,13 @@ Usa los wrappers acotados en `harness-kit/adapters/multica/scripts/` en lugar de
 - **Esperas por hijos o estados en Multica:** usar `--until-children-done` o `--until-status` en lugar de bucles o reintentos.
 - **Esperas activas (`shell.polling`):** el guard bloquea `Start-Sleep`, `sleep`, `timeout /t` y `ping -n <n> 127.0.0.1` en bucles, combinados con `gh`/`multica` o mayores a 5 s sin verificación local. Para esperar un servidor local en E2E (> 5 s), juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost` o `127.0.0.1`) en un solo comando (permitido y registrado como `shell.wait`).
 
+## Carpeta de trabajo
+
+El agente arranca en `<workdir>` y el repo vive en `<workdir>/gozster`. Nunca escribas la ruta absoluta del workdir.
+- **Antigravity:** cada `run_command` abre una sesión nueva en `<workdir>` (el directorio no persiste). Anteponé `Set-Location gozster;` (ruta relativa) en cada comando que necesite el repo.
+- **Claude Code:** el directorio persiste entre llamadas. Posicionate una vez en la raíz del repo (`git rev-parse --show-toplevel`) y usá rutas relativas; si un `cd`/`Set-Location` falla, el guard inyecta `remediate.cwd-lost`.
+- **Temporales y entregables** (`reply.md`, `comment.md`, `pr.md`): van en `../` (el workdir), fuera del repo.
+
 ## Lectura y búsqueda
 
 - **Rango obligatorio (> 300 líneas):** máximo duro **300 líneas** (rango inclusivo); valor recomendado **200**.
