@@ -1,12 +1,29 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { analyzeDeep, commandSignature, family, LEGACY_CMD_MAX, looksLiteral, mainOf, runDeepDive } from "../core/lib/telemetry-deep.mjs";
+import {
+  analyzeDeep,
+  commandSignature,
+  compareDeepReports,
+  family,
+  isComparableBlock,
+  LEGACY_CMD_MAX,
+  looksLiteral,
+  mainOf,
+  runDeepDive,
+} from "../core/lib/telemetry-deep.mjs";
 // @ts-expect-error - mjs module
 import { summarize } from "../core/scripts/harness-telemetry.mjs";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(here, "..", "..");
+const telemetryCli = path.join(repoRoot, "harness-kit", "core", "scripts", "harness-telemetry.mjs");
+const targetsFile = path.join(repoRoot, "docs", "harness-library", "L-002-targets.json");
 
 let tempDirs: string[] = [];
 
@@ -320,5 +337,186 @@ describe("GOZS-791 B1–B8: filtros, wrappers, rutas absolutas, cwd perdido, esp
     expect(filtered.json.blocks["shell.polling"]).toBeUndefined();
     expect(filtered.json.sequences.searchReadTransitions.native.total).toBe(0);
     expect(filtered.json.sequences.searchReadTransitions.shell.total).toBe(1);
+  });
+});
+
+describe("GOZS-795 C1–C8: medición sin sesgos, adopción, min-schema y --compare", () => {
+  it("C1: summarize y --deep coinciden usando la primera escritura permitida (escritura bloqueada a los 10 s, permitida a los 100 s)", () => {
+    const t0 = Date.parse("2026-11-24T20:00:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+    const evs = [
+      { v: 3, ts: ts(0), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "a.ts", id: "1" },
+      { v: 3, ts: ts(10), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "block", rule: "fs.protected", cmd: ".claude/settings.json", id: "2" },
+      { v: 3, ts: ts(50), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "b.ts", id: "3" },
+      { v: 3, ts: ts(100), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "4" },
+    ];
+    const sum = summarize(evs);
+    const deep = analyzeDeep(evs, { ledgerPath: null });
+    expect(deep.crossCheck.matches).toBe(true);
+    expect(sum.timeToFirstEdit.medianMs).toBe(100_000);
+    expect(deep.json.sessions["(todas)"].ttfeMs.p50).toBe(100_000);
+    expect(sum.callsBeforeFirstEdit.p50).toBe(3);
+    expect(deep.json.sessions["(todas)"].callsBeforeFirstEdit.p50).toBe(3);
+  });
+
+  it("C2: harness-ship cuenta como corrida del gate solo si duró >= 60 s y como crea PR solo con ok=true; en v1 sin duración es cota superior", () => {
+    const t0 = Date.parse("2026-11-24T20:10:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+    const shipCmd = 'node harness-kit/core/scripts/harness-ship.mjs --lesson "x" --title "t" --body-file ../pr.md';
+    const evs = [
+      // Llamada 1: falla a los 8 s (ok=false) -> ni gate ni crea PR
+      { v: 3, ts: ts(0), session: "s-ship", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh1" },
+      { v: 3, ts: ts(8), session: "s-ship", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh1", ok: false },
+      // Llamada 2: corre el gate 400 s (ok=true) -> 1 corrida del gate + crea PR
+      { v: 3, ts: ts(20), session: "s-ship", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh2" },
+      { v: 3, ts: ts(420), session: "s-ship", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh2", ok: true },
+      // Llamada 3: saltea el gate 12 s (ok=true) -> NO cuenta como gate
+      { v: 3, ts: ts(430), session: "s-ship", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh3" },
+      { v: 3, ts: ts(442), session: "s-ship", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: shipCmd, cmdLen: shipCmd.length, id: "sh3", ok: true },
+    ];
+    const deep = analyzeDeep(evs, { ledgerPath: null });
+    expect(deep.json.gate["harness-ship.mjs"].calls).toBe(3);
+    expect(deep.json.gate["gate (harness-gate + harness-ship)"].calls).toBe(1);
+    expect(deep.json.gate._prCreatingSessions.sessions).toBe(1);
+    expect(deep.json.gate._prCreatingSessions.gateRuns.sum).toBe(1);
+    expect(deep.json.gate._prCreatingSessions.gateRuns.p50).toBe(1);
+    expect(deep.json.gate._prCreatingSessions.upperBound).toBe(false);
+
+    // Eventos v1 sin duración -> cota superior
+    const v1Ship = [
+      { ts: ts(0), session: "s-v1", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: shipCmd },
+    ];
+    const deepV1 = analyzeDeep(v1Ship, { ledgerPath: null });
+    expect(deepV1.json.gate._prCreatingSessions.upperBound).toBe(true);
+    expect(deepV1.json.gate._prCreatingSessions.gateRuns.sum).toBe(1);
+  });
+
+  it("C3, C4, C5, C6 y C7: multica-ctx --agents, bloqueos comparables, cobertura por runtime, bashReads, --min-schema y adopción", () => {
+    const t0 = Date.parse("2026-11-24T21:00:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+    const evs = [
+      // Sesión v2 (debe excluirse con --min-schema 3)
+      { v: 2, ts: ts(0), session: "s-old-v2", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "git status" },
+
+      // Sesión v3 Claude Code: empieza con harness-context, usa multica-ctx --agents (×3) + multica agent list (×1),
+      // harness-pr-status, lecturas Bash con y sin pipe, Read/Grep, bloques comparables y no comparables, y harness-ship
+      { v: 3, ts: ts(10), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-context.mjs", cmdLen: 49, id: "c1" },
+      { v: 3, ts: ts(11), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-context.mjs", cmdLen: 49, id: "c1", ok: true },
+      { v: 3, ts: ts(12), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents", cmdLen: 66, id: "c2" },
+      { v: 3, ts: ts(13), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents", cmdLen: 66, id: "c2", ok: true },
+      { v: 3, ts: ts(14), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents --refresh", cmdLen: 76, id: "c3" },
+      { v: 3, ts: ts(15), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents --refresh", cmdLen: 76, id: "c3", ok: true },
+      { v: 3, ts: ts(16), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents", cmdLen: 66, id: "c4" },
+      { v: 3, ts: ts(17), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --agents", cmdLen: 66, id: "c4", ok: true },
+      { v: 3, ts: ts(18), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "multica agent list --output json", cmdLen: 32, id: "c5" },
+      { v: 3, ts: ts(19), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "multica agent list --output json", cmdLen: 32, id: "c5", ok: true },
+      // C5 bashReads: grep con pipe, sed -n sin pipe, cat sin pipe, rg con pipe
+      { v: 3, ts: ts(20), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "grep -rn foo src | head -20", cmdLen: 27, id: "c6" },
+      { v: 3, ts: ts(21), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "grep -rn foo src | head -20", cmdLen: 27, id: "c6", ok: true },
+      { v: 3, ts: ts(22), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "sed -n 1,50p src/a.ts", cmdLen: 21, id: "c7" },
+      { v: 3, ts: ts(23), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "sed -n 1,50p src/a.ts", cmdLen: 21, id: "c7", ok: true },
+      { v: 3, ts: ts(24), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "cat src/a.ts", cmdLen: 12, id: "c8" },
+      { v: 3, ts: ts(25), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "cat src/a.ts", cmdLen: 12, id: "c8", ok: true },
+      { v: 3, ts: ts(26), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "rg -n bar src | head -10", cmdLen: 24, id: "c9" },
+      { v: 3, ts: ts(27), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "rg -n bar src | head -10", cmdLen: 24, id: "c9", ok: true },
+      // Nativas Read + Grep + harness-pr-status
+      { v: 3, ts: ts(28), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c10" },
+      { v: 3, ts: ts(29), session: "s-cc", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "c10", ok: true },
+      { v: 3, ts: ts(30), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c11" },
+      { v: 3, ts: ts(31), session: "s-cc", runtime: "claude-code", phase: "post", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "c11", ok: true },
+      { v: 3, ts: ts(32), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-pr-status.mjs 12", cmdLen: 54, id: "c12" },
+      { v: 3, ts: ts(33), session: "s-cc", runtime: "claude-code", phase: "post", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-pr-status.mjs 12", cmdLen: 54, id: "c12", ok: true },
+      // C4: bloqueos comparables (read.oversize + real timeout gh pr create) vs excluidos (shell.polling, search block, literal pr.requires-seal, brain fs.protected)
+      { v: 3, ts: ts(34), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "block", rule: "read.oversize", cmd: "src/big.ts", id: "b1" },
+      { v: 3, ts: ts(35), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "pr.requires-seal", cmd: "timeout 60 gh pr create --fill", cmdLen: 30, id: "b2" },
+      { v: 3, ts: ts(36), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "pr.requires-seal", cmd: 'echo "no uses gh pr create"', cmdLen: 27, id: "b3" },
+      { v: 3, ts: ts(37), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "shell.polling", cmd: "sleep 30", cmdLen: 8, id: "b4" },
+      { v: 3, ts: ts(38), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "block", rule: "fs.env-leak", cmd: "KEY .env.local", id: "b5" },
+      // Sesión Antigravity v3 sin post (0% duración) y con cat (no debe entrar en bashReads de Claude Code) + fs.protected brain FP
+      { v: 3, ts: ts(40), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "cat src/a.ts", cmdLen: 12, id: "a1" },
+      { v: 3, ts: ts(41), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "write", tool: "write_to_file", decision: "block", rule: "fs.protected", cmd: "~/.gemini/antigravity-cli/brain/conv/scratch/a.mjs", id: "a2" },
+    ];
+
+    const deep = analyzeDeep(evs, { ledgerPath: null, minSchema: 3 });
+    expect(deep.crossCheck.matches).toBe(true);
+    // C6
+    expect(deep.json.coverage.sessions).toBe(2);
+    expect(deep.json.coverage.excludedSessionsBySchema).toBe(1);
+    expect(deep.json.cmdMax).toBe(1000);
+    // C3
+    expect(deep.json.multicaGh.multicaAgentList.calls).toBe(4);
+    // C4
+    expect(deep.json.comparableBlocks.rawTotal).toBe(6);
+    expect(deep.json.comparableBlocks.total).toBe(2); // read.oversize + real timeout gh pr create
+    expect(deep.json.comparableBlocks.excluded).toEqual({
+      newRules: 1,
+      searchKind: 1,
+      prSealLiterals: 1,
+      fsProtectedFp: 1,
+    });
+    expect(isComparableBlock({ decision: "block", rule: "pr.requires-seal", kind: "shell", cmd: "timeout 60 gh pr create --fill" })).toBe(true);
+    expect(isComparableBlock({ decision: "block", rule: "pr.requires-seal", kind: "shell", cmd: 'echo "gh pr create"' })).toBe(false);
+    // C5
+    expect(deep.json.coverage.durationCoverageByRuntime["claude-code"].pct).toBe(100);
+    expect(deep.json.coverage.durationCoverageByRuntime.antigravity.pct).toBe(0);
+    expect(deep.json.shell.bashReads.primary.total).toBe(3); // grep + sed -n + cat (NOT antigravity cat!)
+    expect(deep.json.shell.bashReads.primary.withPipe).toBe(1);
+    expect(deep.json.shell.bashReads.primary.withoutPipe).toBe(2);
+    expect(deep.json.shell.bashReads.secondary.total).toBe(1); // rg
+    expect(deep.json.shell.bashReads.secondary.withPipe).toBe(1);
+    // C7
+    expect(deep.json.adoption.harnessContext.startsCount).toBe(1);
+    expect(deep.json.adoption.multicaHelpers.helperCalls).toBe(3);
+    expect(deep.json.adoption.multicaHelpers.rawCliCalls).toBe(1);
+    expect(deep.json.adoption.prStatusHelper.helperCalls).toBe(1);
+    expect(deep.json.adoption.claudeCodeNativeVsBash.nativeRead).toBe(2);
+    expect(deep.json.adoption.claudeCodeNativeVsBash.nativeSearch).toBe(2);
+    expect(deep.json.adoption.claudeCodeNativeVsBash.bashReadsPrimary).toBe(3);
+  });
+
+  it("C8: --deep --compare <l001.json> --targets docs/harness-library/L-002-targets.json imprime cada métrica con L-001, L-002, delta y estado", () => {
+    const dir = makeTempDir();
+    const t0 = Date.parse("2026-11-24T22:00:00.000Z");
+    const ts = (sec: number) => new Date(t0 + sec * 1000).toISOString();
+
+    const baseEvs = [
+      { ts: ts(0), session: "b1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "grep -rn a src" },
+      { ts: ts(10), session: "b1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "block", rule: "read.oversize", cmd: "src/big.ts" },
+      { ts: ts(20), session: "b1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts" },
+    ];
+    const candEvs = [
+      { v: 3, ts: ts(100), session: "c1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "1" },
+      { v: 3, ts: ts(101), session: "c1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "1", ok: true },
+      { v: 3, ts: ts(105), session: "c1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "2" },
+      { v: 3, ts: ts(106), session: "c1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "2", ok: true },
+    ];
+
+    const baseReport = analyzeDeep(baseEvs, { ledgerPath: null });
+    const baseJsonPath = path.join(dir, "l001.json");
+    writeFileSync(baseJsonPath, JSON.stringify(baseReport.json, null, 2), "utf8");
+
+    const candEventsPath = path.join(dir, "l002-events.jsonl");
+    writeFileSync(candEventsPath, `${candEvs.map((e) => JSON.stringify(e)).join("\n")}\n`, "utf8");
+
+    const outDir = path.join(dir, "out");
+    const stdout = execFileSync(
+      process.execPath,
+      [telemetryCli, candEventsPath, "--deep", "--min-schema", "3", "--compare", baseJsonPath, "--targets", targetsFile, "--out", outDir],
+      { encoding: "utf8" },
+    );
+
+    expect(stdout).toContain("Comparación L-001 vs. L-002");
+    expect(stdout).toContain("| métrica | runtime | L-001 | L-002 | delta % | meta | estado |");
+    expect(stdout).toContain("Bloqueos comparables por sesión (C4)");
+    expect(stdout).toContain("Lecturas Claude Code por Bash");
+    expect(stdout).toContain("cumplida");
+
+    const targetsCfg = JSON.parse(readFileSync(targetsFile, "utf8"));
+    const candReport = JSON.parse(readFileSync(path.join(outDir, "deep-dive.json"), "utf8"));
+    expect(candReport.comparison.rows.length).toBe(targetsCfg.metrics.length);
+
+    // También probar compareDeepReports directo
+    const direct = compareDeepReports(baseReport.json, candReport, targetsCfg);
+    expect(direct.rows.find((r: { id: string }) => r.id === "claude_bash_reads_primary")?.status).toBe("cumplida");
   });
 });

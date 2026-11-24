@@ -1,0 +1,262 @@
+{
+  "version": 1,
+  "baselineLabel": "L-001",
+  "candidateLabel": "L-002",
+  "metrics": [
+    {
+      "id": "calls_p50_total",
+      "label": "Llamadas por sesión (p50)",
+      "runtime": "(todas)",
+      "path": "sessions.(todas).calls.p50",
+      "target": { "type": "rel_pct", "deltaPct": -15 },
+      "note": "Informativo; evaluar por runtime"
+    },
+    {
+      "id": "calls_p50_antigravity",
+      "label": "Llamadas por sesión (p50)",
+      "runtime": "antigravity",
+      "path": "sessions.antigravity.calls.p50",
+      "target": { "type": "rel_pct", "deltaPct": -15 },
+      "note": "Control"
+    },
+    {
+      "id": "calls_p50_claude_code",
+      "label": "Llamadas por sesión (p50)",
+      "runtime": "claude-code",
+      "path": "sessions.claude-code.calls.p50",
+      "target": { "type": "rel_pct", "deltaPct": -15 },
+      "note": "Medir con --exclude-kind search"
+    },
+    {
+      "id": "cbfe_p50_total",
+      "label": "Llamadas antes de 1ª edición (p50)",
+      "runtime": "(todas)",
+      "path": "sessions.(todas).callsBeforeFirstEdit.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "cbfe_p50_antigravity",
+      "label": "Llamadas antes de 1ª edición (p50)",
+      "runtime": "antigravity",
+      "path": "sessions.antigravity.callsBeforeFirstEdit.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "cbfe_p50_claude_code",
+      "label": "Llamadas antes de 1ª edición (p50)",
+      "runtime": "claude-code",
+      "path": "sessions.claude-code.callsBeforeFirstEdit.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "ttfe_p50_total",
+      "label": "TTFE (p50)",
+      "runtime": "(todas)",
+      "unit": "ms",
+      "path": "sessions.(todas).ttfeMs.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "ttfe_p50_antigravity",
+      "label": "TTFE (p50)",
+      "runtime": "antigravity",
+      "unit": "ms",
+      "path": "sessions.antigravity.ttfeMs.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "ttfe_p50_claude_code",
+      "label": "TTFE (p50)",
+      "runtime": "claude-code",
+      "unit": "ms",
+      "path": "sessions.claude-code.ttfeMs.p50",
+      "target": { "type": "rel_pct", "deltaPct": -20 }
+    },
+    {
+      "id": "shell_truncated_pct",
+      "label": "Comandos de shell recortados",
+      "runtime": "(todas)",
+      "unit": "%",
+      "numeratorPath": "coverage.truncatedShell",
+      "denominatorPath": "coverage.shell",
+      "scale": 100,
+      "target": { "type": "max", "value": 5, "strict": true }
+    },
+    {
+      "id": "read_truncated_pct",
+      "label": "Rutas de lectura recortadas",
+      "runtime": "(todas)",
+      "unit": "%",
+      "numeratorPath": "reads.truncatedPaths",
+      "denominatorPath": "reads.total",
+      "scale": 100,
+      "target": { "type": "max", "value": 1, "strict": true }
+    },
+    {
+      "id": "duration_coverage_total",
+      "label": "Llamadas con duración medida",
+      "runtime": "(todas)",
+      "unit": "%",
+      "path": "coverage.durationCoverageByRuntime.(todas).pct",
+      "target": { "type": "min", "value": 95 }
+    },
+    {
+      "id": "duration_coverage_antigravity",
+      "label": "Llamadas con duración medida",
+      "runtime": "antigravity",
+      "unit": "%",
+      "path": "coverage.durationCoverageByRuntime.antigravity.pct",
+      "target": { "type": "min", "value": 95 }
+    },
+    {
+      "id": "duration_coverage_claude_code",
+      "label": "Llamadas con duración medida",
+      "runtime": "claude-code",
+      "unit": "%",
+      "path": "coverage.durationCoverageByRuntime.claude-code.pct",
+      "target": { "type": "min", "value": 95 }
+    },
+    {
+      "id": "workdir_abs_pct",
+      "label": "Comandos con ruta absoluta del workdir",
+      "runtime": "(todas)",
+      "unit": "%",
+      "numeratorPath": "shell.workdirRefs",
+      "denominatorPath": "coverage.shell",
+      "scale": 100,
+      "target": { "type": "max", "value": 5, "strict": true }
+    },
+    {
+      "id": "cwd_lost_injections",
+      "label": "Avisos remediate.cwd-lost",
+      "runtime": "claude-code",
+      "path": "injections[\"remediate.cwd-lost\"].count",
+      "defaultIfMissing": 0,
+      "target": { "type": "max", "value": 10, "strict": true }
+    },
+    {
+      "id": "multica_per_session",
+      "label": "Llamadas a Multica por sesión",
+      "runtime": "(todas)",
+      "path": "multicaGh.multicaPerSession",
+      "target": { "type": "rel_pct", "deltaPct": -30 }
+    },
+    {
+      "id": "multica_agent_list",
+      "label": "multica agent list (incl. multica-ctx --agents)",
+      "runtime": "(todas)",
+      "path": "multicaGh.multicaAgentList.calls",
+      "defaultIfMissing": 0,
+      "target": { "type": "max", "value": 15, "strict": true }
+    },
+    {
+      "id": "pr_queries_per_session",
+      "label": "Consultas sobre PRs por sesión",
+      "runtime": "(todas)",
+      "path": "multicaGh.prQueries.perSession",
+      "target": { "type": "rel_pct", "deltaPct": -40 }
+    },
+    {
+      "id": "checks_repeated_10m",
+      "label": "gh pr checks / run view repetidos (< 10 min)",
+      "runtime": "(todas)",
+      "path": "multicaGh.checksQueries.repeatedWithin10m",
+      "defaultIfMissing": 0,
+      "target": { "type": "max", "value": 15, "strict": true }
+    },
+    {
+      "id": "active_waits_executed",
+      "label": "Start-Sleep esperas activas ejecutadas",
+      "runtime": "(todas)",
+      "path": "shell.activeWaits.executed",
+      "defaultIfMissing": 0,
+      "target": { "type": "exact", "value": 0 }
+    },
+    {
+      "id": "active_waits_attempts",
+      "label": "Start-Sleep intentos totales de espera activa",
+      "runtime": "(todas)",
+      "path": "shell.activeWaits.total",
+      "defaultIfMissing": 0,
+      "target": { "type": "observe" }
+    },
+    {
+      "id": "read_oversize_blocks",
+      "label": "Bloqueos read.oversize",
+      "runtime": "(todas)",
+      "path": "blocks[\"read.oversize\"].blocks",
+      "defaultIfMissing": 0,
+      "target": { "type": "rel_pct", "deltaPct": -70 }
+    },
+    {
+      "id": "search_read_shell_total",
+      "label": "Pasos búsqueda ↔ lectura (shell)",
+      "runtime": "(todas)",
+      "path": "sequences.searchReadTransitions.shell.total",
+      "defaultIfMissing": 0,
+      "target": { "type": "rel_pct", "deltaPct": -30 }
+    },
+    {
+      "id": "search_read_shell_antigravity",
+      "label": "Pasos búsqueda ↔ lectura (shell, control)",
+      "runtime": "antigravity",
+      "path": "sequences.searchReadTransitions.shell.byRuntime.antigravity",
+      "defaultIfMissing": 0,
+      "target": { "type": "observe" }
+    },
+    {
+      "id": "search_read_native_claude",
+      "label": "Pasos búsqueda ↔ lectura (nativa)",
+      "runtime": "claude-code",
+      "path": "sequences.searchReadTransitions.native.total",
+      "defaultIfMissing": 0,
+      "target": { "type": "observe" }
+    },
+    {
+      "id": "fs_protected_brain",
+      "label": "Bloqueos fs.protected (carpeta borradores AGY)",
+      "runtime": "antigravity",
+      "path": "comparableBlocks.excluded.fsProtectedFp",
+      "defaultIfMissing": 0,
+      "target": { "type": "exact", "value": 0 }
+    },
+    {
+      "id": "pr_requires_seal_real",
+      "label": "Bloqueos pr.requires-seal (invocaciones reales A1)",
+      "runtime": "(todas)",
+      "path": "prSeal.commandPosition",
+      "defaultIfMissing": 0,
+      "target": { "type": "rel_pct", "deltaPct": -70 }
+    },
+    {
+      "id": "gate_runs_per_pr_session",
+      "label": "Corridas del gate por sesión que crea PR (p50)",
+      "runtime": "(todas)",
+      "path": "gate._prCreatingSessions.gateRuns.p50",
+      "target": { "type": "max", "value": 1 }
+    },
+    {
+      "id": "claude_bash_reads_primary",
+      "label": "Lecturas Claude Code por Bash (grep/sed -n/cat)",
+      "runtime": "claude-code",
+      "path": "shell.bashReads.primary.total",
+      "defaultIfMissing": 0,
+      "target": { "type": "rel_pct", "deltaPct": -50 }
+    },
+    {
+      "id": "comparable_blocks_per_session",
+      "label": "Bloqueos comparables por sesión (C4)",
+      "runtime": "(todas)",
+      "path": "comparableBlocks.perSession",
+      "target": { "type": "rel_pct", "deltaPct": -25 }
+    },
+    {
+      "id": "read_guard_installed",
+      "label": "(Secundaria) Bloqueos read.guard-installed",
+      "runtime": "(todas)",
+      "path": "blocks[\"read.guard-installed\"].blocks",
+      "defaultIfMissing": 0,
+      "target": { "type": "observe" }
+    }
+  ]
+}

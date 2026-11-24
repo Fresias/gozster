@@ -8,9 +8,10 @@
  *
  * Usage:
  *   node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl]
- *     [--since <ISO>] [--until <ISO>] [--idle-min <N>] [--json]
+ *     [--since <ISO>] [--until <ISO>] [--idle-min <N>] [--min-schema <N>] [--json]
  *     [--exclude-kind <kind>]... [--exclude-rule <id>]...
- *     [--deep [--top <N>] [--out <DIR>] [--repo <DIR>] [--no-examples]]
+ *     [--deep [--top <N>] [--out <DIR>] [--repo <DIR>] [--gate-min-sec <N>]
+ *             [--compare <baseline.json>] [--targets <targets.json>] [--no-examples]]
  *     [--help]
  * Defaults to the guard's telemetry dir for the current directory (see resolveTelemetryDir).
  */
@@ -53,15 +54,17 @@ function normalizeStringList(input) {
 
 /**
  * Filter events excluding canary/synthetic sessions, optional [since, until) bounds,
- * and optional excluded kinds (dropping both actions and their paired `post` events).
+ * optional excluded kinds (dropping both actions and their paired `post` events),
+ * and optional minimum schema version (`minSchema`: keeps only sessions whose events all have `v >= minSchema`).
  * @param {object[]} events
- * @param {{ since?: string | null, until?: string | null, excludeKinds?: string[] | Set<string> | null }} [options]
+ * @param {{ since?: string | null, until?: string | null, excludeKinds?: string[] | Set<string> | null, minSchema?: number | null }} [options]
  */
 export function filterEvents(events, options = {}) {
   const list = Array.isArray(events) ? events : [];
   const sinceMs = options.since != null ? Date.parse(options.since) : null;
   const untilMs = options.until != null ? Date.parse(options.until) : null;
   const excludeKindSet = new Set(normalizeStringList(options.excludeKinds));
+  const minSchema = options.minSchema != null ? Number(options.minSchema) : null;
 
   const inWindow = list.filter((e) => {
     if (isExcludedEvent(e)) return false;
@@ -74,25 +77,37 @@ export function filterEvents(events, options = {}) {
     return true;
   });
 
-  if (excludeKindSet.size === 0) return inWindow;
-
-  // Track ids of excluded pre events so paired post events are dropped even if they omit `kind`.
-  const excludedPreIds = new Set();
-  for (const e of inWindow) {
-    if (e?.phase !== "post" && excludeKindSet.has(e?.kind || "other")) {
-      const id = e?.id != null ? String(e.id).trim() : "";
-      if (id) excludedPreIds.add(`${e?.session || "unknown"}\u0000${id}`);
+  let kept = inWindow;
+  if (excludeKindSet.size > 0) {
+    // Track ids of excluded pre events so paired post events are dropped even if they omit `kind`.
+    const excludedPreIds = new Set();
+    for (const e of inWindow) {
+      if (e?.phase !== "post" && excludeKindSet.has(e?.kind || "other")) {
+        const id = e?.id != null ? String(e.id).trim() : "";
+        if (id) excludedPreIds.add(`${e?.session || "unknown"}\u0000${id}`);
+      }
     }
+
+    kept = inWindow.filter((e) => {
+      if (excludeKindSet.has(e?.kind || "other")) return false;
+      if (e?.phase === "post") {
+        const id = e?.id != null ? String(e.id).trim() : "";
+        if (id && excludedPreIds.has(`${e?.session || "unknown"}\u0000${id}`)) return false;
+      }
+      return true;
+    });
   }
 
-  return inWindow.filter((e) => {
-    if (excludeKindSet.has(e?.kind || "other")) return false;
-    if (e?.phase === "post") {
-      const id = e?.id != null ? String(e.id).trim() : "";
-      if (id && excludedPreIds.has(`${e?.session || "unknown"}\u0000${id}`)) return false;
+  if (minSchema !== null && Number.isFinite(minSchema) && minSchema > 0) {
+    const disqualified = new Set();
+    for (const e of kept) {
+      const v = typeof e?.v === "number" ? e.v : 0;
+      if (v < minSchema) disqualified.add(e?.session || "unknown");
     }
-    return true;
-  });
+    kept = kept.filter((e) => !disqualified.has(e?.session || "unknown"));
+  }
+
+  return kept;
 }
 
 /** Parse JSONL text into event objects, skipping blank/invalid lines. */
@@ -285,12 +300,6 @@ export function summarize(events, options = {}) {
     }
 
     const ts = Date.parse(e.ts);
-    if (Number.isFinite(ts)) {
-      if (s.start === null || ts < s.start) s.start = ts;
-      if (e.kind === "write" && (s.firstEdit === null || ts < s.firstEdit)) {
-        s.firstEdit = ts;
-      }
-    }
 
     const runtime = e.runtime || "unknown";
     let r = runtimes.get(runtime);
@@ -336,19 +345,21 @@ export function summarize(events, options = {}) {
   let totalActiveMs = 0;
 
   for (const s of sessions.values()) {
-    if (s.start !== null && s.firstEdit !== null && s.firstEdit >= s.start) {
-      ttfe.push(s.firstEdit - s.start);
-    }
-
     s.actions.sort((a, b) => {
       const at = Number.isFinite(a.ts) ? a.ts : 0;
       const bt = Number.isFinite(b.ts) ? b.ts : 0;
       return at - bt || a.index - b.index;
     });
 
+    // C1: unified definition of "first edit" — first ALLOWED write, for both TTFE and callsBeforeFirstEdit.
     const firstAllowedWrite = s.actions.findIndex((a) => a.kind === "write" && a.decision !== "block");
     if (firstAllowedWrite >= 0) {
       callsBeforeFirstEdit.push(firstAllowedWrite);
+      const startTs = s.actions[0]?.ts;
+      const editTs = s.actions[firstAllowedWrite]?.ts;
+      if (Number.isFinite(startTs) && Number.isFinite(editTs) && editTs >= startTs) {
+        ttfe.push(editTs - startTs);
+      }
     }
 
     let activeMs = 0;
@@ -470,6 +481,7 @@ export function summarize(events, options = {}) {
     postEvents,
     totalSessions: sessions.size,
     blocksPerSession,
+    minSchema: options.minSchema ?? null,
     excludedKinds,
     excludedRules,
     byRuntime,
@@ -652,6 +664,7 @@ function printUsage() {
       "  --since <ISO>           Inclusive lower timestamp bound",
       "  --until <ISO>           Exclusive upper timestamp bound",
       "  --idle-min <N>          Inactivity gap threshold in minutes (default: 15)",
+      "  --min-schema <N>        Keep only sessions whose events all have v >= N",
       "  --exclude-kind <kind>   Exclude actions of this kind and their post events (repeatable)",
       "  --exclude-rule <id>     Exclude this rule from block counts (action still counts; repeatable)",
       "  --json                  Output JSON to stdout",
@@ -659,6 +672,9 @@ function printUsage() {
       "  --top <N>               Ranking length for --deep (default: 20)",
       "  --out <DIR>             Output directory for --deep (default: <telemetryDir>/deep-dive)",
       "  --repo <DIR>            Repository root for --deep (default: cwd)",
+      "  --gate-min-sec <N>      Minimum duration (s) for harness-ship to count as a gate run (default: 60)",
+      "  --compare <FILE>        Compare --deep report against baseline deep-dive.json",
+      "  --targets <FILE>        Targets JSON file for --deep --compare",
       "  --no-examples           Omit raw command examples in --deep report",
       "  -h, --help              Show this help message",
       "",
@@ -678,6 +694,10 @@ export function parseCliArgs(args) {
     since: null,
     until: null,
     idleMin: DEFAULT_IDLE_MIN,
+    minSchema: null,
+    gateMinSec: 60,
+    compare: null,
+    targets: null,
     excludeKinds: [],
     excludeRules: [],
     top: 20,
@@ -724,6 +744,31 @@ export function parseCliArgs(args) {
         fail(`Invalid number for ${flag}: ${rawVal} (must be > 0)`);
       }
       opts.idleMin = parsed;
+    } else if (flag === "--min-schema") {
+      const rawVal = readValue("--min-schema");
+      if (!/^\d+$/.test(rawVal.trim())) {
+        fail(`Invalid integer for --min-schema: ${rawVal} (must be >= 1)`);
+      }
+      const parsed = Number.parseInt(rawVal, 10);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        fail(`Invalid integer for --min-schema: ${rawVal} (must be >= 1)`);
+      }
+      opts.minSchema = parsed;
+    } else if (flag === "--gate-min-sec") {
+      const rawVal = readValue("--gate-min-sec");
+      const parsed = rawVal.trim() === "" ? NaN : Number(rawVal);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        fail(`Invalid number for --gate-min-sec: ${rawVal} (must be >= 0)`);
+      }
+      opts.gateMinSec = parsed;
+    } else if (flag === "--compare") {
+      const rawVal = readValue("--compare");
+      if (!rawVal.trim()) fail("Missing value for --compare");
+      opts.compare = rawVal;
+    } else if (flag === "--targets") {
+      const rawVal = readValue("--targets");
+      if (!rawVal.trim()) fail("Missing value for --targets");
+      opts.targets = rawVal;
     } else if (flag === "--exclude-kind") {
       const rawVal = readValue("--exclude-kind").trim();
       if (!rawVal) fail("Missing value for --exclude-kind");
@@ -798,11 +843,23 @@ function main(argv) {
       process.stderr.write(`No telemetry found at ${file}\n`);
       process.exit(opts.fileArg !== null ? 1 : 0);
     }
+    if (opts.compare && !existsSync(opts.compare)) {
+      process.stderr.write(`Compare baseline file not found: ${opts.compare}\n`);
+      process.exit(1);
+    }
+    if (opts.targets && !existsSync(opts.targets)) {
+      process.stderr.write(`Targets file not found: ${opts.targets}\n`);
+      process.exit(1);
+    }
     const report = runDeepDive({
       file,
       since: opts.since,
       until: opts.until,
       idleMin: opts.idleMin,
+      minSchema: opts.minSchema,
+      gateMinSec: opts.gateMinSec,
+      compare: opts.compare,
+      targets: opts.targets,
       excludeKinds: opts.excludeKinds,
       excludeRules: opts.excludeRules,
       top: opts.top,
@@ -818,10 +875,14 @@ function main(argv) {
       const errPart = report.json.errors ? ` · ${report.json.errors.length} sección(es) con error` : "";
       const exclPart = opts.excludeKinds.length ? ` · excluidos: ${opts.excludeKinds.join(", ")}` : "";
       const rulePart = opts.excludeRules.length ? ` · reglas excluidas: ${opts.excludeRules.join(", ")}` : "";
+      const schemaPart = opts.minSchema != null ? ` · min-schema: ${opts.minSchema}` : "";
       process.stdout.write(
-        `[deep-dive] ${cov.events} eventos · ${cov.actions} acciones · ${cov.sessions} sesiones · ${crossLabel}${exclPart}${rulePart}${errPart}\n` +
+        `[deep-dive] ${cov.events} eventos · ${cov.actions} acciones · ${cov.sessions} sesiones · ${crossLabel}${exclPart}${rulePart}${schemaPart}${errPart}\n` +
           `[deep-dive] Reporte: ${report.mdPath}\n[deep-dive] Detalle: ${report.jsonPath}\n`,
       );
+      if (report.comparisonMarkdown) {
+        process.stdout.write(`\n${report.comparisonMarkdown}\n`);
+      }
     }
     return;
   }
@@ -838,6 +899,7 @@ function main(argv) {
     since: opts.since,
     until: opts.until,
     idleMin: opts.idleMin,
+    minSchema: opts.minSchema,
     excludeKinds: opts.excludeKinds,
     excludeRules: opts.excludeRules,
   });

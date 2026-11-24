@@ -13,8 +13,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { detectGhPrCommands, evaluateShellPolling } from "../guard/guard-core.mjs";
-import { CMD_MAX, resolveTelemetryDir } from "../guard/telemetry.mjs";
+import { detectGhPrCommands, evaluateShellPolling, isAntigravityBrainPath } from "../guard/guard-core.mjs";
+import { CMD_MAX, TELEMETRY_SCHEMA, resolveTelemetryDir } from "../guard/telemetry.mjs";
 import {
   filterEvents,
   isExcludedEvent,
@@ -24,8 +24,10 @@ import {
   summarize,
 } from "../scripts/harness-telemetry.mjs";
 
-export const VERSION = "2.0.0";
+export const VERSION = "2.1.0";
 export const LEGACY_CMD_MAX = 120;
+export const V2_CMD_MAX = 300;
+export const DEFAULT_GATE_MIN_SEC = 60;
 const DUP_WINDOW_MS = 10 * 60 * 1000;
 const JSON_TOP = 100;
 const CUT_SIG_PREFIX = "(cortado a ";
@@ -384,6 +386,9 @@ function segSig(text, depth = 0) {
       if (base === "harness-pr-status.mjs" && t.some((x) => x === "--wait-checks" || x.startsWith("--wait-checks="))) {
         return "node harness-pr-status.mjs --wait-checks";
       }
+      if (base === "multica-ctx.mjs" && t.some((x) => x === "--agents" || x.startsWith("--agents="))) {
+        return "node multica-ctx.mjs --agents";
+      }
       return `node ${base}`;
     }
     case "python":
@@ -565,6 +570,52 @@ export function looksLiteral(e, rule) {
 
 // ───────────────────────────── rutas ─────────────────────────────
 
+/**
+ * Clasifica un evento de bloqueo para el total comparable (C4), aplicado de forma idéntica a ambas ventanas.
+ * Excluye:
+ * - reglas que no existían en la línea base (`shell.polling`);
+ * - bloqueos sobre `kind: "search"` (no registrados en la línea base);
+ * - clases de falso positivo eliminadas por definición:
+ *   - `pr.requires-seal` sin invocación real según `detectGhPrCommands`;
+ *   - `fs.protected` sobre la carpeta de borradores de Antigravity o sobre lecturas de `~/.claude/projects/<project>/tool-results/`.
+ * Devuelve `{ comparable: boolean, reason: string | null }`.
+ */
+export function classifyComparableBlock(e) {
+  if (!e || e.decision !== "block") return { comparable: false, reason: "notBlock" };
+  const rule = e.rule || "";
+  if (rule === "shell.polling") return { comparable: false, reason: "newRules" };
+  if ((e.kind || e._kind) === "search") return { comparable: false, reason: "searchKind" };
+  const cmd = String(e.cmd ?? e._cmd ?? "");
+  if (rule === "pr.requires-seal") {
+    const isReal = detectGhPrCommands(cmd).some((m) => m.action === "pr.create");
+    if (!isReal) return { comparable: false, reason: "prSealLiterals" };
+  }
+  if (rule === "fs.protected") {
+    if (isAntigravityBrainPath(cmd) || /\.gemini[/\\]antigravity(?:-cli)?[/\\]brain(?:[/\\]|$)/i.test(cmd)) {
+      return { comparable: false, reason: "fsProtectedFp" };
+    }
+    if (cmd.length === LEGACY_CMD_MAX && /\.gemini[/\\]a[ntigravity\-clibrain/\\]*$/i.test(cmd)) {
+      return { comparable: false, reason: "fsProtectedFp" };
+    }
+    if (/\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]tool-results[/\\]/i.test(cmd)) {
+      const kind = e.kind || e._kind || "";
+      const looksWrite =
+        /\b(?:write_text|write_bytes|writeFileSync|writeFile|appendFileSync|appendFile)\b/.test(cmd) ||
+        /\bopen\s*\([^)]*["'][wax+]/.test(cmd) ||
+        />\s*[^\s|&;]*tool-results/i.test(cmd);
+      if (kind === "read" || !looksWrite) {
+        return { comparable: false, reason: "fsProtectedFp" };
+      }
+    }
+  }
+  return { comparable: true, reason: null };
+}
+
+/** True cuando un bloqueo cuenta en la métrica comparable entre ventanas (C4). */
+export function isComparableBlock(e) {
+  return classifyComparableBlock(e).comparable;
+}
+
 function maskText(s, repoRoot) {
   let x = String(s || "").replace(/\\/g, "/");
   if (repoRoot) x = x.replace(new RegExp(escapeRe(repoRoot.replace(/\\/g, "/")), "gi"), "<repo>");
@@ -708,6 +759,8 @@ export function analyzeDeep(rawEvents, options = {}) {
   const since = options.since ?? null;
   const until = options.until ?? null;
   const idleMin = options.idleMin ?? 15;
+  const minSchema = options.minSchema != null ? Number(options.minSchema) : null;
+  const gateMinSec = options.gateMinSec ?? DEFAULT_GATE_MIN_SEC;
   const excludeKinds = Array.isArray(options.excludeKinds)
     ? [...new Set(options.excludeKinds.map((x) => String(x || "").trim()).filter(Boolean))]
     : [];
@@ -739,11 +792,19 @@ export function analyzeDeep(rawEvents, options = {}) {
   const excluded = raw.length - nonSynthetic.length;
   const inWindow = filterEvents(raw, { since, until });
   const outOfWindow = nonSynthetic.length - inWindow.length;
-  const filtered = excludeKinds.length > 0 ? filterEvents(raw, { since, until, excludeKinds }) : inWindow;
-  const excludedByKind = inWindow.length - filtered.length;
+  const afterKind = excludeKinds.length > 0 ? filterEvents(raw, { since, until, excludeKinds }) : inWindow;
+  const excludedByKind = inWindow.length - afterKind.length;
+  const sessionsBeforeSchema = new Set(afterKind.map((e) => e.session || "unknown")).size;
+  const filtered =
+    minSchema != null && Number.isFinite(minSchema) && minSchema > 0
+      ? filterEvents(raw, { since, until, excludeKinds, minSchema })
+      : afterKind;
+  const sessionsAfterSchema = new Set(filtered.map((e) => e.session || "unknown")).size;
+  const excludedEventsBySchema = afterKind.length - filtered.length;
+  const excludedSessionsBySchema = sessionsBeforeSchema - sessionsAfterSchema;
 
   // ── cruce obligatorio con summarize()
-  const official = summarize(raw, { since, until, idleMin, excludeKinds, excludeRules });
+  const official = summarize(raw, { since, until, idleMin, excludeKinds, excludeRules, minSchema });
 
   // ── emparejamiento pre/post reutilizado
   const pairs = pairPrePostEvents(filtered);
@@ -752,9 +813,10 @@ export function analyzeDeep(rawEvents, options = {}) {
     pairByPreIdx.set(p.preIndex, p);
   }
 
-  // ── detección v1 (L-001, 120 car.) vs v2 (300 car. + campos completos)
-  const datasetHasV2 = filtered.some(isV2Event);
-  const effectiveCmdMax = datasetHasV2 ? CMD_MAX : LEGACY_CMD_MAX;
+  // ── detección v1 (120 car.) vs v2 (300 car.) vs v3 (1000 car. + v: 3 + cmdLen)
+  const datasetHasV3 = filtered.some((e) => typeof e?.v === "number" && e.v >= 3);
+  const datasetHasV2 = datasetHasV3 || filtered.some(isV2Event);
+  const effectiveCmdMax = datasetHasV3 ? CMD_MAX : datasetHasV2 ? V2_CMD_MAX : LEGACY_CMD_MAX;
 
   const events = filtered.map((e, idx) => {
     const ev = { ...e, _i: idx, _t: Date.parse(e.ts) };
@@ -762,10 +824,11 @@ export function analyzeDeep(rawEvents, options = {}) {
     ev._post = ev.phase === "post";
     ev._block = ev.decision === "block";
     ev._cmd = String(ev.cmd || "");
-    ev._v2 = isV2Event(ev);
-    const limit = ev._v2 ? CMD_MAX : effectiveCmdMax;
+    ev._v2 = (typeof ev.v === "number" && ev.v >= 2) || isV2Event(ev);
+    ev._schema = typeof ev.v === "number" ? ev.v : ev._v2 ? 2 : 1;
+    const limit = ev._schema >= 3 ? CMD_MAX : ev._schema === 2 ? V2_CMD_MAX : LEGACY_CMD_MAX;
     ev._cmdMax = limit;
-    ev._trunc = ev._cmd.length >= limit;
+    ev._trunc = typeof ev.cmdLen === "number" ? ev.cmdLen > ev._cmd.length : ev._cmd.length >= limit;
 
     const paired = pairByPreIdx.get(idx);
     ev._durMs = paired ? paired.durationMs : null;
@@ -780,6 +843,7 @@ export function analyzeDeep(rawEvents, options = {}) {
       ev._startsWithCd =
         (p.sigs.length > 0 && CD.has(p.sigs[0])) || /^\s*(?:cd|chdir|pushd|set-location|sl)\b/i.test(ev._cmd);
       ev._limited = p.limited;
+      ev._hasPipe = splitTopLevel(ev._cmd).some((s) => s.piped);
       ev._views = p.views.map((v) => relOf(v));
       ev._fam = family(ev._sig);
       ev._usesWorkdirAbs = /<(?:workdir|repo)>/i.test(ev._cmd);
@@ -846,6 +910,14 @@ export function analyzeDeep(rawEvents, options = {}) {
   const RTS = top(rtCount, 3).map(([k]) => k);
   const usable = (e) => e._gap != null && !e._idle && !e._block;
 
+  const deepTtfeValues = S.filter((s) => s.firstWrite >= 0)
+    .map((s) => s.actions[s.firstWrite]._t - s.start)
+    .filter(Number.isFinite);
+  const deepTtfeStats = stats(deepTtfeValues);
+  const ttfeMatches =
+    official.timeToFirstEdit.count === deepTtfeStats.n &&
+    (deepTtfeStats.n === 0 || Math.round(official.timeToFirstEdit.medianMs) === Math.round(deepTtfeStats.p50));
+
   // ── cruce obligatorio con summarize()
   const crossCheck = {
     totalEvents: official.totalEvents,
@@ -860,7 +932,8 @@ export function analyzeDeep(rawEvents, options = {}) {
       official.totalActions === actions.length &&
       official.postEvents === postCount &&
       official.totalSessions === sessions.size &&
-      Math.round(official.activeTimeMs.totalMs) === Math.round(totalActiveMs),
+      Math.round(official.activeTimeMs.totalMs) === Math.round(totalActiveMs) &&
+      ttfeMatches,
   };
 
   // ── cruce opcional con LEDGER L-001
@@ -888,11 +961,13 @@ export function analyzeDeep(rawEvents, options = {}) {
     version: VERSION,
     generatedAt: new Date().toISOString(),
     window: { since, until },
-    filters: { excludeKinds, excludeRules },
+    filters: { excludeKinds, excludeRules, minSchema, gateMinSec },
     idleMin,
     gapCapMin: idleMin,
     cmdMax: effectiveCmdMax,
     hasV2Fields: datasetHasV2,
+    hasV3Fields: datasetHasV3,
+    telemetrySchema: TELEMETRY_SCHEMA,
   };
   const H = (t) => md.push("", `## ${t}`, "");
   const P = (...t) => md.push(...t);
@@ -932,7 +1007,7 @@ export function analyzeDeep(rawEvents, options = {}) {
     const outcomes = official.durations.outcomes;
     P(
       `- Archivo: \`${cell(maskText(displayFile, root), 120)}\` · líneas JSON válidas: ${raw.length} · inválidas: ${invalid}`,
-      `- Excluidos (canario/sintético): ${excluded} · fuera de ventana: ${outOfWindow}${excludeKinds.length ? ` · excluidos: ${excludeKinds.join(", ")} (${excludedByKind} eventos)` : ""}${excludeRules.length ? ` · reglas excluidas: ${excludeRules.join(", ")}` : ""}`,
+      `- Excluidos (canario/sintético): ${excluded} · fuera de ventana: ${outOfWindow}${excludeKinds.length ? ` · excluidos: ${excludeKinds.join(", ")} (${excludedByKind} eventos)` : ""}${excludeRules.length ? ` · reglas excluidas: ${excludeRules.join(", ")}` : ""}${minSchema != null ? ` · min-schema v >= ${minSchema}: ${excludedSessionsBySchema} sesiones excluidas (${excludedEventsBySchema} eventos)` : ""}`,
       `- **Eventos en ventana: ${events.length}** (acciones: ${actions.length}, post/inyecciones: ${postCount}) · **sesiones: ${sessions.size}** · **bloqueos/sesión: ${official.blocksPerSession}**`,
       `- **Tiempo activo total (umbral ${idleMin} min): ${hrs(totalActiveMs)} h**`,
       `- Cruce obligatorio con \`summarize\`: ${crossCheck.matches ? "**coincide**" : "**NO coincide**"} (eventos ${crossCheck.totalEvents}, acciones ${crossCheck.totalActions}, post ${crossCheck.postEvents}, sesiones ${crossCheck.totalSessions})`,
@@ -944,11 +1019,32 @@ export function analyzeDeep(rawEvents, options = {}) {
     }
     const trunc = shell.filter((e) => e._trunc).length;
     P(`- Comandos de shell que llegan truncados a ${effectiveCmdMax} caracteres: ${trunc} de ${shell.length} (${pc(trunc, shell.length)}).`);
-    if (pairedCount > 0 || outcomes.evaluated > 0) {
+
+    // C5: % de acciones permitidas con duración medida por runtime y en total
+    const durCovByRt = {};
+    const rtNames = [...new Set(actions.map((e) => e.runtime || "unknown"))];
+    const durCovRows = [];
+    for (const rt of [...rtNames, "(todas)"]) {
+      const subset = rt === "(todas)" ? actions : actions.filter((e) => (e.runtime || "unknown") === rt);
+      const allowedSub = subset.filter((e) => !e._block);
+      const pairedSub = allowedSub.filter((e) => e._durMs != null);
+      const pctNum = allowedSub.length > 0 ? Math.round((pairedSub.length / allowedSub.length) * 1000) / 10 : 0;
+      durCovByRt[rt] = {
+        allowedActions: allowedSub.length,
+        pairedDurations: pairedSub.length,
+        pct: pctNum,
+      };
+      durCovRows.push([rt, allowedSub.length, pairedSub.length, `${pctNum.toFixed(1)}%`]);
+    }
+    if (pairedCount > 0 || outcomes.evaluated > 0 || datasetHasV2) {
       P(
         `- Pares pre/post con duración medida: **${pairedCount}** de ${allowedActions} acciones permitidas (${pc(pairedCount, allowedActions)}) · por \`id\`: ${official.durations.pairedById}, por fallback: ${official.durations.pairedByFallback}.`,
         `- Resultados \`ok\` registrados en post: ${outcomes.evaluated} · fallos (\`ok === false\`): ${outcomes.failed} (${outcomes.failureRate != null ? `${r1(outcomes.failureRate * 100)}%` : "–"}).`,
+        "",
+        "Cobertura de duración medida por runtime:",
+        "",
       );
+      T(["runtime", "acciones permitidas", "con duración medida", "% cobertura"], durCovRows);
     }
 
     const cwdMap = new Map();
@@ -980,10 +1076,14 @@ export function analyzeDeep(rawEvents, options = {}) {
       excluded,
       outOfWindow,
       excludedByKind,
+      excludedSessionsBySchema,
+      excludedEventsBySchema,
+      minSchema,
       excludeKinds,
       excludeRules,
       events: events.length,
       actions: actions.length,
+      allowedActions,
       post: postCount,
       sessions: sessions.size,
       blocksPerSession: official.blocksPerSession,
@@ -994,6 +1094,7 @@ export function analyzeDeep(rawEvents, options = {}) {
       truncatedShell: trunc,
       shell: shell.length,
       pairedDurations: pairedCount,
+      durationCoverageByRuntime: durCovByRt,
       outcomes,
       byCwd: Object.fromEntries(top(cwdMap, 20)),
     };
@@ -1087,7 +1188,7 @@ export function analyzeDeep(rawEvents, options = {}) {
         ];
       }),
     );
-    P("", "_TTFE aquí se mide desde la primera acción hasta la primera escritura permitida; puede diferir levemente del agregador oficial._");
+    P("", "_TTFE y llamadas antes de la 1ª edición se miden hasta la primera escritura permitida (definición unificada con `summarize`)._");
     J.sessions = jrows;
   });
 
@@ -1227,8 +1328,56 @@ export function analyzeDeep(rawEvents, options = {}) {
       Object.entries(activeWaitByRt)
         .map(([rt, r]) => `${rt}: ${r.total} (bloqueados ${r.blocked}, ejecutados ${r.executed}, ${r.sessions} ses.)`)
         .join(" · ") || "0";
+    // C5: lecturas por Bash en Claude Code únicamente (principales: grep, sed -n, cat; secundarias: head, tail, rg), con y sin pipe
+    const bashReadPrimaryByTool = { grep: 0, "sed -n": 0, cat: 0 };
+    const bashReadSecondaryByTool = { head: 0, tail: 0, rg: 0 };
+    let primaryPipe = 0;
+    let primaryNoPipe = 0;
+    let secondaryPipe = 0;
+    let secondaryNoPipe = 0;
+    for (const e of shell) {
+      if ((e.runtime || "") !== "claude-code") continue;
+      let primaryKey = null;
+      if (e._sig === "grep" || e._sig === "egrep" || e._sig === "fgrep") primaryKey = "grep";
+      else if (e._sig === "sed") primaryKey = "sed -n";
+      else if (e._sig === "cat") primaryKey = "cat";
+
+      if (primaryKey) {
+        bashReadPrimaryByTool[primaryKey]++;
+        if (e._hasPipe) primaryPipe++;
+        else primaryNoPipe++;
+        continue;
+      }
+      if (e._sig === "head" || e._sig === "tail" || e._sig === "rg") {
+        bashReadSecondaryByTool[e._sig]++;
+        if (e._hasPipe) secondaryPipe++;
+        else secondaryNoPipe++;
+      }
+    }
+    const bashReadPrimaryTotal = primaryPipe + primaryNoPipe;
+    const bashReadSecondaryTotal = secondaryPipe + secondaryNoPipe;
+    const bashReads = {
+      runtime: "claude-code",
+      primary: {
+        total: bashReadPrimaryTotal,
+        withPipe: primaryPipe,
+        withoutPipe: primaryNoPipe,
+        byTool: bashReadPrimaryByTool,
+      },
+      secondary: {
+        total: bashReadSecondaryTotal,
+        withPipe: secondaryPipe,
+        withoutPipe: secondaryNoPipe,
+        byTool: bashReadSecondaryByTool,
+      },
+      total: bashReadPrimaryTotal + bashReadSecondaryTotal,
+      withPipe: primaryPipe + secondaryPipe,
+      withoutPipe: primaryNoPipe + secondaryNoPipe,
+    };
+
     P(
       `- Intentos de espera activa (\`shell.polling\`, > 5 s sin check local, bloqueados o no): **${activeWaitEvents.length}** en ${activeWaitSessions.size} sesiones (bloqueados: ${activeWaitBlocked}, ejecutados: ${activeWaitExecuted}) · ${waitRtDetail}.`,
+      `- Lecturas por Bash en Claude Code (C5): **${bashReads.primary.total}** principales (\`grep\` ${bashReadPrimaryByTool.grep}, \`sed -n\` ${bashReadPrimaryByTool["sed -n"]}, \`cat\` ${bashReadPrimaryByTool.cat}; con pipe: ${primaryPipe}, sin pipe: ${primaryNoPipe}) · **${bashReads.secondary.total}** secundarias (\`head\` ${bashReadSecondaryByTool.head}, \`tail\` ${bashReadSecondaryByTool.tail}, \`rg\` ${bashReadSecondaryByTool.rg}; con pipe: ${secondaryPipe}, sin pipe: ${secondaryNoPipe}) · total: **${bashReads.total}**.`,
     );
     J.shell = {
       families: Object.fromEntries(top(fam, 50)),
@@ -1251,6 +1400,7 @@ export function analyzeDeep(rawEvents, options = {}) {
         sessions: activeWaitSessions.size,
         byRuntime: activeWaitByRt,
       },
+      bashReads,
     };
   });
 
@@ -1820,12 +1970,62 @@ export function analyzeDeep(rawEvents, options = {}) {
         ];
       }),
     );
+    // C4: bloqueos comparables («legítimos»), misma función en ambas ventanas
+    const compExcl = { newRules: 0, searchKind: 0, prSealLiterals: 0, fsProtectedFp: 0 };
+    const compByRtMap = new Map();
+    let compTotal = 0;
+    let rawBlocksTotal = 0;
+    for (const s of S) {
+      const rt = s.runtime || "unknown";
+      let rtRec = compByRtMap.get(rt);
+      if (!rtRec) {
+        rtRec = { sessions: 0, total: 0, rawTotal: 0 };
+        compByRtMap.set(rt, rtRec);
+      }
+      rtRec.sessions++;
+      for (const e of s.actions) {
+        if (!e._block) continue;
+        rawBlocksTotal++;
+        rtRec.rawTotal++;
+        const res = classifyComparableBlock(e);
+        if (res.comparable) {
+          compTotal++;
+          rtRec.total++;
+        } else if (res.reason && res.reason in compExcl) {
+          compExcl[res.reason]++;
+        }
+      }
+    }
+    const compPerSess = sessions.size > 0 ? Math.round((compTotal / sessions.size) * 100) / 100 : 0;
+    const rawPerSess = sessions.size > 0 ? Math.round((rawBlocksTotal / sessions.size) * 100) / 100 : 0;
+    const compByRuntime = Object.fromEntries(
+      [...compByRtMap.entries()].map(([rt, r]) => [
+        rt,
+        {
+          total: r.total,
+          perSession: r.sessions > 0 ? Math.round((r.total / r.sessions) * 100) / 100 : 0,
+          rawTotal: r.rawTotal,
+          rawPerSession: r.sessions > 0 ? Math.round((r.rawTotal / r.sessions) * 100) / 100 : 0,
+          sessions: r.sessions,
+        },
+      ]),
+    );
+
     const totalLost = rules.reduce((acc, [, R]) => acc + R.lostMs, 0);
     P(
       "",
+      `- **Bloqueos comparables (C4):** **${compTotal}** (${compPerSess}/sesión) sobre ${rawBlocksTotal} totales (${rawPerSess}/sesión) — excluidos: reglas nuevas (\`shell.polling\`): ${compExcl.newRules}, \`kind: "search"\`: ${compExcl.searchKind}, menciones literales \`pr.requires-seal\`: ${compExcl.prSealLiterals}, FPs \`fs.protected\` (borradores/tool-results): ${compExcl.fsProtectedFp}.`,
       `- Tiempo total estimado entre un bloqueo y la siguiente llamada permitida del mismo tipo: **${hrs(totalLost)} h** (cada caso se corta en ${idleMin} min).`,
       "- «Posibles literales»: bloqueos cuyo comando principal es una búsqueda, un `cat`, un commit, un `echo` o un comentario en multica/gh. Probablemente el texto peligroso estaba dentro de un argumento: candidatos a falso positivo (como H-05).",
     );
+    J.comparableBlocks = {
+      total: compTotal,
+      perSession: compPerSess,
+      rawTotal: rawBlocksTotal,
+      rawPerSession: rawPerSess,
+      excluded: compExcl,
+      byRuntime: compByRuntime,
+    };
     for (const [k, R] of rules.slice(0, 10)) {
       P("", `### ${k}`, "");
       P(`- Disparadores: ${top(R.trig, 6).map(([t, v]) => `\`${short(t, 70)}\` ×${v}`).join(" · ")}`);
@@ -1940,8 +2140,17 @@ export function analyzeDeep(rawEvents, options = {}) {
     }
     const sealByRuntime = Object.fromEntries(sealRtMap);
 
-    const isPrCreateSeg = (x) => x === "gh pr create" || /harness-ship/.test(x);
-    const isGateSeg = (x) => /harness-gate|harness-ship/.test(x);
+    // C2: helper predicates shared across pr.requires-seal (9c), gate (11) and adoption (14)
+    const hasAnyPost = postCount > 0;
+    const isHarnessGateEv = (e) => e._kind === "shell" && (e._segs || []).some((x) => /harness-gate/.test(x));
+    const isHarnessShipEv = (e) => e._kind === "shell" && (e._segs || []).some((x) => /harness-ship/.test(x));
+    const isGateRunEv = (e) =>
+      isHarnessGateEv(e) || (isHarnessShipEv(e) && (e._durMs == null || e._durMs >= gateMinSec * 1000));
+    const isPrCreateEv = (e) =>
+      e._kind === "shell" &&
+      !e._block &&
+      ((e._segs || []).some((x) => x === "gh pr create") ||
+        (isHarnessShipEv(e) && (e._ok === true || (e._ok === null && !hasAnyPost))));
 
     const toOk = [];
     const gates = [];
@@ -1950,17 +2159,17 @@ export function analyzeDeep(rawEvents, options = {}) {
     for (const s of sess) {
       const a = s.actions;
       const f = a.findIndex((e) => e._block && e.rule === "pr.requires-seal");
-      const ok = a.findIndex((e, i) => i > f && e._kind === "shell" && !e._block && (e._segs || []).some(isPrCreateSeg));
+      const ok = a.findIndex((e, i) => i > f && isPrCreateEv(e));
       if (ok < 0) never++;
       else {
         toOk.push(a[ok]._t - a[f]._t);
-        gates.push(a.slice(f, ok).filter((e) => e._kind === "shell" && (e._segs || []).some(isGateSeg)).length);
+        gates.push(a.slice(f, ok).filter(isGateRunEv).length);
       }
       let lastGate = -1;
       let learnAfterGate = false;
       for (let i = 0; i < a.length; i++) {
         const segs = a[i]._segs || [];
-        if (segs.some(isGateSeg)) {
+        if (isGateRunEv(a[i])) {
           lastGate = i;
           learnAfterGate = false;
         }
@@ -2033,29 +2242,42 @@ export function analyzeDeep(rawEvents, options = {}) {
   // 11. Gate y tests
   section("gate", () => {
     H("11. Gate, tests y build");
-    const isGateRunSeg = (x) => /harness-gate|harness-ship/.test(x);
-    const isPrCreateSeg = (x) => x === "gh pr create" || /harness-ship/.test(x);
+    const hasAnyPost = postCount > 0;
+    const isHarnessGateEv = (e) => e._kind === "shell" && (e._segs || []).some((x) => /harness-gate/.test(x));
+    const isHarnessShipEv = (e) => e._kind === "shell" && (e._segs || []).some((x) => /harness-ship/.test(x));
+    // C2: harness-ship cuenta como corrida del gate solo si duró >= gateMinSec s, o sin duración (v1) como cota superior.
+    const isGateRunEv = (e) =>
+      isHarnessGateEv(e) || (isHarnessShipEv(e) && (e._durMs == null || e._durMs >= gateMinSec * 1000));
+    // C2: sesión que crea PR tiene un `gh pr create` permitido o un `harness-ship.mjs` con `ok=true` (o sin post en v1).
+    const isPrCreateEv = (e) =>
+      e._kind === "shell" &&
+      !e._block &&
+      ((e._segs || []).some((x) => x === "gh pr create") ||
+        (isHarnessShipEv(e) && (e._ok === true || (e._ok === null && !hasAnyPost))));
+    const gateUpperBound = shell.some((e) => isHarnessShipEv(e) && e._durMs == null);
+
+    const segTest = (fn) => (e) => (e._segs || []).some(fn);
     const classes = [
-      ["harness-gate.sh", (x) => /harness-gate/.test(x)],
-      ["harness-ship.mjs", (x) => /harness-ship/.test(x)],
-      ["gate (harness-gate + harness-ship)", isGateRunSeg],
-      ["harness-learn.sh", (x) => /harness-learn/.test(x)],
-      ["npm test (suite completa)", (x) => /^(npm|pnpm|yarn) (test|run test)$/.test(x)],
-      ["npm test <archivo>", (x) => /^(npm|pnpm|yarn) (test|run test\S*) <archivo>$/.test(x)],
-      ["npx vitest (suite completa)", (x) => x === "npx vitest (suite completa)"],
-      ["npx vitest <archivo>", (x) => x === "npx vitest <archivo>"],
-      ["typecheck", (x) => /^(npm|pnpm|yarn) run (typecheck|type-check)/.test(x) || x === "npx tsc"],
-      ["lint", (x) => /^(npm|pnpm|yarn) run lint/.test(x) || x === "npx eslint"],
-      ["build", (x) => /^(npm|pnpm|yarn) run build/.test(x) || x === "npx next build"],
-      ["e2e/playwright", (x) => /^npx playwright/.test(x) || /run (e2e|test:e2e)/.test(x)],
-      ["gh pr create", (x) => x === "gh pr create"],
-      ["creación de PR (gh pr create + harness-ship)", isPrCreateSeg],
+      ["harness-gate.sh", isHarnessGateEv],
+      ["harness-ship.mjs", isHarnessShipEv],
+      ["gate (harness-gate + harness-ship)", isGateRunEv],
+      ["harness-learn.sh", segTest((x) => /harness-learn/.test(x))],
+      ["npm test (suite completa)", segTest((x) => /^(npm|pnpm|yarn) (test|run test)$/.test(x))],
+      ["npm test <archivo>", segTest((x) => /^(npm|pnpm|yarn) (test|run test\S*) <archivo>$/.test(x))],
+      ["npx vitest (suite completa)", segTest((x) => x === "npx vitest (suite completa)")],
+      ["npx vitest <archivo>", segTest((x) => x === "npx vitest <archivo>")],
+      ["typecheck", segTest((x) => /^(npm|pnpm|yarn) run (typecheck|type-check)/.test(x) || x === "npx tsc")],
+      ["lint", segTest((x) => /^(npm|pnpm|yarn) run lint/.test(x) || x === "npx eslint")],
+      ["build", segTest((x) => /^(npm|pnpm|yarn) run build/.test(x) || x === "npx next build")],
+      ["e2e/playwright", segTest((x) => /^npx playwright/.test(x) || /run (e2e|test:e2e)/.test(x))],
+      ["gh pr create", segTest((x) => x === "gh pr create")],
+      ["creación de PR (gh pr create + harness-ship)", isPrCreateEv],
     ];
     const hasDur = official.durations.pairedCount > 0;
     const rows = [];
     const jr = {};
     for (const [name, test] of classes) {
-      const ev = shell.filter((e) => (e._segs || []).some(test));
+      const ev = shell.filter(test);
       if (!ev.length) {
         rows.push(hasDur ? [name, 0, 0, "–", "–", "–", "–", "–", "–", "–", 0] : [name, 0, 0, "–", "–", "–", "–", "–", "–", 0]);
         continue;
@@ -2080,20 +2302,23 @@ export function analyzeDeep(rawEvents, options = {}) {
       rows,
     );
 
-    // B3: corridas del gate por sesión que crea PR (`gh pr create` o `harness-ship.mjs`)
-    const prSessions = S.filter((s) => s.actions.some((e) => e._kind === "shell" && (e._segs || []).some(isPrCreateSeg)));
-    const gateCountsInPr = prSessions.map(
-      (s) => s.actions.filter((e) => e._kind === "shell" && (e._segs || []).some(isGateRunSeg)).length,
-    );
+    // C2: corridas del gate por sesión que crea PR (`gh pr create` permitido o `harness-ship.mjs` con `ok=true`)
+    const prSessions = S.filter((s) => s.actions.some(isPrCreateEv));
+    const gateCountsInPr = prSessions.map((s) => s.actions.filter(isGateRunEv).length);
     const gatePerPrSession = stats(gateCountsInPr);
+    const boundNote = gateUpperBound
+      ? "cota superior: hay llamadas `harness-ship.mjs` sin duración medida"
+      : `\`harness-ship.mjs\` cuenta como gate solo si duró ≥ ${gateMinSec} s`;
     P(
       "",
-      `- Sesiones que crean PR (\`gh pr create\` o \`harness-ship.mjs\`): **${prSessions.length}** · corridas del gate en esas sesiones: ${gatePerPrSession.sum} (p50 **${r1(gatePerPrSession.p50)}**, p90 ${r1(gatePerPrSession.p90)}, máx ${gatePerPrSession.max ?? "–"}; \`harness-ship.mjs\` es cota superior porque saltea el gate si el sello ya vale).`,
+      `- Sesiones que crean PR (\`gh pr create\` permitido o \`harness-ship.mjs\` con \`ok=true\`): **${prSessions.length}** · corridas del gate en esas sesiones: ${gatePerPrSession.sum} (p50 **${r1(gatePerPrSession.p50)}**, p90 ${r1(gatePerPrSession.p90)}, máx ${gatePerPrSession.max ?? "–"}; ${boundNote}).`,
       "_El hueco después de un gate o de una suite completa aproxima su duración (más el razonamiento siguiente). Si es mayor al umbral de inactividad, no se cuenta._",
     );
     jr._prCreatingSessions = {
       sessions: prSessions.length,
       gateRuns: gatePerPrSession,
+      gateMinSec,
+      upperBound: gateUpperBound,
     };
     J.gate = jr;
   });
@@ -2133,7 +2358,12 @@ export function analyzeDeep(rawEvents, options = {}) {
       s === "gh pr checks" || s === "gh run view" || s === "node harness-pr-status.mjs --wait-checks";
 
     const multicaEv = shell.filter((e) => e._fam === "multica");
-    const agentListEv = multicaEv.filter((e) => e._sig === "multica agent list" || /^multica agent\b/.test(e._sig) && /\blist\b/.test(e._cmd));
+    const agentListEv = multicaEv.filter(
+      (e) =>
+        e._sig === "multica agent list" ||
+        e._sig === "node multica-ctx.mjs --agents" ||
+        (/^multica agent\b/.test(e._sig) && /\blist\b/.test(e._cmd)),
+    );
     const prQueryEv = ev.filter((e) => isPrQuerySig(e._sig));
     const checksEv = ev.filter((e) => isChecksSig(e._sig));
     let checksRepeated10m = 0;
@@ -2212,11 +2442,293 @@ export function analyzeDeep(rawEvents, options = {}) {
     };
   });
 
+  // 14. Adopción de intervenciones (C7)
+  section("adopcion", () => {
+    H("14. Adopción de intervenciones");
+    const pctNum = (num, den) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
+
+    // 1. % de sesiones que empiezan con harness-context
+    const isContextEv = (e) => e && e._kind === "shell" && (e._segs || []).some((x) => /harness-context/.test(x));
+    const startsWithContext = S.filter((s) => isContextEv(s.actions[0])).length;
+    const anyContext = S.filter((s) => s.actions.some(isContextEv)).length;
+
+    // 2. % de sesiones que crean PR con harness-ship vs gh pr create
+    const hasAnyPost = postCount > 0;
+    const isShipPrEv = (e) =>
+      e._kind === "shell" &&
+      !e._block &&
+      (e._segs || []).some((x) => /harness-ship/.test(x)) &&
+      (e._ok === true || (e._ok === null && !hasAnyPost));
+    const isGhPrEv = (e) => e._kind === "shell" && !e._block && (e._segs || []).some((x) => x === "gh pr create");
+    const shipPrSess = S.filter((s) => s.actions.some(isShipPrEv)).length;
+    const ghPrSess = S.filter((s) => s.actions.some(isGhPrEv)).length;
+    const totalPrSess = S.filter((s) => s.actions.some((e) => isShipPrEv(e) || isGhPrEv(e))).length;
+
+    // 3. Parte de las llamadas a Multica que pasa por multica-ctx / multica-post
+    const multicaAll = shell.filter((e) => e._fam === "multica");
+    const multicaHelpers = multicaAll.filter((e) => /\bmultica-(?:ctx|post)(?:\.mjs)?\b/.test(e._sig)).length;
+    const multicaRaw = multicaAll.length - multicaHelpers;
+
+    // 4. Parte de las consultas de PR que pasa por harness-pr-status
+    const isPrQuerySig = (s) =>
+      s === "gh pr view" ||
+      s === "gh pr list" ||
+      s === "gh pr checks" ||
+      s === "gh pr diff" ||
+      s === "gh api" ||
+      s === "node harness-pr-status.mjs" ||
+      s === "node harness-pr-status.mjs --wait-checks";
+    const prQueryAll = shell.filter((e) => isPrQuerySig(e._sig));
+    const prStatusHelpers = prQueryAll.filter((e) => /harness-pr-status/.test(e._sig)).length;
+    const prStatusRaw = prQueryAll.length - prStatusHelpers;
+
+    // 5. Claude Code: Read / Grep / Glob contra lecturas por Bash
+    const ccActions = actions.filter((e) => (e.runtime || "") === "claude-code");
+    const ccNativeRead = ccActions.filter((e) => e._kind === "read" || e._kind === "read_many").length;
+    const ccNativeSearch = ccActions.filter((e) => e._kind === "search").length;
+    const ccNativeTotal = ccNativeRead + ccNativeSearch;
+    const ccBashPrimary = J.shell?.bashReads?.primary?.total ?? 0;
+    const ccBashAll = J.shell?.bashReads?.total ?? 0;
+
+    const adoption = {
+      harnessContext: {
+        startsCount: startsWithContext,
+        anyCount: anyContext,
+        totalSessions: S.length,
+        startsPct: pctNum(startsWithContext, S.length),
+        anyPct: pctNum(anyContext, S.length),
+      },
+      prCreation: {
+        withShip: shipPrSess,
+        withGhPrCreate: ghPrSess,
+        totalSessions: totalPrSess,
+        shipPct: pctNum(shipPrSess, totalPrSess),
+      },
+      multicaHelpers: {
+        helperCalls: multicaHelpers,
+        rawCliCalls: multicaRaw,
+        totalCalls: multicaAll.length,
+        helperPct: pctNum(multicaHelpers, multicaAll.length),
+      },
+      prStatusHelper: {
+        helperCalls: prStatusHelpers,
+        rawGhCalls: prStatusRaw,
+        totalCalls: prQueryAll.length,
+        helperPct: pctNum(prStatusHelpers, prQueryAll.length),
+      },
+      claudeCodeNativeVsBash: {
+        nativeRead: ccNativeRead,
+        nativeSearch: ccNativeSearch,
+        nativeTotal: ccNativeTotal,
+        bashReadsPrimary: ccBashPrimary,
+        bashReadsAll: ccBashAll,
+        nativeSharePct: pctNum(ccNativeTotal, ccNativeTotal + ccBashPrimary),
+        nativeShareAllPct: pctNum(ccNativeTotal, ccNativeTotal + ccBashAll),
+      },
+    };
+
+    T(
+      ["intervención", "adoptado", "total / alternativa", "% adopción"],
+      [
+        ["Sesiones que empiezan con `harness-context`", `${startsWithContext} (en cualquier paso: ${anyContext})`, S.length, `${adoption.harnessContext.startsPct.toFixed(1)}%`],
+        ["Sesiones que crean PR con `harness-ship` vs `gh pr create`", shipPrSess, `${totalPrSess} (\`gh pr create\`: ${ghPrSess})`, `${adoption.prCreation.shipPct.toFixed(1)}%`],
+        ["Llamadas Multica vía `multica-ctx`/`multica-post`", multicaHelpers, `${multicaAll.length} (CLI directo: ${multicaRaw})`, `${adoption.multicaHelpers.helperPct.toFixed(1)}%`],
+        ["Consultas de PR vía `harness-pr-status`", prStatusHelpers, `${prQueryAll.length} (\`gh\` directo: ${prStatusRaw})`, `${adoption.prStatusHelper.helperPct.toFixed(1)}%`],
+        ["Claude Code: `Read`/`Grep`/`Glob` vs Bash (`grep`/`sed -n`/`cat`)", `${ccNativeTotal} (${ccNativeRead} Read + ${ccNativeSearch} Search)`, `${ccNativeTotal + ccBashPrimary} (Bash: ${ccBashPrimary}, +sec: ${ccBashAll})`, `${adoption.claudeCodeNativeVsBash.nativeSharePct.toFixed(1)}%`],
+      ],
+    );
+    J.adoption = adoption;
+  });
+
   return {
     markdown: `${md.join("\n")}\n`,
     json: J,
     crossCheck,
   };
+}
+
+// ───────────────────────────── comparación entre ventanas (C8) ─────────────────────────────
+
+/**
+ * Resolve a dot/bracket path inside a deep-dive JSON report (e.g. `sessions.(todas).calls.p50`,
+ * `blocks["read.oversize"].blocks`, or `["blocks", "read.oversize", "blocks"]`).
+ */
+function lookupPath(obj, spec) {
+  if (obj == null || spec == null) return null;
+  let segments;
+  if (Array.isArray(spec)) {
+    segments = spec;
+  } else {
+    segments = [];
+    const s = String(spec);
+    let cur = "";
+    let inBracket = false;
+    let quote = null;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inBracket) {
+        if (quote) {
+          if (ch === quote) quote = null;
+          else cur += ch;
+        } else if (ch === '"' || ch === "'") {
+          quote = ch;
+        } else if (ch === "]") {
+          segments.push(cur);
+          cur = "";
+          inBracket = false;
+        } else {
+          cur += ch;
+        }
+      } else if (ch === "[") {
+        if (cur) {
+          segments.push(cur);
+          cur = "";
+        }
+        inBracket = true;
+      } else if (ch === ".") {
+        if (cur) {
+          segments.push(cur);
+          cur = "";
+        }
+      } else {
+        cur += ch;
+      }
+    }
+    if (cur) segments.push(cur);
+  }
+  let cur = obj;
+  for (const key of segments) {
+    if (cur == null || typeof cur !== "object") return null;
+    cur = cur[key];
+  }
+  return typeof cur === "number" && Number.isFinite(cur) ? cur : null;
+}
+
+/** Resolve a numeric metric value from a deep-dive JSON using path, ratio, or sumPaths. */
+export function resolveMetricValue(reportJson, metricDef) {
+  if (!reportJson || !metricDef) return null;
+  if (metricDef.numeratorPath && metricDef.denominatorPath) {
+    const num = lookupPath(reportJson, metricDef.numeratorPath) ?? 0;
+    const den = lookupPath(reportJson, metricDef.denominatorPath);
+    if (den == null || den === 0) return null;
+    const scale = metricDef.scale ?? 100;
+    return Math.round((num / den) * scale * 100) / 100;
+  }
+  if (Array.isArray(metricDef.sumPaths)) {
+    let total = 0;
+    let found = false;
+    for (const p of metricDef.sumPaths) {
+      const v = lookupPath(reportJson, p);
+      if (v != null) {
+        total += v;
+        found = true;
+      }
+    }
+    return found ? total : metricDef.defaultIfMissing ?? null;
+  }
+  const v = lookupPath(reportJson, metricDef.path);
+  if (v != null) return v;
+  return metricDef.defaultIfMissing ?? null;
+}
+
+const DEFAULT_COMPARE_METRICS = [
+  { id: "calls_p50_total", label: "Llamadas por sesión (p50)", runtime: "(todas)", path: "sessions.(todas).calls.p50", target: { type: "observe" } },
+  { id: "cbfe_p50_total", label: "Llamadas antes de 1ª edición (p50)", runtime: "(todas)", path: "sessions.(todas).callsBeforeFirstEdit.p50", target: { type: "observe" } },
+  { id: "ttfe_p50_total", label: "TTFE (p50, ms)", runtime: "(todas)", path: "sessions.(todas).ttfeMs.p50", target: { type: "observe" } },
+  { id: "blocks_comparable", label: "Bloqueos comparables por sesión", runtime: "(todas)", path: "comparableBlocks.perSession", target: { type: "observe" } },
+];
+
+function evaluateTarget(baseVal, candVal, deltaPct, target) {
+  if (!target || target.type === "observe") return "observada";
+  if (candVal == null) return "sin datos";
+  if (target.type === "rel_pct") {
+    if (baseVal == null || baseVal === 0 || deltaPct == null) return "sin base";
+    return target.deltaPct < 0
+      ? deltaPct <= target.deltaPct ? "cumplida" : "pendiente"
+      : deltaPct >= target.deltaPct ? "cumplida" : "pendiente";
+  }
+  if (target.type === "max") {
+    const ok = target.strict ? candVal < target.value : candVal <= target.value;
+    return ok ? "cumplida" : "pendiente";
+  }
+  if (target.type === "min") {
+    const ok = target.strict ? candVal > target.value : candVal >= target.value;
+    return ok ? "cumplida" : "pendiente";
+  }
+  if (target.type === "exact") {
+    return candVal === target.value ? "cumplida" : "pendiente";
+  }
+  return "observada";
+}
+
+function formatTargetLabel(target, unit = "") {
+  if (!target || target.type === "observe") return "observada";
+  const u = unit === "%" ? "%" : "";
+  if (target.type === "rel_pct") return `${target.deltaPct > 0 ? "+" : ""}${target.deltaPct}%`;
+  if (target.type === "max") return `${target.strict ? "<" : "≤"} ${target.value}${u}`;
+  if (target.type === "min") return `${target.strict ? ">" : "≥"} ${target.value}${u}`;
+  if (target.type === "exact") return `= ${target.value}${u}`;
+  return "observada";
+}
+
+/**
+ * Compare a candidate deep-dive JSON report against a baseline deep-dive JSON report
+ * using declarative metrics/targets (project-agnostic; targets live outside core).
+ */
+export function compareDeepReports(baselineJson, candidateJson, targetsConfig = null) {
+  const baselineLabel = targetsConfig?.baselineLabel || "baseline";
+  const candidateLabel = targetsConfig?.candidateLabel || "candidato";
+  const metricDefs = Array.isArray(targetsConfig?.metrics) && targetsConfig.metrics.length > 0
+    ? targetsConfig.metrics
+    : DEFAULT_COMPARE_METRICS;
+
+  const rows = metricDefs.map((m) => {
+    const baseVal = resolveMetricValue(baselineJson, m);
+    const candVal = resolveMetricValue(candidateJson, m);
+    let deltaPct = null;
+    if (baseVal != null && candVal != null && baseVal !== 0) {
+      deltaPct = Math.round(((candVal - baseVal) / baseVal) * 1000) / 10;
+    }
+    const status = evaluateTarget(baseVal, candVal, deltaPct, m.target);
+    return {
+      id: m.id,
+      label: m.label,
+      runtime: m.runtime || "(todas)",
+      unit: m.unit || "",
+      baseline: baseVal,
+      candidate: candVal,
+      deltaPct,
+      targetLabel: formatTargetLabel(m.target, m.unit || ""),
+      status,
+      note: m.note || "",
+    };
+  });
+
+  return { baselineLabel, candidateLabel, rows };
+}
+
+function fmtCompVal(v, unit) {
+  if (v == null) return "–";
+  if (unit === "%") return `${v.toFixed(1)}%`;
+  if (unit === "ms") return `${Math.round(v)} ms`;
+  return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100);
+}
+
+/** Format the comparison result as a Markdown table. */
+export function formatComparisonMarkdown(comparison) {
+  const lines = [
+    `## Comparación ${comparison.baselineLabel} vs. ${comparison.candidateLabel}`,
+    "",
+    `| métrica | runtime | ${comparison.baselineLabel} | ${comparison.candidateLabel} | delta % | meta | estado |`,
+    "|---|---|---|---|---|---|---|",
+  ];
+  for (const r of comparison.rows) {
+    const deltaStr = r.deltaPct == null ? "–" : `${r.deltaPct > 0 ? "+" : ""}${r.deltaPct.toFixed(1)}%`;
+    lines.push(
+      `| ${r.label} | ${r.runtime} | ${fmtCompVal(r.baseline, r.unit)} | ${fmtCompVal(r.candidate, r.unit)} | ${deltaStr} | ${r.targetLabel} | ${r.status} |`,
+    );
+  }
+  return lines.join("\n");
 }
 
 /**
@@ -2228,6 +2740,12 @@ export function analyzeDeep(rawEvents, options = {}) {
  *   since?: string | null,
  *   until?: string | null,
  *   idleMin?: number,
+ *   minSchema?: number | null,
+ *   gateMinSec?: number,
+ *   compare?: string | null,
+ *   targets?: string | null,
+ *   excludeKinds?: string[],
+ *   excludeRules?: string[],
  *   top?: number,
  *   out?: string | null,
  *   examples?: boolean,
@@ -2256,6 +2774,8 @@ export function runDeepDive(options = {}) {
     since: options.since ?? null,
     until: options.until ?? null,
     idleMin: options.idleMin ?? 15,
+    minSchema: options.minSchema ?? null,
+    gateMinSec: options.gateMinSec ?? DEFAULT_GATE_MIN_SEC,
     excludeKinds: options.excludeKinds ?? [],
     excludeRules: options.excludeRules ?? [],
     top: options.top ?? 20,
@@ -2264,6 +2784,17 @@ export function runDeepDive(options = {}) {
     file,
     invalidLines,
   });
+
+  let comparison = null;
+  let comparisonMarkdown = "";
+  if (options.compare) {
+    const baselineJson = JSON.parse(readFileSync(path.resolve(options.compare), "utf8"));
+    const targetsConfig = options.targets ? JSON.parse(readFileSync(path.resolve(options.targets), "utf8")) : null;
+    comparison = compareDeepReports(baselineJson, result.json, targetsConfig);
+    comparisonMarkdown = formatComparisonMarkdown(comparison);
+    result.json.comparison = comparison;
+    result.markdown = `${result.markdown}\n${comparisonMarkdown}\n`;
+  }
 
   const outDir = path.resolve(options.out || path.join(telemetryDir, "deep-dive"));
   mkdirSync(outDir, { recursive: true });
@@ -2274,6 +2805,8 @@ export function runDeepDive(options = {}) {
 
   return {
     ...result,
+    comparison,
+    comparisonMarkdown,
     file,
     outDir,
     mdPath,
