@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
-import { main, parseArgs, upsertSealBlock } from "../core/scripts/harness-ship.mjs";
+import { ghShellCommand, main, parseArgs, upsertSealBlock } from "../core/scripts/harness-ship.mjs";
 // @ts-expect-error - mjs module
 import { gitBashWin, resolveBash } from "../core/guard/guard-core.mjs";
 
@@ -187,6 +187,12 @@ describe("GOZS-781: harness-ship.mjs", () => {
     expect(gitBashWin).toBe("C:\\Program Files\\Git\\bin\\bash.exe");
     expect(resolveBash("linux", () => true)).toBe("bash");
     expect(resolveBash("win32", () => false)).toBe("bash");
+  });
+
+  it("GIVEN Windows con gh como shim .cmd THEN arma el comando de shell con cada argumento entre comillas", () => {
+    expect(ghShellCommand(["pr", "create", "--title", 'chore: "x" y', "--body-file", "C:\\w\\pr body.md"])).toBe(
+      'gh "pr" "create" "--title" "chore: \\"x\\" y" "--body-file" "C:\\w\\pr body.md"',
+    );
   });
 
   it("parseArgs exige --title y --body-file y acepta --flag=valor", () => {

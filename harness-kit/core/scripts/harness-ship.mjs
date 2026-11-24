@@ -75,8 +75,17 @@ export function tail(text, n = TAIL_LINES) {
   return String(text || "").replace(/\s+$/, "").split(/\r?\n/).slice(-n).join("\n");
 }
 
+/** Windows: gh may be a .cmd/.bat shim that spawn cannot start without a shell (same as harness-pr-status). */
+export function ghShellCommand(args) {
+  return `gh ${args.map((a) => `"${String(a).replace(/"/g, '\\"')}"`).join(" ")}`;
+}
+
 function defaultRun(cmd, args, opts = {}) {
-  const res = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, ...opts });
+  const base = { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, ...opts };
+  const res =
+    cmd === "gh" && process.platform === "win32"
+      ? spawnSync(ghShellCommand(args), { ...base, shell: true })
+      : spawnSync(cmd, args, base);
   return { status: res.status ?? 1, stdout: res.stdout || "", stderr: res.stderr || (res.error ? String(res.error.message) : "") };
 }
 
