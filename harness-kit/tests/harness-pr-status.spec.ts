@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error - mjs module
-import {
-  PR_VIEW_FIELDS,
-  analyzePrStatus,
-  formatPrStatus,
-  main,
-  parseDurationMs,
-  spawnWithTimeout,
-} from "../core/scripts/harness-pr-status.mjs";
+import { PR_VIEW_FIELDS, analyzePrStatus, formatPrStatus, main, parseDurationMs, spawnWithTimeout } from "../core/scripts/harness-pr-status.mjs";
 
 const PROJECT = {
   issue_prefix: "GOZS",
