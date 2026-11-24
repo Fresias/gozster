@@ -150,9 +150,12 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
 
     expect(content).not.toContain("# Helper scripts (run via bash)");
     expect(content).toMatch(/^- When .+, load the harness-tools skill\.$/m);
-    expect(content).toContain("harness-learn.sh");
-    expect(content).toContain("harness-gate.sh");
-    expect(content).toContain("--pr-block");
+    // GOZS-781: el flujo de PR en AGENTS.md es harness-ship.mjs; el detalle (learn → gate → --pr-block) vive en harness-tools.
+    expect(content).toContain("harness-kit/core/scripts/harness-ship.mjs");
+    const tools = readFileSync(path.join(repoRoot, "harness", "skills", "harness-tools", "SKILL.md"), "utf8");
+    expect(tools).toContain("harness-learn.sh");
+    expect(tools).toContain("harness-gate.sh");
+    expect(tools).toContain("--pr-block");
 
     const neverMatch = content.match(/## Never \(Enforced by Guard\)\n([\s\S]*?)\n\n#/);
     expect(neverMatch).not.toBeNull();
@@ -184,6 +187,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
       "harness-kit/core/scripts/harness-probe.mjs",
       "harness-kit/core/scripts/harness-propose.mjs",
       "harness-kit/core/scripts/harness-render.mjs",
+      "harness-kit/core/scripts/harness-ship.mjs",
       "harness-kit/core/scripts/harness-telemetry.mjs",
     ];
 

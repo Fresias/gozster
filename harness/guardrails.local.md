@@ -12,6 +12,6 @@
 - SSR specs (React 19): mock Zustand hooks to `getState()` in the spec; no `typeof window` in components.
 
 ## Harness² Flow (guard + merge check)
-- PR: `harness-learn.sh --lesson "..."`, `harness-gate.sh`, paste `--pr-block`.
+- PR: `node harness-kit/core/scripts/harness-ship.mjs` (lesson+gate+seal+PR).
 - Harness: `chore/<#>-harness-<slug>` (PM), PPC (`harness-probe` → `harness-compose --task <ISSUE>`; never hand-edit), `harness-authorized` by `Fresias` only (push revokes; re-request).
 - Encoding: UTF-8 no BOM; PowerShell: no backtick strings/`Set-Content` (Write/Edit).

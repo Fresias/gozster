@@ -288,14 +288,48 @@ function oversizeCatLines(cmd, repoRoot) {
   return 0;
 }
 
-const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+export const gitBashWin = "C:\\Program Files\\Git\\bin\\bash.exe";
+
+/** Bash used for harness .sh scripts: Git Bash on Windows (never WSL `bash`), plain `bash` elsewhere. */
+export function resolveBash(platform = process.platform, exists = existsSync) {
+  return platform === "win32" && exists(gitBashWin) ? gitBashWin : "bash";
+}
 
 /** Reuses `harness-gate.sh --verify` (single seal_valid implementation). */
 function sealValid(repoRoot) {
   const script = path.join(here, "..", "scripts", "harness-gate.sh").replace(/\\/g, "/");
-  const bash = process.platform === "win32" && existsSync(gitBashWin) ? gitBashWin : "bash";
-  const res = spawnSync(bash, [script, "--verify"], { cwd: repoRoot, encoding: "utf8" });
+  const res = spawnSync(resolveBash(), [script, "--verify"], { cwd: repoRoot, encoding: "utf8" });
   return res.status === 0;
+}
+
+const SHIP_HINT = "`node harness-kit/core/scripts/harness-ship.mjs --lesson \"…\" --title \"…\" --body-file <ruta>`";
+
+/**
+ * Why `gh pr create` is blocked by pr.requires-seal (null = seal valid and body carries it).
+ * Cases: no seal, seal of another commit, same commit but tree/diff changed, body without the seal block.
+ */
+export function sealDiagnosis(repoRoot, body, valid = sealValid(repoRoot)) {
+  let seal = null;
+  try {
+    seal = JSON.parse(readFileSync(path.join(repoRoot, ".harness", "complete.json"), "utf8"));
+  } catch {}
+  if (!valid) {
+    if (!seal || !seal.fingerprint) {
+      return `No corriste el gate (.harness/complete.json no existe). Usá ${SHIP_HINT} (o bash harness-kit/core/scripts/harness-gate.sh).`;
+    }
+    const res = spawnSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" });
+    const head = res.status === 0 ? res.stdout.trim() : "";
+    const sealHead = String(seal.head || "");
+    if (head && sealHead && sealHead !== head) {
+      return `El sello es de ${sealHead.slice(0, 7)} y HEAD es ${head.slice(0, 7)}: hubo commits después del gate (por ejemplo, la lección). Usá ${SHIP_HINT} o volvé a correr bash harness-kit/core/scripts/harness-gate.sh.`;
+    }
+    return `Hay cambios sin commitear o el diff cambió desde el gate (sello de ${sealHead.slice(0, 7)} = HEAD). Commiteá y usá ${SHIP_HINT} o volvé a correr bash harness-kit/core/scripts/harness-gate.sh.`;
+  }
+  const fingerprint = (seal && seal.fingerprint) || "";
+  if (!fingerprint || !body.includes("harness-seal:") || !body.includes(fingerprint)) {
+    return "Agregá al --body-file la salida de `bash harness-kit/core/scripts/harness-gate.sh --pr-block` (harness-ship.mjs lo hace solo).";
+  }
+  return null;
 }
 
 /** Current git branch of the repo ("" if unknown). */
@@ -1608,27 +1642,8 @@ function evaluateShell(call, repoRoot) {
   // the seal and merge rules apply to the remaining segments (a --repo elsewhere exempts nothing).
   const ownCmd = cmd.split(/;|&&|\|\||\||\n/).filter((seg) => !targetsOtherRepo(seg, repoRoot)).join(" ; ");
   if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(ownCmd)) {
-    if (!sealValid(repoRoot)) {
-      return {
-        allowed: false,
-        ruleId: "pr.requires-seal",
-        reason:
-          "No valid gate seal (.harness/complete.json missing or stale for HEAD + diff). Run harness-kit/core/scripts/harness-gate.sh before gh pr create.",
-      };
-    }
-    let fingerprint = "";
-    try {
-      fingerprint = JSON.parse(readFileSync(path.join(repoRoot, ".harness", "complete.json"), "utf8")).fingerprint || "";
-    } catch {}
-    const body = prBodyText(cmd, repoRoot);
-    if (!fingerprint || !body.includes("harness-seal:") || !body.includes(fingerprint)) {
-      return {
-        allowed: false,
-        ruleId: "pr.requires-seal",
-        reason:
-          "PR body must contain the seal block: run `bash harness-kit/core/scripts/harness-gate.sh --pr-block` and paste its output into the --body-file.",
-      };
-    }
+    const why = sealDiagnosis(repoRoot, prBodyText(cmd, repoRoot));
+    if (why) return { allowed: false, ruleId: "pr.requires-seal", reason: why };
   }
 
   // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
