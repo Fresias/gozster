@@ -202,6 +202,16 @@ interface CoachStudioState {
     nivel: NivelVistaAlumno,
   ) => Promise<boolean>;
 
+  // Entrenador de apoyo y permiso financiero ($) (GOZS-760)
+  actualizarEntrenadorApoyo: (
+    alumnoId: string,
+    profesorApoyoId: string | null,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  actualizarAccesoFinancieroApoyo: (
+    alumnoId: string,
+    accesoFinanciero: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
+
   // Sustituciones Trazables de Ejercicios (ADR-002)
   registrarSustitucion: (input: {
     planId: string;
@@ -896,6 +906,141 @@ export const useCoachStudioStore = create<CoachStudioState>()(
       }
 
       return true;
+    },
+
+    actualizarEntrenadorApoyo: async (alumnoId: string, profesorApoyoId: string | null) => {
+      const prevAlumnos = get().alumnos;
+      const target = prevAlumnos.find((a) => a.id === alumnoId);
+
+      // Al asignar o dar de baja un apoyo, el permiso financiero siempre queda en false por defecto.
+      const patch = {
+        profesor_apoyo_id: profesorApoyoId,
+        apoyo_acceso_financiero: false,
+      };
+
+      if (target) {
+        set({
+          alumnos: prevAlumnos.map((a) =>
+            a.id === alumnoId ? { ...a, ...patch } : a,
+          ),
+        });
+      }
+
+      if (esUuid(alumnoId) && typeof supabase?.from === "function") {
+        try {
+          const { error } = await supabase
+            .from("perfiles")
+            .update(patch)
+            .eq("id", alumnoId);
+
+          if (error) {
+            if (target) set({ alumnos: prevAlumnos });
+            const msg = error.message || "No se pudo actualizar el entrenador de apoyo.";
+            set({
+              toast: {
+                id: `toast-${Date.now()}`,
+                type: "warning",
+                title: "Error al actualizar entrenador de apoyo",
+                message: msg,
+              },
+            });
+            return { ok: false, error: msg };
+          }
+        } catch (err: unknown) {
+          if (target) set({ alumnos: prevAlumnos });
+          const msg =
+            err instanceof Error ? err.message : "No se pudo actualizar el entrenador de apoyo.";
+          set({
+            toast: {
+              id: `toast-${Date.now()}`,
+              type: "warning",
+              title: "Error al actualizar entrenador de apoyo",
+              message: msg,
+            },
+          });
+          return { ok: false, error: msg };
+        }
+      }
+
+      set({
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: profesorApoyoId ? "Entrenador de apoyo asignado" : "Entrenador de apoyo dado de baja",
+          message: profesorApoyoId
+            ? "Quedó habilitado para entrenamiento sin acceso financiero ($)."
+            : "Se quitó el acceso del entrenador de apoyo sobre este alumno.",
+        },
+      });
+      return { ok: true };
+    },
+
+    actualizarAccesoFinancieroApoyo: async (alumnoId: string, accesoFinanciero: boolean) => {
+      const prevAlumnos = get().alumnos;
+      const target = prevAlumnos.find((a) => a.id === alumnoId);
+      if (target && accesoFinanciero && !target.profesor_apoyo_id) {
+        return { ok: false, error: "Asigná primero un entrenador de apoyo." };
+      }
+
+      if (target) {
+        set({
+          alumnos: prevAlumnos.map((a) =>
+            a.id === alumnoId
+              ? { ...a, apoyo_acceso_financiero: accesoFinanciero }
+              : a,
+          ),
+        });
+      }
+
+      if (esUuid(alumnoId) && typeof supabase?.from === "function") {
+        try {
+          const { error } = await supabase
+            .from("perfiles")
+            .update({ apoyo_acceso_financiero: accesoFinanciero })
+            .eq("id", alumnoId);
+
+          if (error) {
+            if (target) set({ alumnos: prevAlumnos });
+            const msg = error.message || "No se pudo actualizar el acceso financiero ($).";
+            set({
+              toast: {
+                id: `toast-${Date.now()}`,
+                type: "warning",
+                title: "Error al actualizar acceso financiero ($)",
+                message: msg,
+              },
+            });
+            return { ok: false, error: msg };
+          }
+        } catch (err: unknown) {
+          if (target) set({ alumnos: prevAlumnos });
+          const msg =
+            err instanceof Error ? err.message : "No se pudo actualizar el acceso financiero ($).";
+          set({
+            toast: {
+              id: `toast-${Date.now()}`,
+              type: "warning",
+              title: "Error al actualizar acceso financiero ($)",
+              message: msg,
+            },
+          });
+          return { ok: false, error: msg };
+        }
+      }
+
+      set({
+        toast: {
+          id: `toast-${Date.now()}`,
+          type: "success",
+          title: accesoFinanciero
+            ? "Acceso financiero ($) habilitado"
+            : "Acceso financiero ($) revocado",
+          message: accesoFinanciero
+            ? "El entrenador de apoyo ahora puede ver y gestionar dinero, membresías, cobros y pagos de este alumno."
+            : "El entrenador de apoyo vuelve a operar únicamente en entrenamiento.",
+        },
+      });
+      return { ok: true };
     },
 
     asignarPlanUrgente: async (alumnoId: string, nombrePlan?: string) => {

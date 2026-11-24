@@ -2,6 +2,7 @@ import { CobrosPanel } from "@/components/coach/cobros-panel";
 import { createClient } from "@/lib/supabase/server";
 import { fetchCobrosDatasetFromSupabase, type CobrosSupabaseDataset } from "@/services/cobros-service";
 import { crearKpisNegocioVacios, obtenerKpisNegocio, type KpisNegocio } from "@/lib/kpis-negocio";
+import { puedeVerFinanzasAlumno } from "@/lib/entrenador-apoyo";
 import type { Perfil } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +30,35 @@ export default async function CobrosPage() {
     pagos: [],
     alumnoActividades: [],
   };
-  let perfiles: Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">> = [];
+  let perfiles: Array<
+    Pick<
+      Perfil,
+      | "id"
+      | "nombre_completo"
+      | "email"
+      | "telefono"
+      | "profesor_asignado_id"
+      | "profesor_apoyo_id"
+      | "apoyo_acceso_financiero"
+    >
+  > = [];
   let kpis: KpisNegocio = crearKpisNegocioVacios(userRole);
 
   if (authUser?.data?.user) {
+    const viewer = { userId: authUser.data.user.id, rol: userRole };
     const [cobrosRes, perfilesRes, kpisRes] = await Promise.all([
       fetchCobrosDatasetFromSupabase(supabase).catch(() => dataset),
-      supabase.from("perfiles").select("id, nombre_completo, email, telefono"),
+      supabase
+        .from("perfiles")
+        .select(
+          "id, nombre_completo, email, telefono, profesor_asignado_id, profesor_apoyo_id, apoyo_acceso_financiero",
+        ),
       obtenerKpisNegocio(supabase, { rol: userRole }).catch(() => kpis),
     ]);
     dataset = cobrosRes;
     if (!perfilesRes.error && Array.isArray(perfilesRes.data)) {
-      perfiles = perfilesRes.data as Array<Pick<Perfil, "id" | "nombre_completo" | "email" | "telefono">>;
+      const todos = perfilesRes.data as typeof perfiles;
+      perfiles = todos.filter((p) => puedeVerFinanzasAlumno(p, viewer));
     }
     if (kpisRes) {
       kpis = kpisRes;
@@ -53,6 +71,8 @@ export default async function CobrosPage() {
       initialPerfiles={perfiles}
       kpis={kpis}
       isLiveMode={true}
+      currentUserId={authUser?.data?.user?.id ?? null}
+      userRole={userRole}
     />
   );
 }

@@ -12,12 +12,14 @@ export interface StudentCardProps {
   alumno: Perfil;
   rutinaActiva: PlanEntrenamiento | null;
   onSelect: (alumnoId: string) => void;
+  ocultarFinanzas?: boolean;
 }
 
 export function StudentCard({
   alumno,
   rutinaActiva,
   onSelect,
+  ocultarFinanzas = false,
 }: StudentCardProps) {
   const isWhatsAppEnabled = useCoachStudioStore((s) => s.isWhatsAppEnabled);
   const openChatForAlumno = useCoachStudioStore((s) => s.openChatForAlumno);
@@ -76,7 +78,15 @@ export function StudentCard({
               </p>
             </div>
           </div>
-          <div className="shrink-0">{getPaymentBadge(alumno.estado_membresia)}</div>
+          <div className="shrink-0">
+            {ocultarFinanzas ? (
+              <Badge variant="secondary" data-testid={`badge-apoyo-card-${alumno.id}`}>
+                Apoyo
+              </Badge>
+            ) : (
+              getPaymentBadge(alumno.estado_membresia)
+            )}
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl bg-secondary/40 border border-border/60 p-3 text-xs flex items-center justify-between">
