@@ -87,6 +87,12 @@ import {
   derivarMontoSuscripcion,
   formatearDinero,
 } from "@/lib/alumno-ficha";
+import { EntrenadorApoyoPanel } from "@/components/coach/student-detail/entrenador-apoyo-panel";
+import {
+  esEntrenadorDeApoyo,
+  puedeGestionarEntrenadorApoyo,
+  puedeVerFinanzasAlumno,
+} from "@/lib/entrenador-apoyo";
 
 export interface StudentDetailProps {
   alumno: Perfil;
@@ -127,6 +133,17 @@ export interface StudentDetailProps {
   onExportStudentSheet?: (alumno: Perfil) => void;
   headerMenuOpen?: boolean;
   onHeaderMenuOpenChange?: (open: boolean) => void;
+  currentUserId?: string | null;
+  currentUserRole?: string | null;
+  onActualizarEntrenadorApoyo?: (
+    alumnoId: string,
+    profesorApoyoId: string | null,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  onActualizarAccesoFinancieroApoyo?: (
+    alumnoId: string,
+    acceso: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>;
+  initialConfirmFinancieroOpen?: boolean;
 }
 
 export function StudentDetail({
@@ -157,9 +174,103 @@ export function StudentDetail({
   onExportStudentSheet,
   headerMenuOpen,
   onHeaderMenuOpenChange,
+  currentUserId = null,
+  currentUserRole = null,
+  onActualizarEntrenadorApoyo,
+  onActualizarAccesoFinancieroApoyo,
+  initialConfirmFinancieroOpen = false,
 }: StudentDetailProps) {
   const [isCloning, setIsCloning] = React.useState(false);
   const [errorAccion, setErrorAccion] = React.useState<string | null>(null);
+
+  // Estado local sincronizado de entrenador de apoyo y permiso financiero ($) (GOZS-760)
+  const [apoyoState, setApoyoState] = React.useState<{
+    profesor_apoyo_id: string | null;
+    apoyo_acceso_financiero: boolean;
+  }>({
+    profesor_apoyo_id: alumno.profesor_apoyo_id ?? null,
+    apoyo_acceso_financiero: Boolean(alumno.profesor_apoyo_id && alumno.apoyo_acceso_financiero),
+  });
+
+  React.useEffect(() => {
+    setApoyoState({
+      profesor_apoyo_id: alumno.profesor_apoyo_id ?? null,
+      apoyo_acceso_financiero: Boolean(alumno.profesor_apoyo_id && alumno.apoyo_acceso_financiero),
+    });
+  }, [alumno.id, alumno.profesor_apoyo_id, alumno.apoyo_acceso_financiero]);
+
+  const alumnoConApoyo = React.useMemo<Perfil>(
+    () => ({
+      ...alumno,
+      profesor_apoyo_id: apoyoState.profesor_apoyo_id,
+      apoyo_acceso_financiero: apoyoState.apoyo_acceso_financiero,
+    }),
+    [alumno, apoyoState],
+  );
+
+  const viewerPermisos = React.useMemo(
+    () => ({ userId: currentUserId, rol: currentUserRole }),
+    [currentUserId, currentUserRole],
+  );
+  const puedeVerFinanzas = React.useMemo(
+    () => puedeVerFinanzasAlumno(alumnoConApoyo, viewerPermisos),
+    [alumnoConApoyo, viewerPermisos],
+  );
+  const puedeGestionarApoyo = React.useMemo(
+    () => puedeGestionarEntrenadorApoyo(alumnoConApoyo, viewerPermisos),
+    [alumnoConApoyo, viewerPermisos],
+  );
+  const esApoyoViewer = React.useMemo(
+    () => esEntrenadorDeApoyo(alumnoConApoyo, viewerPermisos),
+    [alumnoConApoyo, viewerPermisos],
+  );
+
+  const actualizarEntrenadorApoyoStore = useCoachStudioStore((s) => s.actualizarEntrenadorApoyo);
+  const actualizarAccesoFinancieroApoyoStore = useCoachStudioStore(
+    (s) => s.actualizarAccesoFinancieroApoyo,
+  );
+
+  const handleAsignarEntrenadorApoyo = React.useCallback(
+    async (profesorApoyoId: string) => {
+      const fn = onActualizarEntrenadorApoyo ?? actualizarEntrenadorApoyoStore;
+      const res = await fn(alumno.id, profesorApoyoId);
+      if (res.ok) {
+        setApoyoState({
+          profesor_apoyo_id: profesorApoyoId,
+          apoyo_acceso_financiero: false,
+        });
+      }
+      return res;
+    },
+    [alumno.id, onActualizarEntrenadorApoyo, actualizarEntrenadorApoyoStore],
+  );
+
+  const handleQuitarEntrenadorApoyo = React.useCallback(async () => {
+    const fn = onActualizarEntrenadorApoyo ?? actualizarEntrenadorApoyoStore;
+    const res = await fn(alumno.id, null);
+    if (res.ok) {
+      setApoyoState({
+        profesor_apoyo_id: null,
+        apoyo_acceso_financiero: false,
+      });
+    }
+    return res;
+  }, [alumno.id, onActualizarEntrenadorApoyo, actualizarEntrenadorApoyoStore]);
+
+  const handleCambiarAccesoFinancieroApoyo = React.useCallback(
+    async (acceso: boolean) => {
+      const fn = onActualizarAccesoFinancieroApoyo ?? actualizarAccesoFinancieroApoyoStore;
+      const res = await fn(alumno.id, acceso);
+      if (res.ok) {
+        setApoyoState((prev) => ({
+          ...prev,
+          apoyo_acceso_financiero: acceso,
+        }));
+      }
+      return res;
+    },
+    [alumno.id, onActualizarAccesoFinancieroApoyo, actualizarAccesoFinancieroApoyoStore],
+  );
 
   const handleAsignarRutina = () => {
     if (onAssignRoutine) {
@@ -176,6 +287,7 @@ export function StudentDetail({
   };
 
   const handleRegistrarPago = () => {
+    if (!puedeVerFinanzas) return;
     if (onRegisterPayment) {
       onRegisterPayment(alumno);
     } else {
@@ -720,6 +832,7 @@ export function StudentDetail({
   }, [montoSuscripcion.monto]);
 
   const handleAbrirDialogoPago = () => {
+    if (!puedeVerFinanzas) return;
     setModalMonto(montoSuscripcion.monto);
     setModalMedio("TRANSFERENCIA");
     setModalNota("");
@@ -1471,8 +1584,10 @@ export function StudentDetail({
               >
                 <span>{chatConv.responsable_nombre || "Coach Principal"}</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Vínculo RLS en entrenador_alumnos
+              <p className="text-xs text-muted-foreground mt-0.5" data-testid="student-vinculo-rls">
+                {alumnoConApoyo.profesor_apoyo_id
+                  ? "Vínculo en perfiles (profesor_asignado_id y entrenador de apoyo)"
+                  : "Vínculo en perfiles (profesor_asignado_id)"}
               </p>
             </div>
 
@@ -2897,6 +3012,19 @@ export function StudentDetail({
           ? formatearDinero(primeraContratacion.precio_pactado)
           : undefined;
 
+        const entrenadorApoyoNode = (
+          <EntrenadorApoyoPanel
+            alumno={alumnoConApoyo}
+            coaches={availableTransferCoaches}
+            puedeGestionar={puedeGestionarApoyo}
+            esViewerApoyo={esApoyoViewer}
+            onAsignarApoyo={handleAsignarEntrenadorApoyo}
+            onQuitarApoyo={handleQuitarEntrenadorApoyo}
+            onCambiarAccesoFinanciero={handleCambiarAccesoFinancieroApoyo}
+            initialConfirmDialogOpen={initialConfirmFinancieroOpen}
+          />
+        );
+
         return (
           <IslaAdministrativa
             key="administracion"
@@ -2908,11 +3036,13 @@ export function StudentDetail({
             onDragOver={handleDragOver("administracion")}
             onDragLeave={handleDragLeave("administracion")}
             onDrop={handleDrop("administracion")}
-            suscripcionNode={suscripcionNode}
-            historialPagosNode={historialPagosNode}
-            contratacionNode={contratacionNode}
+            ocultarFinanzas={!puedeVerFinanzas}
+            suscripcionNode={puedeVerFinanzas ? suscripcionNode : undefined}
+            historialPagosNode={puedeVerFinanzas ? historialPagosNode : undefined}
+            contratacionNode={puedeVerFinanzas ? contratacionNode : undefined}
             clasesFijasNode={isLiveStudent ? <ClasesFijasPanel alumnoId={alumno.id} /> : undefined}
             chatResponsableNode={chatPanelNode}
+            entrenadorApoyoNode={entrenadorApoyoNode}
             nivelVistaNode={nivelVistaNode}
             cuestionarioNode={cuestionarioNode}
             accesoNode={
@@ -2920,12 +3050,14 @@ export function StudentDetail({
                 <ResetPasswordAlumno alumnoId={alumno.id} nombre={alumno.nombre_completo} />
               ) : undefined
             }
-            planActivo={tienePlanComercialReal ? nombrePlanReal : undefined}
-            monto={tienePlanComercialReal ? montoReal : undefined}
-            fechaVencimiento={fechaFinReal ? formatFecha(fechaFinReal) : undefined}
-            estadoCobro={tienePlanComercialReal ? estadoPagoInfo.estado : undefined}
+            planActivo={puedeVerFinanzas && tienePlanComercialReal ? nombrePlanReal : undefined}
+            monto={puedeVerFinanzas && tienePlanComercialReal ? montoReal : undefined}
+            fechaVencimiento={puedeVerFinanzas && fechaFinReal ? formatFecha(fechaFinReal) : undefined}
+            estadoCobro={puedeVerFinanzas && tienePlanComercialReal ? estadoPagoInfo.estado : undefined}
             detalleCobro={
-              !tienePlanComercialReal
+              !puedeVerFinanzas
+                ? undefined
+                : !tienePlanComercialReal
                 ? "Sin cobros ni suscripción activa"
                 : estadoPagoInfo.pago
                 ? fechaFinReal
@@ -2939,8 +3071,8 @@ export function StudentDetail({
                 ? `Pendiente de cobro · vence ${formatFecha(fechaFinReal)}`
                 : "Pendiente de cobro"
             }
-            onRegistrarPago={handleAbrirDialogoPago}
-            onAsignarPlan={() => setModalAsignarPlanAbierto(true)}
+            onRegistrarPago={puedeVerFinanzas ? handleAbrirDialogoPago : undefined}
+            onAsignarPlan={puedeVerFinanzas ? () => setModalAsignarPlanAbierto(true) : undefined}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onMoveLeft={onMoveLeft}
@@ -3003,7 +3135,13 @@ export function StudentDetail({
               <ActivityLabels labels={labelsActividad} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-neutral-soft-foreground">
-              {getPaymentBadge(alumno.estado_membresia)}
+              {puedeVerFinanzas ? (
+                getPaymentBadge(alumno.estado_membresia)
+              ) : (
+                <Badge variant="secondary" data-testid="badge-entrenador-apoyo">
+                  Entrenador de apoyo
+                </Badge>
+              )}
               {chatActivePainAlert && (
                 <Badge variant="warning">Dolor en {(chatActivePainAlert.zona || "articulación").toLowerCase()}</Badge>
               )}
@@ -3089,13 +3227,15 @@ export function StudentDetail({
               >
                 <span>Editar perfil</span>
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleRegistrarPago}
-                data-testid="student-menu-registrar-pago"
-                className="cursor-pointer"
-              >
-                <span>Registrar pago</span>
-              </DropdownMenuItem>
+              {puedeVerFinanzas && (
+                <DropdownMenuItem
+                  onClick={handleRegistrarPago}
+                  data-testid="student-menu-registrar-pago"
+                  className="cursor-pointer"
+                >
+                  <span>Registrar pago</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => onOpenHistoricalLoads?.()}
                 data-testid="student-menu-cargas-historicas"
@@ -3341,6 +3481,7 @@ export function StudentDetail({
       )}
 
       {/* DIÁLOGO ACCESIBLE PARA REGISTRAR PAGO (GOZS-247) */}
+      {puedeVerFinanzas && (
       <dialog
         ref={dialogoPagoRef}
         className="m-auto w-[min(92vw,28rem)] rounded-2xl border border-border bg-card p-6 text-foreground backdrop:bg-black/60 shadow-2xl"
@@ -3457,8 +3598,10 @@ export function StudentDetail({
           </div>
         </form>
       </dialog>
+      )}
 
       {/* Modal Asignar / Cambiar Plan de Membresía (Multiactividad GOZS-362 / GOZS-642) */}
+      {puedeVerFinanzas && (
       <ModalAsignarPlan
         abierto={modalAsignarPlanAbierto}
         onCerrar={() => setModalAsignarPlanAbierto(false)}
@@ -3481,6 +3624,7 @@ export function StudentDetail({
           setModalAsignarPlanAbierto(false);
         }}
       />
+      )}
     </div>
   );
 }

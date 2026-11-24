@@ -142,16 +142,43 @@ export const useChatStore = create<ChatStoreState>()(
       setSelectedAlumnoId: (selectedAlumnoId) => set({ selectedAlumnoId }),
 
       loadStaffCoaches: async () => {
-        if (typeof supabase?.from !== "function") return;
+        if (typeof supabase?.from !== "function" && typeof fetch !== "function") return;
         try {
           const authRes = await supabase.auth.getUser();
           if (!authRes.data?.user) return;
-          const { data, error } = await supabase
-            .from("perfiles")
-            .select("id, nombre_completo, rol")
-            .in("rol", ["ENTRENADOR", "ADMIN"]);
-          if (!error && Array.isArray(data)) {
-            const coaches: ChatSender[] = data.map((p: any) => ({
+          let rows: Array<{ id: string; nombre_completo?: string | null; rol?: string | null }> | null = null;
+
+          if (typeof fetch === "function") {
+            try {
+              const res = await fetch("/api/coach/entrenadores", {
+                method: "GET",
+                credentials: "same-origin",
+              });
+              if (res.ok) {
+                const body = (await res.json()) as {
+                  entrenadores?: Array<{ id: string; nombre_completo?: string | null; rol?: string | null }>;
+                };
+                if (Array.isArray(body?.entrenadores)) {
+                  rows = body.entrenadores;
+                }
+              }
+            } catch {
+              // Fallback a consulta directa bajo RLS si el endpoint HTTP no está disponible
+            }
+          }
+
+          if (!rows && typeof supabase.from === "function") {
+            const { data, error } = await supabase
+              .from("perfiles")
+              .select("id, nombre_completo, rol")
+              .in("rol", ["ENTRENADOR", "ADMIN"]);
+            if (!error && Array.isArray(data)) {
+              rows = data as Array<{ id: string; nombre_completo?: string | null; rol?: string | null }>;
+            }
+          }
+
+          if (rows) {
+            const coaches: ChatSender[] = rows.map((p) => ({
               id: p.id,
               nombre: p.nombre_completo || "Entrenador",
               rol: p.rol === "ADMIN" ? "ADMIN" : "ENTRENADOR",

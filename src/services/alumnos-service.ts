@@ -32,7 +32,7 @@ export interface LiveSupabaseDataset {
 export type EstadoAlumno = Database["public"]["Views"]["v_estado_alumno"]["Row"];
 
 const PERFILES_DATASET_COLUMNS =
-  "id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, fecha_baja, created_at, updated_at, telefono, fecha_vencimiento_cuota, ultimo_entreno_at, estado_cuenta, nivel_vista_alumno, peso_corporal_kg, sexo, nombre_preferido";
+  "id, email, nombre_completo, rol, estado_membresia, profesor_asignado_id, profesor_apoyo_id, apoyo_acceso_financiero, fecha_baja, created_at, updated_at, telefono, fecha_vencimiento_cuota, ultimo_entreno_at, estado_cuenta, nivel_vista_alumno, peso_corporal_kg, sexo, nombre_preferido";
 
 const PLANES_DATASET_COLUMNS =
   "id, profesor_id, alumno_id, nombre, estado, comentarios, created_at, updated_at, fecha_inicio, fecha_fin, tipo, etiqueta, plan_origen_id, tags";
@@ -113,7 +113,11 @@ export async function fetchLiveDatasetFromSupabase(
         .eq("id", currentUserId)
         .order("nombre_completo", { ascending: true });
     } else if (currentUserRol === "ENTRENADOR" && currentUserId) {
-      if (typeof (perfilesQuery as any).eq === "function") {
+      if (typeof (perfilesQuery as any).or === "function") {
+        alumnosRes = await (perfilesQuery as any)
+          .or(`profesor_asignado_id.eq.${currentUserId},profesor_apoyo_id.eq.${currentUserId}`)
+          .order("nombre_completo", { ascending: true });
+      } else if (typeof (perfilesQuery as any).eq === "function") {
         alumnosRes = await (perfilesQuery as any)
           .eq("profesor_asignado_id", currentUserId)
           .order("nombre_completo", { ascending: true });

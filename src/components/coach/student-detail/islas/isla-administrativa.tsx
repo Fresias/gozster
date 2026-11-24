@@ -20,9 +20,12 @@ export interface IslaAdministrativaProps {
   contratacionNode?: React.ReactNode;
   clasesFijasNode?: React.ReactNode;
   chatResponsableNode?: React.ReactNode;
+  entrenadorApoyoNode?: React.ReactNode;
   nivelVistaNode?: React.ReactNode;
   cuestionarioNode?: React.ReactNode;
   accesoNode?: React.ReactNode;
+  /** Cuando es true (entrenador de apoyo sin permiso $), oculta membresía, pagos y cobros. */
+  ocultarFinanzas?: boolean;
   // Datos específicos de Membresía (alineados con KpisNegocio y visual del PDF pág. 5)
   planActivo?: string;
   monto?: number | string;
@@ -62,9 +65,11 @@ export function IslaAdministrativa({
   contratacionNode,
   clasesFijasNode,
   chatResponsableNode,
+  entrenadorApoyoNode,
   nivelVistaNode,
   cuestionarioNode,
   accesoNode,
+  ocultarFinanzas = false,
   planActivo,
   monto,
   fechaVencimiento,
@@ -88,7 +93,15 @@ export function IslaAdministrativa({
   canMoveLeft,
   canMoveRight,
 }: IslaAdministrativaProps) {
-  const [activeTab, setActiveTab] = React.useState<"pagos" | "contratacion" | "atencion" | "config">("pagos");
+  const [activeTab, setActiveTab] = React.useState<"pagos" | "contratacion" | "atencion" | "config">(
+    ocultarFinanzas ? "atencion" : "pagos",
+  );
+
+  React.useEffect(() => {
+    if (ocultarFinanzas && (activeTab === "pagos" || activeTab === "contratacion")) {
+      setActiveTab("atencion");
+    }
+  }, [ocultarFinanzas, activeTab]);
 
   const tienePlan = Boolean(planActivo && planActivo.trim().length > 0 && planActivo !== "Sin plan asignado");
   const displayPlanActivo = tienePlan ? planActivo! : "Sin plan asignado";
@@ -153,16 +166,26 @@ export function IslaAdministrativa({
     <IslaCardShell
       id="administracion"
       dataTestId="isla-administrativa"
-      title="Membresía"
-      icon={<CreditCard className="h-4 w-4 text-primary" aria-label="Membresía" />}
+      title={ocultarFinanzas ? "Gestión y Staff" : "Membresía"}
+      icon={<CreditCard className="h-4 w-4 text-primary" aria-label={ocultarFinanzas ? "Gestión y Staff" : "Membresía"} />}
       badge={
-        <Badge
-          variant="outline"
-          data-testid="badge-estado-cobro"
-          className={estadoBadge.className}
-        >
-          {estadoBadge.texto}
-        </Badge>
+        ocultarFinanzas ? (
+          <Badge
+            variant="outline"
+            data-testid="badge-solo-entrenamiento"
+            className="border-border text-muted-foreground bg-transparent"
+          >
+            Solo entrenamiento
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            data-testid="badge-estado-cobro"
+            className={estadoBadge.className}
+          >
+            {estadoBadge.texto}
+          </Badge>
+        )
       }
       isCollapsed={isCollapsed}
       onToggleCollapse={onToggleCollapse}
@@ -186,14 +209,21 @@ export function IslaAdministrativa({
       canMoveLeft={canMoveLeft}
       canMoveRight={canMoveRight}
       compactSummary={
-        <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-          <span className="truncate">{displayPlanActivo} • {estadoBadge.texto}</span>
-          <span className="font-bold text-foreground shrink-0">{displayMonto}</span>
-        </div>
+        ocultarFinanzas ? (
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+            <span className="truncate">Entrenador de apoyo · Sin acceso financiero</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+            <span className="truncate">{displayPlanActivo} • {estadoBadge.texto}</span>
+            <span className="font-bold text-foreground shrink-0">{displayMonto}</span>
+          </div>
+        )
       }
     >
       <div className="p-4 space-y-4">
-        {/* Resumen de membresía (objetivo Ficha.html): plan y monto, detalle del último pago, acciones */}
+        {!ocultarFinanzas && (
+        /* Resumen de membresía (objetivo Ficha.html): plan y monto, detalle del último pago, acciones */
         <div data-testid="isla-membresia-resumen" className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">
@@ -257,39 +287,46 @@ export function IslaAdministrativa({
             </button>
           </div>
         </div>
+        )}
+
+        {entrenadorApoyoNode}
 
         {/* Gestión ampliada (contratación, staff y nivel de vista) fuera de la vista principal */}
         <details className="group border-t border-border pt-3">
           <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer text-[13px] text-neutral-soft-foreground hover:text-foreground">
-            Más gestión de la membresía
+            {ocultarFinanzas ? "Más gestión de staff y seguimiento" : "Más gestión de la membresía"}
           </summary>
         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-b border-border pb-2.5">
-          <button
-            type="button"
-            onClick={() => setActiveTab("pagos")}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === "pagos"
-                ? "bg-secondary text-foreground font-bold shadow-xs"
-                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-            }`}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <CreditCard className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cuota &amp; Historial
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("contratacion")}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === "contratacion"
-                ? "bg-secondary text-foreground font-bold shadow-xs"
-                : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-            }`}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <ClipboardList className="h-3.5 w-3.5 inline" aria-hidden="true" /> Contratación &amp; Renovación
-            </span>
-          </button>
+          {!ocultarFinanzas && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab("pagos")}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  activeTab === "pagos"
+                    ? "bg-secondary text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 inline" aria-hidden="true" /> Cuota &amp; Historial
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("contratacion")}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  activeTab === "contratacion"
+                    ? "bg-secondary text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                }`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <ClipboardList className="h-3.5 w-3.5 inline" aria-hidden="true" /> Contratación &amp; Renovación
+                </span>
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setActiveTab("atencion")}
@@ -319,16 +356,20 @@ export function IslaAdministrativa({
         </div>
 
         {/* Tab 1: Pagos y Suscripción */}
-        <div className={activeTab === "pagos" ? "space-y-4" : "hidden"}>
-          {suscripcionNode}
-          {historialPagosNode}
-        </div>
+        {!ocultarFinanzas && (
+          <div className={activeTab === "pagos" ? "space-y-4" : "hidden"}>
+            {suscripcionNode}
+            {historialPagosNode}
+          </div>
+        )}
 
         {/* Tab 2: Contratación */}
-        <div className={activeTab === "contratacion" ? "space-y-4" : "hidden"}>
-          {contratacionNode}
-          {clasesFijasNode}
-        </div>
+        {!ocultarFinanzas && (
+          <div className={activeTab === "contratacion" ? "space-y-4" : "hidden"}>
+            {contratacionNode}
+            {clasesFijasNode}
+          </div>
+        )}
 
         {/* Tab 3: Staff y Chat */}
         <div className={activeTab === "atencion" ? "space-y-4" : "hidden"}>
@@ -337,6 +378,7 @@ export function IslaAdministrativa({
 
         {/* Tab 4: Configuración y Cuestionario */}
         <div className={activeTab === "config" ? "space-y-4" : "hidden"}>
+          {ocultarFinanzas && clasesFijasNode}
           {nivelVistaNode}
           {cuestionarioNode}
           {accesoNode}

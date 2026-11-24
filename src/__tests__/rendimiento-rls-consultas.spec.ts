@@ -274,12 +274,14 @@ describe("GOZS-722 (PL-10): rendimiento de RLS, índices FK/duplicados y fetchLi
       const byTable = (t: string) =>
         calls.filter((c) => c.table === t && !(t === "perfiles" && c.select === "id, rol"))[0]!;
 
-      // Perfiles filtrados por profesor_asignado_id (vínculo único, GOZS-718) y sin columnas no usadas
+      // Perfiles filtrados por profesor_asignado_id o profesor_apoyo_id (GOZS-718 / GOZS-760) y sin columnas no usadas
+      expect(byTable("perfiles").select).toContain("profesor_apoyo_id");
+      expect(byTable("perfiles").select).toContain("apoyo_acceso_financiero");
       expect(byTable("perfiles").select).not.toContain("debe_cambiar_password");
       expect(byTable("perfiles").select).not.toContain("onboarding_completado");
       expect(byTable("perfiles").filters).toContainEqual({
-        op: "eq",
-        args: ["profesor_asignado_id", coachId],
+        op: "or",
+        args: [`profesor_asignado_id.eq.${coachId},profesor_apoyo_id.eq.${coachId}`],
       });
 
       // Planes filtrados por plantillas + profesor_id + alumnos del coach
