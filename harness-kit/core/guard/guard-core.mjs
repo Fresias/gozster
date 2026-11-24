@@ -986,6 +986,340 @@ function mergeCheck(selector, repoRoot) {
   return res.status === 0 ? "" : (res.stderr || res.stdout || "merge check failed").trim();
 }
 
+const SHELL_POLLING_MESSAGE =
+  "Polling prohibido. Para CI: `node harness-kit/core/scripts/harness-pr-status.mjs <n> --wait-checks` (una sola llamada) o `multica issue wakeup --until-pr checks`. Para hijos/estados: `--until-children-done` / `--until-status`. Para esperar un servidor local en E2E, juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost`) en un solo comando.";
+
+const LOOP_KEYWORDS = new Set(["while", "for", "do", "until", "foreach", "foreach-object"]);
+const CLAUSE_PREFIX_KEYWORDS = new Set([
+  "do",
+  "then",
+  "else",
+  "elif",
+  "try",
+  "catch",
+  "finally",
+  "!",
+  "time",
+  "command",
+  "builtin",
+  "exec",
+  "until",
+]);
+const LOCAL_CHECK_PROGRAMS = new Set([
+  "invoke-webrequest",
+  "curl",
+  "test-netconnection",
+  "get-nettcpconnection",
+]);
+const LOCAL_HOST_TOKEN_RE = /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/.*)?$/i;
+
+/** Split a shell command into clauses by operators and unquoted block braces `{` / `}` (ignoring `${...}`). */
+function splitPollingClauses(cmd) {
+  const clauses = [];
+  let cur = "";
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      cur += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < cmd.length) {
+        cur += ch + cmd[++i];
+        continue;
+      }
+      if (ch === '"') quote = null;
+      cur += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < cmd.length) {
+      cur += ch + cmd[++i];
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === ";" || ch === "\n" || ch === "}") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "{" && cmd[i - 1] !== "$") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "|") {
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      if (cmd[i + 1] === "|" || cmd[i + 1] === "&") i++;
+      continue;
+    }
+    if (ch === "&") {
+      const prev = cmd[i - 1] || "";
+      const next = cmd[i + 1] || "";
+      if (prev === ">" || prev === "<" || next === ">") {
+        cur += ch;
+        continue;
+      }
+      if (cur.trim()) clauses.push(cur);
+      cur = "";
+      if (next === "&") i++;
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) clauses.push(cur);
+  return clauses;
+}
+
+function parseDurationSecondsToken(raw) {
+  const m = String(raw || "").trim().match(/^(\d+(?:\.\d+)?)(ms|s|m|h|d)?$/i);
+  if (!m) return null;
+  const val = Number(m[1]);
+  if (!Number.isFinite(val)) return null;
+  const unit = (m[2] || "s").toLowerCase();
+  if (unit === "ms") return val / 1000;
+  if (unit === "m") return val * 60;
+  if (unit === "h") return val * 3600;
+  if (unit === "d") return val * 86400;
+  return val;
+}
+
+function programBaseName(token) {
+  const cleaned = String(token || "").trim().replace(/^&/, "");
+  const base = cleaned.split(/[/\\]/).pop() || "";
+  return base.replace(/\.exe$/i, "").toLowerCase();
+}
+
+function parseNonNegativeNumber(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const num = Number(s);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
+/**
+ * Detect wait duration in seconds if a clause's program is a wait command, or null otherwise.
+ * Matches: Start-Sleep, sleep, cmd `timeout /t <n>`, and `ping -n <n> 127.0.0.1`.
+ */
+function parseWaitClauseSeconds(tokens) {
+  if (tokens.length === 0) return null;
+  const prog = programBaseName(tokens[0]);
+  const args = tokens.slice(1);
+
+  if (prog === "start-sleep" || prog === "sleep") {
+    if (args.length === 0) return null;
+    let total = 0;
+    let found = false;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      const lower = a.toLowerCase();
+      const colonMatch = lower.match(/^-(seconds?|sec|s|milliseconds?|millis?|ms|m):(.+)$/);
+      if (colonMatch) {
+        const isMs = colonMatch[1].startsWith("m");
+        const num = parseNonNegativeNumber(colonMatch[2]);
+        total += num !== null ? (isMs ? num / 1000 : num) : Infinity;
+        found = true;
+        continue;
+      }
+      if (/^-(seconds?|sec|s)$/i.test(a)) {
+        const next = args[++i];
+        const secs = parseDurationSecondsToken(next);
+        total += secs === null ? Infinity : secs;
+        found = true;
+        continue;
+      }
+      if (/^-(milliseconds?|millis?|ms|m)$/i.test(a)) {
+        const next = args[++i];
+        const num = parseNonNegativeNumber(next);
+        total += num !== null ? num / 1000 : Infinity;
+        found = true;
+        continue;
+      }
+      if (a.startsWith("-")) continue;
+      const secs = parseDurationSecondsToken(a);
+      total += secs === null ? Infinity : secs;
+      found = true;
+    }
+    return found ? total : null;
+  }
+
+  // cmd `timeout /t <n>` only; coreutils `timeout <n> <cmd>` does NOT count.
+  if (prog === "timeout") {
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (/^\/t$/i.test(a)) {
+        const next = args[++i];
+        const num = parseNonNegativeNumber(next);
+        return num !== null ? num : Infinity;
+      }
+      const inline = a.match(/^\/t:(.+)$/i);
+      if (inline) {
+        const num = parseNonNegativeNumber(inline[1]);
+        return num !== null ? num : Infinity;
+      }
+    }
+    return null;
+  }
+
+  // `ping -n <n> 127.0.0.1`
+  if (prog === "ping") {
+    const targetsLoopback = args.some((a) => a === "127.0.0.1");
+    if (!targetsLoopback) return null;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (/^[-/]n$/i.test(a)) {
+        const next = args[++i];
+        const count = parseNonNegativeNumber(next);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
+      }
+      const inline = a.match(/^[-/]n:?(.+)$/i);
+      if (inline) {
+        const count = parseNonNegativeNumber(inline[1]);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function isStatusPollClause(tokens) {
+  if (tokens.length === 0) return false;
+  const rawProg = tokens[0];
+  const prog = programBaseName(rawProg);
+  const args = tokens.slice(1);
+
+  if (prog === "gh") {
+    const pos = [];
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === "-R" || a === "--repo" || a === "--hostname") {
+        i++;
+        continue;
+      }
+      if (a.startsWith("-")) continue;
+      pos.push(a.toLowerCase());
+      if (pos.length >= 2) break;
+    }
+    if (pos[0] === "pr" && (pos[1] === "checks" || pos[1] === "view")) return true;
+    if (pos[0] === "run" && (pos[1] === "view" || pos[1] === "list" || pos[1] === "watch")) return true;
+    return false;
+  }
+
+  if (prog === "multica" || /MULTICA_CLI_PATH/i.test(rawProg)) {
+    for (const a of args) {
+      if (a.startsWith("-")) continue;
+      const lower = a.toLowerCase();
+      if (lower === "get" || lower === "status" || lower === "runs" || lower === "list") return true;
+    }
+  }
+
+  return false;
+}
+
+function isLocalCheckClause(tokens) {
+  if (tokens.length < 2) return false;
+  const prog = programBaseName(tokens[0]);
+  if (!LOCAL_CHECK_PROGRAMS.has(prog)) return false;
+  for (let i = 1; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (LOCAL_HOST_TOKEN_RE.test(tok)) return true;
+    const eqIdx = tok.search(/[=:]/);
+    if (eqIdx > 0 && tok.startsWith("-")) {
+      const val = tok.slice(eqIdx + 1);
+      if (LOCAL_HOST_TOKEN_RE.test(val)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Evaluate active waits and polling (`shell.polling` block vs `shell.wait` allow telemetry).
+ * Returns null if the command has no wait segment.
+ */
+function evaluateShellPolling(cmd) {
+  const clean = stripHeredocBodies(cmd);
+  const clauses = splitPollingClauses(clean);
+
+  let hasWait = false;
+  let totalWaitSeconds = 0;
+  let hasLoop = false;
+  let hasStatusPoll = false;
+  let hasLocalCheck = false;
+
+  for (const clause of clauses) {
+    let tokens = tokenizeShellSegment(clause);
+    if (tokens.length === 0) continue;
+
+    // Peel leading control keywords, variable assignments, and PowerShell `$x =` assignments.
+    let idx = 0;
+    while (idx < tokens.length) {
+      const t = tokens[idx];
+      const lower = t.toLowerCase();
+      if (LOOP_KEYWORDS.has(lower)) {
+        hasLoop = true;
+      }
+      if (CLAUSE_PREFIX_KEYWORDS.has(lower)) {
+        idx++;
+        continue;
+      }
+      if (/^[A-Za-z_]\w*=/.test(t)) {
+        idx++;
+        continue;
+      }
+      if (/^\$[A-Za-z_][\w:]*$/.test(t) && tokens[idx + 1] === "=") {
+        idx += 2;
+        continue;
+      }
+      break;
+    }
+
+    const effective = tokens.slice(idx);
+    if (effective.length === 0) continue;
+
+    const firstLower = effective[0].toLowerCase();
+    if (LOOP_KEYWORDS.has(firstLower)) {
+      hasLoop = true;
+    }
+
+    const waitSecs = parseWaitClauseSeconds(effective);
+    if (waitSecs !== null) {
+      hasWait = true;
+      totalWaitSeconds += waitSecs;
+      continue;
+    }
+
+    if (isStatusPollClause(effective)) {
+      hasStatusPoll = true;
+    }
+    if (isLocalCheckClause(effective)) {
+      hasLocalCheck = true;
+    }
+  }
+
+  if (!hasWait) return null;
+
+  if (hasStatusPoll || hasLoop || (totalWaitSeconds > 5 && !hasLocalCheck)) {
+    return {
+      allowed: false,
+      ruleId: "shell.polling",
+      reason: SHELL_POLLING_MESSAGE,
+    };
+  }
+
+  return {
+    allowed: true,
+    ruleId: "shell.wait",
+  };
+}
+
 /** Evaluate shell commands. */
 function evaluateShell(call, repoRoot) {
   const cmd = call.command || "";
@@ -1320,6 +1654,10 @@ function evaluateShell(call, repoRoot) {
       };
     }
   }
+
+  // Active waits & polling (`shell.polling` block / `shell.wait` telemetry allow)
+  const pollingResult = evaluateShellPolling(cmd);
+  if (pollingResult) return pollingResult;
 
   return { allowed: true };
 }

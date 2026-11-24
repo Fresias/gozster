@@ -119,6 +119,12 @@
     "message": "This would print >300 lines of a >300-line file. Search with rg -n first, then print a bounded range."
   },
   {
+    "id": "shell.polling",
+    "target": "shell",
+    "description": "Active waits/polling (>5s without local check, or any wait in a loop or paired with gh/multica status polling) are forbidden",
+    "message": "Polling prohibido. Para CI: `node harness-kit/core/scripts/harness-pr-status.mjs <n> --wait-checks` (una sola llamada) o `multica issue wakeup --until-pr checks`. Para hijos/estados: `--until-children-done` / `--until-status`. Para esperar un servidor local en E2E, juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost`) en un solo comando."
+  },
+  {
     "id": "pr.requires-seal",
     "target": "shell",
     "description": "gh pr create requires a valid .harness/complete.json seal (harness-gate.sh --verify)",
