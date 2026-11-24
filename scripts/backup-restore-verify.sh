@@ -10,12 +10,16 @@
 #
 #   run
 #          Ejecuta el pipeline completo de producción:
-#          validate-env -> pg_dump (auth.users/auth.identities data-only + public) -> gzip -9
+#          validate-env -> pg_dump (auth.users/auth.identities data-only + public con GRANT/REVOKE)
+#          -> triggers de auth.users -> gzip -9
 #          -> openssl AES-256-CBC PBKDF2 -> sha256sum -> aws s3 cp (R2) -> aws s3api head-object (> 0 bytes).
 #
 #   verify <backup.sql.gz.enc> [--sha256 <archivo.sha256>] [--output <restored.sql>]
 #          [--restore-url <postgres_url>] [--allow-remote]
-#          Verifica SHA-256, descifra, descomprime y opcionalmente restaura sobre Postgres local.
+#          Verifica SHA-256, descifra, descomprime y opcionalmente restaura sobre Postgres local
+#          (psql --single-transaction: o se restaura todo o no se restaura nada).
+#
+# Las URLs de conexión nunca viajan por argv (visibles en `ps`): se traducen a variables PG*.
 
 set -euo pipefail
 umask 077
@@ -63,6 +67,40 @@ require_passphrase() {
 is_local_postgres_url() {
   local url="$1"
   [[ "$url" =~ ^postgres(ql)?://([^@/]+@)?(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?(/|$|\?) ]]
+}
+
+url_decode() {
+  local encoded="${1//+/ }"
+  printf '%b' "${encoded//%/\\x}"
+}
+
+# Traduce una URI postgres(ql):// a variables PG* de libpq para no exponer credenciales en argv.
+export_pg_env_from_url() {
+  local url="$1"
+  local re='^postgres(ql)?://([^:@/?]+)(:(.*))?@(\[[^]]+\]|[^]:/?@[]+)(:([0-9]+))?(/([^?]*))?(\?(.*))?$'
+  if ! [[ "$url" =~ $re ]]; then
+    echo "ERROR: URI de Postgres con formato no soportado (se espera postgresql://usuario:password@host:puerto/base)." >&2
+    exit 1
+  fi
+  local host="${BASH_REMATCH[5]}" port="${BASH_REMATCH[7]}" dbname="${BASH_REMATCH[9]}" query="${BASH_REMATCH[11]}"
+  host="${host#[}"
+  host="${host%]}"
+  PGUSER="$(url_decode "${BASH_REMATCH[2]}")"
+  PGPASSWORD="$(url_decode "${BASH_REMATCH[4]}")"
+  PGHOST="$host"
+  PGPORT="${port:-5432}"
+  PGDATABASE="$(url_decode "${dbname:-postgres}")"
+  export PGUSER PGPASSWORD PGHOST PGPORT PGDATABASE
+
+  local pair pairs=()
+  if [ -n "$query" ]; then
+    IFS='&' read -r -a pairs <<< "$query"
+  fi
+  for pair in "${pairs[@]+"${pairs[@]}"}"; do
+    case "$pair" in
+      sslmode=*) export PGSSLMODE="${pair#sslmode=}" ;;
+    esac
+  done
 }
 
 cmd_validate_env() {
@@ -165,6 +203,7 @@ cmd_run() {
   cmd_validate_env
 
   require_cmd pg_dump
+  require_cmd psql
   require_cmd gzip
   require_cmd openssl
   require_cmd sha256sum
@@ -184,10 +223,14 @@ cmd_run() {
 
   {
     echo "-- GOZSter production logical backup (${timestamp})"
-    echo "-- Part 1: auth.users and auth.identities data-only (preserves public.perfiles FK without colliding with Supabase auth DDL)"
-    echo "-- Part 2: public schema + data (excludes Supabase-managed internal schemas and extensions)"
+    echo "-- Part 1: auth.users, auth.identities and storage.buckets data-only (preserves public.perfiles FK without colliding with Supabase auth DDL)"
+    echo "-- Part 2: public schema + data + GRANT/REVOKE (excludes Supabase-managed internal schemas and extensions)"
+    echo "-- Part 3: GOZSter triggers on auth.users and policies on storage.objects (created after the data load so restored rows do not fire them)"
     echo ""
   } > "$sql_file"
+
+  # Credenciales vía variables PG* (nunca en argv de pg_dump/psql, visibles con `ps`).
+  export_pg_env_from_url "$SUPABASE_DB_URL"
 
   # Parte 1: datos de autenticación sin DDL de auth (evita colisiones con roles/extensiones de Supabase)
   pg_dump \
@@ -199,15 +242,39 @@ cmd_run() {
     --on-conflict-do-nothing \
     --table=auth.users \
     --table=auth.identities \
-    "$SUPABASE_DB_URL" >> "$sql_file"
+    --table=storage.buckets >> "$sql_file"
 
-  # Parte 2: esquema completo y datos de public
+  # Parte 2: esquema completo y datos de public. SIN --no-privileges: los GRANT/REVOKE de las
+  # migraciones (p. ej. RPC SECURITY DEFINER revocadas a anon) deben sobrevivir al restore.
+  # anon, authenticated y service_role existen en todo proyecto Supabase.
+  # Se descartan los ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin: son de la plataforma y el rol
+  # postgres no puede aplicarlos ("permission denied to change default privileges").
   pg_dump \
     --format=plain \
     --no-owner \
-    --no-privileges \
-    --schema=public \
-    "$SUPABASE_DB_URL" >> "$sql_file"
+    --schema=public | sed '/^ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin /d' >> "$sql_file"
+
+  # Parte 3: objetos de GOZSter fuera de public que dependen de funciones de public y que
+  # pg_dump --schema=public no incluye (DROP SCHEMA public CASCADE también los elimina).
+  {
+    echo ""
+    echo "-- Part 3: triggers on auth.users and policies on storage.objects"
+    psql -X -q -At -v ON_ERROR_STOP=1 <<'SQL'
+SET search_path = '';
+SELECT format('DROP TRIGGER IF EXISTS %I ON auth.users;', t.tgname) || E'\n' || pg_get_triggerdef(t.oid) || ';'
+FROM pg_catalog.pg_trigger t
+WHERE t.tgrelid = 'auth.users'::regclass AND NOT t.tgisinternal
+ORDER BY t.tgname;
+SELECT format('DROP POLICY IF EXISTS %I ON storage.objects;', p.policyname) || E'\n'
+  || format('CREATE POLICY %I ON storage.objects AS %s FOR %s TO %s', p.policyname, p.permissive, p.cmd,
+            (SELECT string_agg(quote_ident(r), ', ') FROM unnest(p.roles) AS r))
+  || coalesce(' USING (' || p.qual || ')', '')
+  || coalesce(' WITH CHECK (' || p.with_check || ')', '') || ';'
+FROM pg_catalog.pg_policies p
+WHERE p.schemaname = 'storage' AND p.tablename = 'objects'
+ORDER BY p.policyname;
+SQL
+  } >> "$sql_file"
 
   if [ ! -s "$sql_file" ]; then
     echo "ERROR: el dump SQL resultante está vacío." >&2
@@ -378,7 +445,8 @@ cmd_verify() {
 
   if [ -n "$restore_url" ]; then
     require_cmd psql
-    psql "$restore_url" -v ON_ERROR_STOP=1 -f "$sql_tmp"
+    export_pg_env_from_url "$restore_url"
+    psql -X -v ON_ERROR_STOP=1 --single-transaction -f "$sql_tmp"
   fi
 
   local sql_bytes

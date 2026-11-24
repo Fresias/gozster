@@ -132,6 +132,24 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       expect(script).not.toMatch(/curl[^\n]*\|\s*(sudo\s+)?(ba)?sh/);
     });
 
+    it("B3/B2/N1: el dump de public conserva GRANT/REVOKE (sin --no-privileges), el restore es --single-transaction y ninguna URL de conexión viaja por argv", () => {
+      const script = readFileSync(scriptPath, "utf8");
+
+      const pgDumpBlocks = script.match(/pg_dump \\\n(?:[ \t]+--[^\n]*\n)+/g) ?? [];
+      expect(pgDumpBlocks).toHaveLength(2);
+      const publicBlock = pgDumpBlocks.find((block) => block.includes("--schema=public"));
+      expect(publicBlock).toBeDefined();
+      expect(publicBlock).toContain("--no-owner");
+      expect(publicBlock).not.toContain("--no-privileges");
+
+      expect(script).toContain('psql -X -v ON_ERROR_STOP=1 --single-transaction -f "$sql_tmp"');
+      expect(script).toContain('export_pg_env_from_url "$SUPABASE_DB_URL"');
+      expect(script).toContain('export_pg_env_from_url "$restore_url"');
+      // Ninguna invocación de pg_dump/psql recibe la URL (visible en `ps`)
+      expect(script).not.toMatch(/(pg_dump|psql)[^\n]*"\$(SUPABASE_DB_URL|restore_url)"/);
+      expect(script).not.toMatch(/"\$(SUPABASE_DB_URL|restore_url)"\s*>>/);
+    });
+
     it("GIVEN que falta cualquiera de los 6 secretos requeridos WHEN corre validate-env o run THEN falla con código 1 sin filtrar secretos", () => {
       const canaryUrl = `postgresql://postgres:secret-${randomBytes(8).toString("hex")}@db.example:5432/postgres`;
       const canaryPass = `pass-${randomBytes(12).toString("hex")}`;
@@ -182,6 +200,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       const binDir = path.join(dir, "bin");
       const r2Store = path.join(dir, "r2-store");
       const logFile = path.join(dir, "invocations.log");
+      const pgEnvFile = path.join(dir, "pg-env.log");
       mkdirSync(binDir, { recursive: true });
       mkdirSync(r2Store, { recursive: true });
 
@@ -192,17 +211,37 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
           "#!/usr/bin/env bash",
           "set -euo pipefail",
           `echo "pg_dump $*" >> "${toPosix(logFile)}"`,
+          `echo "$PGHOST|$PGPORT|$PGUSER|$PGPASSWORD|$PGDATABASE|\${PGSSLMODE:-}" >> "${toPosix(pgEnvFile)}"`,
           'if [[ "$*" == *"--table=auth.users"* ]]; then',
           '  echo "INSERT INTO auth.users (id, email) VALUES (\'00000000-0000-0000-0000-000000000001\', \'test@example.com\') ON CONFLICT DO NOTHING;"',
           "else",
           '  echo "CREATE TABLE public.ejemplo (id int primary key, nombre text);"',
           '  echo "INSERT INTO public.ejemplo (id, nombre) VALUES (1, \'GOZSter OK\');"',
+          '  echo "REVOKE ALL ON FUNCTION public.rpc_revocada() FROM PUBLIC;"',
+          '  echo "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;"',
+          '  echo "ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO service_role;"',
           "fi",
           "",
         ].join("\n"),
         "utf8"
       );
       chmodSync(pgDumpStub, 0o755);
+
+      const psqlStub = path.join(binDir, "psql");
+      writeFileSync(
+        psqlStub,
+        [
+          "#!/usr/bin/env bash",
+          "set -euo pipefail",
+          `echo "psql $*" >> "${toPosix(logFile)}"`,
+          "cat > /dev/null",
+          'echo "DROP TRIGGER IF EXISTS trg_on_auth_user_created ON auth.users;"',
+          'echo "CREATE TRIGGER trg_on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();"',
+          "",
+        ].join("\n"),
+        "utf8"
+      );
+      chmodSync(psqlStub, 0o755);
 
       const awsStub = path.join(binDir, "aws");
       writeFileSync(
@@ -254,7 +293,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       const runRes = runBackupScript(
         ["run"],
         {
-          SUPABASE_DB_URL: `postgresql://postgres:${fakeDbPass}@127.0.0.1:54322/postgres`,
+          SUPABASE_DB_URL: `postgresql://postgres.projref:${fakeDbPass}%40x@db.example.test:6543/postgres?sslmode=require`,
           R2_ACCOUNT_ID: accountId,
           R2_ACCESS_KEY_ID: "r2-key-test",
           R2_SECRET_ACCESS_KEY: fakeR2Secret,
@@ -271,8 +310,18 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       expect(runRes.stdout).not.toContain(fakeR2Secret);
 
       const invocations = readFileSync(logFile, "utf8");
-      expect(invocations).toContain("--format=plain --no-owner --no-privileges --data-only --column-inserts --on-conflict-do-nothing --table=auth.users --table=auth.identities");
-      expect(invocations).toContain("--format=plain --no-owner --no-privileges --schema=public");
+      expect(invocations).toContain("--format=plain --no-owner --no-privileges --data-only --column-inserts --on-conflict-do-nothing --table=auth.users --table=auth.identities --table=storage.buckets");
+      const publicDumpCall = invocations.split("\n").find((line) => line.includes("--schema=public"));
+      expect(publicDumpCall).toBe("pg_dump --format=plain --no-owner --schema=public");
+      // N1: credenciales solo vía PG*, nunca en argv de pg_dump/psql
+      expect(invocations).not.toContain(fakeDbPass);
+      expect(invocations).not.toContain("postgresql://");
+      expect(invocations).toContain("psql -X -q -At -v ON_ERROR_STOP=1");
+      const pgEnvLines = readFileSync(pgEnvFile, "utf8").trim().split("\n");
+      expect(pgEnvLines).toHaveLength(2);
+      for (const line of pgEnvLines) {
+        expect(line).toBe(`db.example.test|6543|postgres.projref|${fakeDbPass}@x|postgres|require`);
+      }
       expect(invocations).toContain(`--endpoint-url https://${accountId}.r2.cloudflarestorage.com`);
       expect(invocations).toContain("aws s3api head-object");
 
@@ -294,6 +343,13 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       expect(restoredSql).toContain("INSERT INTO auth.users");
       expect(restoredSql).toContain("CREATE TABLE public.ejemplo");
       expect(restoredSql).toContain("GOZSter OK");
+      // B3: GRANT/REVOKE de public sobreviven; default privileges de supabase_admin se descartan
+      expect(restoredSql).toContain("REVOKE ALL ON FUNCTION public.rpc_revocada() FROM PUBLIC;");
+      expect(restoredSql).toContain("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public");
+      expect(restoredSql).not.toContain("ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin");
+      // Parte 3: triggers de auth.users después de los datos de public
+      const triggerIdx = restoredSql.indexOf("CREATE TRIGGER trg_on_auth_user_created");
+      expect(triggerIdx).toBeGreaterThan(restoredSql.indexOf("GOZSter OK"));
     });
 
     it("falla fail-fast si aws s3api head-object reporta objeto vacío (0 bytes)", () => {
@@ -305,6 +361,9 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       const pgDumpStub = path.join(binDir, "pg_dump");
       writeFileSync(pgDumpStub, "#!/usr/bin/env bash\necho 'SELECT 1;'\n", "utf8");
       chmodSync(pgDumpStub, 0o755);
+      const psqlStub = path.join(binDir, "psql");
+      writeFileSync(psqlStub, "#!/usr/bin/env bash\ncat > /dev/null\n", "utf8");
+      chmodSync(psqlStub, 0o755);
 
       const awsStub = path.join(binDir, "aws");
       writeFileSync(
@@ -471,6 +530,52 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       expect(remoteRes.stderr).toContain("--allow-remote");
       expect(remoteRes.stderr).not.toContain(fakeDbPassword);
     });
+
+    it("B2/N1: --restore-url restaura con psql --single-transaction y ON_ERROR_STOP, con credenciales solo en PG*", () => {
+      const dir = mkdtempSync(path.join(tmpdir(), "gozs-backup-restore-"));
+      tempDirs.push(dir);
+      const binDir = path.join(dir, "bin");
+      mkdirSync(binDir, { recursive: true });
+      const logFile = path.join(dir, "psql.log");
+
+      const psqlStub = path.join(binDir, "psql");
+      writeFileSync(
+        psqlStub,
+        [
+          "#!/usr/bin/env bash",
+          `echo "argv: $*" >> "${toPosix(logFile)}"`,
+          `echo "env: $PGHOST|$PGPORT|$PGUSER|$PGPASSWORD|$PGDATABASE" >> "${toPosix(logFile)}"`,
+          "",
+        ].join("\n"),
+        "utf8"
+      );
+      chmodSync(psqlStub, 0o755);
+
+      const sqlIn = path.join(dir, "sample.sql");
+      const encOut = path.join(dir, "sample.sql.gz.enc");
+      const passphrase = randomBytes(24).toString("base64");
+      const fakeDbPassword = `pwd-${randomBytes(8).toString("hex")}`;
+      writeFileSync(sqlIn, "SELECT 1;\n", "utf8");
+      expect(
+        runBackupScript(["pack", toPosix(sqlIn), toPosix(encOut)], {
+          BACKUP_ENCRYPTION_PASSPHRASE: passphrase,
+        }).status
+      ).toBe(0);
+
+      const res = runBackupScript(
+        ["verify", toPosix(encOut), "--restore-url", `postgresql://postgres:${fakeDbPassword}@127.0.0.1:54322/postgres`],
+        { BACKUP_ENCRYPTION_PASSPHRASE: passphrase },
+        [binDir]
+      );
+      expect(res.status, res.stderr).toBe(0);
+
+      const log = readFileSync(logFile, "utf8");
+      expect(log).toMatch(/^argv: -X -v ON_ERROR_STOP=1 --single-transaction -f \S+restored\.sql$/m);
+      expect(log).toContain(`env: 127.0.0.1|54322|postgres|${fakeDbPassword}|postgres`);
+      expect(log.split("\n").find((line) => line.startsWith("argv:"))).not.toContain(fakeDbPassword);
+      expect(res.stdout).not.toContain(fakeDbPassword);
+      expect(res.stderr).not.toContain(fakeDbPassword);
+    });
   });
 
   describe("Runbook, especificación de workflow y confidencialidad (docs/architecture/backups-r2.md)", () => {
@@ -494,10 +599,24 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
         "supabase start",
         "sha256sum",
         "openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -salt",
-        "--no-owner --no-privileges",
+        "--no-owner --schema=public",
+        "--single-transaction",
+        "DROP SCHEMA IF EXISTS public CASCADE;",
+        "trg_on_auth_user_created",
+        "trg_auth_users_limpiar_debe_cambiar_password",
+        "trg_auth_users_quitar_must_change_password",
+        "trg_auth_users_sync_rol_app_metadata",
+        "Del esquema `auth` solo se respaldan `auth.users` y `auth.identities`",
+        "MFA",
       ]) {
         expect(doc).toContain(required);
       }
+
+      // B2/B3: el dump crea public (no se recrea a mano) y no se reaplican migraciones
+      expect(doc).not.toContain("db push --remote");
+      expect(doc).not.toMatch(/^CREATE SCHEMA public;$/m);
+      expect(doc).not.toContain("GRANT USAGE ON SCHEMA public TO");
+      expect(doc).not.toContain("--no-owner --no-privileges --schema=public");
 
       const filesToAudit = [scriptPath, runbookPath];
       if (existsSync(workflowPath)) {
