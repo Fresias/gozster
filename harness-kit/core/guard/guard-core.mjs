@@ -7,6 +7,7 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalize } from "./normalize.mjs";
@@ -152,6 +153,17 @@ function countLines(fullPath) {
   }
 }
 
+/** Format runtime-specific read.oversize message with relative path and exact line count. */
+function formatOversizeReason(displayPath, lines, runtime) {
+  if (runtime === "antigravity") {
+    return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá \`read_file\` con \`StartLine\` y \`EndLine\` (máximo 300, rango inclusivo; recomendado 200) o buscá con contexto: \`rg -n -C 20 <patrón> ${displayPath}\`.`;
+  }
+  if (runtime === "claude-code") {
+    return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá \`Read\` con \`offset\` y \`limit\` (máximo 300; recomendado 200) o buscá primero con \`Grep\`.`;
+  }
+  return `\`${displayPath}\` tiene ${lines} líneas (> 300). Usá una lectura acotada por rango de líneas (máximo 300; recomendado 200) o buscá primero con contexto: \`rg -n -C 20 <patrón> ${displayPath}\`.`;
+}
+
 /** Evaluate read requests. */
 function evaluateRead(call, options, repoRoot) {
   if (isInstalledGuardPath(call.filePath)) {
@@ -174,11 +186,15 @@ function evaluateRead(call, options, repoRoot) {
     if (existsSync(resolved)) {
       const lines = countLines(resolved);
       if (lines > 300 && !call.isBounded) {
+        const rel = path.relative(repoRoot, resolved).replace(/\\/g, "/");
+        const displayPath =
+          rel && rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel)
+            ? rel
+            : call.filePath.replace(/\\/g, "/");
         return {
           allowed: false,
           ruleId: "read.oversize",
-          reason:
-            "File has >300 lines. To prevent context token waste, search with rg/Grep first or call Read with offset and limit (<=300 lines).",
+          reason: formatOversizeReason(displayPath, lines, call.runtime),
         };
       }
     }
@@ -284,6 +300,254 @@ export function isInstalledGuardPath(p) {
   );
 }
 
+function expandHome(p) {
+  const s = String(p || "");
+  if (s === "~") return homedir();
+  if (s.startsWith("~/") || s.startsWith("~\\")) {
+    return path.join(homedir(), s.slice(2));
+  }
+  return s;
+}
+
+function isWindowsDrivePath(p) {
+  return /^[a-zA-Z]:[/\\]/.test(String(p || ""));
+}
+
+function isPathInsideRepo(target, repoRoot) {
+  const raw = String(target || "");
+  if (!raw) return false;
+  if (raw === "~" || raw.startsWith("~/") || raw.startsWith("~\\")) {
+    const expanded = path.resolve(expandHome(raw));
+    const rel = path.relative(path.resolve(repoRoot), expanded).replace(/\\/g, "/");
+    return rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel) && !isWindowsDrivePath(rel);
+  }
+  const fwd = raw.replace(/\\/g, "/");
+  if (isWindowsDrivePath(fwd) && !isWindowsDrivePath(repoRoot)) {
+    return false;
+  }
+  const resolved = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(repoRoot, raw);
+  const rel = path.relative(path.resolve(repoRoot), resolved).replace(/\\/g, "/");
+  return rel !== ".." && !rel.startsWith("../") && !path.isAbsolute(rel) && !isWindowsDrivePath(rel);
+}
+
+/** Antigravity CLI scratch/artifacts dir (~/.gemini/antigravity-cli/brain/...). */
+export function isAntigravityBrainPath(p) {
+  const raw = String(p || "").replace(/\\/g, "/");
+  if (/\.\.|%2e/i.test(raw)) return false;
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.gemini\/antigravity-cli\/brain(\/|$)/i.test(norm);
+}
+
+/** User-level Gemini/Antigravity config dir (~/.gemini/config/**). */
+export function isGeminiConfigPath(p) {
+  if (!p) return false;
+  const raw = String(p).replace(/\\/g, "/");
+  const norm = path.posix.normalize(raw);
+  return /(^|\/)\.gemini\/config(\/|$)/i.test(norm) || /(^|\/)\.gemini\/config(\/|$)/i.test(raw);
+}
+
+const PROTECTED_SHELL_PATH_RE =
+  /(?:(?:^|[/\\"'`\s>=:])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i;
+
+function stripWritableAgentPaths(cmd, repoRoot) {
+  return String(cmd || "")
+    .replace(
+      /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"'<>|&;=]*\.claude[/\\]projects[/\\][^/\\\s"'<>|&;=]+[/\\]memory[/\\][^\s"'<>|&;=]*))/gi,
+      (match, q, pQuoted, pUnquoted) => {
+        const p = pQuoted || pUnquoted;
+        if (/\.\.|%2e/i.test(p)) return match;
+        const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+        if (!isAgentMemoryPath(norm)) return match;
+        return "";
+      }
+    )
+    .replace(
+      /(?:(["'])([^"']*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^"']*)\1|([^\s"'<>|&;=]*\.gemini[/\\]antigravity-cli[/\\]brain[/\\][^\s"'<>|&;=]*))/gi,
+      (match, q, pQuoted, pUnquoted) => {
+        const p = pQuoted || pUnquoted;
+        if (/\.\.|%2e/i.test(p)) return match;
+        if (isPathInsideRepo(p, repoRoot)) return match;
+        const norm = path.posix.normalize(p.replace(/\\/g, "/"));
+        if (!isAntigravityBrainPath(norm)) return match;
+        return "";
+      }
+    );
+}
+
+function isProtectedShellTarget(rawToken) {
+  let t = String(rawToken || "").trim().replace(/^["']|["']$/g, "");
+  if (!t) return false;
+  // Unwrap flag=value or PowerShell -Path:value (without splitting Windows drive C:\...)
+  const flagAssign = t.match(/^--?[a-zA-Z][\w-]*[:=](.+)$/);
+  if (flagAssign) {
+    t = flagAssign[1].replace(/^["']|["']$/g, "");
+  } else if (/^[a-zA-Z_]\w*=(.+)$/.test(t)) {
+    t = t.slice(t.indexOf("=") + 1).replace(/^["']|["']$/g, "");
+  }
+  if (!t || isAgentMemoryPath(t)) return false;
+  const fwd = t.replace(/\\/g, "/");
+  const norm = path.posix.normalize(fwd);
+  return (
+    /(^|\/)\.git(\/|$)/i.test(norm) ||
+    /(^|\/)\.git(\/|$)/i.test(fwd) ||
+    /(^|\/)\.(claude|agents|gemini|opencode)(\/|$)/i.test(norm) ||
+    /(^|\/)\.(claude|agents|gemini|opencode)\//i.test(fwd)
+  );
+}
+
+function hasUnquotedProtectedRedirect(seg) {
+  let quote = null;
+  for (let i = 0; i < seg.length; i++) {
+    const ch = seg[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < seg.length) {
+        i++;
+        continue;
+      }
+      if (ch === '"') quote = null;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < seg.length) {
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === ">") {
+      if (seg[i + 1] === ">") i++;
+      let j = i + 1;
+      while (j < seg.length && /\s/.test(seg[j])) j++;
+      let target = "";
+      let tq = null;
+      while (j < seg.length) {
+        const c = seg[j];
+        if (tq) {
+          if (tq === '"' && c === "\\" && j + 1 < seg.length) target += seg[++j];
+          else if (c === tq) tq = null;
+          else target += c;
+        } else if (c === "'" || c === '"') {
+          tq = c;
+        } else if (/[\s;|&<>]/.test(c)) {
+          break;
+        } else {
+          target += c;
+        }
+        j++;
+      }
+      if (target && isProtectedShellTarget(target)) return true;
+    }
+  }
+  return false;
+}
+
+/** True if a shell command writes to a protected runtime/git path (.git, .claude, .agents, .gemini, .opencode). */
+function shellWritesProtected(cmd, repoRoot, depth = 0) {
+  if (depth > 5) return false;
+  const cleaned = stripWritableAgentPaths(stripHeredocBodies(cmd), repoRoot);
+  if (!PROTECTED_SHELL_PATH_RE.test(cleaned)) return false;
+
+  for (const seg of splitShellSegments(cleaned)) {
+    if (!PROTECTED_SHELL_PATH_RE.test(seg)) continue;
+    if (hasUnquotedProtectedRedirect(seg)) return true;
+
+    const inline = extractInlineInterpreter(seg);
+    if (inline) {
+      if (inline.kind === "shell" || inline.kind === "pwsh") {
+        if (shellWritesProtected(inline.code, repoRoot, depth + 1)) return true;
+      } else {
+        const codeSafe = stripWritableAgentPaths(inline.code, repoRoot);
+        const targetsProtected =
+          PROTECTED_SHELL_PATH_RE.test(codeSafe) || (/\bargv\b/i.test(inline.code) && PROTECTED_SHELL_PATH_RE.test(seg));
+        if (targetsProtected) {
+          if (inline.kind === "python" && PYTHON_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "node" && NODE_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "perl" && PERL_WRITE_API.test(inline.code)) return true;
+          if (inline.kind === "ruby" && RUBY_WRITE_API.test(inline.code)) return true;
+        }
+      }
+    }
+
+    const unquoted = stripQuotedLiterals(seg);
+    if (/WriteAll(Text|Bytes|Lines)|\[IO\.File\]::(Write|Append|Delete|Move|Copy|Create|Replace)/i.test(unquoted)) {
+      return true;
+    }
+
+    const tokens = tokenizeShellSegment(seg);
+
+    // Copy-like verbs: only the destination matters.
+    if (/(^|[\s;&|(])(cp|install|ln|Copy-Item)\s/i.test(unquoted)) {
+      const destFlags = /^(-t|--target-directory|-dest(ination)?)$/i;
+      let explicitDest = "";
+      for (let i = 0; i < tokens.length; i++) {
+        if (destFlags.test(tokens[i]) && tokens[i + 1]) {
+          explicitDest = tokens[i + 1];
+          break;
+        }
+        if (/^(--target-directory=|-dest(ination)?:)/i.test(tokens[i])) {
+          explicitDest = tokens[i];
+          break;
+        }
+      }
+      if (explicitDest) {
+        if (isProtectedShellTarget(explicitDest)) return true;
+      } else {
+        const last = tokens.filter((a) => !a.startsWith("-")).pop() || "";
+        if (isProtectedShellTarget(last)) return true;
+      }
+    }
+
+    // PowerShell mutating cmdlets: check path/target arguments (ignore -Value/-Encoding/-ItemType payloads).
+    if (
+      /(^|[\s;&|(])(Set-Content|Add-Content|Out-File|New-Item|Clear-Content|Remove-Item|Move-Item|Rename-Item)\b/i.test(
+        unquoted
+      )
+    ) {
+      const cmdIdx = tokens.findIndex((t) =>
+        /^(Set-Content|Add-Content|Out-File|New-Item|Clear-Content|Remove-Item|Move-Item|Rename-Item)$/i.test(t)
+      );
+      const start = cmdIdx >= 0 ? cmdIdx + 1 : 1;
+      for (let i = start; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (/^-(Value|Encoding|ItemType|Filter|Include|Exclude)$/i.test(t)) {
+          i++;
+          continue;
+        }
+        if (/^-(Value|Encoding|ItemType|Filter|Include|Exclude):/i.test(t)) continue;
+        if (/^-[a-zA-Z]+$/.test(t)) continue;
+        if (isProtectedShellTarget(t)) return true;
+      }
+    }
+
+    // dd: check of=<target>.
+    if (/(^|[\s;&|(])dd\s/i.test(unquoted)) {
+      for (const t of tokens) {
+        if (/^of=/i.test(t) && isProtectedShellTarget(t)) return true;
+      }
+    }
+
+    // Other mutating shell verbs: block if any target argument in this segment is protected.
+    if (
+      /(^|[\s;&|(])(mv|truncate|chmod|tee|rm|touch|patch)\s|sed\s+(?:-[a-zA-Z0-9]+\s+)*(?:-[a-zA-Z]*i|--in-place)\b|perl\s+(?:-[a-zA-Z0-9]+\s+)*-[a-zA-Z]*i\b|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)/i.test(
+        unquoted
+      )
+    ) {
+      for (let i = 1; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (/^-[a-zA-Z]+$/.test(t)) continue;
+        if (isProtectedShellTarget(t)) return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 /** Harness mutations are allowed only on an authorized harness branch: <type>/<issue-#>-harness-<slug>. */
 export function harnessBranchAuthorized(branch) {
   return /^(feature|fix|chore)\/\d+-harness-/.test(String(branch || ""));
@@ -296,9 +560,7 @@ export function isProtectedHarnessPath(rel) {
   return /^(harness|harness-kit|\.github)\//.test(p);
 }
 
-const SHELL_WRITE_VERB =
-  /((^|[\s;&|(])(cp|mv|install|dd|truncate|chmod|tee|rm|touch|ln|patch)\s|sed\s+-i|perl\s+-p?i|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
-// Same verbs minus copy-like ones (cp/install/ln/Copy-Item): those only write their LAST argument.
+// Copy-like verbs (cp/install/ln/Copy-Item) are handled separately because they only write their destination.
 const HARNESS_WRITE_VERB =
   /((^|[\s;&|(])(mv|dd|truncate|chmod|tee|rm|touch|patch)\s|sed\s+(?:-[a-zA-Z0-9]+\s+)*(?:-[a-zA-Z]*i|--in-place)\b|perl\s+(?:-[a-zA-Z0-9]+\s+)*-[a-zA-Z]*i\b|git\s+(apply|am|checkout\s+\S+\s+--|restore\s+--source)|Set-Content|Add-Content|Out-File|New-Item|Move-Item|Remove-Item|Rename-Item|Clear-Content|WriteAll(Text|Bytes|Lines)|\[IO\.File\])/i;
 const HARNESS_GENERATORS = /^(harness-render\.mjs|harness-compose\.mjs|bootstrap\.mjs)$/i;
@@ -963,32 +1225,14 @@ function evaluateShell(call, repoRoot) {
     }
   }
 
-  // Writing to harness hooks or runtime settings (the agent memory dir is not protected)
-  const cmdNoMemory = cmd.replace(
-    /(?:(["'])([^"']*\.claude[/\\]projects[/\\][^/\\]+[/\\]memory[/\\][^"']*)\1|([^\s"']*\.claude[/\\]projects[/\\][^/\\\s"']+[/\\]memory[/\\][^\s"']*))/gi,
-    (match, q, pQuoted, pUnquoted) => {
-      const p = pQuoted || pUnquoted;
-      if (/\.\.|%2e/i.test(p)) return match;
-      const norm = path.posix.normalize(p.replace(/\\/g, "/"));
-      if (!isAgentMemoryPath(norm)) return match;
-      return "";
-    }
-  );
-  if (
-    /(?:(?:^|[/\\"'`\s>])\.git(?:[/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory)
-  ) {
-    // Redirect INTO a protected path, or a write verb (bash/PowerShell); plain text mentions stay allowed.
-    if (
-      />>?\s*["']?[^\s|&;]*((?:^|[/\\"'`\s>])\.git([/\\"'`\s;|&>]|$)|(\.claude|\.agents|\.gemini|\.opencode)[/\\])/i.test(cmdNoMemory) ||
-      SHELL_WRITE_VERB.test(cmdNoMemory)
-    ) {
-      return {
-        allowed: false,
-        ruleId: "fs.protected",
-        reason:
-          "Writing to .git, .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
-      };
-    }
+  // Writing to harness hooks or runtime settings (Claude memory and Antigravity brain outside repo are writable)
+  if (shellWritesProtected(cmd, repoRoot)) {
+    return {
+      allowed: false,
+      ruleId: "fs.protected",
+      reason:
+        "Writing to .git, .git/hooks or .claude/ is forbidden (would tamper with the sandbox).",
+    };
   }
 
   // Harness sources (harness/, harness-kit/, .github/) and generators only on an authorized harness branch
@@ -1118,9 +1362,11 @@ function evaluateWrite(call, repoRoot) {
   }
 
   // Generated artifacts (single source: harness.lock written by the render)
-  const resolved = path.isAbsolute(target) ? target : path.resolve(repoRoot, target);
-  const rel = path.relative(repoRoot, resolved).replace(/\\/g, "/");
-  if (generatedArtifacts(repoRoot).has(rel)) {
+  const expanded = expandHome(target);
+  const resolved = path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(repoRoot, expanded);
+  const rel = path.relative(path.resolve(repoRoot), resolved).replace(/\\/g, "/");
+  const insideRepo = isPathInsideRepo(target, repoRoot);
+  if (insideRepo && generatedArtifacts(repoRoot).has(rel)) {
     return {
       allowed: false,
       ruleId: "write.generated",
@@ -1128,8 +1374,15 @@ function evaluateWrite(call, repoRoot) {
     };
   }
 
-  // Protect the remaining runtime harness directories
-  if (/(^|\/)\.(agents|gemini|opencode)\//.test(norm)) return tamper;
+  // Protect installed guard files and ~/.gemini/config/** everywhere (even outside the repo)
+  if (isInstalledGuardPath(target) || isGeminiConfigPath(target)) {
+    return tamper;
+  }
+
+  // Protect the remaining runtime harness directories inside the repo; outside the repo allow only ~/.gemini/antigravity-cli/brain/**
+  if (/(^|\/)\.(agents|gemini|opencode)\//i.test(norm)) {
+    if (insideRepo || !isAntigravityBrainPath(target)) return tamper;
+  }
 
   // Harness sources: only on an authorized harness branch
   if (isProtectedHarnessPath(rel) && !harnessBranchAuthorized(currentBranch(repoRoot))) {

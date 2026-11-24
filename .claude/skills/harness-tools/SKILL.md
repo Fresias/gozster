@@ -8,6 +8,13 @@ autotrigger: you need harness helper scripts or CLI tool guides
 
 Catálogo auto-generado de scripts del arnés (`harness-kit/core/scripts/` y `harness/scripts/`). Ejecutar vía `bash` o `node`.
 
+## Lectura y búsqueda
+
+- **Rango obligatorio (> 300 líneas):** máximo duro **300 líneas** (rango inclusivo); valor recomendado **200**.
+  - **Antigravity:** usá `read_file` con `StartLine` y `EndLine` (rango inclusivo, `EndLine - StartLine + 1 <= 300`; opcional `ByteOffset`).
+  - **Claude Code:** usá `Read` con `offset` y `limit` (`<= 300`; recomendado `200`) o buscá primero con `Grep`.
+- **Evitar idas y vueltas (`rg ↔ lectura`):** para ubicar y editar sin leer archivos grandes enteros, buscá directamente con contexto: `rg -n -C 20 <patrón> <ruta>`.
+
 <!-- BEGIN GENERATED:HELPER_SCRIPTS -->
 ## Helper scripts (run via bash)
 
