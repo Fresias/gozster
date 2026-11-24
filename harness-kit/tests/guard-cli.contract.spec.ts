@@ -275,11 +275,12 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
       });
       expect(res.code).toBe(0);
       expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toBe(
-        "cwd persists between Bash calls; run `pwd` and use absolute paths.",
+        "El directorio de trabajo persiste entre llamadas en Claude Code. Trabajá desde la raíz del repo con rutas relativas (`git rev-parse --show-toplevel`) en lugar de rutas absolutas.",
       );
     });
 
-    it("THEN Gemini CLI AfterTool inyecta la remediación de cwd", () => {
+    // GOZS-780: remediate.cwd-lost es exclusiva de Claude Code (el mensaje describe su cwd persistente).
+    it("THEN Gemini CLI AfterTool no inyecta la remediación de cwd", () => {
       const res = runGuardCli(
         {
           hook_event_name: "AfterTool",
@@ -290,7 +291,8 @@ describe("H-06: Flecha result (PostToolUse / AfterTool) contracts", () => {
         ["--runtime", "gemini-cli"],
       );
       expect(res.code).toBe(0);
-      expect(JSON.parse(res.stdout).hookSpecificOutput.additionalContext).toContain("cwd persists between Bash calls");
+      expect(res.stdout).not.toContain("directorio de trabajo persiste");
+      expect(res.stdout).not.toContain("cwd persists");
     });
 
     it("THEN Claude Code PostToolUse inyecta la remediación de salida acotada", () => {
