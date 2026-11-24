@@ -67,3 +67,4 @@ node harness-kit/core/scripts/harness-telemetry.mjs ruta/al/events.jsonl --json
 - [`LEDGER.json`](./LEDGER.json) — el ledger versionado.
 - [`EXPERIENCE-L-000.md`](./EXPERIENCE-L-000.md) — línea base del harness (`completed`).
 - [`EXPERIENCE-L-001.md`](./EXPERIENCE-L-001.md) — línea base real de 7 días del harness endurecido (`completed`).
+- [`EXPERIENCE-L-002.md`](./EXPERIENCE-L-002.md) — menos llamadas y menos fricción en el arnés (`blocked`, apertura en `GOZS-791`).

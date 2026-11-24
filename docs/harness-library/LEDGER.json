@@ -262,6 +262,25 @@
         "after": null
       },
       "notes": "Línea base real de 7 días consolidada en DESKTOP-S4P202B (2026-11-16T17:48:54Z → 2026-11-23T17:48:54Z) desde <git common dir>/harness/telemetry/events.jsonl tras GOZS-538 (#497): 24.376 eventos en 349 sesiones (238 antigravity —incluye 1 evento residual 'unknown' a las 17:54:26Z— y 111 claude-code). Los experimentos posteriores se registran como L-002 en adelante."
+    },
+    {
+      "id": "L-002",
+      "title": "Menos llamadas y menos fricción en el arnés (GOZS-765)",
+      "status": "blocked",
+      "hypothesis": "Reducir las llamadas por sesión en >= 15 % y las llamadas antes de la primera edición en >= 20 %, sin bajar los bloqueos legítimos.",
+      "start_condition": "7 días corridos de telemetría real en DESKTOP-S4P202B desde el timestamp ISO exacto de merged_at del PR de GOZS-791 (último PR de la Fase 1 de GOZS-765), luego de ejecutar ambos instaladores (claude-code y antigravity) desde main. Medición con: (1) `node harness-kit/core/scripts/harness-telemetry.mjs --since <inicio> --until <fin> --idle-min 15 --json`, (2) comparación de Claude Code con `--exclude-kind search` (y también sin filtro), (3) total de bloqueos comparables excluyendo reglas corregidas y nuevas con `--exclude-rule fs.protected --exclude-rule remediate.cwd-lost --exclude-rule pr.requires-seal --exclude-rule shell.polling --exclude-rule shell.wait --exclude-rule remediate.native-read`, y (4) `node harness-kit/core/scripts/harness-telemetry.mjs --deep --since <inicio> --until <fin> --idle-min 15` (con y sin `--exclude-kind search`).",
+      "caveat": "Las sesiones abiertas en ramas creadas antes del merge de GOZS-791 siguen ejecutando los hooks viejos (--deep distingue el formato v1 del v2). La telemetría de sesiones cloud no persiste. La métrica de primera edición (TTFE y callsBeforeFirstEdit) cuenta cualquier escritura, igual que en L-001. Claude Code se compara con --exclude-kind search (porque L-001 no registraba Grep/Glob) y también sin filtro; Antigravity actúa como control.",
+      "experience": "EXPERIENCE-L-002.md",
+      "window": {
+        "durationDays": 7,
+        "before": null,
+        "after": null
+      },
+      "metrics": {
+        "before": null,
+        "after": null
+      },
+      "notes": "Entrada registrada al cierre de la Fase 1 (GOZS-791). Durante los 7 días corridos desde el merged_at del PR de GOZS-791 no se mergean cambios del arnés, salvo hotfix registrado en este ledger. El issue 15 mide y completa el cierre."
     }
   ]
 }
