@@ -1,0 +1,195 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import * as fs from "fs";
+import * as path from "path";
+import { type PGlite, type Transaction } from "@electric-sql/pglite";
+import { crearDbMigrada } from "./helpers/pglite-migrada";
+
+// GOZS-705 (D-1/D-2): seed de producción versionado, idempotente, sin personas y con feriados 2026-2027.
+
+const ROOT = path.resolve(__dirname, "../..");
+const SEED_PATH = path.join(ROOT, "supabase/seed_produccion.sql");
+const FERIADOS_2027_PATH = path.join(ROOT, "supabase/seed_data/feriados_ar_2027.sql");
+
+const ALUMNO = "00000000-0000-0000-0000-0000000000b1";
+
+const FERIADOS_2027_ESPERADOS = [
+  "2027-01-01",
+  "2027-02-08",
+  "2027-02-09",
+  "2027-03-24",
+  "2027-03-26",
+  "2027-04-02",
+  "2027-05-01",
+  "2027-05-25",
+  "2027-06-20",
+  "2027-06-21",
+  "2027-07-09",
+  "2027-08-16",
+  "2027-10-11",
+  "2027-11-20",
+  "2027-12-08",
+  "2027-12-25",
+];
+
+let db: PGlite;
+let seedSql: string;
+
+function comoAutenticado<T>(sub: string, sql: string) {
+  return db.transaction(async (tx: Transaction) => {
+    await tx.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
+      JSON.stringify({ sub, role: "authenticated" }),
+    ]);
+    await tx.query(`SET LOCAL ROLE authenticated`);
+    return tx.query<T>(sql);
+  });
+}
+
+describe("GOZS-705: seed de producción sin personas e idempotente", () => {
+  beforeAll(async () => {
+    seedSql = fs.readFileSync(SEED_PATH, "utf-8");
+    db = await crearDbMigrada();
+  }, 60_000);
+
+  it("el archivo SQL no contiene emails, perfiles, usuarios ni referencias a personas", () => {
+    const sinComentarios = seedSql
+      .split(/\r?\n/)
+      .filter((linea) => !linea.trimStart().startsWith("--"))
+      .join("\n");
+
+    const emails = sinComentarios.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g) ?? [];
+    expect(emails).toEqual([]);
+
+    const tablasProhibidas = [
+      "auth.users",
+      "perfiles",
+      "entrenador_alumnos",
+      "contrataciones",
+      "cobros",
+      "pagos",
+      "registro_sesiones",
+      "registro_series",
+      "mensajes",
+      "notificaciones",
+      "alumno_historial_dolor",
+      "alumno_cuestionario_inicial",
+    ];
+    for (const tabla of tablasProhibidas) {
+      const rx = new RegExp(`INSERT\\s+INTO\\s+(?:public\\.)?${tabla.replace(".", "\\.")}\\b`, "i");
+      expect(sinComentarios).not.toMatch(rx);
+    }
+
+    expect(sinComentarios).not.toMatch(/"(?:creado_por|profesor_id|alumno_id|plan_origen_id)"\s*:\s*"/);
+  });
+
+  it("carga catálogo, plantillas y feriados 2026-2027 en base vacía y es idempotente al correrlo dos veces", async () => {
+    const contar = async () => {
+      const r = await db.query<{
+        ejercicios: number;
+        ejercicios_con_video: number;
+        ejercicios_sin_video: number;
+        ejercicios_con_creador: number;
+        plantillas: number;
+        planes_con_persona: number;
+        dias: number;
+        ejercicios_rutina: number;
+        tempo_cero: number;
+        feriados: number;
+        feriados_2026: number;
+        feriados_2027: number;
+        usuarios: number;
+        perfiles: number;
+        contrataciones: number;
+        sesiones: number;
+        series: number;
+      }>(`
+        SELECT
+          (SELECT count(*)::int FROM public.ejercicios) AS ejercicios,
+          (SELECT count(*)::int FROM public.ejercicios WHERE url_video IS NOT NULL AND btrim(url_video) <> '') AS ejercicios_con_video,
+          (SELECT count(*)::int FROM public.ejercicios WHERE url_video IS NULL OR btrim(url_video) = '') AS ejercicios_sin_video,
+          (SELECT count(*)::int FROM public.ejercicios WHERE creado_por IS NOT NULL) AS ejercicios_con_creador,
+          (SELECT count(*)::int FROM public.planes_entrenamiento WHERE alumno_id IS NULL) AS plantillas,
+          (SELECT count(*)::int FROM public.planes_entrenamiento WHERE alumno_id IS NOT NULL OR profesor_id IS NOT NULL OR plan_origen_id IS NOT NULL) AS planes_con_persona,
+          (SELECT count(*)::int FROM public.dias_rutina) AS dias,
+          (SELECT count(*)::int FROM public.ejercicios_en_rutina) AS ejercicios_rutina,
+          (SELECT count(*)::int FROM public.ejercicios_en_rutina WHERE tempo = '0') AS tempo_cero,
+          (SELECT count(*)::int FROM public.feriados) AS feriados,
+          (SELECT count(*)::int FROM public.feriados WHERE fecha BETWEEN '2026-01-01' AND '2026-12-31') AS feriados_2026,
+          (SELECT count(*)::int FROM public.feriados WHERE fecha BETWEEN '2027-01-01' AND '2027-12-31') AS feriados_2027,
+          (SELECT count(*)::int FROM auth.users) AS usuarios,
+          (SELECT count(*)::int FROM public.perfiles) AS perfiles,
+          (SELECT count(*)::int FROM public.contrataciones) AS contrataciones,
+          (SELECT count(*)::int FROM public.registro_sesiones) AS sesiones,
+          (SELECT count(*)::int FROM public.registro_series) AS series
+      `);
+      return r.rows[0]!;
+    };
+
+    const antes = await contar();
+    expect(antes.ejercicios).toBe(0);
+    expect(antes.plantillas).toBe(0);
+    expect(antes.feriados).toBe(0);
+
+    await db.exec(seedSql);
+
+    const primeraPasada = await contar();
+    expect(primeraPasada).toEqual({
+      ejercicios: 89,
+      ejercicios_con_video: 86,
+      ejercicios_sin_video: 3,
+      ejercicios_con_creador: 0,
+      plantillas: 3,
+      planes_con_persona: 0,
+      dias: 7,
+      ejercicios_rutina: 37,
+      tempo_cero: 0,
+      feriados: 35,
+      feriados_2026: 19,
+      feriados_2027: 16,
+      usuarios: antes.usuarios,
+      perfiles: antes.perfiles,
+      contrataciones: 0,
+      sesiones: 0,
+      series: 0,
+    });
+
+    const nombresPlantillas = await db.query<{ nombre: string }>(
+      "SELECT nombre FROM public.planes_entrenamiento ORDER BY nombre"
+    );
+    expect(nombresPlantillas.rows.map((r) => r.nombre)).toEqual([
+      "Adaptación-3 días",
+      "GABI POPURRÍ",
+      "Mantenimiento",
+    ]);
+
+    // Segunda ejecución completa + script independiente de feriados 2027: cero duplicados.
+    await db.exec(seedSql);
+    await db.exec(fs.readFileSync(FERIADOS_2027_PATH, "utf-8"));
+
+    const segundaPasada = await contar();
+    expect(segundaPasada).toEqual(primeraPasada);
+  });
+
+  it("feriados_en_rango('2027-01-01','2027-12-31') devuelve los 16 feriados de 2027", async () => {
+    await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${ALUMNO}', 'alumno-test@gozster.local');
+      INSERT INTO public.perfiles (id, email, nombre_completo, rol, estado_membresia)
+      VALUES ('${ALUMNO}', 'alumno-test@gozster.local', 'Alumno Test', 'ALUMNO', 'ACTIVA')
+      ON CONFLICT (id) DO UPDATE SET rol = EXCLUDED.rol, estado_membresia = EXCLUDED.estado_membresia;
+    `);
+
+    const r2027 = await comoAutenticado<{ fecha: string; nombre: string; tipo: string; hay_clases: boolean; fuente: string }>(
+      ALUMNO,
+      "SELECT fecha::text, nombre, tipo, hay_clases, fuente FROM public.feriados_en_rango('2027-01-01', '2027-12-31')"
+    );
+
+    expect(r2027.rows.map((x) => x.fecha)).toEqual(FERIADOS_2027_ESPERADOS);
+    expect(r2027.rows.every((x) => x.hay_clases === false)).toBe(true);
+    expect(r2027.rows.every((x) => x.fuente.includes("feriados-nacionales-2027"))).toBe(true);
+
+    const r2026 = await comoAutenticado<{ fecha: string }>(
+      ALUMNO,
+      "SELECT fecha::text FROM public.feriados_en_rango('2026-01-01', '2026-12-31')"
+    );
+    expect(r2026.rows).toHaveLength(19);
+  });
+});
