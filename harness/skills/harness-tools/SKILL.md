@@ -42,6 +42,13 @@ Usa los wrappers acotados en `harness-kit/adapters/multica/scripts/` en lugar de
 - **Esperas por hijos o estados en Multica:** usar `--until-children-done` o `--until-status` en lugar de bucles o reintentos.
 - **Esperas activas (`shell.polling`):** el guard bloquea `Start-Sleep`, `sleep`, `timeout /t` y `ping -n <n> 127.0.0.1` en bucles, combinados con `gh`/`multica` o mayores a 5 s sin verificación local. Para esperar un servidor local en E2E (> 5 s), juntá la espera y la verificación (`Invoke-WebRequest`/`curl`/`Test-NetConnection`/`Get-NetTCPConnection` contra `localhost` o `127.0.0.1`) en un solo comando (permitido y registrado como `shell.wait`).
 
+## Lectura y búsqueda
+
+- **Rango obligatorio (> 300 líneas):** máximo duro **300 líneas** (rango inclusivo); valor recomendado **200**.
+  - **Antigravity:** usá `read_file` con `StartLine` y `EndLine` (rango inclusivo, `EndLine - StartLine + 1 <= 300`; opcional `ByteOffset`).
+  - **Claude Code:** usá `Read` con `offset` y `limit` (`<= 300`; recomendado `200`) o buscá primero con `Grep`.
+- **Evitar idas y vueltas (`rg ↔ lectura`):** para ubicar y editar sin leer archivos grandes enteros, buscá directamente con contexto: `rg -n -C 20 <patrón> <ruta>`.
+
 <!-- BEGIN GENERATED:HELPER_SCRIPTS -->
 <!-- Auto-populated by harness-render.mjs into .claude/skills/harness-tools/SKILL.md and .agents/skills/harness-tools/SKILL.md -->
 <!-- END GENERATED:HELPER_SCRIPTS -->

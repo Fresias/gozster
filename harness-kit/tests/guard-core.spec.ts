@@ -608,6 +608,172 @@ describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas 
   }
 });
 
+describe("GOZS-774: lectura acotada por runtime (read.oversize) y fs.protected limitado al repo", () => {
+  const workRepo = mkdtempSync(path.join(tmpdir(), "guard-774-"));
+  const bigRel = "src/big-module.ts";
+  const bigAbs = path.join(workRepo, bigRel);
+
+  beforeAll(() => {
+    mkdirSync(path.dirname(bigAbs), { recursive: true });
+    writeFileSync(bigAbs, Array.from({ length: 1840 }, (_, i) => `export const line${i + 1} = ${i + 1};`).join("\n") + "\n");
+  });
+
+  afterAll(() => rmSync(workRepo, { recursive: true, force: true }));
+
+  it("GIVEN antigravity.json WHEN se inspecciona read_file THEN declara Path, bound StartLine/EndLine y extra ByteOffset", () => {
+    const ag = JSON.parse(
+      readFileSync(path.join(repoRoot, "harness-kit", "core", "runtimes", "antigravity.json"), "utf8"),
+    ) as { tools: { read: Array<{ name: string; path: string; bound?: string[]; extra?: string[] }> } };
+    const readFileTool = ag.tools.read.find((t) => t.name === "read_file");
+    expect(readFileTool).toEqual({
+      name: "read_file",
+      path: "Path",
+      bound: ["StartLine", "EndLine"],
+      extra: ["ByteOffset"],
+    });
+  });
+
+  it("GIVEN read_file de Antigravity sin rango sobre un archivo de 1.840 líneas WHEN pre THEN bloquea con ruta relativa, 1840 líneas, StartLine/EndLine y rg -n -C 20", () => {
+    const res = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs } } },
+      { repoRoot: workRepo },
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("read.oversize");
+    expect(res.reason).toContain(bigRel);
+    expect(res.reason).toContain("1840 líneas");
+    expect(res.reason).toContain("StartLine");
+    expect(res.reason).toContain("EndLine");
+    expect(res.reason).toContain("rg -n -C 20");
+    expect(res.reason).not.toContain("offset");
+  });
+
+  it("GIVEN read_file de Antigravity con StartLine: 1, EndLine: 300 sobre 1.840 líneas WHEN pre THEN permite; con EndLine: 301 bloquea", () => {
+    const ok = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 1, EndLine: 300 } } },
+      { repoRoot: workRepo },
+    );
+    expect(ok.allowed).toBe(true);
+
+    const okMiddle = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 100, EndLine: 399 } } },
+      { repoRoot: workRepo },
+    );
+    expect(okMiddle.allowed).toBe(true);
+
+    const over = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 1, EndLine: 301 } } },
+      { repoRoot: workRepo },
+    );
+    expect(over.allowed).toBe(false);
+    expect(over.ruleId).toBe("read.oversize");
+    expect(over.reason).toContain("StartLine");
+
+    const overMiddle = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 100, EndLine: 400 } } },
+      { repoRoot: workRepo },
+    );
+    expect(overMiddle.allowed).toBe(false);
+    expect(overMiddle.ruleId).toBe("read.oversize");
+  });
+
+  it("GIVEN Read de Claude Code sin limit sobre un archivo grande WHEN pre THEN bloquea con ruta relativa, líneas y offset/limit", () => {
+    const res = checkGuard(
+      { tool_name: "Read", tool_input: { file_path: bigAbs } },
+      { repoRoot: workRepo },
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("read.oversize");
+    expect(res.reason).toContain(bigRel);
+    expect(res.reason).toContain("1840 líneas");
+    expect(res.reason).toContain("offset");
+    expect(res.reason).toContain("limit");
+    expect(res.reason).toContain("Grep");
+  });
+
+  it("GIVEN otros runtimes sin rango sobre un archivo grande WHEN pre THEN devuelve mensaje genérico con ruta, líneas y límite 300/200", () => {
+    for (const payload of [
+      { tool_name: "read_file", tool_input: { file_path: bigAbs } },
+      { input: { tool: "read" }, output: { args: { filePath: bigAbs } } },
+    ]) {
+      const res = checkGuard(payload, { repoRoot: workRepo });
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("read.oversize");
+      expect(res.reason).toContain(bigRel);
+      expect(res.reason).toContain("1840 líneas");
+      expect(res.reason).toContain("300");
+      expect(res.reason).toContain("200");
+    }
+  });
+
+  it("GIVEN write_file en ~/.gemini/antigravity-cli/brain/<id>/scratch/x.mjs WHEN pre THEN se permite", () => {
+    for (const p of [
+      "~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs",
+      "C:\\Users\\user\\.gemini\\antigravity-cli\\brain\\abc-123\\scratch\\x.mjs",
+      "/home/user/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs",
+    ]) {
+      const res = checkGuard(
+        { toolCall: { name: "write_file", args: { Path: p, Content: "console.log(1);" } } },
+        { repoRoot: workRepo },
+      );
+      expect(res.allowed, p).toBe(true);
+    }
+  });
+
+  it("GIVEN Get-Content y comandos sobre ~/.gemini/antigravity-cli/brain/** o menciones con escritura a otro destino WHEN pre THEN se permite", () => {
+    for (const cmd of [
+      '$j = Get-Content "~/.gemini/antigravity-cli/brain/abc-123/.system_generated/steps/48/output.txt"',
+      '$j = Get-Content "C:\\Users\\user\\.gemini\\antigravity-cli\\brain\\abc-123\\.system_generated\\steps\\48\\output.txt"; Set-Content ./out.txt $j',
+      'echo x > ~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs',
+      'Set-Content "~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs" "console.log(1)"',
+      'echo "revisar .gemini/config/hooks.json" > ./notes.md',
+      'echo "revisar .gemini/settings.json" && rm ./reply.md',
+      'Set-Content -Path ./out.txt -Value "mención .gemini/config/hooks.json"',
+      'cp .agents/hooks.json ./backup.json',
+    ]) {
+      const res = evaluateRules({ kind: "shell", command: cmd }, { repoRoot: workRepo });
+      expect(res.allowed, cmd).toBe(true);
+    }
+  });
+
+  it("GIVEN escrituras a .agents/hooks.json del repo, ~/.gemini/config/**, otras rutas fuera del repo o traversal desde brain WHEN pre THEN bloquea con fs.protected", () => {
+    for (const targetPath of [
+      path.join(workRepo, ".agents", "hooks.json"),
+      ".agents/hooks.json",
+      path.join(workRepo, ".gemini", "antigravity-cli", "brain", "abc", "scratch", "x.mjs"),
+      "~/.gemini/config/hooks.json",
+      "~/.gemini/config/settings.json",
+      "C:\\Users\\user\\.gemini\\config\\hooks.json",
+      "~/.gemini/antigravity-cli/brain/abc/../../config/hooks.json",
+      "~/.gemini/antigravity-cli/brain/abc/%2e%2e/%2e%2e/config/hooks.json",
+      "~/.gemini/settings.json",
+      "~/.agents/hooks.json",
+      "~/.opencode/plugins/x.ts",
+    ]) {
+      const res = evaluateRules({ kind: "write", targetPath }, { repoRoot: workRepo });
+      expect(res.allowed, targetPath).toBe(false);
+      expect(res.ruleId, targetPath).toBe("fs.protected");
+    }
+  });
+
+  it("GIVEN comandos shell que escriben a ~/.gemini/config/hooks.json, .claude/, .agents/ o traversal desde brain WHEN pre THEN bloquea con fs.protected", () => {
+    for (const command of [
+      "echo x > ~/.gemini/config/hooks.json",
+      "Set-Content .claude/settings.json x",
+      "Set-Content -Path .agents/hooks.json -Value x",
+      "echo x > .agents/hooks.json",
+      "cp ./x.json ~/.gemini/config/hooks.json",
+      "echo x > ~/.gemini/antigravity-cli/brain/abc/../../config/hooks.json",
+      "echo x > ~/.gemini/antigravity-cli/brain/abc/%2e%2e/%2e%2e/config/hooks.json",
+      "Set-Content ~/.gemini/config/settings.json x",
+    ]) {
+      const res = evaluateRules({ kind: "shell", command }, { repoRoot: workRepo });
+      expect(res.allowed, command).toBe(false);
+      expect(res.ruleId, command).toBe("fs.protected");
+    }
+  });
+});
+
 describe("GOZS-773: regla estricta shell.polling (> 5 s) y registro shell.wait", () => {
   const shell = (command: string) => evaluateRules({ kind: "shell", command });
 
