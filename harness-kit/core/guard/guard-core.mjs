@@ -6,11 +6,12 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalize } from "./normalize.mjs";
+import { resolveSession, resolveTelemetryDir } from "./telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1919,7 +1920,113 @@ function evaluatePost(normalizedCall, options = {}, repoRoot = findRepoRoot()) {
     }
   }
 
+  // 4. Claude Code reading/searching/editing through Bash (after declarative rules: never shadows them)
+  const nativeRead = evaluateNativeRead(normalizedCall, repoRoot);
+  if (nativeRead) return nativeRead;
+
   return { allowed: true, inject: false };
+}
+
+const NATIVE_READ_MSG =
+  "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob` en lugar de `cat`/`sed`/`grep` por Bash: es una llamada menos de shell y la lectura queda acotada.";
+const NATIVE_EDIT_MSG = "Usá `Edit`.";
+
+/** First command segment (quote-aware) and whether its stdout is piped to another command. */
+function firstSegmentOf(cmd) {
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else if (ch === "\\" && quote === '"') i++;
+      continue;
+    }
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === ";" || ch === "\n") return { seg: cmd.slice(0, i), piped: false };
+    if (ch === "|") return { seg: cmd.slice(0, i), piped: cmd[i + 1] !== "|" };
+    if (ch === "&") {
+      const prev = cmd[i - 1] || "";
+      const next = cmd[i + 1] || "";
+      if (prev === ">" || prev === "<" || next === ">") continue;
+      return { seg: cmd.slice(0, i), piped: false };
+    }
+  }
+  return { seg: cmd, piped: false };
+}
+
+/**
+ * Classify the first segment of a shell command: "edit" (sed -i), "read" (cat/head/tail/sed -n/grep/rg
+ * over repo files, stdout not piped nor redirected) or null. Evaluates the command only, never the output.
+ */
+export function classifyNativeRead(command, repoRoot, cwd) {
+  const { seg, piped } = firstSegmentOf(String(command || ""));
+  const tokens = tokenizeShellSegment(seg);
+  if (!tokens.length) return null;
+  const bin = path.basename(tokens[0].replace(/\\/g, "/")).replace(/\.exe$/i, "").toLowerCase();
+  const args = tokens.slice(1);
+
+  if (bin === "sed" && args.some((t) => /^-[a-zA-Z]*i/.test(t) || /^--in-place/.test(t))) return "edit";
+  if (piped) return null;
+  // stdout/stdin redirection or heredoc (writing a file, feeding stdin): not a read of repo files
+  if (args.some((t) => /^(\d*<|1?>|&>)/.test(t) || t.includes("<<"))) return null;
+
+  const operands = args.filter((t) => !t.startsWith("-") && !/^2>/.test(t));
+  let files;
+  if (bin === "cat" || bin === "head" || bin === "tail") {
+    files = operands.filter((t) => !/^\d+$/.test(t));
+    if (!files.length) return null;
+  } else if (bin === "sed") {
+    if (!args.some((t) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(t) || t === "--quiet" || t === "--silent")) return null;
+    files = operands.slice(1);
+    if (!files.length) return null;
+  } else if (bin === "grep" || bin === "rg") {
+    if (!operands.length) return null;
+    files = operands.slice(1);
+  } else {
+    return null;
+  }
+
+  const base = path.resolve(cwd || repoRoot);
+  const root = path.resolve(repoRoot);
+  const insideRepo = files.every((f) => {
+    if (/^~/.test(f)) return false;
+    const rel = path.relative(root, path.resolve(base, f));
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+  });
+  return insideRepo ? "read" : null;
+}
+
+/** Atomically claim the once-per-session marker; false when already claimed (or not writable). */
+function claimSessionMarker(name, normalizedCall, repoRoot) {
+  try {
+    const dir = resolveTelemetryDir(repoRoot);
+    mkdirSync(dir, { recursive: true });
+    const session = resolveSession(normalizedCall.raw).replace(/[^\w.-]/g, "_").slice(0, 120);
+    writeFileSync(path.join(dir, `${name}-${session}.flag`), new Date().toISOString(), { flag: "wx" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** remediate.native-read: Claude Code only (post injection), at most once per session. */
+function evaluateNativeRead(normalizedCall, repoRoot) {
+  if (normalizedCall.kind !== "shell" || normalizedCall.runtime !== "claude-code") return null;
+  const kind = classifyNativeRead(normalizedCall.command, repoRoot, normalizedCall.cwd);
+  if (!kind || !claimSessionMarker("native-read", normalizedCall, repoRoot)) return null;
+  return {
+    allowed: true,
+    inject: true,
+    ruleId: "remediate.native-read",
+    context: kind === "edit" ? NATIVE_EDIT_MSG : NATIVE_READ_MSG,
+  };
 }
 
 /**

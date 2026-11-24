@@ -1042,14 +1042,117 @@ describe("GOZS-768: normalize.mjs (cwd, startLine, search, toolUseId, post ok/er
   });
 });
 
+describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)", () => {
+  let telemetryDir: string;
+  const prevTelemetry = process.env.HARNESS_TELEMETRY_DIR;
+  const READ_MSG = "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob`";
+
+  beforeAll(() => {
+    telemetryDir = mkdtempSync(path.join(tmpdir(), "gozs-783-"));
+    process.env.HARNESS_TELEMETRY_DIR = telemetryDir;
+  });
+  afterAll(() => {
+    if (prevTelemetry === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+    else process.env.HARNESS_TELEMETRY_DIR = prevTelemetry;
+    rmSync(telemetryDir, { recursive: true, force: true });
+  });
+
+  const claudePost = (command: string, session: string, stdout = "") =>
+    checkGuard(
+      {
+        hook_event_name: "PostToolUse",
+        session_id: session,
+        cwd: repoRoot,
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_response: { stdout, stderr: "", interrupted: false },
+      },
+      { repoRoot },
+    );
+
+  it("inyecta una sola vez por sesión ante `cat` de un archivo del repo", () => {
+    const first = claudePost("cat src/components/x.tsx", "s-cat");
+    expect(first.inject).toBe(true);
+    expect(first.ruleId).toBe("remediate.native-read");
+    expect(first.context).toContain(READ_MSG);
+    expect(first.allowed).toBe(true);
+
+    const second = claudePost("cat src/components/y.tsx", "s-cat");
+    expect(second.inject).toBe(false);
+    expect(existsSync(path.join(telemetryDir, "native-read-s-cat.flag"))).toBe(true);
+  });
+
+  it.each(["head -n 40 src/x.ts", "tail -20 src/x.ts", "sed -n '1,80p' src/x.ts", "grep -n foo src/x.ts", "rg -n foo src"])(
+    "inyecta ante lectura/búsqueda por Bash: %s",
+    (command) => {
+      const r = claudePost(command, `s-${command}`);
+      expect(r.ruleId).toBe("remediate.native-read");
+      expect(r.context).toContain(READ_MSG);
+    },
+  );
+
+  it("`sed -i` sugiere `Edit`", () => {
+    const r = claudePost("sed -i 's/a/b/' src/x.ts", "s-sed-i");
+    expect(r.inject).toBe(true);
+    expect(r.ruleId).toBe("remediate.native-read");
+    expect(r.context).toBe("Usá `Edit`.");
+  });
+
+  it.each([
+    "git log --oneline | grep fix",
+    "grep -n foo src/x.ts | head -5",
+    "cat <<'EOF' > notes.md\nhola\nEOF",
+    "cat ~/.claude/settings.json",
+    "cat ../../outside.txt",
+    "sed 's/a/b/' src/x.ts",
+    "npm test",
+  ])("no inyecta: %s", (command) => {
+    const r = claudePost(command, `s-no-${command}`);
+    expect(r.ruleId).not.toBe("remediate.native-read");
+  });
+
+  it("evalúa el comando y no la salida (salida con «cat src/x.ts» literal)", () => {
+    const r = claudePost("git log -1", "s-output", "docs: cat src/x.ts\n");
+    expect(r.inject).toBe(false);
+  });
+
+  it("Antigravity no recibe inyección", () => {
+    const r = evaluateRules(
+      { phase: "post", kind: "shell", runtime: "antigravity", command: "cat src/x.ts", output: "", raw: {} },
+      { repoRoot },
+    );
+    expect(r.inject).toBe(false);
+  });
+
+  it("no pisa remediate.oversize-output ni consume la marca de sesión", () => {
+    const big = "x".repeat(20001);
+    const r = claudePost("cat src/big.ts", "s-oversize", big);
+    expect(r.ruleId).toBe("remediate.oversize-output");
+    expect(claudePost("cat src/big.ts", "s-oversize").ruleId).toBe("remediate.native-read");
+  });
+});
+
 describe("GOZS-780: remediate.cwd-lost solo sobre la salida y solo en Claude Code", () => {
   const post = (output: string, runtime = "claude-code", command = "cd foo") =>
     evaluateRules({ phase: "post", kind: "shell", runtime, command, output }, { repoRoot });
 
-  it("GIVEN el texto del error dentro de un JSON o archivo mostrado WHEN evaluatePost THEN no inyecta", () => {
-    expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "cat rules.json").inject).toBeFalsy();
-    expect(post("  - cd: x: No such file or directory en docs", "claude-code", "cat notes.md").inject).toBeFalsy();
-    expect(post("", "claude-code", "grep -n 'cd: .*: No such file or directory' rules.json").inject).toBeFalsy();
+  it("GIVEN el texto del error dentro de un JSON o archivo mostrado WHEN evaluatePost THEN no inyecta remediate.cwd-lost", () => {
+    // Comandos que no disparan remediate.native-read: no inyectan nada
+    expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "git show HEAD:rules.json").inject).toBeFalsy();
+    expect(post("  - cd: x: No such file or directory en docs", "claude-code", "git show HEAD:notes.md").inject).toBeFalsy();
+    expect(post("", "claude-code", "git log -S 'cd: .*: No such file or directory' --oneline").inject).toBeFalsy();
+    // Incluso con cat/grep (que pueden sugerir remediate.native-read), nunca dispara remediate.cwd-lost
+    const prevDir = process.env.HARNESS_TELEMETRY_DIR;
+    const tmpDir = mkdtempSync(path.join(tmpdir(), "gozs-780-"));
+    process.env.HARNESS_TELEMETRY_DIR = tmpDir;
+    try {
+      expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "cat rules.json").ruleId).not.toBe("remediate.cwd-lost");
+      expect(post("", "claude-code", "grep -n 'cd: .*: No such file or directory' rules.json").ruleId).not.toBe("remediate.cwd-lost");
+    } finally {
+      if (prevDir === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+      else process.env.HARNESS_TELEMETRY_DIR = prevDir;
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("GIVEN un cd que falla en Bash en Claude Code WHEN evaluatePost THEN inyecta el mensaje nuevo sin rutas absolutas", () => {

@@ -62,6 +62,12 @@ El agente arranca en `<workdir>` y el repo vive en `<workdir>/gozster`. Nunca es
   - **Claude Code:** usá `Read` con `offset` y `limit` (`<= 300`; recomendado `200`) o buscá primero con `Grep`.
 - **Evitar idas y vueltas (`rg ↔ lectura`):** para ubicar y editar sin leer archivos grandes enteros, buscá directamente con contexto: `rg -n -C 20 <patrón> <ruta>`.
 
+## Claude Code
+
+- **Tools nativos en lugar de Bash:** leé con `Read` (`offset`/`limit`), buscá con `Grep` (`-C`, `glob`, `output_mode`) y `Glob`, y editá con `Edit`. No necesitan `permissions.allow` y Multica no los deshabilita (solo lanza con `--disallowedTools AskUserQuestion`).
+- **Evitar por Bash:** `cat`, `head`, `tail`, `sed -n`, `grep`/`rg` sobre archivos del repo y `sed -i`. `rg -n` queda para runtimes sin búsqueda nativa.
+- **Aviso del guard (`remediate.native-read`):** si el primer tramo de un comando Bash lee o busca en archivos del repo sin pipe ni redirección, o edita con `sed -i`, el guard inyecta (una vez por sesión, sin bloquear) la sugerencia de `Read`/`Grep`/`Glob` o `Edit`. Evalúa el comando, nunca la salida.
+
 <!-- BEGIN GENERATED:HELPER_SCRIPTS -->
 <!-- Auto-populated by harness-render.mjs into .claude/skills/harness-tools/SKILL.md and .agents/skills/harness-tools/SKILL.md -->
 <!-- END GENERATED:HELPER_SCRIPTS -->
