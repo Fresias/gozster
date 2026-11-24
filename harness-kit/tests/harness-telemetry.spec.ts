@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { buildEvent, recordEvent, redactCmd, redactSecrets, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
+import { normalize } from "../core/guard/normalize.mjs";
+// @ts-expect-error - mjs module
+import { buildEvent, CMD_MAX, recordEvent, redactCmd, redactSecrets, relativizeForTelemetry, resolveSession, resolveTelemetryDir, sanitizePreview, stripAnsi } from "../core/guard/telemetry.mjs";
 // @ts-expect-error - mjs module
 import { evaluatePpcTrigger, filterEvents, formatSummary, isExcludedEvent, parseJsonl, percentile, summarize } from "../core/scripts/harness-telemetry.mjs";
 
@@ -112,10 +114,14 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(out).not.toContain("IUzI1NiIsInR5cCI6IkpXVCJ9");
   });
 
-  it("colapsa espacios y trunca a 120 caracteres", () => {
+  it("colapsa espacios y trunca a 300 caracteres (CMD_MAX)", () => {
+    expect(CMD_MAX).toBe(300);
     expect(redactCmd("a\n   b")).toBe("a b");
-    const long = "x".repeat(200);
-    expect(redactCmd(long).length).toBe(120);
+    const ok250 = "x".repeat(250);
+    expect(redactCmd(ok250)).toBe(ok250);
+    expect(redactCmd(ok250).length).toBe(250);
+    const long = "x".repeat(400);
+    expect(redactCmd(long).length).toBe(300);
   });
 
   it("recordEvent escribe la línea redactada en events.jsonl", () => {
@@ -139,28 +145,35 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
     expect(line.session).toBe("sess-1");
   });
 
-  it("registra eventos post solo cuando inyectan contexto", () => {
+  it("registra eventos post con inyección conservando inject y rule", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
     tempDirs.push(dir);
     recordEvent(
-      { runtime: "claude-code", kind: "shell", tool: "Bash", phase: "post", command: "git push", raw: {} },
+      { runtime: "claude-code", kind: "shell", tool: "Bash", phase: "post", command: "git push", toolUseId: "toolu_1", ok: true, raw: {} },
       { allowed: true, inject: true, ruleId: "git.gh007-noreply" },
       { dir },
     );
     const line = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))[0] as Record<string, unknown>;
+    expect(line.phase).toBe("post");
     expect(line.inject).toBe(true);
     expect(line.rule).toBe("git.gh007-noreply");
+    expect(line.id).toBe("toolu_1");
+    expect(line.ok).toBe(true);
   });
 
-  it("no registra eventos de fase post sin inyección", () => {
+  it("registra siempre eventos de fase post sin inyección con id y ok (GOZS-768)", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "harness-telemetry-"));
     tempDirs.push(dir);
     recordEvent(
-      { runtime: "claude-code", kind: "write", phase: "post", raw: {} },
+      { runtime: "claude-code", kind: "write", tool: "Write", phase: "post", targetPath: "src/a.ts", toolUseId: "toolu_2", ok: false, raw: {} },
       { allowed: true },
       { dir },
     );
-    expect(() => readFileSync(path.join(dir, "events.jsonl"), "utf8")).toThrow();
+    const line = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8"))[0] as Record<string, unknown>;
+    expect(line.phase).toBe("post");
+    expect(line.inject).toBe(false);
+    expect(line.id).toBe("toolu_2");
+    expect(line.ok).toBe(false);
   });
 
   describe("GOZS-530: redacción ampliada de secretos (tokens GitHub, URLs y Authorization)", () => {
@@ -178,13 +191,20 @@ describe("H-12: redacción de secretos (criterio 2)", () => {
       expect(out).toContain("Authorization: token [REDACTED]");
     });
 
-    it("GIVEN un token ubicado después del carácter 120 WHEN se redacta y trunca THEN el resultado no contiene ningún fragmento del token", () => {
-      const prefix = "echo " + "z".repeat(125) + " ";
+    it("GIVEN un token ubicado en la posición 280 o más allá de 300 WHEN se redacta y trunca THEN el token sale redactado y nunca recortado a la mitad", () => {
+      const prefix280 = "echo " + "z".repeat(274) + " ";
       const token = "ghp_VERYLONGSECRETTOKEN12345678901234";
-      const out = redactCmd(prefix + token);
-      expect(out).not.toContain("VERYLONG");
-      expect(out).not.toContain("ghp_");
-      expect(out.length).toBeLessThanOrEqual(120);
+      const out280 = redactCmd(prefix280 + token);
+      expect(out280).toContain("gh*_[REDACTED]");
+      expect(out280).not.toContain("VERYLONG");
+      expect(out280).not.toContain("ghp_");
+      expect(out280.length).toBeLessThanOrEqual(300);
+
+      const prefix305 = "echo " + "z".repeat(300) + " ";
+      const out305 = redactCmd(prefix305 + token);
+      expect(out305).not.toContain("VERYLONG");
+      expect(out305).not.toContain("ghp_");
+      expect(out305.length).toBeLessThanOrEqual(300);
     });
 
     it("GIVEN un comando sin secretos WHEN se redacta THEN queda igual (salvo espacios normalizados)", () => {
@@ -617,5 +637,180 @@ describe("GOZS-538 H-03: --since / --until y validación de argumentos en harnes
       exitCode = (e as { status?: number }).status ?? 1;
     }
     expect(exitCode).not.toBe(0);
+  });
+});
+
+describe("GOZS-768: fidelidad de telemetría (CMD_MAX 300, rutas relativas, rango, cwd, post/ok y search)", () => {
+  beforeEach(() => vi.stubEnv("HARNESS_TELEMETRY", "1"));
+
+  const workdir = path.join(homedir(), "multica_workspaces_desktop-api.multica.ai", "gozster-ws", "gozs-768", "workdir");
+  const repoRoot = path.join(workdir, "gozster");
+
+  it("GIVEN un comando de shell de 250 caracteres sin secretos WHEN se registra THEN cmd conserva los 250 caracteres", () => {
+    const cmd250 = "rg -n " + "a".repeat(244);
+    expect(cmd250.length).toBe(250);
+    const norm = normalize({ tool_name: "Bash", cwd: repoRoot, tool_input: { command: cmd250 }, tool_use_id: "toolu_250" });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toBe(cmd250);
+    expect(ev.cmd.length).toBe(250);
+  });
+
+  it("GIVEN un comando con un token en la posición 280 WHEN se registra THEN el token sale redactado y nunca recortado a la mitad", () => {
+    const secret = "sk-SUPERSECRETTOKEN1234567890ABCDEF";
+    const cmd = "echo " + "a".repeat(275) + secret;
+    expect(cmd.indexOf(secret)).toBe(280);
+    const norm = normalize({ tool_name: "Bash", cwd: repoRoot, tool_input: { command: cmd } });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toContain("sk-[REDACTED]");
+    expect(ev.cmd).not.toContain("SUPERSECRET");
+    expect(ev.cmd.length).toBeLessThanOrEqual(300);
+  });
+
+  it("GIVEN una lectura de <repoRoot>\\src\\components\\coach\\coach-studio-view.tsx (Windows) WHEN se registra THEN cmd = src/components/coach/coach-studio-view.tsx", () => {
+    const winRepo = "C:\\Users\\user\\multica_workspaces\\ws\\workdir\\gozster";
+    const winFile = `${winRepo}\\src\\components\\coach\\coach-studio-view.tsx`;
+    const norm = normalize({
+      toolCall: { name: "read_file", args: { Path: winFile, StartLine: 10, EndLine: 50 } },
+      workspacePaths: ["C:\\Users\\user\\multica_workspaces\\ws\\workdir"],
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot: winRepo });
+    expect(ev.cmd).toBe("src/components/coach/coach-studio-view.tsx");
+    expect(ev.start).toBe(10);
+    expect(ev.limit).toBe(41);
+    expect(ev.bounded).toBe(true);
+    expect(ev.cwd).toBe("<workdir>");
+  });
+
+  it("GIVEN Set-Location \"<workdir>\\gozster\"; rg -n foo src WHEN se registra THEN cmd = Set-Location \"<repo>\"; rg -n foo src", () => {
+    const winWorkdir = "C:\\Users\\user\\multica_workspaces\\ws\\workdir";
+    const winRepo = `${winWorkdir}\\gozster`;
+    const rawCmd = `Set-Location "${winWorkdir}\\gozster"; rg -n foo src`;
+    const norm = normalize({
+      toolCall: { name: "run_command", args: { CommandLine: rawCmd } },
+      workspacePaths: [winWorkdir],
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot: winRepo });
+    expect(ev.cmd).toBe('Set-Location "<repo>"; rg -n foo src');
+    expect(ev.cwd).toBe("<workdir>");
+  });
+
+  it("GIVEN rutas estilo POSIX y Windows mezcladas WHEN relativizeForTelemetry/buildEvent corren en cualquier OS THEN resuelven <repo> y <workdir> de forma cross-platform", () => {
+    const posixWorkdir = "/srv/multica/ws/workdir";
+    const posixRepo = `${posixWorkdir}/gozster`;
+    expect(relativizeForTelemetry(`cd "${posixRepo}" && cat "${posixWorkdir}/notes.txt"`, posixRepo)).toBe(
+      'cd "<repo>" && cat "<workdir>/notes.txt"',
+    );
+    const posixNorm = normalize({
+      toolCall: { name: "run_command", args: { CommandLine: `rg foo ${posixRepo}/src` } },
+      workspacePaths: [posixWorkdir],
+    });
+    const posixEv = buildEvent(posixNorm, { allowed: true }, { repoRoot: posixRepo });
+    expect(posixEv.cmd).toBe("rg foo <repo>/src");
+    expect(posixEv.cwd).toBe("<workdir>");
+
+    const winWorkdir = "C:\\Users\\user\\multica_workspaces\\ws\\workdir";
+    const winRepo = `${winWorkdir}\\gozster`;
+    expect(relativizeForTelemetry(winWorkdir, winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir.replace(/\\/g, "/"), winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir, winRepo.replace(/\\/g, "/"))).toBe("<workdir>");
+  });
+
+  it("GIVEN una ruta bajo el home fuera del repo WHEN se registra THEN empieza con ~/ y no expone el usuario", () => {
+    const home = homedir();
+    const userFolder = path.basename(home);
+    const outsideFile = path.join(home, "Documents", "notes.md");
+    const norm = normalize({
+      tool_name: "Read",
+      cwd: repoRoot,
+      tool_input: { file_path: outsideFile },
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cmd).toMatch(/^~\//);
+    expect(ev.cmd).toBe("~/Documents/notes.md");
+    expect(ev.cmd).not.toContain(userFolder);
+    expect(relativizeForTelemetry(outsideFile, repoRoot)).toMatch(/^~\//);
+  });
+
+  it("GIVEN un Read de Claude Code con offset: 100 y limit: 200 WHEN se registra THEN el evento tiene start: 100, limit: 200 y bounded: true", () => {
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Read",
+      tool_input: { file_path: path.join(repoRoot, "src", "app.ts"), offset: 100, limit: 200 },
+      tool_use_id: "toolu_read_1",
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.kind).toBe("read");
+    expect(ev.cmd).toBe("src/app.ts");
+    expect(ev.start).toBe(100);
+    expect(ev.limit).toBe(200);
+    expect(ev.bounded).toBe(true);
+    expect(ev.cwd).toBe("<repo>");
+    expect(ev.id).toBe("toolu_read_1");
+  });
+
+  it("GIVEN un run_command de Antigravity con workspacePaths[0] = <workdir> WHEN se registra THEN cwd = <workdir>", () => {
+    const norm = normalize({
+      conversationId: "conv-1",
+      workspacePaths: [workdir],
+      toolCall: { id: "call_123", name: "run_command", args: { CommandLine: "git status" } },
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.cwd).toBe("<workdir>");
+    expect(ev.id).toBe("call_123");
+    expect(ev.ok).toBeUndefined();
+  });
+
+  it("GIVEN Claude Code Grep con patrón con secreto y ruta dentro del repo WHEN se registra THEN kind='search', decision='allow', patrón redactado y ruta relativizada", () => {
+    const secret = "ghp_ABCDEFGHIJKLMNOPQRSTUVWX1234";
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Grep",
+      tool_input: { pattern: secret, path: path.join(repoRoot, "src", "lib", "api.ts") },
+      tool_use_id: "toolu_grep_1",
+    });
+    const ev = buildEvent(norm, { allowed: true }, { repoRoot });
+    expect(ev.kind).toBe("search");
+    expect(ev.decision).toBe("allow");
+    expect(ev.cmd).toContain("gh*_[REDACTED]");
+    expect(ev.cmd).toContain("src/lib/api.ts");
+    expect(ev.cmd).not.toContain(secret);
+    expect(ev.id).toBe("toolu_grep_1");
+  });
+
+  it("GIVEN eventos pre y post registrados en events.jsonl WHEN summarize() corre THEN actionsByKind excluye phase='post'", () => {
+    const dir = tempDir();
+    const pre = normalize({
+      session_id: "s-post",
+      hook_event_name: "PreToolUse",
+      cwd: repoRoot,
+      tool_name: "Bash",
+      tool_input: { command: "echo hi" },
+      tool_use_id: "toolu_pair_1",
+    });
+    const post = normalize({
+      session_id: "s-post",
+      hook_event_name: "PostToolUse",
+      cwd: repoRoot,
+      tool_name: "Bash",
+      tool_input: { command: "echo hi" },
+      tool_response: { stdout: "hi", stderr: "", interrupted: false },
+      tool_use_id: "toolu_pair_1",
+    });
+    recordEvent(pre, { allowed: true }, { dir, repoRoot });
+    recordEvent(post, { allowed: true }, { dir, repoRoot });
+
+    const events = parseJsonl(readFileSync(path.join(dir, "events.jsonl"), "utf8")) as Record<string, unknown>[];
+    expect(events).toHaveLength(2);
+    expect(events[0]!.phase).toBe("pre");
+    expect(events[0]!.id).toBe("toolu_pair_1");
+    expect(events[1]!.phase).toBe("post");
+    expect(events[1]!.id).toBe("toolu_pair_1");
+    expect(events[1]!.ok).toBe(true);
+
+    const summary = summarize(events);
+    expect(summary.totalEvents).toBe(2);
+    expect(summary.actionsByKind).toEqual({ shell: 1 });
   });
 });

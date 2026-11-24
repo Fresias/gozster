@@ -377,8 +377,8 @@ function toolNames(runtime, kinds) {
   const { tools } = JSON.parse(readFileSync(path.join(kitDir, "core", "runtimes", `${runtime}.json`), "utf8"));
   return kinds.flatMap((kind) => tools[kind] ?? []).map((tool) => tool.name);
 }
-const PRE_KINDS = ["shell", "read", "read_many", "write"];
-const POST_KINDS = ["shell", "write"];
+const PRE_KINDS = ["shell", "read", "read_many", "search", "write"];
+const POST_KINDS = ["shell", "read", "read_many", "search", "write"];
 
 if (runtimes.has("claude-code")) {
   generatedArtifacts.set("CLAUDE.md", "@AGENTS.md\n");
@@ -433,6 +433,17 @@ if (runtimes.has("claude-code")) {
         },
       ],
       PostToolUse: [
+        {
+          matcher: toolNames("claude-code", POST_KINDS).join("|"),
+          hooks: [
+            {
+              type: "command",
+              command: "bash .claude/hooks/guard.sh",
+            },
+          ],
+        },
+      ],
+      PostToolUseFailure: [
         {
           matcher: toolNames("claude-code", POST_KINDS).join("|"),
           hooks: [
@@ -503,6 +514,19 @@ if (runtimes.has("antigravity")) {
               // cwd = .agents/ (runtimes/antigravity.json): ruta relativa a la raíz. node y no bash: con
               // `cmd /c` el primer bash del PATH puede ser WSL (GOZS-513). Vale igual con `sh -c`.
               command: "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity",
+              timeout: 10,
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: toolNames("antigravity", POST_KINDS).join("|"),
+          hooks: [
+            {
+              type: "command",
+              // Telemetría post (duración y ok): stdout siempre {} sin inyectar ni alterar el resultado.
+              command: "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity --phase post",
               timeout: 10,
             },
           ],

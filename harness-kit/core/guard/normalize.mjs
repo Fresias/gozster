@@ -29,17 +29,24 @@ export function normalize(payload, options = {}) {
   let tool = "";
   let command = "";
   let filePath = "";
+  let pattern = "";
   let startLine;
   let endLine;
   let limit;
   let paths = [];
   let targetPath = "";
   let isEdit = false;
+  let cwd = "";
 
   if (runtime === "antigravity") {
     const tc = payload?.toolCall || {};
     tool = String(tc.name || "");
     const args = tc.args || {};
+    cwd = String(
+      (Array.isArray(payload?.workspacePaths) && payload.workspacePaths[0]) ||
+        payload?.cwd ||
+        "",
+    );
 
     if (tool === "run_command") {
       kind = "shell";
@@ -68,6 +75,7 @@ export function normalize(payload, options = {}) {
   } else if (runtime === "opencode") {
     tool = String(payload?.input?.tool || "");
     const args = payload?.output?.args || payload?.input?.args || {};
+    cwd = String(payload?.cwd || payload?.input?.cwd || "");
 
     if (tool === "bash") {
       kind = "shell";
@@ -75,6 +83,7 @@ export function normalize(payload, options = {}) {
     } else if (tool === "read") {
       kind = "read";
       filePath = String(args.filePath || args.file_path || "");
+      startLine = parseOptionalInt(args.offset);
       limit = parseOptionalInt(args.limit);
     } else if (["write", "edit", "apply_patch"].includes(tool)) {
       kind = "write";
@@ -84,6 +93,7 @@ export function normalize(payload, options = {}) {
   } else if (runtime === "gemini-cli") {
     tool = String(payload?.tool_name || "");
     const args = payload?.tool_input || {};
+    cwd = String(payload?.cwd || "");
 
     if (tool === "run_shell_command") {
       kind = "shell";
@@ -115,6 +125,7 @@ export function normalize(payload, options = {}) {
     // Claude Code default
     tool = String(payload?.tool_name || "");
     const args = payload?.tool_input || {};
+    cwd = String(payload?.cwd || "");
 
     // PowerShell es el shell nativo de Claude Code en Windows: mismo guard que Bash.
     if (tool === "Bash" || tool === "PowerShell") {
@@ -123,7 +134,12 @@ export function normalize(payload, options = {}) {
     } else if (tool === "Read") {
       kind = "read";
       filePath = String(args.file_path || args.absolute_path || "");
+      startLine = parseOptionalInt(args.offset);
       limit = parseOptionalInt(args.limit);
+    } else if (tool === "Grep" || tool === "Glob") {
+      kind = "search";
+      pattern = String(args.pattern || "");
+      filePath = String(args.path || "");
     } else if (["Write", "Edit", "NotebookEdit"].includes(tool)) {
       kind = "write";
       targetPath = String(args.file_path || args.notebook_path || "");
@@ -135,8 +151,8 @@ export function normalize(payload, options = {}) {
 
   let phase = options.phase || "pre";
   if (!options.phase) {
-    const event = payload?.hook_event_name;
-    if (event === "PostToolUse" || event === "AfterTool") {
+    const event = payload?.hook_event_name || payload?.hookEventName;
+    if (event === "PostToolUse" || event === "PostToolUseFailure" || event === "AfterTool") {
       phase = "post";
     } else if (
       payload?.input?.tool &&
@@ -145,8 +161,22 @@ export function normalize(payload, options = {}) {
       phase = "post";
     } else if (payload?.tool_response || payload?.toolResponse) {
       phase = "post";
+    } else if (
+      runtime === "antigravity" &&
+      payload &&
+      Object.prototype.hasOwnProperty.call(payload, "error")
+    ) {
+      phase = "post";
     }
   }
+
+  const toolUseId = String(
+    payload?.tool_use_id ||
+      payload?.toolCall?.id ||
+      payload?.input?.callID ||
+      payload?.call_id ||
+      "",
+  );
 
   let output = "";
   if (payload?.tool_response) {
@@ -170,12 +200,46 @@ export function normalize(payload, options = {}) {
     }
   }
 
+  let error = "";
+  let ok;
+  if (phase === "post" || phase === "result") {
+    const rawError = payload?.error ?? payload?.tool_response?.error ?? payload?.output?.error;
+    if (typeof rawError === "string") {
+      error = rawError.trim();
+    } else if (rawError && typeof rawError === "object") {
+      error = String(rawError.message || JSON.stringify(rawError));
+    }
+
+    const hookEvent = payload?.hook_event_name || payload?.hookEventName;
+    const resp = payload?.tool_response;
+    const exitCode =
+      typeof resp?.exit_code === "number"
+        ? resp.exit_code
+        : typeof resp?.exitCode === "number"
+          ? resp.exitCode
+          : typeof payload?.output?.metadata?.exit === "number"
+            ? payload.output.metadata.exit
+            : undefined;
+
+    const failed =
+      hookEvent === "PostToolUseFailure" ||
+      payload?.is_interrupt === true ||
+      Boolean(error) ||
+      resp?.interrupted === true ||
+      resp?.is_error === true ||
+      resp?.isError === true ||
+      (typeof exitCode === "number" && exitCode !== 0);
+
+    ok = !failed;
+  }
+
   return {
     runtime,
     kind,
     tool,
     command,
     filePath,
+    pattern,
     startLine,
     endLine,
     limit,
@@ -183,8 +247,12 @@ export function normalize(payload, options = {}) {
     paths,
     targetPath,
     isEdit,
+    cwd,
+    toolUseId,
     phase,
     output,
+    error,
+    ok,
     raw: payload,
   };
 }
