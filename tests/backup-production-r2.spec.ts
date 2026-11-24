@@ -657,7 +657,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
 
     function splitYamlKeyValue(text: string): { key: string; rest: string } {
       const match = /^([A-Za-z0-9_.-]+):(?:\s+(.*))?$/.exec(text);
-      if (!match) {
+      if (!match || !match[1]) {
         throw new Error(`Invalid YAML mapping entry: ${text}`);
       }
       return { key: match[1], rest: (match[2] ?? "").trim() };
@@ -670,16 +670,21 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
     function parseWorkflowYaml(source: string): Record<string, YamlValue> {
       const rawLines = source.replace(/\r\n/g, "\n").split("\n");
       for (let i = 0; i < rawLines.length; i++) {
-        if (/^\s*\t/.test(rawLines[i])) {
+        const rawLine = rawLines[i] ?? "";
+        if (/^\s*\t/.test(rawLine)) {
           throw new Error(`YAML indentation must not use tabs (line ${i + 1})`);
         }
       }
 
       let cursor = 0;
 
+      function currentLine(): string {
+        return rawLines[cursor] ?? "";
+      }
+
       function skipIgnorable(): void {
         while (cursor < rawLines.length) {
-          const trimmed = rawLines[cursor].trim();
+          const trimmed = currentLine().trim();
           if (trimmed === "" || trimmed.startsWith("#")) {
             cursor++;
           } else {
@@ -698,7 +703,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
         const blockLines: string[] = [];
         let blockIndent: number | null = null;
         while (cursor < rawLines.length) {
-          const line = rawLines[cursor];
+          const line = currentLine();
           if (line.trim() === "") {
             blockLines.push("");
             cursor++;
@@ -722,7 +727,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       function parseNode(expectedIndent: number): YamlValue {
         skipIgnorable();
         if (cursor >= rawLines.length) return null;
-        const line = rawLines[cursor];
+        const line = currentLine();
         const ind = indentOf(line);
         if (ind < expectedIndent) return null;
         if (line.slice(ind).startsWith("- ")) {
@@ -736,7 +741,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
         while (cursor < rawLines.length) {
           skipIgnorable();
           if (cursor >= rawLines.length) break;
-          const line = rawLines[cursor];
+          const line = currentLine();
           const ind = indentOf(line);
           if (ind < seqIndent) break;
           if (ind > seqIndent) {
@@ -757,7 +762,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
             while (cursor < rawLines.length) {
               skipIgnorable();
               if (cursor >= rawLines.length) break;
-              const nextLine = rawLines[cursor];
+              const nextLine = currentLine();
               const nextInd = indentOf(nextLine);
               if (nextInd < itemIndent) break;
               if (nextInd > itemIndent) {
@@ -789,7 +794,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
         }
         skipIgnorable();
         if (cursor >= rawLines.length) return null;
-        const nextInd = indentOf(rawLines[cursor]);
+        const nextInd = indentOf(currentLine());
         if (nextInd <= keyIndent) return null;
         return parseNode(nextInd);
       }
@@ -799,7 +804,7 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
         while (cursor < rawLines.length) {
           skipIgnorable();
           if (cursor >= rawLines.length) break;
-          const line = rawLines[cursor];
+          const line = currentLine();
           const ind = indentOf(line);
           if (ind < mapIndent) break;
           if (ind > mapIndent) {
@@ -851,8 +856,9 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       });
 
       const jobs = workflow.jobs as Record<string, Record<string, YamlValue>>;
-      expect(jobs.backup).toBeTruthy();
       const backupJob = jobs.backup;
+      expect(backupJob).toBeTruthy();
+      if (!backupJob) throw new Error("Missing jobs.backup in backup-production.yml");
       expect(backupJob["runs-on"]).toBe("ubuntu-latest");
       expect(backupJob["timeout-minutes"]).toBe(20);
       expect(backupJob.environment).toBe("production");
@@ -909,8 +915,10 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       // Paridad exacta con el bloque canónico de docs/architecture/backups-r2.md §2.3
       const doc = readFileSync(runbookPath, "utf8");
       const canonicalMatch = /### 2\.3\.[^\n]*\r?\n\r?\n```yaml\r?\n([\s\S]*?)\r?\n```/.exec(doc);
-      expect(canonicalMatch).not.toBeNull();
-      expect(raw.replace(/\r\n/g, "\n").trim()).toBe(canonicalMatch![1].replace(/\r\n/g, "\n").trim());
+      const canonicalYaml = canonicalMatch?.[1];
+      expect(canonicalYaml).toBeTruthy();
+      if (!canonicalYaml) throw new Error("Missing canonical YAML block in docs/architecture/backups-r2.md §2.3");
+      expect(raw.replace(/\r\n/g, "\n").trim()).toBe(canonicalYaml.replace(/\r\n/g, "\n").trim());
     });
 
     it("GIVEN los bloques run: de .github/workflows/backup-production.yml THEN nunca interpola ${{ secrets.* }}, no usa curl|sh ni filtra secretos", () => {
