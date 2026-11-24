@@ -630,4 +630,315 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       }
     });
   });
+
+  describe("GOZS-800: Contrato de .github/workflows/backup-production.yml", () => {
+    type YamlValue = string | number | boolean | null | YamlValue[] | { [key: string]: YamlValue };
+
+    function parseYamlScalar(raw: string): string | number | boolean | null {
+      const value = raw.trim();
+      if (value === "" || value === "null" || value === "~") return null;
+      if (value === "true") return true;
+      if (value === "false") return false;
+      if (/^-?\d+$/.test(value)) return Number.parseInt(value, 10);
+      if (value.startsWith('"')) {
+        if (!value.endsWith('"') || value.length < 2) {
+          throw new Error(`Invalid double-quoted YAML scalar: ${value}`);
+        }
+        return JSON.parse(value) as string;
+      }
+      if (value.startsWith("'")) {
+        if (!value.endsWith("'") || value.length < 2) {
+          throw new Error(`Invalid single-quoted YAML scalar: ${value}`);
+        }
+        return value.slice(1, -1).replace(/''/g, "'");
+      }
+      return value;
+    }
+
+    function splitYamlKeyValue(text: string): { key: string; rest: string } {
+      const match = /^([A-Za-z0-9_.-]+):(?:\s+(.*))?$/.exec(text);
+      if (!match || !match[1]) {
+        throw new Error(`Invalid YAML mapping entry: ${text}`);
+      }
+      return { key: match[1], rest: (match[2] ?? "").trim() };
+    }
+
+    /**
+     * Strict zero-dependency YAML parser for GitHub Actions workflow files
+     * (mappings, sequences, literal/folded block scalars, quoted scalars, comments).
+     */
+    function parseWorkflowYaml(source: string): Record<string, YamlValue> {
+      const rawLines = source.replace(/\r\n/g, "\n").split("\n");
+      for (let i = 0; i < rawLines.length; i++) {
+        const rawLine = rawLines[i] ?? "";
+        if (/^\s*\t/.test(rawLine)) {
+          throw new Error(`YAML indentation must not use tabs (line ${i + 1})`);
+        }
+      }
+
+      let cursor = 0;
+
+      function currentLine(): string {
+        return rawLines[cursor] ?? "";
+      }
+
+      function skipIgnorable(): void {
+        while (cursor < rawLines.length) {
+          const trimmed = currentLine().trim();
+          if (trimmed === "" || trimmed.startsWith("#")) {
+            cursor++;
+          } else {
+            break;
+          }
+        }
+      }
+
+      function indentOf(line: string): number {
+        let count = 0;
+        while (count < line.length && line[count] === " ") count++;
+        return count;
+      }
+
+      function readBlockScalar(parentIndent: number, style: "|" | ">"): string {
+        const blockLines: string[] = [];
+        let blockIndent: number | null = null;
+        while (cursor < rawLines.length) {
+          const line = currentLine();
+          if (line.trim() === "") {
+            blockLines.push("");
+            cursor++;
+            continue;
+          }
+          const ind = indentOf(line);
+          if (ind <= parentIndent) break;
+          if (blockIndent === null) blockIndent = ind;
+          if (ind < blockIndent) {
+            throw new Error(`Inconsistent indentation inside YAML block scalar (line ${cursor + 1})`);
+          }
+          blockLines.push(line.slice(blockIndent));
+          cursor++;
+        }
+        while (blockLines.length > 0 && blockLines[blockLines.length - 1] === "") {
+          blockLines.pop();
+        }
+        return style === "|" ? blockLines.join("\n") : blockLines.join(" ");
+      }
+
+      function parseNode(expectedIndent: number): YamlValue {
+        skipIgnorable();
+        if (cursor >= rawLines.length) return null;
+        const line = currentLine();
+        const ind = indentOf(line);
+        if (ind < expectedIndent) return null;
+        if (line.slice(ind).startsWith("- ")) {
+          return parseSequence(ind);
+        }
+        return parseMapping(ind);
+      }
+
+      function parseSequence(seqIndent: number): YamlValue[] {
+        const items: YamlValue[] = [];
+        while (cursor < rawLines.length) {
+          skipIgnorable();
+          if (cursor >= rawLines.length) break;
+          const line = currentLine();
+          const ind = indentOf(line);
+          if (ind < seqIndent) break;
+          if (ind > seqIndent) {
+            throw new Error(`Unexpected sequence indentation at line ${cursor + 1}`);
+          }
+          const content = line.slice(ind);
+          if (!content.startsWith("- ")) break;
+          const afterDash = content.slice(2).trim();
+          cursor++;
+
+          if (afterDash === "") {
+            items.push(parseNode(seqIndent + 2));
+          } else if (/^[A-Za-z0-9_.-]+:(?:\s+.*)?$/.test(afterDash)) {
+            const obj: Record<string, YamlValue> = {};
+            const { key, rest } = splitYamlKeyValue(afterDash);
+            const itemIndent = seqIndent + 2;
+            obj[key] = parseMappingValue(rest, itemIndent);
+            while (cursor < rawLines.length) {
+              skipIgnorable();
+              if (cursor >= rawLines.length) break;
+              const nextLine = currentLine();
+              const nextInd = indentOf(nextLine);
+              if (nextInd < itemIndent) break;
+              if (nextInd > itemIndent) {
+                throw new Error(`Unexpected mapping indentation inside sequence item at line ${cursor + 1}`);
+              }
+              const nextContent = nextLine.slice(nextInd);
+              if (nextContent.startsWith("- ")) break;
+              const entry = splitYamlKeyValue(nextContent);
+              if (Object.prototype.hasOwnProperty.call(obj, entry.key)) {
+                throw new Error(`Duplicate YAML key "${entry.key}" at line ${cursor + 1}`);
+              }
+              cursor++;
+              obj[entry.key] = parseMappingValue(entry.rest, itemIndent);
+            }
+            items.push(obj);
+          } else {
+            items.push(parseYamlScalar(afterDash));
+          }
+        }
+        return items;
+      }
+
+      function parseMappingValue(rest: string, keyIndent: number): YamlValue {
+        if (rest === "|" || rest === ">") {
+          return readBlockScalar(keyIndent, rest);
+        }
+        if (rest !== "") {
+          return parseYamlScalar(rest);
+        }
+        skipIgnorable();
+        if (cursor >= rawLines.length) return null;
+        const nextInd = indentOf(currentLine());
+        if (nextInd <= keyIndent) return null;
+        return parseNode(nextInd);
+      }
+
+      function parseMapping(mapIndent: number): Record<string, YamlValue> {
+        const obj: Record<string, YamlValue> = {};
+        while (cursor < rawLines.length) {
+          skipIgnorable();
+          if (cursor >= rawLines.length) break;
+          const line = currentLine();
+          const ind = indentOf(line);
+          if (ind < mapIndent) break;
+          if (ind > mapIndent) {
+            throw new Error(`Unexpected mapping indentation at line ${cursor + 1}`);
+          }
+          const content = line.slice(ind);
+          if (content.startsWith("- ")) {
+            throw new Error(`Unexpected sequence item inside mapping at line ${cursor + 1}`);
+          }
+          const { key, rest } = splitYamlKeyValue(content);
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            throw new Error(`Duplicate YAML key "${key}" at line ${cursor + 1}`);
+          }
+          cursor++;
+          obj[key] = parseMappingValue(rest, mapIndent);
+        }
+        return obj;
+      }
+
+      const root = parseNode(0);
+      skipIgnorable();
+      if (cursor < rawLines.length) {
+        throw new Error(`Unparsed trailing YAML content at line ${cursor + 1}`);
+      }
+      if (!root || typeof root !== "object" || Array.isArray(root)) {
+        throw new Error("Workflow YAML root must be a mapping");
+      }
+      return root;
+    }
+
+    it("GIVEN .github/workflows/backup-production.yml THEN existe, es YAML válido y cumple la especificación canónica de docs/architecture/backups-r2.md §2.3", () => {
+      expect(existsSync(workflowPath)).toBe(true);
+      const raw = readFileSync(workflowPath, "utf8");
+      const workflow = parseWorkflowYaml(raw);
+
+      expect(workflow.name).toBe("Backup Production");
+
+      const onBlock = workflow.on as Record<string, YamlValue>;
+      expect(onBlock).toBeTruthy();
+      expect(Object.prototype.hasOwnProperty.call(onBlock, "workflow_dispatch")).toBe(true);
+      const schedule = onBlock.schedule as Array<Record<string, YamlValue>>;
+      expect(Array.isArray(schedule)).toBe(true);
+      expect(schedule).toContainEqual({ cron: "0 6 * * *" });
+
+      const concurrency = workflow.concurrency as Record<string, YamlValue>;
+      expect(concurrency).toEqual({
+        group: "backup-production",
+        "cancel-in-progress": false,
+      });
+
+      const jobs = workflow.jobs as Record<string, Record<string, YamlValue>>;
+      const backupJob = jobs.backup;
+      expect(backupJob).toBeTruthy();
+      if (!backupJob) throw new Error("Missing jobs.backup in backup-production.yml");
+      expect(backupJob["runs-on"]).toBe("ubuntu-latest");
+      expect(backupJob["timeout-minutes"]).toBe(20);
+      expect(backupJob.environment).toBe("production");
+      expect(backupJob.if).toBe(
+        "github.event_name == 'workflow_dispatch' || vars.PRODUCTION_BACKUP_ENABLED == 'true'"
+      );
+      expect(backupJob.permissions).toEqual({ contents: "read" });
+
+      const steps = backupJob.steps as Array<Record<string, YamlValue>>;
+      expect(Array.isArray(steps)).toBe(true);
+      expect(steps.length).toBe(4);
+
+      // Consistencia con ci.yml / deploy-production.yml: actions/checkout@v7
+      const checkoutStep = steps.find((step) => step.uses === "actions/checkout@v7");
+      expect(checkoutStep).toBeTruthy();
+      expect(raw).not.toMatch(/uses:\s*actions\/(checkout|setup-node)@v4/);
+
+      const requiredSecrets = [
+        "SUPABASE_DB_URL",
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET_NAME",
+        "BACKUP_ENCRYPTION_PASSPHRASE",
+      ];
+
+      const validateStep = steps.find(
+        (step) => typeof step.run === "string" && step.run.includes("bash scripts/backup-restore-verify.sh validate-env")
+      );
+      expect(validateStep).toBeTruthy();
+      expect(validateStep?.shell).toBe("bash");
+      const validateEnv = validateStep?.env as Record<string, YamlValue>;
+      for (const secret of requiredSecrets) {
+        expect(validateEnv[secret]).toBe(`\${{ secrets.${secret} }}`);
+      }
+
+      const installStep = steps.find(
+        (step) => typeof step.run === "string" && step.run.includes("postgresql-client-17")
+      );
+      expect(installStep).toBeTruthy();
+      expect(installStep?.shell).toBe("bash");
+      expect(String(installStep?.run)).toContain("set -euo pipefail");
+
+      const runStep = steps.find(
+        (step) => typeof step.run === "string" && step.run.includes("bash scripts/backup-restore-verify.sh run")
+      );
+      expect(runStep).toBeTruthy();
+      expect(runStep?.shell).toBe("bash");
+      const runEnv = runStep?.env as Record<string, YamlValue>;
+      for (const secret of requiredSecrets) {
+        expect(runEnv[secret]).toBe(`\${{ secrets.${secret} }}`);
+      }
+
+      // Paridad exacta con el bloque canónico de docs/architecture/backups-r2.md §2.3
+      const doc = readFileSync(runbookPath, "utf8");
+      const canonicalMatch = /### 2\.3\.[^\n]*\r?\n\r?\n```yaml\r?\n([\s\S]*?)\r?\n```/.exec(doc);
+      const canonicalYaml = canonicalMatch?.[1];
+      expect(canonicalYaml).toBeTruthy();
+      if (!canonicalYaml) throw new Error("Missing canonical YAML block in docs/architecture/backups-r2.md §2.3");
+      expect(raw.replace(/\r\n/g, "\n").trim()).toBe(canonicalYaml.replace(/\r\n/g, "\n").trim());
+    });
+
+    it("GIVEN los bloques run: de .github/workflows/backup-production.yml THEN nunca interpola ${{ secrets.* }}, no usa curl|sh ni filtra secretos", () => {
+      expect(existsSync(workflowPath)).toBe(true);
+      const raw = readFileSync(workflowPath, "utf8");
+      const workflow = parseWorkflowYaml(raw);
+      const jobs = workflow.jobs as Record<string, Record<string, YamlValue>>;
+
+      for (const job of Object.values(jobs)) {
+        const steps = (job.steps as Array<Record<string, YamlValue>>) ?? [];
+        for (const step of steps) {
+          if (typeof step.run !== "string") continue;
+          expect(step.run).not.toMatch(/\$\{\{\s*secrets\./);
+          expect(step.run).not.toMatch(/\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba)?sh\b/i);
+          expect(step.run).not.toMatch(/\bset\s+-x\b/);
+          expect(step.run).not.toMatch(
+            /\becho\b[^\n]*(SUPABASE_DB_URL|R2_ACCOUNT_ID|R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2_BUCKET_NAME|BACKUP_ENCRYPTION_PASSPHRASE)/
+          );
+        }
+      }
+    });
+  });
 });
