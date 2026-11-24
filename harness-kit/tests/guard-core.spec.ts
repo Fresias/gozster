@@ -1082,7 +1082,15 @@ describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)
     expect(existsSync(path.join(telemetryDir, "native-read-s-cat.flag"))).toBe(true);
   });
 
-  it.each(["head -n 40 src/x.ts", "tail -20 src/x.ts", "sed -n '1,80p' src/x.ts", "grep -n foo src/x.ts", "rg -n foo src"])(
+  it.each([
+    "head -n 40 src/x.ts",
+    "tail -20 src/x.ts",
+    "sed -n '1,80p' src/x.ts",
+    "grep -n foo src/x.ts",
+    "grep -n foo src/x.ts | head -5",
+    "sed -n 1,80p src/x.ts | head",
+    "rg -n foo src",
+  ])(
     "inyecta ante lectura/búsqueda por Bash: %s",
     (command) => {
       const r = claudePost(command, `s-${command}`);
@@ -1100,7 +1108,7 @@ describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)
 
   it.each([
     "git log --oneline | grep fix",
-    "grep -n foo src/x.ts | head -5",
+    "cat src/x.json | jq .",
     "cat <<'EOF' > notes.md\nhola\nEOF",
     "cat ~/.claude/settings.json",
     "cat ../../outside.txt",
