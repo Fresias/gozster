@@ -9,6 +9,7 @@
  * Usage:
  *   node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl]
  *     [--since <ISO>] [--until <ISO>] [--idle-min <N>] [--json]
+ *     [--exclude-kind <kind>]... [--exclude-rule <id>]...
  *     [--deep [--top <N>] [--out <DIR>] [--repo <DIR>] [--no-examples]]
  *     [--help]
  * Defaults to the guard's telemetry dir for the current directory (see resolveTelemetryDir).
@@ -35,22 +36,60 @@ export function isExcludedEvent(e) {
   return SYNTHETIC_SESSION_RE.test(String(e.session || ""));
 }
 
+function normalizeStringList(input) {
+  if (!input) return [];
+  const raw = input instanceof Set ? [...input] : Array.isArray(input) ? input : [input];
+  const out = [];
+  const seen = new Set();
+  for (const v of raw) {
+    const s = String(v ?? "").trim();
+    if (s && !seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
 /**
- * Filter events excluding canary/synthetic sessions and applying optional [since, until) bounds.
+ * Filter events excluding canary/synthetic sessions, optional [since, until) bounds,
+ * and optional excluded kinds (dropping both actions and their paired `post` events).
  * @param {object[]} events
- * @param {{ since?: string | null, until?: string | null }} [options]
+ * @param {{ since?: string | null, until?: string | null, excludeKinds?: string[] | Set<string> | null }} [options]
  */
 export function filterEvents(events, options = {}) {
   const list = Array.isArray(events) ? events : [];
   const sinceMs = options.since != null ? Date.parse(options.since) : null;
   const untilMs = options.until != null ? Date.parse(options.until) : null;
-  return list.filter((e) => {
+  const excludeKindSet = new Set(normalizeStringList(options.excludeKinds));
+
+  const inWindow = list.filter((e) => {
     if (isExcludedEvent(e)) return false;
     if (sinceMs !== null || untilMs !== null) {
       const ts = Date.parse(e?.ts);
       if (!Number.isFinite(ts)) return false;
       if (sinceMs !== null && ts < sinceMs) return false;
       if (untilMs !== null && ts >= untilMs) return false;
+    }
+    return true;
+  });
+
+  if (excludeKindSet.size === 0) return inWindow;
+
+  // Track ids of excluded pre events so paired post events are dropped even if they omit `kind`.
+  const excludedPreIds = new Set();
+  for (const e of inWindow) {
+    if (e?.phase !== "post" && excludeKindSet.has(e?.kind || "other")) {
+      const id = e?.id != null ? String(e.id).trim() : "";
+      if (id) excludedPreIds.add(`${e?.session || "unknown"}\u0000${id}`);
+    }
+  }
+
+  return inWindow.filter((e) => {
+    if (excludeKindSet.has(e?.kind || "other")) return false;
+    if (e?.phase === "post") {
+      const id = e?.id != null ? String(e.id).trim() : "";
+      if (id && excludedPreIds.has(`${e?.session || "unknown"}\u0000${id}`)) return false;
     }
     return true;
   });
@@ -202,7 +241,13 @@ export function pairPrePostEvents(events) {
  * compare `totalActions` (`phase !== "post"`, L-001 baseline: 24,315) because post hooks
  * add `phase: "post"` entries to `events.jsonl`.
  * @param {object[]} events
- * @param {{ since?: string | null, until?: string | null, idleMin?: number }} [options]
+ * @param {{
+ *   since?: string | null,
+ *   until?: string | null,
+ *   idleMin?: number,
+ *   excludeKinds?: string[] | Set<string> | null,
+ *   excludeRules?: string[] | Set<string> | null,
+ * }} [options]
  */
 export function summarize(events, options = {}) {
   const idleMin = options.idleMin ?? DEFAULT_IDLE_MIN;
@@ -210,6 +255,9 @@ export function summarize(events, options = {}) {
     throw new Error(`Invalid idleMin: ${idleMin}`);
   }
   const idleThresholdMs = idleMin * 60_000;
+  const excludedKinds = normalizeStringList(options.excludeKinds);
+  const excludedRules = normalizeStringList(options.excludeRules);
+  const excludedRuleSet = new Set(excludedRules);
 
   const list = filterEvents(events, options);
 
@@ -217,6 +265,7 @@ export function summarize(events, options = {}) {
   const blocksByRule = {};
   const injectionsByRule = {};
   let totalActions = 0;
+  let totalBlocks = 0;
   let postEvents = 0;
   let outcomesEvaluated = 0;
   let outcomesFailed = 0;
@@ -270,7 +319,8 @@ export function summarize(events, options = {}) {
       injectionsByRule[e.rule] = (injectionsByRule[e.rule] || 0) + 1;
     }
 
-    if (e.decision === "block" && e.rule) {
+    if (e.decision === "block" && e.rule && !excludedRuleSet.has(e.rule)) {
+      totalBlocks++;
       blocksByRule[e.rule] = (blocksByRule[e.rule] || 0) + 1;
       s.blocksByRule[e.rule] = (s.blocksByRule[e.rule] || 0) + 1;
       r.blocksByRule[e.rule] = (r.blocksByRule[e.rule] || 0) + 1;
@@ -412,11 +462,16 @@ export function summarize(events, options = {}) {
       ]),
   );
 
+  const blocksPerSession = sessions.size > 0 ? Math.round((totalBlocks / sessions.size) * 100) / 100 : 0;
+
   return {
     totalEvents: list.length,
     totalActions,
     postEvents,
     totalSessions: sessions.size,
+    blocksPerSession,
+    excludedKinds,
+    excludedRules,
     byRuntime,
     actionsByKind: byCountDesc(actionsByKind),
     blocksByRule: byCountDesc(blocksByRule),
@@ -456,7 +511,7 @@ export function summarize(events, options = {}) {
       },
     },
     repeatedBlockSessions,
-    ppcTrigger: evaluatePpcTrigger(list, 2),
+    ppcTrigger: evaluatePpcTrigger(list, 2, { excludeRules: excludedRules }),
   };
 }
 
@@ -464,12 +519,13 @@ export function summarize(events, options = {}) {
  * Evaluates telemetry for repeated failures and signals whether a PPC probe should be triggered.
  * Trigger criteria: >= threshold repeated blocks on the same rule in a session.
  */
-export function evaluatePpcTrigger(events, threshold = 2) {
-  const list = filterEvents(events);
+export function evaluatePpcTrigger(events, threshold = 2, options = {}) {
+  const list = filterEvents(events, options);
+  const excludedRuleSet = new Set(normalizeStringList(options.excludeRules));
   const sessionRuleBlocks = new Map();
 
   for (const e of list) {
-    if (e.decision === "block" && e.rule) {
+    if (e.decision === "block" && e.rule && !excludedRuleSet.has(e.rule)) {
       const sess = e.session || "default";
       const key = `${sess}::${e.rule}`;
       sessionRuleBlocks.set(key, (sessionRuleBlocks.get(key) || 0) + 1);
@@ -520,7 +576,16 @@ export function formatSummary(summary) {
     ? `  active ${round1(act.totalMs / 3_600_000)}h (p50 ${act.p50Ms != null ? round1(act.p50Ms / 60_000) : 0}m, idle<=${act.idleThresholdMin}m)`
     : "";
 
-  lines.push("Harness telemetry summary");
+  const excludedKinds = summary.excludedKinds || [];
+  const excludedRules = summary.excludedRules || [];
+  const filterTags = [];
+  if (excludedKinds.length > 0) filterTags.push(`excluidos: ${excludedKinds.join(", ")}`);
+  if (excludedRules.length > 0) filterTags.push(`reglas excluidas: ${excludedRules.join(", ")}`);
+  const filterSuffix = filterTags.length > 0 ? `  (${filterTags.join(" · ")})` : "";
+  const totalBlocks = Object.values(summary.blocksByRule || {}).reduce((a, b) => a + b, 0);
+  const bps = summary.blocksPerSession ?? (summary.totalSessions > 0 ? Math.round((totalBlocks / summary.totalSessions) * 100) / 100 : 0);
+
+  lines.push(`Harness telemetry summary${filterSuffix}`);
   lines.push(`  events:   ${summary.totalEvents}  (actions ${totalActions}, post ${postEvents})`);
   lines.push(`  sessions: ${summary.totalSessions}${activePart}`);
 
@@ -542,7 +607,7 @@ export function formatSummary(summary) {
 
   lines.push("");
   lines.push("[OBSERVATION]");
-  lines.push("  Blocks by rule:");
+  lines.push(`  Blocks by rule (${totalBlocks} total, ${bps}/session):`);
   pushCounts(lines, Object.entries(summary.blocksByRule));
   lines.push("  Injections by rule:");
   pushCounts(lines, Object.entries(summary.injectionsByRule));
@@ -584,16 +649,18 @@ function printUsage() {
       "Usage: node harness-kit/core/scripts/harness-telemetry.mjs [events.jsonl] [options]",
       "",
       "Options:",
-      "  --since <ISO>       Inclusive lower timestamp bound",
-      "  --until <ISO>       Exclusive upper timestamp bound",
-      "  --idle-min <N>      Inactivity gap threshold in minutes (default: 15)",
-      "  --json              Output JSON to stdout",
-      "  --deep              Run deep-dive report (writes deep-dive.md and deep-dive.json)",
-      "  --top <N>           Ranking length for --deep (default: 20)",
-      "  --out <DIR>         Output directory for --deep (default: <telemetryDir>/deep-dive)",
-      "  --repo <DIR>        Repository root for --deep (default: cwd)",
-      "  --no-examples       Omit raw command examples in --deep report",
-      "  -h, --help          Show this help message",
+      "  --since <ISO>           Inclusive lower timestamp bound",
+      "  --until <ISO>           Exclusive upper timestamp bound",
+      "  --idle-min <N>          Inactivity gap threshold in minutes (default: 15)",
+      "  --exclude-kind <kind>   Exclude actions of this kind and their post events (repeatable)",
+      "  --exclude-rule <id>     Exclude this rule from block counts (action still counts; repeatable)",
+      "  --json                  Output JSON to stdout",
+      "  --deep                  Run deep-dive report (writes deep-dive.md and deep-dive.json)",
+      "  --top <N>               Ranking length for --deep (default: 20)",
+      "  --out <DIR>             Output directory for --deep (default: <telemetryDir>/deep-dive)",
+      "  --repo <DIR>            Repository root for --deep (default: cwd)",
+      "  --no-examples           Omit raw command examples in --deep report",
+      "  -h, --help              Show this help message",
       "",
     ].join("\n"),
   );
@@ -611,6 +678,8 @@ export function parseCliArgs(args) {
     since: null,
     until: null,
     idleMin: DEFAULT_IDLE_MIN,
+    excludeKinds: [],
+    excludeRules: [],
     top: 20,
     out: null,
     repo: null,
@@ -655,6 +724,14 @@ export function parseCliArgs(args) {
         fail(`Invalid number for ${flag}: ${rawVal} (must be > 0)`);
       }
       opts.idleMin = parsed;
+    } else if (flag === "--exclude-kind") {
+      const rawVal = readValue("--exclude-kind").trim();
+      if (!rawVal) fail("Missing value for --exclude-kind");
+      if (!opts.excludeKinds.includes(rawVal)) opts.excludeKinds.push(rawVal);
+    } else if (flag === "--exclude-rule") {
+      const rawVal = readValue("--exclude-rule").trim();
+      if (!rawVal) fail("Missing value for --exclude-rule");
+      if (!opts.excludeRules.includes(rawVal)) opts.excludeRules.push(rawVal);
     } else if (flag === "--top") {
       const rawVal = readValue("--top");
       if (!/^\d+$/.test(rawVal.trim())) {
@@ -726,6 +803,8 @@ function main(argv) {
       since: opts.since,
       until: opts.until,
       idleMin: opts.idleMin,
+      excludeKinds: opts.excludeKinds,
+      excludeRules: opts.excludeRules,
       top: opts.top,
       out: opts.out,
       examples: opts.examples,
@@ -737,8 +816,10 @@ function main(argv) {
       const cov = report.json.coverage;
       const crossLabel = report.crossCheck.matches ? "coincide con harness-telemetry" : "NO coincide con harness-telemetry";
       const errPart = report.json.errors ? ` · ${report.json.errors.length} sección(es) con error` : "";
+      const exclPart = opts.excludeKinds.length ? ` · excluidos: ${opts.excludeKinds.join(", ")}` : "";
+      const rulePart = opts.excludeRules.length ? ` · reglas excluidas: ${opts.excludeRules.join(", ")}` : "";
       process.stdout.write(
-        `[deep-dive] ${cov.events} eventos · ${cov.actions} acciones · ${cov.sessions} sesiones · ${crossLabel}${errPart}\n` +
+        `[deep-dive] ${cov.events} eventos · ${cov.actions} acciones · ${cov.sessions} sesiones · ${crossLabel}${exclPart}${rulePart}${errPart}\n` +
           `[deep-dive] Reporte: ${report.mdPath}\n[deep-dive] Detalle: ${report.jsonPath}\n`,
       );
     }
@@ -757,6 +838,8 @@ function main(argv) {
     since: opts.since,
     until: opts.until,
     idleMin: opts.idleMin,
+    excludeKinds: opts.excludeKinds,
+    excludeRules: opts.excludeRules,
   });
   if (opts.asJson) {
     process.stdout.write(JSON.stringify(summary, null, 2) + "\n");

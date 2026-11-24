@@ -221,3 +221,104 @@ describe("GOZS-769: runDeepDive escritura en disco, ruta por defecto y --no-exam
     expect(res.crossCheck.matches).toBe(true);
   });
 });
+
+describe("GOZS-791 B1–B8: filtros, wrappers, rutas absolutas, cwd perdido, esperas activas, pr.requires-seal y búsqueda↔lectura", () => {
+  it("B3: clasifica multica-ctx/multica-post en multica, harness-pr-status en gh (+ --wait-checks como checks) y harness-ship como gate + crea PR", () => {
+    expect(family(mainOf("node harness-kit/adapters/multica/scripts/multica-ctx.mjs --issue GOZS-791").main)).toBe("multica");
+    expect(family(mainOf("node harness-kit/adapters/multica/scripts/multica-post.mjs --issue GOZS-791").main)).toBe("multica");
+    expect(family(mainOf("node harness-kit/core/scripts/harness-pr-status.mjs --pr 648").main)).toBe("gh");
+    const waitSig = mainOf("node harness-kit/core/scripts/harness-pr-status.mjs --wait-checks").main;
+    expect(waitSig).toBe("node harness-pr-status.mjs --wait-checks");
+    expect(family(waitSig)).toBe("gh");
+
+    const t0 = Date.parse("2026-11-24T17:00:00.000Z");
+    const ts = (ms: number) => new Date(t0 + ms).toISOString();
+    const evs = [
+      { ts: ts(0), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-ctx.mjs --issue GOZS-791", cwd: "<repo>", id: "1" },
+      { ts: ts(1_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/adapters/multica/scripts/multica-post.mjs --issue GOZS-791", cwd: "<repo>", id: "2" },
+      { ts: ts(2_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-pr-status.mjs", cwd: "<repo>", id: "3" },
+      { ts: ts(3_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-pr-status.mjs --wait-checks", cwd: "<repo>", id: "4" },
+      { ts: ts(4_000), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "allow", cmd: "node harness-kit/core/scripts/harness-ship.mjs --lesson ok --title t --body-file b.md", cwd: "<repo>", id: "5" },
+    ];
+    const report = analyzeDeep(evs, { ledgerPath: null });
+    expect(report.json.multicaGh.multicaTotal).toBe(2);
+    expect(report.json.multicaGh.prQueries.total).toBe(2);
+    expect(report.json.multicaGh.checksQueries.total).toBe(1);
+    expect(report.json.gate["harness-ship.mjs"].calls).toBe(1);
+    expect(report.json.gate["gate (harness-gate + harness-ship)"].calls).toBe(1);
+    expect(report.json.gate["creación de PR (gh pr create + harness-ship)"].calls).toBe(1);
+    expect(report.json.gate._prCreatingSessions.sessions).toBe(1);
+    expect(report.json.gate._prCreatingSessions.gateRuns.p50).toBe(1);
+  });
+
+  it("B4, B5, B6, B7 y B8: rutas absolutas (<repo> y <workdir>), cwd perdido, esperas activas, pr.requires-seal dividido y búsqueda↔lectura", () => {
+    const t0 = Date.parse("2026-11-24T18:00:00.000Z");
+    const ts = (ms: number) => new Date(t0 + ms).toISOString();
+    const evs = [
+      // B4: <repo> y <workdir> ambos cuentan como ruta absoluta
+      { ts: ts(0), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "Set-Location <repo>", cwd: "<workdir>", id: "ag1" },
+      { ts: ts(200), session: "s-ag", runtime: "antigravity", phase: "post", kind: "shell", tool: "run_command", decision: "allow", cmd: "Set-Location <repo>", cwd: "<workdir>", id: "ag1", ok: false },
+      { ts: ts(1_000), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "cd <workdir>/x; rg -n foo src", cwd: "<workdir>", id: "ag2" },
+      { ts: ts(1_200), session: "s-ag", runtime: "antigravity", phase: "post", kind: "shell", tool: "run_command", decision: "allow", cmd: "cd <workdir>/x; rg -n foo src", cwd: "<workdir>", id: "ag2", ok: true },
+      // B8: shell rg -> read
+      { ts: ts(2_000), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "read", tool: "read_file", decision: "allow", cmd: "src/a.ts", cwd: "<repo>", id: "ag3" },
+      // B6: Start-Sleep -Seconds 30 sin check local (permitido como en L-001)
+      { ts: ts(3_000), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "allow", cmd: "Start-Sleep -Seconds 30", cwd: "<repo>", id: "ag4" },
+      // B7: pr.requires-seal literal vs posición de comando
+      { ts: ts(4_000), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "block", rule: "pr.requires-seal", cmd: 'echo "no uses gh pr create a mano"', cwd: "<repo>", id: "ag5" },
+      { ts: ts(5_000), session: "s-ag", runtime: "antigravity", phase: "pre", kind: "shell", tool: "run_command", decision: "block", rule: "pr.requires-seal", cmd: "gh pr create --title x", cwd: "<repo>", id: "ag6" },
+
+      // Sesión Claude Code: B8 nativa Grep -> Read + B6 bloqueado (como en L-002)
+      { ts: ts(10_000), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", cwd: "<repo>", id: "cc1" },
+      { ts: ts(11_000), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", cwd: "<repo>", id: "cc2" },
+      { ts: ts(12_000), session: "s-cc", runtime: "claude-code", phase: "pre", kind: "shell", tool: "Bash", decision: "block", rule: "shell.polling", cmd: "Start-Sleep -Seconds 30", cwd: "<repo>", id: "cc3" },
+    ];
+
+    const report = analyzeDeep(evs, { ledgerPath: null });
+    expect(report.json.errors).toBeUndefined();
+    expect(report.crossCheck.matches).toBe(true);
+
+    // B4
+    expect(report.json.shell.workdirRefs).toBe(2);
+    expect(report.json.shell.absPathRefs).toBe(2);
+
+    // B5
+    expect(report.json.shell.cwdLostApprox.total).toBe(1);
+    expect(report.json.shell.cwdLostApprox.byRuntime.antigravity).toBe(1);
+
+    // B6
+    expect(report.json.shell.activeWaits.total).toBe(2);
+    expect(report.json.shell.activeWaits.executed).toBe(1);
+    expect(report.json.shell.activeWaits.blocked).toBe(1);
+    expect(report.json.shell.activeWaits.byRuntime.antigravity.total).toBe(1);
+    expect(report.json.shell.activeWaits.byRuntime["claude-code"].total).toBe(1);
+
+    // B7
+    expect(report.json.prSeal.totalBlocks).toBe(2);
+    expect(report.json.prSeal.commandPosition).toBe(1);
+    expect(report.json.prSeal.literalMentions).toBe(1);
+    expect(looksLiteral({ _kind: "shell", _cmd: 'echo "no uses gh pr create a mano"' }, "pr.requires-seal")).toBe(true);
+    expect(looksLiteral({ _kind: "shell", _cmd: "gh pr create --title x" }, "pr.requires-seal")).toBe(false);
+
+    // B8
+    const srt = report.json.sequences.searchReadTransitions;
+    expect(srt.shell.forward).toBe(1);
+    expect(srt.shell.total).toBe(1);
+    expect(srt.shell.byRuntime.antigravity).toBe(1);
+    expect(srt.native.forward).toBe(1);
+    expect(srt.native.total).toBe(1);
+    expect(srt.native.byRuntime["claude-code"]).toBe(1);
+    expect(srt.total.total).toBe(2);
+    expect(report.markdown).toContain("shell (rg/grep ↔ lectura)");
+    expect(report.markdown).toContain("nativa (Grep/Glob ↔ Read)");
+    expect(report.markdown).toContain("total búsqueda ↔ lectura");
+
+    // B1 + B2 dentro de analyzeDeep
+    const filtered = analyzeDeep(evs, { ledgerPath: null, excludeKinds: ["search"], excludeRules: ["shell.polling"] });
+    expect(filtered.crossCheck.matches).toBe(true);
+    expect(filtered.markdown).toContain("excluidos: search");
+    expect(filtered.json.blocks["shell.polling"]).toBeUndefined();
+    expect(filtered.json.sequences.searchReadTransitions.native.total).toBe(0);
+    expect(filtered.json.sequences.searchReadTransitions.shell.total).toBe(1);
+  });
+});
