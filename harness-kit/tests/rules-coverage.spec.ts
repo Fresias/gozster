@@ -306,6 +306,7 @@ ${block}`);
     const res = evaluateRules(prCreate, { repoRoot: sealedRepo() });
     expect(res.ruleId).toBe("pr.requires-seal");
     expect(res.reason).toContain("--pr-block");
+    expect(res.reason).toContain("harness-ship.mjs lo hace solo");
   });
 
   it("GIVEN un cambio posterior al sello (fingerprint no coincide) THEN se bloquea pidiendo harness-gate.sh", () => {
@@ -313,7 +314,29 @@ ${block}`);
     writeFileSync(path.join(dir, "README.md"), "# changed\n");
     const res = evaluateRules(prCreate, { repoRoot: dir });
     expect(res.ruleId).toBe("pr.requires-seal");
-    expect(res.reason).toContain("Run harness-kit/core/scripts/harness-gate.sh");
+    expect(res.reason).toContain("Hay cambios sin commitear o el diff cambió desde el gate");
+    expect(res.reason).toContain("bash harness-kit/core/scripts/harness-gate.sh");
+  });
+
+  it("GOZS-781: GIVEN un sello de otro commit WHEN gh pr create THEN el bloqueo muestra los dos hashes y el próximo paso", () => {
+    const dir = sealedRepo();
+    const git = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+    const sealHead = git(["rev-parse", "HEAD"]);
+    writeFileSync(path.join(dir, "lesson.jsonl"), "{}\n");
+    git(["add", "."]);
+    git(["commit", "-m", "docs(learn): lección"]);
+    const head = git(["rev-parse", "HEAD"]);
+    const res = evaluateRules(prCreate, { repoRoot: dir });
+    expect(res.ruleId).toBe("pr.requires-seal");
+    expect(res.reason).toContain(`El sello es de ${sealHead.slice(0, 7)} y HEAD es ${head.slice(0, 7)}`);
+    expect(res.reason).toContain("harness-ship.mjs");
+  });
+
+  it("GOZS-781: GIVEN un repo sin sello WHEN gh pr create THEN dice que no se corrió el gate y sugiere harness-ship.mjs", () => {
+    const res = evaluateRules(prCreate, { repoRoot: noSealDir });
+    expect(res.ruleId).toBe("pr.requires-seal");
+    expect(res.reason).toContain("No corriste el gate");
+    expect(res.reason).toContain("harness-ship.mjs");
   });
 
   it("GIVEN otros comandos gh THEN no se exige sello", () => {
