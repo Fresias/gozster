@@ -1180,6 +1180,11 @@ isOneToOne: false
 "job_diario_contrataciones":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"listar_entrenadores_staff":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "id": string,"nombre_completo": string
+            }[]
+                           },
 "marcar_ausente":
 { Args: { "p_reserva_id": string }; Returns: {
               "alumno_id": string,

@@ -10,7 +10,9 @@ import type {
   DiaRutina,
   Ejercicio,
   EjercicioEnRutina,
+  EntrenadorStaff,
   Perfil,
+  PlanCompartido,
   PlanEntrenamiento,
   PlanMembresia,
 } from "@/types/database.types";
@@ -27,6 +29,13 @@ export interface LiveSupabaseDataset {
   cobros?: Cobro[];
   /** Fuente única de "alumno al día": vista v_estado_alumno (contrataciones + cobros). */
   estadosAlumno?: EstadoAlumno[];
+  /** Identidad del usuario autenticado (para distinguir plantillas propias vs compartidas). */
+  currentUserId?: string | null;
+  currentUserRol?: string | null;
+  /** Tags de plantillas compartidas visibles por RLS (propias compartidas + compartidas conmigo). */
+  planesCompartidos?: PlanCompartido[];
+  /** Listado mínimo de staff (id, nombre_completo) desde RPC listar_entrenadores_staff. */
+  entrenadoresStaff?: EntrenadorStaff[];
 }
 
 export type EstadoAlumno = Database["public"]["Views"]["v_estado_alumno"]["Row"];
@@ -60,6 +69,9 @@ const ESTADO_ALUMNO_DATASET_COLUMNS =
 const COBROS_DATASET_COLUMNS =
   "id, contratacion_id, alumno_id, monto, fecha_vencimiento, estado, concepto, notas";
 
+const PLANES_COMPARTIDOS_DATASET_COLUMNS =
+  "id, plan_id, profesor_id, compartido_por, created_at";
+
 function emptyDataset(): LiveSupabaseDataset {
   return {
     alumnos: [],
@@ -71,6 +83,10 @@ function emptyDataset(): LiveSupabaseDataset {
     contrataciones: [],
     planesMembresia: [],
     cobros: [],
+    currentUserId: null,
+    currentUserRol: null,
+    planesCompartidos: [],
+    entrenadoresStaff: [],
   };
 }
 
@@ -173,6 +189,25 @@ export async function fetchLiveDatasetFromSupabase(
       return (query as any).order(orderColumn, { ascending });
     };
 
+    const planesCompartidosPromise: Promise<{ data: unknown; error: unknown }> =
+      currentUserRol === "ALUMNO"
+        ? Promise.resolve({ data: [], error: null })
+        : Promise.resolve()
+            .then(() =>
+              (client as any)
+                .from("planes_compartidos")
+                .select(PLANES_COMPARTIDOS_DATASET_COLUMNS)
+                .order("created_at", { ascending: false }),
+            )
+            .catch(() => ({ data: [], error: null }));
+
+    const staffPromise: Promise<{ data: unknown; error: unknown }> =
+      currentUserRol === "ALUMNO" || typeof (client as any).rpc !== "function"
+        ? Promise.resolve({ data: [], error: null })
+        : Promise.resolve()
+            .then(() => (client as any).rpc("listar_entrenadores_staff"))
+            .catch(() => ({ data: [], error: null }));
+
     const [
       planesRes,
       ejerciciosRes,
@@ -181,6 +216,8 @@ export async function fetchLiveDatasetFromSupabase(
       planesMembresiaRes,
       cobrosRes,
       estadosAlumnoRes,
+      planesCompartidosRes,
+      staffRes,
     ] = await Promise.all([
       planesPromise,
       client.from("ejercicios").select(EJERCICIOS_DATASET_COLUMNS).order("nombre", { ascending: true }),
@@ -189,6 +226,8 @@ export async function fetchLiveDatasetFromSupabase(
       client.from("planes_membresia").select(PLANES_MEMBRESIA_DATASET_COLUMNS).order("precio", { ascending: true }),
       scopedByAlumnos("cobros", COBROS_DATASET_COLUMNS, "fecha_vencimiento", false),
       scopedByAlumnos("v_estado_alumno", ESTADO_ALUMNO_DATASET_COLUMNS, "alumno_id", true),
+      planesCompartidosPromise,
+      staffPromise,
     ]);
 
     const planes = (planesRes.data as PlanEntrenamiento[]) || [];
@@ -245,6 +284,16 @@ export async function fetchLiveDatasetFromSupabase(
         !estadosAlumnoRes?.error && Array.isArray(estadosAlumnoRes?.data)
           ? (estadosAlumnoRes.data as EstadoAlumno[])
           : undefined,
+      currentUserId,
+      currentUserRol,
+      planesCompartidos:
+        !planesCompartidosRes?.error && Array.isArray(planesCompartidosRes?.data)
+          ? (planesCompartidosRes.data as PlanCompartido[])
+          : [],
+      entrenadoresStaff:
+        !staffRes?.error && Array.isArray(staffRes?.data)
+          ? (staffRes.data as EntrenadorStaff[])
+          : [],
     };
   } catch (err: any) {
     console.warn("Excepción al conectar con Supabase (sin datos de respaldo):", err?.message || err);

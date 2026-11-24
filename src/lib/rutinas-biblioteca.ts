@@ -1,9 +1,103 @@
-import type { Ejercicio, PlanEntrenamiento } from "@/types/database.types";
+import type { Ejercicio, EntrenadorStaff, PlanCompartido, PlanEntrenamiento } from "@/types/database.types";
 
 export interface RutinasClasificadas {
   plantillas: PlanEntrenamiento[];
   deAlumnos: PlanEntrenamiento[];
   archivadas: PlanEntrenamiento[];
+}
+
+export interface PlantillasPorOrigen {
+  misPlantillas: PlanEntrenamiento[];
+  compartidasConmigo: PlanEntrenamiento[];
+}
+
+/**
+ * Separa las plantillas en exactamente 2 vistas:
+ * - "Mis plantillas": plantillas propias del entrenador (privadas por defecto).
+ * - "Compartidas conmigo": plantillas ajenas donde el entrenador está tageado en `planes_compartidos`.
+ * Sin vista pública global.
+ */
+export function separarPlantillasPorOrigen(
+  plantillas: PlanEntrenamiento[],
+  planesCompartidos: readonly PlanCompartido[] = [],
+  currentUserId?: string | null,
+  currentUserRol?: string | null,
+): PlantillasPorOrigen {
+  if (!currentUserId) {
+    const idsCompartidas = new Set(planesCompartidos.map((pc) => pc.plan_id));
+    return {
+      misPlantillas: plantillas.filter((p) => !idsCompartidas.has(p.id)),
+      compartidasConmigo: plantillas.filter((p) => idsCompartidas.has(p.id)),
+    };
+  }
+
+  const compartidasConmigoIds = new Set(
+    planesCompartidos
+      .filter((pc) => pc.profesor_id === currentUserId)
+      .map((pc) => pc.plan_id),
+  );
+
+  const misPlantillas: PlanEntrenamiento[] = [];
+  const compartidasConmigo: PlanEntrenamiento[] = [];
+
+  for (const plan of plantillas) {
+    if (
+      plan.profesor_id === currentUserId ||
+      (plan.profesor_id === null && currentUserRol === "ADMIN")
+    ) {
+      misPlantillas.push(plan);
+    } else if (compartidasConmigoIds.has(plan.id)) {
+      compartidasConmigo.push(plan);
+    }
+  }
+
+  return { misPlantillas, compartidasConmigo };
+}
+
+/** Devuelve los IDs de entrenadores con los que se compartió una plantilla propia. */
+export function entrenadoresCompartidosDePlan(
+  planId: string,
+  planesCompartidos: readonly PlanCompartido[] = [],
+): string[] {
+  return planesCompartidos
+    .filter((pc) => pc.plan_id === planId)
+    .map((pc) => pc.profesor_id);
+}
+
+/** Lista entrenadores elegibles para compartir una plantilla (excluye al autor y al usuario actual). */
+export function entrenadoresElegiblesParaCompartir(
+  staff: readonly EntrenadorStaff[] = [],
+  autorId?: string | null,
+  currentUserId?: string | null,
+): EntrenadorStaff[] {
+  return staff
+    .filter((e) => e.id !== autorId && e.id !== currentUserId)
+    .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo, "es"));
+}
+
+/** Resuelve el nombre del autor de una plantilla usando el listado mínimo de staff. */
+export function nombreAutorPlantilla(
+  plan: Pick<PlanEntrenamiento, "profesor_id">,
+  staff: readonly EntrenadorStaff[] = [],
+): string {
+  if (!plan.profesor_id) return "Otro entrenador";
+  return staff.find((s) => s.id === plan.profesor_id)?.nombre_completo ?? "Otro entrenador";
+}
+
+/** Determina si una plantilla es compartida por otro entrenador y debe abrirse en modo solo lectura. */
+export function esPlantillaCompartidaSoloLectura(
+  plan: Pick<PlanEntrenamiento, "id" | "alumno_id" | "profesor_id">,
+  planesCompartidos: readonly PlanCompartido[] = [],
+  currentUserId?: string | null,
+): boolean {
+  if (plan.alumno_id !== null) return false;
+  if (!currentUserId) {
+    return planesCompartidos.some((pc) => pc.plan_id === plan.id);
+  }
+  if (plan.profesor_id === currentUserId) return false;
+  return planesCompartidos.some(
+    (pc) => pc.plan_id === plan.id && pc.profesor_id === currentUserId,
+  );
 }
 
 /** Sin `tipo` (datasets de respaldo) se deduce por la presencia de alumno. */

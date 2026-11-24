@@ -1336,14 +1336,16 @@ export function RoutineBuilderModal({
                         >
                           ▼
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExercise(ej.id)}
-                          aria-label={`Eliminar ${ej.nombre}`}
-                          className="h-11 w-11 rounded-xl bg-destructive/15 text-destructive text-xs hover:bg-destructive/30 font-bold ml-1 flex items-center justify-center transition-colors cursor-pointer border border-destructive/30"
-                        >
-                          ✕
-                        </button>
+                        {!soloLectura && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExercise(ej.id)}
+                            aria-label={`Eliminar ${ej.nombre}`}
+                            className="h-11 w-11 rounded-xl bg-destructive/15 text-destructive text-xs hover:bg-destructive/30 font-bold ml-1 flex items-center justify-center transition-colors cursor-pointer border border-destructive/30"
+                          >
+                            ✕
+                          </button>
+                        )}
                       </div>
                     </div>
 

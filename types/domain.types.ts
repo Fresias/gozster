@@ -498,4 +498,11 @@ export type LogroRachaUpdate = TablesUpdate<"logros_racha">;
 
 export type DolorActivoView = Database["public"]["Views"]["v_dolor_activo"]["Row"];
 
+export type PlanCompartido = Tables<"planes_compartidos">;
+export type PlanCompartidoInsert = TablesInsert<"planes_compartidos">;
+export interface EntrenadorStaff {
+  id: string;
+  nombre_completo: string;
+}
+
 export type { GeneratedDatabase, GeneratedEnums, GeneratedTables, GeneratedTablesInsert, GeneratedTablesUpdate };
