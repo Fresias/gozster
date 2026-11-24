@@ -30,13 +30,14 @@ function makeRepo(): string {
   return root;
 }
 
-function fakeGit(branch: string, calls: string[][] = []) {
+function fakeGit(branch: string, calls: string[][] = [], dirs = { gitDir: ".git", commonDir: ".git" }) {
   return (args: string[]) => {
     calls.push(args);
     const cmd = args.join(" ");
     if (cmd === "rev-parse --abbrev-ref HEAD") return branch;
     if (cmd === "status -sb") return `## ${branch}...origin/${branch}\n M src/x.ts`;
-    if (cmd === "rev-parse --git-common-dir") return ".git";
+    if (cmd === "rev-parse --git-dir") return dirs.gitDir;
+    if (cmd === "rev-parse --git-common-dir") return dirs.commonDir;
     if (cmd.startsWith("fetch")) return "";
     if (cmd === "rev-list --left-right --count origin/main...HEAD") return "1\t2";
     if (cmd === "merge-base origin/main HEAD") return "abc123";
@@ -182,6 +183,33 @@ describe("GOZS-782: harness-context.mjs", () => {
       repoRoot: repo,
       runGit: fakeGit("feature/701-x", stale),
       statMtimeMs: () => NOW - 11 * 60_000,
+      fetchIssue: null,
+      runPrStatus: null,
+    });
+    expect(stale.some((a) => a[0] === "fetch")).toBe(true);
+  });
+
+  it("GIVEN un worktree (--git-dir !== --git-common-dir) con gitDir/FETCH_HEAD fresco y commonDir/FETCH_HEAD ausente o vencido WHEN corre THEN no repite git fetch", async () => {
+    const dirs = { gitDir: "/repo/.git/worktrees/wt1", commonDir: "/repo/.git" };
+    const gitFetch = path.join(dirs.gitDir, "FETCH_HEAD");
+    for (const commonMtime of [null, NOW - 30 * 60_000]) {
+      const calls: string[][] = [];
+      const res = await run([], {
+        repoRoot: repo,
+        runGit: fakeGit("feature/701-x", calls, dirs),
+        statMtimeMs: (p: string) => (p === gitFetch ? NOW - 2 * 60_000 : commonMtime),
+        fetchIssue: null,
+        runPrStatus: null,
+      });
+      expect(calls.some((a) => a[0] === "fetch")).toBe(false);
+      expect(res.out).toContain("fetch < 10 min, no se repite");
+    }
+
+    const stale: string[][] = [];
+    await run([], {
+      repoRoot: repo,
+      runGit: fakeGit("feature/701-x", stale, dirs),
+      statMtimeMs: (p: string) => (p === gitFetch ? NOW - 11 * 60_000 : null),
       fetchIssue: null,
       runPrStatus: null,
     });

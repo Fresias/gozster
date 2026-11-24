@@ -131,10 +131,17 @@ export function buildBranchSection({ runGit, now, statMtimeMs }) {
   }
 
   // Fetch origin/main only when FETCH_HEAD is older than FETCH_FRESH_MS.
+  // In a worktree `git fetch` writes <git-dir>/FETCH_HEAD, not <git-common-dir>/FETCH_HEAD: take the newest of both.
   let fetchNote = "";
   try {
-    const commonDir = runGit(["rev-parse", "--git-common-dir"]);
-    const mtime = statMtimeMs(path.join(commonDir, "FETCH_HEAD"));
+    const dirs = new Set();
+    for (const flag of ["--git-dir", "--git-common-dir"]) {
+      try {
+        dirs.add(runGit(["rev-parse", flag]));
+      } catch {}
+    }
+    const mtimes = [...dirs].map((d) => statMtimeMs(path.join(d, "FETCH_HEAD"))).filter((m) => m !== null);
+    const mtime = mtimes.length ? Math.max(...mtimes) : null;
     if (mtime === null || now() - mtime > FETCH_FRESH_MS) {
       try {
         runGit(["fetch", "--quiet", "origin", "main"], { timeout: 20000 });
