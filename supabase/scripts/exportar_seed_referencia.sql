@@ -1,6 +1,6 @@
 -- GOZS-705 (D-2): exporta desde dev el catálogo de ejercicios y las plantillas como
 -- sentencias INSERT idempotentes para el seed de producción. Solo lectura.
--- Uso: correrlo en el SQL Editor de dev, copiar la columna "sql" (en orden) y pegarla en
+-- Uso: correrlo en el SQL Editor de dev, descargar el resultado (una sola celda "sql") y pegarla en
 -- la sección de catálogo/plantillas de supabase/seed_produccion.sql.
 -- Sin personas: se anulan creado_por, profesor_id, alumno_id y plan_origen_id.
 -- Plantilla = planes_entrenamiento.alumno_id IS NULL.
@@ -26,9 +26,12 @@ filas AS (
   JOIN public.dias_rutina d ON d.id = er.dia_id
   JOIN plantillas p ON p.id = d.plan_id
 )
-SELECT format(
-  'INSERT INTO %s SELECT * FROM json_populate_record(NULL::%s, %L) ON CONFLICT DO NOTHING;',
-  tabla, tabla, fila::text
+-- Una sola fila: el SQL Editor puede recortar resultados largos en filas sueltas.
+SELECT string_agg(
+  format(
+    'INSERT INTO %s SELECT * FROM json_populate_record(NULL::%s, %L) ON CONFLICT DO NOTHING;',
+    tabla, tabla, fila::text
+  ),
+  E'\n' ORDER BY paso, clave
 ) AS sql
-FROM filas
-ORDER BY paso, clave;
+FROM filas;
