@@ -1,10 +1,10 @@
 /**
- * telemetry-deep.mjs — Análisis profundo de la telemetría del guard de GOZSter.
+ * telemetry-deep.mjs — Análisis profundo de la telemetría del guard.
  *
  * Módulo versionado (invocado vía `harness-telemetry.mjs --deep`).
  * Reutiliza `filterEvents`, `summarize`, `isExcludedEvent` y `pairPrePostEvents`
  * de `harness-kit/core/scripts/harness-telemetry.mjs`, y aprovecha los campos
- * de fidelidad (GOZS-768): rutas completas/relativizadas, `start`/`limit`/`bounded`,
+ * de fidelidad v2: rutas completas/relativizadas, `start`/`limit`/`bounded`,
  * `cwd`, `kind: "search"`, `id`, `ok` y duración medida (`post.ts - pre.ts`).
  *
  * Sin dependencias externas. Node >= 18. Windows y Linux. UTF-8 sin BOM.
@@ -568,7 +568,7 @@ function isAbsolutePathStr(s) {
 
 /**
  * Normaliza una ruta de evento:
- * - Si ya viene completa/relativizada (formato GOZS-768: ruta relativa al repo, `<repo>/...`,
+ * - Si ya viene completa/relativizada (formato v2: ruta relativa al repo, `<repo>/...`,
  *   `<workdir>/...` o `~/...`), la toma directamente sin heurísticas de recorte.
  * - Solo aplica el escaneo heurístico por segmentos para rutas absolutas legacy (L-001).
  */
@@ -720,7 +720,7 @@ export function analyzeDeep(rawEvents, options = {}) {
     pairByPreIdx.set(p.preIndex, p);
   }
 
-  // ── detección v1 (L-001, 120 car.) vs v2 (GOZS-768, 300 car. + campos completos)
+  // ── detección v1 (L-001, 120 car.) vs v2 (300 car. + campos completos)
   const datasetHasV2 = filtered.some(isV2Event);
   const effectiveCmdMax = datasetHasV2 ? CMD_MAX : LEGACY_CMD_MAX;
 
@@ -883,7 +883,7 @@ export function analyzeDeep(rawEvents, options = {}) {
     "",
     `Ventana: \`${since || "(inicio)"}\` → \`${until || "(fin)"}\` · generado ${J.generatedAt} · inactividad desde ${idleMin} min · ranking de ${topN}.`,
     "",
-    "**Cómo leer los tiempos:** cuando existen pares pre/post (GOZS-768), la **duración medida** es `post.ts − pre.ts`. Además se informa el **hueco activo** hasta la siguiente acción de la misma sesión (ejecución + razonamiento, excluyendo huecos mayores al umbral de inactividad).",
+    "**Cómo leer los tiempos:** cuando existen pares pre/post, la **duración medida** es `post.ts − pre.ts`. Además se informa el **hueco activo** hasta la siguiente acción de la misma sesión (ejecución + razonamiento, excluyendo huecos mayores al umbral de inactividad).",
   );
 
   // 0. Cobertura
