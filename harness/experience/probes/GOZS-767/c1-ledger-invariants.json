@@ -1,10 +1,10 @@
 {
   "candidate_id": "c1-ledger-invariants",
-  "probe_branch": "probe/c1-ledger-invariants-mwtyfdkq",
+  "probe_branch": "probe/c1-ledger-invariants-mwtykpq3",
   "probe_cmd": "npx vitest run harness-kit/tests/harness-render.spec.ts",
   "passed": true,
   "exit_code": 0,
-  "duration_ms": 10085,
+  "duration_ms": 10902,
   "tests": {
     "harness-kit/tests/harness-render.spec.ts::harness-render: carga y validación de contratos falla con exit 1 y 'missing key: gate' si el project no tiene gate": "passed",
     "harness-kit/tests/harness-render.spec.ts::harness-render: carga y validación de contratos falla si una clave tiene el tipo incorrecto": "passed",
@@ -30,14 +30,20 @@
     "harness-kit/tests/harness-render.spec.ts::harness-render: carga y validación de contratos Criterio: Reglas específicas de runtime (antigravity.rules.md) GIVEN el render WHEN se mide AGENTS.md THEN su contenido y tamaño no cambian con la adición de reglas de runtime": "passed"
   },
   "target_components": [],
-  "timestamp": "2026-11-24T00:26:39.395Z",
-  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓  harness  harness-kit/tests/harness-render.spec.ts (22 tests) 6962ms\n   ✓ harness-render: carga y validación de contratos > pasa cuando harness.json y project.json están completos  511ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN lecciones sin fijar (con o sin evidencia) WHEN corre el render THEN no existe la sección Experience Library y se liberan caracteres (Opción A)  505ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN una lección con pinned: true WHEN corre el render THEN aparece en AGENTS.md y las no fijadas no aparecen  523ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN una entrada automática como 'Candidate c1 on x (c1 vs baseline: duration_ms -112)' WHEN corre el render THEN no aparece en AGENTS.md  525ms\n   ✓",
-  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-render.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-ledger-invariants-mwtyfea3.json\n",
+  "timestamp": "2026-11-24T00:30:49.290Z",
+  "stdout_preview": "\n RUN  v3.2.7 [repo]/\n\n ✓  harness  harness-kit/tests/harness-render.spec.ts (22 tests) 7589ms\n   ✓ harness-render: carga y validación de contratos > pasa cuando harness.json y project.json están completos  563ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN lecciones sin fijar (con o sin evidencia) WHEN corre el render THEN no existe la sección Experience Library y se liberan caracteres (Opción A)  588ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN una lección con pinned: true WHEN corre el render THEN aparece en AGENTS.md y las no fijadas no aparecen  580ms\n   ✓ harness-render: carga y validación de contratos > GOZS-525: Experience Library (Opción A: solo lecciones fijadas) > GIVEN una entrada automática como 'Candidate c1 on x (c1 vs baseline: duration_ms -112)' WHEN corre el render THEN no aparece en AGENTS.md  577ms\n   ✓",
+  "stderr_preview": "npm notice run gozster@0.1.0 npx\nnpm notice run vitest run harness-kit/tests/harness-render.spec.ts --reporter=default --reporter=json --outputFile=[repo]/.harness\\probes\\vitest-c1-ledger-invariants-mwtykqh0.json\n",
   "files_touched": [
-    "harness-kit/tests/harness-render.spec.ts"
+    "harness-kit/tests/harness-render.spec.ts",
+    "harness/experience/GOZS-767.jsonl",
+    "harness/experience/probes/GOZS-767/baseline.json",
+    "harness/experience/probes/GOZS-767/c1-ledger-invariants.json"
   ],
   "in_scope_files": [
-    "harness-kit/tests/harness-render.spec.ts"
+    "harness-kit/tests/harness-render.spec.ts",
+    "harness/experience/GOZS-767.jsonl",
+    "harness/experience/probes/GOZS-767/baseline.json",
+    "harness/experience/probes/GOZS-767/c1-ledger-invariants.json"
   ],
   "out_of_scope_files": [],
   "strict_scope": false,
