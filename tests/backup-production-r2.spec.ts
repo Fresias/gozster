@@ -14,13 +14,24 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveBash } from "../harness-kit/core/guard/guard-core.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
 const scriptPath = path.join(repoRoot, "scripts", "backup-restore-verify.sh");
 const runbookPath = path.join(repoRoot, "docs", "architecture", "backups-r2.md");
 const workflowPath = path.join(repoRoot, ".github", "workflows", "backup-production.yml");
+
+function resolveBash(): string {
+  if (process.platform === "win32") {
+    for (const candidate of [
+      "C:\\Program Files\\Git\\bin\\bash.exe",
+      "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+    ]) {
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return "bash";
+}
 
 function toPosix(filePath: string): string {
   return filePath.replace(/\\/g, "/");
@@ -388,7 +399,8 @@ describe("GOZS-794 (O-1 / G10): Backup diario cifrado (pg_dump -> Cloudflare R2)
       expect(packRes.status, packRes.stderr).toBe(0);
 
       const tampered = Buffer.from(readFileSync(encOut));
-      tampered[tampered.length - 1] ^= 0xff;
+      const lastIdx = tampered.length - 1;
+      tampered[lastIdx] = (tampered[lastIdx] ?? 0) ^ 0xff;
       writeFileSync(encOut, tampered);
 
       const verifyRes = runBackupScript(["verify", toPosix(encOut)], {
