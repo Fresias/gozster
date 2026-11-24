@@ -152,6 +152,28 @@ function countLines(fullPath) {
   }
 }
 
+/** Evaluate native search requests (Grep/Glob): allowed unless targeting a sensitive path. */
+function evaluateSearch(call, repoRoot) {
+  const target = call.filePath || "";
+  if (!target) return { allowed: true };
+
+  if (isInstalledGuardPath(target)) {
+    return {
+      allowed: false,
+      ruleId: "read.guard-installed",
+      reason:
+        "La copia instalada del guard no se lee ni se modifica. El código fuente está en harness-kit/core/guard/ del repo.",
+    };
+  }
+
+  const sensitive = checkSensitivePath(target, repoRoot);
+  if (sensitive && (sensitive.ruleId === "fs.env-leak" || sensitive.ruleId === "read.sensitive")) {
+    return sensitive;
+  }
+
+  return { allowed: true };
+}
+
 /** Evaluate read requests. */
 function evaluateRead(call, options, repoRoot) {
   if (isInstalledGuardPath(call.filePath)) {
@@ -1632,6 +1654,8 @@ export function evaluateRules(normalizedCall, options = {}) {
       return evaluateRead(normalizedCall, options, repoRoot);
     case "read_many":
       return evaluateReadMany(normalizedCall, repoRoot);
+    case "search":
+      return evaluateSearch(normalizedCall, repoRoot);
     case "write":
       return evaluateWrite(normalizedCall, repoRoot);
     default:

@@ -43,11 +43,23 @@ process.stdin.on("end", () => {
     }
   }
 
-  const normalized = normalize(payload, { runtime, phase });
-  const repoRoot = findRepoRoot();
-  const result = evaluateRules(normalized, { repoRoot, runtime: normalized.runtime });
-
-  recordEvent(normalized, result, { repoRoot });
+  const isExplicitPost = phase === "post" || phase === "result";
+  let normalized;
+  let repoRoot = "";
+  let result;
+  try {
+    normalized = normalize(payload, { runtime, phase });
+    repoRoot = findRepoRoot();
+    result = evaluateRules(normalized, { repoRoot, runtime: normalized.runtime });
+    recordEvent(normalized, result, { repoRoot });
+  } catch (err) {
+    // Post hooks must never fail or disrupt the agent tool call.
+    if (isExplicitPost || normalized?.phase === "post" || normalized?.phase === "result") {
+      process.stdout.write("{}\n");
+      process.exit(0);
+    }
+    throw err;
+  }
 
   const effectiveRuntime = normalized.runtime;
 

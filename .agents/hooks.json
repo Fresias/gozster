@@ -12,6 +12,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "run_command|view_file|read_file|write_to_file|replace_file_content|multi_replace_file_content|write_file|edit_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity --phase post",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

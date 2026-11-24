@@ -25,9 +25,14 @@ const target = path.join(hooksDir, "harness-dispatch-antigravity.mjs");
 const hooksPath = path.join(home, ".gemini", "config", "hooks.json");
 // node, not bash: agy runs hooks with `cmd /c` on Windows, where the first bash on PATH can be WSL.
 const command = `node "${target.replace(/\\/g, "/")}"`;
+const postCommand = `${command} --phase post`;
 const { tools } = JSON.parse(readFileSync(path.join(kitDir, "core", "runtimes", "antigravity.json"), "utf8"));
 const matcher = ["shell", "read", "write"].flatMap((k) => tools[k] ?? []).map((t) => t.name).join("|");
-const entry = { enabled: true, PreToolUse: [{ matcher, hooks: [{ type: "command", command, timeout: 10 }] }] };
+const entry = {
+  enabled: true,
+  PreToolUse: [{ matcher, hooks: [{ type: "command", command, timeout: 10 }] }],
+  PostToolUse: [{ matcher, hooks: [{ type: "command", command: postCommand, timeout: 10 }] }],
+};
 
 const hooks = existsSync(hooksPath) ? JSON.parse(readFileSync(hooksPath, "utf8")) : {};
 const hookOk = JSON.stringify(hooks[NAME]) === JSON.stringify(entry);
