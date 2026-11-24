@@ -65,10 +65,10 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 # Tool Guidance & Execution Rules
 
 ## File Exploration & Editing
-- **Scan-before-read:** Claude Code: `Grep`/`Read`; else `rg -n` first.
+- **Scan-before-read:** Claude Code: `Grep`/`Read`; else `rg -n`.
 - **Bounded reading:** Files >300 lines require `offset`+`limit` (≤200) or `StartLine`+`EndLine` (≤300).
-- **Time-to-First-Edit (TTFE):** Read and edit within ≤5 tool calls.
-- **Quiet inspection:** Prefer `git diff --stat` or `git status -s`.
+- **Al empezar:** `node harness-kit/core/scripts/harness-context.mjs` (TTFE ≤5).
+- **Quiet git:** `git diff --stat`, `git status -s`.
 
 ## Test & Gate Workflow
 - **Iterative development:** Run ONLY affected test file (`npx vitest run <path/to/spec.ts>`).

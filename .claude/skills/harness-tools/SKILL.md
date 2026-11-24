@@ -8,6 +8,11 @@ autotrigger: you need harness helper scripts or CLI tool guides
 
 Catálogo auto-generado de scripts del arnés (`harness-kit/core/scripts/` y `harness/scripts/`) y protocolo operativo de herramientas CLI. Ejecutar vía `bash` o `node`.
 
+## Al empezar una tarea
+- **Una sola llamada antes de explorar:** `node harness-kit/core/scripts/harness-context.mjs [--issue <PREFIX-n>] [--max-lines 150] [--json]`
+  Devuelve en ≤ 150 líneas: rama (`git status -sb`, adelante/atrás de `origin/main` sin repetir `fetch` si se hizo hace < 10 min, `git diff --stat` contra merge-base), issue (vía `multica-ctx`), PR (vía `harness-pr-status`, o «sin PR»), hasta 5 lecciones de `harness/experience/`, última migración y `.harness/scope.json`. El issue sale de `--issue` o del número de la rama.
+- Reemplaza la ronda inicial de `git status/diff/log`, `gh pr view` y `multica issue get`/`comment list`. Si falta Multica, `gh` o la red, esa sección dice qué falta y el script termina con código 0.
+
 ## Multica
 
 Usa los wrappers acotados en `harness-kit/adapters/multica/scripts/` en lugar de encadenar múltiples llamadas crudas al CLI (resuelven `MULTICA_CLI_PATH` o `multica` en `PATH` y nunca mezclan `stderr` con `stdout`):
@@ -72,6 +77,7 @@ El agente arranca en `<workdir>` y el repo vive en `<workdir>/gozster`. Nunca es
 ## Helper scripts (run via bash)
 
 - `harness-kit/core/scripts/harness-compose.mjs`: Evaluates probe traces, selects the winning harness and updates experience library.
+- `harness-kit/core/scripts/harness-context.mjs`: Task orientation in one read-only call: branch, issue, PR, related lessons, latest migration and scope.
 - `harness-kit/core/scripts/harness-contrast.mjs`: Contrasts candidate harness probe reports and selects winning configuration (Harness²).
 - `harness-kit/core/scripts/harness-debt-notify.mjs`: Notifies Multica webhook on lesson debt threshold (>=8).
 - `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only, drift + encoding, issue lesson, project gate commands, writes .harness/complete.json.
