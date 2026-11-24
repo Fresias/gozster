@@ -1225,6 +1225,11 @@ describe("GOZS-791 A2: fs.protected permite lecturas inline de rutas protegidas 
       `python3 -c 'from pathlib import Path; Path(".claude/x").write_text("y")'`,
       `python3 -c 'p=".claude/settings.json"; open(p, "a").write("x")'`,
       `python3 -c 'd=open("~/.claude/projects/p/tool-results/x.txt").read(); open(".claude/settings.json","w").write(d)'`,
+      `python3 -c 'Path("a").read_text(open(".claude/settings.json","w").write("x"))'`,
+      `python3 -c 'Path("a").read_text(Path(".claude/settings.json").write_text("x"))'`,
+      `python3 -c 'Path("a").read_bytes(open(".claude/settings.json","w").write("x"))'`,
+      `python3 -c 'import shelve; d=shelve.open(".claude/db"); d["k"]="v"; open("/tmp/o","w").write("1")'`,
+      `python3 -c 'import dbm; d=dbm.open(".claude/db"); open("/tmp/o","w").write("1")'`,
       `node -e 'const fs=require("fs"); fs.writeFileSync(".claude/settings.json","x")'`,
       `node -e 'const fs=require("fs"); fs.readFile(".claude/a",(e,d)=>fs.writeFileSync(".claude/b",d))'`,
     ]) {
