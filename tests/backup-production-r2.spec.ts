@@ -61,12 +61,13 @@ function runBackupScript(
   prependBins: string[] = []
 ): { status: number; stdout: string; stderr: string } {
   const bash = resolveBash();
+  const childEnv = { ...buildBashEnv(envOverrides, prependBins), HARNESS_TELEMETRY: "0" };
   try {
     const stdout = execFileSync(bash, [toPosix(scriptPath), ...args], {
       cwd: repoRoot,
       encoding: "utf8",
       stdio: "pipe",
-      env: buildBashEnv(envOverrides, prependBins),
+      env: childEnv,
     });
     return { status: 0, stdout, stderr: "" };
   } catch (err: unknown) {
