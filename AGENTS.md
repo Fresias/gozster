@@ -23,12 +23,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - Modifying public APIs or schemas outside stated scope.
 
 ## Never (Enforced by Guard)
-- Destructive: `git push --force`/`+branch`, `git reset --hard`, `git clean -fd`, `rm -rf`, `sudo` (rules: `git.force-push`, `git.reset-hard`, `shell.rm-rf`, `shell.sudo`).
-- Secrets: never read or commit `.env*` (only `.env.example|.sample|.template`) (rule: `fs.env-leak`), nor `*.pem`/`*.key` (rule: `read.sensitive`).
-- Bloat: never read `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `.next/`, `node_modules/`, `dist/`, `build/` (rule: `fs.bloatware`).
-- Unbounded: never read or `cat` >300-line files without limits (rules: `read.oversize`, `shell.oversize-cat`).
-- Harness: never modify guard/git hooks or settings unauthorized (rule: `fs.protected`), nor hand-edit generated files (rule: `write.generated`).
-- No `gh pr create` without a valid `harness-gate.sh` seal (rule: `pr.requires-seal`).
+- Guard blocks destructive commands, secrets, bloatware, unbounded reads, harness tampering, and unsealed PRs — returning `ruleId` and recommended action (rules: `git.force-push`, `fs.env-leak`, `fs.bloatware`, `read.oversize`, `fs.protected`, `pr.requires-seal`).
 
 # Multica Guardrails
 
@@ -59,6 +54,7 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 
 - When the repository has no harness/project.json or the user asks to set up the harness, load the harness-bootstrap skill.
 - When a task touches training domain terms (planes, días de rutina, ejercicios en rutina, superseries, sesiones, series, 1RM, RPE) or business rules, load the gozster-domain skill.
+- When you need harness helper scripts or CLI tool guides, load the harness-tools skill.
 
 # LongTermMEMORY
 
@@ -99,17 +95,3 @@ GOZSter: **Coach Studio** (Desktop/Web) y **Athlete App** (PWA/Offline-First) co
 - **Waits by condition only:** condition wakeups (`--until-pr checks`/`--until-children-done`/`--until-status`); no sleep, poll, or wakeup polling.
 
 - **RPCs:** SQL `DEFAULT NULL` = TS opcional. **Modales:** isSaving atómico + submit deshabilitado.
-
-# Helper scripts (run via bash)
-
-- `harness-kit/core/scripts/harness-compose.mjs`: Evaluates probe traces, selects the winning harness and updates experience library.
-- `harness-kit/core/scripts/harness-contrast.mjs`: Contrasts candidate harness probe reports and selects winning configuration (Harness²).
-- `harness-kit/core/scripts/harness-debt-notify.mjs`: Notifies Multica webhook on lesson debt threshold (>=8).
-- `harness-kit/core/scripts/harness-gate.sh`: Full gate: append-only, drift + encoding, issue lesson, project gate commands, writes .harness/complete.json.
-- `harness-kit/core/scripts/harness-init.sh`: Setup in one call: git identity, deps, harness status, optional scope.
-- `harness-kit/core/scripts/harness-learn.sh`: Learner: persists the issue lesson to harness/experience/<ISSUE>.jsonl (runs on the PR branch; gate and merge require it).
-- `harness-kit/core/scripts/harness-merge-check.mjs`: Merge gate: PR seal == PR head, issue lesson in the PR, PPC + label for harness changes.
-- `harness-kit/core/scripts/harness-probe.mjs`: Runs candidate harness probes on isolated ephemeral git branches (Harness² PPC).
-- `harness-kit/core/scripts/harness-propose.mjs`: Analyzes accumulated lessons, clusters friction and proposes PPC candidate mutations (Harness²).
-- `harness-kit/core/scripts/harness-render.mjs`: Harness compiler & drift checker (H-03).
-- `harness-kit/core/scripts/harness-telemetry.mjs`: Aggregates guard telemetry (<git common dir>/harness/telemetry/events.jsonl) into a summary:
