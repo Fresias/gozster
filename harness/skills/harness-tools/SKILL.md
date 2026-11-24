@@ -36,6 +36,12 @@ Usa los wrappers acotados en `harness-kit/adapters/multica/scripts/` en lugar de
 - **Disciplina de comentarios:** si un wakeup no requiere acción (acks, gracias, ecos), termina sin comentar ni @mencionar. Entrega el hand-off una sola vez (la cola nativa encola sin pérdida de tareas).
 - **Estados terminales:** máximo 2 reintentos → pasar a `blocked` con evidencia. Esperas solo por wakeup condicional (`--until-pr checks`, `--until-children-done`, `--until-status`); prohibido `sleep`, polling o menciones repetidas.
 
+## Abrir o actualizar una PR
+- **Una sola llamada:** `node harness-kit/core/scripts/harness-ship.mjs --lesson "<qué debe saber el próximo agente>" --title "<título>" --body-file <ruta fuera del repo> [--base main] [--draft] [--issue GOZS-n]`.
+- Orden fijo: valida rama `<tipo>/<n>-<slug>` y árbol limpio → se detiene si la rama está atrás de `origin/<base>` → `harness-learn.sh` + commit `docs(learn): lección <ISSUE>` → `harness-gate.sh` (lo saltea si el sello ya vale para HEAD) → agrega/reemplaza el bloque `--pr-block` en el `--body-file` → `git push -u` (nunca forzado) → `harness-gate.sh --verify` → `gh pr edit` si ya hay PR, si no `gh pr create`. Imprime URL y sello.
+- Si el gate falla, sale con código ≠ 0 y las últimas 40 líneas, sin push ni PR. Correrlo de nuevo no duplica la lección ni el bloque.
+- **Bloqueos `pr.requires-seal`:** el mensaje dice el motivo (sin sello, sello de otro commit con los dos hashes, árbol cambiado o falta el bloque en el body); la salida es volver a correr `harness-ship.mjs`.
+
 ## PRs y esperas
 - **Estado de PR (una sola llamada, solo lectura):** `node harness-kit/core/scripts/harness-pr-status.mjs [<pr|rama>] [--json]` — resume sello, atraso respecto de `main`, checks (OK / fallidos / pendientes), etiqueta `harness-authorized`, revisión, `merge-check` y un único «Próximo paso» (≤ 25 líneas).
 - **Esperar CI sin polling:** `node harness-kit/core/scripts/harness-pr-status.mjs [<pr|rama>] --wait-checks [--timeout 30m]` (una sola llamada bloqueante sobre `gh pr checks --watch --interval 30`, con corte interno por `--timeout`) o `multica issue wakeup create --until-pr checks`.

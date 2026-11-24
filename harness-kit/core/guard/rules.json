@@ -128,7 +128,7 @@
     "id": "pr.requires-seal",
     "target": "shell",
     "description": "gh pr create requires a valid .harness/complete.json seal (harness-gate.sh --verify)",
-    "message": "No valid gate seal. Run harness-kit/core/scripts/harness-gate.sh before gh pr create."
+    "message": "No valid gate seal (o falta el bloque en el body). Usá node harness-kit/core/scripts/harness-ship.mjs o harness-gate.sh antes de gh pr create."
   },
   {
     "id": "pr.merge-check",
