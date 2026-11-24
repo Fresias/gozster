@@ -8,6 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { checkGuard, evaluateRules, findRepoRoot, loadRules } from "../core/guard/guard-core.mjs";
 // @ts-expect-error - mjs module
 import { normalize } from "../core/guard/normalize.mjs";
+// @ts-expect-error - mjs module
+import { buildEvent } from "../core/guard/telemetry.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
@@ -604,4 +606,589 @@ describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas 
       expect(shellFeature(command).allowed).toBe(true);
     });
   }
+});
+
+describe("GOZS-774: lectura acotada por runtime (read.oversize) y fs.protected limitado al repo", () => {
+  const workRepo = mkdtempSync(path.join(tmpdir(), "guard-774-"));
+  const bigRel = "src/big-module.ts";
+  const bigAbs = path.join(workRepo, bigRel);
+
+  beforeAll(() => {
+    mkdirSync(path.dirname(bigAbs), { recursive: true });
+    writeFileSync(bigAbs, Array.from({ length: 1840 }, (_, i) => `export const line${i + 1} = ${i + 1};`).join("\n") + "\n");
+  });
+
+  afterAll(() => rmSync(workRepo, { recursive: true, force: true }));
+
+  it("GIVEN antigravity.json WHEN se inspecciona read_file THEN declara Path, bound StartLine/EndLine y extra ByteOffset", () => {
+    const ag = JSON.parse(
+      readFileSync(path.join(repoRoot, "harness-kit", "core", "runtimes", "antigravity.json"), "utf8"),
+    ) as { tools: { read: Array<{ name: string; path: string; bound?: string[]; extra?: string[] }> } };
+    const readFileTool = ag.tools.read.find((t) => t.name === "read_file");
+    expect(readFileTool).toEqual({
+      name: "read_file",
+      path: "Path",
+      bound: ["StartLine", "EndLine"],
+      extra: ["ByteOffset"],
+    });
+  });
+
+  it("GIVEN read_file de Antigravity sin rango sobre un archivo de 1.840 líneas WHEN pre THEN bloquea con ruta relativa, 1840 líneas, StartLine/EndLine y rg -n -C 20", () => {
+    const res = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs } } },
+      { repoRoot: workRepo },
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("read.oversize");
+    expect(res.reason).toContain(bigRel);
+    expect(res.reason).toContain("1840 líneas");
+    expect(res.reason).toContain("StartLine");
+    expect(res.reason).toContain("EndLine");
+    expect(res.reason).toContain("rg -n -C 20");
+    expect(res.reason).not.toContain("offset");
+  });
+
+  it("GIVEN read_file de Antigravity con StartLine: 1, EndLine: 300 sobre 1.840 líneas WHEN pre THEN permite; con EndLine: 301 bloquea", () => {
+    const ok = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 1, EndLine: 300 } } },
+      { repoRoot: workRepo },
+    );
+    expect(ok.allowed).toBe(true);
+
+    const okMiddle = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 100, EndLine: 399 } } },
+      { repoRoot: workRepo },
+    );
+    expect(okMiddle.allowed).toBe(true);
+
+    const over = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 1, EndLine: 301 } } },
+      { repoRoot: workRepo },
+    );
+    expect(over.allowed).toBe(false);
+    expect(over.ruleId).toBe("read.oversize");
+    expect(over.reason).toContain("StartLine");
+
+    const overMiddle = checkGuard(
+      { toolCall: { name: "read_file", args: { Path: bigAbs, StartLine: 100, EndLine: 400 } } },
+      { repoRoot: workRepo },
+    );
+    expect(overMiddle.allowed).toBe(false);
+    expect(overMiddle.ruleId).toBe("read.oversize");
+  });
+
+  it("GIVEN Read de Claude Code sin limit sobre un archivo grande WHEN pre THEN bloquea con ruta relativa, líneas y offset/limit", () => {
+    const res = checkGuard(
+      { tool_name: "Read", tool_input: { file_path: bigAbs } },
+      { repoRoot: workRepo },
+    );
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("read.oversize");
+    expect(res.reason).toContain(bigRel);
+    expect(res.reason).toContain("1840 líneas");
+    expect(res.reason).toContain("offset");
+    expect(res.reason).toContain("limit");
+    expect(res.reason).toContain("Grep");
+  });
+
+  it("GIVEN otros runtimes sin rango sobre un archivo grande WHEN pre THEN devuelve mensaje genérico con ruta, líneas y límite 300/200", () => {
+    for (const payload of [
+      { tool_name: "read_file", tool_input: { file_path: bigAbs } },
+      { input: { tool: "read" }, output: { args: { filePath: bigAbs } } },
+    ]) {
+      const res = checkGuard(payload, { repoRoot: workRepo });
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("read.oversize");
+      expect(res.reason).toContain(bigRel);
+      expect(res.reason).toContain("1840 líneas");
+      expect(res.reason).toContain("300");
+      expect(res.reason).toContain("200");
+    }
+  });
+
+  it("GIVEN write_file en ~/.gemini/antigravity-cli/brain/<id>/scratch/x.mjs WHEN pre THEN se permite", () => {
+    for (const p of [
+      "~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs",
+      "C:\\Users\\user\\.gemini\\antigravity-cli\\brain\\abc-123\\scratch\\x.mjs",
+      "/home/user/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs",
+    ]) {
+      const res = checkGuard(
+        { toolCall: { name: "write_file", args: { Path: p, Content: "console.log(1);" } } },
+        { repoRoot: workRepo },
+      );
+      expect(res.allowed, p).toBe(true);
+    }
+  });
+
+  it("GIVEN Get-Content y comandos sobre ~/.gemini/antigravity-cli/brain/** o menciones con escritura a otro destino WHEN pre THEN se permite", () => {
+    for (const cmd of [
+      '$j = Get-Content "~/.gemini/antigravity-cli/brain/abc-123/.system_generated/steps/48/output.txt"',
+      '$j = Get-Content "C:\\Users\\user\\.gemini\\antigravity-cli\\brain\\abc-123\\.system_generated\\steps\\48\\output.txt"; Set-Content ./out.txt $j',
+      'echo x > ~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs',
+      'Set-Content "~/.gemini/antigravity-cli/brain/abc-123/scratch/x.mjs" "console.log(1)"',
+      'echo "revisar .gemini/config/hooks.json" > ./notes.md',
+      'echo "revisar .gemini/settings.json" && rm ./reply.md',
+      'Set-Content -Path ./out.txt -Value "mención .gemini/config/hooks.json"',
+      'cp .agents/hooks.json ./backup.json',
+    ]) {
+      const res = evaluateRules({ kind: "shell", command: cmd }, { repoRoot: workRepo });
+      expect(res.allowed, cmd).toBe(true);
+    }
+  });
+
+  it("GIVEN escrituras a .agents/hooks.json del repo, ~/.gemini/config/**, otras rutas fuera del repo o traversal desde brain WHEN pre THEN bloquea con fs.protected", () => {
+    for (const targetPath of [
+      path.join(workRepo, ".agents", "hooks.json"),
+      ".agents/hooks.json",
+      path.join(workRepo, ".gemini", "antigravity-cli", "brain", "abc", "scratch", "x.mjs"),
+      "~/.gemini/config/hooks.json",
+      "~/.gemini/config/settings.json",
+      "C:\\Users\\user\\.gemini\\config\\hooks.json",
+      "~/.gemini/antigravity-cli/brain/abc/../../config/hooks.json",
+      "~/.gemini/antigravity-cli/brain/abc/%2e%2e/%2e%2e/config/hooks.json",
+      "~/.gemini/settings.json",
+      "~/.agents/hooks.json",
+      "~/.opencode/plugins/x.ts",
+    ]) {
+      const res = evaluateRules({ kind: "write", targetPath }, { repoRoot: workRepo });
+      expect(res.allowed, targetPath).toBe(false);
+      expect(res.ruleId, targetPath).toBe("fs.protected");
+    }
+  });
+
+  it("GIVEN comandos shell que escriben a ~/.gemini/config/hooks.json, .claude/, .agents/ o traversal desde brain WHEN pre THEN bloquea con fs.protected", () => {
+    for (const command of [
+      "echo x > ~/.gemini/config/hooks.json",
+      "Set-Content .claude/settings.json x",
+      "Set-Content -Path .agents/hooks.json -Value x",
+      "echo x > .agents/hooks.json",
+      "cp ./x.json ~/.gemini/config/hooks.json",
+      "echo x > ~/.gemini/antigravity-cli/brain/abc/../../config/hooks.json",
+      "echo x > ~/.gemini/antigravity-cli/brain/abc/%2e%2e/%2e%2e/config/hooks.json",
+      "Set-Content ~/.gemini/config/settings.json x",
+    ]) {
+      const res = evaluateRules({ kind: "shell", command }, { repoRoot: workRepo });
+      expect(res.allowed, command).toBe(false);
+      expect(res.ruleId, command).toBe("fs.protected");
+    }
+  });
+});
+
+describe("GOZS-773: regla estricta shell.polling (> 5 s) y registro shell.wait", () => {
+  const shell = (command: string) => evaluateRules({ kind: "shell", command });
+
+  it("GIVEN Start-Sleep 20; gh pr checks 636 WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("Start-Sleep 20; gh pr checks 636");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+    expect(res.reason).toContain("harness-pr-status.mjs");
+    expect(res.reason).toContain("--wait-checks");
+  });
+
+  it("GIVEN while ($true) { Start-Sleep 30; gh run view 123 } WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("while ($true) { Start-Sleep 30; gh run view 123 }");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+  });
+
+  it("GIVEN Start-Sleep 15 (solo, sin verificación local) WHEN pre THEN se bloquea con shell.polling", () => {
+    const res = shell("Start-Sleep 15");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.polling");
+  });
+
+  for (const cmd of [
+    "Start-Sleep -Seconds 10",
+    "Start-Sleep -s 6",
+    "Start-Sleep -Milliseconds 6000",
+    "Start-Sleep -Milliseconds -100",
+    "Start-Sleep -Seconds:-5",
+    "Start-Sleep -Milliseconds:-100",
+    "sleep 10",
+    "sleep 1m",
+    "timeout /t 10",
+    "timeout /t -1",
+    "timeout /t:-1",
+    "timeout /T 15 /nobreak",
+    "ping -n 10 127.0.0.1",
+    "ping -n -1 127.0.0.1",
+    "Start-Sleep 3; gh pr view 636",
+    "sleep 2 && gh run list",
+    "Start-Sleep 2; gh run watch 999",
+    "Start-Sleep 2; multica issue get 01a20b11",
+    'Start-Sleep 2; & "$env:MULTICA_CLI_PATH" issue wakeup runs 01a20b11',
+    "sleep 3; multica issue list --limit 5",
+    "while true; do sleep 3; done",
+    "for i in 1 2 3; do sleep 2; done",
+    "until gh pr checks 1; do sleep 5; done",
+    "Start-Sleep 3; Start-Sleep 3",
+    "Start-Sleep 10; curl https://example.com",
+    "while ($true) { Start-Sleep 10; Invoke-WebRequest http://localhost:3000 }",
+  ]) {
+    it(`GIVEN espera prohibida '${cmd}' WHEN pre THEN se bloquea con shell.polling`, () => {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(false);
+      expect(res.ruleId).toBe("shell.polling");
+    });
+  }
+
+  it("GIVEN Start-Sleep 10; Invoke-WebRequest http://localhost:3000 WHEN pre THEN se permite y registra shell.wait", () => {
+    const res = shell("Start-Sleep 10; Invoke-WebRequest http://localhost:3000");
+    expect(res.allowed).toBe(true);
+    expect(res.ruleId).toBe("shell.wait");
+  });
+
+  it("GIVEN Start-Sleep 5 (<= 5 s, sin polling ni bucle) WHEN pre THEN se permite y registra shell.wait", () => {
+    const res = shell("Start-Sleep 5");
+    expect(res.allowed).toBe(true);
+    expect(res.ruleId).toBe("shell.wait");
+  });
+
+  for (const cmd of [
+    "Start-Sleep -Seconds 5",
+    "Start-Sleep -Milliseconds 5000",
+    "sleep 3",
+    "timeout /t 5",
+    "ping -n 6 127.0.0.1",
+    "sleep 10 && curl -sf http://127.0.0.1:3000/api/health",
+    "Start-Sleep 8; Test-NetConnection -ComputerName localhost -Port 3000",
+    "Start-Sleep 8; Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort 3000",
+    "Start-Sleep 10; $r = Invoke-WebRequest http://localhost:3000",
+  ]) {
+    it(`GIVEN espera permitida '${cmd}' WHEN pre THEN se permite con ruleId shell.wait`, () => {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(true);
+      expect(res.ruleId).toBe("shell.wait");
+    });
+  }
+
+  it("GIVEN rg -n \"Start-Sleep\" docs o timeout 60 npx vitest run x.spec.ts WHEN pre THEN se permiten sin ruleId", () => {
+    for (const cmd of [
+      'rg -n "Start-Sleep" docs',
+      "timeout 60 npx vitest run x.spec.ts",
+      'echo "Start-Sleep 20; gh pr checks 636"',
+      'git commit -m "chore: block Start-Sleep 30"',
+      "ping -n 10 8.8.8.8",
+    ]) {
+      const res = shell(cmd);
+      expect(res.allowed).toBe(true);
+      expect(res.ruleId).toBeUndefined();
+    }
+  });
+
+  it("GIVEN Start-Sleep 2; rm -rf build WHEN pre THEN no saltea reglas destructivas previas", () => {
+    const res = shell("Start-Sleep 2; rm -rf build");
+    expect(res.allowed).toBe(false);
+    expect(res.ruleId).toBe("shell.rm-rf");
+  });
+
+  it("GIVEN telemetría buildEvent sobre shell.wait, shell.polling y allow sin espera THEN registra rule correctamente", () => {
+    const waitCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: "Start-Sleep 5" } } }, { runtime: "antigravity", phase: "pre" });
+    const waitEvt = buildEvent(waitCall, evaluateRules(waitCall));
+    expect(waitEvt.decision).toBe("allow");
+    expect(waitEvt.rule).toBe("shell.wait");
+
+    const pollCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: "Start-Sleep 15" } } }, { runtime: "antigravity", phase: "pre" });
+    const pollEvt = buildEvent(pollCall, evaluateRules(pollCall));
+    expect(pollEvt.decision).toBe("block");
+    expect(pollEvt.rule).toBe("shell.polling");
+
+    const plainCall = normalize({ toolCall: { name: "run_command", args: { CommandLine: 'rg -n "Start-Sleep" docs' } } }, { runtime: "antigravity", phase: "pre" });
+    const plainEvt = buildEvent(plainCall, evaluateRules(plainCall));
+    expect(plainEvt.decision).toBe("allow");
+    expect(plainEvt.rule).toBeNull();
+  });
+});
+
+describe("GOZS-768: normalize.mjs (cwd, startLine, search, toolUseId, post ok/error) y evaluateSearch", () => {
+  it("normaliza Read de Claude Code con offset y limit y expone cwd y toolUseId", () => {
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Read",
+      tool_input: { file_path: "/ws/gozster/src/a.ts", offset: 100, limit: 200 },
+      tool_use_id: "toolu_abc",
+    });
+    expect(norm.kind).toBe("read");
+    expect(norm.startLine).toBe(100);
+    expect(norm.limit).toBe(200);
+    expect(norm.isBounded).toBe(true);
+    expect(norm.cwd).toBe("/ws/gozster");
+    expect(norm.toolUseId).toBe("toolu_abc");
+    expect(norm.ok).toBeUndefined();
+  });
+
+  it("normaliza Grep y Glob de Claude Code como kind='search'", () => {
+    const grep = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Grep",
+      tool_input: { pattern: "foo", path: "src/index.ts" },
+      tool_use_id: "toolu_g1",
+    });
+    expect(grep.runtime).toBe("claude-code");
+    expect(grep.kind).toBe("search");
+    expect(grep.pattern).toBe("foo");
+    expect(grep.filePath).toBe("src/index.ts");
+    expect(grep.toolUseId).toBe("toolu_g1");
+
+    const glob = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Glob",
+      tool_input: { pattern: "**/*.ts" },
+      tool_use_id: "toolu_g2",
+    });
+    expect(glob.kind).toBe("search");
+    expect(glob.pattern).toBe("**/*.ts");
+    expect(glob.filePath).toBe("");
+  });
+
+  it("normaliza PostToolUse y PostToolUseFailure en Claude Code exponiendo ok y id", () => {
+    const okPost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "echo ok" },
+      tool_response: { stdout: "ok", stderr: "", interrupted: false },
+      tool_use_id: "toolu_ok",
+    });
+    expect(okPost.phase).toBe("post");
+    expect(okPost.ok).toBe(true);
+    expect(okPost.toolUseId).toBe("toolu_ok");
+
+    const failPost = normalize({
+      hook_event_name: "PostToolUseFailure",
+      tool_name: "Bash",
+      tool_input: { command: "exit 1" },
+      error: "Exit code 1",
+      is_interrupt: false,
+      tool_use_id: "toolu_fail",
+    });
+    expect(failPost.phase).toBe("post");
+    expect(failPost.ok).toBe(false);
+    expect(failPost.toolUseId).toBe("toolu_fail");
+
+    const interruptedPost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "sleep 10" },
+      tool_response: { stdout: "", stderr: "", interrupted: true },
+      tool_use_id: "toolu_int",
+    });
+    expect(interruptedPost.phase).toBe("post");
+    expect(interruptedPost.ok).toBe(false);
+
+    const exitCodePost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "false" },
+      tool_response: { stdout: "", stderr: "fail", exit_code: 1 },
+      tool_use_id: "toolu_ec",
+    });
+    expect(exitCodePost.phase).toBe("post");
+    expect(exitCodePost.ok).toBe(false);
+  });
+
+  it("normaliza PostToolUse en Antigravity con workspacePaths[0], toolCall.id y error", () => {
+    const okAg = normalize({
+      hookEventName: "PostToolUse",
+      conversationId: "conv-ag",
+      workspacePaths: ["C:\\ws\\workdir"],
+      error: "",
+      toolCall: { id: "call_1", name: "run_command", args: { CommandLine: "pwd" } },
+    });
+    expect(okAg.runtime).toBe("antigravity");
+    expect(okAg.phase).toBe("post");
+    expect(okAg.cwd).toBe("C:\\ws\\workdir");
+    expect(okAg.toolUseId).toBe("call_1");
+    expect(okAg.ok).toBe(true);
+
+    const errAg = normalize({
+      conversationId: "conv-ag",
+      workspacePaths: ["C:\\ws\\workdir"],
+      error: "file does not exist",
+      toolCall: { id: "call_2", name: "read_file", args: { Path: "C:\\ws\\workdir\\missing.txt" } },
+    });
+    expect(errAg.phase).toBe("post");
+    expect(errAg.ok).toBe(false);
+    expect(errAg.error).toBe("file does not exist");
+  });
+
+  it("GIVEN una búsqueda Grep sobre una ruta ordinaria o package-lock.json WHEN pre THEN se permite", () => {
+    expect(
+      checkGuard({ tool_name: "Grep", tool_input: { pattern: "foo", path: "src/index.ts" } }, { repoRoot }).allowed,
+    ).toBe(true);
+    expect(
+      checkGuard({ tool_name: "Grep", tool_input: { pattern: "vitest", path: "package-lock.json" } }, { repoRoot }).allowed,
+    ).toBe(true);
+    expect(
+      checkGuard({ tool_name: "Glob", tool_input: { pattern: "**/*.ts" } }, { repoRoot }).allowed,
+    ).toBe(true);
+  });
+
+  it("GIVEN una búsqueda Grep sobre .env.local o *.pem/*.key WHEN pre THEN bloquea con la misma regla que una lectura (fs.env-leak / read.sensitive)", () => {
+    const envRead = checkGuard({ tool_name: "Read", tool_input: { file_path: ".env.local" } }, { repoRoot });
+    const envSearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "SECRET", path: ".env.local" } }, { repoRoot });
+    expect(envSearch.allowed).toBe(false);
+    expect(envSearch.ruleId).toBe(envRead.ruleId);
+    expect(envSearch.ruleId).toBe("fs.env-leak");
+
+    const keySearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "BEGIN", path: "certs/server.key" } }, { repoRoot });
+    expect(keySearch.allowed).toBe(false);
+    expect(keySearch.ruleId).toBe("read.sensitive");
+
+    const exampleSearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "URL", path: ".env.example" } }, { repoRoot });
+    expect(exampleSearch.allowed).toBe(true);
+  });
+});
+
+describe("GOZS-783: remediate.native-read (Claude Code lee/busca/edita por Bash)", () => {
+  let telemetryDir: string;
+  const prevTelemetry = process.env.HARNESS_TELEMETRY_DIR;
+  const READ_MSG = "En Claude Code usá `Read` (offset/limit) y `Grep`/`Glob`";
+
+  beforeAll(() => {
+    telemetryDir = mkdtempSync(path.join(tmpdir(), "gozs-783-"));
+    process.env.HARNESS_TELEMETRY_DIR = telemetryDir;
+  });
+  afterAll(() => {
+    if (prevTelemetry === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+    else process.env.HARNESS_TELEMETRY_DIR = prevTelemetry;
+    rmSync(telemetryDir, { recursive: true, force: true });
+  });
+
+  const claudePost = (command: string, session: string, stdout = "") =>
+    checkGuard(
+      {
+        hook_event_name: "PostToolUse",
+        session_id: session,
+        cwd: repoRoot,
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_response: { stdout, stderr: "", interrupted: false },
+      },
+      { repoRoot },
+    );
+
+  it("inyecta una sola vez por sesión ante `cat` de un archivo del repo", () => {
+    const first = claudePost("cat src/components/x.tsx", "s-cat");
+    expect(first.inject).toBe(true);
+    expect(first.ruleId).toBe("remediate.native-read");
+    expect(first.context).toContain(READ_MSG);
+    expect(first.allowed).toBe(true);
+
+    const second = claudePost("cat src/components/y.tsx", "s-cat");
+    expect(second.inject).toBe(false);
+    expect(existsSync(path.join(telemetryDir, "native-read-s-cat.flag"))).toBe(true);
+  });
+
+  it.each(["head -n 40 src/x.ts", "tail -20 src/x.ts", "sed -n '1,80p' src/x.ts", "grep -n foo src/x.ts", "rg -n foo src"])(
+    "inyecta ante lectura/búsqueda por Bash: %s",
+    (command) => {
+      const r = claudePost(command, `s-${command}`);
+      expect(r.ruleId).toBe("remediate.native-read");
+      expect(r.context).toContain(READ_MSG);
+    },
+  );
+
+  it("`sed -i` sugiere `Edit`", () => {
+    const r = claudePost("sed -i 's/a/b/' src/x.ts", "s-sed-i");
+    expect(r.inject).toBe(true);
+    expect(r.ruleId).toBe("remediate.native-read");
+    expect(r.context).toBe("Usá `Edit`.");
+  });
+
+  it.each([
+    "git log --oneline | grep fix",
+    "grep -n foo src/x.ts | head -5",
+    "cat <<'EOF' > notes.md\nhola\nEOF",
+    "cat ~/.claude/settings.json",
+    "cat ../../outside.txt",
+    "sed 's/a/b/' src/x.ts",
+    "npm test",
+  ])("no inyecta: %s", (command) => {
+    const r = claudePost(command, `s-no-${command}`);
+    expect(r.ruleId).not.toBe("remediate.native-read");
+  });
+
+  it("evalúa el comando y no la salida (salida con «cat src/x.ts» literal)", () => {
+    const r = claudePost("git log -1", "s-output", "docs: cat src/x.ts\n");
+    expect(r.inject).toBe(false);
+  });
+
+  it("Antigravity no recibe inyección", () => {
+    const r = evaluateRules(
+      { phase: "post", kind: "shell", runtime: "antigravity", command: "cat src/x.ts", output: "", raw: {} },
+      { repoRoot },
+    );
+    expect(r.inject).toBe(false);
+  });
+
+  it("no pisa remediate.oversize-output ni consume la marca de sesión", () => {
+    const big = "x".repeat(20001);
+    const r = claudePost("cat src/big.ts", "s-oversize", big);
+    expect(r.ruleId).toBe("remediate.oversize-output");
+    expect(claudePost("cat src/big.ts", "s-oversize").ruleId).toBe("remediate.native-read");
+  });
+});
+
+describe("GOZS-780: remediate.cwd-lost solo sobre la salida y solo en Claude Code", () => {
+  const post = (output: string, runtime = "claude-code", command = "cd foo") =>
+    evaluateRules({ phase: "post", kind: "shell", runtime, command, output }, { repoRoot });
+
+  it("GIVEN el texto del error dentro de un JSON o archivo mostrado WHEN evaluatePost THEN no inyecta remediate.cwd-lost", () => {
+    // Comandos que no disparan remediate.native-read: no inyectan nada
+    expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "git show HEAD:rules.json").inject).toBeFalsy();
+    expect(post("  - cd: x: No such file or directory en docs", "claude-code", "git show HEAD:notes.md").inject).toBeFalsy();
+    expect(post("", "claude-code", "git log -S 'cd: .*: No such file or directory' --oneline").inject).toBeFalsy();
+    // Incluso con cat/grep (que pueden sugerir remediate.native-read), nunca dispara remediate.cwd-lost
+    const prevDir = process.env.HARNESS_TELEMETRY_DIR;
+    const tmpDir = mkdtempSync(path.join(tmpdir(), "gozs-780-"));
+    process.env.HARNESS_TELEMETRY_DIR = tmpDir;
+    try {
+      expect(post('{ "pattern": "cd: x: No such file or directory" }', "claude-code", "cat rules.json").ruleId).not.toBe("remediate.cwd-lost");
+      expect(post("", "claude-code", "grep -n 'cd: .*: No such file or directory' rules.json").ruleId).not.toBe("remediate.cwd-lost");
+    } finally {
+      if (prevDir === undefined) delete process.env.HARNESS_TELEMETRY_DIR;
+      else process.env.HARNESS_TELEMETRY_DIR = prevDir;
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("GIVEN un cd que falla en Bash en Claude Code WHEN evaluatePost THEN inyecta el mensaje nuevo sin rutas absolutas", () => {
+    for (const output of [
+      "bash: line 1: cd: foo: No such file or directory",
+      "/usr/bin/bash: line 3: cd: foo: No such file or directory",
+      "cd: foo: No such file or directory",
+    ]) {
+      const res = post(output);
+      expect(res.ruleId).toBe("remediate.cwd-lost");
+      expect(res.inject).toBe(true);
+      expect(res.context).toContain("rutas relativas");
+      expect(res.context).not.toMatch(/absolute paths/i);
+    }
+  });
+
+  it("GIVEN un Set-Location que falla en PowerShell 5.1 o 7 en Claude Code WHEN evaluatePost THEN inyecta el mensaje nuevo", () => {
+    for (const output of [
+      "Set-Location : Cannot find path 'C:\w\gozster' because it does not exist.\r\nAt line:1 char:1",
+      "Set-Location: Cannot find path 'C:\w\gozster' because it does not exist.",
+    ]) {
+      const res = post(output, "claude-code", "Set-Location gozster");
+      expect(res.ruleId).toBe("remediate.cwd-lost");
+      expect(res.inject).toBe(true);
+    }
+  });
+
+  it("GIVEN un fallo de Set-Location en Antigravity WHEN evaluatePost THEN no inyecta contexto", () => {
+    const res = post("Set-Location : Cannot find path 'C:\w\gozster' because it does not exist.", "antigravity", "Set-Location gozster");
+    expect(res.inject).toBeFalsy();
+  });
+
+  it("GIVEN rules.json WHEN se carga THEN remediate.cwd-lost no tiene pattern declarativo", () => {
+    const rule = loadRules({ repoRoot }).find((r: { id: string }) => r.id === "remediate.cwd-lost");
+    expect(rule).toBeDefined();
+    expect(rule.pattern).toBeUndefined();
+    expect(rule.message).not.toMatch(/absolute paths/i);
+  });
 });

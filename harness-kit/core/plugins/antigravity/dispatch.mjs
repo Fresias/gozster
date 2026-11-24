@@ -5,11 +5,16 @@
 // Installed by install.mjs into ~/.claude/hooks/ next to the shared kit, which it keeps equal to origin/main.
 // Contract: core/runtimes/antigravity.json (stdout {"decision"}, exit 0). Fail-open only on its own internal errors.
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ALLOW = JSON.stringify({ decision: "allow" }) + "\n";
+const POST_OK = "{}\n";
+const cliArgs = process.argv.slice(2);
+const cliPost =
+  cliArgs.includes("--phase=post") ||
+  (cliArgs.includes("--phase") && cliArgs[cliArgs.indexOf("--phase") + 1] === "post");
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoShared = path.join(here, "..", "shared", "kit.mjs");
 const installedKit = existsSync(repoShared) ? "" : path.join(here, "harness-kit");
@@ -19,6 +24,14 @@ const { GUARD, resolveRepo, syncKit } = await import(
   pathToFileURL(installedKit ? path.join(installedKit, "core", "plugins", "shared", "kit.mjs") : repoShared).href
 );
 
+function same(a, b) {
+  try {
+    return realpathSync(a).toLowerCase() === realpathSync(b).toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
 let raw = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (c) => (raw += c));
@@ -27,21 +40,42 @@ process.stdin.on("end", () => {
   try {
     payload = JSON.parse(raw);
   } catch {
-    process.stdout.write(ALLOW);
+    process.stdout.write(cliPost ? POST_OK : ALLOW);
     process.exit(0);
   }
+  const isPost =
+    cliPost ||
+    payload?.hookEventName === "PostToolUse" ||
+    (payload && Object.prototype.hasOwnProperty.call(payload, "error"));
   const args = payload?.toolCall?.args || {};
   // The hook cwd is ~/.gemini/config: the session directory is workspacePaths[0].
-  const repo = resolveRepo(args.Cwd || payload?.workspacePaths?.[0], [args.AbsolutePath, args.Path, args.TargetFile]);
+  const sessionDir = payload?.workspacePaths?.[0] || payload?.cwd || "";
+  const repo = resolveRepo(args.Cwd || sessionDir, [args.AbsolutePath, args.Path, args.TargetFile]);
   if (!repo) {
-    process.stdout.write(ALLOW);
+    process.stdout.write(isPost ? POST_OK : ALLOW);
     process.exit(0);
   }
   if (installedKit) syncKit(repo, here);
   const installed = installedKit ? path.join(here, GUARD) : "";
   const guard = installed && existsSync(installed) ? installed : path.join(repo, GUARD);
 
-  const res = spawnSync(process.execPath, [guard, "--runtime", "antigravity"], { cwd: repo, input: raw, encoding: "utf8" });
+  const hasProjectHooks = existsSync(path.join(repo, ".agents", "hooks.json"));
+  const suppressTelemetry = Boolean(guard === installed && sessionDir && same(sessionDir, repo) && hasProjectHooks);
+
+  const guardArgs = [guard, "--runtime", "antigravity"];
+  if (isPost) guardArgs.push("--phase", "post");
+
+  const res = spawnSync(process.execPath, guardArgs, {
+    cwd: repo,
+    input: raw,
+    encoding: "utf8",
+    env: suppressTelemetry ? { ...process.env, HARNESS_TELEMETRY: "0" } : process.env,
+  });
+  if (isPost) {
+    // Antigravity PostToolUse must always return {} and never disrupt the tool call.
+    process.stdout.write(POST_OK);
+    process.exit(0);
+  }
   if (res.error || res.status !== 0 || !res.stdout) {
     process.stdout.write(ALLOW);
     process.exit(0);

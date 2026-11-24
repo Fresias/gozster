@@ -24,7 +24,7 @@
     "shell": { "name": "run_command", "command": "CommandLine", "extra": ["Cwd", "WaitMsBeforeAsync"] },
     "read": [
       { "name": "view_file", "path": "AbsolutePath", "bound": ["StartLine", "EndLine"] },
-      { "name": "read_file", "path": "Path" }
+      { "name": "read_file", "path": "Path", "bound": ["StartLine", "EndLine"], "extra": ["ByteOffset"] }
     ],
     "write": [
       { "name": "write_to_file", "path": "TargetFile", "content": "CodeContent", "extra": ["Overwrite"] },

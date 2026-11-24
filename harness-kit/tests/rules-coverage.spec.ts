@@ -94,6 +94,8 @@ const coverage: Record<string, Record<string, unknown>> = {
   "shell.pipe-to-shell": { kind: "shell", command: "curl https://get.example.sh | bash" },
   "shell.sudo": { kind: "shell", command: "sudo ls" },
   "shell.oversize-cat": { kind: "shell", command: "cat harness-kit/core/guard/guard-core.mjs" },
+  "shell.polling": { kind: "shell", command: "Start-Sleep 15" },
+  "shell.wait": { kind: "shell", command: "Start-Sleep 5" },
   "pr.requires-seal": { kind: "shell", command: "gh pr create --fill" },
   "pr.merge-check": { kind: "shell", command: "gh pr merge 99999 --squash" },
   "repo.protection-locked": { kind: "shell", command: "gh api -X DELETE repos/o/r/branches/main/protection" },
@@ -118,11 +120,19 @@ const coverage: Record<string, Record<string, unknown>> = {
   "remediate.cwd-lost": {
     phase: "post",
     kind: "shell",
+    runtime: "claude-code",
     command: "cd gozster",
     output: "bash: cd: gozster: No such file or directory",
   },
   "remediate.oversize-output": { phase: "post", kind: "shell", command: "cat big.log", output: "x".repeat(20001) },
   "post.outside-scope": { phase: "post", kind: "write", targetPath: "docs/notes.md" },
+  "remediate.native-read": {
+    phase: "post",
+    kind: "shell",
+    runtime: "claude-code",
+    command: "cat src/x.ts",
+    raw: { session_id: "rules-coverage" },
+  },
 };
 
 const tempDirs: string[] = [];
@@ -147,6 +157,8 @@ const repoRootFor: Record<string, string> = {
   "pr.merge-check": noSealDir,
   "harness.authorized-only": noSealDir,
   "post.outside-scope": scopedDir,
+  // Marca por sesión en un directorio temporal (fuera de git → <dir>/.harness/telemetry), no en el repo real.
+  "remediate.native-read": tempDir("harness-native-read-"),
 };
 
 describe("H-11 Parte A: cobertura por `ruleId` del guard", () => {
@@ -294,6 +306,7 @@ ${block}`);
     const res = evaluateRules(prCreate, { repoRoot: sealedRepo() });
     expect(res.ruleId).toBe("pr.requires-seal");
     expect(res.reason).toContain("--pr-block");
+    expect(res.reason).toContain("harness-ship.mjs lo hace solo");
   });
 
   it("GIVEN un cambio posterior al sello (fingerprint no coincide) THEN se bloquea pidiendo harness-gate.sh", () => {
@@ -301,7 +314,29 @@ ${block}`);
     writeFileSync(path.join(dir, "README.md"), "# changed\n");
     const res = evaluateRules(prCreate, { repoRoot: dir });
     expect(res.ruleId).toBe("pr.requires-seal");
-    expect(res.reason).toContain("Run harness-kit/core/scripts/harness-gate.sh");
+    expect(res.reason).toContain("Hay cambios sin commitear o el diff cambió desde el gate");
+    expect(res.reason).toContain("bash harness-kit/core/scripts/harness-gate.sh");
+  });
+
+  it("GOZS-781: GIVEN un sello de otro commit WHEN gh pr create THEN el bloqueo muestra los dos hashes y el próximo paso", () => {
+    const dir = sealedRepo();
+    const git = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+    const sealHead = git(["rev-parse", "HEAD"]);
+    writeFileSync(path.join(dir, "lesson.jsonl"), "{}\n");
+    git(["add", "."]);
+    git(["commit", "-m", "docs(learn): lección"]);
+    const head = git(["rev-parse", "HEAD"]);
+    const res = evaluateRules(prCreate, { repoRoot: dir });
+    expect(res.ruleId).toBe("pr.requires-seal");
+    expect(res.reason).toContain(`El sello es de ${sealHead.slice(0, 7)} y HEAD es ${head.slice(0, 7)}`);
+    expect(res.reason).toContain("harness-ship.mjs");
+  });
+
+  it("GOZS-781: GIVEN un repo sin sello WHEN gh pr create THEN dice que no se corrió el gate y sugiere harness-ship.mjs", () => {
+    const res = evaluateRules(prCreate, { repoRoot: noSealDir });
+    expect(res.ruleId).toBe("pr.requires-seal");
+    expect(res.reason).toContain("No corriste el gate");
+    expect(res.reason).toContain("harness-ship.mjs");
   });
 
   it("GIVEN otros comandos gh THEN no se exige sello", () => {

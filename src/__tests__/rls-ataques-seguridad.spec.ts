@@ -252,7 +252,8 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
       expect(await contarComo("authenticated", C1, "reservas")).toBe(1);
       expect(await contarComo("authenticated", C1, "feedback_clase")).toBe(1);
       expect(await contarComo("authenticated", C1, "errores_app")).toBe(1);
-      expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(1);
+      // GOZS-759: las plantillas son privadas de su autor; un coach no ve plantillas ajenas no compartidas.
+      expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(0);
       expect(await contarComo("authenticated", C1, "auditoria_cambios", `entidad_id = '${CONTR_A1_ID}'`)).toBe(1);
     });
 
@@ -523,6 +524,57 @@ describe("Suite de regresión RLS/RPC y matriz de lectura por rol", () => {
     it("coach no ve alumno no asignado en perfiles ni registro_sesiones", async () => {
       expect(await contarComo("authenticated", C1, "perfiles", `id = '${A2}'`)).toBe(0);
       expect(await contarComo("authenticated", C1, "registro_sesiones", `alumno_id = '${A2}'`)).toBe(0);
+    });
+
+    it("GOZS-759: coach no lee, clona, asigna ni se auto-comparte una plantilla ajena no compartida", async () => {
+      expect(await contarComo("authenticated", C1, "dias_rutina", `plan_id = '${PLANTILLA_ID}'`)).toBe(0);
+      expect(await contarComo("authenticated", C1, "ejercicios_en_rutina", `dia_id = '${DIA_PLANTILLA_ID}'`)).toBe(0);
+      await expect(
+        como("authenticated", C1, `SELECT public.clonar_plan_entrenamiento($1, 'robada')`, [PLANTILLA_ID]),
+      ).rejects.toThrow();
+      await expect(
+        como("authenticated", C1, `SELECT public.asignar_rutina_a_alumno($1, $2)`, [PLANTILLA_ID, A1]),
+      ).rejects.toThrow();
+      await expect(
+        como(
+          "authenticated",
+          C1,
+          `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $2)`,
+          [PLANTILLA_ID, C1],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        como(
+          "authenticated",
+          C1,
+          `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $3)`,
+          [PLANTILLA_ID, C1, ADMIN],
+        ),
+      ).rejects.toMatchObject({ code: "42501" });
+    });
+
+    it("GOZS-759: plantilla compartida con el coach es solo lectura y anon no accede a planes_compartidos", async () => {
+      await db.query(
+        `INSERT INTO public.planes_compartidos (plan_id, profesor_id, compartido_por) VALUES ($1, $2, $3)`,
+        [PLANTILLA_ID, C1, ADMIN],
+      );
+      try {
+        expect(await contarComo("authenticated", C1, "planes_entrenamiento", `id = '${PLANTILLA_ID}'`)).toBe(1);
+        expect(await contarComo("authenticated", C1, "ejercicios_en_rutina", `dia_id = '${DIA_PLANTILLA_ID}'`)).toBe(1);
+        const upd = await como("authenticated", C1, `UPDATE public.planes_entrenamiento SET nombre = 'x' WHERE id = $1`, [
+          PLANTILLA_ID,
+        ]);
+        expect(upd.affectedRows).toBe(0);
+        const del = await como("authenticated", C1, `DELETE FROM public.dias_rutina WHERE plan_id = $1`, [PLANTILLA_ID]);
+        expect(del.affectedRows).toBe(0);
+        const revoca = await como("authenticated", C1, `DELETE FROM public.planes_compartidos WHERE plan_id = $1`, [
+          PLANTILLA_ID,
+        ]);
+        expect(revoca.affectedRows).toBe(0);
+        expect(await contarOCodigoPermiso("anon", null, "planes_compartidos")).toBe("42501");
+      } finally {
+        await db.query(`DELETE FROM public.planes_compartidos WHERE plan_id = $1`, [PLANTILLA_ID]);
+      }
     });
 
     it("anon recibe 42501 en perfiles, registro_series, planes_entrenamiento y mensajes", async () => {

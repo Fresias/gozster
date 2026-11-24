@@ -118,8 +118,12 @@ describe("Harness²: 8-Component Architecture", () => {
     // Componente 6: Skills
     expect(agents).toContain("- When domain operation required, load the domain-skill skill.");
 
-    // Componente 7: Scripts locales en el índice
-    expect(agents).toContain("Runs custom repository integrity check");
+    // Componente 7: Scripts locales en el catálogo de la skill harness-tools (no en AGENTS.md)
+    expect(agents).not.toContain("# Helper scripts (run via bash)");
+    const claudeToolsSkill = readFileSync(path.join(ws, ".claude", "skills", "harness-tools", "SKILL.md"), "utf8");
+    const agentsToolsSkill = readFileSync(path.join(ws, ".agents", "skills", "harness-tools", "SKILL.md"), "utf8");
+    expect(claudeToolsSkill).toContain("Runs custom repository integrity check");
+    expect(agentsToolsSkill).toContain("Runs custom repository integrity check");
 
     // Componente 5: Subagentes materializados en los runtimes
     expect(existsSync(path.join(ws, ".claude", "agents", "domain-auditor.md"))).toBe(true);

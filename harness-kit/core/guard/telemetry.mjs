@@ -3,15 +3,17 @@
  * Deterministic, privacy-safe guard telemetry. Emits one event per guard
  * invocation to <git common dir>/harness/telemetry/events.jsonl, shared by every
  * worktree of the same clone. No PII, no secrets:
- * `sk-…` and `eyJ…` tokens are redacted and `cmd` is truncated to 120 chars.
+ * local paths are relativized (<repo>, <workdir>, ~), `sk-…`, `eyJ…`, GitHub
+ * tokens and credentials are redacted, and `cmd` is bounded to 300 chars.
  * Writes are best-effort and never throw into the guard hot path.
  */
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-const CMD_MAX = 120;
+export const CMD_MAX = 300;
 
 /**
  * Strips ANSI escape sequences (colors, styles, cursor codes) from text.
@@ -80,16 +82,168 @@ export function sanitizePreview(raw, repoDir = "") {
   return s;
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripTrailingSep(p) {
+  return String(p || "").replace(/[\\/]+$/, "");
+}
+
+function normalizeSlashes(p) {
+  return stripTrailingSep(p).replace(/\\/g, "/");
+}
+
+function isRootPath(p) {
+  return !p || p === "/" || /^[A-Za-z]:$/.test(p);
+}
+
 /**
- * Redact secrets and bound the length of a command/path string.
- * Collapses whitespace first so each event stays a single JSONL line, then
- * redacts secrets, then truncates — so a secret near the tail is scrubbed
- * before the cut, never leaked by truncation.
- * @param {string} raw
+ * Cross-platform parent directory extraction: normalizes `\` -> `/` before calling
+ * `path.posix.dirname` so Windows-style paths resolve their parent identically on Linux/macOS.
+ * @param {string} p
  * @returns {string}
  */
-export function redactCmd(raw) {
+function parentDirCrossPlatform(p) {
+  const norm = normalizeSlashes(p);
+  if (!norm || isRootPath(norm)) return "";
+  const parent = stripTrailingSep(path.posix.dirname(norm));
+  if (!parent || parent === "." || parent === norm) return "";
+  return parent;
+}
+
+/**
+ * Build a case-insensitive regex matching an absolute path prefix regardless of
+ * `\` or `/` separators (plus MSYS `/c/...` form for Windows drive paths).
+ * @param {string} prefix
+ * @returns {RegExp | null}
+ */
+function buildPrefixRegex(prefix) {
+  const clean = stripTrailingSep(prefix);
+  if (isRootPath(clean)) return null;
+  const parts = clean.split(/[\\/]+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const isDrive = /^[A-Za-z]:$/.test(parts[0]);
+  const isPosixAbs = clean.startsWith("/");
+  let body;
+  if (isDrive) {
+    const driveLetter = parts[0][0];
+    const rest = parts.slice(1).map(escapeRegex).join("[/\\\\]");
+    const drivePat = `(?:${escapeRegex(driveLetter)}:|/${escapeRegex(driveLetter)})`;
+    body = rest ? `${drivePat}[/\\\\]${rest}` : drivePat;
+  } else {
+    body = (isPosixAbs ? "/" : "") + parts.map(escapeRegex).join("[/\\\\]");
+  }
+  return new RegExp(`${body}(?=$|[/\\\\\\s"'\`;|&<>)\\]}:,])`, "gi");
+}
+
+/**
+ * Relativize absolute local paths in telemetry text (case-insensitive, `\` or `/`):
+ * - `repoRoot` -> `<repo>`
+ * - `path.dirname(repoRoot)` (Multica workdir) -> `<workdir>`
+ * - `os.homedir()` -> `~` (normalizing `~\` -> `~/`)
+ * Runs BEFORE secret redaction and truncation.
+ * @param {string} text
+ * @param {string} [repoRoot]
+ * @returns {string}
+ */
+export function relativizeForTelemetry(text, repoRoot = "") {
+  let s = String(text || "");
+  if (!s) return "";
+
+  const cleanRepo = normalizeSlashes(repoRoot);
+  const home = normalizeSlashes(os.homedir());
+  const workdir = cleanRepo ? parentDirCrossPlatform(cleanRepo) : "";
+
+  const replacements = [];
+  if (cleanRepo && !isRootPath(cleanRepo)) {
+    replacements.push({ prefix: cleanRepo, token: "<repo>" });
+  }
+  if (
+    workdir &&
+    !isRootPath(workdir) &&
+    workdir.toLowerCase() !== cleanRepo.toLowerCase() &&
+    workdir.toLowerCase() !== home.toLowerCase()
+  ) {
+    replacements.push({ prefix: workdir, token: "<workdir>" });
+  }
+  if (home && !isRootPath(home)) {
+    replacements.push({ prefix: home, token: "~" });
+  }
+
+  // Apply longest prefixes first so <repo> wins over <workdir> and ~.
+  replacements.sort((a, b) => b.prefix.length - a.prefix.length);
+
+  for (const { prefix, token } of replacements) {
+    const re = buildPrefixRegex(prefix);
+    if (!re) continue;
+    s = s.replace(re, token);
+  }
+
+  // Ensure home-relative paths use forward slash (~/...) without leaking username.
+  s = s.replace(/~\\/g, "~/");
+
+  return s;
+}
+
+/**
+ * Relativize a file path (read/write/search):
+ * - Inside `repoRoot`: relative path with `/` (e.g. `src/components/coach/coach-studio-view.tsx`).
+ * - Outside `repoRoot`: apply `relativizeForTelemetry` and normalize separators to `/`.
+ * @param {string} filePath
+ * @param {string} [repoRoot]
+ * @returns {string}
+ */
+function relativizeFilePath(filePath, repoRoot = "") {
+  const raw = String(filePath || "").trim();
+  if (!raw) return "";
+
+  const normPath = raw.replace(/\\/g, "/");
+  const cleanRepo = stripTrailingSep(repoRoot).replace(/\\/g, "/");
+
+  if (cleanRepo) {
+    const repoLower = cleanRepo.toLowerCase();
+    const pathLower = normPath.toLowerCase();
+    if (pathLower.startsWith(repoLower + "/")) {
+      return normPath.slice(cleanRepo.length + 1);
+    }
+    if (pathLower === repoLower) {
+      return "<repo>";
+    }
+  }
+
+  return relativizeForTelemetry(raw, repoRoot).replace(/\\/g, "/");
+}
+
+/**
+ * Relativize a working directory path (`cwd`) with `<repo>`, `<workdir>`, `~`
+ * and forward slashes.
+ * @param {string} cwd
+ * @param {string} [repoRoot]
+ * @returns {string}
+ */
+function relativizeCwd(cwd, repoRoot = "") {
+  const raw = String(cwd || "").trim();
+  if (!raw) return "";
+  let out = relativizeForTelemetry(raw, repoRoot).replace(/\\/g, "/");
+  if (out.length > 1 && out !== "~/") out = out.replace(/\/+$/, "");
+  out = redactSecrets(out);
+  if (out.length > CMD_MAX) out = out.slice(0, CMD_MAX);
+  return out;
+}
+
+/**
+ * Relativize paths, redact secrets, and bound the length of a command/path string.
+ * Order is strictly: collapse whitespace -> relativize -> redactSecrets -> truncate
+ * so a secret near the tail is always scrubbed before the cut, never leaked.
+ * @param {string} raw
+ * @param {string} [repoRoot]
+ * @returns {string}
+ */
+export function redactCmd(raw, repoRoot = "") {
   let s = String(raw || "").replace(/\s+/g, " ").trim();
+  s = relativizeForTelemetry(s, repoRoot);
   s = redactSecrets(s);
   if (s.length > CMD_MAX) s = s.slice(0, CMD_MAX);
   return s;
@@ -148,30 +302,94 @@ export function resolveTelemetryDir(repoRoot = process.cwd()) {
 
 /**
  * Build a telemetry event from a normalized call and the guard result.
+ * Preserves existing fields and adds optional fidelity/post fields only when present.
  * @param {object} normalized Output of normalize()
  * @param {object} result Output of evaluateRules()
- * @param {Date} [now]
+ * @param {Date | { now?: Date, repoRoot?: string }} [nowOrOptions]
+ * @param {{ repoRoot?: string }} [maybeOptions]
  * @returns {object}
  */
-export function buildEvent(normalized, result, now = new Date()) {
-  return {
+export function buildEvent(normalized, result, nowOrOptions = new Date(), maybeOptions = {}) {
+  let now = new Date();
+  let repoRoot = "";
+  if (nowOrOptions instanceof Date) {
+    now = nowOrOptions;
+    repoRoot = maybeOptions?.repoRoot || "";
+  } else if (nowOrOptions && typeof nowOrOptions === "object") {
+    now = nowOrOptions.now instanceof Date ? nowOrOptions.now : new Date();
+    repoRoot = nowOrOptions.repoRoot || "";
+  }
+
+  const kind = normalized?.kind || "";
+  let cmd = "";
+  if (kind === "search") {
+    const pat = redactSecrets(
+      relativizeForTelemetry(String(normalized?.pattern || "").replace(/\s+/g, " ").trim(), repoRoot),
+    );
+    const rawPath = String(normalized?.filePath || "").replace(/\s+/g, " ").trim();
+    const relPath = rawPath ? redactSecrets(relativizeFilePath(rawPath, repoRoot)) : "";
+    cmd = relPath ? (pat ? `${pat} ${relPath}` : relPath) : pat;
+    if (cmd.length > CMD_MAX) cmd = cmd.slice(0, CMD_MAX);
+  } else if (kind === "read" || kind === "write") {
+    const rawPath = normalized?.targetPath || normalized?.filePath || "";
+    let relPath = relativizeFilePath(String(rawPath).replace(/\s+/g, " ").trim(), repoRoot);
+    relPath = redactSecrets(relPath);
+    if (relPath.length > CMD_MAX) relPath = relPath.slice(0, CMD_MAX);
+    cmd = relPath;
+  } else {
+    cmd = redactCmd(normalized?.command || normalized?.targetPath || normalized?.filePath || "", repoRoot);
+  }
+
+  const event = {
     ts: now.toISOString(),
     session: resolveSession(normalized?.raw),
     runtime: normalized?.runtime || "",
     phase: normalized?.phase || "",
-    kind: normalized?.kind || "",
+    kind,
     tool: normalized?.tool || "",
     decision: result?.allowed === false ? "block" : "allow",
     rule: result?.ruleId || null,
     inject: result?.inject === true,
-    cmd: redactCmd(normalized?.command || normalized?.targetPath || normalized?.filePath || ""),
+    cmd,
   };
+
+  if (kind === "read") {
+    if (typeof normalized?.startLine === "number") event.start = normalized.startLine;
+    if (typeof normalized?.limit === "number") event.limit = normalized.limit;
+    if (typeof normalized?.isBounded === "boolean") event.bounded = normalized.isBounded;
+  }
+
+  const rawCwd =
+    normalized?.cwd ||
+    (normalized?.runtime === "antigravity"
+      ? normalized?.raw?.workspacePaths?.[0] || normalized?.raw?.cwd
+      : normalized?.raw?.cwd) ||
+    "";
+  const cwd = relativizeCwd(rawCwd, repoRoot);
+  if (cwd) event.cwd = cwd;
+
+  const callId =
+    normalized?.toolUseId ||
+    normalized?.raw?.tool_use_id ||
+    normalized?.raw?.toolCall?.id ||
+    normalized?.raw?.input?.callID ||
+    "";
+  if (callId) event.id = String(callId);
+
+  if (normalized?.phase === "post" || normalized?.phase === "result") {
+    if (typeof normalized?.ok === "boolean") {
+      event.ok = normalized.ok;
+    } else {
+      event.ok = true;
+    }
+  }
+
+  return event;
 }
 
 /**
- * Append a telemetry event for a guard invocation. Pre-phase calls are always
- * recorded (one per tool call, every allow/block decision); post-phase calls
- * only when they inject context (e.g. GH007), so actions are not double-counted.
+ * Append a telemetry event for a guard invocation. Both pre-phase and post-phase
+ * calls are always recorded (pre for actions/blocks, post for duration and ok).
  * Best-effort: any failure is swallowed so telemetry can never break the guard.
  * @param {object} normalized
  * @param {object} result
@@ -180,12 +398,12 @@ export function buildEvent(normalized, result, now = new Date()) {
 export function recordEvent(normalized, result, options = {}) {
   try {
     if (process.env.HARNESS_TELEMETRY === "0") return;
-    if (normalized?.phase && normalized.phase !== "pre" && result?.inject !== true) return;
 
-    const dir = options.dir || resolveTelemetryDir(options.repoRoot || process.cwd());
+    const repoRoot = options.repoRoot || "";
+    const dir = options.dir || resolveTelemetryDir(repoRoot || process.cwd());
 
     mkdirSync(dir, { recursive: true });
-    const event = buildEvent(normalized, result, options.now);
+    const event = buildEvent(normalized, result, { now: options.now, repoRoot });
     appendFileSync(path.join(dir, "events.jsonl"), JSON.stringify(event) + "\n");
   } catch {
     // Telemetry is best-effort; never surface errors into the guard.

@@ -174,6 +174,53 @@ const adapterToolGuidance = adapters
   .filter(Boolean);
 const localToolGuidance = readFileSafe(path.join(overlayDir, "tool_guidance.local.md"));
 
+// C7: índice de scripts, desde la primera línea de comentario de cada uno (D8).
+// Se inyecta en la skill `harness-tools` en lugar de `AGENTS.md` para preservar el presupuesto.
+const BEGIN_SCRIPTS_MARKER = "<!-- BEGIN GENERATED:HELPER_SCRIPTS -->";
+const END_SCRIPTS_MARKER = "<!-- END GENERATED:HELPER_SCRIPTS -->";
+
+const scriptsDir = path.join(kitDir, "core", "scripts");
+const scriptLines = readdirSync(scriptsDir)
+  .filter((f) => /\.(sh|mjs)$/.test(f))
+  .sort()
+  .map((f) => {
+    const doc = readFileSafe(path.join(scriptsDir, f))
+      .split("\n")
+      .slice(1)
+      .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
+      .find(Boolean);
+    return `- \`${path.relative(repoRoot(), path.join(scriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
+  });
+
+const overlayScriptsDir = path.join(overlayDir, "scripts");
+if (existsSync(overlayScriptsDir)) {
+  const overlayScriptLines = readdirSync(overlayScriptsDir)
+    .filter((f) => /\.(sh|mjs)$/.test(f))
+    .sort()
+    .map((f) => {
+      const doc = readFileSafe(path.join(overlayScriptsDir, f))
+        .split("\n")
+        .slice(1)
+        .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
+        .find(Boolean) || "project script";
+      return `- \`${path.relative(targetRoot, path.join(overlayScriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
+    });
+  scriptLines.push(...overlayScriptLines);
+}
+const scriptsSection = `## Helper scripts (run via bash)\n\n${scriptLines.join("\n")}`;
+const generatedScriptsBlock = `${BEGIN_SCRIPTS_MARKER}\n${scriptsSection}\n${END_SCRIPTS_MARKER}`;
+
+function injectHelperScripts(content, block) {
+  const startIdx = content.indexOf(BEGIN_SCRIPTS_MARKER);
+  const endIdx = content.indexOf(END_SCRIPTS_MARKER);
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const before = content.slice(0, startIdx);
+    const after = content.slice(endIdx + END_SCRIPTS_MARKER.length);
+    return `${before}${block}${after}`.replace(/\n*$/, "\n");
+  }
+  return `${content.trimEnd()}\n\n${block}\n`;
+}
+
 // C6: skills (core -> overlay). Cada `skills/<n>/SKILL.md` declara su
 // `autotrigger` en el frontmatter; el render lo publica en AGENTS.md.
 function loadSkills(skillsDir) {
@@ -190,10 +237,35 @@ function loadSkills(skillsDir) {
     })
     .filter((s) => s.name);
 }
-const skills = [
+const skillMap = new Map();
+for (const s of [
   ...loadSkills(path.join(kitDir, "core", "skills")),
   ...loadSkills(path.join(overlayDir, "skills")),
-];
+]) {
+  skillMap.set(s.name, s);
+}
+const existingToolsSkill = skillMap.get("harness-tools");
+if (existingToolsSkill) {
+  skillMap.set("harness-tools", {
+    ...existingToolsSkill,
+    content: injectHelperScripts(existingToolsSkill.content, generatedScriptsBlock),
+  });
+} else {
+  const defaultAutotrigger = "you need harness helper scripts or CLI tool guides";
+  skillMap.set("harness-tools", {
+    name: "harness-tools",
+    autotrigger: defaultAutotrigger,
+    content:
+      "---\n" +
+      "name: harness-tools\n" +
+      "description: Auto-generated catalog of harness helper scripts.\n" +
+      `autotrigger: ${defaultAutotrigger}\n` +
+      "---\n\n" +
+      "# harness-tools\n\n" +
+      `${generatedScriptsBlock}\n`,
+  });
+}
+const skills = Array.from(skillMap.values());
 const autotriggers = skills
   .filter((s) => s.autotrigger)
   .map((s) => `- When ${s.autotrigger}, load the ${s.name} skill.`);
@@ -269,38 +341,8 @@ if (existsSync(expDir)) {
   }
 }
 
-// C7: índice de scripts, desde la primera línea de comentario de cada uno (D8).
-const scriptsDir = path.join(kitDir, "core", "scripts");
-const scriptLines = readdirSync(scriptsDir)
-  .filter((f) => /\.(sh|mjs)$/.test(f))
-  .sort()
-  .map((f) => {
-    const doc = readFileSafe(path.join(scriptsDir, f))
-      .split("\n")
-      .slice(1)
-      .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
-      .find(Boolean);
-    return `- \`${path.relative(repoRoot(), path.join(scriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
-  });
-
-const overlayScriptsDir = path.join(overlayDir, "scripts");
-if (existsSync(overlayScriptsDir)) {
-  const overlayScriptLines = readdirSync(overlayScriptsDir)
-    .filter((f) => /\.(sh|mjs)$/.test(f))
-    .sort()
-    .map((f) => {
-      const doc = readFileSafe(path.join(overlayScriptsDir, f))
-        .split("\n")
-        .slice(1)
-        .map((l) => l.replace(/^\s*(#|\/\/|\/\*\*|\*)\s?/, "").trim())
-        .find(Boolean) || "project script";
-      return `- \`${path.relative(repoRoot(), path.join(overlayScriptsDir, f)).replace(/\\/g, "/")}\`: ${doc}`;
-    });
-  scriptLines.push(...overlayScriptLines);
-}
-const scriptsSection = `# Helper scripts (run via bash)\n\n${scriptLines.join("\n")}`;
-
-// Orden canónico (spec §5): systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
+// Orden canónico (spec §5): systemprompt → guardrails → autotriggers → memory → tool_guidance
+// (el índice C7 de scripts se inyecta en la skill `harness-tools`)
 const agentSections = [
   systemPrompt?.trimEnd(),
   coreGuardrails?.trimEnd(),
@@ -312,7 +354,6 @@ const agentSections = [
   coreToolGuidance?.trimEnd(),
   ...adapterToolGuidance.map((s) => s.trimEnd()),
   localToolGuidance?.trimEnd(),
-  scriptsSection,
 ].filter(Boolean);
 
 const agentsMdContent = agentSections.join("\n\n") + "\n";
@@ -336,8 +377,8 @@ function toolNames(runtime, kinds) {
   const { tools } = JSON.parse(readFileSync(path.join(kitDir, "core", "runtimes", `${runtime}.json`), "utf8"));
   return kinds.flatMap((kind) => tools[kind] ?? []).map((tool) => tool.name);
 }
-const PRE_KINDS = ["shell", "read", "read_many", "write"];
-const POST_KINDS = ["shell", "write"];
+const PRE_KINDS = ["shell", "read", "read_many", "search", "write"];
+const POST_KINDS = ["shell", "read", "read_many", "search", "write"];
 
 if (runtimes.has("claude-code")) {
   generatedArtifacts.set("CLAUDE.md", "@AGENTS.md\n");
@@ -392,6 +433,17 @@ if (runtimes.has("claude-code")) {
         },
       ],
       PostToolUse: [
+        {
+          matcher: toolNames("claude-code", POST_KINDS).join("|"),
+          hooks: [
+            {
+              type: "command",
+              command: "bash .claude/hooks/guard.sh",
+            },
+          ],
+        },
+      ],
+      PostToolUseFailure: [
         {
           matcher: toolNames("claude-code", POST_KINDS).join("|"),
           hooks: [
@@ -462,6 +514,19 @@ if (runtimes.has("antigravity")) {
               // cwd = .agents/ (runtimes/antigravity.json): ruta relativa a la raíz. node y no bash: con
               // `cmd /c` el primer bash del PATH puede ser WSL (GOZS-513). Vale igual con `sh -c`.
               command: "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity",
+              timeout: 10,
+            },
+          ],
+        },
+      ],
+      PostToolUse: [
+        {
+          matcher: toolNames("antigravity", POST_KINDS).join("|"),
+          hooks: [
+            {
+              type: "command",
+              // Telemetría post (duración y ok): stdout siempre {} sin inyectar ni alterar el resultado.
+              command: "node ../harness-kit/core/guard/guard-cli.mjs --runtime antigravity --phase post",
               timeout: 10,
             },
           ],

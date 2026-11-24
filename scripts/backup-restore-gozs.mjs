@@ -98,6 +98,10 @@ export const TABLAS = [
   { nombre: "reservas", fks: { alumno_id: "perfiles", clase_id: "clases" } },
   { nombre: "feedback_clase", fks: { reserva_id: "reservas" } },
   { nombre: "logros_racha", fks: { alumno_id: "perfiles" } },
+  {
+    nombre: "planes_compartidos",
+    fks: { plan_id: "planes_entrenamiento", profesor_id: "perfiles", compartido_por: "perfiles" },
+  },
 ];
 
 /** JSON estable: claves ordenadas, para que el hash no dependa del orden de columnas. */
