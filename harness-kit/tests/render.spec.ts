@@ -173,6 +173,7 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
   it("la skill harness-tools lista cada script de core/scripts con su docstring y la ruta existe", () => {
     const expectedScripts = [
       "harness-kit/core/scripts/harness-compose.mjs",
+      "harness-kit/core/scripts/harness-context.mjs",
       "harness-kit/core/scripts/harness-contrast.mjs",
       "harness-kit/core/scripts/harness-debt-notify.mjs",
       "harness-kit/core/scripts/harness-gate.sh",
