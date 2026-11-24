@@ -1857,9 +1857,9 @@ export function CoachStudioView({
           onActualizarNivelVista={actualizarNivelVistaAlumno}
           onPreviewAthlete={(a) => setPreviewAlumno(a)}
           onAssignRoutine={(a) => setAssignRoutineTarget(a)}
-          onQuickSwap={handleOpenQuickSwapFromAlert}
           currentUserId={activeUserId}
           currentUserRole={activeRole}
+          onQuickSwap={handleOpenQuickSwapFromAlert}
         />
       )}
 
