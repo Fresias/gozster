@@ -834,6 +834,13 @@ function programBaseName(token) {
   return base.replace(/\.exe$/i, "").toLowerCase();
 }
 
+function parseNonNegativeNumber(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const num = Number(s);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+}
+
 /**
  * Detect wait duration in seconds if a clause's program is a wait command, or null otherwise.
  * Matches: Start-Sleep, sleep, cmd `timeout /t <n>`, and `ping -n <n> 127.0.0.1`.
@@ -853,8 +860,8 @@ function parseWaitClauseSeconds(tokens) {
       const colonMatch = lower.match(/^-(seconds?|sec|s|milliseconds?|millis?|ms|m):(.+)$/);
       if (colonMatch) {
         const isMs = colonMatch[1].startsWith("m");
-        const num = Number(colonMatch[2]);
-        total += Number.isFinite(num) ? (isMs ? num / 1000 : num) : Infinity;
+        const num = parseNonNegativeNumber(colonMatch[2]);
+        total += num !== null ? (isMs ? num / 1000 : num) : Infinity;
         found = true;
         continue;
       }
@@ -867,8 +874,8 @@ function parseWaitClauseSeconds(tokens) {
       }
       if (/^-(milliseconds?|millis?|ms|m)$/i.test(a)) {
         const next = args[++i];
-        const num = Number(next);
-        total += Number.isFinite(num) ? num / 1000 : Infinity;
+        const num = parseNonNegativeNumber(next);
+        total += num !== null ? num / 1000 : Infinity;
         found = true;
         continue;
       }
@@ -886,13 +893,13 @@ function parseWaitClauseSeconds(tokens) {
       const a = args[i];
       if (/^\/t$/i.test(a)) {
         const next = args[++i];
-        const num = Number(next);
-        return Number.isFinite(num) ? num : Infinity;
+        const num = parseNonNegativeNumber(next);
+        return num !== null ? num : Infinity;
       }
       const inline = a.match(/^\/t:(.+)$/i);
       if (inline) {
-        const num = Number(inline[1]);
-        return Number.isFinite(num) ? num : Infinity;
+        const num = parseNonNegativeNumber(inline[1]);
+        return num !== null ? num : Infinity;
       }
     }
     return null;
@@ -906,13 +913,13 @@ function parseWaitClauseSeconds(tokens) {
       const a = args[i];
       if (/^[-/]n$/i.test(a)) {
         const next = args[++i];
-        const count = Number(next);
-        return Number.isFinite(count) ? Math.max(0, count - 1) : Infinity;
+        const count = parseNonNegativeNumber(next);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
       }
-      const inline = a.match(/^[-/]n:?(\d+)$/i);
+      const inline = a.match(/^[-/]n:?(.+)$/i);
       if (inline) {
-        const count = Number(inline[1]);
-        return Number.isFinite(count) ? Math.max(0, count - 1) : Infinity;
+        const count = parseNonNegativeNumber(inline[1]);
+        return count !== null ? Math.max(0, count - 1) : Infinity;
       }
     }
     return null;

@@ -134,12 +134,13 @@ describe("GOZS-773: harness-pr-status.mjs", () => {
     expect(out).toContain("Próximo paso: listo para aprobar");
   });
 
-  it("GIVEN merge-check bloqueado solo por la etiqueta harness-authorized WHEN corre harness-pr-status THEN muestra «falta harness-authorized (solo @Fresias)»", async () => {
+  it("GIVEN merge-check bloqueado solo por la etiqueta harness-authorized con StatusContext y CheckRun «Harness² merge check» fallidos WHEN corre harness-pr-status THEN muestra «falta harness-authorized (solo @Fresias)»", async () => {
     const pr = makePr({
       labels: [],
       statusCheckRollup: [
         { __typename: "CheckRun", name: "CI / test", status: "COMPLETED", conclusion: "SUCCESS" },
         { __typename: "StatusContext", context: "harness/merge-check", state: "FAILURE" },
+        { __typename: "CheckRun", name: "Harness² merge check", status: "COMPLETED", conclusion: "FAILURE" },
       ],
     });
     let out = "";
@@ -163,6 +164,75 @@ describe("GOZS-773: harness-pr-status.mjs", () => {
     expect(res.data.labels.harnessAuthorized).toBe(false);
     expect(res.data.next).toBe("falta harness-authorized (solo @Fresias)");
     expect(out).toContain("falta harness-authorized (solo @Fresias)");
+  });
+
+  it("GIVEN statusCheckRollup con ejecuciones previas CANCELLED o FAILURE superadas por un SUCCESS más reciente WHEN corre harness-pr-status THEN deduplica conservando la ejecución más reciente y no reporta fallos viejos", () => {
+    const pr = makePr({
+      statusCheckRollup: [
+        {
+          __typename: "CheckRun",
+          name: "Tests (Unit & Harness)",
+          status: "COMPLETED",
+          conclusion: "CANCELLED",
+          startedAt: "2026-11-24T01:00:00Z",
+          completedAt: "2026-11-24T01:01:00Z",
+        },
+        {
+          __typename: "CheckRun",
+          name: "Tests (Unit & Harness)",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+          startedAt: "2026-11-24T01:02:00Z",
+          completedAt: "2026-11-24T01:05:00Z",
+        },
+        // Orden inverso (más reciente primero): igual debe ganar el SUCCESS por timestamp
+        {
+          __typename: "CheckRun",
+          name: "Build Next.js",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+          startedAt: "2026-11-24T01:06:00Z",
+          completedAt: "2026-11-24T01:08:00Z",
+        },
+        {
+          __typename: "CheckRun",
+          name: "Build Next.js",
+          status: "COMPLETED",
+          conclusion: "FAILURE",
+          startedAt: "2026-11-24T01:00:00Z",
+          completedAt: "2026-11-24T01:02:00Z",
+        },
+        // Re-run en progreso más reciente que un FAILURE previo → pendiente, no fallido
+        {
+          __typename: "CheckRun",
+          name: "Tests (DB)",
+          status: "COMPLETED",
+          conclusion: "FAILURE",
+          startedAt: "2026-11-24T01:00:00Z",
+          completedAt: "2026-11-24T01:02:00Z",
+        },
+        {
+          __typename: "CheckRun",
+          name: "Tests (DB)",
+          status: "IN_PROGRESS",
+          conclusion: "",
+          startedAt: "2026-11-24T01:10:00Z",
+          completedAt: "",
+        },
+      ],
+    });
+    const data = analyzePrStatus({
+      pr,
+      mergeCheck: { mergeable: true, errors: [] },
+      project: PROJECT,
+    });
+    expect(data.checks).toEqual({
+      total: 3,
+      ok: 2,
+      failed: [],
+      pending: ["Tests (DB)"],
+    });
+    expect(data.next).toBe("esperar checks: `--wait-checks`");
   });
 
   it("GIVEN --json WHEN corre harness-pr-status THEN devuelve seal, behind, checks, labels, review, mergeCheck y next", async () => {
@@ -230,13 +300,14 @@ describe("GOZS-773: harness-pr-status.mjs", () => {
     expect(lines.at(-1)).toMatch(/^Próximo paso:/);
   });
 
-  it("GIVEN merge-check en modo lectura real via main(argv, deps) sin --post-status WHEN corre harness-pr-status THEN reutiliza harness-merge-check sin escribir estados", async () => {
+  it("GIVEN merge-check en modo lectura real via main(argv, deps) sin --post-status WHEN corre harness-pr-status THEN ejecuta exactamente 1 llamada a gh pr view usando solo PR_VIEW_FIELDS y sin escribir estados", async () => {
     const head = "ccccccc333333333333333333333333333333333";
-    const pr = makePr({
+    const fullPr: Record<string, unknown> = makePr({
       number: 773,
       headRefName: "feature/773-demo",
       headRefOid: head,
       changedFiles: 2,
+      mergedAt: null,
       labels: [],
       body: makeSealBody(head),
     });
@@ -245,7 +316,13 @@ describe("GOZS-773: harness-pr-status.mjs", () => {
       project: PROJECT,
       runGh: (args: string[]) => {
         ghCalls.push(args);
-        if (args[0] === "pr" && args[1] === "view") return JSON.stringify(pr);
+        if (args[0] === "pr" && args[1] === "view") {
+          const jsonIdx = args.indexOf("--json");
+          const requestedFields = jsonIdx >= 0 ? String(args[jsonIdx + 1] || "").split(",") : [];
+          const projected: Record<string, unknown> = {};
+          for (const f of requestedFields) projected[f] = fullPr[f];
+          return JSON.stringify(projected);
+        }
         if (args[0] === "api" && args.some((a) => a.includes("/files"))) {
           return JSON.stringify([
             { filename: "src/app/page.tsx" },
@@ -261,6 +338,10 @@ describe("GOZS-773: harness-pr-status.mjs", () => {
       writeStderr: () => {},
     });
 
+    const prViewCalls = ghCalls.filter((c) => c[0] === "pr" && c[1] === "view");
+    expect(prViewCalls).toHaveLength(1);
+    expect(PR_VIEW_FIELDS.split(",")).toContain("changedFiles");
+    expect(PR_VIEW_FIELDS.split(",")).toContain("mergedAt");
     expect(res.exitCode).toBe(0);
     expect(res.data.mergeCheck.mergeable).toBe(true);
     expect(ghCalls.some((c) => c.includes("POST") || c.includes("DELETE") || c.includes("--post-status"))).toBe(false);

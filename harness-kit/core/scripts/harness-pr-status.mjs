@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { main as mergeCheckMain, parseSealBlock } from "./harness-merge-check.mjs";
 
 export const PR_VIEW_FIELDS =
-  "number,url,state,isDraft,headRefName,headRefOid,baseRefName,mergeStateStatus,reviewDecision,labels,statusCheckRollup,body";
+  "number,url,state,isDraft,headRefName,headRefOid,baseRefName,mergeStateStatus,reviewDecision,labels,statusCheckRollup,body,changedFiles,mergedAt";
 
 export const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 export const MAX_TEXT_LINES = 25;
@@ -265,16 +265,52 @@ export function runMergeCheckReadOnly(selector, pr, deps = {}) {
   };
 }
 
-/** Group statusCheckRollup entries into OK, failed (with names), and pending (with names). */
+function entryTimestampMs(item) {
+  let best = null;
+  for (const field of ["completedAt", "startedAt", "createdAt", "updatedAt"]) {
+    const raw = item?.[field];
+    if (typeof raw === "string" && raw.trim()) {
+      const ts = Date.parse(raw);
+      if (Number.isFinite(ts) && (best === null || ts > best)) best = ts;
+    }
+  }
+  return best;
+}
+
+function isNewerRollupEntry(candidate, current) {
+  if (candidate.ts !== null && current.ts !== null) {
+    if (candidate.ts !== current.ts) return candidate.ts > current.ts;
+    return candidate.index > current.index;
+  }
+  if (candidate.ts !== null) return true;
+  if (current.ts !== null) return false;
+  return candidate.index > current.index;
+}
+
+/** Group statusCheckRollup entries into OK, failed (with names), and pending (with names), deduplicating by latest run per check. */
 export function classifyChecks(rollup) {
+  const latestByKey = new Map();
+  const list = Array.isArray(rollup) ? rollup : [];
+
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (!item || typeof item !== "object") continue;
+    const isStatusContext = typeof item.state === "string" && !item.status;
+    const name = String(item.name || item.context || "unknown").trim();
+    const key = `${isStatusContext ? "status" : "check"}:${name}`;
+    const candidate = { item, name, isStatusContext, ts: entryTimestampMs(item), index: i };
+    const existing = latestByKey.get(key);
+    if (!existing || isNewerRollupEntry(candidate, existing)) {
+      latestByKey.set(key, candidate);
+    }
+  }
+
   const okNames = [];
   const failed = [];
   const pending = [];
 
-  for (const item of Array.isArray(rollup) ? rollup : []) {
-    if (!item || typeof item !== "object") continue;
-    const name = String(item.name || item.context || "unknown").trim();
-    if (typeof item.state === "string" && !item.status) {
+  for (const { item, name, isStatusContext } of latestByKey.values()) {
+    if (isStatusContext) {
       const st = item.state.toUpperCase();
       if (st === "SUCCESS") okNames.push(name);
       else if (st === "PENDING" || st === "EXPECTED") pending.push(name);
@@ -304,6 +340,11 @@ export function classifyChecks(rollup) {
 
 function isMissingAuthzLabelError(msg) {
   return /^authz:\s*missing label harness-authorized/i.test(msg) || /^harness:\s*missing label/i.test(msg);
+}
+
+function isMergeCheckName(name) {
+  const n = String(name || "").trim().toLowerCase();
+  return n === "harness/merge-check" || n === "harness² merge check" || n === "harness2 merge check";
 }
 
 /** Compute structured PR status and the single recommended next step. */
@@ -358,7 +399,7 @@ export function analyzePrStatus({ pr, mergeCheck, project = {}, waitResult = nul
     normalizedMergeCheck.errors.length > 0 &&
     normalizedMergeCheck.errors.every(isMissingAuthzLabelError);
 
-  const nonMergeCheckFailed = checks.failed.filter((name) => name !== "harness/merge-check");
+  const nonMergeCheckFailed = checks.failed.filter((name) => !isMergeCheckName(name));
 
   let next;
   if (pr?.state === "MERGED") {
