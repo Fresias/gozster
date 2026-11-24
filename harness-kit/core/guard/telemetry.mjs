@@ -90,8 +90,26 @@ function stripTrailingSep(p) {
   return String(p || "").replace(/[\\/]+$/, "");
 }
 
+function normalizeSlashes(p) {
+  return stripTrailingSep(p).replace(/\\/g, "/");
+}
+
 function isRootPath(p) {
   return !p || p === "/" || /^[A-Za-z]:$/.test(p);
+}
+
+/**
+ * Cross-platform parent directory extraction: normalizes `\` -> `/` before calling
+ * `path.posix.dirname` so Windows-style paths resolve their parent identically on Linux/macOS.
+ * @param {string} p
+ * @returns {string}
+ */
+function parentDirCrossPlatform(p) {
+  const norm = normalizeSlashes(p);
+  if (!norm || isRootPath(norm)) return "";
+  const parent = stripTrailingSep(path.posix.dirname(norm));
+  if (!parent || parent === "." || parent === norm) return "";
+  return parent;
 }
 
 /**
@@ -134,9 +152,9 @@ export function relativizeForTelemetry(text, repoRoot = "") {
   let s = String(text || "");
   if (!s) return "";
 
-  const cleanRepo = stripTrailingSep(repoRoot);
-  const home = stripTrailingSep(os.homedir());
-  const workdir = cleanRepo ? stripTrailingSep(path.dirname(cleanRepo)) : "";
+  const cleanRepo = normalizeSlashes(repoRoot);
+  const home = normalizeSlashes(os.homedir());
+  const workdir = cleanRepo ? parentDirCrossPlatform(cleanRepo) : "";
 
   const replacements = [];
   if (cleanRepo && !isRootPath(cleanRepo)) {

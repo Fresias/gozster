@@ -694,6 +694,27 @@ describe("GOZS-768: fidelidad de telemetría (CMD_MAX 300, rutas relativas, rang
     expect(ev.cwd).toBe("<workdir>");
   });
 
+  it("GIVEN rutas estilo POSIX y Windows mezcladas WHEN relativizeForTelemetry/buildEvent corren en cualquier OS THEN resuelven <repo> y <workdir> de forma cross-platform", () => {
+    const posixWorkdir = "/srv/multica/ws/workdir";
+    const posixRepo = `${posixWorkdir}/gozster`;
+    expect(relativizeForTelemetry(`cd "${posixRepo}" && cat "${posixWorkdir}/notes.txt"`, posixRepo)).toBe(
+      'cd "<repo>" && cat "<workdir>/notes.txt"',
+    );
+    const posixNorm = normalize({
+      toolCall: { name: "run_command", args: { CommandLine: `rg foo ${posixRepo}/src` } },
+      workspacePaths: [posixWorkdir],
+    });
+    const posixEv = buildEvent(posixNorm, { allowed: true }, { repoRoot: posixRepo });
+    expect(posixEv.cmd).toBe("rg foo <repo>/src");
+    expect(posixEv.cwd).toBe("<workdir>");
+
+    const winWorkdir = "C:\\Users\\user\\multica_workspaces\\ws\\workdir";
+    const winRepo = `${winWorkdir}\\gozster`;
+    expect(relativizeForTelemetry(winWorkdir, winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir.replace(/\\/g, "/"), winRepo)).toBe("<workdir>");
+    expect(relativizeForTelemetry(winWorkdir, winRepo.replace(/\\/g, "/"))).toBe("<workdir>");
+  });
+
   it("GIVEN una ruta bajo el home fuera del repo WHEN se registra THEN empieza con ~/ y no expone el usuario", () => {
     const home = homedir();
     const userFolder = path.basename(home);
