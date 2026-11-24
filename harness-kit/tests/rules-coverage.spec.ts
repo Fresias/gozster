@@ -125,6 +125,13 @@ const coverage: Record<string, Record<string, unknown>> = {
   },
   "remediate.oversize-output": { phase: "post", kind: "shell", command: "cat big.log", output: "x".repeat(20001) },
   "post.outside-scope": { phase: "post", kind: "write", targetPath: "docs/notes.md" },
+  "remediate.native-read": {
+    phase: "post",
+    kind: "shell",
+    runtime: "claude-code",
+    command: "cat src/x.ts",
+    raw: { session_id: "rules-coverage" },
+  },
 };
 
 const tempDirs: string[] = [];
@@ -149,6 +156,8 @@ const repoRootFor: Record<string, string> = {
   "pr.merge-check": noSealDir,
   "harness.authorized-only": noSealDir,
   "post.outside-scope": scopedDir,
+  // Marca por sesión en un directorio temporal (fuera de git → <dir>/.harness/telemetry), no en el repo real.
+  "remediate.native-read": tempDir("harness-native-read-"),
 };
 
 describe("H-11 Parte A: cobertura por `ruleId` del guard", () => {
