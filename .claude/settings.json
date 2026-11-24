@@ -38,7 +38,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Read|Write|Edit|NotebookEdit",
+        "matcher": "Bash|PowerShell|Read|Grep|Glob|Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -49,7 +49,18 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|PowerShell|Write|Edit|NotebookEdit",
+        "matcher": "Bash|PowerShell|Read|Grep|Glob|Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|PowerShell|Read|Grep|Glob|Write|Edit|NotebookEdit",
         "hooks": [
           {
             "type": "command",

@@ -53,14 +53,20 @@ process.stdin.on("end", () => {
   const sessionDir = projectDir || payload?.cwd || "";
   const suppressTelemetry = Boolean(guard === installed && sessionDir && same(sessionDir, repo) && hasProjectSettings);
 
+  const isPost =
+    payload?.hook_event_name === "PostToolUse" ||
+    payload?.hook_event_name === "PostToolUseFailure";
   const res = spawnSync(process.execPath, [guard, "--runtime", "claude-code"], {
     cwd: repo,
     input: raw,
     encoding: "utf8",
     env: suppressTelemetry ? { ...process.env, HARNESS_TELEMETRY: "0" } : process.env,
   });
-  if (res.error || res.status === null) process.exit(0);
+  if (res.error || res.status === null || (isPost && res.status !== 0)) {
+    if (isPost) process.stdout.write("{}\n");
+    process.exit(0);
+  }
   if (res.stdout) process.stdout.write(res.stdout);
-  if (res.stderr) process.stderr.write(res.stderr);
+  if (res.stderr && !isPost) process.stderr.write(res.stderr);
   process.exit(res.status);
 });
