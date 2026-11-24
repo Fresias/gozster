@@ -511,16 +511,17 @@ function hasUnquotedProtectedRedirect(seg) {
 function stripInlineReadOnlyLiterals(code, kind) {
   let s = String(code || "");
   if (kind === "python") {
-    // Path("...").read_text(...) / Path("...").read_bytes() (with optional .expanduser()/.resolve())
+    // Path("...").read_text( / Path("...").read_bytes( (with optional .expanduser()/.resolve())
+    // Replace ONLY the path literal inside Path(...), leaving read_text/read_bytes arguments untouched.
     s = s.replace(
-      /(?:pathlib\.)?\bPath\s*\(\s*[rRuUbB]?(["'])((?:\\.|(?!\1)[^\\])*)\1\s*\)(?:\s*\.\s*(?:expanduser|resolve)\s*\(\s*\))*\s*\.\s*(?:read_text|read_bytes)\s*\([^)]*\)/g,
-      'Path("").read_text()'
+      /(?<![.\w])((?:pathlib\.)?Path\s*\(\s*)[rRuUbB]?(["'])((?:\\.|(?!\2)[^\\])*)\2(\s*\)(?:\s*\.\s*(?:expanduser|resolve)\s*\(\s*\))*\s*\.\s*(?:read_text|read_bytes)\s*\()/g,
+      '$1""$4'
     );
-    // open("...") or open("...", "r"|"rb"|"rt") with optional os.path.expanduser(...) and safe kwargs
-    // Exclude os.open(...) which takes numeric flags.
+    // Builtin open("...") or builtins.open / io.open("...", "r"|"rb"|"rt") with optional os.path.expanduser(...) and safe kwargs.
+    // Restrict strictly to builtin/builtins/io open so qualified calls like shelve.open(...), dbm.open(...), os.open(...) are never stripped.
     s = s.replace(
-      /(?<!os\.)\bopen\s*\(\s*(?:os\.path\.expanduser\s*\(\s*[rRuUbB]?(["'])((?:\\.|(?!\1)[^\\])*)\1\s*\)|[rRuUbB]?(["'])((?:\\.|(?!\3)[^\\])*)\3)(\s*(?:,\s*(?:(?:mode\s*=\s*)?["'](?:r|rb|rt|br|tr)["']|(?:encoding|errors|newline|buffering)\s*=\s*(?:["'][^"']*["']|[^,)]+)))*\s*\))/g,
-      'open(""$5'
+      /(?<![.\w])((?:(?:builtins|io)\.)?open\s*\(\s*)(?:os\.path\.expanduser\s*\(\s*[rRuUbB]?(["'])((?:\\.|(?!\2)[^\\])*)\2\s*\)|[rRuUbB]?(["'])((?:\\.|(?!\4)[^\\])*)\4)(\s*(?:,\s*(?:(?:mode\s*=\s*)?["'](?:r|rb|rt|br|tr)["']|(?:encoding|errors|newline|buffering)\s*=\s*(?:["'][^"']*["']|[^,)]+)))*\s*\))/g,
+      '$1""$6'
     );
   } else if (kind === "node") {
     // readFileSync("...", ...) / readFile("...", ...) — strip only the first (path) literal argument
