@@ -134,19 +134,30 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(guidance).toMatch(/strictly no sleep, poll, or wakeup polling|no repeated mentions, sleeps, or polls/i);
   });
 
-  // GOZS-83 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance → scripts_index
-  it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 -> C7 índice de scripts tras los guardrails", () => {
-    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");
+  // GOZS-83 / GOZS-766 — spec §5: systemprompt → guardrails → autotriggers → memory → tool_guidance
+  // El catálogo C7 de scripts vive en la skill `harness-tools` (`.claude/skills/` y `.agents/skills/`).
+  it("AGENTS.md compone C6 autotriggers -> C3 memory -> C4 tras los guardrails y delega el catálogo de scripts a harness-tools", () => {
+    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
     const order = [
       "Local Guardrails",
       "## Skills",
       "# LongTermMEMORY",
       "Tool Guidance & Execution Rules",
-      "# Helper scripts (run via bash)",
     ].map((h) => content.indexOf(h));
 
     expect(order[0]).toBeGreaterThan(-1);
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]!);
+
+    expect(content).not.toContain("# Helper scripts (run via bash)");
+    expect(content).toMatch(/^- When .+, load the harness-tools skill\.$/m);
+    expect(content).toContain("harness-learn.sh");
+    expect(content).toContain("harness-gate.sh");
+    expect(content).toContain("--pr-block");
+
+    const neverMatch = content.match(/## Never \(Enforced by Guard\)\n([\s\S]*?)\n\n#/);
+    expect(neverMatch).not.toBeNull();
+    const neverLines = neverMatch![1]!.split("\n").filter((l) => l.trim().length > 0);
+    expect(neverLines).toHaveLength(1);
   });
 
   it("AGENTS.md incluye cada hecho [verified … | src: …] de LongTermMEMORY.md", () => {
@@ -159,12 +170,8 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     for (const fact of facts) expect(content).toContain(fact);
   });
 
-  it("AGENTS.md lista cada script de core/scripts con su docstring y la ruta existe", () => {
-    const content = readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8").replace(/\r\n/g, "\n");
-    const index = content.slice(content.indexOf("# Helper scripts (run via bash)"));
-    const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]!);
-
-    expect(listed).toEqual([
+  it("la skill harness-tools lista cada script de core/scripts con su docstring y la ruta existe", () => {
+    const expectedScripts = [
       "harness-kit/core/scripts/harness-compose.mjs",
       "harness-kit/core/scripts/harness-contrast.mjs",
       "harness-kit/core/scripts/harness-debt-notify.mjs",
@@ -176,8 +183,26 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
       "harness-kit/core/scripts/harness-propose.mjs",
       "harness-kit/core/scripts/harness-render.mjs",
       "harness-kit/core/scripts/harness-telemetry.mjs",
-    ]);
-    for (const rel of listed) expect(existsSync(path.join(repoRoot, rel)), rel).toBe(true);
+    ];
+
+    const skillPaths = [
+      path.join(repoRoot, ".claude", "skills", "harness-tools", "SKILL.md"),
+      path.join(repoRoot, ".agents", "skills", "harness-tools", "SKILL.md"),
+    ];
+
+    for (const skillPath of skillPaths) {
+      expect(existsSync(skillPath), skillPath).toBe(true);
+      const content = readFileSync(skillPath, "utf8").replace(/\r\n/g, "\n");
+      expect(content).toContain("<!-- BEGIN GENERATED:HELPER_SCRIPTS -->");
+      expect(content).toContain("<!-- END GENERATED:HELPER_SCRIPTS -->");
+      const headingIdx = content.indexOf("## Helper scripts (run via bash)");
+      expect(headingIdx, skillPath).toBeGreaterThan(-1);
+      const index = content.slice(headingIdx);
+      const listed = [...index.matchAll(/^- `([^`]+)`: \S.*$/gm)].map((m) => m[1]!);
+
+      expect(listed).toEqual(expectedScripts);
+      for (const rel of listed) expect(existsSync(path.join(repoRoot, rel)), rel).toBe(true);
+    }
   });
 
   it("AGENTS.md documenta los 7 comandos obligatorios de package.json", () => {
@@ -214,6 +239,8 @@ describe("harness-render: compilación de artefactos y presupuesto", () => {
     expect(lock.artifacts).toHaveProperty(".claude/settings.json");
     expect(lock.artifacts).toHaveProperty(".gemini/settings.json");
     expect(lock.artifacts).toHaveProperty(".agents/hooks.json");
+    expect(lock.artifacts).toHaveProperty(".claude/skills/harness-tools/SKILL.md");
+    expect(lock.artifacts).toHaveProperty(".agents/skills/harness-tools/SKILL.md");
 
     for (const [file, hash] of Object.entries(lock.artifacts)) {
       expect(hash, `El hash de ${file} debe comenzar con sha256:`).toMatch(/^sha256:[a-f0-9]{64}$/);
