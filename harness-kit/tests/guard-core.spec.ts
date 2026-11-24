@@ -605,3 +605,145 @@ describe("GOZS-562: bloquear escrituras por shell e intérpretes inline a rutas 
     });
   }
 });
+
+describe("GOZS-768: normalize.mjs (cwd, startLine, search, toolUseId, post ok/error) y evaluateSearch", () => {
+  it("normaliza Read de Claude Code con offset y limit y expone cwd y toolUseId", () => {
+    const norm = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Read",
+      tool_input: { file_path: "/ws/gozster/src/a.ts", offset: 100, limit: 200 },
+      tool_use_id: "toolu_abc",
+    });
+    expect(norm.kind).toBe("read");
+    expect(norm.startLine).toBe(100);
+    expect(norm.limit).toBe(200);
+    expect(norm.isBounded).toBe(true);
+    expect(norm.cwd).toBe("/ws/gozster");
+    expect(norm.toolUseId).toBe("toolu_abc");
+    expect(norm.ok).toBeUndefined();
+  });
+
+  it("normaliza Grep y Glob de Claude Code como kind='search'", () => {
+    const grep = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Grep",
+      tool_input: { pattern: "foo", path: "src/index.ts" },
+      tool_use_id: "toolu_g1",
+    });
+    expect(grep.runtime).toBe("claude-code");
+    expect(grep.kind).toBe("search");
+    expect(grep.pattern).toBe("foo");
+    expect(grep.filePath).toBe("src/index.ts");
+    expect(grep.toolUseId).toBe("toolu_g1");
+
+    const glob = normalize({
+      hook_event_name: "PreToolUse",
+      cwd: "/ws/gozster",
+      tool_name: "Glob",
+      tool_input: { pattern: "**/*.ts" },
+      tool_use_id: "toolu_g2",
+    });
+    expect(glob.kind).toBe("search");
+    expect(glob.pattern).toBe("**/*.ts");
+    expect(glob.filePath).toBe("");
+  });
+
+  it("normaliza PostToolUse y PostToolUseFailure en Claude Code exponiendo ok y id", () => {
+    const okPost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "echo ok" },
+      tool_response: { stdout: "ok", stderr: "", interrupted: false },
+      tool_use_id: "toolu_ok",
+    });
+    expect(okPost.phase).toBe("post");
+    expect(okPost.ok).toBe(true);
+    expect(okPost.toolUseId).toBe("toolu_ok");
+
+    const failPost = normalize({
+      hook_event_name: "PostToolUseFailure",
+      tool_name: "Bash",
+      tool_input: { command: "exit 1" },
+      error: "Exit code 1",
+      is_interrupt: false,
+      tool_use_id: "toolu_fail",
+    });
+    expect(failPost.phase).toBe("post");
+    expect(failPost.ok).toBe(false);
+    expect(failPost.toolUseId).toBe("toolu_fail");
+
+    const interruptedPost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "sleep 10" },
+      tool_response: { stdout: "", stderr: "", interrupted: true },
+      tool_use_id: "toolu_int",
+    });
+    expect(interruptedPost.phase).toBe("post");
+    expect(interruptedPost.ok).toBe(false);
+
+    const exitCodePost = normalize({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "false" },
+      tool_response: { stdout: "", stderr: "fail", exit_code: 1 },
+      tool_use_id: "toolu_ec",
+    });
+    expect(exitCodePost.phase).toBe("post");
+    expect(exitCodePost.ok).toBe(false);
+  });
+
+  it("normaliza PostToolUse en Antigravity con workspacePaths[0], toolCall.id y error", () => {
+    const okAg = normalize({
+      hookEventName: "PostToolUse",
+      conversationId: "conv-ag",
+      workspacePaths: ["C:\\ws\\workdir"],
+      error: "",
+      toolCall: { id: "call_1", name: "run_command", args: { CommandLine: "pwd" } },
+    });
+    expect(okAg.runtime).toBe("antigravity");
+    expect(okAg.phase).toBe("post");
+    expect(okAg.cwd).toBe("C:\\ws\\workdir");
+    expect(okAg.toolUseId).toBe("call_1");
+    expect(okAg.ok).toBe(true);
+
+    const errAg = normalize({
+      conversationId: "conv-ag",
+      workspacePaths: ["C:\\ws\\workdir"],
+      error: "file does not exist",
+      toolCall: { id: "call_2", name: "read_file", args: { Path: "C:\\ws\\workdir\\missing.txt" } },
+    });
+    expect(errAg.phase).toBe("post");
+    expect(errAg.ok).toBe(false);
+    expect(errAg.error).toBe("file does not exist");
+  });
+
+  it("GIVEN una búsqueda Grep sobre una ruta ordinaria o package-lock.json WHEN pre THEN se permite", () => {
+    expect(
+      checkGuard({ tool_name: "Grep", tool_input: { pattern: "foo", path: "src/index.ts" } }, { repoRoot }).allowed,
+    ).toBe(true);
+    expect(
+      checkGuard({ tool_name: "Grep", tool_input: { pattern: "vitest", path: "package-lock.json" } }, { repoRoot }).allowed,
+    ).toBe(true);
+    expect(
+      checkGuard({ tool_name: "Glob", tool_input: { pattern: "**/*.ts" } }, { repoRoot }).allowed,
+    ).toBe(true);
+  });
+
+  it("GIVEN una búsqueda Grep sobre .env.local o *.pem/*.key WHEN pre THEN bloquea con la misma regla que una lectura (fs.env-leak / read.sensitive)", () => {
+    const envRead = checkGuard({ tool_name: "Read", tool_input: { file_path: ".env.local" } }, { repoRoot });
+    const envSearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "SECRET", path: ".env.local" } }, { repoRoot });
+    expect(envSearch.allowed).toBe(false);
+    expect(envSearch.ruleId).toBe(envRead.ruleId);
+    expect(envSearch.ruleId).toBe("fs.env-leak");
+
+    const keySearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "BEGIN", path: "certs/server.key" } }, { repoRoot });
+    expect(keySearch.allowed).toBe(false);
+    expect(keySearch.ruleId).toBe("read.sensitive");
+
+    const exampleSearch = checkGuard({ tool_name: "Grep", tool_input: { pattern: "URL", path: ".env.example" } }, { repoRoot });
+    expect(exampleSearch.allowed).toBe(true);
+  });
+});

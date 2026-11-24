@@ -23,6 +23,10 @@
       { "name": "PowerShell", "command": "command" }
     ],
     "read": { "name": "Read", "path": "file_path", "bound": ["offset", "limit"] },
+    "search": [
+      { "name": "Grep", "pattern": "pattern", "path": "path" },
+      { "name": "Glob", "pattern": "pattern", "path": "path" }
+    ],
     "write": [
       { "name": "Write", "path": "file_path", "content": "content" },
       { "name": "Edit", "path": "file_path", "old": "old_string", "new": "new_string" },

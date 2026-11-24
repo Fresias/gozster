@@ -30,15 +30,29 @@ describe("H-06: Superficie de hooks y soporte de flecha result (post-hook)", () 
     expect(ag.hooks.post_detail).toContain("PostToolUse existe y recibe toolCall (+ error), pero su stdout debe ser {}");
   });
 
-  it("verifica que .agents/hooks.json generado para Antigravity NO incluye post-hook", () => {
+  it("verifica que .agents/hooks.json generado para Antigravity incluye PostToolUse solo de telemetría (--phase post) y devuelve {} sin inyección", () => {
     const agHooksPath = path.join(repoRoot, ".agents", "hooks.json");
     const agHooks = JSON.parse(readFileSync(agHooksPath, "utf8"));
 
     const hookEntry = agHooks["gozster-guard"];
     expect(hookEntry).toBeDefined();
     expect(hookEntry.PreToolUse).toBeDefined();
-    expect(hookEntry.PostToolUse).toBeUndefined();
+    expect(hookEntry.PostToolUse).toBeDefined();
+    expect(hookEntry.PostToolUse[0].hooks[0].command).toContain("--runtime antigravity --phase post");
     expect(hookEntry.AfterTool).toBeUndefined();
+
+    const payload = JSON.stringify({
+      hookEventName: "PostToolUse",
+      error: "",
+      toolCall: { id: "call_s1", name: "run_command", args: { CommandLine: "git push origin main" } },
+    });
+    const out = execSync(hookEntry.PostToolUse[0].hooks[0].command, {
+      cwd: path.join(repoRoot, ".agents"),
+      input: payload,
+      encoding: "utf8",
+      env: bashEnv,
+    });
+    expect(JSON.parse(out)).toEqual({});
   });
 
   it("documenta que claude-code soporta post con PostToolUse y additionalContext", () => {
@@ -187,11 +201,13 @@ describe("GOZS-81: matchers generados ⊇ tools de core/runtimes", () => {
   const ag = readJson(repoRoot, ".agents", "hooks.json")["gozster-guard"];
 
   const cases: Array<[string, string, string, string[]]> = [
-    ["claude-code", "pre", claude.PreToolUse[0].matcher, ["shell", "read", "write"]],
-    ["claude-code", "post", claude.PostToolUse[0].matcher, ["shell", "write"]],
+    ["claude-code", "pre", claude.PreToolUse[0].matcher, ["shell", "read", "search", "write"]],
+    ["claude-code", "post", claude.PostToolUse[0].matcher, ["shell", "read", "search", "write"]],
+    ["claude-code", "post-failure", claude.PostToolUseFailure[0].matcher, ["shell", "read", "search", "write"]],
     ["gemini-cli", "pre", gemini.BeforeTool[0].matcher, ["shell", "read", "read_many", "write"]],
-    ["gemini-cli", "post", gemini.AfterTool[0].matcher, ["shell", "write"]],
+    ["gemini-cli", "post", gemini.AfterTool[0].matcher, ["shell", "read", "read_many", "write"]],
     ["antigravity", "pre", ag.PreToolUse[0].matcher, ["shell", "read", "write"]],
+    ["antigravity", "post", ag.PostToolUse[0].matcher, ["shell", "read", "write"]],
   ];
 
   for (const [rt, arrow, matcher, kinds] of cases) {
