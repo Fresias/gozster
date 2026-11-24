@@ -1036,3 +1036,93 @@ describe("GOZS-769: agregador — totalActions/postEvents, tiempo activo, callsB
     expect(scriptFiles.filter((f) => /deep/i.test(f))).toEqual([]);
   });
 });
+
+describe("GOZS-791 B1 y B2: --exclude-kind, --exclude-rule y blocksPerSession", () => {
+  const script = path.resolve(__dirname, "../core/scripts/harness-telemetry.mjs");
+
+  it("B1: GIVEN una sesión cuyo primer evento es search WHEN corre con --exclude-kind search THEN TTFE, callsBeforeFirstEdit, tiempo activo y salida excluyen search", () => {
+    const base = Date.parse("2026-11-24T12:00:00.000Z");
+    const fixture = [
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "e1" },
+      { ts: new Date(base + 500).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "search", tool: "Grep", decision: "allow", cmd: "foo src", id: "e1", ok: true },
+      { ts: new Date(base + 10_000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "e2" },
+      { ts: new Date(base + 10_300).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "read", tool: "Read", decision: "allow", cmd: "src/a.ts", id: "e2", ok: true },
+      { ts: new Date(base + 25_000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "e3" },
+      { ts: new Date(base + 25_200).toISOString(), session: "s1", runtime: "claude-code", phase: "post", kind: "write", tool: "Edit", decision: "allow", cmd: "src/a.ts", id: "e3", ok: true },
+    ];
+
+    const full = summarize(fixture);
+    expect(full.timeToFirstEdit.medianMs).toBe(25_000);
+    expect(full.callsBeforeFirstEdit.p50).toBe(2);
+    expect(full.totalActions).toBe(3);
+    expect(full.postEvents).toBe(3);
+
+    const excl = summarize(fixture, { excludeKinds: ["search"] });
+    expect(excl.totalEvents).toBe(4);
+    expect(excl.totalActions).toBe(2);
+    expect(excl.postEvents).toBe(2);
+    expect(excl.actionsByKind).toEqual({ read: 1, write: 1 });
+    expect(excl.timeToFirstEdit.medianMs).toBe(15_000); // 25_000 - 10_000 (desde el primer evento no-search)
+    expect(excl.callsBeforeFirstEdit.p50).toBe(1);
+    expect(excl.activeTimeMs.totalMs).toBe(15_000);
+    expect(excl.excludedKinds).toEqual(["search"]);
+
+    const text = formatSummary(excl);
+    expect(text).toContain("excluidos: search");
+    expect(text.split("\n").length).toBeLessThanOrEqual(40);
+
+    // Verificar vía CLI con --exclude-kind repetible
+    const parsed = parseCliArgs(["--exclude-kind", "search", "--exclude-kind=read_many"]);
+    expect(parsed.excludeKinds).toEqual(["search", "read_many"]);
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+    const cliText = execFileSync(process.execPath, [script, file, "--exclude-kind", "search"], { encoding: "utf8" });
+    expect(cliText).toContain("excluidos: search");
+    const cliJson = JSON.parse(
+      execFileSync(process.execPath, [script, file, "--exclude-kind", "search", "--json"], { encoding: "utf8" }),
+    );
+    expect(cliJson.timeToFirstEdit.medianMs).toBe(15_000);
+    expect(cliJson.callsBeforeFirstEdit.p50).toBe(1);
+  });
+
+  it("B2: GIVEN bloqueos de shell.polling WHEN corre con --exclude-rule shell.polling THEN no cuentan en blocksByRule, blocksPerSession ni repeatedBlockSessions pero siguen en totalActions", () => {
+    const base = Date.parse("2026-11-24T13:00:00.000Z");
+    const fixture = [
+      // 4 bloqueos de shell.polling en s1 + 1 bloqueo de read.oversize en s1
+      { ts: new Date(base).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "shell.polling", cmd: "Start-Sleep 30" },
+      { ts: new Date(base + 1000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "shell.polling", cmd: "Start-Sleep 30" },
+      { ts: new Date(base + 2000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "shell.polling", cmd: "Start-Sleep 30" },
+      { ts: new Date(base + 3000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "shell", decision: "block", rule: "shell.polling", cmd: "Start-Sleep 30" },
+      { ts: new Date(base + 4000).toISOString(), session: "s1", runtime: "claude-code", phase: "pre", kind: "read", decision: "block", rule: "read.oversize", cmd: "src/big.ts" },
+      // Sesión s2 con 2 bloqueos de read.oversize
+      { ts: new Date(base + 5000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "block", rule: "read.oversize", cmd: "src/big.ts" },
+      { ts: new Date(base + 6000).toISOString(), session: "s2", runtime: "antigravity", phase: "pre", kind: "read", decision: "block", rule: "read.oversize", cmd: "src/big.ts" },
+    ];
+
+    const full = summarize(fixture);
+    expect(full.totalActions).toBe(7);
+    expect(full.blocksPerSession).toBe(3.5); // 7 / 2
+    expect(full.blocksByRule["shell.polling"]).toBe(4);
+    expect(full.repeatedBlockSessions).toEqual([{ session: "s1", rule: "shell.polling", count: 4 }]);
+
+    const excl = summarize(fixture, { excludeRules: ["shell.polling"] });
+    expect(excl.totalActions).toBe(7); // siguen contando como acciones
+    expect(excl.blocksByRule).toEqual({ "read.oversize": 3 });
+    expect(excl.blocksByRule["shell.polling"]).toBeUndefined();
+    expect(excl.blocksPerSession).toBe(1.5); // 3 / 2
+    expect(excl.repeatedBlockSessions).toEqual([]);
+    expect(excl.byRuntime["claude-code"].blocksByRule).toEqual({ "read.oversize": 1 });
+    expect(excl.excludedRules).toEqual(["shell.polling"]);
+
+    const parsed = parseCliArgs(["--exclude-rule", "shell.polling", "--exclude-rule=fs.protected"]);
+    expect(parsed.excludeRules).toEqual(["shell.polling", "fs.protected"]);
+    const file = path.join(tempDir(), "events.jsonl");
+    writeFileSync(file, fixture.map((e) => JSON.stringify(e)).join("\n"));
+    const cliJson = JSON.parse(
+      execFileSync(process.execPath, [script, file, "--exclude-rule", "shell.polling", "--json"], { encoding: "utf8" }),
+    );
+    expect(cliJson.blocksPerSession).toBe(1.5);
+    expect(cliJson.totalActions).toBe(7);
+    expect(cliJson.blocksByRule).toEqual({ "read.oversize": 3 });
+  });
+});

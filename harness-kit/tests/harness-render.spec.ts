@@ -373,27 +373,38 @@ describe("harness-render: carga y validación de contratos", () => {
       }
     }
 
-    it("GIVEN el LEDGER.json actual (L-000 y L-001 completed) WHEN corre el test THEN pasa", () => {
+    function nextLedgerId(ledger: { entries: Array<Record<string, unknown>> }): string {
+      let maxNum = -1;
+      for (const e of ledger.entries) {
+        const m = LEDGER_ID_RE.exec(String(e.id || ""));
+        if (m?.[1]) maxNum = Math.max(maxNum, Number.parseInt(m[1], 10));
+      }
+      return `L-${String(maxNum + 1).padStart(3, "0")}`;
+    }
+
+    it("GIVEN el LEDGER.json actual WHEN corre el test THEN pasa", () => {
       const ledger = loadRealLedger();
       expect(ledger.entries.length).toBeGreaterThanOrEqual(2);
       expect(() => assertValidLedger(ledger, ledgerLibraryDir)).not.toThrow();
     });
 
-    it("GIVEN se agrega L-002 en blocked con start_condition WHEN corre el test THEN pasa sin tocar harness-kit/", () => {
+    it("GIVEN se agrega la siguiente entrada L-### en blocked con start_condition WHEN corre el test THEN pasa sin tocar harness-kit/", () => {
       const ledger = loadRealLedger();
+      const nextId = nextLedgerId(ledger);
+      const nextExp = `EXPERIENCE-${nextId}.md`;
       const existingFiles = ledger.entries.map((e) => String(e.experience));
-      withTempLibrary([...existingFiles, "EXPERIENCE-L-002.md"], (tmpDir) => {
+      withTempLibrary([...existingFiles, nextExp], (tmpDir) => {
         const extended = {
           ...ledger,
           entries: [
             ...ledger.entries,
             {
-              id: "L-002",
+              id: nextId,
               title: "Menos llamadas y menos fricción en el arnés",
               status: "blocked",
               hypothesis: "Reducir llamadas por sesión en >= 15% sin bajar bloqueos legítimos.",
               start_condition: "Merge del último PR de Fase 1 en origin/main.",
-              experience: "EXPERIENCE-L-002.md",
+              experience: nextExp,
             },
           ],
         };
@@ -401,20 +412,22 @@ describe("harness-render: carga y validación de contratos", () => {
       });
     });
 
-    it("GIVEN L-002 queda completed sin window.before WHEN corre el test THEN falla con un mensaje que nombra L-002", () => {
+    it("GIVEN una entrada L-### queda completed sin window.before WHEN corre el test THEN falla con un mensaje que nombra su id", () => {
       const ledger = loadRealLedger();
+      const nextId = nextLedgerId(ledger);
+      const nextExp = `EXPERIENCE-${nextId}.md`;
       const existingFiles = ledger.entries.map((e) => String(e.experience));
-      withTempLibrary([...existingFiles, "EXPERIENCE-L-002.md"], (tmpDir) => {
+      withTempLibrary([...existingFiles, nextExp], (tmpDir) => {
         const invalid = {
           ...ledger,
           entries: [
             ...ledger.entries,
             {
-              id: "L-002",
+              id: nextId,
               title: "Experimento incompleto",
               status: "completed",
               hypothesis: "Hipótesis de prueba",
-              experience: "EXPERIENCE-L-002.md",
+              experience: nextExp,
               window: { durationDays: 7 },
               metrics: {
                 before: {
@@ -425,18 +438,19 @@ describe("harness-render: carga y validación de contratos", () => {
             },
           ],
         };
-        expect(() => assertValidLedger(invalid, tmpDir)).toThrow(/L-002.*window\.before/);
+        expect(() => assertValidLedger(invalid, tmpDir)).toThrow(new RegExp(`${nextId}.*window\\.before`));
       });
     });
 
     it("GIVEN una entrada con experience que apunta a un archivo inexistente WHEN corre el test THEN falla", () => {
       const ledger = loadRealLedger();
+      const nextId = nextLedgerId(ledger);
       const invalid = {
         ...ledger,
         entries: [
           ...ledger.entries,
           {
-            id: "L-002",
+            id: nextId,
             title: "Archivo faltante",
             status: "blocked",
             hypothesis: "Hipótesis de prueba",
@@ -445,7 +459,9 @@ describe("harness-render: carga y validación de contratos", () => {
           },
         ],
       };
-      expect(() => assertValidLedger(invalid, ledgerLibraryDir)).toThrow(/L-002.*EXPERIENCE-L-999-inexistente\.md/);
+      expect(() => assertValidLedger(invalid, ledgerLibraryDir)).toThrow(
+        new RegExp(`${nextId}.*EXPERIENCE-L-999-inexistente\\.md`),
+      );
     });
 
     it("GIVEN invariantes de estado, ventana, métricas, opcionales y orden de id WHEN se violan THEN falla nombrando la entrada", () => {

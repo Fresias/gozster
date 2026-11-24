@@ -503,6 +503,39 @@ function hasUnquotedProtectedRedirect(seg) {
   return false;
 }
 
+/**
+ * Strip path string literals that appear ONLY inside explicit read-only calls
+ * in inline Python/Node scripts so reading a protected path while writing elsewhere
+ * does not trigger `fs.protected`. Write-mode calls remain untouched.
+ */
+function stripInlineReadOnlyLiterals(code, kind) {
+  let s = String(code || "");
+  if (kind === "python") {
+    // Path("...").read_text(...) / Path("...").read_bytes() (with optional .expanduser()/.resolve())
+    s = s.replace(
+      /(?:pathlib\.)?\bPath\s*\(\s*[rRuUbB]?(["'])((?:\\.|(?!\1)[^\\])*)\1\s*\)(?:\s*\.\s*(?:expanduser|resolve)\s*\(\s*\))*\s*\.\s*(?:read_text|read_bytes)\s*\([^)]*\)/g,
+      'Path("").read_text()'
+    );
+    // open("...") or open("...", "r"|"rb"|"rt") with optional os.path.expanduser(...) and safe kwargs
+    // Exclude os.open(...) which takes numeric flags.
+    s = s.replace(
+      /(?<!os\.)\bopen\s*\(\s*(?:os\.path\.expanduser\s*\(\s*[rRuUbB]?(["'])((?:\\.|(?!\1)[^\\])*)\1\s*\)|[rRuUbB]?(["'])((?:\\.|(?!\3)[^\\])*)\3)(\s*(?:,\s*(?:(?:mode\s*=\s*)?["'](?:r|rb|rt|br|tr)["']|(?:encoding|errors|newline|buffering)\s*=\s*(?:["'][^"']*["']|[^,)]+)))*\s*\))/g,
+      'open(""$5'
+    );
+  } else if (kind === "node") {
+    // readFileSync("...", ...) / readFile("...", ...) — strip only the first (path) literal argument
+    s = s.replace(
+      /(\b(?:readFileSync|readFile)\s*\(\s*)(["'])((?:\\.|(?!\2)[^\\])*)\2/g,
+      '$1""'
+    );
+    s = s.replace(
+      /(\b(?:readFileSync|readFile)\s*\(\s*)`([^`$]*)`/g,
+      "$1``"
+    );
+  }
+  return s;
+}
+
 /** True if a shell command writes to a protected runtime/git path (.git, .claude, .agents, .gemini, .opencode). */
 function shellWritesProtected(cmd, repoRoot, depth = 0) {
   if (depth > 5) return false;
@@ -518,7 +551,7 @@ function shellWritesProtected(cmd, repoRoot, depth = 0) {
       if (inline.kind === "shell" || inline.kind === "pwsh") {
         if (shellWritesProtected(inline.code, repoRoot, depth + 1)) return true;
       } else {
-        const codeSafe = stripWritableAgentPaths(inline.code, repoRoot);
+        const codeSafe = stripInlineReadOnlyLiterals(stripWritableAgentPaths(inline.code, repoRoot), inline.kind);
         const targetsProtected =
           PROTECTED_SHELL_PATH_RE.test(codeSafe) || (/\bargv\b/i.test(inline.code) && PROTECTED_SHELL_PATH_RE.test(seg));
         if (targetsProtected) {
@@ -1279,7 +1312,7 @@ function isLocalCheckClause(tokens) {
  * Evaluate active waits and polling (`shell.polling` block vs `shell.wait` allow telemetry).
  * Returns null if the command has no wait segment.
  */
-function evaluateShellPolling(cmd) {
+export function evaluateShellPolling(cmd) {
   const clean = stripHeredocBodies(cmd);
   const clauses = splitPollingClauses(clean);
 
@@ -1353,6 +1386,368 @@ function evaluateShellPolling(cmd) {
     allowed: true,
     ruleId: "shell.wait",
   };
+}
+
+/**
+ * Strip heredoc bodies (both closed and truncated/unclosed) and PowerShell here-strings
+ * line by line, respecting quotes on header lines.
+ */
+function stripAllHeredocBodies(cmd) {
+  const lines = String(cmd || "").split(/\r?\n/);
+  const out = [];
+  const pendingDelims = [];
+  let psHereQuote = null;
+
+  for (const line of lines) {
+    if (psHereQuote !== null) {
+      if (line.startsWith(`${psHereQuote}@`)) {
+        psHereQuote = null;
+      }
+      continue;
+    }
+    if (pendingDelims.length > 0) {
+      if (line.trim() === pendingDelims[0]) {
+        pendingDelims.shift();
+      }
+      continue;
+    }
+
+    // Scan line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
+    let quote = null;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (quote === "'") {
+        if (ch === "'") quote = null;
+        continue;
+      }
+      if (quote === '"') {
+        if (ch === "\\" && i + 1 < line.length) {
+          i++;
+          continue;
+        }
+        if (ch === '"') quote = null;
+        continue;
+      }
+      if (ch === "\\" && i + 1 < line.length) {
+        i++;
+        continue;
+      }
+      if (ch === "'" || ch === '"') {
+        quote = ch;
+        continue;
+      }
+      if (ch === "#") {
+        if (i === 0 || /\s/.test(line[i - 1])) break;
+      }
+      if (ch === "<" && line[i + 1] === "<" && line[i + 2] !== "<") {
+        const m = line.slice(i).match(/^<<-?\s*(?:(["'])([A-Za-z_]\w*)\1|\\?([A-Za-z_]\w*))/);
+        if (m) {
+          pendingDelims.push(m[2] || m[3]);
+          i += m[0].length - 1;
+        }
+      }
+    }
+    if (!quote && pendingDelims.length === 0) {
+      const psMatch = line.match(/@(['"])[ \t]*$/);
+      if (psMatch) psHereQuote = psMatch[1];
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/** Read a `$(...)` command substitution starting at `start` (pointing at `$`), returning `{ content, end }`. */
+function readDollarSub(str, start) {
+  let i = start + 2; // past "$("
+  let depth = 1;
+  let quote = null;
+  let content = "";
+  while (i < str.length && depth > 0) {
+    const ch = str[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      content += ch;
+      i++;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < str.length) {
+        content += ch + str[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        quote = null;
+        content += ch;
+        i++;
+        continue;
+      }
+      if (ch === "$" && str[i + 1] === "(") {
+        const nested = readDollarSub(str, i);
+        content += "$(" + nested.content + (nested.closed ? ")" : "");
+        i = nested.end;
+        continue;
+      }
+      content += ch;
+      i++;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < str.length) {
+      content += ch + str[i + 1];
+      i += 2;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      content += ch;
+      i++;
+      continue;
+    }
+    if (ch === "(") {
+      depth++;
+      content += ch;
+      i++;
+      continue;
+    }
+    if (ch === ")") {
+      depth--;
+      if (depth === 0) return { content, end: i + 1, closed: true };
+      content += ch;
+      i++;
+      continue;
+    }
+    content += ch;
+    i++;
+  }
+  return { content, end: i, closed: false };
+}
+
+/** Read a backtick command substitution starting at `start` (pointing at `` ` ``). */
+function readBacktickSub(str, start, inDoubleQuotes) {
+  let i = start + 1;
+  let content = "";
+  while (i < str.length) {
+    const ch = str[i];
+    if (ch === "\\" && i + 1 < str.length) {
+      const next = str[i + 1];
+      if (next === "$" || next === "`" || next === "\\" || (inDoubleQuotes && next === '"')) {
+        content += next;
+      } else {
+        content += ch + next;
+      }
+      i += 2;
+      continue;
+    }
+    if (ch === "`") {
+      return { content, end: i + 1 };
+    }
+    content += ch;
+    i++;
+  }
+  return { content, end: i };
+}
+
+/**
+ * Extract top-level segments and any command substitutions (`$(...)` and backticks)
+ * outside single quotes (including inside double quotes). Strips shell `#` comments.
+ */
+function extractShellCommandsAndSubs(cmd) {
+  const clean = stripAllHeredocBodies(cmd);
+  const subs = [];
+  let stripped = "";
+  let quote = null;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      stripped += ch;
+      continue;
+    }
+    if (quote === '"') {
+      if (ch === "\\" && i + 1 < clean.length) {
+        stripped += ch + clean[i + 1];
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        quote = null;
+        stripped += ch;
+        continue;
+      }
+      if (ch === "$" && clean[i + 1] === "(") {
+        const sub = readDollarSub(clean, i);
+        subs.push(sub.content);
+        i = sub.end - 1;
+        continue;
+      }
+      if (ch === "`") {
+        const sub = readBacktickSub(clean, i, true);
+        subs.push(sub.content);
+        i = sub.end - 1;
+        continue;
+      }
+      stripped += ch;
+      continue;
+    }
+    if (ch === "\\" && i + 1 < clean.length) {
+      stripped += ch + clean[i + 1];
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      stripped += ch;
+      continue;
+    }
+    if (ch === "#" && (i === 0 || /[\s;|&(\n]/.test(clean[i - 1]))) {
+      while (i < clean.length && clean[i] !== "\n") i++;
+      if (i < clean.length) stripped += "\n";
+      continue;
+    }
+    if (ch === "$" && clean[i + 1] === "(") {
+      const sub = readDollarSub(clean, i);
+      subs.push(sub.content);
+      i = sub.end - 1;
+      continue;
+    }
+    if (ch === "`") {
+      const sub = readBacktickSub(clean, i, false);
+      subs.push(sub.content);
+      i = sub.end - 1;
+      continue;
+    }
+    stripped += ch;
+  }
+  return { segments: splitShellSegments(stripped), subs };
+}
+
+const GH_CMD_PREFIX_KEYWORDS = new Set([
+  "if",
+  "then",
+  "elif",
+  "else",
+  "do",
+  "while",
+  "until",
+  "!",
+  "time",
+  "nohup",
+  "exec",
+  "command",
+  "builtin",
+  "sudo",
+  "env",
+  "&",
+]);
+
+const GH_PR_MERGE_VALUE_FLAGS = new Set([
+  "-b",
+  "--body",
+  "-F",
+  "--body-file",
+  "-t",
+  "--subject",
+  "--author-email",
+  "--match-head-commit",
+  "-R",
+  "--repo",
+]);
+
+/**
+ * Detect `gh pr create`, `gh pr merge`, and `gh api .../pulls/<n>/merge` invocations
+ * in real command position (ignoring single quotes, double-quoted literals outside
+ * `$(...)`/backticks, and heredoc bodies; recursing into `bash -c`, `sh -c`, `pwsh -Command`).
+ */
+export function detectGhPrCommands(cmd, depth = 0) {
+  if (depth > 5 || !cmd) return [];
+  const matches = [];
+  const { segments, subs } = extractShellCommandsAndSubs(cmd);
+
+  for (const sub of subs) {
+    matches.push(...detectGhPrCommands(sub, depth + 1));
+  }
+
+  for (const seg of segments) {
+    const trimmed = seg.trim().replace(/^[{(\s]+/, "").replace(/[})\s]+$/, "");
+    if (!trimmed) continue;
+
+    // Recurse into `bash -c`, `sh -c`, `pwsh -Command`, etc.
+    const inline = extractInlineInterpreter(trimmed);
+    if (inline && (inline.kind === "shell" || inline.kind === "pwsh")) {
+      matches.push(...detectGhPrCommands(inline.code, depth + 1));
+      continue;
+    }
+
+    const tokens = tokenizeShellSegment(trimmed);
+    let idx = 0;
+    while (idx < tokens.length) {
+      const t = tokens[idx];
+      const lower = t.toLowerCase();
+      if (GH_CMD_PREFIX_KEYWORDS.has(lower)) {
+        idx++;
+        // Skip flags belonging to `env`/`sudo`/`command`/`time`
+        if (lower === "env" || lower === "sudo" || lower === "command") {
+          while (idx < tokens.length && tokens[idx].startsWith("-")) idx++;
+        }
+        continue;
+      }
+      if (/^[A-Za-z_]\w*=/.test(t)) {
+        idx++;
+        continue;
+      }
+      if (/^\$[A-Za-z_][\w:]*$/.test(t) && tokens[idx + 1] === "=") {
+        idx += 2;
+        continue;
+      }
+      if (/^\d*[<>]/.test(t)) {
+        idx += /^\d*[<>]+$/.test(t) ? 2 : 1;
+        continue;
+      }
+      break;
+    }
+
+    if (idx >= tokens.length) continue;
+    const bin = tokens[idx].split(/[/\\]/).pop().replace(/\.exe$/i, "").toLowerCase();
+    if (bin !== "gh") continue;
+
+    // Skip optional global flags before subcommand (`gh -R owner/repo pr create`)
+    let k = idx + 1;
+    while (k < tokens.length && tokens[k].startsWith("-")) {
+      if (tokens[k] === "-R" || tokens[k] === "--repo") k += 2;
+      else k += 1;
+    }
+
+    const subcmd = tokens[k]?.toLowerCase();
+    const action = tokens[k + 1]?.toLowerCase();
+    if (subcmd === "pr" && action === "create") {
+      matches.push({ action: "pr.create", segment: trimmed, args: tokens.slice(k + 2) });
+    } else if (subcmd === "pr" && action === "merge") {
+      const args = tokens.slice(k + 2);
+      let selector = "";
+      for (let a = 0; a < args.length; a++) {
+        const tok = args[a];
+        if (GH_PR_MERGE_VALUE_FLAGS.has(tok)) {
+          a++;
+          continue;
+        }
+        if (tok.startsWith("-")) continue;
+        selector = tok;
+        break;
+      }
+      matches.push({ action: "pr.merge", segment: trimmed, args, selector });
+    } else if (subcmd === "api") {
+      const apiArgs = tokens.slice(k + 1);
+      for (const a of apiArgs) {
+        const m = a.match(/pulls\/(\d+)\/merge/i);
+        if (m) {
+          matches.push({ action: "api.merge", segment: trimmed, args: apiArgs, selector: m[1] });
+          break;
+        }
+      }
+    }
+  }
+
+  return matches;
 }
 
 /** Evaluate shell commands. */
@@ -1637,18 +2032,19 @@ function evaluateShell(call, repoRoot) {
     };
   }
 
-  // gh pr create requires a valid gate seal AND the seal block in the PR body
+  // gh pr create / gh pr merge (only in real command position)
   // gh segments of another repository (--repo owner/name) are governed by that repository's own harness;
   // the seal and merge rules apply to the remaining segments (a --repo elsewhere exempts nothing).
-  const ownCmd = cmd.split(/;|&&|\|\||\||\n/).filter((seg) => !targetsOtherRepo(seg, repoRoot)).join(" ; ");
-  if (/(^|[;&|(\s])gh\s+pr\s+create(\s|$)/.test(ownCmd)) {
-    const why = sealDiagnosis(repoRoot, prBodyText(cmd, repoRoot));
+  const ghPrMatches = detectGhPrCommands(cmd).filter((m) => !targetsOtherRepo(m.segment, repoRoot));
+  const createMatch = ghPrMatches.find((m) => m.action === "pr.create");
+  if (createMatch) {
+    const bodyText = /--body-file\b/.test(createMatch.segment)
+      ? prBodyText(createMatch.segment, repoRoot)
+      : prBodyText(cmd, repoRoot);
+    const why = sealDiagnosis(repoRoot, bodyText);
     if (why) return { allowed: false, ruleId: "pr.requires-seal", reason: why };
   }
 
-  // gh pr merge (or the REST merge endpoint) requires harness-merge-check: seal == PR head, lesson, PPC
-  const mergeCmd = ownCmd.match(/(^|[;&|(\s])gh\s+pr\s+merge((?:\s+[^;&|]*)?)/);
-  const apiMerge = ownCmd.match(/gh\s+api\s+[^;&|]*pulls\/(\d+)\/merge/);
   // The harness/merge-check status is posted only by harness-merge-check.mjs, never by hand.
   if (/gh\s+api\s+[^;&|]*statuses\//i.test(cmd) && /harness\/merge-check/i.test(cmd)) {
     return {
@@ -1657,11 +2053,9 @@ function evaluateShell(call, repoRoot) {
       reason: "The harness/merge-check status is posted only by harness-merge-check.mjs --post-status.",
     };
   }
-  if (mergeCmd || apiMerge) {
-    const selector = apiMerge
-      ? apiMerge[1]
-      : (mergeCmd[2] || "").trim().split(/\s+/).find((a) => a && !a.startsWith("-")) || "";
-    const reasons = mergeCheck(selector, repoRoot);
+  const mergeMatch = ghPrMatches.find((m) => m.action === "pr.merge" || m.action === "api.merge");
+  if (mergeMatch) {
+    const reasons = mergeCheck(mergeMatch.selector || "", repoRoot);
     if (reasons) {
       return {
         allowed: false,

@@ -1192,3 +1192,108 @@ describe("GOZS-780: remediate.cwd-lost solo sobre la salida y solo en Claude Cod
     expect(rule.message).not.toMatch(/absolute paths/i);
   });
 });
+
+describe("GOZS-791 A2: fs.protected permite lecturas inline de rutas protegidas cuando se escribe en otro destino", () => {
+  const shell = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot });
+
+  it("permite Python que lee ~/.claude/projects/.../tool-results/x.txt y escribe en /tmp", () => {
+    for (const cmd of [
+      `python3 -c 'd=open("~/.claude/projects/p/tool-results/x.txt").read(); open("/tmp/o","w").write(d)'`,
+      `python3 -c 'd=open("~/.claude/projects/p/tool-results/x.txt", "r").read(); open("/tmp/o","w").write(d)'`,
+      `python3 -c 'd=open("~/.claude/projects/p/tool-results/x.txt", "rb").read(); open("/tmp/o","wb").write(d)'`,
+      `python3 -c 'from pathlib import Path; d=Path("~/.claude/projects/p/tool-results/x.txt").read_text(); Path("/tmp/o").write_text(d)'`,
+      `python3 -c 'from pathlib import Path; d=Path("~/.claude/projects/p/tool-results/x.txt").read_bytes(); Path("/tmp/o").write_bytes(d)'`,
+    ]) {
+      expect(shell(cmd).allowed, cmd).toBe(true);
+    }
+  });
+
+  it("permite Node que lee una ruta protegida con readFileSync/readFile y escribe en /tmp", () => {
+    for (const cmd of [
+      `node -e 'const fs=require("fs"); const d=fs.readFileSync("/home/u/.claude/projects/p/tool-results/x.txt","utf8"); fs.writeFileSync("/tmp/o", d)'`,
+      `node -e 'const fs=require("fs/promises"); fs.readFile("/home/u/.claude/projects/p/tool-results/x.txt","utf8").then(d=>fs.writeFile("/tmp/o", d))'`,
+    ]) {
+      expect(shell(cmd).allowed, cmd).toBe(true);
+    }
+  });
+
+  it("sigue bloqueando fs.protected cuando una ruta protegida se abre en modo escritura o se escribe con Path/writeFileSync", () => {
+    for (const cmd of [
+      `python3 -c 'open(".claude/settings.json","w").write("x")'`,
+      `python3 -c 'open(".claude/settings.json","a").write("x")'`,
+      `python3 -c 'open(".claude/settings.json","r+").write("x")'`,
+      `python3 -c 'from pathlib import Path; Path(".claude/x").write_text("y")'`,
+      `python3 -c 'p=".claude/settings.json"; open(p, "a").write("x")'`,
+      `python3 -c 'd=open("~/.claude/projects/p/tool-results/x.txt").read(); open(".claude/settings.json","w").write(d)'`,
+      `node -e 'const fs=require("fs"); fs.writeFileSync(".claude/settings.json","x")'`,
+      `node -e 'const fs=require("fs"); fs.readFile(".claude/a",(e,d)=>fs.writeFileSync(".claude/b",d))'`,
+    ]) {
+      const res = shell(cmd);
+      expect(res.allowed, cmd).toBe(false);
+      expect(res.ruleId, cmd).toBe("fs.protected");
+    }
+  });
+});
+
+describe("GOZS-791 A3: pr.requires-seal y pr.merge-check solo cuentan gh pr create/merge en posición de comando", () => {
+  let noSealDir: string;
+
+  beforeAll(() => {
+    noSealDir = mkdtempSync(path.join(tmpdir(), "gozs-791-noseal-"));
+  });
+  afterAll(() => {
+    rmSync(noSealDir, { recursive: true, force: true });
+  });
+
+  const shellNoSeal = (command: string) => evaluateRules({ kind: "shell", command }, { repoRoot: noSealDir });
+
+  it("permite menciones literales de gh pr create y gh pr merge en echo, grep, git commit -m, comillas simples y heredocs", () => {
+    for (const cmd of [
+      `echo "no uses gh pr create a mano"`,
+      `echo 'gh pr create --fill'`,
+      `echo '$(gh pr create --fill)'`,
+      `grep -n "a\\|gh pr create |" f.md`,
+      `git commit -m "docs: evitar gh pr create sin sello"`,
+      "cat <<'EOF' > notes.md\nRecordatorio: gh pr create --fill\nEOF",
+      "cat <<EOF > notes.md\ngh pr merge 123 --squash\nEOF",
+      `echo "no uses gh pr merge a mano"`,
+      `git commit -m "fix: revisar gh pr merge"`,
+      `bash -c 'echo "gh pr create --fill"'`,
+    ]) {
+      const res = shellNoSeal(cmd);
+      expect(res.allowed, cmd).toBe(true);
+    }
+  });
+
+  it("bloquea gh pr create en posición de comando, dentro de $(...), backticks, bash -c, sh -c y pwsh -Command sin sello", () => {
+    for (const cmd of [
+      `gh pr create --title x`,
+      `URL="$(gh pr create --fill)"`,
+      "URL=`gh pr create --fill`",
+      `echo "\`gh pr create --fill\`"`,
+      `bash -c "gh pr create --fill"`,
+      `sh -c 'gh pr create --title x'`,
+      `pwsh -Command "gh pr create --fill"`,
+    ]) {
+      const res = shellNoSeal(cmd);
+      expect(res.allowed, cmd).toBe(false);
+      expect(res.ruleId, cmd).toBe("pr.requires-seal");
+      expect(res.reason, cmd).toContain("No corriste el gate");
+    }
+  });
+
+  it("bloquea gh pr merge en posición de comando, dentro de $(...), backticks, bash -c y pwsh -Command", () => {
+    for (const cmd of [
+      `gh pr merge 99999 --squash`,
+      `OUT="$(gh pr merge 99999 --squash)"`,
+      "OUT=`gh pr merge 99999`",
+      `bash -c "gh pr merge 99999 --squash"`,
+      `sh -c 'gh pr merge 99999'`,
+      `pwsh -Command "gh pr merge 99999"`,
+    ]) {
+      const res = shellNoSeal(cmd);
+      expect(res.allowed, cmd).toBe(false);
+      expect(res.ruleId, cmd).toBe("pr.merge-check");
+    }
+  });
+});

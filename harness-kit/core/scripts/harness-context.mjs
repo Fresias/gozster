@@ -114,7 +114,7 @@ function loadProject(repoRoot) {
 
 // ---------- Rama ----------
 
-export function buildBranchSection({ runGit, now, statMtimeMs }) {
+export function buildBranchSection({ runGit, now, statMtimeMs, readTextFile }) {
   const lines = [];
   let branch = null;
   try {
@@ -130,17 +130,45 @@ export function buildBranchSection({ runGit, now, statMtimeMs }) {
     lines.push(`git status falló: ${firstLine(err)}`);
   }
 
-  // Fetch origin/main only when FETCH_HEAD is older than FETCH_FRESH_MS.
-  // In a worktree `git fetch` writes <git-dir>/FETCH_HEAD, not <git-common-dir>/FETCH_HEAD: take the newest of both.
+  // Fetch origin/main only when origin/main itself is older than FETCH_FRESH_MS.
+  // Primary source: <git-common-dir>/logs/refs/remotes/origin/main (shared across worktrees).
+  // Fallback (or no-op fetch): FETCH_HEAD only when its content mentions `branch 'main' of`.
   let fetchNote = "";
   try {
-    const dirs = new Set();
-    for (const flag of ["--git-dir", "--git-common-dir"]) {
-      try {
-        dirs.add(runGit(["rev-parse", flag]));
-      } catch {}
+    let gitDir = null;
+    let commonDir = null;
+    try {
+      gitDir = runGit(["rev-parse", "--git-dir"]);
+    } catch {}
+    try {
+      commonDir = runGit(["rev-parse", "--git-common-dir"]);
+    } catch {}
+    const readText =
+      readTextFile ||
+      ((p) => {
+        try {
+          return readFileSync(p, "utf8");
+        } catch {
+          return null;
+        }
+      });
+    const mtimes = [];
+    const reflogDir = commonDir || gitDir;
+    const reflogMtime = reflogDir
+      ? statMtimeMs(path.join(reflogDir, "logs", "refs", "remotes", "origin", "main"))
+      : null;
+    if (reflogMtime !== null) mtimes.push(reflogMtime);
+    const dirs = new Set([gitDir, commonDir].filter(Boolean));
+    for (const d of dirs) {
+      const fh = path.join(d, "FETCH_HEAD");
+      const fhMtime = statMtimeMs(fh);
+      if (fhMtime !== null) {
+        const content = readText(fh);
+        if (typeof content === "string" && content.includes("branch 'main' of")) {
+          mtimes.push(fhMtime);
+        }
+      }
     }
-    const mtimes = [...dirs].map((d) => statMtimeMs(path.join(d, "FETCH_HEAD"))).filter((m) => m !== null);
     const mtime = mtimes.length ? Math.max(...mtimes) : null;
     if (mtime === null || now() - mtime > FETCH_FRESH_MS) {
       try {
@@ -396,9 +424,18 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
         return null;
       }
     });
+  const readTextFile =
+    deps.readTextFile ||
+    ((p) => {
+      try {
+        return readFileSync(path.isAbsolute(p) ? p : path.join(repoRoot, p), "utf8");
+      } catch {
+        return null;
+      }
+    });
   const project = deps.project || loadProject(repoRoot);
 
-  const rama = buildBranchSection({ runGit, now, statMtimeMs });
+  const rama = buildBranchSection({ runGit, now, statMtimeMs, readTextFile });
   const issueKey = resolveIssueKey(opts.issue, rama.branch, project.issue_prefix);
 
   const fetchIssue = "fetchIssue" in deps ? deps.fetchIssue : await defaultFetchIssue(env);

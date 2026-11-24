@@ -13,6 +13,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { detectGhPrCommands, evaluateShellPolling } from "../guard/guard-core.mjs";
 import { CMD_MAX, resolveTelemetryDir } from "../guard/telemetry.mjs";
 import {
   filterEvents,
@@ -378,7 +379,12 @@ function segSig(text, depth = 0) {
     case "node": {
       if (t.some((x) => ["-e", "--eval", "-p", "--print"].includes(x))) return "node -e";
       const [script] = firstNonFlag(t, 1);
-      return script ? `node ${baseProg(script)}` : "node";
+      if (!script) return "node";
+      const base = baseProg(script);
+      if (base === "harness-pr-status.mjs" && t.some((x) => x === "--wait-checks" || x.startsWith("--wait-checks="))) {
+        return "node harness-pr-status.mjs --wait-checks";
+      }
+      return `node ${base}`;
     }
     case "python":
     case "python3":
@@ -476,6 +482,8 @@ export function commandSignature(cmd, options = {}) {
 
 const FAMILY_RULES = [
   ["comando cortado (solo cd/entorno visible)", (s) => s.startsWith(CUT_SIG_PREFIX)],
+  ["gh", (s) => s === "gh" || s.startsWith("gh ") || /\bharness-pr-status(?:\.mjs)?\b/.test(s)],
+  ["multica", (s) => s.startsWith("multica") || /\bmultica-(?:ctx|post)(?:\.mjs)?\b/.test(s)],
   ["arnés (harness-*)", (s) => /harness[-_]/.test(s)],
   ["búsqueda", (s) => /^(rg|grep|egrep|fgrep|findstr|select-string|sls|ag|ack|git grep)$/.test(s)],
   ["tests", (s) => /^(npm|pnpm|yarn) (test|run test)/.test(s) || /^npx (vitest|playwright)/.test(s)],
@@ -484,8 +492,6 @@ const FAMILY_RULES = [
     (s) => /^(npm|pnpm|yarn) run (build|typecheck|type-check|lint|check)/.test(s) || /^npx (tsc|eslint|next)/.test(s),
   ],
   ["git", (s) => s.startsWith("git ")],
-  ["multica", (s) => s.startsWith("multica")],
-  ["gh", (s) => s === "gh" || s.startsWith("gh ")],
   [
     "operaciones de archivos",
     (s) =>
@@ -515,6 +521,8 @@ function isReadOnly(e) {
     ["búsqueda", "listar archivos", "ver archivo por shell"].includes(e._fam) ||
     /^git (status|diff|log|show|branch|rev-parse|ls-files|remote|config|blame|describe)$/.test(s) ||
     /^multica \S+ (get|list|view|show|status|search)$/.test(s) ||
+    /\bmultica-ctx(?:\.mjs)?\b/.test(s) ||
+    /\bharness-pr-status(?:\.mjs)?\b/.test(s) ||
     /^gh \S+ (view|list|checks|status|diff)$/.test(s) ||
     s === "gh api"
   );
@@ -532,6 +540,21 @@ const NEVER_LITERAL = new Set([
 
 export function looksLiteral(e, rule) {
   if (e._kind !== "shell" || NEVER_LITERAL.has(rule)) return false;
+  if (rule === "pr.requires-seal") {
+    const rawCmd = e._cmd ?? e.cmd ?? "";
+    if (rawCmd) {
+      return !detectGhPrCommands(rawCmd).some((m) => m.action === "pr.create");
+    }
+    return e._fam === "búsqueda" || e._sig === "git commit" || e._sig === "echo" || e._sig === "write-output";
+  }
+  if (rule === "pr.merge-check") {
+    const rawCmd = e._cmd ?? e.cmd ?? "";
+    if (rawCmd) {
+      if (/gh\s+api\s+[^;&|]*statuses\//i.test(rawCmd) && /harness\/merge-check/i.test(rawCmd)) return false;
+      return !detectGhPrCommands(rawCmd).some((m) => m.action === "pr.merge" || m.action === "api.merge");
+    }
+    return e._fam === "búsqueda" || e._sig === "git commit" || e._sig === "echo" || e._sig === "write-output";
+  }
   if (rule.startsWith("pr.")) {
     return e._fam === "búsqueda" || e._sig === "git commit" || e._sig === "echo" || e._sig === "write-output";
   }
@@ -685,6 +708,13 @@ export function analyzeDeep(rawEvents, options = {}) {
   const since = options.since ?? null;
   const until = options.until ?? null;
   const idleMin = options.idleMin ?? 15;
+  const excludeKinds = Array.isArray(options.excludeKinds)
+    ? [...new Set(options.excludeKinds.map((x) => String(x || "").trim()).filter(Boolean))]
+    : [];
+  const excludeRules = Array.isArray(options.excludeRules)
+    ? [...new Set(options.excludeRules.map((x) => String(x || "").trim()).filter(Boolean))]
+    : [];
+  const excludeRulesSet = new Set(excludeRules);
   const topN = options.top ?? 20;
   const examples = options.examples !== false;
   const cwd = path.resolve(options.repoRoot || process.cwd());
@@ -707,11 +737,13 @@ export function analyzeDeep(rawEvents, options = {}) {
   // ── filtro reutilizado de harness-telemetry.mjs
   const nonSynthetic = raw.filter((e) => !isExcludedEvent(e));
   const excluded = raw.length - nonSynthetic.length;
-  const filtered = filterEvents(raw, { since, until });
-  const outOfWindow = nonSynthetic.length - filtered.length;
+  const inWindow = filterEvents(raw, { since, until });
+  const outOfWindow = nonSynthetic.length - inWindow.length;
+  const filtered = excludeKinds.length > 0 ? filterEvents(raw, { since, until, excludeKinds }) : inWindow;
+  const excludedByKind = inWindow.length - filtered.length;
 
   // ── cruce obligatorio con summarize()
-  const official = summarize(raw, { since, until, idleMin });
+  const official = summarize(raw, { since, until, idleMin, excludeKinds, excludeRules });
 
   // ── emparejamiento pre/post reutilizado
   const pairs = pairPrePostEvents(filtered);
@@ -745,10 +777,15 @@ export function analyzeDeep(rawEvents, options = {}) {
       ev._segs = p.sigs;
       ev._chain = p.count;
       ev._cd = p.cdPrefix;
+      ev._startsWithCd =
+        (p.sigs.length > 0 && CD.has(p.sigs[0])) || /^\s*(?:cd|chdir|pushd|set-location|sl)\b/i.test(ev._cmd);
       ev._limited = p.limited;
       ev._views = p.views.map((v) => relOf(v));
       ev._fam = family(ev._sig);
-      ev._usesWorkdirAbs = /<workdir>/i.test(ev._cmd);
+      ev._usesWorkdirAbs = /<(?:workdir|repo)>/i.test(ev._cmd);
+      const poll = evaluateShellPolling(ev._cmd);
+      ev._activeWait = poll?.ruleId === "shell.polling";
+      ev._shortWait = poll?.ruleId === "shell.wait";
     } else if (["read", "write", "read_many"].includes(ev._kind)) {
       const r = relOf(ev._cmd);
       // Quita la heurística de ruta recortada cuando el evento ya viene completo (< limit).
@@ -851,6 +888,7 @@ export function analyzeDeep(rawEvents, options = {}) {
     version: VERSION,
     generatedAt: new Date().toISOString(),
     window: { since, until },
+    filters: { excludeKinds, excludeRules },
     idleMin,
     gapCapMin: idleMin,
     cmdMax: effectiveCmdMax,
@@ -894,8 +932,8 @@ export function analyzeDeep(rawEvents, options = {}) {
     const outcomes = official.durations.outcomes;
     P(
       `- Archivo: \`${cell(maskText(displayFile, root), 120)}\` · líneas JSON válidas: ${raw.length} · inválidas: ${invalid}`,
-      `- Excluidos (canario/sintético): ${excluded} · fuera de ventana: ${outOfWindow}`,
-      `- **Eventos en ventana: ${events.length}** (acciones: ${actions.length}, post/inyecciones: ${postCount}) · **sesiones: ${sessions.size}**`,
+      `- Excluidos (canario/sintético): ${excluded} · fuera de ventana: ${outOfWindow}${excludeKinds.length ? ` · excluidos: ${excludeKinds.join(", ")} (${excludedByKind} eventos)` : ""}${excludeRules.length ? ` · reglas excluidas: ${excludeRules.join(", ")}` : ""}`,
+      `- **Eventos en ventana: ${events.length}** (acciones: ${actions.length}, post/inyecciones: ${postCount}) · **sesiones: ${sessions.size}** · **bloqueos/sesión: ${official.blocksPerSession}**`,
       `- **Tiempo activo total (umbral ${idleMin} min): ${hrs(totalActiveMs)} h**`,
       `- Cruce obligatorio con \`summarize\`: ${crossCheck.matches ? "**coincide**" : "**NO coincide**"} (eventos ${crossCheck.totalEvents}, acciones ${crossCheck.totalActions}, post ${crossCheck.postEvents}, sesiones ${crossCheck.totalSessions})`,
     );
@@ -941,10 +979,14 @@ export function analyzeDeep(rawEvents, options = {}) {
       invalid,
       excluded,
       outOfWindow,
+      excludedByKind,
+      excludeKinds,
+      excludeRules,
       events: events.length,
       actions: actions.length,
       post: postCount,
       sessions: sessions.size,
+      blocksPerSession: official.blocksPerSession,
       activeTimeMs: totalActiveMs,
       crossCheck,
       ledger,
@@ -1132,15 +1174,62 @@ export function analyzeDeep(rawEvents, options = {}) {
     const cd = shell.filter((e) => e._cd).length;
     const lim = shell.filter((e) => e._limited).length;
     const workdirAbs = shell.filter((e) => e._usesWorkdirAbs).length;
+
+    // B5: cwd perdido aproximado (cd / Set-Location al inicio con ok === false), por runtime
+    const cwdLostByRt = new Map();
+    let cwdLostTotal = 0;
+    for (const e of shell) {
+      if (e._startsWithCd && e._ok === false) {
+        cwdLostTotal++;
+        inc(cwdLostByRt, e.runtime || "unknown");
+      }
+    }
+
+    // B6: intentos de espera activa (> 5 s sin check local, bloqueados o no), por runtime
+    const activeWaitEvents = shell.filter((e) => e._activeWait);
+    const activeWaitSessions = new Set(activeWaitEvents.map((e) => e.session));
+    const activeWaitBlocked = activeWaitEvents.filter((e) => e._block).length;
+    const activeWaitExecuted = activeWaitEvents.length - activeWaitBlocked;
+    const activeWaitByRtMap = new Map();
+    for (const e of activeWaitEvents) {
+      const rt = e.runtime || "unknown";
+      let rec = activeWaitByRtMap.get(rt);
+      if (!rec) {
+        rec = { total: 0, blocked: 0, executed: 0, sessions: new Set() };
+        activeWaitByRtMap.set(rt, rec);
+      }
+      rec.total++;
+      if (e._block) rec.blocked++;
+      else rec.executed++;
+      rec.sessions.add(e.session);
+    }
+    const activeWaitByRt = Object.fromEntries(
+      [...activeWaitByRtMap.entries()].map(([rt, rec]) => [
+        rt,
+        { total: rec.total, blocked: rec.blocked, executed: rec.executed, sessions: rec.sessions.size },
+      ]),
+    );
+
     P(
       "",
       `- Encadenados: ${chained.length} (${pc(chained.length, shell.length)}) · tramos promedio en encadenados: ${r1(chained.reduce((a, e) => a + e._chain, 0) / (chained.length || 1))}`,
       `- Empiezan con cd/Set-Location: ${cd} (${pc(cd, shell.length)}). Es la señal de que el agente no confía en su directorio de trabajo.`,
       `- Con limitador de salida (\`| head\`, \`Select-Object\`, \`wc\`, \`grep\`…): ${lim} (${pc(lim, shell.length)}).`,
     );
-    if (datasetHasV2) {
-      P(`- Con referencia a ruta de workdir (\`<workdir>\`): ${workdirAbs} (${pc(workdirAbs, shell.length)}).`);
+    if (datasetHasV2 || workdirAbs > 0) {
+      P(`- Con referencia a ruta absoluta del workdir/repo (\`<workdir>\` o \`<repo>\`): ${workdirAbs} (${pc(workdirAbs, shell.length)}).`);
     }
+    if (cwdLostTotal > 0 || official.durations.outcomes.evaluated > 0) {
+      const rtDetail = [...cwdLostByRt.entries()].map(([rt, n]) => `${rt}: ${n}`).join(", ") || "0";
+      P(`- Cwd perdido aproximado (\`cd\`/\`Set-Location\` con \`ok=false\`): ${cwdLostTotal} (${rtDetail}).`);
+    }
+    const waitRtDetail =
+      Object.entries(activeWaitByRt)
+        .map(([rt, r]) => `${rt}: ${r.total} (bloqueados ${r.blocked}, ejecutados ${r.executed}, ${r.sessions} ses.)`)
+        .join(" · ") || "0";
+    P(
+      `- Intentos de espera activa (\`shell.polling\`, > 5 s sin check local, bloqueados o no): **${activeWaitEvents.length}** en ${activeWaitSessions.size} sesiones (bloqueados: ${activeWaitBlocked}, ejecutados: ${activeWaitExecuted}) · ${waitRtDetail}.`,
+    );
     J.shell = {
       families: Object.fromEntries(top(fam, 50)),
       familyTimeMs: Object.fromEntries(top(famT, 50)),
@@ -1150,6 +1239,18 @@ export function analyzeDeep(rawEvents, options = {}) {
       cdPrefix: cd,
       limited: lim,
       workdirRefs: workdirAbs,
+      absPathRefs: workdirAbs,
+      cwdLostApprox: {
+        total: cwdLostTotal,
+        byRuntime: Object.fromEntries(cwdLostByRt),
+      },
+      activeWaits: {
+        total: activeWaitEvents.length,
+        blocked: activeWaitBlocked,
+        executed: activeWaitExecuted,
+        sessions: activeWaitSessions.size,
+        byRuntime: activeWaitByRt,
+      },
     };
   });
 
@@ -1463,6 +1564,60 @@ export function analyzeDeep(rawEvents, options = {}) {
     }
     P("Secuencias de solo shell, 3 o 4 pasos (lo más directo para convertir en un único script):", "");
     T(["secuencia", "veces"], top(macros, topN).filter(([, v]) => v >= 2));
+    // B8: pasos búsqueda ↔ lectura (rg/grep por shell y Grep/Glob nativa, por separado y sumados, por runtime)
+    const makeTrans = () => ({ forward: 0, reverse: 0, total: 0, byRuntime: new Map() });
+    const srShell = makeTrans();
+    const srNative = makeTrans();
+    const srTotal = makeTrans();
+    const recordTrans = (bucket, dir, rt) => {
+      bucket[dir]++;
+      bucket.total++;
+      inc(bucket.byRuntime, rt);
+    };
+    const searchKindOf = (e) => {
+      if (e._block) return null;
+      if (e._kind === "read" || e._kind === "read_many") return "read";
+      if (e._kind === "search") return "native";
+      if (e._kind === "shell" && e._fam === "búsqueda") return "shell";
+      return "other";
+    };
+    for (const s of S) {
+      const rt = s.runtime || "unknown";
+      for (let i = 0; i + 1 < s.actions.length; i++) {
+        const a = searchKindOf(s.actions[i]);
+        const b = searchKindOf(s.actions[i + 1]);
+        if (a === "shell" && b === "read") {
+          recordTrans(srShell, "forward", rt);
+          recordTrans(srTotal, "forward", rt);
+        } else if (a === "read" && b === "shell") {
+          recordTrans(srShell, "reverse", rt);
+          recordTrans(srTotal, "reverse", rt);
+        } else if (a === "native" && b === "read") {
+          recordTrans(srNative, "forward", rt);
+          recordTrans(srTotal, "forward", rt);
+        } else if (a === "read" && b === "native") {
+          recordTrans(srNative, "reverse", rt);
+          recordTrans(srTotal, "reverse", rt);
+        }
+      }
+    }
+    const serializeTrans = (tr) => ({
+      forward: tr.forward,
+      reverse: tr.reverse,
+      total: tr.total,
+      byRuntime: Object.fromEntries(tr.byRuntime),
+    });
+
+    P("", "Pasos búsqueda ↔ lectura (por separado y sumados, por runtime):", "");
+    T(
+      ["tipo", "búsqueda → lectura", "lectura → búsqueda", "total", ...RTS],
+      [
+        ["shell (rg/grep ↔ lectura)", srShell.forward, srShell.reverse, srShell.total, ...RTS.map((rt) => srShell.byRuntime.get(rt) || 0)],
+        ["nativa (Grep/Glob ↔ Read)", srNative.forward, srNative.reverse, srNative.total, ...RTS.map((rt) => srNative.byRuntime.get(rt) || 0)],
+        ["total búsqueda ↔ lectura", srTotal.forward, srTotal.reverse, srTotal.total, ...RTS.map((rt) => srTotal.byRuntime.get(rt) || 0)],
+      ],
+    );
+
     const rr = stats(readRuns);
     P(
       "",
@@ -1479,6 +1634,11 @@ export function analyzeDeep(rawEvents, options = {}) {
       shellMacros: Object.fromEntries(top(macros, JSON_TOP)),
       readRuns: rr,
       sameCommandRuns: Object.fromEntries(top(sameRuns, 50)),
+      searchReadTransitions: {
+        shell: serializeTrans(srShell),
+        native: serializeTrans(srNative),
+        total: serializeTrans(srTotal),
+      },
     };
   });
 
@@ -1587,6 +1747,7 @@ export function analyzeDeep(rawEvents, options = {}) {
         const b = a[i];
         if (!b._block) continue;
         const rule = b.rule || "(sin regla)";
+        if (excludeRulesSet.has(rule)) continue;
         let R = ruleData.get(rule);
         if (!R) {
           R = {
@@ -1751,9 +1912,37 @@ export function analyzeDeep(rawEvents, options = {}) {
 
   // 9c. pr.requires-seal en detalle
   section("pr.requires-seal", () => {
+    const allSealBlocks = actions.filter((e) => e._block && e.rule === "pr.requires-seal");
     const sess = S.filter((s) => s.actions.some((e) => e._block && e.rule === "pr.requires-seal"));
     if (!sess.length) return;
     H("9c. pr.requires-seal en detalle");
+
+    // B7: separar `gh pr create` en posición de comando de menciones literales usando el detector de A3
+    let cmdPosCount = 0;
+    let literalCount = 0;
+    const sealRtMap = new Map();
+    for (const b of allSealBlocks) {
+      const isCmd = detectGhPrCommands(b._cmd).some((m) => m.action === "pr.create");
+      const rt = b.runtime || "unknown";
+      let rec = sealRtMap.get(rt);
+      if (!rec) {
+        rec = { total: 0, commandPosition: 0, literalMentions: 0 };
+        sealRtMap.set(rt, rec);
+      }
+      rec.total++;
+      if (isCmd) {
+        cmdPosCount++;
+        rec.commandPosition++;
+      } else {
+        literalCount++;
+        rec.literalMentions++;
+      }
+    }
+    const sealByRuntime = Object.fromEntries(sealRtMap);
+
+    const isPrCreateSeg = (x) => x === "gh pr create" || /harness-ship/.test(x);
+    const isGateSeg = (x) => /harness-gate|harness-ship/.test(x);
+
     const toOk = [];
     const gates = [];
     let never = 0;
@@ -1761,17 +1950,17 @@ export function analyzeDeep(rawEvents, options = {}) {
     for (const s of sess) {
       const a = s.actions;
       const f = a.findIndex((e) => e._block && e.rule === "pr.requires-seal");
-      const ok = a.findIndex((e, i) => i > f && e._kind === "shell" && !e._block && (e._segs || []).includes("gh pr create"));
+      const ok = a.findIndex((e, i) => i > f && e._kind === "shell" && !e._block && (e._segs || []).some(isPrCreateSeg));
       if (ok < 0) never++;
       else {
         toOk.push(a[ok]._t - a[f]._t);
-        gates.push(a.slice(f, ok).filter((e) => e._kind === "shell" && (e._segs || []).some((x) => /harness-gate/.test(x))).length);
+        gates.push(a.slice(f, ok).filter((e) => e._kind === "shell" && (e._segs || []).some(isGateSeg)).length);
       }
       let lastGate = -1;
       let learnAfterGate = false;
       for (let i = 0; i < a.length; i++) {
         const segs = a[i]._segs || [];
-        if (segs.some((x) => /harness-gate/.test(x))) {
+        if (segs.some(isGateSeg)) {
           lastGate = i;
           learnAfterGate = false;
         }
@@ -1784,13 +1973,28 @@ export function analyzeDeep(rawEvents, options = {}) {
     }
     const t = stats(toOk);
     const g = stats(gates);
+    const rtSplitStr =
+      Object.entries(sealByRuntime)
+        .map(([rt, r]) => `${rt}: ${r.commandPosition} comando / ${r.literalMentions} literal`)
+        .join(" · ") || "–";
     P(
-      `- Sesiones con el bloqueo: ${sess.length} · nunca lograron \`gh pr create\` en la misma sesión: ${never}`,
-      `- Desde el primer bloqueo hasta el \`gh pr create\` exitoso: p50 ${mins(t.p50)} min, p90 ${mins(t.p90)} min`,
-      `- Corridas de harness-gate entre el bloqueo y el éxito: p50 ${r1(g.p50)}, p90 ${r1(g.p90)}, máx ${g.max ?? "–"}`,
+      `- Bloqueos \`pr.requires-seal\`: **${allSealBlocks.length}** total — **${cmdPosCount}** con \`gh pr create\` en posición de comando · **${literalCount}** menciones literales (${rtSplitStr})`,
+      `- Sesiones con el bloqueo: ${sess.length} · nunca lograron crear PR en la misma sesión: ${never}`,
+      `- Desde el primer bloqueo hasta la creación de PR exitosa: p50 ${mins(t.p50)} min, p90 ${mins(t.p90)} min`,
+      `- Corridas de gate (\`harness-gate\`/\`harness-ship\`) entre el bloqueo y el éxito: p50 ${r1(g.p50)}, p90 ${r1(g.p90)}, máx ${g.max ?? "–"}`,
       `- Sesiones donde \`harness-learn\` corrió después del gate y antes del bloqueo (orden que deja el sello viejo): ${staleLearn}`,
     );
-    J.prSeal = { sessions: sess.length, never, msToSuccess: t, gateRunsBetween: g, staleLearnPattern: staleLearn };
+    J.prSeal = {
+      sessions: sess.length,
+      totalBlocks: allSealBlocks.length,
+      commandPosition: cmdPosCount,
+      literalMentions: literalCount,
+      byRuntime: sealByRuntime,
+      never,
+      msToSuccess: t,
+      gateRunsBetween: g,
+      staleLearnPattern: staleLearn,
+    };
   });
 
   // 10. Inyecciones
@@ -1829,8 +2033,12 @@ export function analyzeDeep(rawEvents, options = {}) {
   // 11. Gate y tests
   section("gate", () => {
     H("11. Gate, tests y build");
+    const isGateRunSeg = (x) => /harness-gate|harness-ship/.test(x);
+    const isPrCreateSeg = (x) => x === "gh pr create" || /harness-ship/.test(x);
     const classes = [
       ["harness-gate.sh", (x) => /harness-gate/.test(x)],
+      ["harness-ship.mjs", (x) => /harness-ship/.test(x)],
+      ["gate (harness-gate + harness-ship)", isGateRunSeg],
       ["harness-learn.sh", (x) => /harness-learn/.test(x)],
       ["npm test (suite completa)", (x) => /^(npm|pnpm|yarn) (test|run test)$/.test(x)],
       ["npm test <archivo>", (x) => /^(npm|pnpm|yarn) (test|run test\S*) <archivo>$/.test(x)],
@@ -1841,6 +2049,7 @@ export function analyzeDeep(rawEvents, options = {}) {
       ["build", (x) => /^(npm|pnpm|yarn) run build/.test(x) || x === "npx next build"],
       ["e2e/playwright", (x) => /^npx playwright/.test(x) || /run (e2e|test:e2e)/.test(x)],
       ["gh pr create", (x) => x === "gh pr create"],
+      ["creación de PR (gh pr create + harness-ship)", isPrCreateSeg],
     ];
     const hasDur = official.durations.pairedCount > 0;
     const rows = [];
@@ -1870,7 +2079,22 @@ export function analyzeDeep(rawEvents, options = {}) {
         : ["acción", "llamadas", "sesiones", "por sesión p50", "p90", "máx", "hueco p50 (s)", "p90 (s)", "total (h)", "bloqueadas"],
       rows,
     );
-    P("", "_El hueco después de un gate o de una suite completa aproxima su duración (más el razonamiento siguiente). Si es mayor al umbral de inactividad, no se cuenta._");
+
+    // B3: corridas del gate por sesión que crea PR (`gh pr create` o `harness-ship.mjs`)
+    const prSessions = S.filter((s) => s.actions.some((e) => e._kind === "shell" && (e._segs || []).some(isPrCreateSeg)));
+    const gateCountsInPr = prSessions.map(
+      (s) => s.actions.filter((e) => e._kind === "shell" && (e._segs || []).some(isGateRunSeg)).length,
+    );
+    const gatePerPrSession = stats(gateCountsInPr);
+    P(
+      "",
+      `- Sesiones que crean PR (\`gh pr create\` o \`harness-ship.mjs\`): **${prSessions.length}** · corridas del gate en esas sesiones: ${gatePerPrSession.sum} (p50 **${r1(gatePerPrSession.p50)}**, p90 ${r1(gatePerPrSession.p90)}, máx ${gatePerPrSession.max ?? "–"}; \`harness-ship.mjs\` es cota superior porque saltea el gate si el sello ya vale).`,
+      "_El hueco después de un gate o de una suite completa aproxima su duración (más el razonamiento siguiente). Si es mayor al umbral de inactividad, no se cuenta._",
+    );
+    jr._prCreatingSessions = {
+      sessions: prSessions.length,
+      gateRuns: gatePerPrSession,
+    };
     J.gate = jr;
   });
 
@@ -1896,6 +2120,35 @@ export function analyzeDeep(rawEvents, options = {}) {
     }
     const sg = new Map();
     for (const e of ev) if (usable(e)) addTo(sg, e._sig, e._gap);
+
+    const isPrQuerySig = (s) =>
+      s === "gh pr view" ||
+      s === "gh pr list" ||
+      s === "gh pr checks" ||
+      s === "gh pr diff" ||
+      s === "gh api" ||
+      s === "node harness-pr-status.mjs" ||
+      s === "node harness-pr-status.mjs --wait-checks";
+    const isChecksSig = (s) =>
+      s === "gh pr checks" || s === "gh run view" || s === "node harness-pr-status.mjs --wait-checks";
+
+    const multicaEv = shell.filter((e) => e._fam === "multica");
+    const agentListEv = multicaEv.filter((e) => e._sig === "multica agent list" || /^multica agent\b/.test(e._sig) && /\blist\b/.test(e._cmd));
+    const prQueryEv = ev.filter((e) => isPrQuerySig(e._sig));
+    const checksEv = ev.filter((e) => isChecksSig(e._sig));
+    let checksRepeated10m = 0;
+    for (const [k, v] of dups.entries()) {
+      if (isChecksSig(k)) checksRepeated10m += v;
+    }
+    const multicaPerSess = sessions.size > 0 ? Math.round((multicaEv.length / sessions.size) * 100) / 100 : 0;
+    const prQueryPerSess = sessions.size > 0 ? Math.round((prQueryEv.length / sessions.size) * 100) / 100 : 0;
+
+    P(
+      `- Llamadas a Multica (CLI + \`multica-ctx\`/\`multica-post\`): **${multicaEv.length}** (${multicaPerSess}/sesión) · \`multica agent list\`: **${agentListEv.length}** en ${new Set(agentListEv.map((e) => e.session)).size} sesiones.`,
+      `- Consultas sobre PRs (\`gh pr view/list/checks/diff\`, \`gh api\`, \`harness-pr-status\`): **${prQueryEv.length}** (${prQueryPerSess}/sesión).`,
+      `- Consultas de checks (\`gh pr checks\`, \`gh run view\`, \`harness-pr-status --wait-checks\`): **${checksEv.length}** · repetidas en < 10 min: **${checksRepeated10m}**.`,
+      "",
+    );
     T(
       ["firma", "llamadas", "sesiones", "repetidas en < 10 min", "hueco p50 (s)"],
       top(sig, topN).map(([k, v]) => [k, v, sigS.get(k).size, dups.get(k) || 0, sec(stats(sg.get(k) || []).p50)]),
@@ -1903,6 +2156,20 @@ export function analyzeDeep(rawEvents, options = {}) {
     J.multicaGh = {
       signatures: Object.fromEntries(top(sig, JSON_TOP)),
       repeatedWithin10m: Object.fromEntries(top(dups, JSON_TOP)),
+      multicaTotal: multicaEv.length,
+      multicaPerSession: multicaPerSess,
+      multicaAgentList: {
+        calls: agentListEv.length,
+        sessions: new Set(agentListEv.map((e) => e.session)).size,
+      },
+      prQueries: {
+        total: prQueryEv.length,
+        perSession: prQueryPerSess,
+      },
+      checksQueries: {
+        total: checksEv.length,
+        repeatedWithin10m: checksRepeated10m,
+      },
     };
   });
 
@@ -1989,6 +2256,8 @@ export function runDeepDive(options = {}) {
     since: options.since ?? null,
     until: options.until ?? null,
     idleMin: options.idleMin ?? 15,
+    excludeKinds: options.excludeKinds ?? [],
+    excludeRules: options.excludeRules ?? [],
     top: options.top ?? 20,
     examples: options.examples !== false,
     repoRoot: repoCwd,
