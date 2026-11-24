@@ -1967,8 +1967,17 @@ function unwrapStartProcess(tokens, idx) {
     if (!filePath && !t.startsWith("-")) {
       filePath = t;
     } else if (filePath && !t.startsWith("-") && argTokens.length === 0) {
-      // Positional -ArgumentList (`Start-Process gh 'pr','create','--fill'`)
+      // Positional -ArgumentList (`Start-Process gh 'pr','create','--fill'` or `'pr', 'create', '--fill'`)
       argTokens.push(t);
+      while (
+        j + 1 < tokens.length &&
+        (argTokens[argTokens.length - 1].endsWith(",") || tokens[j + 1] === "," || tokens[j + 1].startsWith(","))
+      ) {
+        const next = tokens[j + 1];
+        if (START_PROCESS_FLAGS.has(next.toLowerCase())) break;
+        argTokens.push(next);
+        j++;
+      }
     }
   }
   if (!filePath) return null;

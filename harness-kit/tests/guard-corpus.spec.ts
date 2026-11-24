@@ -157,6 +157,9 @@ const A1_BLOCK_CASES: CorpusCase[] = [
   { label: "gh pr new (alias de create)", cmd: "gh pr new --fill", runtime: "cc-bash", expectAllowed: false, expectRule: "pr.requires-seal" },
   { label: "start gh -ArgumentList (alias de Start-Process)", cmd: "start gh -ArgumentList 'pr','create','--fill'", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
   { label: "Start-Process gh con -ArgumentList posicional", cmd: "Start-Process gh 'pr','create','--fill'", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "Start-Process gh posicional con espacios tras comas", cmd: "Start-Process gh 'pr', 'create', '--fill' -Wait", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "start gh posicional con espacios tras comas", cmd: "start gh 'pr', 'create', '--fill'", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
+  { label: "R3 @'…'@ | pwsh -Command - ; echo done", cmd: "@'\ngh pr create --fill\n'@ | pwsh -Command - ; echo done", runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
   { label: '"gh pr create" | iex', cmd: '"gh pr create --fill" | iex', runtime: "cc-pwsh", expectAllowed: false, expectRule: "pr.requires-seal" },
 ];
 
@@ -182,6 +185,7 @@ const A1_ALLOW_CASES: CorpusCase[] = [
   { label: 'R3 $body = @"…gh pr create…"@', cmd: '$body = @"\nUsar harness-ship, no gh pr create --fill\n"@', runtime: "cc-pwsh", expectAllowed: true },
   { label: "R3 @'…'@ | Out-File (Antigravity)", cmd: "@'\nUsar harness-ship, no gh pr create --fill\n'@ | Out-File ../pr.md", runtime: "antigravity", expectAllowed: true },
   { label: "R3 'gh pr create' | Out-File", cmd: "'gh pr create --fill' | Out-File ../x.txt", runtime: "cc-pwsh", expectAllowed: true },
+  { label: "R3 @'…gh pr create…'@ ; echo hi | bash (here-string de datos + otra cláusula)", cmd: "@'\nUsar harness-ship, no gh pr create --fill\n'@ ; echo hi | bash", runtime: "cc-pwsh", expectAllowed: true },
   { label: 'echo "gh pr new"', cmd: 'echo "no uses gh pr new"', runtime: "cc-bash", expectAllowed: true },
   { label: "start notepad", cmd: "start notepad", runtime: "cc-pwsh", expectAllowed: true },
   { label: "Start-Process notepad posicional", cmd: "Start-Process notepad 'a.txt'", runtime: "cc-pwsh", expectAllowed: true },
@@ -264,6 +268,13 @@ const A2_CASES: CorpusCase[] = [
   {
     label: 'R1 bash -c "$(cat <<EOF echo x > .claude)" -> fs.protected',
     cmd: "bash -c \"$(cat <<'EOF'\necho x > .claude/settings.json\nEOF\n)\"",
+    runtime: "cc-bash",
+    expectAllowed: false,
+    expectRule: "fs.protected",
+  },
+  {
+    label: "R1 $(cat <<EOF echo x > .claude) suelto -> fs.protected",
+    cmd: "$(cat <<'EOF'\necho x > .claude/settings.json\nEOF\n)",
     runtime: "cc-bash",
     expectAllowed: false,
     expectRule: "fs.protected",
@@ -395,6 +406,7 @@ const A2B_NON_REGRESSION_BLOCK: CorpusCase[] = [
   { label: "R4 readFileSync(p, {'flag':'w'})", cmd: `node -e "require('fs').readFileSync('.claude/settings.json',{'flag':'w'})"`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
   { label: 'R4 readFileSync(p, {"flag":"w"})', cmd: `node -e 'require("fs").readFileSync(".claude/settings.json",{"flag":"w"})'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
   { label: 'R4 readFileSync(p, {"flag":"a+"})', cmd: `node -e 'require("fs").readFileSync(".claude/settings.json",{"flag":"a+"})'`, runtime: "cc-bash", expectAllowed: false, expectRule: "fs.protected" },
+  { label: 'R4 readFileSync(harness-kit, {"flag":"w"})', cmd: `node -e 'require("fs").readFileSync("harness-kit/core/guard/rules.json",{"flag":"w"})'`, runtime: "cc-bash", expectAllowed: false, expectRule: "harness.authorized-only", useNonAuthRepo: true },
 ];
 
 const FS_PROTECTED_READ_ALLOW: CorpusCase[] = [

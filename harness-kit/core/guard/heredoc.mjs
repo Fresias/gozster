@@ -594,7 +594,8 @@ export function parseHeredocs(cmd) {
       if (cm) {
         const trailing = cm[1] || "";
         let kind = null;
-        const pipeParts = splitPipesInClause(trailing);
+        const firstClause = splitClausesOnLine(trailing)[0] || "";
+        const pipeParts = splitPipesInClause(firstClause);
         if (psHere.argKind) {
           kind = psHere.argKind;
         } else if (pipeParts.length > 1) {
