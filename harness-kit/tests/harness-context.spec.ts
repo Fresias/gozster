@@ -189,31 +189,83 @@ describe("GOZS-782: harness-context.mjs", () => {
     expect(stale.some((a) => a[0] === "fetch")).toBe(true);
   });
 
-  it("GIVEN un worktree (--git-dir !== --git-common-dir) con gitDir/FETCH_HEAD fresco y commonDir/FETCH_HEAD ausente o vencido WHEN corre THEN no repite git fetch", async () => {
+  it("GIVEN un worktree (--git-dir !== --git-common-dir) con origin/main actualizado hace < 10 min en commonDir WHEN corre THEN no repite git fetch", async () => {
     const dirs = { gitDir: "/repo/.git/worktrees/wt1", commonDir: "/repo/.git" };
-    const gitFetch = path.join(dirs.gitDir, "FETCH_HEAD");
-    for (const commonMtime of [null, NOW - 30 * 60_000]) {
-      const calls: string[][] = [];
-      const res = await run([], {
-        repoRoot: repo,
-        runGit: fakeGit("feature/701-x", calls, dirs),
-        statMtimeMs: (p: string) => (p === gitFetch ? NOW - 2 * 60_000 : commonMtime),
-        fetchIssue: null,
-        runPrStatus: null,
-      });
-      expect(calls.some((a) => a[0] === "fetch")).toBe(false);
-      expect(res.out).toContain("fetch < 10 min, no se repite");
-    }
+    const mainReflog = path.join(dirs.commonDir, "logs", "refs", "remotes", "origin", "main");
+    const calls: string[][] = [];
+    const res = await run([], {
+      repoRoot: repo,
+      runGit: fakeGit("feature/701-x", calls, dirs),
+      statMtimeMs: (p: string) => (p === mainReflog ? NOW - 2 * 60_000 : null),
+      readTextFile: () => null,
+      fetchIssue: null,
+      runPrStatus: null,
+    });
+    expect(calls.some((a) => a[0] === "fetch")).toBe(false);
+    expect(res.out).toContain("fetch < 10 min, no se repite");
 
     const stale: string[][] = [];
     await run([], {
       repoRoot: repo,
       runGit: fakeGit("feature/701-x", stale, dirs),
-      statMtimeMs: (p: string) => (p === gitFetch ? NOW - 11 * 60_000 : null),
+      statMtimeMs: (p: string) => (p === mainReflog ? NOW - 11 * 60_000 : null),
+      readTextFile: () => null,
       fetchIssue: null,
       runPrStatus: null,
     });
     expect(stale.some((a) => a[0] === "fetch")).toBe(true);
+  });
+
+  it("GOZS-791 A1: GIVEN FETCH_HEAD < 10 min sin mencionar main y origin/main > 10 min WHEN corre THEN ejecuta git fetch origin main y usa origin/main actualizado", async () => {
+    const dirs = { gitDir: "/repo/.git/worktrees/wt1", commonDir: "/repo/.git" };
+    const mainReflog = path.join(dirs.commonDir, "logs", "refs", "remotes", "origin", "main");
+    const gitFetch = path.join(dirs.gitDir, "FETCH_HEAD");
+    const calls: string[][] = [];
+    let fetched = false;
+    const baseGit = fakeGit("chore/791-harness-l002-apertura", calls, dirs);
+    const res = await run([], {
+      repoRoot: repo,
+      runGit: (args: string[]) => {
+        if (args[0] === "fetch") {
+          calls.push(args);
+          fetched = true;
+          return "";
+        }
+        if (args.join(" ") === "rev-list --left-right --count origin/main...HEAD") {
+          calls.push(args);
+          return fetched ? "0\t0" : "0\t7";
+        }
+        return baseGit(args);
+      },
+      statMtimeMs: (p: string) => {
+        if (p === gitFetch) return NOW - 60_000;
+        if (p === mainReflog) return NOW - 30 * 60_000;
+        return null;
+      },
+      readTextFile: (p: string) =>
+        p === gitFetch ? "deadbeef\t\tbranch 'chore/791-harness-l002-apertura' of https://github.com/Fresias/gozster\n" : null,
+      fetchIssue: null,
+      runPrStatus: null,
+    });
+    expect(calls.some((a) => a[0] === "fetch" && a.includes("origin") && a.includes("main"))).toBe(true);
+    expect(res.out).toContain("vs origin/main: 0 adelante, 0 atrás (fetch recién hecho)");
+  });
+
+  it("GOZS-791 A1: GIVEN sin logs/refs/remotes/origin/main y FETCH_HEAD < 10 min con `branch 'main' of` WHEN corre THEN no repite git fetch", async () => {
+    const dirs = { gitDir: "/repo/.git/worktrees/wt1", commonDir: "/repo/.git" };
+    const gitFetch = path.join(dirs.gitDir, "FETCH_HEAD");
+    const calls: string[][] = [];
+    const res = await run([], {
+      repoRoot: repo,
+      runGit: fakeGit("feature/701-x", calls, dirs),
+      statMtimeMs: (p: string) => (p === gitFetch ? NOW - 2 * 60_000 : null),
+      readTextFile: (p: string) =>
+        p === gitFetch ? "ff9445ff\t\tbranch 'main' of https://github.com/Fresias/gozster.git\n" : null,
+      fetchIssue: null,
+      runPrStatus: null,
+    });
+    expect(calls.some((a) => a[0] === "fetch")).toBe(false);
+    expect(res.out).toContain("fetch < 10 min, no se repite");
   });
 
   it("sin git ni issue en la rama degrada a una línea por sección y respeta --max-lines", async () => {

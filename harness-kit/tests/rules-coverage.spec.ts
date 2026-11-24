@@ -342,6 +342,12 @@ ${block}`);
   it("GIVEN otros comandos gh THEN no se exige sello", () => {
     expect(evaluateRules({ kind: "shell", command: "gh pr view 12" }, { repoRoot: noSealDir }).allowed).toBe(true);
   });
+
+  it("GOZS-791 A3: GIVEN menciones literales o heredocs de gh pr create/merge THEN no dispara pr.requires-seal ni pr.merge-check", () => {
+    expect(evaluateRules({ kind: "shell", command: 'echo "no uses gh pr create a mano"' }, { repoRoot: noSealDir }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: 'grep -n "a\\|gh pr create |" docs.md' }, { repoRoot: noSealDir }).allowed).toBe(true);
+    expect(evaluateRules({ kind: "shell", command: 'echo "gh pr merge 123"' }, { repoRoot: noSealDir }).allowed).toBe(true);
+  });
 });
 
 describe("C2 (GOZS-84): cada `rule:` citado en AGENTS.md existe en algún rules.json", () => {
