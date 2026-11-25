@@ -90,10 +90,7 @@ export function getReactiveCriticalAlerts(): CriticalAlert[] {
         if (seen.has(alertId)) continue;
         seen.add(alertId);
 
-        const isFernando =
-          p.studentId === "66b92b9a-1ce7-4e2e-a47c-7c5600000000" ||
-          /fernando/i.test(p.studentName || "");
-        const alumnoNombre = isFernando ? "Fernando Rosales" : p.studentName || "Alumno GOZSter";
+        const alumnoNombre = p.studentName || "Alumno GOZSter";
         const isCritical = p.esSintomaAlarma === true || p.severidad === "AGUDO";
         const zona = normalizarZona(p.zonaArticular);
         const sintomas: string[] = Array.isArray(p.sintomasAlarma) ? p.sintomasAlarma : [];
@@ -105,7 +102,7 @@ export function getReactiveCriticalAlerts(): CriticalAlert[] {
         result.push({
           id: alertId,
           type: "DOLOR",
-          alumnoId: p.studentId || (isFernando ? "66b92b9a-1ce7-4e2e-a47c-7c5600000000" : ""),
+          alumnoId: p.studentId || "",
           alumnoNombre,
           ejercicioNombre: p.exerciseName || "Ejercicio de Fuerza",
           ejercicioId: p.exerciseId,
@@ -150,8 +147,8 @@ export function getReactiveCriticalAlerts(): CriticalAlert[] {
             result.push({
               id: painId,
               type: "DOLOR",
-              alumnoId: session.studentId || "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
-              alumnoNombre: session.studentName || "Fernando Rosales",
+              alumnoId: session.studentId || "",
+              alumnoNombre: session.studentName || "Alumno GOZSter",
               ejercicioNombre: ej.nombre || "Ejercicio de Fuerza",
               ejercicioId: ej.ejercicio_id || ej.id,
               setNumber: s.numero_serie,
@@ -216,12 +213,7 @@ export async function fetchCriticalAlerts(): Promise<CriticalAlert[]> {
         if (seenIds.has(h.id)) continue;
         seenIds.add(h.id);
 
-        const isFernando =
-          h.alumno_id === "66b92b9a-1ce7-4e2e-a47c-7c5600000000" ||
-          /fernando/i.test(h.perfiles?.nombre_completo || "");
-        const alumnoNombre = isFernando
-          ? "Fernando Rosales"
-          : h.perfiles?.nombre_completo || "Alumno GOZSter";
+        const alumnoNombre = h.perfiles?.nombre_completo || "Alumno GOZSter";
         const ejNombre = h.ejercicios?.nombre || "Ejercicio de Fuerza";
         const isCritical = h.es_sintoma_alarma === true || h.severidad === "AGUDO";
         const zona = normalizarZona(h.zona_articular);

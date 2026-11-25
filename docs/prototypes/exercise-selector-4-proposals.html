@@ -729,7 +729,7 @@
       </div>
       <div class="feedback-item">
         <b>4. Adaptable a Pocos vs Muchos</b>
-        <span>Diseñado tanto para Warm up (2 ejercicios, Gabriel) como Rutina completa (8 ejercicios, Fernando).</span>
+        <span>Diseñado tanto para Warm up (2 ejercicios, Gabriel) como Rutina completa (8 ejercicios, Facundo).</span>
       </div>
     </div>
   </header>
@@ -739,7 +739,7 @@
     <div style="display:flex; align-items:center; gap:8px;">
       <span style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Atleta de Prueba:</span>
       <div class="tab-pills" id="student-switcher">
-        <button class="tab-btn active" onclick="switchStudent('fernando')">Fernando Rosales (8 ejercicios)</button>
+        <button class="tab-btn active" onclick="switchStudent('facundo')">Facundo Roldán (8 ejercicios)</button>
         <button class="tab-btn" onclick="switchStudent('gabriel')">Gabriel Sánchez (2 ejercicios)</button>
       </div>
     </div>
@@ -775,7 +775,7 @@
         <div class="mobile-notch"><div class="mobile-pill"></div></div>
         <div class="mobile-header">
           <div>
-            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="athlete-info student-name-label">Facundo Roldán</div>
             <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
           </div>
           <span class="badge badge-primary" style="font-size:9px;">1RM Activo</span>
@@ -784,7 +784,7 @@
         <div class="mobile-content">
           <!-- Carrusel de Ejercicios -->
           <div id="carousel-slot">
-            <!-- Inyectado por JS o estático inicial (Fernando 8 ejs) -->
+            <!-- Inyectado por JS o estático inicial (Facundo 8 ejs) -->
             <div class="carousel-container" id="carousel-track">
               <!-- Item 1 Warmup -->
               <div class="carousel-item">
@@ -890,7 +890,7 @@
         <div class="mobile-notch"><div class="mobile-pill"></div></div>
         <div class="mobile-header">
           <div>
-            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="athlete-info student-name-label">Facundo Roldán</div>
             <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
           </div>
           <span class="badge badge-success" style="font-size:9px;">1 Hecho</span>
@@ -1002,7 +1002,7 @@
         <div class="mobile-notch"><div class="mobile-pill"></div></div>
         <div class="mobile-header">
           <div>
-            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="athlete-info student-name-label">Facundo Roldán</div>
             <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
           </div>
           <span class="badge badge-primary" style="font-size:9px;">2 / 8</span>
@@ -1082,7 +1082,7 @@
         <div class="mobile-notch"><div class="mobile-pill"></div></div>
         <div class="mobile-header">
           <div>
-            <div class="athlete-info student-name-label">Fernando Rosales</div>
+            <div class="athlete-info student-name-label">Facundo Roldán</div>
             <div class="routine-title student-routine-label">Día 1: F Y H (8 ejs)</div>
           </div>
           <span class="badge badge-primary" style="font-size:9px;">Adaptativo</span>
@@ -1182,7 +1182,7 @@
           <td>⭐⭐⭐⭐⭐ Tarjetas Hero detalladas</td>
         </tr>
         <tr>
-          <td><b>Rutinas Largas (8 ejs, ej. Fernando)</b></td>
+          <td><b>Rutinas Largas (8 ejs, ej. Facundo)</b></td>
           <td>⭐⭐⭐⭐⭐ Desliza natural con snap</td>
           <td>⭐⭐⭐⭐ Escaneo vertical completo</td>
           <td>⭐⭐⭐⭐⭐ Categorizado por fases</td>
@@ -1202,8 +1202,8 @@
   <script>
     // Datos de Atletas Reales extraídos del backend
     const studentData = {
-      fernando: {
-        name: "Fernando Rosales",
+      facundo: {
+        name: "Facundo Roldán",
         routine: "Día 1: F Y H (8 ejs)",
         count: 8,
         exercises: [
@@ -1228,7 +1228,7 @@
       }
     };
 
-    let currentStudentKey = 'fernando';
+    let currentStudentKey = 'facundo';
 
     function switchStudent(key) {
       currentStudentKey = key;
@@ -1238,7 +1238,7 @@
       const switcher = document.getElementById('student-switcher');
       const btns = switcher.querySelectorAll('.tab-btn');
       btns.forEach(b => b.classList.remove('active'));
-      if (key === 'fernando') btns[0].classList.add('active');
+      if (key === 'facundo') btns[0].classList.add('active');
       else btns[1].classList.add('active');
 
       // Actualizar labels de cabecera en los mockups

@@ -23,8 +23,8 @@ describe("Feedback del Profe: 3 Mejoras Críticas", () => {
       const mockSession = {
         id: "test-session-timer-1",
         dia_id: "test-dia-1",
-        studentName: "Fernando Rosales",
-        studentId: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
+        studentName: "Facundo Roldán",
+        studentId: "00000000-0000-4000-8000-000000000001",
         fecha: "2026-10-26T10:00:00.000Z",
         ejercicios: [
           {
@@ -53,8 +53,8 @@ describe("Feedback del Profe: 3 Mejoras Críticas", () => {
       const mockSession = {
         id: "test-session-timer-final",
         dia_id: "test-dia-1",
-        studentName: "Fernando Rosales",
-        studentId: "66b92b9a-1ce7-4e2e-a47c-7c5600000000",
+        studentName: "Facundo Roldán",
+        studentId: "00000000-0000-4000-8000-000000000001",
         fecha: "2026-10-26T10:00:00.000Z",
         ejercicios: [
           {

@@ -69,12 +69,9 @@ export const useCriticalAlertsStore = create<CriticalAlertsStoreState>((set, get
     return get().alerts.filter((a) => {
       const matchId = a.alumnoId === alumnoIdOrName;
       const matchName =
-        a.alumnoNombre.toLowerCase().includes(q) || q.includes(a.alumnoNombre.toLowerCase());
-      const isFernando =
-        (q.includes("fernando") || alumnoIdOrName === "66b92b9a-1ce7-4e2e-a47c-7c5600000000") &&
-        (a.alumnoNombre.toLowerCase().includes("fernando") ||
-          a.alumnoId === "66b92b9a-1ce7-4e2e-a47c-7c5600000000");
-      return matchId || matchName || isFernando;
+        q.length > 0 &&
+        (a.alumnoNombre.toLowerCase().includes(q) || q.includes(a.alumnoNombre.toLowerCase()));
+      return matchId || matchName;
     });
   },
 }));
@@ -106,14 +103,11 @@ export function getReactiveAlertsForStudent(alumnoIdOrName: string): AlumnoPainB
     if (!isPending) return false;
 
     const matchName =
-      a.alumnoNombre.toLowerCase().includes(q) || q.includes(a.alumnoNombre.toLowerCase());
+      q.length > 0 &&
+      (a.alumnoNombre.toLowerCase().includes(q) || q.includes(a.alumnoNombre.toLowerCase()));
     const matchId = a.alumnoId === alumnoIdOrName;
-    const isFernando =
-      (q.includes("fernando") || alumnoIdOrName === "66b92b9a-1ce7-4e2e-a47c-7c5600000000") &&
-      (a.alumnoNombre.toLowerCase().includes("fernando") ||
-        a.alumnoId === "66b92b9a-1ce7-4e2e-a47c-7c5600000000");
 
-    return matchName || matchId || isFernando;
+    return matchName || matchId;
   });
 
   return matching.map((a) => ({
