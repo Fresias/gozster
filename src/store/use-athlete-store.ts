@@ -2550,7 +2550,22 @@ export const useAthleteStore = create<AthleteStoreState>()(
             }
 
             // Guardar todas las series completadas en un solo upsert en lote (deduplicadas por clave)
-            const seriesPorClave = new Map<string, Record<string, unknown>>();
+            const seriesPorClave = new Map<
+              string,
+              {
+                sesion_id: string;
+                ejercicio_id: string;
+                numero_serie: number;
+                peso_kg: number;
+                reps_hechas: number;
+                rpe_real: number | null;
+                completada: boolean;
+                set_type: "NORMAL" | "WARMUP" | "DROPSET" | "FAILURE";
+                pain_reported: boolean;
+                pain_notes: string | null;
+                video_url: string | null;
+              }
+            >();
             for (const s of allSets) {
               if (!s.completada) continue;
               const mappedType = normalizeSerieTipo(s.set_type);

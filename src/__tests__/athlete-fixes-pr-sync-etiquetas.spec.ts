@@ -189,11 +189,11 @@ describe("Fixes Athlete App: PRs fantasma, batch upsert + loader, y etiquetas cl
   describe("3. Etiquetas claras: sin 'Día 1: Día 1' y 'OBJ. 8 REPS'", () => {
     it("obtenerNombreDiaRutina evita duplicar 'Día N' cuando el día no tiene nombre particular", () => {
       const dias = [
-        { id: "d1", plan_id: "p1", orden: 1, nombre: "Día 1", created_at: "" },
-        { id: "d2", plan_id: "p1", orden: 2, nombre: "Dia 2", created_at: "" },
-        { id: "d3", plan_id: "p1", orden: 3, nombre: "   ", created_at: "" },
-        { id: "d4", plan_id: "p1", orden: 4, nombre: "Día 4: Torso Pesado", created_at: "" },
-        { id: "d5", plan_id: "p1", orden: 5, nombre: "Piernas", created_at: "" },
+        { id: "d1", plan_id: "p1", orden: 1, nombre: "Día 1", created_at: "", updated_at: "" },
+        { id: "d2", plan_id: "p1", orden: 2, nombre: "Dia 2", created_at: "", updated_at: "" },
+        { id: "d3", plan_id: "p1", orden: 3, nombre: "   ", created_at: "", updated_at: "" },
+        { id: "d4", plan_id: "p1", orden: 4, nombre: "Día 4: Torso Pesado", created_at: "", updated_at: "" },
+        { id: "d5", plan_id: "p1", orden: 5, nombre: "Piernas", created_at: "", updated_at: "" },
       ];
       expect(obtenerNombreDiaRutina("d1", dias)).toBe("Día 1");
       expect(obtenerNombreDiaRutina("d2", dias)).toBe("Día 2");
