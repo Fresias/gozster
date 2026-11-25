@@ -12,6 +12,21 @@ import {
 
 describe("routine-helpers (Ponytail & Karpathy)", () => {
   describe("parseDefaultReps", () => {
+    it("parsea notación series x reps (NxM) devolviendo las reps objetivo", () => {
+      expect(parseDefaultReps("4x12", 1)).toBe(12);
+      expect(parseDefaultReps("3x15", 1)).toBe(15);
+      expect(parseDefaultReps("5x5", 1)).toBe(5);
+      expect(parseDefaultReps("4 x 8", 1)).toBe(8);
+      expect(parseDefaultReps("4×12", 1)).toBe(12);
+      expect(parseDefaultReps("4X6", 1)).toBe(6);
+      expect(parseDefaultReps("4x10", 1)).toBe(10);
+    });
+
+    it("no confunde 'N x lado' con NxM", () => {
+      expect(parseDefaultReps("8 x lado", 1)).toBe(8);
+      expect(parseDefaultReps("15'' x lado", 1)).toBe(15);
+    });
+
     it("parsea series descendentes con guión", () => {
       expect(parseDefaultReps("10-8-6", 1)).toBe(10);
       expect(parseDefaultReps("10-8-6", 2)).toBe(8);
