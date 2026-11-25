@@ -669,6 +669,12 @@ export function parseHeredocs(cmd) {
         if (ch === "'") quote = null;
         continue;
       }
+      if (quote === "$'") {
+        // ANSI-C: \' es un escape y no cierra el string.
+        if (ch === "\\" && i + 1 < line.length) i++;
+        else if (ch === "'") quote = null;
+        continue;
+      }
       if (quote === '"') {
         if (ch === "\\" && i + 1 < line.length) {
           i++;
@@ -686,11 +692,16 @@ export function parseHeredocs(cmd) {
         psOpen = { quote: line[i + 1], at: i };
         break;
       }
+      if (ch === "$" && line[i + 1] === "'") {
+        quote = "$'";
+        i++;
+        continue;
+      }
       if (ch === "'" || ch === '"') {
         quote = ch;
         continue;
       }
-      if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+      if (isCommentStart(line, i)) break;
 
       // R2: `<<` inside `$((…))` / `((…))` is a shift operator, not a heredoc.
       if (ch === "$" || ch === "(") {
@@ -840,6 +851,11 @@ export function extractStdinInterpreterInvocations(cmd) {
   return invocations;
 }
 
+/** `#` inicia un comentario de bash al comienzo, tras espacio o tras `; & | ( )`. */
+function isCommentStart(line, i) {
+  return line[i] === "#" && (i === 0 || /[\s;&|()]/.test(line[i - 1]));
+}
+
 /**
  * Une las líneas físicas que continúan un string entre comillas abierto, para que
  * cláusulas y pipes se separen sobre líneas lógicas (GOZS-804). Recorrido lineal.
@@ -855,12 +871,18 @@ function joinQuotedLines(text) {
       const ch = line[i];
       if (quote === "'") {
         if (ch === "'") quote = null;
+      } else if (quote === "$'") {
+        if (ch === "\\" && i + 1 < line.length) i++;
+        else if (ch === "'") quote = null;
       } else if (quote === '"') {
         if (ch === "\\" && i + 1 < line.length) i++;
         else if (ch === '"') quote = null;
       } else if (ch === "\\" && i + 1 < line.length) i++;
-      else if (ch === "'" || ch === '"') quote = ch;
-      else if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+      else if (ch === "$" && line[i + 1] === "'") {
+        quote = "$'";
+        i++;
+      } else if (ch === "'" || ch === '"') quote = ch;
+      else if (isCommentStart(line, i)) break;
     }
     open = quote !== null;
     if (!open) out.push(cur);

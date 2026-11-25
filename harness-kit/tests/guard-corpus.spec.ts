@@ -561,6 +561,21 @@ describe("GOZS-795 A4: Corpus de regresión del guard", () => {
     });
   });
 
+  describe("GOZS-804 A — la comilla arrastrada coincide con bash (comentarios y $'…')", () => {
+    const prefixes = ["true;# it's", "true|# it's", "true&# it's", "(# it's", "echo $'it\\'s'"];
+    const tails = [
+      "python3 <<EOF\nimport os; os.system('gh pr create')\nEOF",
+      "node <<EOF\nrequire('child_process').execSync('gh pr create')\nEOF",
+      "echo 'gh pr create --fill' | bash",
+      "bash <<< 'gh pr create --fill'",
+    ];
+    const cases = prefixes.flatMap((p) => tails.map((t) => [p, t] as const));
+    it.each(cases)("prefijo %j no oculta lo que sigue: %j", (p, t) => {
+      const res = checkGuard(makePayload(`${p}\n${t}`, "cc-bash"), { repoRoot: nonAuthRepo });
+      expect(res.ruleId).toBe("pr.requires-seal");
+    });
+  });
+
   describe("GOZS-804 B — intérpretes por stdin con opciones que llevan valor", () => {
     it.each([
       "python3 -W ignore - <<'EOF'\nimport os; os.system(\"gh pr create --fill\")\nEOF",
