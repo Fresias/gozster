@@ -590,7 +590,7 @@ export function inlineHeredocSubstitutions(cmd) {
  * - `compactedData`: command with DATA heredoc/here-string bodies replaced by `‹heredoc: N líneas›`
  *   and INTERPRETER heredoc bodies preserved
  */
-export function parseHeredocs(cmd) {
+export function parseHeredocs(cmd, opts = {}) {
   const lines = String(cmd || "").split(/\r?\n/);
   const records = [];
   const strippedAllLines = [];
@@ -660,13 +660,19 @@ export function parseHeredocs(cmd) {
     // Scan header line outside quotes for `<<[-]?['"]?WORD['"]?` (not `<<<`) or trailing `@'` / `@"`
     // El estado de comillas sobrevive entre lineas: un `<<` dentro de un string
     // multilinea abierto antes no es un heredoc (GOZS-804).
-    let quote = carryQuote;
+    let quote = opts.noCarry ? null : carryQuote;
     let lineIndex = null;
     let psOpen = null;
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (quote === "'") {
         if (ch === "'") quote = null;
+        continue;
+      }
+      if (quote === "$'") {
+        // ANSI-C: \' es un escape y no cierra el string.
+        if (ch === "\\" && i + 1 < line.length) i++;
+        else if (ch === "'") quote = null;
         continue;
       }
       if (quote === '"') {
@@ -686,11 +692,16 @@ export function parseHeredocs(cmd) {
         psOpen = { quote: line[i + 1], at: i };
         break;
       }
+      if (ch === "$" && line[i + 1] === "'") {
+        quote = "$'";
+        i++;
+        continue;
+      }
       if (ch === "'" || ch === '"') {
         quote = ch;
         continue;
       }
-      if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+      if (isCommentStart(line, i)) break;
 
       // R2: `<<` inside `$((…))` / `((…))` is a shift operator, not a heredoc.
       if (ch === "$" || ch === "(") {
@@ -722,6 +733,9 @@ export function parseHeredocs(cmd) {
     strippedAllLines.push(line);
     compactedLines.push(line);
   }
+
+  // Comilla arrastrada sin cerrar al final: bash lo rechaza; volver al reinicio por línea (defensa en profundidad).
+  if (carryQuote !== null && !opts.noCarry) return parseHeredocs(cmd, { noCarry: true });
 
   // Handle unclosed (e.g. truncated) heredocs or here-strings
   if (psHere !== null) {
@@ -840,6 +854,11 @@ export function extractStdinInterpreterInvocations(cmd) {
   return invocations;
 }
 
+/** `#` inicia un comentario de bash al comienzo, tras espacio o tras `; & | ( )`. */
+function isCommentStart(line, i) {
+  return line[i] === "#" && (i === 0 || /[\s;&|()]/.test(line[i - 1]));
+}
+
 /**
  * Une las líneas físicas que continúan un string entre comillas abierto, para que
  * cláusulas y pipes se separen sobre líneas lógicas (GOZS-804). Recorrido lineal.
@@ -855,17 +874,23 @@ function joinQuotedLines(text) {
       const ch = line[i];
       if (quote === "'") {
         if (ch === "'") quote = null;
+      } else if (quote === "$'") {
+        if (ch === "\\" && i + 1 < line.length) i++;
+        else if (ch === "'") quote = null;
       } else if (quote === '"') {
         if (ch === "\\" && i + 1 < line.length) i++;
         else if (ch === '"') quote = null;
       } else if (ch === "\\" && i + 1 < line.length) i++;
-      else if (ch === "'" || ch === '"') quote = ch;
-      else if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) break;
+      else if (ch === "$" && line[i + 1] === "'") {
+        quote = "$'";
+        i++;
+      } else if (ch === "'" || ch === '"') quote = ch;
+      else if (isCommentStart(line, i)) break;
     }
     open = quote !== null;
     if (!open) out.push(cur);
   }
-  if (open) out.push(cur);
+  if (open) return text.split(/\r?\n/); // comilla sin cerrar (inválido en bash): reinicio por línea
   return out;
 }
 
