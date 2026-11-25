@@ -5,7 +5,7 @@
 //   node harness-kit/core/scripts/harness-debt-notify.mjs [--workdir <dir>] [--prev-ref <ref>] [--threshold <n>] [--json]
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,15 +98,33 @@ export function extractPrevHarnessDir(workdir, prevRef = "HEAD^") {
 
   const tmpDir = mkdtempSync(path.join(tmpdir(), "harness-debt-prev-"));
   try {
-    const tarBuf = execFileSync("git", ["archive", "--format=tar", prevRef, "harness"], {
+    // Extracción 100% con git (sin tar en PATH): un solo `cat-file --batch`, portable Windows/Linux.
+    const list = execFileSync("git", ["ls-tree", "-r", "-z", "--name-only", prevRef, "--", "harness"], {
       cwd: workdir,
       maxBuffer: 50 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "pipe"],
+    })
+      .toString("utf8")
+      .split(String.fromCharCode(0))
+      .filter(Boolean);
+    const out = execFileSync("git", ["cat-file", "--batch"], {
+      cwd: workdir,
+      input: list.map((p) => `${prevRef}:${p}
+`).join(""),
+      maxBuffer: 512 * 1024 * 1024,
     });
-    execFileSync("tar", ["-xf", "-", "-C", tmpDir], {
-      input: tarBuf,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    let pos = 0;
+    for (const rel of list) {
+      const eol = out.indexOf(10, pos);
+      const [, type, sizeStr] = out.toString("utf8", pos, eol).split(" ");
+      const size = Number(sizeStr);
+      pos = eol + 1;
+      if (type === "blob") {
+        const dest = path.join(tmpDir, ...rel.split("/"));
+        mkdirSync(path.dirname(dest), { recursive: true });
+        writeFileSync(dest, out.subarray(pos, pos + size));
+      }
+      pos += size + 1;
+    }
     return tmpDir;
   } catch {
     rmSync(tmpDir, { recursive: true, force: true });

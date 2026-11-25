@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // @ts-expect-error - mjs module
-import { analyzeDeep, commandSignature, compareDeepReports, family, isComparableBlock, LEGACY_CMD_MAX, looksLiteral, mainOf, runDeepDive } from "../core/lib/telemetry-deep.mjs";
+import { analyzeDeep, classifyComparableBlock, commandSignature, compareDeepReports, family, isComparableBlock, LEGACY_CMD_MAX, looksLiteral, mainOf, runDeepDive } from "../core/lib/telemetry-deep.mjs";
 // @ts-expect-error - mjs module
 import { summarize } from "../core/scripts/harness-telemetry.mjs";
 
@@ -508,5 +508,21 @@ describe("GOZS-795 C1–C8: medición sin sesgos, adopción, min-schema y --comp
     // También probar compareDeepReports directo
     const direct = compareDeepReports(baseReport.json, candReport, targetsCfg);
     expect(direct.rows.find((r: { id: string }) => r.id === "claude_bash_reads_primary")?.status).toBe("cumplida");
+  });
+});
+
+describe("GOZS-804 C: classifyComparableBlock con comandos colapsados", () => {
+  const block = (cmd: string) => classifyComparableBlock({ decision: "block", rule: "pr.requires-seal", cmd });
+
+  it("GIVEN gh pr merge seguido de gh pr create colapsados THEN es un bloqueo real (comparable)", () => {
+    expect(block("gh pr merge 5 --squash gh pr create --fill")).toEqual({ comparable: true, reason: null });
+  });
+
+  it("GIVEN un literal dentro de echo THEN sigue siendo prSealLiterals", () => {
+    expect(block("echo 'gh pr create --fill'")).toEqual({ comparable: false, reason: "prSealLiterals" });
+  });
+
+  it("GIVEN un merge sin create THEN sigue siendo prSealLiterals", () => {
+    expect(block("gh pr merge 5 --squash gh pr view 5")).toEqual({ comparable: false, reason: "prSealLiterals" });
   });
 });
