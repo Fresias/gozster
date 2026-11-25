@@ -182,6 +182,13 @@ export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: num
     if (!isNaN(num) && num > 0) return num;
   }
 
+  // Caso: notación series x reps ("4x12", "4 x 8", "4×12", "4X6") -> reps = segundo número
+  const nxm = str.match(/^(\d+)\s*[x×]\s*(\d+)\b/i);
+  if (nxm && nxm[2]) {
+    const reps = parseInt(nxm[2], 10);
+    if (!isNaN(reps) && reps > 0) return reps;
+  }
+
   // Caso: segundos o repeticiones directas ("15''", "8 x lado", "12 reps", "10")
   const singleMatch = str.match(/\b(\d+)\b/);
   if (singleMatch && singleMatch[1]) {

@@ -1,0 +1,1 @@
+{"id":"exp-gozs-812-1","timestamp":"2026-11-25T03:10:37.715Z","task":"GOZS-812","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"parseDefaultReps: el regex /\\b(\\d+)\\b/ no ve NxM (digitos pegados a x); anclar /^(\\d+)\\s*[x×]\\s*(\\d+)\\b/ antes del fallback y dejar 'N x lado' intacto","verified":true,"tags":["qa"]}
