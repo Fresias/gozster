@@ -16,3 +16,7 @@ Durante la Ronda 2 del Grill con Gabriel se definió que:
 2. **El Próximo Sprint (Fases 5 y 6 — P2 y P3)** abordará con **alcance mínimo (MVP Ponytail/Karpathy)**:
    - **Módulo Presencial (Funcional y Boxeo):** Cuenta única del alumno con contratación presencial independiente (`ASESORIA_ONLINE` ya preparada en `public.contrataciones` desde Fase 1 para no rehacer tablas), agenda básica de clases con capacidad máxima, reserva transaccional sin sobreventa (`SELECT ... FOR UPDATE`), lista de espera FIFO y check de asistencia móvil para el entrenador.
    - **Gamificación Mínima:** Racha individual por cumplimiento del plan semanal (sin romper por días de descanso programados) y registro de PRs por ejercicio con historial auditable (sin ranking global competitivo).
+
+## Enmienda 2026-11-25 (GOZS-824): Ranking de Funcional
+
+Excepción aprobada por Gabriel a "sin ranking global competitivo": los alumnos con Funcional habilitado ven un ranking por ejercicio y categoría (`M`/`F`) vía la RPC `obtener_ranking_funcional_alumno` (`SECURITY DEFINER`, solo `authenticated`). Privacidad: solo `Nombre + inicial del apellido` (ej. `Lucas G.`), mejor marca, ratio y posición. Prohibido exponer `peso_corporal_kg` crudo, `email`, `telefono` o `nombre_completo`. Alumnos sin Funcional y `anon` no acceden. Las marcas se persisten en `registro_series` (coach/admin vía `registrar_marca_funcional`).
