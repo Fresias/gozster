@@ -1,0 +1,1 @@
+{"id":"exp-gozs-807-1","timestamp":"2026-11-25T01:19:44.986Z","task":"GOZS-807","proposal":"pre-merge","probe_result":"gate-sealed-pr","lesson":"Specs de bordes del timer deben caracterizar el modelo por ticks; el descanso no usa timestamp (GOZS-807).","verified":true,"tags":["athlete","qa"]}
