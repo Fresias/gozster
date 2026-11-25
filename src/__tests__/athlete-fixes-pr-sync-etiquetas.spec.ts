@@ -100,9 +100,9 @@ describe("Fixes Athlete App: PRs fantasma, batch upsert + loader, y etiquetas cl
         path.resolve(__dirname, "../components/athlete/use-live-workout.ts"),
         "utf-8",
       );
-      expect(hookSrc).toContain("const pesoUltimaVez = refUltimaActual?.peso_kg;");
-      expect(hookSrc).toContain("const repsUltimaVez = refUltimaActual?.reps_hechas;");
-      expect(hookSrc).toContain('updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoUltimaVez);');
+      expect(hookSrc).toContain("const pesoPrecarga = serieAnteriorHoy?.peso_kg ?? refUltimaActual?.peso_kg;");
+      expect(hookSrc).toContain("const repsPrecarga = serieAnteriorHoy?.reps_hechas ?? refUltimaActual?.reps_hechas;");
+      expect(hookSrc).toContain('updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoPrecarga);');
       expect(hookSrc).not.toContain('updateSetField(currentExercise.id, serie.numero_serie, "peso_kg", pesoSugerido)');
     });
   });
@@ -210,22 +210,22 @@ describe("Fixes Athlete App: PRs fantasma, batch upsert + loader, y etiquetas cl
       expect(etiquetaDia({ orden: 2, nombre: "Piernas" })).toBe("Día 2 · Piernas");
     });
 
-    it("formatearObjetivoSerie aclara REPS en objetivos numéricos y respeta tiempo y textos especiales", () => {
+    it("formatearObjetivoSerie oculta objetivos numéricos y respeta tiempo y textos especiales", () => {
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "8", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 8 REPS");
+      ).toBe("");
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "6-8", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 6-8 REPS");
+      ).toBe("");
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "8", esTiempo: false, tiempoSegundos: 0, esUnilateral: true }),
-      ).toBe("OBJ. 8 REPS POR LADO");
+      ).toBe("");
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "8 x lado", esTiempo: false, tiempoSegundos: 0, esUnilateral: true }),
-      ).toBe("OBJ. 8 REPS POR LADO");
+      ).toBe("");
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "12 reps", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
-      ).toBe("OBJ. 12 reps");
+      ).toBe("");
       expect(
         formatearObjetivoSerie({ repeticionesObjetivo: "AL FALLO", esTiempo: false, tiempoSegundos: 0, esUnilateral: false }),
       ).toBe("OBJ. AL FALLO");

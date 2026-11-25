@@ -16,6 +16,14 @@ const ultima = (series: UltimaVezEjercicio["series"]): UltimaVezEjercicio => ({
   fecha: "2026-10-12T13:00:00Z",
   series,
 });
+// Historial de 3 semanas (21 días) con la misma carga: habilita la sugerencia de subir.
+const TRES_SEMANAS = ["2026-09-21T13:00:00Z", "2026-09-28T13:00:00Z", "2026-10-12T13:00:00Z"];
+const ultimaSostenida = (series: UltimaVezEjercicio["series"], fechas = TRES_SEMANAS): UltimaVezEjercicio => ({
+  ejercicio_id: uuid,
+  fecha: fechas[fechas.length - 1]!,
+  series,
+  sesiones: [...fechas].reverse().map((fecha) => ({ fecha, series })),
+});
 const presc = (p: Partial<Prescripcion>): Prescripcion => ({
   numeroSerie: 1,
   repeticionesObjetivo: "8",
@@ -55,7 +63,7 @@ describe("sugerirCarga (§2.3)", () => {
   it("completó todas las reps → subir con incremento y reps al piso del rango", () => {
     // AC §2.8: Sentadilla, objetivo 6-8, 4 series, última vez 4×80×8 → Subí a 85, reps 6.
     const s = sugerirCarga(
-      ultima([
+      ultimaSostenida([
         { numero_serie: 1, peso_kg: 80, reps_hechas: 8, rpe_real: null },
         { numero_serie: 2, peso_kg: 80, reps_hechas: 8, rpe_real: null },
         { numero_serie: 3, peso_kg: 80, reps_hechas: 8, rpe_real: null },
@@ -71,7 +79,7 @@ describe("sugerirCarga (§2.3)", () => {
   it("redondea a 0,5 kg y usa salto chico en aislamiento liviano", () => {
     // AC §2.8: Elevaciones laterales 8 kg × 12 (objetivo 10-12) → 9 kg.
     const s = sugerirCarga(
-      ultima([
+      ultimaSostenida([
         { numero_serie: 1, peso_kg: 8, reps_hechas: 12, rpe_real: null },
         { numero_serie: 2, peso_kg: 8, reps_hechas: 12, rpe_real: null },
       ]),
@@ -98,7 +106,7 @@ describe("sugerirCarga (§2.3)", () => {
   it("peso corporal → progresa en reps y nunca 0 kg", () => {
     // AC §2.8: Dominadas 3×10 (objetivo 10) → Probá 11 reps.
     const s = sugerirCarga(
-      ultima([
+      ultimaSostenida([
         { numero_serie: 1, peso_kg: 0, reps_hechas: 10, rpe_real: null },
         { numero_serie: 2, peso_kg: 0, reps_hechas: 10, rpe_real: null },
         { numero_serie: 3, peso_kg: 0, reps_hechas: 10, rpe_real: null },
@@ -150,5 +158,62 @@ describe("sugerirCarga (§2.3)", () => {
     );
     // No completó (2 < 4 series y 4 < 8 reps) → repetir con el peso de la serie de referencia (la 2).
     expect(s).toMatchObject({ tipo: "repetir", motivo: "incompleto", pesoSugerido: 82.5 });
+  });
+});
+
+describe("sugerirCarga: regla de 3 semanas", () => {
+  const seriesOk = [
+    { numero_serie: 1, peso_kg: 60, reps_hechas: 8, rpe_real: null },
+    { numero_serie: 2, peso_kg: 60, reps_hechas: 8, rpe_real: null },
+  ];
+  const p = presc({ repeticionesObjetivo: "8", seriesPrescriptas: 2, musculosPrincipales: ["Pectorales"] });
+
+  it("cumplió el objetivo pero sin historial sostenido → no sube, pide sostener", () => {
+    const s = sugerirCarga(ultima(seriesOk), p);
+    expect(s).toMatchObject({ tipo: "repetir", motivo: "sostener", pesoSugerido: 60 });
+    expect(motivoSugerencia(s!)).toContain("3 semanas");
+  });
+
+  it("menos de 21 días con el mismo peso → no sube", () => {
+    const s = sugerirCarga(ultimaSostenida(seriesOk, ["2026-10-05T13:00:00Z", "2026-10-12T13:00:00Z"]), p);
+    expect(s).toMatchObject({ tipo: "repetir", motivo: "sostener" });
+  });
+
+  it("≥ 21 días con el mismo peso → sube", () => {
+    const s = sugerirCarga(ultimaSostenida(seriesOk, ["2026-09-21T13:00:00Z", "2026-10-12T13:00:00Z"]), p);
+    expect(s).toMatchObject({ tipo: "subir", motivo: "completo", pesoSugerido: 62.5 });
+  });
+
+  it("si cambió el peso dentro de la ventana, la racha se corta", () => {
+    const vieja = [
+      { numero_serie: 1, peso_kg: 55, reps_hechas: 8, rpe_real: null },
+      { numero_serie: 2, peso_kg: 55, reps_hechas: 8, rpe_real: null },
+    ];
+    const u: UltimaVezEjercicio = {
+      ...ultimaSostenida(seriesOk, ["2026-10-05T13:00:00Z", "2026-10-12T13:00:00Z"]),
+      sesiones: [
+        { fecha: "2026-10-12T13:00:00Z", series: seriesOk },
+        { fecha: "2026-10-05T13:00:00Z", series: seriesOk },
+        { fecha: "2026-09-21T13:00:00Z", series: vieja },
+      ],
+    };
+    expect(sugerirCarga(u, p)).toMatchObject({ tipo: "repetir", motivo: "sostener" });
+  });
+
+  it("rango 8-12: 3 semanas en 8 reps con el mismo peso → prueba una rep más", () => {
+    const s = sugerirCarga(
+      ultimaSostenida(seriesOk),
+      presc({ repeticionesObjetivo: "8-12", seriesPrescriptas: 2, musculosPrincipales: ["Pectorales"] }),
+    );
+    expect(s).toMatchObject({ tipo: "subir", motivo: "mas-reps", pesoSugerido: 60, repsSugeridas: 9 });
+    expect(tituloSugerencia(s!)).toBe("Probá 9 reps");
+  });
+
+  it("rango 8-12 con menos de 3 semanas → no sube reps", () => {
+    const s = sugerirCarga(
+      ultima(seriesOk),
+      presc({ repeticionesObjetivo: "8-12", seriesPrescriptas: 2, musculosPrincipales: ["Pectorales"] }),
+    );
+    expect(s).toMatchObject({ tipo: "repetir", motivo: "incompleto" });
   });
 });

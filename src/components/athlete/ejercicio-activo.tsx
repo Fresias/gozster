@@ -13,7 +13,6 @@ import {
   TriangleAlert,
   X,
   Timer,
-  Lightbulb,
   Video,
   ClipboardList,
   Check,
@@ -78,7 +77,10 @@ function mmss(total: number): string {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-/** Formatea la etiqueta objetivo de la serie aclarando "REPS" en objetivos numéricos para no confundirlo con RPE. */
+/**
+ * Etiqueta objetivo de la serie. Las reps numéricas ("8", "6-8") ya se ven en el stepper, así que no se
+ * repiten: sólo quedan tiempo ("OBJ. 45 S") y etiquetas especiales ("AL FALLO", "DROP-SET").
+ */
 export function formatearObjetivoSerie(params: {
   repeticionesObjetivo?: string | null;
   esTiempo: boolean;
@@ -90,24 +92,16 @@ export function formatearObjetivoSerie(params: {
   if (params.esTiempo) {
     return `OBJ. ${params.tiempoSegundos} S`;
   }
-  const yaTieneUnidad = /(rep|fallo|drop|seg|min|''|"\s*$|\bs\b)/i.test(texto);
-  if (/\d/.test(texto) && !yaTieneUnidad) {
-    if (/lado/i.test(texto)) {
-      return `OBJ. ${texto.replace(/\s*(?:x|por)\s*lado/i, " REPS POR LADO")}`;
-    }
-    return `OBJ. ${texto} REPS${params.esUnilateral ? " POR LADO" : ""}`;
-  }
+  const esTiempoEnTexto = /(seg|min|''|"\s*$|\bs\b)/i.test(texto);
+  if (/\d/.test(texto) && !esTiempoEnTexto && !/(fallo|drop)/i.test(texto)) return "";
   return `OBJ. ${texto}${params.esUnilateral && !/lado/i.test(texto) ? " POR LADO" : ""}`;
 }
 
 function textoRpe(x: number | null): string {
   if (x === null || x === undefined || !Number.isFinite(x)) {
-    return "El RPE mide qué tan cerca estuviste del fallo (6 = podías hacer 4 más, 10 = ninguna más).";
+    return "El RPE es el esfuerzo percibido del 1 al 10: 1 es muy suave y 10 es el máximo esfuerzo posible.";
   }
-  const r = 10 - x;
-  if (r <= 0) return `RPE ${fmtAr.format(x)}: no te quedaba ninguna repetición.`;
-  if (Number.isInteger(r)) return `RPE ${fmtAr.format(x)}: podías hacer ${r} ${r === 1 ? "repetición" : "repeticiones"} más.`;
-  return `RPE ${fmtAr.format(x)}: te quedaban entre ${Math.floor(r)} y ${Math.ceil(r)} repeticiones.`;
+  return `RPE ${fmtAr.format(x)} de 10: ${x >= 9 ? "esfuerzo máximo o casi máximo" : x >= 7 ? "esfuerzo exigente" : x >= 5 ? "esfuerzo moderado" : "esfuerzo suave"}.`;
 }
 
 export function EjercicioActivo() {
@@ -204,7 +198,6 @@ export function EjercicioActivo() {
   const [barraKg, setBarraKg] = React.useState(20);
   const [pesoDraft, setPesoDraft] = React.useState<string | null>(null);
   const [barraDraft, setBarraDraft] = React.useState<string | null>(null);
-  const [wakeActivo, setWakeActivo] = React.useState(false);
   const [segundos, setSegundos] = React.useState(0);
 
   React.useEffect(() => {
@@ -216,7 +209,7 @@ export function EjercicioActivo() {
     return () => setCierreAbierto(false);
   }, [showCelebrationModal, setCierreAbierto]);
 
-  // Wake Lock (CP7): pantalla activa mientras la sesión está abierta; el chip aparece solo si se concedió.
+  // Wake Lock (CP7): pantalla activa mientras la sesión está abierta, en silencio (sin chip).
   React.useEffect(() => {
     let lock: { release: () => Promise<void> } | null = null;
     let cancelled = false;
@@ -232,9 +225,8 @@ export function EjercicioActivo() {
           return;
         }
         lock = l;
-        setWakeActivo(true);
       } catch {
-        setWakeActivo(false);
+        // Sin Wake Lock la sesión sigue igual: no se informa al alumno.
       }
     };
     void pedir();
@@ -246,7 +238,6 @@ export function EjercicioActivo() {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
       if (lock) void lock.release();
-      setWakeActivo(false);
     };
   }, []);
 
@@ -285,7 +276,6 @@ export function EjercicioActivo() {
   const ultima = ultimaVez[ej.ejercicio_id ?? ej.id];
   const refUltima = ultima && serie ? serieDeReferencia(ultima, serie.numero_serie) : null;
   const pesoRef = refUltima?.peso_kg ?? null;
-  const serieAnterior = serie ? [...ej.series].reverse().find((s) => s.completada && s.numero_serie < serie.numero_serie) : undefined;
   const abierta = serie && !completas && !isAllWorkoutCompleted;
 
   // Aproximación en línea, calculada desde el peso de trabajo (D-20).
@@ -384,11 +374,6 @@ export function EjercicioActivo() {
               <Timer width={12} height={12} className="a-i" /> {mmss(segundos)}
             </span>
           ) : null}
-          {wakeActivo && (
-            <span className="a-chip a-line a-t-label" data-testid="chip-pantalla-activa">
-              <Lightbulb width={12} height={12} className="a-i" /> Pantalla activa
-            </span>
-          )}
         </div>
         <h1 className="a-t-h">{ej.nombre}</h1>
         <div className="a-tags">
@@ -607,25 +592,6 @@ export function EjercicioActivo() {
                   {partesTitulo(sugerencia).prefijo} {partesTitulo(sugerencia).valor}
                 </b>
                 <small className="a-t-sec">{motivoSugerencia(sugerencia, isSimpleView ? "SIMPLE" : "TECNICA")}</small>
-              </span>
-            </button>
-          )}
-
-          {serieAnterior && !esTiempo && (
-            <button
-              type="button"
-              className="a-repeat"
-              data-testid="igual-que-anterior-btn"
-              onClick={() => {
-                setPesoDraft(null);
-                updateSetField(ej.id, serie.numero_serie, "peso_kg", serieAnterior.peso_kg);
-                updateSetField(ej.id, serie.numero_serie, "reps_hechas", serieAnterior.reps_hechas);
-              }}
-            >
-              <History width={16} height={16} className="a-i" />
-              <span>Igual que la anterior</span>
-              <span className="a-t-sec" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
-                {fmtAr.format(serieAnterior.peso_kg)} kg × {serieAnterior.reps_hechas}
               </span>
             </button>
           )}
