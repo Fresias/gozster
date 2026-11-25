@@ -155,6 +155,10 @@ export function parseDefaultReps(repeticionesObjetivo?: string, numeroSerie: num
   if (!repeticionesObjetivo) return 10;
   const str = repeticionesObjetivo.trim();
 
+  // Caso: notación series x reps ("4x12", "4 x 8", "4×12", "4x8/12") -> reparsear lo que sigue a "Nx"
+  const nxm = str.match(/^(\d+)\s*[x×]\s*(\d.*)$/i);
+  if (nxm?.[2]) return parseDefaultReps(nxm[2], numeroSerie);
+
   // Caso: rango con barra "/" (ej. "8/12", "8 / 12", "10/12") -> target por defecto es el máximo
   const repRange = parseRepRange(str);
   if (repRange?.isRange) {
